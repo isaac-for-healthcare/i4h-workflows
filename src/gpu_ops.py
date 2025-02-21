@@ -25,4 +25,4 @@ def matrix_multiply_gpu(matrix1: torch.Tensor, matrix2: torch.Tensor) -> torch.T
     result_gpu = torch.matmul(matrix1_gpu, matrix2_gpu)
     
     # Move result back to CPU
-    return result_gpu.cpu() 
+    return result_gpu.cpu()

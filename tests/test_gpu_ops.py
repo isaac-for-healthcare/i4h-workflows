@@ -34,4 +34,4 @@ class TestGPUOps(unittest.TestCase):
             matrix_multiply_gpu(self.matrix1, invalid_matrix)
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

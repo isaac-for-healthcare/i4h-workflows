@@ -1,17 +1,13 @@
 import subprocess
 import sys
-import os
 
 def install_dependencies():
     """Install project dependencies from requirements.txt"""
     try:
-        # Get the project root directory
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        
         print("Installing dependencies from requirements.txt...")
         subprocess.check_call([sys.executable, "-m", "pip", "install", "torch", "coverage"])
         print("Dependencies installed successfully!")
-        
+
     except subprocess.CalledProcessError as e:
         print(f"Error installing dependencies: {e}")
         sys.exit(1)
@@ -20,4 +16,4 @@ def install_dependencies():
         sys.exit(1)
 
 if __name__ == "__main__":
-    install_dependencies() 
+    install_dependencies()
