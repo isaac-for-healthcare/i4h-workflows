@@ -4,7 +4,8 @@ import sys
 def install_dependencies():
     """Install project dependencies from requirements.txt"""
     try:
-        print("Installing dependencies from requirements.txt...")
+        # run nvidia-smi and prepare if there is no GPU
+        subprocess.check_call(["nvidia-smi"])
         subprocess.check_call([sys.executable, "-m", "pip", "install", "torch", "coverage"])
         print("Dependencies installed successfully!")
 
