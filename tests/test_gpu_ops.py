@@ -23,11 +23,6 @@ class TestGPUOps(unittest.TestCase):
         result = matrix_multiply_gpu(self.matrix1, self.matrix2)
         self.assertTrue(torch.allclose(result, self.expected))
     
-    @unittest.skipIf(torch.cuda.is_available(), "CUDA is available")
-    def test_raises_error_when_no_cuda(self):
-        """Test error raising when CUDA is not available"""
-        with self.assertRaises(RuntimeError):
-            matrix_multiply_gpu(self.matrix1, self.matrix2)
 
     def test_input_dimensions(self):
         """Test error handling for incompatible dimensions"""

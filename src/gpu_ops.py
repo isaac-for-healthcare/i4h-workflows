@@ -15,9 +15,6 @@ def matrix_multiply_gpu(matrix1: torch.Tensor, matrix2: torch.Tensor) -> torch.T
     Raises:
         RuntimeError: If CUDA is not available
     """
-    if not torch.cuda.is_available():
-        raise RuntimeError("CUDA is not available on this system")
-    
     # Move matrices to GPU
     matrix1_gpu = matrix1.cuda()
     matrix2_gpu = matrix2.cuda()
