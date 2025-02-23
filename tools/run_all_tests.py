@@ -1,7 +1,9 @@
-import unittest
-import coverage
-import sys
 import os
+import sys
+import unittest
+
+import coverage
+
 
 def run_tests_with_coverage():
     """Run all unittest cases with coverage reporting"""

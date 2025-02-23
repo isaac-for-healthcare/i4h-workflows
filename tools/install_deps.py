@@ -1,6 +1,7 @@
 import subprocess
 import sys
 
+
 def install_dependencies():
     """Install project dependencies from requirements.txt"""
     try:

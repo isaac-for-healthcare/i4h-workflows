@@ -6,6 +6,6 @@
 # Optional: Install pytorch and coverage for CI pipelines
 python tools/install_deps.py
 
-# Run all testss
+# Run all tests
 python tools/run_all_tests.py
 ```

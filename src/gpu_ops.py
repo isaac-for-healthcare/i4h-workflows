@@ -1,5 +1,6 @@
 import torch
 
+
 def matrix_multiply_gpu(matrix1: torch.Tensor, matrix2: torch.Tensor) -> torch.Tensor:
     """
     Performs matrix multiplication on GPU if available.

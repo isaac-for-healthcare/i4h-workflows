@@ -1,12 +1,14 @@
-import unittest
-import torch
-import sys
 import os
+import sys
+import unittest
+
+import torch
 
 # Add src directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.gpu_ops import matrix_multiply_gpu
+
 
 class TestGPUOps(unittest.TestCase):
     def setUp(self):
