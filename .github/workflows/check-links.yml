@@ -14,12 +14,12 @@ jobs:
     steps:
       - name: Checkout repository content
         uses: actions/checkout@v3
-        
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          
+
       - name: Install markdown-link-check
         run: npm install -g markdown-link-check@3.12.2
 

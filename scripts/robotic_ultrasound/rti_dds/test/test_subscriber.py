@@ -1,9 +1,15 @@
 import asyncio
 import queue
 import unittest
+from unittest import skipUnless
 from unittest.mock import Mock, patch
 
-import rti.connextdds as dds
+# Try importing rti.connextdds
+try:
+    import rti.connextdds as dds
+    RTI_AVAILABLE = True
+except ImportError:
+    RTI_AVAILABLE = False
 
 from ..subscriber import Subscriber, SubscriberWithCallback, SubscriberWithQueue
 
@@ -17,6 +23,7 @@ class MockSubscriber(Subscriber):
             data += "test"
 
 
+@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed")
 class TestSubscriber(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures before each test method"""
@@ -24,17 +31,17 @@ class TestSubscriber(unittest.TestCase):
         self.mock_participant = Mock(spec=dds.DomainParticipant)
         self.mock_topic = Mock(spec=dds.Topic)
         self.mock_reader = Mock(spec=dds.DataReader)
-        
+
         # Create patches for DDS components
         self.participant_patcher = patch('rti.connextdds.DomainParticipant', return_value=self.mock_participant)
         self.topic_patcher = patch('rti.connextdds.Topic', return_value=self.mock_topic)
         self.reader_patcher = patch('rti.connextdds.DataReader', return_value=self.mock_reader)
-        
+
         # Start the patches
         self.participant_patcher.start()
         self.topic_patcher.start()
         self.reader_patcher.start()
-        
+
         # Create test instance
         self.subscriber = MockSubscriber(
             topic="test_topic",
@@ -68,7 +75,7 @@ class TestSubscriber(unittest.TestCase):
         self.subscriber.start()
         self.assertIsNotNone(self.subscriber.stop_event)
         self.assertIsNotNone(self.subscriber.dds_reader)
-        
+
         # Test stop
         self.subscriber.stop()
         self.assertIsNone(self.subscriber.stop_event)
@@ -77,11 +84,11 @@ class TestSubscriber(unittest.TestCase):
         """Test reading data from queue"""
         test_data = "test_data"
         self.subscriber.data_q.put(test_data)
-        
+
         # Test reading data
         data = self.subscriber.read_data()
         self.assertEqual(data, test_data)
-        
+
         # Test empty queue
         data = self.subscriber.read_data()
         self.assertIsNone(data)
@@ -91,7 +98,7 @@ class TestSubscriber(unittest.TestCase):
         test_data = ["data1", "data2", "data3"]
         for data in test_data:
             self.subscriber.data_q.put(data)
-        
+
         exec_time = self.subscriber.read(0.1, 1.0)
         self.assertGreaterEqual(exec_time, 0)
         self.assertTrue(self.subscriber.data_q.empty())
@@ -145,11 +152,11 @@ class TestSubscriberWithCallback(unittest.TestCase):
     def setUp(self):
         self.callback_called = False
         self.callback_data = None
-        
+
         def test_callback(topic, data):
             self.callback_called = True
             self.callback_data = data + "test"
-        
+
         self.subscriber = SubscriberWithCallback(
             cb=test_callback,
             domain_id=0,
@@ -162,10 +169,10 @@ class TestSubscriberWithCallback(unittest.TestCase):
         """Test that callback is properly called"""
         test_data = "test_data"
         self.subscriber.consume(test_data)
-        
+
         self.assertTrue(self.callback_called)
         self.assertEqual(self.callback_data, f"{test_data}test")
 
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

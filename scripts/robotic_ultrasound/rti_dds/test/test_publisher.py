@@ -1,13 +1,21 @@
 import unittest
+from unittest import skipUnless
 from unittest.mock import Mock, patch
 
-import rti.connextdds as dds
+# Try importing rti.connextdds
+try:
+    import rti.connextdds as dds
+    RTI_AVAILABLE = True
+except ImportError:
+    RTI_AVAILABLE = False
 
 from ..publisher import Publisher
 
 
+# Add skipUnless decorator to the test class
+@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed")
 class TestPublisher(unittest.TestCase):
-    
+
     class MockPublisher(Publisher):
         """Concrete implementation of Publisher for testing"""
         def produce(self, dt, sim_time):
@@ -72,4 +80,4 @@ class TestPublisher(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()
