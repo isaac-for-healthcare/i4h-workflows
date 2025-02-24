@@ -57,6 +57,9 @@ class Subscriber(ABC):
         This method continuously reads data using async/await pattern and either
         stores it in the queue or processes it immediately based on add_to_queue setting.
         """
+        if self.dds_reader is None:
+            p = dds.DomainParticipant(domain_id=self.domain_id)
+            self.dds_reader = dds.DataReader(dds.Topic(p, self.topic, self.cls))
         self.logger.info(f"{self.domain_id}:{self.topic} - Thread is reading data => {self.dds_reader.topic_name}")
         async for data in self.dds_reader.take_data_async():
             if self.add_to_queue:
