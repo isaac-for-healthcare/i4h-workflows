@@ -16,13 +16,13 @@ except ImportError:
 
 
 @idl.struct
-class TestData:
+class _TestData:
     value: int = 0
     message: str = ""
 
 
-class TestSubscriber(Subscriber):
-    """Concrete implementation of Subscriber for testing"""
+class _TestSubscriber(Subscriber):
+    """Concrete implementation of Subscriber for testing."""
     def consume(self, data) -> None:
         return data
 
@@ -35,12 +35,12 @@ class TestDDSSubscriber(unittest.TestCase):
         self.topic_name = "test_topic"
 
         self.participant = dds.DomainParticipant(domain_id=self.domain_id)
-        self.topic = dds.Topic(self.participant, self.topic_name, TestData)
+        self.topic = dds.Topic(self.participant, self.topic_name, _TestData)
         self.writer = dds.DataWriter(self.participant.implicit_publisher, self.topic)
 
-        self.subscriber = TestSubscriber(
+        self.subscriber = _TestSubscriber(
             topic=self.topic_name,
-            cls=TestData,
+            cls=_TestData,
             period=0.1,
             domain_id=self.domain_id
         )
@@ -62,7 +62,7 @@ class TestDDSSubscriber(unittest.TestCase):
     def test_init(self):
         """Test subscriber initialization"""
         self.assertEqual(self.subscriber.topic, self.topic_name)
-        self.assertEqual(self.subscriber.cls, TestData)
+        self.assertEqual(self.subscriber.cls, _TestData)
         self.assertEqual(self.subscriber.period, 0.1)
         self.assertEqual(self.subscriber.domain_id, self.domain_id)
         self.assertTrue(self.subscriber.add_to_queue)
@@ -73,7 +73,7 @@ class TestDDSSubscriber(unittest.TestCase):
         self.subscriber.start()
         time.sleep(0.5)
 
-        test_data = TestData(value=42, message="Hello DDS")
+        test_data = _TestData(value=42, message="Hello DDS")
         self.writer.write(test_data)
 
         for data in self.subscriber.dds_reader.take_data():
@@ -90,13 +90,13 @@ class TestSubscriberWithQueue(unittest.TestCase):
         self.period = 0.1
 
         self.participant = dds.DomainParticipant(domain_id=self.domain_id)
-        self.topic_dds = dds.Topic(self.participant, self.topic_name, TestData)
+        self.topic_dds = dds.Topic(self.participant, self.topic_name, _TestData)
         self.writer = dds.DataWriter(self.participant.implicit_publisher, self.topic_dds)
 
         self.subscriber = SubscriberWithQueue(
             domain_id=self.domain_id,
             topic=self.topic_name,
-            cls=TestData,
+            cls=_TestData,
             period=self.period
         )
 
@@ -116,7 +116,7 @@ class TestSubscriberWithQueue(unittest.TestCase):
 
         self.assertIsNotNone(self.subscriber.dds_reader, "DDS reader not created")
 
-        test_data = TestData(value=42, message="Hello DDS")
+        test_data = _TestData(value=42, message="Hello DDS")
         self.writer.write(test_data)
 
         max_retries = 5
@@ -140,19 +140,19 @@ class TestSubscriberWithCallback(unittest.TestCase):
         self.received_data = None
 
         # Define callback function
-        def test_callback(topic: str, data: TestData) -> None:
+        def test_callback(topic: str, data: _TestData) -> None:
             self.callback_called = True
             self.received_data = data
 
         self.participant = dds.DomainParticipant(domain_id=self.domain_id)
-        self.topic = dds.Topic(self.participant, self.topic_name, TestData)
+        self.topic = dds.Topic(self.participant, self.topic_name, _TestData)
         self.writer = dds.DataWriter(self.participant.implicit_publisher, self.topic)
 
         self.subscriber = SubscriberWithCallback(
             cb=test_callback,
             domain_id=self.domain_id,
             topic=self.topic_name,
-            cls=TestData,
+            cls=_TestData,
             period=0.1
         )
 
@@ -176,7 +176,7 @@ class TestSubscriberWithCallback(unittest.TestCase):
         self.assertIsNotNone(self.subscriber.dds_reader, "DDS reader not created")
 
         # Write test data
-        test_data = TestData(value=42, message="Callback Test")
+        test_data = _TestData(value=42, message="Callback Test")
         self.writer.write(test_data)
 
         # Wait for callback to be processed

@@ -15,7 +15,7 @@ except ImportError:
 
 
 @idl.struct
-class TestData:
+class _TestData:
     value: int = 0
     message: str = ""
 
@@ -24,22 +24,22 @@ class TestData:
 class TestPublisher(unittest.TestCase):
     class TestDataPublisher(Publisher):
         """Concrete implementation of Publisher for testing"""
-        def produce(self, dt: float, sim_time: float) -> TestData:
-            return TestData(value=42, message="test")
+        def produce(self, dt: float, sim_time: float) -> _TestData:
+            return _TestData(value=42, message="test")
 
     def setUp(self):
         """Set up test fixtures before each test method"""
         self.domain_id = 100  # Use a unique domain ID for testing
         self.publisher = self.TestDataPublisher(
             topic="TestTopic",
-            cls=TestData,
+            cls=_TestData,
             period=0.1,
             domain_id=self.domain_id
         )
 
         # Create a subscriber to verify published messages
         self.participant = dds.DomainParticipant(self.domain_id)
-        self.topic = dds.Topic(self.participant, "TestTopic", TestData)
+        self.topic = dds.Topic(self.participant, "TestTopic", _TestData)
         self.reader = dds.DataReader(
             self.participant.implicit_subscriber,
             self.topic
@@ -61,7 +61,7 @@ class TestPublisher(unittest.TestCase):
     def test_init(self):
         """Test publisher initialization"""
         self.assertEqual(self.publisher.topic, "TestTopic")
-        self.assertEqual(self.publisher.cls, TestData)
+        self.assertEqual(self.publisher.cls, _TestData)
         self.assertEqual(self.publisher.period, 0.1)
         self.assertEqual(self.publisher.domain_id, self.domain_id)
         self.assertIsNotNone(self.publisher.logger)
