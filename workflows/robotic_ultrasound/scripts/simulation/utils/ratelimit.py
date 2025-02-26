@@ -26,7 +26,7 @@ class RateLimitedCallback:
         world: The simulation world object that provides timing information
         start_time: Real-world timestamp when the simulation started
         adaptive_period: Whether to dynamically adjust timing to maintain target period
-        
+        period_threshold: Threshold for period adjustment, defaults to 0.001
     """
 
     def __init__(
@@ -37,6 +37,7 @@ class RateLimitedCallback:
         world: Any,
         start_time: float = 0.0,
         adaptive_period: bool = True,
+        period_threshold: float = 0.001,
     ) -> None:
         if period <= 0:
             raise ValueError("Period must be positive")
@@ -47,7 +48,7 @@ class RateLimitedCallback:
         self.period = period
         self.adaptive_period = adaptive_period
         self.start_time = start_time
-        
+        self.period_threshold = period_threshold
         # Timing control
         self.previous_step_time: float = 0.0
         self.accumulated_time: float = 0.0
@@ -82,7 +83,7 @@ class RateLimitedCallback:
         self.stats.exec_count = 0
 
         period_diff = self.period - self.stats.actual_period
-        if abs(period_diff) > 0.001:
+        if abs(period_diff) > self.period_threshold:
             self.adj_period += period_diff
 
     def rate_limit(self, dt: float) -> None:
