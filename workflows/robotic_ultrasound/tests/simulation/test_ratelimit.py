@@ -25,7 +25,7 @@ class TestRateLimitedCallback(unittest.TestCase):
         
         # Mock callback function
         self.callback_called = 0
-        def test_callback(rate, current_time):
+        def test_callback(period, current_time):
             self.callback_called += 1
             return time.time()
         self.test_callback = test_callback
@@ -33,7 +33,7 @@ class TestRateLimitedCallback(unittest.TestCase):
     def tearDown(self):
         I4H_SIMULATION_PHYX_CALLBACKS.clear()
 
-    def test_init_with_invalid_rate(self):
+    def test_init_with_invalid_period(self):
         with self.assertRaises(ValueError):
             RateLimitedCallback("test", 0, self.test_callback, self.mock_world)
 
@@ -48,13 +48,13 @@ class TestRateLimitedCallback(unittest.TestCase):
 
     def test_rate_limiting(self):
         self.mock_world.current_time = 0.0
-        target_rate = 1 / 10  # 10 Hz
+        target_period = 10  # 10 Hz
         callback = RateLimitedCallback(
             "test",
-            target_rate,
+            target_period,
             self.test_callback,
             self.mock_world,
-            adaptive_rate=False
+            adaptive_period=False
         )
 
         # Simulate multiple physics steps
@@ -62,8 +62,8 @@ class TestRateLimitedCallback(unittest.TestCase):
             self.mock_world.current_time = i * 0.01  # 0.01s steps
             callback.rate_limit(0.01)
 
-        # Check if execution rate is approximately correct
-        expected_calls = (100 * 0.01) * (1 / target_rate)
+        # Check if execution period is approximately correct
+        expected_calls = (100 * 0.01) * (1 / target_period)
         delta = 2
         self.assertAlmostEqual(
             self.callback_called,
@@ -78,23 +78,23 @@ class TestRateLimitedCallback(unittest.TestCase):
             1 / 10,
             self.test_callback,
             self.mock_world,
-            adaptive_rate=True
+            adaptive_period=True
         )
 
         # Simulate execution with different speeds
         with patch('time.time', return_value=real_time):
             callback.stats.exec_count = exec_count
-            callback.update_rate_stats(real_time, interval_time)
+            callback.update_period_stats(real_time, interval_time)
 
-        # Check if rate was adjusted
-        self.assertNotEqual(callback.adj_rate, callback.rate)
+        # Check if period was adjusted    
+        self.assertNotEqual(callback.adj_period, callback.period)
         
         expected_hz = 10
         
         if exec_count < expected_hz * interval_time:
-            self.assertLess(callback.adj_rate, callback.rate)
+            self.assertLess(callback.adj_period, callback.period)
         elif exec_count > expected_hz * interval_time:
-            self.assertGreater(callback.adj_rate, callback.rate)
+            self.assertGreater(callback.adj_period, callback.period)
 
     def test_get_stats(self):
         callback = RateLimitedCallback(
@@ -105,7 +105,7 @@ class TestRateLimitedCallback(unittest.TestCase):
         )
         stats = callback.get_stats()
         self.assertIsInstance(stats, RateStats)
-        self.assertEqual(stats.target_rate, 1 / 10)
+        self.assertEqual(stats.target_period, 1 / 10)
 
 
 class TestPhysXCallbacks(unittest.TestCase):
