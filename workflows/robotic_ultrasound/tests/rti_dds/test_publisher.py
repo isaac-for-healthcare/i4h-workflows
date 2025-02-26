@@ -3,7 +3,7 @@ import time
 import unittest
 from unittest import skipUnless
 
-from ..publisher import Publisher
+from scripts.rti_dds.publisher import Publisher
 
 try:
     import rti.connextdds as dds
