@@ -3,7 +3,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from parameterized import parameterized
-
 from workflow.robotic_ultrasound.simulation.utils.ratelimit import (
     PHYX_CALLBACKS,
     RateLimitedCallback,
