@@ -89,15 +89,13 @@ class TestSubscriberWithQueue(unittest.TestCase):
         self.topic_name = "test_topic"
         self.period = 0.1
 
-        # 先创建发布者
         self.participant = dds.DomainParticipant(domain_id=self.domain_id)
         self.topic_dds = dds.Topic(self.participant, self.topic_name, TestData)
         self.writer = dds.DataWriter(self.participant.implicit_publisher, self.topic_dds)
 
-        # 再创建订阅者
         self.subscriber = SubscriberWithQueue(
             domain_id=self.domain_id,
-            topic=self.topic_name,  # 使用 topic_name
+            topic=self.topic_name,
             cls=TestData,
             period=self.period
         )

@@ -19,23 +19,14 @@ class Subscriber(ABC):
     or process it immediately through a callback.
 
     Args:
-        topic (str): The DDS topic name to subscribe to.
-        cls (Any): The class type of the data being received.
-        period (float): Time period between successive reads in seconds (1/frequency).
+        topic: The DDS topic name to subscribe to.
+        cls: The class type of the data being received.
+        period: Time period between successive reads in seconds (1/frequency).
             Use 0 for fastest possible updates.
-        domain_id (int): The DDS domain ID to subscribe on.
-        add_to_queue (bool, optional): If True, stores received data in a queue.
+        domain_id: The DDS domain ID to subscribe on.
+        add_to_queue: If True, stores received data in a queue.
             If False, processes data immediately. Defaults to True.
 
-    Attributes:
-        topic (str): The DDS topic name.
-        cls (Any): The data class type.
-        period (float): Read period in seconds.
-        domain_id (int): DDS domain ID.
-        dds_reader (dds.DataReader): RTI Connext DDS reader instance.
-        stop_event (threading.Event): Event to control the reading thread.
-        add_to_queue (bool): Whether to queue data or process immediately.
-        data_q (queue.Queue): Queue for storing received data.
     """
 
     def __init__(self, topic: str, cls: Any, period: float, domain_id: int, add_to_queue: bool = True):
@@ -101,11 +92,8 @@ class Subscriber(ABC):
         Process all available data in the queue.
 
         Args:
-            dt (float): Delta time since last update.
-            sim_time (float): Current simulation time.
-
-        Returns:
-            float: Execution time in seconds.
+            dt: Delta time since last update.
+            sim_time: Current simulation time.
         """
         start_time = time.monotonic()
         while not self.data_q.empty():
@@ -176,10 +164,10 @@ class SubscriberWithQueue(Subscriber):
     at your own pace by explicitly calling read_data().
 
     Args:
-        domain_id (int): The DDS domain ID to subscribe on.
-        topic (str): The DDS topic name to subscribe to.
-        cls (Any): The class type of the data being received.
-        period (float): Time period between successive reads in seconds.
+        domain_id: The DDS domain ID to subscribe on.
+        topic: The DDS topic name to subscribe to.
+        cls: The class type of the data being received.
+        period: Time period between successive reads in seconds.
     """
 
     def __init__(self, domain_id: int, topic: str, cls: Any, period: float):
@@ -203,11 +191,11 @@ class SubscriberWithCallback(Subscriber):
     as soon as it arrives using a callback function.
 
     Args:
-        cb (callable): Callback function that takes (topic, data) as arguments.
-        domain_id (int): The DDS domain ID to subscribe on.
-        topic (str): The DDS topic name to subscribe to.
-        cls (Any): The class type of the data being received.
-        period (float): Time period between successive reads in seconds.
+        cb: Callback function that takes (topic, data) as arguments.
+        domain_id: The DDS domain ID to subscribe on.
+        topic: The DDS topic name to subscribe to.
+        cls: The class type of the data being received.
+        period: Time period between successive reads in seconds.
     """
 
     def __init__(self, cb, domain_id: int, topic: str, cls: Any, period: float):
