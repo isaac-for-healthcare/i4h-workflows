@@ -140,7 +140,6 @@ def add_physx_step_callback(name: str, period: float, fn: Callable, world: Any) 
     else:
         warn(f"Something went wrong adding physics callback for {name}")
     I4H_SIMULATION_PHYX_CALLBACKS[name] = rate_limited_callback
-    return
 
 
 def remove_physx_callback(name: str, world: Any) -> None:
