@@ -14,7 +14,7 @@ from workflow.robotic_ultrasound.simulation.utils.ratelimit import (
 
 TEST_CASES = [
     ("slow_execution", 15, 3.0, 3.0),  # Simulating slow execution
-    ("fast_execution", 45, 3.0, 3.0),  # Simulating fast execution 
+    ("fast_execution", 45, 3.0, 3.0),  # Simulating fast execution
     ("very_slow", 5, 3.0, 3.0),  # Simulating very slow execution
 ]
 
@@ -22,7 +22,7 @@ class TestRateLimitedCallback(unittest.TestCase):
     def setUp(self):
         self.mock_world = MagicMock()
         self.mock_world.current_time = 0.0
-        
+
         # Mock callback function
         self.callback_called = 0
         def test_callback(rate, current_time):
@@ -88,9 +88,9 @@ class TestRateLimitedCallback(unittest.TestCase):
 
         # Check if rate was adjusted
         self.assertNotEqual(callback.adj_rate, callback.rate)
-        
+
         expected_hz = 10
-        
+
         if exec_count < expected_hz * interval_time:
             self.assertLess(callback.adj_rate, callback.rate)
         elif exec_count > expected_hz * interval_time:
@@ -116,17 +116,17 @@ class TestPhysXCallbacks(unittest.TestCase):
 
     def test_add_physx_step_callback(self):
         add_physx_step_callback("test", 10, self.test_callback, self.mock_world)
-        
+
         self.assertIn("test", PHYX_CALLBACKS)
         self.mock_world.add_physics_callback.assert_called_once()
 
     def test_remove_physx_callback(self):
         # First add a callback
         add_physx_step_callback("test", 10, self.test_callback, self.mock_world)
-        
+
         # Then remove it
         remove_physx_callback("test", self.mock_world)
-        
+
         self.assertNotIn("test", PHYX_CALLBACKS)
         self.mock_world.remove_physics_callback.assert_called_once_with("test")
 
@@ -134,11 +134,11 @@ class TestPhysXCallbacks(unittest.TestCase):
         # Add multiple callbacks
         add_physx_step_callback("test1", 10, self.test_callback, self.mock_world)
         add_physx_step_callback("test2", 20, self.test_callback, self.mock_world)
-        
+
         self.assertEqual(len(PHYX_CALLBACKS), 2)
         # Remove all callbacks
         remove_physx_callbacks(self.mock_world)
-        
+
         self.assertEqual(len(PHYX_CALLBACKS), 0)
         self.assertEqual(
             self.mock_world.remove_physics_callback.call_count,

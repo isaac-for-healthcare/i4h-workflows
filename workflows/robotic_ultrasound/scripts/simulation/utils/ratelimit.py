@@ -14,10 +14,10 @@ class RateStats:
 
 class RateLimitedCallback:
     """A rate-limited callback wrapper that ensures functions are called at a specified frequency.
-    
+
     This class implements rate limiting with optional adaptive rate adjustment to maintain
     the desired callback frequency even under varying system load conditions.
-    
+
     Args:
         name: Identifier for the callback
         rate: Period between executions in seconds (1/Hz)
@@ -25,7 +25,7 @@ class RateLimitedCallback:
         world: The simulation world object that provides timing information
         start_time: Real-world timestamp when the simulation started
         adaptive_rate: Whether to dynamically adjust timing to maintain target rate
-        
+
     Attributes:
         interval: Sampling interval for rate adjustment (seconds)
         stats: Current rate limiting statistics
@@ -42,18 +42,18 @@ class RateLimitedCallback:
     ) -> None:
         if rate <= 0:
             raise ValueError("Rate must be positive")
-            
+
         self.name = name
         self.fn = fn
         self.world = world
         self.rate = rate
         self.adaptive_rate = adaptive_rate
         self.start_time = start_time
-        
+
         # Timing control
         self.previous_step_time: float = 0.0
         self.accumulated_time: float = 0.0
-        
+
         # Adaptive rate control
         self.interval: float = 3.0  # seconds
         self.accumulated_interval_time: float = 0.0
@@ -69,8 +69,8 @@ class RateLimitedCallback:
     def get_current_time(self) -> float:
         """Get current time from world if available, otherwise use system time."""
         return (
-            self.world.current_time 
-            if hasattr(self.world, "current_time") 
+            self.world.current_time
+            if hasattr(self.world, "current_time")
             else time.time()
         )
 
@@ -90,13 +90,13 @@ class RateLimitedCallback:
 
     def rate_limit(self, dt: float) -> None:
         """Execute the callback function if enough time has elapsed.
-        
+
         Args:
             dt: Time delta since last physics step
         """
         real_time = time.time() - self.start_time
         interval_time = real_time - self.accumulated_interval_time
-        
+
         # Update rate statistics and adjust if needed
         self.update_rate_stats(real_time, interval_time)
 
@@ -126,13 +126,13 @@ PHYX_CALLBACKS = {}
 
 def add_physx_step_callback(name: str, hz: float, fn: Callable, world: Any) -> None:
     """Register a rate-limited callback to be executed during physics simulation steps.
-    
+
     Args:
         name: Unique identifier for the callback
         hz: Target execution frequency in Hertz
         fn: Callback function to be executed. Should accept (rate: float, current_time: float)
         world: Simulation world object that implements add_physics_callback method
-    
+
     Note:
         The callback will be stored in PHYX_CALLBACKS dictionary and registered with
         the physics engine through world.add_physics_callback.
@@ -148,11 +148,11 @@ def add_physx_step_callback(name: str, hz: float, fn: Callable, world: Any) -> N
 
 def remove_physx_callback(name: str, world: Any) -> None:
     """Remove a specific physics callback from the simulation.
-    
+
     Args:
         name: Identifier of the callback to remove
         world: Simulation world object that implements remove_physics_callback method
-        
+
     Note:
         Removes the callback from both PHYX_CALLBACKS dictionary and
         the physics engine through world.remove_physics_callback.
@@ -167,10 +167,10 @@ def remove_physx_callback(name: str, world: Any) -> None:
 
 def remove_physx_callbacks(world: Any) -> None:
     """Remove all registered physics callbacks from the simulation.
-    
+
     Args:
         world: Simulation world object that implements remove_physics_callback method
-        
+
     Note:
         Clears all callbacks from PHYX_CALLBACKS dictionary and
         removes them from the physics engine.
