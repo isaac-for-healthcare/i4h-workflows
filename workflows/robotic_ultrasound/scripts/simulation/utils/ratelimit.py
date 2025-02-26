@@ -1,6 +1,7 @@
 import time
 from dataclasses import dataclass
 from typing import Any, Callable
+from warnings import warn
 
 
 @dataclass
@@ -26,9 +27,6 @@ class RateLimitedCallback:
         start_time: Real-world timestamp when the simulation started
         adaptive_rate: Whether to dynamically adjust timing to maintain target rate
         
-    Attributes:
-        interval: Sampling interval for rate adjustment (seconds)
-        stats: Current rate limiting statistics
     """
 
     def __init__(
@@ -115,13 +113,13 @@ class RateLimitedCallback:
                 self.accumulated_time -= self.adj_rate
                 self.stats.exec_count += 1
             except Exception as e:
-                print(f"Error in callback {self.name}: {str(e)}")
+                warn(f"Error in callback {self.name}: {str(e)}")
 
     def get_stats(self) -> RateStats:
         """Return current rate limiting statistics."""
         return self.stats
 
-PHYX_CALLBACKS = {}
+I4H_SIMULATION_PHYX_CALLBACKS = {}
 
 
 def add_physx_step_callback(name: str, hz: float, fn: Callable, world: Any) -> None:
@@ -141,8 +139,8 @@ def add_physx_step_callback(name: str, hz: float, fn: Callable, world: Any) -> N
     if hasattr(world, "add_physics_callback") and callable(world.add_physics_callback):
         world.add_physics_callback(name, rate_limited_callback.rate_limit)
     else:
-        print(f"Something went wrong adding physics callback for {name}")
-    PHYX_CALLBACKS[name] = rate_limited_callback
+        warn(f"Something went wrong adding physics callback for {name}")
+    I4H_SIMULATION_PHYX_CALLBACKS[name] = rate_limited_callback
     return
 
 
@@ -154,15 +152,15 @@ def remove_physx_callback(name: str, world: Any) -> None:
         world: Simulation world object that implements remove_physics_callback method
         
     Note:
-        Removes the callback from both PHYX_CALLBACKS dictionary and
+        Removes the callback from both I4H_SIMULATION_PHYX_CALLBACKS dictionary and
         the physics engine through world.remove_physics_callback.
     """
-    cb = PHYX_CALLBACKS.pop(name, None) if name else None
+    cb = I4H_SIMULATION_PHYX_CALLBACKS.pop(name, None) if name else None
     if cb is not None:
         if hasattr(world, "remove_physics_callback") and callable(world.remove_physics_callback):
             world.remove_physics_callback(name)
         else:
-            print(f"Something went wrong removing physics callback for {name}")
+            warn(f"Something went wrong removing physics callback for {name}")
 
 
 def remove_physx_callbacks(world: Any) -> None:
@@ -172,13 +170,14 @@ def remove_physx_callbacks(world: Any) -> None:
         world: Simulation world object that implements remove_physics_callback method
         
     Note:
-        Clears all callbacks from PHYX_CALLBACKS dictionary and
+        Clears all callbacks from I4H_SIMULATION_PHYX_CALLBACKS dictionary and
         removes them from the physics engine.
     """
-    names = list(PHYX_CALLBACKS.keys())
+    names = list(I4H_SIMULATION_PHYX_CALLBACKS.keys())
     for name in names:
         if hasattr(world, "remove_physics_callback") and callable(world.remove_physics_callback):
             world.remove_physics_callback(name)
         else:
-            print(f"Something went wrong removing physics callback for {name}")
-        del PHYX_CALLBACKS[name]
+            warn(f"Something went wrong removing physics callback for {name}")
+        if I4H_SIMULATION_PHYX_CALLBACKS.pop(name, None) is None:
+            warn(f"Could not find registered physics callback with name={name}.")

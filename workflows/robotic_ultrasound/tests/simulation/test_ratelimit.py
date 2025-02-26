@@ -3,8 +3,8 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from parameterized import parameterized
-from workflow.robotic_ultrasound.simulation.utils.ratelimit import (
-    PHYX_CALLBACKS,
+from scripts.simulation.utils.ratelimit import (
+    I4H_SIMULATION_PHYX_CALLBACKS,
     RateLimitedCallback,
     RateStats,
     add_physx_step_callback,
@@ -31,7 +31,7 @@ class TestRateLimitedCallback(unittest.TestCase):
         self.test_callback = test_callback
 
     def tearDown(self):
-        PHYX_CALLBACKS.clear()
+        I4H_SIMULATION_PHYX_CALLBACKS.clear()
 
     def test_init_with_invalid_rate(self):
         with self.assertRaises(ValueError):
@@ -112,12 +112,12 @@ class TestPhysXCallbacks(unittest.TestCase):
     def setUp(self):
         self.mock_world = MagicMock()
         self.test_callback = MagicMock()
-        PHYX_CALLBACKS.clear()
+        I4H_SIMULATION_PHYX_CALLBACKS.clear()
 
     def test_add_physx_step_callback(self):
         add_physx_step_callback("test", 10, self.test_callback, self.mock_world)
         
-        self.assertIn("test", PHYX_CALLBACKS)
+        self.assertIn("test", I4H_SIMULATION_PHYX_CALLBACKS)
         self.mock_world.add_physics_callback.assert_called_once()
 
     def test_remove_physx_callback(self):
@@ -127,19 +127,20 @@ class TestPhysXCallbacks(unittest.TestCase):
         # Then remove it
         remove_physx_callback("test", self.mock_world)
         
-        self.assertNotIn("test", PHYX_CALLBACKS)
+        self.assertNotIn("test", I4H_SIMULATION_PHYX_CALLBACKS)
         self.mock_world.remove_physics_callback.assert_called_once_with("test")
+
 
     def test_remove_physx_callbacks(self):
         # Add multiple callbacks
         add_physx_step_callback("test1", 10, self.test_callback, self.mock_world)
         add_physx_step_callback("test2", 20, self.test_callback, self.mock_world)
         
-        self.assertEqual(len(PHYX_CALLBACKS), 2)
+        self.assertEqual(len(I4H_SIMULATION_PHYX_CALLBACKS), 2)
         # Remove all callbacks
         remove_physx_callbacks(self.mock_world)
         
-        self.assertEqual(len(PHYX_CALLBACKS), 0)
+        self.assertEqual(len(I4H_SIMULATION_PHYX_CALLBACKS), 0)
         self.assertEqual(
             self.mock_world.remove_physics_callback.call_count,
             2
