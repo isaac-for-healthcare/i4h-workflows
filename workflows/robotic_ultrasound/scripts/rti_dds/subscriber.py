@@ -177,10 +177,13 @@ class SubscriberWithQueue(Subscriber):
         """
         Not meant to be called directly.
 
+        Args:
+            data: The received data item.
+
         Raises:
             RuntimeError: If called directly. Use read_data() instead.
         """
-        self.logger.error("This should not happen;  Call read_data() explicitly.")
+        self.logger.error("This should not happen; Call read_data() explicitly.")
 
 
 class SubscriberWithCallback(Subscriber):
