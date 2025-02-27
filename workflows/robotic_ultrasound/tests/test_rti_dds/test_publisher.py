@@ -3,7 +3,7 @@ import time
 import unittest
 from unittest import skipUnless
 
-from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
+from rti_dds.publisher import Publisher
 
 try:
     import rti.connextdds as dds

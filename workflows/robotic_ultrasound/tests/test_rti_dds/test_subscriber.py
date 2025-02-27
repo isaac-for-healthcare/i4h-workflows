@@ -4,7 +4,7 @@ import time
 import unittest
 from unittest import skipUnless
 
-from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber, SubscriberWithCallback, SubscriberWithQueue
+from rti_dds.subscriber import Subscriber, SubscriberWithCallback, SubscriberWithQueue
 
 try:
     import rti.connextdds as dds

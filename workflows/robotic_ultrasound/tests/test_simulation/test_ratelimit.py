@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from parameterized import parameterized
-from robotic_ultrasound.scripts.simulation.utils.ratelimit import (
+from simulation.utils.ratelimit import (
     I4H_SIMULATION_PHYX_CALLBACKS,
     RateLimitedCallback,
     RateStats,

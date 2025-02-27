@@ -8,7 +8,6 @@ def install_dependencies():
         # run nvidia-smi and prepare if there is no GPU
         subprocess.check_call(["nvidia-smi"])
         subprocess.check_call([sys.executable, "-m", "pip", "install", "numpy", "torch", "coverage", "parameterized"])
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-e", "."], cwd="workflows")
         print("Dependencies installed successfully!")
 
     except subprocess.CalledProcessError as e:
