@@ -11,3 +11,6 @@ group_by_package = true
 [tool.ruff]
 line-length = 120
 target-version = "py310"
+
+[tool.ruff.lint]
+extend-select = ["E501"]
