@@ -9,7 +9,7 @@ from parameterized import parameterized
 from pxr import Usd
 from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
 from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber
-from robotic_ultrasound.scripts.simulation.annotators.base import BaseAnnotator
+from robotic_ultrasound.scripts.simulation.annotators.base import Annotator
 
 app = SimulationApp({"headless": True})
 import omni.usd  # noqa: E402
@@ -32,7 +32,7 @@ except ImportError:
     RTI_AVAILABLE = False
 
 @skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
-class TestBaseAnnotator(unittest.TestCase):
+class TestAnnotator(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up the USD stage with basic.usda file."""
@@ -74,7 +74,7 @@ class TestBaseAnnotator(unittest.TestCase):
     ])
     def test_init_with_valid_paths(self, prim_path, test_desc):
         """Test initialization with valid paths from basic.usda."""
-        annotator = BaseAnnotator(
+        annotator = Annotator(
             name="test_annotator",
             prim_path=prim_path,
             publishers=[self.mock_publisher],
@@ -95,7 +95,7 @@ class TestBaseAnnotator(unittest.TestCase):
         if publishers and isinstance(publishers[1], MagicMock):
             publishers[1] = self.mock_publisher
 
-        annotator = BaseAnnotator(
+        annotator = Annotator(
             name="test_annotator",
             prim_path="/Target",
             publishers=publishers,
@@ -111,7 +111,7 @@ class TestBaseAnnotator(unittest.TestCase):
 
     def test_start_and_stop(self):
         """Test start and stop methods with real USD stage."""
-        annotator = BaseAnnotator(
+        annotator = Annotator(
             name="test_annotator",
             prim_path="/Target",
             publishers=[self.mock_publisher],
@@ -128,7 +128,7 @@ class TestBaseAnnotator(unittest.TestCase):
 
     def test_error_handling_invalid_prim_path(self):
         """Test handling of invalid prim path with real USD stage."""
-        annotator = BaseAnnotator(
+        annotator = Annotator(
             name="test_annotator",
             prim_path="/invalid/path",
             publishers=[self.mock_publisher],

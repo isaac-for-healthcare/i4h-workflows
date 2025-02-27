@@ -5,9 +5,9 @@ from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
 from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber
 from robotic_ultrasound.scripts.simulation.utils.ratelimit import add_physx_step_callback, remove_physx_callback
 
-__all__ = ["BaseAnnotator"]
+__all__ = ["Annotator"]
 
-class BaseAnnotator:
+class Annotator:
     """Base class for simulation annotators that handle DDS communication.
 
     This class provides the basic infrastructure for creating annotators that can
