@@ -1,0 +1,27 @@
+policy: "MultiInputPolicy"
+n_timesteps: 1000000
+seed: 13
+n_steps: 100
+
+# Add these necessary configurations
+batch_size: 64
+n_epochs: 10
+gamma: 0.99
+gae_lambda: 0.95
+clip_range: 0.2
+ent_coef: 0.0
+vf_coef: 0.5
+max_grad_norm: 0.5
+learning_rate: 0.0003
+
+# Define the neural network architecture
+policy_kwargs:
+  net_arch:
+    pi: [256, 256]  # Policy (actor) network
+    vf: [256, 256]  # Value function (critic) network
+  # activation_fn: "tanh"
+
+# Optional normalization
+normalize_input: true
+normalize_value: true
+clip_obs: 10.0
