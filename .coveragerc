@@ -1,6 +1,6 @@
 [run]
-source = src/
-omit = tests/*
+source = workflows/robotic_ultrasound/scripts
+omit = workflows/robotic_ultrasound/tests
 
 [report]
 exclude_lines =

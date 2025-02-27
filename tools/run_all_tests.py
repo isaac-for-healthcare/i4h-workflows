@@ -4,15 +4,17 @@ import unittest
 
 import coverage
 
+libs = [
+    'robotic_ultrasound',
+]
+
 
 def run_tests_with_coverage():
     """Run all unittest cases with coverage reporting"""
     try:
         # Get the project root directory
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-        # Add project root to Python path
-        sys.path.insert(0, project_root)
+        import robotic_ultrasound
+        project_root = robotic_ultrasound.__basedir__
 
         # Initialize coverage
         cov = coverage.Coverage()
@@ -20,8 +22,14 @@ def run_tests_with_coverage():
 
         # Discover and run tests
         loader = unittest.TestLoader()
+        suite = unittest.TestSuite()
+
         tests_dir = os.path.join(project_root, 'tests')
-        suite = loader.discover(tests_dir)
+        for name in os.listdir(tests_dir):
+            path = os.path.join(tests_dir, name)
+            if os.path.isdir(path):
+                suite.addTest(loader.discover(path))
+
 
         # Run tests
         print("Running tests...")
