@@ -1,5 +1,6 @@
 import unittest
 import os
+from unittest import skipUnless
 from parameterized import parameterized
 from unittest.mock import MagicMock
 from isaacsim import SimulationApp
@@ -20,6 +21,15 @@ TEST_CASES = [
          1, 1, 0)
 ]
 
+try:
+    import rti.connextdds as dds
+    import rti.idl as idl
+    license_path = os.getenv('RTI_LICENSE_FILE')
+    RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
+except ImportError:
+    RTI_AVAILABLE = False
+    
+@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
 class TestBaseAnnotator(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

@@ -1,6 +1,7 @@
 import unittest
 import os
 import numpy as np
+from unittest import skipUnless
 from parameterized import parameterized
 from isaacsim import SimulationApp
 
@@ -17,6 +18,15 @@ from robotic_ultrasound.scripts.rti_dds.schemas.camera_info import CameraInfo
 import os
 os.environ['RTI_LICENSE_FILE'] = "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts/rti_dds/rti_license.dat"
 
+try:
+    import rti.connextdds as dds
+    import rti.idl as idl
+    license_path = os.getenv('RTI_LICENSE_FILE')
+    RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
+except ImportError:
+    RTI_AVAILABLE = False
+    
+@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
 class TestCameraBase(unittest.TestCase):
     """Base test class for camera tests with USD stage setup."""
     
