@@ -12,6 +12,8 @@ repos:
     rev: v0.4.7
     hooks:
       - id: ruff
+          args:
+          - --fix
   - repo: https://github.com/pycqa/isort
     rev: 6.0.0
     hooks:
