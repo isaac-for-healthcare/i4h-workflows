@@ -1,20 +1,19 @@
 from typing import Any
 
 from omni.isaac.core.prims import XFormPrim
-
-from robotic_ultrasound.scripts.simulation.configs.config import TargetConfig
 from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
 from robotic_ultrasound.scripts.rti_dds.schemas.target_ctrl import TargetCtrlInput
 from robotic_ultrasound.scripts.rti_dds.schemas.target_info import TargetInfo
 from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber
+from robotic_ultrasound.scripts.simulation.configs.config import TargetConfig
 
 
 class TargetPublisher(Publisher):
     """Publisher for target object state information.
-    
+
     This class handles publishing target position and orientation through DDS topics.
     It tracks the target object's transform in the simulation world.
-    
+
     Args:
         prim_path: USD path to target object
         topic: DDS topic name
@@ -29,11 +28,11 @@ class TargetPublisher(Publisher):
 
     def produce(self, dt: float, sim_time: float) -> Any:
         """Produce target state information for publishing.
-        
+
         Args:
             dt: Time delta since last physics step
             sim_time: Current simulation time
-        
+
         Returns:
             TargetInfo: Target state information including position and orientation,
                 refer to rti_dds.schemas.target_info.TargetInfo.
@@ -49,7 +48,7 @@ class TargetPublisher(Publisher):
     @staticmethod
     def new_instance(config: TargetConfig):
         """Create a new TargetPublisher instance from configuration.
-        
+
         Args:
             config: Target configuration object
         """
@@ -66,10 +65,10 @@ class TargetPublisher(Publisher):
 
 class TargetSubscriber(Subscriber):
     """Subscriber for target object control.
-    
+
     This class handles target control input.
     It updates the target object's position and orientation in the simulation.
-    
+
     Args:
         prim_path: USD path to target object
         topic: DDS topic name
@@ -84,7 +83,7 @@ class TargetSubscriber(Subscriber):
 
     def consume(self, input: TargetCtrlInput) -> None:
         """Consume target control input and update target object's position and orientation.
-        
+
         Args:
             input: Control input message containing target position and orientation,
                 refer to rti_dds.schemas.target_ctrl.TargetCtrlInput.
@@ -97,7 +96,7 @@ class TargetSubscriber(Subscriber):
     @staticmethod
     def new_instance(config: TargetConfig):
         """Create a new TargetSubscriber instance from configuration.
-        
+
         Args:
             config: Target configuration object
         """

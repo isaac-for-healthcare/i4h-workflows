@@ -59,8 +59,8 @@ class TargetConfig(BaseModel):
 
 class UltraSoundConfig(BaseModel):
     prim_path: str
-    h: int = h
-    w: int = w
+    height: int = h
+    width: int = w
     topic_ctrl: Topic | None = Topic(name="topic_ultrasound_ctrl")
     topic_info: Topic | None = Topic(name="topic_ultrasound_info")
     topic_data: Topic | None = Topic(name="topic_ultrasound_data")

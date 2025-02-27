@@ -1,25 +1,23 @@
-import unittest
 import os
+import unittest
+from importlib.util import find_spec
 from unittest import skipUnless
+
 from isaacsim import SimulationApp
-simulation_app = SimulationApp({"headless": True})
-from omni.isaac.core.simulation_context import SimulationContext
-import omni.usd
-
-from robotic_ultrasound.scripts.simulation.annotators.ultrasound import UltraSoundPublisher
 from robotic_ultrasound.scripts.rti_dds.schemas.usp_info import UltraSoundProbeInfo
-import rti.connextdds as dds
-os.environ['RTI_LICENSE_FILE'] = "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts/rti_dds/rti_license.dat"
+from robotic_ultrasound.scripts.simulation.annotators.ultrasound import UltraSoundPublisher
 
+simulation_app = SimulationApp({"headless": True})
+import omni.usd  # noqa: E402
 
 try:
-    import rti.connextdds as dds
-    import rti.idl as idl
-    license_path = os.getenv('RTI_LICENSE_FILE')
-    RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
+    RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
+    if RTI_AVAILABLE:
+        license_path = os.getenv('RTI_LICENSE_FILE')
+        RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
 except ImportError:
     RTI_AVAILABLE = False
-    
+
 @skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
 class TestUltraSoundBase(unittest.TestCase):
     @classmethod
@@ -52,19 +50,19 @@ class TestUltraSoundPublisher(TestUltraSoundBase):
             period=1/30.0,
             domain_id=60
         )
-        
+
         simulation_app.update()
-        
+
         probe_info = publisher.produce(0.033, 1.0)
         self.assertIsNotNone(probe_info)
         self.assertIsInstance(probe_info, UltraSoundProbeInfo)
-        
+
         self.assertEqual(len(probe_info.position), 3)
         self.assertEqual(len(probe_info.orientation), 4)
-        
+
         self.assertTrue(all(isinstance(x, float) for x in probe_info.position))
         self.assertTrue(all(isinstance(x, float) for x in probe_info.orientation))
-        
+
 
     def test_probe_movement(self):
         publisher = UltraSoundPublisher(
@@ -73,19 +71,19 @@ class TestUltraSoundPublisher(TestUltraSoundBase):
             period=1/30.0,
             domain_id=60
         )
-        
+
         initial_info = publisher.produce(0.033, 1.0)
         initial_position = initial_info.position
-        
+
         probe_prim = self.stage.GetPrimAtPath(self.us_prim_path)
         new_position = (1.0, 2.0, 3.0)
         probe_prim.GetAttribute("xformOp:translate").Set(new_position)
-        
+
         simulation_app.update()
-        
+
         updated_info = publisher.produce(0.033, 1.0)
         updated_position = updated_info.position
-        
+
         self.assertNotEqual(initial_position, updated_position)
         self.assertAlmostEqual(updated_position[0], new_position[0], places=5)
         self.assertAlmostEqual(updated_position[1], new_position[1], places=5)
@@ -93,4 +91,4 @@ class TestUltraSoundPublisher(TestUltraSoundBase):
 
 
 if __name__ == '__main__':
-    unittest.main() 
+    unittest.main()

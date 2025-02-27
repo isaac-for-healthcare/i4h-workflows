@@ -7,21 +7,19 @@ from omni.isaac.core.robots import Robot
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.franka import KinematicsSolver
 from omni.isaac.franka.controllers.rmpflow_controller import RMPFlowController
-
-from ov_holoscan.isaac_sim.configs.config import FrankaConfig
-from rti_dds.publisher import Publisher
-from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
-from rti_dds.schemas.franka_info import FrankaInfo
-from rti_dds.subscriber import Subscriber
+from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
+from robotic_ultrasound.scripts.rti_dds.schemas.franka_ctrl import FrankaCtrlInput
+from robotic_ultrasound.scripts.rti_dds.schemas.franka_info import FrankaInfo
+from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber
+from robotic_ultrasound.scripts.simulation.configs.config import FrankaConfig
 
 
 class FrankaPublisher(Publisher):
     """Publisher for Franka robot state information.
-    
+
     This class handles publishing robot joint states and other relevant information
     through DDS topics. It supports both IK and direct joint control modes.
-    
-    
+
     Args:
         franka: Franka robot instance
         ik: Whether to use inverse kinematics
@@ -42,13 +40,13 @@ class FrankaPublisher(Publisher):
 
     def produce(self, dt: float, sim_time: float) -> Any:
         """Produce robot state information for publishing.
-        
+
         Gathers current joint states and packages them for publishing.
-        
+
         Args:
             dt: Time delta since last physics step
             sim_time: Current simulation time
-        
+
         Returns:
             FrankaInfo: Robot state information including joint positions and velocities,
                 refer to rti_dds.schemas.franka_info.FrankaInfo.
@@ -62,13 +60,10 @@ class FrankaPublisher(Publisher):
     @staticmethod
     def new_instance(config: FrankaConfig, franka: Robot):
         """Create a new FrankaPublisher instance from configuration.
-        
+
         Args:
             config: Franka configuration object
             franka: Franka robot instance
-            
-        Returns:
-            FrankaPublisher: New publisher instance or None if configuration is invalid
         """
         if not config.topic_info or not config.topic_info.name:
             return None
@@ -85,10 +80,10 @@ class FrankaPublisher(Publisher):
 
 class FrankaSubscriber(Subscriber):
     """Subscriber for Franka robot control commands.
-    
+
     This class handles robot control command subscription and execution. It supports
     both IK and RMPFlow control methods, as well as direct joint control.
-    
+
     Args:
         franka: Reference to the Franka robot instance
         ik: Flag indicating whether IK mode is enabled
@@ -96,9 +91,7 @@ class FrankaSubscriber(Subscriber):
         topic: DDS topic name
         period: Subscription period in seconds
         domain_id: DDS domain identifier
-    
     """
-
     def __init__(self, franka: Robot, ik: bool, prim_path: str, topic: str, period: float, domain_id):
         """Initialize the Franka subscriber."""
         super().__init__(topic, FrankaCtrlInput, period, domain_id)
@@ -115,12 +108,13 @@ class FrankaSubscriber(Subscriber):
 
     def consume(self, input: FrankaCtrlInput) -> None:
         """Consume FrankaCtrlInput and apply control actions to the robot.
-        
+
         Handles both Cartesian space targets (position/orientation) and
         joint space targets (positions/velocities/efforts).
-        
+
         Args:
-            input: Control input message containing target states
+            input: Control input message containing target states and joint states,
+                refer to rti_dds.schemas.franka_ctrl.FrankaCtrlInput.
         """
         actions = None
         if input.target_position:
@@ -130,7 +124,7 @@ class FrankaSubscriber(Subscriber):
                     target_orientation=np.array(input.target_orientation),
                 )
                 if not success:
-                    print(f"Can't compute inverse kinematics.  pos: {input.target_position}; ori: {input.target_orientation}")
+                    self.logger.error(f"Can't compute inverse kinematics.  pos: {input.target_position}; ori: {input.target_orientation}")
             else:
                 actions = self.franka_controller.forward(
                     target_end_effector_position=np.array(input.target_position),
@@ -152,13 +146,10 @@ class FrankaSubscriber(Subscriber):
     @staticmethod
     def new_instance(config: FrankaConfig, franka: Robot):
         """Create a new FrankaSubscriber instance from configuration.
-        
+
         Args:
             config: Franka configuration object
             franka: Franka robot instance
-            
-        Returns:
-            FrankaSubscriber: New subscriber instance or None if configuration is invalid
         """
         if not config.topic_ctrl or not config.topic_ctrl.name:
             return None

@@ -1,28 +1,27 @@
-from typing import Any, Optional, List, Union
-from dataclasses import dataclass
 import logging
+from typing import List, Optional
+
 import omni.replicator.core as rep
 import omni.usd
 from omni.kit.viewport.utility import get_active_viewport_window
 from omni.replicator.core.scripts.utils import viewport_manager
 from omni.syntheticdata import SyntheticData
-
-from robotic_ultrasound.scripts.simulation.configs.config import CameraConfig
 from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
-from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber
 from robotic_ultrasound.scripts.rti_dds.schemas.camera_ctrl import CameraCtrlInput
 from robotic_ultrasound.scripts.rti_dds.schemas.camera_info import CameraInfo
+from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber
+from robotic_ultrasound.scripts.simulation.configs.config import CameraConfig
 
 __all__ = ["CameraPublisher", "CameraSubscriber"]
 
 
 class CameraPublisher(Publisher):
     """A publisher class for camera data in the simulation environment.
-    
+
     This class handles publishing camera data (RGB or depth) from a virtual camera
     in the simulation to DDS topics. It supports different camera annotators and
     can publish both RGB and depth information.
-    
+
     Args:
         annotator: Type of camera annotator ("rgb" or "distance_to_camera")
         prim_path: USD path to the camera primitive
@@ -65,13 +64,14 @@ class CameraPublisher(Publisher):
 
     def produce(self, dt: float, sim_time: float) -> CameraInfo:
         """Produce camera data for publishing.
-        
+
         Args:
             dt: Time delta since last physics step
             sim_time: Current simulation time
-            
+
         Returns:
-            CameraInfo object containing camera data and parameters, refer to rti_dds.schemas.camera_info.CameraInfo
+            CameraInfo object containing camera data and parameters,
+                refer to rti_dds.schemas.camera_info.CameraInfo
         """
         prim = self.stage.GetPrimAtPath(self.prim_path)
         output = CameraInfo()
@@ -82,13 +82,10 @@ class CameraPublisher(Publisher):
     @staticmethod
     def new_instance(config: CameraConfig, rgb: bool = True) -> Optional['CameraPublisher']:
         """Create a new CameraPublisher instance based on configuration.
-        
+
         Args:
             config: Camera configuration object
             rgb: If True, creates RGB camera publisher; if False, creates depth camera publisher
-            
-        Returns:
-            New CameraPublisher instance or None if configuration is invalid
         """
         if rgb:
             if not config.topic_data_rgb or not config.topic_data_rgb.name:
@@ -99,7 +96,7 @@ class CameraPublisher(Publisher):
                 height=config.height,
                 width=config.width,
                 topic=config.topic_data_rgb.name,
-                period=config.topic_data_rgb.hz,
+                period=config.topic_data_rgb.period,
                 domain_id=config.topic_data_rgb.domain_id,
             )
 
@@ -111,25 +108,23 @@ class CameraPublisher(Publisher):
             height=config.height,
             width=config.width,
             topic=config.topic_data_depth.name,
-            period=config.topic_data_depth.hz,
+            period=config.topic_data_depth.period,
             domain_id=config.topic_data_depth.domain_id,
         )
 
 
 class CameraSubscriber(Subscriber):
     """A subscriber class for camera control in the simulation environment.
-    
+
     This class handles subscribing to camera control commands and updating
     camera parameters in the simulation accordingly.
-    
+
     Args:
         prim_path: USD path to the camera primitive
         topic: DDS topic name for camera control
         period: Subscription period in seconds
         domain_id: DDS domain identifier
-        
     """
-
     def __init__(self, prim_path: str, topic: str, period: float, domain_id: int) -> None:
         super().__init__(topic, CameraCtrlInput, period, domain_id)
 
@@ -140,9 +135,10 @@ class CameraSubscriber(Subscriber):
 
     def consume(self, input: CameraCtrlInput) -> None:
         """Process received camera control commands.
-        
+
         Args:
-            input: Camera control input containing new camera parameters
+            input: Camera control input containing new camera parameters,
+                refer to rti_dds.schemas.camera_ctrl.CameraCtrlInput
         """
         if input.focal_len:
             self.logger.info(f"Camera:: Set New Focal Length: {input.focal_len}")
@@ -153,12 +149,9 @@ class CameraSubscriber(Subscriber):
     @staticmethod
     def new_instance(config: CameraConfig) -> Optional['CameraSubscriber']:
         """Create a new CameraSubscriber instance based on configuration.
-        
+
         Args:
             config: Camera configuration object
-            
-        Returns:
-            New CameraSubscriber instance or None if configuration is invalid
         """
         if not config.topic_ctrl or not config.topic_ctrl.name:
             return None
@@ -166,6 +159,6 @@ class CameraSubscriber(Subscriber):
         return CameraSubscriber(
             prim_path=config.prim_path,
             topic=config.topic_ctrl.name,
-            period=config.topic_ctrl.hz,
+            period=config.topic_ctrl.period,
             domain_id=config.topic_ctrl.domain_id,
         )

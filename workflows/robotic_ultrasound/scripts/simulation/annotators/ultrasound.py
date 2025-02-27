@@ -1,18 +1,17 @@
 from typing import Any
 
 from omni.isaac.core.prims import XFormPrim
-
-from robotic_ultrasound.scripts.simulation.configs.config import UltraSoundConfig
 from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
 from robotic_ultrasound.scripts.rti_dds.schemas.usp_info import UltraSoundProbeInfo
+from robotic_ultrasound.scripts.simulation.configs.config import UltraSoundConfig
 
 
 class UltraSoundPublisher(Publisher):
     """Publisher for ultrasound probe state information.
-    
+
     This class handles publishing ultrasound probe position and orientation through
     DDS topics. It tracks the probe's transform in the simulation world.
-    
+
     Args:
         prim_path: USD path to ultrasound probe
         topic: DDS topic name
@@ -27,13 +26,13 @@ class UltraSoundPublisher(Publisher):
 
     def produce(self, dt: float, sim_time: float) -> Any:
         """Produce ultrasound probe state information for publishing.
-        
+
         Gathers current probe position and orientation in world coordinates.
-        
+
         Args:
             dt: Time delta since last physics step
             sim_time: Current simulation time
-        
+
         Returns:
             UltraSoundProbeInfo: Probe state information including position and orientation
                 refer to rti_dds.schemas.usp_info.UltraSoundProbeInfo.
@@ -49,7 +48,7 @@ class UltraSoundPublisher(Publisher):
     @staticmethod
     def new_instance(config: UltraSoundConfig):
         """Create a new UltraSoundPublisher instance from configuration.
-        
+
         Args:
             config: Ultrasound probe configuration object
         """

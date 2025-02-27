@@ -1,34 +1,36 @@
-import unittest
 import os
+import unittest
+from importlib.util import find_spec
 from unittest import skipUnless
-from parameterized import parameterized
 from unittest.mock import MagicMock
-from isaacsim import SimulationApp
-app = SimulationApp({"headless": True})
-from pxr import Usd
-import omni.usd
 
-from robotic_ultrasound.scripts.simulation.annotators.base import BaseAnnotator
+from isaacsim import SimulationApp
+from parameterized import parameterized
+from pxr import Usd
 from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
 from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber
+from robotic_ultrasound.scripts.simulation.annotators.base import BaseAnnotator
+
+app = SimulationApp({"headless": True})
+import omni.usd  # noqa: E402
 
 TEST_CASES = [
         ("none_publishers_subscribers",
          None, None,
          0, 0, None),
-        ("mixed_none_publishers", 
+        ("mixed_none_publishers",
          [None, MagicMock(spec=Publisher), None], [MagicMock(spec=Subscriber)],
          1, 1, 0)
 ]
 
 try:
-    import rti.connextdds as dds
-    import rti.idl as idl
-    license_path = os.getenv('RTI_LICENSE_FILE')
-    RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
+    RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
+    if RTI_AVAILABLE:
+        license_path = os.getenv('RTI_LICENSE_FILE')
+        RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
 except ImportError:
     RTI_AVAILABLE = False
-    
+
 @skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
 class TestBaseAnnotator(unittest.TestCase):
     @classmethod
@@ -45,7 +47,7 @@ class TestBaseAnnotator(unittest.TestCase):
         self.stage = Usd.Stage.Open(self.basic_usd_path)
         self.context = omni.usd.get_context()
         self.context.open_stage(self.basic_usd_path)
-        
+
         # Mock publishers and subscribers
         self.mock_publisher = MagicMock(spec=Publisher)
         self.mock_publisher.topic = "test_pub_topic"
@@ -73,7 +75,7 @@ class TestBaseAnnotator(unittest.TestCase):
     def test_init_with_valid_paths(self, prim_path, test_desc):
         """Test initialization with valid paths from basic.usda."""
         annotator = BaseAnnotator(
-            name="test_annotator", 
+            name="test_annotator",
             prim_path=prim_path,
             publishers=[self.mock_publisher],
             subscribers=[self.mock_subscriber]
@@ -87,19 +89,19 @@ class TestBaseAnnotator(unittest.TestCase):
         self.assertTrue(annotator.sensor_prim.IsValid())
 
     @parameterized.expand(TEST_CASES)
-    def test_init_with_none_cases(self, name, publishers, subscribers, 
+    def test_init_with_none_cases(self, name, publishers, subscribers,
                                 expected_pub_len, expected_sub_len, expected_pub_idx):
         """Test initialization with None/mixed None publishers and subscribers."""
         if publishers and isinstance(publishers[1], MagicMock):
             publishers[1] = self.mock_publisher
-            
+
         annotator = BaseAnnotator(
             name="test_annotator",
             prim_path="/Target",
             publishers=publishers,
             subscribers=subscribers
         )
-        
+
         self.assertEqual(len(annotator.publishers), expected_pub_len)
         self.assertEqual(len(annotator.subscribers), expected_sub_len)
         if expected_pub_idx is not None:
@@ -115,11 +117,11 @@ class TestBaseAnnotator(unittest.TestCase):
             publishers=[self.mock_publisher],
             subscribers=[self.mock_subscriber]
         )
-        
+
         # Test start
         annotator.start(self.mock_world)
         self.mock_subscriber.start.assert_called_once()
-        
+
         # Test stop
         annotator.stop(self.mock_world)
         self.mock_subscriber.stop.assert_called_once()
