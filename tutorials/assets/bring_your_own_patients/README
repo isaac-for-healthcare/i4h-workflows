@@ -1,0 +1,25 @@
+# Bring Your Own Medical Images
+
+This guide helps you convert your own CT or MRI scans into USD (Universal Scene Description) files for 3D visualization.
+
+## Overview
+You can use your own medical imaging data (CT or MRI scans) and corresponding segmentation masks to create 3D models of organs and anatomical structures in USD format. This format is widely used in 3D visualization and can be loaded into various applications supporting USD.
+
+## Tutorial Reference
+For a detailed walkthrough of the conversion process, please refer to the [MONAI Omniverse Integration Tutorial](https://github.com/Project-MONAI/tutorials/blob/main/modules/omniverse/omniverse_integration.ipynb). This comprehensive tutorial demonstrates:
+
+- How to load and preprocess medical imaging data
+- Converting segmentation masks to 3D meshes
+- Exporting the results to USD format
+- Visualizing the generated 3D models
+
+## Requirements
+Before starting, ensure you have:
+- Your medical imaging data and corresponding segmentation masks in supported formats:
+  - NIFTI (.nii, .nii.gz), NRRD (.nrrd), Single-series DICOM images (.dcm)
+  - Or use MAISI to generate synthetic data
+- MONAI framework installed
+- Required dependencies as specified in the tutorial
+
+## Support
+If you encounter any issues during the conversion process, please refer to the tutorial documentation or raise an issue in this repository.
