@@ -47,4 +47,11 @@ class Publisher(ABC):
 
     @abstractmethod
     def produce(self, dt: float, sim_time: float) -> Any:
+        """
+        Produce data to be published.
+
+        Args:
+            dt: The time since the last publication.
+            sim_time: The simulation time.
+        """
         pass
