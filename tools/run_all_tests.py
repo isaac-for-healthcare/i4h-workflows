@@ -16,21 +16,20 @@ def run_tests_with_coverage(project_root):
     try:
         # Get the project root directory
         # Initialize coverage
-        sys.path.append(os.path.join(project_root, 'scripts'))
+        sys.path.append(os.path.join(project_root, "scripts"))
         cov = coverage.Coverage()
         cov.start()
 
         # Discover and run tests
 
         suite = unittest.TestSuite()
-        tests_dir = os.path.join(project_root, 'tests')
+        tests_dir = os.path.join(project_root, "tests")
         for name in os.listdir(tests_dir):
             path = os.path.join(tests_dir, name)
             print(path)
             if os.path.isdir(path):
                 loader = unittest.TestLoader()
                 suite.addTest(loader.discover(path))
-
 
         # Run tests
         print("Running tests...")
@@ -46,7 +45,7 @@ def run_tests_with_coverage(project_root):
         cov.report()
 
         # Generate HTML report
-        cov.html_report(directory=os.path.join(project_root, 'htmlcov'))
+        cov.html_report(directory=os.path.join(project_root, "htmlcov"))
         print("\nDetailed HTML coverage report generated in 'htmlcov' directory")
 
         # Return appropriate exit code
@@ -63,6 +62,7 @@ def run_tests_with_coverage(project_root):
         # restore sys.path
         sys.path = sys_path_restore
         return 1
+
 
 if __name__ == "__main__":
     for project_root in PROJECT_ROOTS:

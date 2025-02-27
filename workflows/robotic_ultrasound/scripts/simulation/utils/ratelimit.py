@@ -7,9 +7,10 @@ from warnings import warn
 @dataclass
 class RateStats:
     """Statistics about the rate limiting execution."""
+
     actual_period: float  # Measured execution period in seconds
     target_period: float  # Target period in seconds
-    exec_count: int     # Number of executions in current interval
+    exec_count: int  # Number of executions in current interval
     last_exec_time: float  # Last execution timestamp
 
 
@@ -56,21 +57,12 @@ class RateLimitedCallback:
         # Adaptive period control
         self.interval: float = 3.0  # seconds
         self.accumulated_interval_time: float = 0.0
-        self.stats = RateStats(
-            actual_period=period,
-            target_period=period,
-            exec_count=0,
-            last_exec_time=0.0
-        )
+        self.stats = RateStats(actual_period=period, target_period=period, exec_count=0, last_exec_time=0.0)
         self.adj_period: float = self.period
 
     def get_current_time(self) -> float:
         """Get current time from world if available, otherwise use system time."""
-        return (
-            self.world.current_time
-            if hasattr(self.world, "current_time")
-            else time.time()
-        )
+        return self.world.current_time if hasattr(self.world, "current_time") else time.time()
 
     def update_period_stats(self, real_time: float, interval_time: float) -> None:
         """Update execution period statistics and adjust period if needed."""
@@ -118,6 +110,7 @@ class RateLimitedCallback:
     def get_stats(self) -> RateStats:
         """Return current rate limiting statistics."""
         return self.stats
+
 
 I4H_SIMULATION_PHYX_CALLBACKS = {}
 
