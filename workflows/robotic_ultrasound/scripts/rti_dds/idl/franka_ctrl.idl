@@ -1,0 +1,7 @@
+struct FrankaCtrlInput {
+  sequence<double> target_position;
+  sequence<double> target_orientation;
+  sequence<double> joint_positions;
+  sequence<double> joint_velocities;
+  sequence<double> joint_efforts;
+};
