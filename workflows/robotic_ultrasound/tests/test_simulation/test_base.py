@@ -15,21 +15,18 @@ import omni.usd  # noqa: E402
 from simulation.annotators.base import Annotator  # noqa: E402
 
 TEST_CASES = [
-        ("none_publishers_subscribers",
-         None, None,
-         0, 0, None),
-        ("mixed_none_publishers",
-         [None, MagicMock(spec=Publisher), None], [MagicMock(spec=Subscriber)],
-         1, 1, 0)
+    ("none_publishers_subscribers", None, None, 0, 0, None),
+    ("mixed_none_publishers", [None, MagicMock(spec=Publisher), None], [MagicMock(spec=Subscriber)], 1, 1, 0),
 ]
 
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
     if RTI_AVAILABLE:
-        license_path = os.getenv('RTI_LICENSE_FILE')
+        license_path = os.getenv("RTI_LICENSE_FILE")
         RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
 except ImportError:
     RTI_AVAILABLE = False
+
 
 @skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
 class TestAnnotator(unittest.TestCase):
@@ -68,17 +65,14 @@ class TestAnnotator(unittest.TestCase):
         """Clean up after each test method."""
         self.context.close_stage()
 
-    @parameterized.expand([
-        ("/Target", "Target path"),
-        ("/Franka", "Franka path")
-    ])
+    @parameterized.expand([("/Target", "Target path"), ("/Franka", "Franka path")])
     def test_init_with_valid_paths(self, prim_path, test_desc):
         """Test initialization with valid paths from basic.usda."""
         annotator = Annotator(
             name="test_annotator",
             prim_path=prim_path,
             publishers=[self.mock_publisher],
-            subscribers=[self.mock_subscriber]
+            subscribers=[self.mock_subscriber],
         )
 
         self.assertEqual(annotator.name, "test_annotator")
@@ -89,17 +83,15 @@ class TestAnnotator(unittest.TestCase):
         self.assertTrue(annotator.sensor_prim.IsValid())
 
     @parameterized.expand(TEST_CASES)
-    def test_init_with_none_cases(self, name, publishers, subscribers,
-                                expected_pub_len, expected_sub_len, expected_pub_idx):
+    def test_init_with_none_cases(
+        self, name, publishers, subscribers, expected_pub_len, expected_sub_len, expected_pub_idx
+    ):
         """Test initialization with None/mixed None publishers and subscribers."""
         if publishers and isinstance(publishers[1], MagicMock):
             publishers[1] = self.mock_publisher
 
         annotator = Annotator(
-            name="test_annotator",
-            prim_path="/Target",
-            publishers=publishers,
-            subscribers=subscribers
+            name="test_annotator", prim_path="/Target", publishers=publishers, subscribers=subscribers
         )
 
         self.assertEqual(len(annotator.publishers), expected_pub_len)
@@ -115,7 +107,7 @@ class TestAnnotator(unittest.TestCase):
             name="test_annotator",
             prim_path="/Target",
             publishers=[self.mock_publisher],
-            subscribers=[self.mock_subscriber]
+            subscribers=[self.mock_subscriber],
         )
 
         # Test start
@@ -132,11 +124,11 @@ class TestAnnotator(unittest.TestCase):
             name="test_annotator",
             prim_path="/invalid/path",
             publishers=[self.mock_publisher],
-            subscribers=[self.mock_subscriber]
+            subscribers=[self.mock_subscriber],
         )
         self.assertIsNotNone(annotator.sensor_prim)
         self.assertFalse(annotator.sensor_prim.IsValid())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

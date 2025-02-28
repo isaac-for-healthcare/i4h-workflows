@@ -17,10 +17,11 @@ from simulation.annotators.camera import CameraPublisher, CameraSubscriber  # no
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
     if RTI_AVAILABLE:
-        license_path = os.getenv('RTI_LICENSE_FILE')
+        license_path = os.getenv("RTI_LICENSE_FILE")
         RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
 except ImportError:
     RTI_AVAILABLE = False
+
 
 @skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
 class TestCameraBase(unittest.TestCase):
@@ -49,8 +50,8 @@ class TestCameraPublisher(TestCameraBase):
             height=480,
             width=640,
             topic="camera_rgb",
-            period=1/30.0,
-            domain_id=60
+            period=1 / 30.0,
+            domain_id=60,
         )
 
         self.assertEqual(publisher.annotator, "rgb")
@@ -61,11 +62,7 @@ class TestCameraPublisher(TestCameraBase):
         camera_prim = self.stage.GetPrimAtPath(self.camera_prim_path)
         self.assertTrue(camera_prim.IsValid())
 
-
-    @parameterized.expand([
-        ("rgb", "camera_rgb", np.uint8),
-        ("distance_to_camera", "camera_depth", np.float32)
-    ])
+    @parameterized.expand([("rgb", "camera_rgb", np.uint8), ("distance_to_camera", "camera_depth", np.float32)])
     def test_camera_data(self, annotator, topic, dtype):
         simulation_app.update()
 
@@ -75,8 +72,8 @@ class TestCameraPublisher(TestCameraBase):
             height=480,
             width=640,
             topic=topic,
-            period=1/30.0,
-            domain_id=60
+            period=1 / 30.0,
+            domain_id=60,
         )
 
         camera_info = publisher.produce(0.033, 1.0)
@@ -96,10 +93,7 @@ class TestCameraPublisher(TestCameraBase):
 class TestCameraSubscriber(TestCameraBase):
     def test_consume_focal_length(self):
         subscriber = CameraSubscriber(
-            prim_path=self.camera_prim_path,
-            topic="camera_ctrl",
-            period=1/30.0,
-            domain_id=60
+            prim_path=self.camera_prim_path, topic="camera_ctrl", period=1 / 30.0, domain_id=60
         )
 
         # Get initial focal length
@@ -120,5 +114,5 @@ class TestCameraSubscriber(TestCameraBase):
         self.assertEqual(updated_focal_length, new_focal_length)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

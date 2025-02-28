@@ -2,9 +2,7 @@ import os
 import unittest
 from importlib.util import find_spec
 from unittest import skipUnless
-import sys
-project_root = "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound"
-sys.path.append(os.path.join(project_root, "scripts"))
+
 from isaacsim import SimulationApp
 from rti_dds.schemas.usp_info import UltraSoundProbeInfo
 
@@ -15,10 +13,11 @@ from simulation.annotators.ultrasound import UltraSoundPublisher  # noqa: E402
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
     if RTI_AVAILABLE:
-        license_path = os.getenv('RTI_LICENSE_FILE')
+        license_path = os.getenv("RTI_LICENSE_FILE")
         RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
 except ImportError:
     RTI_AVAILABLE = False
+
 
 @skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
 class TestUltraSoundBase(unittest.TestCase):
@@ -47,10 +46,7 @@ class TestUltraSoundPublisher(TestUltraSoundBase):
 
     def test_produce_probe_data(self):
         publisher = UltraSoundPublisher(
-            prim_path="/UltrasoundProbe",
-            topic="ultrasound_probe",
-            period=1/30.0,
-            domain_id=60
+            prim_path="/UltrasoundProbe", topic="ultrasound_probe", period=1 / 30.0, domain_id=60
         )
 
         simulation_app.update()
@@ -65,13 +61,9 @@ class TestUltraSoundPublisher(TestUltraSoundBase):
         self.assertTrue(all(isinstance(x, float) for x in probe_info.position))
         self.assertTrue(all(isinstance(x, float) for x in probe_info.orientation))
 
-
     def test_probe_movement(self):
         publisher = UltraSoundPublisher(
-            prim_path=self.us_prim_path,
-            topic="ultrasound_probe",
-            period=1/30.0,
-            domain_id=60
+            prim_path=self.us_prim_path, topic="ultrasound_probe", period=1 / 30.0, domain_id=60
         )
 
         initial_info = publisher.produce(0.033, 1.0)
@@ -92,5 +84,5 @@ class TestUltraSoundPublisher(TestUltraSoundBase):
         self.assertAlmostEqual(updated_position[2], new_position[2], places=5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

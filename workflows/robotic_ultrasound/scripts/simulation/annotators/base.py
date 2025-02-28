@@ -8,6 +8,7 @@ from simulation.utils.ratelimit import add_physx_step_callback, remove_physx_cal
 
 __all__ = ["Annotator"]
 
+
 class Annotator:
     """Base class for simulation annotators that handle DDS communication.
 

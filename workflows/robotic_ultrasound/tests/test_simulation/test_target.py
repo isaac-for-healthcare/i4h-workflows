@@ -2,9 +2,7 @@ import os
 import unittest
 from importlib.util import find_spec
 from unittest import skipUnless
-import sys
-project_root = "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound"
-sys.path.append(os.path.join(project_root, "scripts"))
+
 from isaacsim import SimulationApp
 from rti_dds.schemas.target_ctrl import TargetCtrlInput
 from rti_dds.schemas.target_info import TargetInfo
@@ -17,10 +15,11 @@ from simulation.annotators.target import TargetPublisher, TargetSubscriber  # no
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
     if RTI_AVAILABLE:
-        license_path = os.getenv('RTI_LICENSE_FILE')
+        license_path = os.getenv("RTI_LICENSE_FILE")
         RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
 except ImportError:
     RTI_AVAILABLE = False
+
 
 @skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
 class TestTargetBase(unittest.TestCase):
@@ -49,12 +48,7 @@ class TestTargetPublisher(TestTargetBase):
         self.assertEqual(target_prim.GetTypeName(), "Mesh")
 
     def test_produce_target_data(self):
-        publisher = TargetPublisher(
-            prim_path=self.target_prim_path,
-            topic="target_info",
-            period=1/30.0,
-            domain_id=60
-        )
+        publisher = TargetPublisher(prim_path=self.target_prim_path, topic="target_info", period=1 / 30.0, domain_id=60)
 
         simulation_app.update()
 
@@ -72,10 +66,7 @@ class TestTargetPublisher(TestTargetBase):
 class TestTargetSubscriber(TestTargetBase):
     def test_target_control(self):
         subscriber = TargetSubscriber(
-            prim_path=self.target_prim_path,
-            topic="target_ctrl",
-            period=1/30.0,
-            domain_id=60
+            prim_path=self.target_prim_path, topic="target_ctrl", period=1 / 30.0, domain_id=60
         )
 
         ctrl_input = TargetCtrlInput()
@@ -96,18 +87,10 @@ class TestTargetSubscriber(TestTargetBase):
         self.assertAlmostEqual(current_position[2], new_position[2], places=5)
 
     def test_target_movement_tracking(self):
-        publisher = TargetPublisher(
-            prim_path=self.target_prim_path,
-            topic="target_info",
-            period=1/30.0,
-            domain_id=60
-        )
+        publisher = TargetPublisher(prim_path=self.target_prim_path, topic="target_info", period=1 / 30.0, domain_id=60)
 
         subscriber = TargetSubscriber(
-            prim_path=self.target_prim_path,
-            topic="target_ctrl",
-            period=1/30.0,
-            domain_id=60
+            prim_path=self.target_prim_path, topic="target_ctrl", period=1 / 30.0, domain_id=60
         )
 
         initial_info = publisher.produce(0.033, 1.0)
@@ -131,5 +114,5 @@ class TestTargetSubscriber(TestTargetBase):
         self.assertAlmostEqual(updated_position[2], new_position[2], places=5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

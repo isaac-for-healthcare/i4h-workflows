@@ -18,10 +18,11 @@ from simulation.annotators.franka import FrankaPublisher, FrankaSubscriber  # no
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
     if RTI_AVAILABLE:
-        license_path = os.getenv('RTI_LICENSE_FILE')
+        license_path = os.getenv("RTI_LICENSE_FILE")
         RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
 except ImportError:
     RTI_AVAILABLE = False
+
 
 @skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
 class TestFrankaBase(unittest.TestCase):
@@ -36,11 +37,7 @@ class TestFrankaBase(unittest.TestCase):
         omni.usd.get_context().open_stage(self.usda_path)
         self.stage = omni.usd.get_context().get_stage()
 
-        self.franka = Robot(
-            prim_path=self.franka_prim_path,
-            name="franka",
-            position=np.array([0.0, 0.0, 0.0])
-        )
+        self.franka = Robot(prim_path=self.franka_prim_path, name="franka", position=np.array([0.0, 0.0, 0.0]))
         self.simulation_world = World()
         self.simulation_world.scene.add(self.franka)
         self.simulation_world.reset()
@@ -58,8 +55,8 @@ class TestFrankaPublisher(TestFrankaBase):
             ik=True,
             prim_path=self.franka_prim_path,
             topic="franka_info",
-            period=1/30.0,
-            domain_id=60
+            period=1 / 30.0,
+            domain_id=60,
         )
 
         self.assertIsNotNone(publisher)
@@ -72,8 +69,8 @@ class TestFrankaPublisher(TestFrankaBase):
             ik=True,
             prim_path=self.franka_prim_path,
             topic="franka_info",
-            period=1/30.0,
-            domain_id=60
+            period=1 / 30.0,
+            domain_id=60,
         )
         self.simulation_world.step(render=True)
         robot_info = publisher.produce(0.033, 1.0)
@@ -92,8 +89,8 @@ class TestFrankaSubscriber(TestFrankaBase):
             ik=True,
             prim_path=self.franka_prim_path,
             topic="franka_ctrl",
-            period=1/30.0,
-            domain_id=60
+            period=1 / 30.0,
+            domain_id=60,
         )
 
         self.assertIsNotNone(subscriber)
@@ -107,8 +104,8 @@ class TestFrankaSubscriber(TestFrankaBase):
             ik=False,
             prim_path=self.franka_prim_path,
             topic="franka_ctrl",
-            period=1/30.0,
-            domain_id=60
+            period=1 / 30.0,
+            domain_id=60,
         )
 
         init_joint_positions = self.franka.get_joints_state().positions
@@ -129,8 +126,8 @@ class TestFrankaSubscriber(TestFrankaBase):
             ik=True,
             prim_path=self.franka_prim_path,
             topic="franka_ctrl",
-            period=1/30.0,
-            domain_id=60
+            period=1 / 30.0,
+            domain_id=60,
         )
 
         init_position = self.franka.get_joints_state().positions
@@ -146,5 +143,5 @@ class TestFrankaSubscriber(TestFrankaBase):
         self.assertFalse(np.allclose(end_effector_position, init_position))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -33,14 +33,7 @@ class CameraPublisher(Publisher):
     """
 
     def __init__(
-        self,
-        annotator: str,
-        prim_path: str,
-        height: int,
-        width: int,
-        topic: str,
-        period: float,
-        domain_id: int
+        self, annotator: str, prim_path: str, height: int, width: int, topic: str, period: float, domain_id: int
     ) -> None:
         super().__init__(topic, CameraInfo, period, domain_id)
 
@@ -80,7 +73,7 @@ class CameraPublisher(Publisher):
         return output
 
     @staticmethod
-    def new_instance(config: CameraConfig, rgb: bool = True) -> Optional['CameraPublisher']:
+    def new_instance(config: CameraConfig, rgb: bool = True) -> Optional["CameraPublisher"]:
         """Create a new CameraPublisher instance based on configuration.
 
         Args:
@@ -125,6 +118,7 @@ class CameraSubscriber(Subscriber):
         period: Subscription period in seconds
         domain_id: DDS domain identifier
     """
+
     def __init__(self, prim_path: str, topic: str, period: float, domain_id: int) -> None:
         super().__init__(topic, CameraCtrlInput, period, domain_id)
 
@@ -147,7 +141,7 @@ class CameraSubscriber(Subscriber):
             prim.GetAttribute("focalLength").Set(input.focal_len)
 
     @staticmethod
-    def new_instance(config: CameraConfig) -> Optional['CameraSubscriber']:
+    def new_instance(config: CameraConfig) -> Optional["CameraSubscriber"]:
         """Create a new CameraSubscriber instance based on configuration.
 
         Args:

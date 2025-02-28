@@ -92,6 +92,7 @@ class FrankaSubscriber(Subscriber):
         period: Subscription period in seconds
         domain_id: DDS domain identifier
     """
+
     def __init__(self, franka: Robot, ik: bool, prim_path: str, topic: str, period: float, domain_id):
         """Initialize the Franka subscriber."""
         super().__init__(topic, FrankaCtrlInput, period, domain_id)
@@ -124,7 +125,9 @@ class FrankaSubscriber(Subscriber):
                     target_orientation=np.array(input.target_orientation),
                 )
                 if not success:
-                    self.logger.error(f"Can't compute inverse kinematics.  pos: {input.target_position}; ori: {input.target_orientation}")
+                    self.logger.error(
+                        f"Can't compute inverse kinematics.  pos: {input.target_position}; ori: {input.target_orientation}"
+                    )
             else:
                 actions = self.franka_controller.forward(
                     target_end_effector_position=np.array(input.target_position),
