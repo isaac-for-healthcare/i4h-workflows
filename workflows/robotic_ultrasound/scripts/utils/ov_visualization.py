@@ -2,7 +2,7 @@ import argparse
 import threading
 import time
 import traceback
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
 
 import dearpygui.dearpygui as dpg
 import numpy as np
