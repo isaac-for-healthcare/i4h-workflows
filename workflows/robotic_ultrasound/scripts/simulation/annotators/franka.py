@@ -126,7 +126,8 @@ class FrankaSubscriber(Subscriber):
                 )
                 if not success:
                     self.logger.error(
-                        f"Can't compute inverse kinematics.  pos: {input.target_position}; ori: {input.target_orientation}"
+                        f"Can't compute inverse kinematics. pos: {input.target_position}; "
+                        f"ori: {input.target_orientation}"
                     )
             else:
                 actions = self.franka_controller.forward(
