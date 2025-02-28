@@ -11,6 +11,7 @@ PROJECT_ROOTS = [
 def run_tests_with_coverage(project_root):
     """Run all unittest cases with coverage reporting"""
     try:
+        #TODO: add license file to secrets
         os.environ["RTI_LICENSE_FILE"] = os.path.join(os.getcwd(), project_root, "scripts/rti_dds/rti_license.dat")
         all_tests_passed = True
         tests_dir = os.path.join(project_root, "tests")
