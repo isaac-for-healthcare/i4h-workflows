@@ -63,7 +63,7 @@ class TestCommonUtils(unittest.TestCase):
         """Test that we get an appropriate error for a non-existent config."""
         test_dir = os.path.dirname(os.path.abspath(__file__))
 
-        with self.assertRaises(Exception) as excinfo:
+        with self.assertRaises(Exception):
             get_exp_config("nonexistent_config", test_dir)
 
 
