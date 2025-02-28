@@ -9,7 +9,7 @@ def colorize_depth(depth_data: np.ndarray, near=1.0, far=50.0) -> np.ndarray:
     """Colorize depth data for visualization.
 
     Args:
-        depth_data: The depth data to colorize.
+        depth_data: The depth data to colorize, shape: (H, W, 1).
         near: The near clipping distance.
         far: The far clipping distance.
 

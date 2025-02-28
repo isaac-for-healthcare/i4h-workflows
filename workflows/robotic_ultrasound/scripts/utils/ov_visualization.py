@@ -535,7 +535,7 @@ class SimulatorApp:
 
                 print(f"Publishing Data to Target: {o}")
                 writer.write(o)
-                time.sleep(3)  # c.topic_in.hz)
+                time.sleep(3)
             print(f"Publishing Thread ({field_name}) done!")
 
         thread = threading.Thread(target=run)
