@@ -2,7 +2,6 @@ import os
 from importlib.util import module_from_spec, spec_from_file_location
 
 import numpy as np
-
 from simulation.configs.config import Config
 
 
@@ -13,8 +12,8 @@ def colorize_depth(depth_data: np.ndarray, near=1.0, far=50.0) -> np.ndarray:
         depth_data: The depth data to colorize.
         near: The near clipping distance.
         far: The far clipping distance.
-    
-    Refer to 
+
+    Refer to
     https://docs.omniverse.nvidia.com/extensions/latest/ext_replicator/programmatic_visualization.html
     #helper-visualization-functions
     """

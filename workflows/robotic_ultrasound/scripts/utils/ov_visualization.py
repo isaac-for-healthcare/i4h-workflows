@@ -1,18 +1,13 @@
-from typing import Any, Dict, List, Optional, Tuple, Union
 import argparse
 import threading
 import time
 import traceback
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import dearpygui.dearpygui as dpg
 import numpy as np
 import rti.connextdds as dds
 from PIL import Image
-import sys
-sys.path.append("/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts")
-
-from simulation.utils.common import colorize_depth, get_exp_config, list_exp_configs
-from simulation.configs.config import CameraConfig, Topic
 from rti_dds.schemas.camera_ctrl import CameraCtrlInput
 from rti_dds.schemas.camera_info import CameraInfo
 from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
@@ -22,7 +17,8 @@ from rti_dds.schemas.target_info import TargetInfo
 from rti_dds.schemas.usp_data import UltraSoundProbeData
 from rti_dds.schemas.usp_info import UltraSoundProbeInfo
 from rti_dds.subscriber import SubscriberWithCallback
-
+from simulation.configs.config import CameraConfig, Topic
+from simulation.utils.common import colorize_depth, get_exp_config, list_exp_configs
 
 parser = argparse.ArgumentParser(formatter_class=argparse.MetavarTypeHelpFormatter)
 parser.add_argument("-c", "--config", type=str, choices=list_exp_configs(), default="basic")
@@ -47,54 +43,43 @@ class SimulatorApp:
     WINDOW_PADDING: int = 60
     WINDOW_HEIGHT_PADDING: int = 300
     TEXT_WIDTH: int = 530
-    BORDER_COLORS = {
-        "room_camera": [255, 0, 0, 255],
-        "wrist_camera": [0, 255, 0, 255],
-        "ultrasound": [0, 0, 255, 255]
-    }
+    BORDER_COLORS = {"room_camera": [255, 0, 0, 255], "wrist_camera": [0, 255, 0, 255], "ultrasound": [0, 0, 255, 255]}
 
     def __init__(self) -> None:
         """Initialize the SimulatorApp with default settings."""
         self.window_name: str = self.DEFAULT_WINDOW_NAME
         self.window_width: int = (
-            config.room_camera.width + config.wrist_camera.width + 
-            config.ultrasound.width + self.WINDOW_PADDING
+            config.room_camera.width + config.wrist_camera.width + config.ultrasound.width + self.WINDOW_PADDING
         )
         self.window_height: int = (
-            max(config.room_camera.height, config.wrist_camera.height) + 
-            self.WINDOW_HEIGHT_PADDING
+            max(config.room_camera.height, config.wrist_camera.height) + self.WINDOW_HEIGHT_PADDING
         )
         self.resizeable: bool = self.DEFAULT_RESIZEABLE
-        
+
         # Camera range settings
         self.room_camera_range_start: float = (
-            min(config.room_camera.range) if config.room_camera.range 
-            else self.DEFAULT_CAMERA_RANGE_START
+            min(config.room_camera.range) if config.room_camera.range else self.DEFAULT_CAMERA_RANGE_START
         )
         self.room_camera_range_end: float = (
-            max(config.room_camera.range) if config.room_camera.range 
-            else self.DEFAULT_CAMERA_RANGE_END
+            max(config.room_camera.range) if config.room_camera.range else self.DEFAULT_CAMERA_RANGE_END
         )
 
         # Initialize image data arrays
         self._init_image_data()
-        
+
         # Initialize DDS related attributes
         self._init_dds_attributes()
 
     def _init_image_data(self) -> None:
         """Initialize image data arrays for cameras and ultrasound."""
         self.room_camera_image_data: np.ndarray = np.zeros(
-            (config.room_camera.height, config.room_camera.width, 4), 
-            dtype=np.float32
+            (config.room_camera.height, config.room_camera.width, 4), dtype=np.float32
         )
         self.wrist_camera_image_data: np.ndarray = np.zeros(
-            (config.wrist_camera.height, config.wrist_camera.width, 4), 
-            dtype=np.float32
+            (config.wrist_camera.height, config.wrist_camera.width, 4), dtype=np.float32
         )
         self.ultrasound_image_data: np.ndarray = np.zeros(
-            (config.ultrasound.height, config.ultrasound.width, 4), 
-            dtype=np.float32
+            (config.ultrasound.height, config.ultrasound.width, 4), dtype=np.float32
         )
 
     def _init_dds_attributes(self) -> None:
@@ -181,10 +166,7 @@ class SimulatorApp:
                 callback=self.on_streaming_room_camera,
                 default_value=True,
             )
-            dpg.add_image(
-                "room_camera_image_data", 
-                border_color=self.BORDER_COLORS["room_camera"]
-            )
+            dpg.add_image("room_camera_image_data", border_color=self.BORDER_COLORS["room_camera"])
             dpg.add_separator()
             with dpg.group(horizontal=True):
                 dpg.add_text("Ground Truth")
@@ -215,10 +197,7 @@ class SimulatorApp:
                 callback=self.on_streaming_wrist_camera,
                 default_value=True,
             )
-            dpg.add_image(
-                "wrist_camera_image_data", 
-                border_color=self.BORDER_COLORS["wrist_camera"]
-            )
+            dpg.add_image("wrist_camera_image_data", border_color=self.BORDER_COLORS["wrist_camera"])
             dpg.add_separator()
             with dpg.group(horizontal=True):
                 dpg.add_text("Ground Truth")
@@ -239,10 +218,7 @@ class SimulatorApp:
                 callback=self.on_streaming_ultrasound,
                 default_value=True,
             )
-            dpg.add_image(
-                "ultrasound_image_data", 
-                border_color=self.BORDER_COLORS["ultrasound"]
-            )
+            dpg.add_image("ultrasound_image_data", border_color=self.BORDER_COLORS["ultrasound"])
             dpg.add_separator()
             with dpg.group(horizontal=True):
                 dpg.add_text("Probe Position (world):")
@@ -268,7 +244,9 @@ class SimulatorApp:
                 tag="move_target",
                 callback=self.publish_target_annotations,
             )
-            dpg.add_combo(self.TARGET_MOVE_MODES, tag="move_target_by", width=100, default_value=self.TARGET_MOVE_MODES[1])
+            dpg.add_combo(
+                self.TARGET_MOVE_MODES, tag="move_target_by", width=100, default_value=self.TARGET_MOVE_MODES[1]
+            )
 
     def add_franka_widget(self, text_width: int) -> None:
         """Add Franka robot control widget to the GUI."""
@@ -295,17 +273,11 @@ class SimulatorApp:
     def key_press_event(self, sender: Any, app_data: Any) -> None:
         """Handle keyboard events for camera zoom."""
         if dpg.is_key_down(dpg.mvKey_Plus):
-            new_value = min(
-                dpg.get_value("room_camera_zoom") + self.CAMERA_ZOOM_STEP, 
-                self.room_camera_range_end
-            )
+            new_value = min(dpg.get_value("room_camera_zoom") + self.CAMERA_ZOOM_STEP, self.room_camera_range_end)
             dpg.set_value("room_camera_zoom", new_value)
             self.on_update_focal_length("room_camera_zoom", None)
         if dpg.is_key_down(dpg.mvKey_Minus):
-            new_value = max(
-                dpg.get_value("room_camera_zoom") - self.CAMERA_ZOOM_STEP, 
-                self.room_camera_range_start
-            )
+            new_value = max(dpg.get_value("room_camera_zoom") - self.CAMERA_ZOOM_STEP, self.room_camera_range_start)
             dpg.set_value("room_camera_zoom", new_value)
             self.on_update_focal_length("room_camera_zoom", None)
 
@@ -456,11 +428,9 @@ class SimulatorApp:
     def on_receive_camera_annotations(self, topic_name: str, s: CameraInfo) -> None:
         """Handle received camera annotations from DDS."""
         if config.room_camera and config.room_camera.enabled:
-            if (config.room_camera.topic_data_rgb and 
-                config.room_camera.topic_data_rgb.name == topic_name):
+            if config.room_camera.topic_data_rgb and config.room_camera.topic_data_rgb.name == topic_name:
                 return self.on_camera_annotations(s, config.room_camera, True)
-            if (config.room_camera.topic_data_depth and 
-                config.room_camera.topic_data_depth.name == topic_name):
+            if config.room_camera.topic_data_depth and config.room_camera.topic_data_depth.name == topic_name:
                 return self.on_camera_annotations(s, config.room_camera, True)
 
         if config.wrist_camera and config.wrist_camera.enabled:
