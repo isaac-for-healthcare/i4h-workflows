@@ -43,8 +43,8 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 
 from meta_state_machine.ultrasound_state_machine import RobotPositions, RobotQuaternions
-from utils import get_robot_obs, compute_relative_action, get_joint_states, KeyboardHandler
 from act_policy.act_utils import get_np_images
+from policies.state_machine.utils import get_robot_obs, compute_relative_action, get_joint_states, KeyboardHandler
 
 from openpi_client import image_tools
 from openpi_client import websocket_client_policy as _websocket_client_policy
