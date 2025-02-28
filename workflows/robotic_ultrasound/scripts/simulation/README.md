@@ -5,6 +5,7 @@
 - [Installation](#installation)
 - [Environments](#environments)
 - [Apps](#apps)
+  - [PI Zero Policy Training](#pi-zero-policy-training)
   - [PI Zero Policy Evaluation](#pi-zero-policy-evaluation)
 
 # Requirements
@@ -76,15 +77,20 @@ Currently there are these robot configurations that can be used in various tasks
 
 # Apps
 
+## PI Zero Policy Training
+[FIXME]
+
 ## PI Zero Policy Evaluation
 
 ### Setup
 
 1. [FIXME: change to `asset-catalog`] Download the v0.3 model weights from [GDrive](https://drive.google.com/drive/folders/1sL4GAETSMbxxcefsTsOkX7wXkTsbDqhW?usp=sharing)
 
-2. [FIXME] Follow the internal GitLab pi0 repo setup instructions: [here](https://gitlab-master.nvidia.com/nigeln/openpi_zero#installation)
+2. Please check the [I4H asset catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog) for assets downloading, put the USD assets as "./assets/Collected_phantom"
 
-3. [FIXME] Use the same [pi0 repo](https://gitlab-master.nvidia.com/nigeln/openpi_zero#3-spinning-up-a-policy-server-and-running-inference) to serve the model over a websocket:
+3. [FIXME] Follow the internal GitLab pi0 repo setup instructions: [here](https://gitlab-master.nvidia.com/nigeln/openpi_zero#installation)
+
+4. [FIXME] Use the same [pi0 repo](https://gitlab-master.nvidia.com/nigeln/openpi_zero#3-spinning-up-a-policy-server-and-running-inference) to serve the model over a websocket:
 ```sh
 uv run scripts/serve_policy.py \
    policy:checkpoint \
@@ -100,13 +106,13 @@ pip install -e .
 5. Now that you can use their client helper scripts, return to this folder and run the following command:
 ```sh
 export PYTHONPATH=`pwd`
-python policies/state_machine/pi0_policy/pi0_eval.py \
+python policies/state_machine/pi0_policy/eval.py \
         --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
         --enable_camera
 ```
 (Optional) We can also use RTI to publish the joint states to the physical robot:
 ```sh
-python policies/state_machine/pi0_policy/pi0_eval.py \
+python policies/state_machine/pi0_policy/eval.py \
         --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
         --enable_camera \
         --send_joints \
