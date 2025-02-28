@@ -22,7 +22,6 @@ class Subscriber(ABC):
         topic: The DDS topic name to subscribe to.
         cls: The class type of the data being received.
         period: Time period between successive reads in seconds (1/frequency).
-            Use 0 for fastest possible updates.
         domain_id: The DDS domain ID to subscribe on.
         add_to_queue: If True, stores received data in a queue.
             If False, processes data immediately. Defaults to True.

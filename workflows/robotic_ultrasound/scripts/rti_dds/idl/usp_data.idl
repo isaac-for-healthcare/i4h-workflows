@@ -1,0 +1,3 @@
+struct UltraSoundProbeData {
+  sequence <octet> data;
+};
