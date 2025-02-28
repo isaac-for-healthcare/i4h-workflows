@@ -16,6 +16,7 @@ class Publisher(ABC):
         period: Time period between successive publications in seconds.
         domain_id: The DDS domain ID to publish to.
     """
+
     def __init__(self, topic: str, cls: Any, period: float, domain_id: int):
         self.topic = topic
         self.cls = cls

@@ -4,12 +4,13 @@ import time
 import unittest
 from unittest import skipUnless
 
-from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber, SubscriberWithCallback, SubscriberWithQueue
+from rti_dds.subscriber import Subscriber, SubscriberWithCallback, SubscriberWithQueue
 
 try:
     import rti.connextdds as dds
     import rti.idl as idl
-    license_path = os.getenv('RTI_LICENSE_FILE')
+
+    license_path = os.getenv("RTI_LICENSE_FILE")
     RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
 except ImportError:
     RTI_AVAILABLE = False
@@ -23,6 +24,7 @@ class _TestData:
 
 class _TestSubscriber(Subscriber):
     """Concrete implementation of Subscriber for testing."""
+
     def consume(self, data) -> None:
         return data
 
@@ -38,24 +40,19 @@ class TestDDSSubscriber(unittest.TestCase):
         self.topic = dds.Topic(self.participant, self.topic_name, _TestData)
         self.writer = dds.DataWriter(self.participant.implicit_publisher, self.topic)
 
-        self.subscriber = _TestSubscriber(
-            topic=self.topic_name,
-            cls=_TestData,
-            period=0.1,
-            domain_id=self.domain_id
-        )
+        self.subscriber = _TestSubscriber(topic=self.topic_name, cls=_TestData, period=0.1, domain_id=self.domain_id)
 
         time.sleep(1.0)
 
     def tearDown(self):
         """Clean up after each test method"""
-        if hasattr(self, 'subscriber'):
+        if hasattr(self, "subscriber"):
             self.subscriber.stop()
-        if hasattr(self, 'writer'):
+        if hasattr(self, "writer"):
             self.writer.close()
-        if hasattr(self, 'topic'):
+        if hasattr(self, "topic"):
             self.topic.close()
-        if hasattr(self, 'participant'):
+        if hasattr(self, "participant"):
             self.participant.close()
         time.sleep(0.1)
 
@@ -94,20 +91,17 @@ class TestSubscriberWithQueue(unittest.TestCase):
         self.writer = dds.DataWriter(self.participant.implicit_publisher, self.topic_dds)
 
         self.subscriber = SubscriberWithQueue(
-            domain_id=self.domain_id,
-            topic=self.topic_name,
-            cls=_TestData,
-            period=self.period
+            domain_id=self.domain_id, topic=self.topic_name, cls=_TestData, period=self.period
         )
 
     def tearDown(self):
-        if hasattr(self, 'subscriber'):
+        if hasattr(self, "subscriber"):
             self.subscriber.stop()
-        if hasattr(self, 'writer'):
+        if hasattr(self, "writer"):
             self.writer.close()
-        if hasattr(self, 'topic_dds'):
+        if hasattr(self, "topic_dds"):
             self.topic_dds.close()
-        if hasattr(self, 'participant'):
+        if hasattr(self, "participant"):
             self.participant.close()
 
     def test_read_data(self):
@@ -149,21 +143,17 @@ class TestSubscriberWithCallback(unittest.TestCase):
         self.writer = dds.DataWriter(self.participant.implicit_publisher, self.topic)
 
         self.subscriber = SubscriberWithCallback(
-            cb=test_callback,
-            domain_id=self.domain_id,
-            topic=self.topic_name,
-            cls=_TestData,
-            period=0.1
+            cb=test_callback, domain_id=self.domain_id, topic=self.topic_name, cls=_TestData, period=0.1
         )
 
     def tearDown(self):
-        if hasattr(self, 'subscriber'):
+        if hasattr(self, "subscriber"):
             self.subscriber.stop()
-        if hasattr(self, 'writer'):
+        if hasattr(self, "writer"):
             self.writer.close()
-        if hasattr(self, 'topic'):
+        if hasattr(self, "topic"):
             self.topic.close()
-        if hasattr(self, 'participant'):
+        if hasattr(self, "participant"):
             self.participant.close()
         time.sleep(0.1)
 
@@ -194,5 +184,5 @@ class TestSubscriberWithCallback(unittest.TestCase):
         self.assertEqual(self.received_data.message, test_data.message)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
