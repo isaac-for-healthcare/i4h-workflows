@@ -9,6 +9,9 @@ PROJECT_ROOTS = [
     "workflows/robotic_ultrasound",
 ]
 
+os.environ["RTI_LICENSE_FILE"] = os.getenv("RTI_LICENSE_FILE", os.path.expanduser("~/rti_license.dat"))
+os.environ["BASIC_USD_PATH"] = os.getenv("BASIC_USD_PATH", os.path.expanduser("~/basic.usda"))
+
 
 def run_tests_with_coverage(project_root):
     """Run all unittest cases with coverage reporting"""
