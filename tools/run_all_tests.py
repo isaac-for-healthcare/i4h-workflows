@@ -1,9 +1,7 @@
 import os
+import subprocess
 import sys
 import traceback
-import unittest
-
-import coverage
 
 PROJECT_ROOTS = [
     "workflows/robotic_ultrasound",
@@ -12,58 +10,83 @@ PROJECT_ROOTS = [
 
 def run_tests_with_coverage(project_root):
     """Run all unittest cases with coverage reporting"""
-    sys_path_restore = sys.path
     try:
-        # Get the project root directory
-        # Initialize coverage
-        sys.path.append(os.path.join(project_root, "scripts"))
-        cov = coverage.Coverage()
-        cov.start()
-
-        # Discover and run tests
-
-        suite = unittest.TestSuite()
+        os.environ["RTI_LICENSE_FILE"] = os.path.join(os.getcwd(), project_root, "scripts/rti_dds/rti_license.dat")
+        all_tests_passed = True
         tests_dir = os.path.join(project_root, "tests")
+
+        print(f"Looking for tests in {tests_dir}")
         for name in os.listdir(tests_dir):
-            path = os.path.join(tests_dir, name)
-            print(path)
-            if os.path.isdir(path):
-                loader = unittest.TestLoader()
-                suite.addTest(loader.discover(path))
+            test_dir = os.path.join(tests_dir, name)
+            if os.path.isdir(test_dir):
+                for test_file in os.listdir(test_dir):
+                    if test_file.startswith("test_") and test_file.endswith(".py"):
+                        test_path = os.path.join(test_dir, test_file)
+                        print(f"\nRunning test: {test_path}")
 
-        # Run tests
-        print("Running tests...")
-        runner = unittest.TextTestRunner(verbosity=2)
-        result = runner.run(suite)
+                        # add project root to pythonpath
+                        env = os.environ.copy()
+                        pythonpath = [os.path.join(project_root, "scripts")]
 
-        # Stop coverage
-        cov.stop()
-        cov.save()
+                        if "PYTHONPATH" in env:
+                            env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
+                        else:
+                            env["PYTHONPATH"] = ":".join(pythonpath)
 
-        # Print coverage report
+                        cmd = [sys.executable, "-m", "coverage", "run", "--parallel-mode", "-m", "unittest", test_path]
+                        # result = subprocess.run(cmd, env=env)
+
+                        process = subprocess.Popen(
+                            cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                        )
+                        stdout, stderr = process.communicate()
+
+                        # Filter out extension loading messages
+                        filtered_stdout = "\n".join(
+                            [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
+                        )
+                        filtered_stderr = "\n".join(
+                            [line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)]
+                        )
+
+                        # Print filtered output
+                        if filtered_stdout.strip():
+                            print(filtered_stdout)
+                        if filtered_stderr.strip():
+                            print(filtered_stderr)
+
+                        result = process
+                        if result.returncode != 0:
+                            all_tests_passed = False
+
+        # combine coverage results
+        subprocess.run([sys.executable, "-m", "coverage", "combine"])
+
         print("\nCoverage Report:")
-        cov.report()
+        subprocess.run([sys.executable, "-m", "coverage", "report", "--show-missing"])
 
         # Generate HTML report
-        cov.html_report(directory=os.path.join(project_root, "htmlcov"))
-        print("\nDetailed HTML coverage report generated in 'htmlcov' directory")
+        subprocess.run([sys.executable, "-m", "coverage", "html", "-d", os.path.join(project_root, "htmlcov")])
+        print(f"\nDetailed HTML coverage report generated in '{project_root}/htmlcov'")
 
         # Return appropriate exit code
-        if result.wasSuccessful():
-            print("\nAll tests passed!")
+        if all_tests_passed:
+            print("All tests passed")
             return 0
         else:
-            print("\nSome tests failed!")
+            print("Some tests failed")
             return 1
 
     except Exception as e:
         print(f"Error running tests: {e}")
         print(traceback.format_exc())
-        # restore sys.path
-        sys.path = sys_path_restore
         return 1
 
 
 if __name__ == "__main__":
+    exit_code = 0
     for project_root in PROJECT_ROOTS:
-        sys.exit(run_tests_with_coverage(project_root))
+        result = run_tests_with_coverage(project_root)
+        if result != 0:
+            exit_code = result
+    sys.exit(exit_code)
