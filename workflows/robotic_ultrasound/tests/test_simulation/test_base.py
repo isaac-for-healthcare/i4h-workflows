@@ -6,12 +6,12 @@ from unittest.mock import MagicMock
 
 from isaacsim import SimulationApp
 from parameterized import parameterized
-from pxr import Usd
 from rti_dds.publisher import Publisher
 from rti_dds.subscriber import Subscriber
 
-app = SimulationApp({"headless": True})
+simulation_app = SimulationApp({"headless": True})
 import omni.usd  # noqa: E402
+from pxr import Usd  # noqa: E402
 from simulation.annotators.base import Annotator  # noqa: E402
 
 TEST_CASES = [
@@ -48,12 +48,12 @@ class TestAnnotator(unittest.TestCase):
         # Mock publishers and subscribers
         self.mock_publisher = MagicMock(spec=Publisher)
         self.mock_publisher.topic = "test_pub_topic"
-        self.mock_publisher.hz = 30
+        self.mock_publisher.period = 30
         self.mock_publisher.write = MagicMock()
 
         self.mock_subscriber = MagicMock(spec=Subscriber)
         self.mock_subscriber.topic = "test_sub_topic"
-        self.mock_subscriber.hz = 10
+        self.mock_subscriber.period = 10
         self.mock_subscriber.read = MagicMock()
         self.mock_subscriber.start = MagicMock()
         self.mock_subscriber.stop = MagicMock()
