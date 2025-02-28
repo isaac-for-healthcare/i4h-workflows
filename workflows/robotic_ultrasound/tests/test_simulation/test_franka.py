@@ -5,15 +5,15 @@ from unittest import skipUnless
 
 import numpy as np
 from isaacsim import SimulationApp
-from robotic_ultrasound.scripts.rti_dds.schemas.franka_ctrl import FrankaCtrlInput
-from robotic_ultrasound.scripts.rti_dds.schemas.franka_info import FrankaInfo
-from robotic_ultrasound.scripts.simulation.annotators.franka import FrankaPublisher, FrankaSubscriber
+from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
+from rti_dds.schemas.franka_info import FrankaInfo
 
 simulation_app = SimulationApp({"headless": True})
 
 import omni.usd  # noqa: E402
 from omni.isaac.core import World  # noqa: E402
 from omni.isaac.core.robots import Robot  # noqa: E402
+from simulation.annotators.franka import FrankaPublisher, FrankaSubscriber  # noqa: E402
 
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))

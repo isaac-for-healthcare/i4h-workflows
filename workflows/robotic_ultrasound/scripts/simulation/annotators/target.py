@@ -1,11 +1,11 @@
 from typing import Any
 
 from omni.isaac.core.prims import XFormPrim
-from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
-from robotic_ultrasound.scripts.rti_dds.schemas.target_ctrl import TargetCtrlInput
-from robotic_ultrasound.scripts.rti_dds.schemas.target_info import TargetInfo
-from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber
-from robotic_ultrasound.scripts.simulation.configs.config import TargetConfig
+from rti_dds.publisher import Publisher
+from rti_dds.schemas.target_ctrl import TargetCtrlInput
+from rti_dds.schemas.target_info import TargetInfo
+from rti_dds.subscriber import Subscriber
+from simulation.configs.config import TargetConfig
 
 
 class TargetPublisher(Publisher):

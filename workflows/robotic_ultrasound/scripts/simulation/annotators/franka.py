@@ -7,11 +7,11 @@ from omni.isaac.core.robots import Robot
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.franka import KinematicsSolver
 from omni.isaac.franka.controllers.rmpflow_controller import RMPFlowController
-from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
-from robotic_ultrasound.scripts.rti_dds.schemas.franka_ctrl import FrankaCtrlInput
-from robotic_ultrasound.scripts.rti_dds.schemas.franka_info import FrankaInfo
-from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber
-from robotic_ultrasound.scripts.simulation.configs.config import FrankaConfig
+from rti_dds.publisher import Publisher
+from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
+from rti_dds.schemas.franka_info import FrankaInfo
+from rti_dds.subscriber import Subscriber
+from simulation.configs.config import FrankaConfig
 
 
 class FrankaPublisher(Publisher):

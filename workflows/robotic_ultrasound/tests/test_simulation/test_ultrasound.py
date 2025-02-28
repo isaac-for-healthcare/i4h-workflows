@@ -2,13 +2,15 @@ import os
 import unittest
 from importlib.util import find_spec
 from unittest import skipUnless
-
+import sys
+project_root = "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound"
+sys.path.append(os.path.join(project_root, "scripts"))
 from isaacsim import SimulationApp
-from robotic_ultrasound.scripts.rti_dds.schemas.usp_info import UltraSoundProbeInfo
-from robotic_ultrasound.scripts.simulation.annotators.ultrasound import UltraSoundPublisher
+from rti_dds.schemas.usp_info import UltraSoundProbeInfo
 
 simulation_app = SimulationApp({"headless": True})
 import omni.usd  # noqa: E402
+from simulation.annotators.ultrasound import UltraSoundPublisher  # noqa: E402
 
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))

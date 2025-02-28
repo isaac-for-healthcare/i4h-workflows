@@ -7,12 +7,12 @@ from unittest.mock import MagicMock
 from isaacsim import SimulationApp
 from parameterized import parameterized
 from pxr import Usd
-from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
-from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber
-from robotic_ultrasound.scripts.simulation.annotators.base import Annotator
+from rti_dds.publisher import Publisher
+from rti_dds.subscriber import Subscriber
 
 app = SimulationApp({"headless": True})
 import omni.usd  # noqa: E402
+from simulation.annotators.base import Annotator  # noqa: E402
 
 TEST_CASES = [
         ("none_publishers_subscribers",

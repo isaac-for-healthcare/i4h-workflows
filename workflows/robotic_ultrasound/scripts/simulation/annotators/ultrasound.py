@@ -1,9 +1,9 @@
 from typing import Any
 
 from omni.isaac.core.prims import XFormPrim
-from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
-from robotic_ultrasound.scripts.rti_dds.schemas.usp_info import UltraSoundProbeInfo
-from robotic_ultrasound.scripts.simulation.configs.config import UltraSoundConfig
+from rti_dds.publisher import Publisher
+from rti_dds.schemas.usp_info import UltraSoundProbeInfo
+from simulation.configs.config import UltraSoundConfig
 
 
 class UltraSoundPublisher(Publisher):

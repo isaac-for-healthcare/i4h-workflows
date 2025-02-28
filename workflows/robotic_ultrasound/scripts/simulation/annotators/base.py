@@ -1,9 +1,10 @@
 from typing import List
 
 import omni.usd
-from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
-from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber
-from robotic_ultrasound.scripts.simulation.utils.ratelimit import add_physx_step_callback, remove_physx_callback
+from omni.isaac.core import World
+from rti_dds.publisher import Publisher
+from rti_dds.subscriber import Subscriber
+from simulation.utils.ratelimit import add_physx_step_callback, remove_physx_callback
 
 __all__ = ["Annotator"]
 
@@ -37,7 +38,7 @@ class Annotator:
         self.publishers = [p for p in publishers if p is not None] if publishers else []
         self.subscribers = [s for s in subscribers if s is not None] if subscribers else []
 
-    def start(self, world) -> None:
+    def start(self, world: World) -> None:
         """Start all publishers and subscribers with rate-limited callbacks.
 
         This method registers each publisher and subscriber with the physics
@@ -52,7 +53,7 @@ class Annotator:
             add_physx_step_callback(f"{subscriber.topic}", subscriber.period, subscriber.read, world)
             subscriber.start()
 
-    def stop(self, world):
+    def stop(self, world: World) -> None:
         """Stop all publishers and subscribers and cleanup their callbacks.
 
         This method removes all registered callbacks from the physics simulation

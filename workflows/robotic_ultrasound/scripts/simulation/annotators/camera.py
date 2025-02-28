@@ -6,11 +6,11 @@ import omni.usd
 from omni.kit.viewport.utility import get_active_viewport_window
 from omni.replicator.core.scripts.utils import viewport_manager
 from omni.syntheticdata import SyntheticData
-from robotic_ultrasound.scripts.rti_dds.publisher import Publisher
-from robotic_ultrasound.scripts.rti_dds.schemas.camera_ctrl import CameraCtrlInput
-from robotic_ultrasound.scripts.rti_dds.schemas.camera_info import CameraInfo
-from robotic_ultrasound.scripts.rti_dds.subscriber import Subscriber
-from robotic_ultrasound.scripts.simulation.configs.config import CameraConfig
+from rti_dds.publisher import Publisher
+from rti_dds.schemas.camera_ctrl import CameraCtrlInput
+from rti_dds.schemas.camera_info import CameraInfo
+from rti_dds.subscriber import Subscriber
+from simulation.configs.config import CameraConfig
 
 __all__ = ["CameraPublisher", "CameraSubscriber"]
 

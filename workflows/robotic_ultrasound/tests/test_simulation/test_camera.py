@@ -6,13 +6,13 @@ from unittest import skipUnless
 import numpy as np
 from isaacsim import SimulationApp
 from parameterized import parameterized
-from robotic_ultrasound.scripts.rti_dds.schemas.camera_ctrl import CameraCtrlInput
-from robotic_ultrasound.scripts.rti_dds.schemas.camera_info import CameraInfo
-from robotic_ultrasound.scripts.simulation.annotators.camera import CameraPublisher, CameraSubscriber
+from rti_dds.schemas.camera_ctrl import CameraCtrlInput
+from rti_dds.schemas.camera_info import CameraInfo
 
 simulation_app = SimulationApp({"headless": True})
 
 import omni.usd  # noqa: E402
+from simulation.annotators.camera import CameraPublisher, CameraSubscriber  # noqa: E402
 
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
