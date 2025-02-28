@@ -103,9 +103,11 @@ uv run scripts/serve_policy.py \
 cd <path_to_openpi_repo>/openpi/packages/openpi-client
 pip install -e .
 ```
-5. Now that you can use their client helper scripts, return to this folder and run the following command:
-```sh
+5. Now that you can use their client helper, move to the [scripts](../) folder and specify python path:
 export PYTHONPATH=`pwd`
+
+6. Return to this folder and run the following command:
+```sh
 python policies/state_machine/pi0_policy/eval.py \
         --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
         --enable_camera

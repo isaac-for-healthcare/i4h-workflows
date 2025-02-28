@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from omni.isaac.core.prims import RigidPrimView
 from omni.isaac.core.utils.torch.rotations import quat_from_euler_xyz
 from omni.isaac.lab.utils.math import compute_pose_error, axis_angle_from_quat
-from policies.state_machine.modules.base_module import BaseControlModule
-from policies.state_machine.utils import compute_relative_action, RobotPositions, RobotQuaternions, SMState
+from simulation.policies.state_machine.modules.base_module import BaseControlModule
+from simulation.policies.state_machine.utils import compute_relative_action, RobotPositions, RobotQuaternions, SMState
 
 class UltrasoundStateMachine:
     """State machine for ultrasound procedure control."""

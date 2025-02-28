@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 import torch
-from typing import Dict, Any
 
 class BaseControlModule(ABC):
     """Abstract base class for all control modules."""
