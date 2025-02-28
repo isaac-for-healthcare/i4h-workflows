@@ -2,7 +2,8 @@ import os
 import torch
 from openpi_client import image_tools
 from openpi_client import websocket_client_policy as _websocket_client_policy
-
+import rti.connextdds as dds
+from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
 
 class PI0PolicyRunner:
     """
@@ -28,9 +29,6 @@ class PI0PolicyRunner:
             if rti_license_file is None or not os.path.isabs(rti_license_file):
                 raise ValueError("RTI license file must be an existing absolute path.")
             os.environ["RTI_LICENSE_FILE"] = rti_license_file
-            import rti.connextdds as dds
-            from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
-
             participant = dds.DomainParticipant(domain_id=domain_id)
             topic = dds.Topic(participant, topic_out, FrankaCtrlInput)
             self.writer = dds.DataWriter(participant.implicit_publisher, topic)

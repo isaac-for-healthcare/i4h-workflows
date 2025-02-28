@@ -114,6 +114,7 @@ python policies/state_machine/pi0_policy/eval.py \
 ```
 (Optional) We can also use RTI to publish the joint states to the physical robot:
 ```sh
+pip install rti.connext
 python policies/state_machine/pi0_policy/eval.py \
         --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
         --enable_camera \
