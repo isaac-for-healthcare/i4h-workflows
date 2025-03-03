@@ -11,7 +11,7 @@ PROJECT_ROOTS = [
 def run_tests_with_coverage(project_root):
     """Run all unittest cases with coverage reporting"""
     try:
-        #TODO: add license file to secrets
+        # TODO: add license file to secrets
         os.environ["RTI_LICENSE_FILE"] = os.path.join(os.getcwd(), project_root, "scripts/rti_dds/rti_license.dat")
         all_tests_passed = True
         tests_dir = os.path.join(project_root, "tests")
@@ -34,8 +34,30 @@ def run_tests_with_coverage(project_root):
                         else:
                             env["PYTHONPATH"] = ":".join(pythonpath)
 
-                        cmd = [sys.executable, "-m", "coverage", "run", "--parallel-mode", "-m", "unittest", test_path]
-                        # result = subprocess.run(cmd, env=env)
+                        if "test_ov_visualization" in test_path:  # virtual display for GUI tests
+                            cmd = [
+                                "xvfb-run",
+                                "-a",
+                                sys.executable,
+                                "-m",
+                                "coverage",
+                                "run",
+                                "--parallel-mode",
+                                "-m",
+                                "unittest",
+                                test_path,
+                            ]
+                        else:
+                            cmd = [
+                                sys.executable,
+                                "-m",
+                                "coverage",
+                                "run",
+                                "--parallel-mode",
+                                "-m",
+                                "unittest",
+                                test_path,
+                            ]
 
                         process = subprocess.Popen(
                             cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True

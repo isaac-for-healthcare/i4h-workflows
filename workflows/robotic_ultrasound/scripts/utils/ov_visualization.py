@@ -582,4 +582,5 @@ class SimulatorApp:
         dpg.destroy_context()
 
 
-SimulatorApp.run_app()
+if __name__ == "__main__":
+    SimulatorApp.run_app()
