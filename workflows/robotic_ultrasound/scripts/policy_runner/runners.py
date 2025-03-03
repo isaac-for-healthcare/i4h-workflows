@@ -1,9 +1,14 @@
 import os
 import torch
-from openpi_client import image_tools
-from openpi_client import websocket_client_policy as _websocket_client_policy
+
 import rti.connextdds as dds
 from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
+from openpi.models import pi0
+from openpi.policies import policy_config
+from openpi.training.config import DataConfig, TrainConfig
+from openpi_client import image_tools
+from policy_runner.utils import LeRobotDataConfig
+
 
 class PI0PolicyRunner:
     """
@@ -13,15 +18,26 @@ class PI0PolicyRunner:
     """
     def __init__(
         self,
-        host="0.0.0.0",
-        port=8000,
+        ckpt_path,
+        repo_id,
         task_description="Conduct a ultrasound scan on the liver.",
         send_joints=False,
         rti_license_file=None,
         domain_id=0,
         topic_out="topic_franka_ctrl",
     ):
-        self.client = _websocket_client_policy.WebsocketClientPolicy(host, port)
+        config = TrainConfig(
+            name="pi0_scan",
+            model=pi0.Pi0Config(),
+            data=LeRobotDataConfig(
+                repo_id=repo_id,
+                base_config=DataConfig(
+                    local_files_only=True,  # Set to True for local-only datasets.
+                    prompt_from_task=True,
+                ),
+            ),
+        )
+        self.model = policy_config.create_trained_policy(config, ckpt_path)
         # Prompt for the model
         self.task_description = task_description
         self.writer = None
@@ -48,7 +64,7 @@ class PI0PolicyRunner:
             "prompt": self.task_description,
         }
         # Query model to get action
-        return self.client.infer(element)["actions"]
+        return self.model.infer(element)["actions"]
 
     def send_joint_states(self, joint_states):
         joint_states = joint_states.astype(float).tolist()

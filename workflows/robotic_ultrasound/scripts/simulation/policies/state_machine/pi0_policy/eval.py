@@ -14,12 +14,8 @@ parser.add_argument(
 )
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
-parser.add_argument("--send_joints", action="store_true", default=False, help="Send joint states to the model.")
-parser.add_argument("--rti_license_file", type=str, default=None, help="Path to the RTI license file.")
-parser.add_argument("--host", type=str, default="0.0.0.0", help="Host address.")
-parser.add_argument("--port", type=int, default=8000, help="Port number.")
-parser.add_argument("--domain_id", type=int, default=int(os.environ.get("OVH_DDS_DOMAIN_ID", 0)), help="Domain ID.")
-parser.add_argument("--topic_out", type=str, default="topic_franka_ctrl", help="topic name to publish generated joint velocities")
+parser.add_argument("--ckpt_path", type=str, help="checkpoint path.")
+parser.add_argument("--repo_id", type=str, help="the LeRobot repo id for the dataset norm.")
 
 # append AppLauncher cli argr
 AppLauncher.add_app_launcher_args(parser)
@@ -94,13 +90,9 @@ def main():
         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
     policy_runner = PI0PolicyRunner(
-        host=args_cli.host,
-        port=args_cli.port,
+        ckpt_path=args_cli.ckpt_path,
+        repo_id=args_cli.repo_id,
         task_description="Conduct a ultrasound scan on the liver.",
-        send_joints=args_cli.send_joints,
-        rti_license_file=args_cli.rti_license_file,
-        domain_id=args_cli.domain_id,
-        topic_out=args_cli.topic_out,
     )
     # Number of steps played before replanning
     replan_steps = 5
@@ -138,9 +130,6 @@ def main():
 
                 # step the environment
                 obs, rew, terminated, truncated, info_ = env.step(action)
-
-                if args_cli.send_joints:
-                    policy_runner.send_joint_states(get_joint_states(env)[0])
 
             env.reset()
             for _ in range(reset_steps):
