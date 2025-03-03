@@ -8,7 +8,7 @@ import numpy as np
 from omni.isaac.lab.app import AppLauncher
 
 # add argparse arguments
-parser = argparse.ArgumentParser(description="This script demonstrates a single-arm manipulator.")
+parser = argparse.ArgumentParser(description="This script evaluate the pi0 model in a single-arm manipulator.")
 parser.add_argument(
     "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
 )
