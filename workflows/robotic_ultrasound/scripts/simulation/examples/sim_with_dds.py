@@ -1,6 +1,6 @@
 import os
+import time
 import argparse
-import collections
 import gymnasium as gym
 import torch
 import numpy as np
@@ -14,8 +14,32 @@ parser.add_argument(
 )
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
-parser.add_argument("--ckpt_path", type=str, help="checkpoint path.")
-parser.add_argument("--repo_id", type=str, help="the LeRobot repo id for the dataset norm.")
+parser.add_argument("--rti_license_file", type=str, help="the path of rti_license_file.")
+parser.add_argument("--domain_id", type=int, default=0, help="domain id.")
+parser.add_argument(
+    "--topic_in_room_camera",
+    type=str,
+    default="topic_room_camera_data_rgb",
+    help="topic name to consume room camera rgb",
+)
+parser.add_argument(
+    "--topic_in_wrist_camera",
+    type=str,
+    default="topic_wrist_camera_data_rgb",
+    help="topic name to consume wrist camera rgb",
+)
+parser.add_argument(
+    "--topic_in_franka_pos",
+    type=str,
+    default="topic_franka_info",
+    help="topic name to consume franka pos",
+)
+parser.add_argument(
+    "--topic_out",
+    type=str,
+    default="topic_franka_ctrl",
+    help="topic name to publish generated franka actions",
+)
 
 # append AppLauncher cli argr
 AppLauncher.add_app_launcher_args(parser)
@@ -41,9 +65,52 @@ from simulation.policies.state_machine.utils import (
     get_joint_states,
     KeyboardHandler
 )
-from policy_runner import PI0PolicyRunner
+from rti_dds.publisher import Publisher
+from rti_dds.subscriber import SubscriberWithCallback
+from rti_dds.schemas.camera_info import CameraInfo
+from rti_dds.schemas.franka_info import FrankaInfo
+from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
 
-    
+
+pub_data = {
+    "room_cam": None,
+    "wrist_cam": None,
+    "joint_pos": None,
+}
+
+
+class RoomCamPublisher(Publisher):
+    def __init__(self):
+        super().__init__(args_cli.topic_in_room_camera, CameraInfo, 1 / 30, args_cli.domain_id)
+    def produce(self, dt: float, sim_time: float):
+        output = CameraInfo()
+        output.focal_len = 12.0
+        output.height = 224
+        output.width = 224
+        output.data = pub_data["room_cam"].tobytes()
+        return output
+
+
+class WristCamPublisher(Publisher):
+    def __init__(self):
+        super().__init__(args_cli.topic_in_wrist_camera, CameraInfo, 1 / 30, args_cli.domain_id)
+    def produce(self, dt: float, sim_time: float):
+        output = CameraInfo()
+        output.height = 224
+        output.width = 224
+        output.data = pub_data["wrist_cam"].tobytes()
+        return output
+
+
+class PosPublisher(Publisher):
+    def __init__(self):
+        super().__init__(args_cli.topic_in_franka_pos, FrankaInfo, 1 / 30, args_cli.domain_id)
+    def produce(self, dt: float, sim_time: float):
+        output = FrankaInfo()
+        output.joints_state_positions = pub_data["joint_pos"].tolist()
+        return output
+
+
 def get_reset_action(env, use_rel: bool=True):
     """Get the reset action."""
     reset_pos = torch.tensor(RobotPositions.SETUP, device="cuda:0")
@@ -77,6 +144,10 @@ def main():
     # reset environment
     obs = env.reset()
 
+    if args_cli.rti_license_file is None or not os.path.isabs(args_cli.rti_license_file):
+        raise ValueError("RTI license file must be an existing absolute path.")
+    os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
+
     reset_steps = 20
     max_timesteps = 250
 
@@ -89,11 +160,23 @@ def main():
         reset_tensor = get_reset_action(env)
         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
-    policy_runner = PI0PolicyRunner(
-        ckpt_path=args_cli.ckpt_path,
-        repo_id=args_cli.repo_id,
-        task_description="Conduct a ultrasound scan on the liver.",
-    )
+    r_cam_writer = RoomCamPublisher()
+    w_cam_writer = WristCamPublisher()
+    pos_writer = PosPublisher()
+
+    # FIXME: not fully tested yet
+    def cb(topic, data):
+        o: FrankaCtrlInput = data
+        action = np.frombuffer(o.joint_positions, dtype=np.float32)
+        # convert to torch
+        action = torch.tensor(action, device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
+        # step the environment
+        obs, rew, terminated, truncated, info_ = env.step(action)
+
+
+    reader = SubscriberWithCallback(cb, args_cli.domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / 30)
+    reader.start()
+    time.sleep(1.0)
     # Number of steps played before replanning
     replan_steps = 5
 
@@ -101,34 +184,21 @@ def main():
     while simulation_app.is_running():
         global reset_flag
         with torch.inference_mode():
-            action_plan = collections.deque()
-
-
             for t in range(max_timesteps):
                 # Reset the environment on 'r' key press
                 if keyboard_handler.reset_flag:
                     keyboard_handler.reset_flag = False
                     break
 
-                if not action_plan:
-                    # get images
-                    room_img, wrist_img = get_np_images(env)
-                    action_chunk = policy_runner.infer(
-                        room_img=room_img,
-                        wrist_img=wrist_img,
-                        current_state=get_joint_states(env)[0]
-                    )
-                    action_plan.extend(action_chunk[: replan_steps])
-
-                action = action_plan.popleft()
-
-                action = action.astype(np.float32)
-
-                # convert to torch
-                action = torch.tensor(action, device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
-
-                # step the environment
-                obs, rew, terminated, truncated, info_ = env.step(action)
+                # get images
+                pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
+                pub_data["joint_pos"] = get_joint_states(env)[0]
+                r_cam_writer.write(0.1, 1.0)
+                time.sleep(0.1)
+                w_cam_writer.write(0.1, 1.0)
+                time.sleep(0.1)
+                pos_writer.write(0.1, 1.0)
+                time.sleep(5.0)
 
             env.reset()
             for _ in range(reset_steps):

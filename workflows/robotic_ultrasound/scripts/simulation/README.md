@@ -81,41 +81,7 @@ Currently there are these robot configurations that can be used in various tasks
 [FIXME]
 
 ## PI Zero Policy Evaluation
-
-### Setup
-
-1. [FIXME: change to `asset-catalog`] Download the v0.3 model weights from [GDrive](https://drive.google.com/drive/folders/1sL4GAETSMbxxcefsTsOkX7wXkTsbDqhW?usp=sharing)
-
-2. Please check the [I4H asset catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog) for assets downloading, put the USD assets as "./assets/Collected_phantom"
-
-3. To install `openpi` in python 3.10 without `uv` environment, and support `IsaacSim 4.2`, we need below minor steps:
-- `git clone git@github.com:Physical-Intelligence/openpi.git`
-- Extract all the dependencies from `pyproject.toml` and create a `requirements.txt` file.
-- Add `LeRobot` dependency to the requirements.txt:
-`git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56`
-- Changes for `openpi/src/openpi/shared/download.py` (just temp workaround, will not need it after upgrading to IsaacSim 4.5):
-  ```
-  -import boto3.s3.transfer as s3_transfer
-  +# import boto3.s3.transfer as s3_transfer
-
-  -import s3transfer.futures as s3_transfer_futures
-  +# import s3transfer.futures as s3_transfer_futures
-
-  -from types_boto3_s3.service_resource import ObjectSummary
-  +# from types_boto3_s3.service_resource import ObjectSummary
-
-  -) -> s3_transfer.TransferManager:
-
-  -date = datetime.datetime(year, month, day, tzinfo=datetime.UTC)
-  +date = datetime.datetime(year, month, day, tzinfo=datetime.timezone.utc)
-  ```
-
-- ```sh
-  pip install -r requirements.txt
-  ```
-- ```sh
-  pip install -e .
-  ```
+Set up `openpi` referring to [PI0 runner](../policy_runner/README.md).
 
 4. Now that move to the [scripts](../) folder and specify python path:
 ```sh
@@ -126,7 +92,6 @@ export PYTHONPATH=`pwd`
 ```sh
 python policies/state_machine/pi0_policy/eval.py \
     --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
-    --enable_camera \
     --ckpt_path <path to ckpt>/pi0_aortic_scan_v0.3/19000 \
     --repo_id hf/chiron_aortic
 ```
