@@ -14,3 +14,4 @@ target-version = "py310"
 
 [tool.ruff.lint]
 extend-select = ["E501"]
+ignore = ["E402"]
