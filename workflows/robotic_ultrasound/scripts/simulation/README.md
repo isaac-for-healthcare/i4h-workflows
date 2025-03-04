@@ -42,7 +42,7 @@ cd IsaacLab
 python source/standalone/tutorials/00_sim/create_empty.py
 ```
 
-# Requirements
+# Installation
 
 2. Follow the [Installation](#installation) instructions below to install the extension.
 
