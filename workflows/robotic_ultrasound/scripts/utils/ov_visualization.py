@@ -7,16 +7,16 @@ from typing import Any, Dict, List, Optional
 import dearpygui.dearpygui as dpg
 import numpy as np
 import rti.connextdds as dds
+from dds.schemas.camera_ctrl import CameraCtrlInput
+from dds.schemas.camera_info import CameraInfo
+from dds.schemas.franka_ctrl import FrankaCtrlInput
+from dds.schemas.franka_info import FrankaInfo
+from dds.schemas.target_ctrl import TargetCtrlInput
+from dds.schemas.target_info import TargetInfo
+from dds.schemas.usp_data import UltraSoundProbeData
+from dds.schemas.usp_info import UltraSoundProbeInfo
+from dds.subscriber import SubscriberWithCallback
 from PIL import Image
-from rti_dds.schemas.camera_ctrl import CameraCtrlInput
-from rti_dds.schemas.camera_info import CameraInfo
-from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
-from rti_dds.schemas.franka_info import FrankaInfo
-from rti_dds.schemas.target_ctrl import TargetCtrlInput
-from rti_dds.schemas.target_info import TargetInfo
-from rti_dds.schemas.usp_data import UltraSoundProbeData
-from rti_dds.schemas.usp_info import UltraSoundProbeInfo
-from rti_dds.subscriber import SubscriberWithCallback
 from simulation.configs.config import CameraConfig, Topic
 from simulation.utils.common import colorize_depth, get_exp_config, list_exp_configs
 
