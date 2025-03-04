@@ -4,9 +4,9 @@ from importlib.util import find_spec
 from unittest import skipUnless
 
 import numpy as np
+from dds.schemas.franka_ctrl import FrankaCtrlInput
+from dds.schemas.franka_info import FrankaInfo
 from isaacsim import SimulationApp
-from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
-from rti_dds.schemas.franka_info import FrankaInfo
 
 simulation_app = SimulationApp({"headless": True})
 

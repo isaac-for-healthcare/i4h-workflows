@@ -4,10 +4,10 @@ from importlib.util import find_spec
 from unittest import skipUnless
 
 import numpy as np
+from dds.schemas.camera_ctrl import CameraCtrlInput
+from dds.schemas.camera_info import CameraInfo
 from isaacsim import SimulationApp
 from parameterized import parameterized
-from rti_dds.schemas.camera_ctrl import CameraCtrlInput
-from rti_dds.schemas.camera_info import CameraInfo
 
 simulation_app = SimulationApp({"headless": True})
 
