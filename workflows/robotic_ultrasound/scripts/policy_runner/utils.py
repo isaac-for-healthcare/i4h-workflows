@@ -10,6 +10,13 @@ from openpi.training.config import DataConfig, DataConfigFactory, ModelTransform
 
 
 def _parse_image(image) -> np.ndarray:
+    """
+    Parse the image to uint8 (H,W,C) since LeRobot automatically stores as float32 (C,H,W).
+
+    Args:
+        image: The image to parse.
+
+    """
     image = np.asarray(image)
     if np.issubdtype(image.dtype, np.floating):
         image = (255 * image).astype(np.uint8)
@@ -75,6 +82,14 @@ class Outputs(transforms.DataTransformFn):
 @dataclasses.dataclass(frozen=True)
 class LeRobotDataConfig(DataConfigFactory):
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        """
+        Repack transforms are used to repack the data into the format expected by the model.
+
+        Args:
+            assets_dirs: The directory containing the assets.
+            model_config: The model configuration.
+
+        """
         repack_transform = _transforms.Group(
             inputs=[
                 _transforms.RepackTransform(

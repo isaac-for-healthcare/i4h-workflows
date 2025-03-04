@@ -10,6 +10,11 @@ class PI0PolicyRunner:
     """
     Policy runner for PI0 policy, based on the openpi library.
 
+    Args:
+        ckpt_path: Path to the checkpoint file.
+        repo_id: Repository ID of the original training dataset.
+        task_description: Task description. Default is "Conduct a ultrasound scan on the liver."
+
     """
 
     def __init__(

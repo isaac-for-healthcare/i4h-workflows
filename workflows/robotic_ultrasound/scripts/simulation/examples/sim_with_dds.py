@@ -15,7 +15,7 @@ from simulation.policies.state_machine.act_policy.act_utils import get_np_images
 from simulation.policies.state_machine.utils import compute_relative_action, get_joint_states, get_robot_obs
 
 # add argparse arguments
-parser = argparse.ArgumentParser(description="This script evaluate the pi0 model in a single-arm manipulator.")
+parser = argparse.ArgumentParser(description="Run simulation in a single-arm manipulator, communication via DDS.")
 parser.add_argument(
     "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
 )
