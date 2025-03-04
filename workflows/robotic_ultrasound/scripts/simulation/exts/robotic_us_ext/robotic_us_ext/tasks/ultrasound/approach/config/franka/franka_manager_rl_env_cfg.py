@@ -3,50 +3,34 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-
+import os
 from dataclasses import MISSING
 
 import omni.isaac.lab.sim as sim_utils
-
-from omni.isaac.lab.assets import AssetBaseCfg, ArticulationCfg, RigidObjectCfg
-from omni.isaac.lab.scene import InteractiveSceneCfg
-from omni.isaac.lab.utils import configclass
+import torch
+from omni.isaac.core.utils.torch.rotations import euler_angles_to_quats
+from omni.isaac.lab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+from omni.isaac.lab.controllers import DifferentialIKControllerCfg
+from omni.isaac.lab.envs import ManagerBasedRLEnvCfg
+from omni.isaac.lab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
 from omni.isaac.lab.managers import EventTermCfg as EventTerm
-from omni.isaac.lab.utils.assets import ISAAC_NUCLEUS_DIR
 from omni.isaac.lab.managers import ObservationGroupCfg as ObsGroup
 from omni.isaac.lab.managers import ObservationTermCfg as ObsTerm
 from omni.isaac.lab.managers import RewardTermCfg as RewTerm
 from omni.isaac.lab.managers import SceneEntityCfg
 from omni.isaac.lab.managers import TerminationTermCfg as DoneTerm
-from omni.isaac.lab.sensors import CameraCfg
-
-from omni.isaac.lab.envs import ManagerBasedRLEnvCfg, ManagerBasedEnvCfg
-from omni.isaac.lab.controllers import DifferentialIKControllerCfg
-from omni.isaac.lab.envs.mdp.actions.actions_cfg import (
-    DifferentialInverseKinematicsActionCfg,
-)
-
-
-#  FRANKA_PANDA_REALSENSE_CFG for camera in USD
-from robotic_us_ext.lab_assets.franka import (
-    FRANKA_PANDA_HIGH_PD_FORCE_CFG,
-    FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG
-)
-from omni.isaac.lab.markers.config import FRAME_MARKER_CFG  # isort: skip
-from omni.isaac.lab.sensors import FrameTransformerCfg, TiledCameraCfg
-
+from omni.isaac.lab.scene import InteractiveSceneCfg
+from omni.isaac.lab.sensors import CameraCfg, FrameTransformerCfg
 from omni.isaac.lab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
-from omni.isaac.core.utils.torch.rotations import euler_angles_to_quats
-import torch
-
+from omni.isaac.lab.utils import configclass
+#  FRANKA_PANDA_REALSENSE_CFG for camera in USD
+from robotic_us_ext.lab_assets.franka import FRANKA_PANDA_HIGH_PD_FORCE_CFG, FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG
+from robotic_us_ext.tasks.ultrasound.approach import mdp
 
 from omni.isaac.lab.markers.config import FRAME_MARKER_CFG  # isort: skip
-
 
 FRAME_MARKER_SMALL_CFG = FRAME_MARKER_CFG.copy()
 FRAME_MARKER_SMALL_CFG.markers["frame"].scale = (0.10, 0.10, 0.10)
-from robotic_us_ext.tasks.ultrasound.approach import mdp
-import os
 
 
 @configclass
@@ -70,9 +54,8 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         ),
         spawn=sim_utils.UsdFileCfg(
             usd_path=os.path.join(os.getcwd(), "assets/Collected_table/table_with_cover/table_with_cover.usd"),
+        ),
     )
-    )
-
 
     # body
     # spawn the organ model onto the table, it needs to be scaled (1/10 of an inch?)
@@ -91,9 +74,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
 
     # articulation
     # configure alternative robots in derived environments.
-    robot: ArticulationCfg = FRANKA_PANDA_HIGH_PD_FORCE_CFG.replace(
-        prim_path="{ENV_REGEX_NS}/Robot"
-    )
+    robot: ArticulationCfg = FRANKA_PANDA_HIGH_PD_FORCE_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     # robot: ArticulationCfg = FRANKA_PANDA_REALSENSE_CFG.replace(
     #     prim_path="{ENV_REGEX_NS}/Robot"
@@ -118,7 +99,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         offset=CameraCfg.OffsetCfg(
             pos=(0.55942, -0.56039, 0.36243),
             rot=euler_angles_to_quats(torch.tensor([248.0, 0.0, 0.0]), degrees=True),
-            convention="ros"
+            convention="ros",
         ),
     )
 
@@ -128,7 +109,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         spawn=None,
         height=224,
         width=224,
-        update_period=0.0
+        update_period=0.0,
     )
 
     # Frame definitions for the goal frame
@@ -152,8 +133,6 @@ class RoboticSoftCfg(InteractiveSceneCfg):
             ),
         ],
     )
-
-
 
 
 ##
@@ -193,11 +172,10 @@ class ActionsCfg:
     """Action specifications for the environment."""
 
     # set the joint positions as target
-    # joint_pos_des = mdp.JointPositionActionCfg(asset_name="robot", joint_names=[".*"], scale=1.0, use_default_offset=True)
+    # joint_pos_des = mdp.JointPositionActionCfg(asset_name="robot", joint_names=[".*"], scale=1.0,
+    # use_default_offset=True)
     # overwrite in post_init
-    arm_action: (
-        mdp.JointPositionActionCfg | mdp.DifferentialInverseKinematicsActionCfg
-    ) = MISSING
+    arm_action: mdp.JointPositionActionCfg | mdp.DifferentialInverseKinematicsActionCfg = MISSING
 
 
 @configclass
@@ -280,7 +258,8 @@ class EventCfg:
     # this needs to be executed before any other reset function, to not overwrite the reset scene to default.
     reset_scene = EventTerm(func=mdp.reset_scene_to_default, mode="reset")
 
-    # the second reset only affects the organ body, and adds a random offset to the organ body, w.r.t to the current position.
+    # the second reset only affects the organ body, and adds a random offset to the organ body, w.r.t to
+    # the current position.
     reset_object_position = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
@@ -306,9 +285,7 @@ class RewardsCfg:
     """Reward terms for the MDP."""
 
     # task terms
-    reaching_object = RewTerm(
-        func=mdp.object_ee_distance, weight=2.0, params={"threshold": 0.2}
-    )
+    reaching_object = RewTerm(func=mdp.object_ee_distance, weight=2.0, params={"threshold": 0.2})
     align_ee_handle = RewTerm(func=mdp.align_ee_handle, weight=2.5)
 
     # (1) Constant running reward
@@ -337,8 +314,6 @@ class CurriculumCfg:
     """Configuration for the curriculum."""
 
     pass
-
-
 
 
 @configclass
@@ -377,12 +352,8 @@ class RoboticIkRlEnvCfg(ManagerBasedRLEnvCfg):
             asset_name="robot",
             joint_names=["panda_joint.*"],
             body_name="panda_hand",
-            controller=DifferentialIKControllerCfg(
-                command_type="pose", use_relative_mode=False, ik_method="dls"
-            ),
-            body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(
-                pos=[0.0, 0.0, 0.107]
-            ),
+            controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=False, ik_method="dls"),
+            body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.107]),
         )
 
         # Set the body name for the end effector
@@ -408,25 +379,24 @@ class RoboticIkRlEnvCfg(ManagerBasedRLEnvCfg):
             ],
         )
 
+
 @configclass
 class FrankaModRGBDIkRlEnvCfg(RoboticIkRlEnvCfg):
     def __post_init__(self):
         super().__post_init__()
         # use the modified franka robot
-        self.scene.robot = FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG.replace(
-            prim_path="{ENV_REGEX_NS}/Robot"
-        )
+        self.scene.robot = FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
         # Set actions for the specific robot type (franka)
         self.actions.arm_action = DifferentialInverseKinematicsActionCfg(
             asset_name="robot",
             joint_names=["panda_joint.*"],
             body_name="TCP",
-            controller=DifferentialIKControllerCfg(
-                command_type="pose", use_relative_mode=False, ik_method="dls"
-            ),
+            controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=False, ik_method="dls"),
             scale=1.0,
-            body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[-0.0, 0.0, 0.0], rot=euler_angles_to_quats(torch.tensor([-0, -0.0, 0.0]), degrees=True)),
+            body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(
+                pos=[-0.0, 0.0, 0.0], rot=euler_angles_to_quats(torch.tensor([-0, -0.0, 0.0]), degrees=True)
+            ),
         )
 
         # marker for ee
@@ -444,8 +414,9 @@ class FrankaModRGBDIkRlEnvCfg(RoboticIkRlEnvCfg):
                     name="end_effector",
                     # Uncomment and configure the offset if needed:
                     offset=OffsetCfg(
-                        pos=[-0.0, 0.0, 0.0], rot=euler_angles_to_quats(torch.tensor([-0, -0.0, 0.0]), degrees=True),  
-                )
+                        pos=[-0.0, 0.0, 0.0],
+                        rot=euler_angles_to_quats(torch.tensor([-0, -0.0, 0.0]), degrees=True),
+                    ),
                 )
             ],
         )

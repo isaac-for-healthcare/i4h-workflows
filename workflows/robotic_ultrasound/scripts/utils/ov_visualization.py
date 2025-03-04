@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import dearpygui.dearpygui as dpg
 import numpy as np
-import rti.connextdds as dds
+import rti.connextdds as dds  # noqa: F401
 from PIL import Image
 from rti_dds.schemas.camera_ctrl import CameraCtrlInput
 from rti_dds.schemas.camera_info import CameraInfo

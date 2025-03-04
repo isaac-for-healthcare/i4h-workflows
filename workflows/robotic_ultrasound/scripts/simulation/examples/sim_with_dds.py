@@ -1,12 +1,18 @@
-import os
-import time
 import argparse
 import collections
-import gymnasium as gym
-import torch
-import numpy as np
+import os
 
+import gymnasium as gym
+import numpy as np
+import torch
 from omni.isaac.lab.app import AppLauncher
+from rti_dds.publisher import Publisher
+from rti_dds.schemas.camera_info import CameraInfo
+from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
+from rti_dds.schemas.franka_info import FrankaInfo
+from rti_dds.subscriber import SubscriberWithQueue
+from simulation.policies.state_machine.act_policy.act_utils import get_np_images
+from simulation.policies.state_machine.utils import compute_relative_action, get_joint_states, get_robot_obs
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script evaluate the pi0 model in a single-arm manipulator.")
@@ -52,25 +58,13 @@ app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 reset_flag = False
 
-from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
+from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: E402
 # Import extensions to set up environment tasks
-from robotic_us_ext import tasks  # noqa: F401
-from simulation.policies.state_machine.act_policy.act_utils import get_np_images
-from simulation.policies.state_machine.meta_state_machine.ultrasound_state_machine import (
+from robotic_us_ext import tasks  # noqa: F401, E402
+from simulation.policies.state_machine.meta_state_machine.ultrasound_state_machine import (  # noqa: E402
     RobotPositions,
-    RobotQuaternions
+    RobotQuaternions,
 )
-from simulation.policies.state_machine.utils import (
-    get_robot_obs,
-    compute_relative_action,
-    get_joint_states,
-)
-from rti_dds.publisher import Publisher
-from rti_dds.subscriber import SubscriberWithQueue
-from rti_dds.schemas.camera_info import CameraInfo
-from rti_dds.schemas.franka_info import FrankaInfo
-from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
-
 
 pub_data = {
     "room_cam": None,
@@ -82,6 +76,7 @@ pub_data = {
 class RoomCamPublisher(Publisher):
     def __init__(self):
         super().__init__(args_cli.topic_in_room_camera, CameraInfo, 1 / 30, args_cli.domain_id)
+
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
         output.focal_len = 12.0
@@ -94,6 +89,7 @@ class RoomCamPublisher(Publisher):
 class WristCamPublisher(Publisher):
     def __init__(self):
         super().__init__(args_cli.topic_in_wrist_camera, CameraInfo, 1 / 30, args_cli.domain_id)
+
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
         output.height = 224
@@ -105,13 +101,14 @@ class WristCamPublisher(Publisher):
 class PosPublisher(Publisher):
     def __init__(self):
         super().__init__(args_cli.topic_in_franka_pos, FrankaInfo, 1 / 30, args_cli.domain_id)
+
     def produce(self, dt: float, sim_time: float):
         output = FrankaInfo()
         output.joints_state_positions = pub_data["joint_pos"].tolist()
         return output
 
 
-def get_reset_action(env, use_rel: bool=True):
+def get_reset_action(env, use_rel: bool = True):
     """Get the reset action."""
     reset_pos = torch.tensor(RobotPositions.SETUP, device="cuda:0")
     reset_quat = torch.tensor(RobotQuaternions.DOWN, device="cuda:0")
@@ -134,10 +131,10 @@ def main():
 
     # modify configuration
     env_cfg.terminations.time_out = None
-    
+
     # create environment
     env = gym.make(args_cli.task, cfg=env_cfg)
-    
+
     print(f"[INFO]: Gym observation space: {env.observation_space}")
     print(f"[INFO]: Gym action space: {env.action_space}")
 
@@ -185,7 +182,7 @@ def main():
                         ret = reader.read_data()
                     o: FrankaCtrlInput = ret
                     action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(50, 6)
-                    action_plan.extend(action_chunk[: replan_steps])
+                    action_plan.extend(action_chunk[:replan_steps])
 
                 action = action_plan.popleft()
 
@@ -205,8 +202,9 @@ def main():
     # close the simulator
     env.close()
 
+
 if __name__ == "__main__":
     # run the main function
     main()
     # close sim app
-    simulation_app.close() 
+    simulation_app.close()

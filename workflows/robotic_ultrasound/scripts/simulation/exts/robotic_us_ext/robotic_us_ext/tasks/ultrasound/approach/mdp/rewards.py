@@ -5,15 +5,13 @@
 
 from __future__ import annotations
 
-import torch
 from typing import TYPE_CHECKING
 
-from omni.isaac.lab.managers import SceneEntityCfg
-from omni.isaac.lab.utils.math import matrix_from_quat
-
+import torch
 from omni.isaac.lab.assets import RigidObject
+from omni.isaac.lab.managers import SceneEntityCfg
 from omni.isaac.lab.sensors import FrameTransformer
-
+from omni.isaac.lab.utils.math import matrix_from_quat
 
 if TYPE_CHECKING:
     from omni.isaac.lab.envs import ManagerBasedRLEnv
@@ -31,10 +29,8 @@ def object_ee_distance(
     ee_frame: FrameTransformer = env.scene[ee_frame_cfg.name]
     # Target object position: (num_envs, 3)
     target_pos_w = object.data.root_pos_w
-    # apply an offsett to the object position.
-    target_pos_w = target_pos_w + torch.tensor(
-        [0.0, -0.25, 1.0], device=target_pos_w.device
-    )
+    # apply an offset to the object position.
+    target_pos_w = target_pos_w + torch.tensor([0.0, -0.25, 1.0], device=target_pos_w.device)
     # End-effector position: (num_envs, 3)
     ee_w = ee_frame.data.target_pos_w[..., 0, :]
     # Distance of the end-effector to the object: (num_envs,)
@@ -85,16 +81,8 @@ def align_ee_handle(env: ManagerBasedRLEnv) -> torch.Tensor:
     # make sure gripper aligns with the goal frame. they should have the same orientation
     # in this case, the z direction of the gripper should be close to the z direction of the goal frame
     # and the x direction of the gripper should be close to the x direction of the goal frame
-    align_z = (
-        torch.bmm(ee_frame_z.unsqueeze(1), goal_frame_z.unsqueeze(-1))
-        .squeeze(-1)
-        .squeeze(-1)
-    )
-    align_x = (
-        torch.bmm(ee_frame_x.unsqueeze(1), goal_frame_x.unsqueeze(-1))
-        .squeeze(-1)
-        .squeeze(-1)
-    )
+    align_z = torch.bmm(ee_frame_z.unsqueeze(1), goal_frame_z.unsqueeze(-1)).squeeze(-1).squeeze(-1)
+    align_x = torch.bmm(ee_frame_x.unsqueeze(1), goal_frame_x.unsqueeze(-1)).squeeze(-1).squeeze(-1)
     return 0.5 * (torch.sign(align_z) * align_z**2 + torch.sign(align_x) * align_x**2)
 
 
@@ -141,8 +129,9 @@ def align_ee_patien(
 
         reward = 0.5 * (align_z^2 + align_x^2)
 
-    where :math:`align_z` is the dot product of the z direction of the probe (flange) and the -x direction of the scan pose
-    and :math:`align_x` is the dot product of the x direction of the probe and the -y direction of the scan pose.
+    where :math:`align_z` is the dot product of the z direction of the probe (flange) and the -x direction
+    of the scan pose and :math:`align_x` is the dot product of the x direction of the probe and the -y
+    direction of the scan pose.
     """
     ee_tcp_quat = env.scene["ee_frame"].data.target_quat_w[..., 0, :]
     ee_tcp_rot_mat = matrix_from_quat(ee_tcp_quat)
@@ -156,7 +145,7 @@ def align_ee_patien(
     gt_pose_mat = torch.mm(organ_rot_mat, gt_pose_mat_wrt_organ)
 
     # get current x and y direction of the handle
-    gt_x, gt_y, gt_z = gt_pose_mat[..., 0], gt_pose_mat[..., 1], gt_pose_mat[..., 2]
+    gt_x, gt_y, _ = gt_pose_mat[..., 0], gt_pose_mat[..., 1], gt_pose_mat[..., 2]
     # get current x and y direction of the gripper
     ee_tcp_x, ee_tcp_y, ee_tcp_z = (
         ee_tcp_rot_mat[..., 0],
@@ -164,15 +153,9 @@ def align_ee_patien(
         ee_tcp_rot_mat[..., 2],
     )
 
-    align_x = (
-        torch.bmm(ee_tcp_x.unsqueeze(1), -gt_y.unsqueeze(-1)).squeeze(-1).squeeze(-1)
-    )
-    align_y = (
-        torch.bmm(ee_tcp_y.unsqueeze(1), -gt_x.unsqueeze(-1)).squeeze(-1).squeeze(-1)
-    )
-    align_z = (
-        torch.bmm(ee_tcp_z.unsqueeze(1), -gt_x.unsqueeze(-1)).squeeze(-1).squeeze(-1)
-    )
+    align_x = torch.bmm(ee_tcp_x.unsqueeze(1), -gt_y.unsqueeze(-1)).squeeze(-1).squeeze(-1)
+    align_y = torch.bmm(ee_tcp_y.unsqueeze(1), -gt_x.unsqueeze(-1)).squeeze(-1).squeeze(-1)
+    align_z = torch.bmm(ee_tcp_z.unsqueeze(1), -gt_x.unsqueeze(-1)).squeeze(-1).squeeze(-1)
 
     return 1 / 3 * (torch.sign(align_x) * align_x**2) + (
         torch.sign(align_y) * align_y**2 + (torch.sign(align_z) * align_z**2)

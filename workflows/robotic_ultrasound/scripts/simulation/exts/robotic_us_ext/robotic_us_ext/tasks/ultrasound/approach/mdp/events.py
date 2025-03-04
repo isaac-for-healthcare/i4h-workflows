@@ -3,8 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""functions to reset the robot joints
-"""
+"""functions to reset the robot joints"""
 
 from __future__ import annotations
 
@@ -12,7 +11,6 @@ import torch
 from omni.isaac.lab.assets import Articulation
 from omni.isaac.lab.envs import ManagerBasedEnv
 from omni.isaac.lab.managers import SceneEntityCfg
-
 
 
 def reset_panda_joints_by_fraction_of_limits(
@@ -38,9 +36,9 @@ def reset_panda_joints_by_fraction_of_limits(
 
     # Safety checks
     num_dofs = joint_pos.shape[1]
-    assert joint_sample_ranges.shape[1] == num_dofs, (
-        f"joint_sample_ranges must have {num_dofs} elements, got {len(joint_sample_ranges)}"
-    )
+    assert (
+        joint_sample_ranges.shape[1] == num_dofs
+    ), f"joint_sample_ranges must have {num_dofs} elements, got {len(joint_sample_ranges)}"
 
     # Generate random joint positions within the limits
     joint_pos_delta = torch.zeros_like(joint_pos, device=joint_pos.device)

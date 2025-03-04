@@ -1,7 +1,4 @@
-import os
 import torch
-
-from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
 from openpi.models import pi0
 from openpi.policies import policy_config
 from openpi.training.config import DataConfig, TrainConfig
@@ -14,6 +11,7 @@ class PI0PolicyRunner:
     Policy runner for PI0 policy, based on the openpi library.
 
     """
+
     def __init__(
         self,
         ckpt_path,
@@ -36,12 +34,8 @@ class PI0PolicyRunner:
         self.task_description = task_description
 
     def infer(self, room_img, wrist_img, current_state) -> torch.Tensor:
-        room_img = image_tools.convert_to_uint8(
-            image_tools.resize_with_pad(room_img, 224, 224)
-        )
-        wrist_img = image_tools.convert_to_uint8(
-            image_tools.resize_with_pad(wrist_img, 224, 224)
-        )
+        room_img = image_tools.convert_to_uint8(image_tools.resize_with_pad(room_img, 224, 224))
+        wrist_img = image_tools.convert_to_uint8(image_tools.resize_with_pad(wrist_img, 224, 224))
 
         element = {
             "observation/image": room_img,

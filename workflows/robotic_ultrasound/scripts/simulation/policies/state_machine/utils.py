@@ -1,36 +1,43 @@
-import torch
-from pynput import keyboard
-from omni.isaac.lab.utils.math import compute_pose_error, axis_angle_from_quat
-import onnxruntime as ort
 from dataclasses import dataclass
 from enum import Enum
+
+import onnxruntime as ort
+import torch
+from omni.isaac.lab.utils.math import compute_pose_error
+from pynput import keyboard
 
 
 # MARK: - State Machine Enums + Dataclasses
 class UltrasoundState(Enum):
     """States for the ultrasound procedure."""
+
     SETUP = "setup"
     APPROACH = "approach"
     CONTACT = "contact"
     SCANNING = "scanning"
     DONE = "done"
 
+
 @dataclass(frozen=True)
 class RobotPositions:
     """Robot position configurations stored as torch tensors."""
-    SETUP: tuple[float, float, float] = (0.3229, -0.0110,  0.3000)
+
+    SETUP: tuple[float, float, float] = (0.3229, -0.0110, 0.3000)
     ORGAN_OFFSET: tuple[float, float, float] = (0.0040, -0.0519 + 0.08, 0.1510)
-    TARGET_OFFSET: tuple[float, float, float] = (0.0040, -0.08,  0.00)
+    TARGET_OFFSET: tuple[float, float, float] = (0.0040, -0.08, 0.00)
 
 
 @dataclass(frozen=True)
 class RobotQuaternions:
     """Robot quaternion configurations stored as torch tensors."""
+
     DOWN: tuple[float, float, float, float] = (0.0, 1.0, 0.0, 0.0)
+
 
 @dataclass
 class SMState:
     """State machine state container."""
+
     state: UltrasoundState = UltrasoundState.SETUP
     robot_obs: torch.Tensor = None
     contact_normal_force: torch.Tensor = None
@@ -48,18 +55,15 @@ def compute_relative_action(action: torch.Tensor, robot_obs: torch.Tensor, retur
     pos_sm = action[:, :3]
     rot_sm = action[:, 3:]
     delta_pos, delta_angle = compute_pose_error(
-        robot_obs[0, :, :3],
-        robot_obs[0, :, 3:],
-        pos_sm,
-        rot_sm,
-        rot_error_type='axis_angle'
+        robot_obs[0, :, :3], robot_obs[0, :, 3:], pos_sm, rot_sm, rot_error_type="axis_angle"
     )
     rel_action = torch.cat([delta_pos, delta_angle], dim=-1)
     if return_np:
         return rel_action.cpu().numpy()
     else:
         return rel_action
-    
+
+
 def get_robot_obs(env):
     """Get the robot observation from the environment."""
     robot_data = env.unwrapped.scene["ee_frame"].data
@@ -68,15 +72,17 @@ def get_robot_obs(env):
     robot_obs = torch.cat([robot_pos, robot_quat], dim=-1)
     return robot_obs
 
+
 def get_joint_states(env):
     """Get the robot joint states from the environment."""
     robot_data = env.unwrapped.scene["robot"].data
     robot_joint_pos = robot_data.joint_pos
     return robot_joint_pos.cpu().numpy()
 
+
 def load_onnx_model(model_path):
     """Load the ACT ONNX model."""
-    providers = ['CUDAExecutionProvider'] if ort.get_device() == 'GPU' else ['CPUExecutionProvider']
+    providers = ["CUDAExecutionProvider"] if ort.get_device() == "GPU" else ["CPUExecutionProvider"]
     print(f"Using providers: {providers}")
     # Create an InferenceSession with GPU support
     session = ort.InferenceSession(model_path, providers=providers)
@@ -92,7 +98,7 @@ class KeyboardHandler:
     def on_press(self, key):
         """Callback function to handle key press events."""
         try:
-            if key.char == 'r':
+            if key.char == "r":
                 self.reset_flag = True
         except AttributeError:
             pass

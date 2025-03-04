@@ -1,11 +1,13 @@
-import os
 import argparse
 import collections
-import gymnasium as gym
-import torch
-import numpy as np
 
+import gymnasium as gym
+import numpy as np
+import torch
 from omni.isaac.lab.app import AppLauncher
+from policy_runner import PI0PolicyRunner
+from simulation.policies.state_machine.act_policy.act_utils import get_np_images
+from simulation.policies.state_machine.utils import compute_relative_action, get_joint_states, get_robot_obs
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script evaluate the pi0 model in a single-arm manipulator.")
@@ -27,24 +29,16 @@ app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 reset_flag = False
 
-from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
+from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: E402
 # Import extensions to set up environment tasks
-from robotic_us_ext import tasks  # noqa: F401
-from simulation.policies.state_machine.act_policy.act_utils import get_np_images
-from simulation.policies.state_machine.meta_state_machine.ultrasound_state_machine import (
+from robotic_us_ext import tasks  # noqa: F401, E402
+from simulation.policies.state_machine.meta_state_machine.ultrasound_state_machine import (  # noqa: E402
     RobotPositions,
-    RobotQuaternions
+    RobotQuaternions,
 )
-from simulation.policies.state_machine.utils import (
-    get_robot_obs,
-    compute_relative_action,
-    get_joint_states,
-    KeyboardHandler
-)
-from policy_runner import PI0PolicyRunner
 
-    
-def get_reset_action(env, use_rel: bool=True):
+
+def get_reset_action(env, use_rel: bool = True):
     """Get the reset action."""
     reset_pos = torch.tensor(RobotPositions.SETUP, device="cuda:0")
     reset_quat = torch.tensor(RobotQuaternions.DOWN, device="cuda:0")
@@ -67,10 +61,10 @@ def main():
 
     # modify configuration
     env_cfg.terminations.time_out = None
-    
+
     # create environment
     env = gym.make(args_cli.task, cfg=env_cfg)
-    
+
     print(f"[INFO]: Gym observation space: {env.observation_space}")
     print(f"[INFO]: Gym action space: {env.action_space}")
 
@@ -104,11 +98,9 @@ def main():
                     # get images
                     room_img, wrist_img = get_np_images(env)
                     action_chunk = policy_runner.infer(
-                        room_img=room_img,
-                        wrist_img=wrist_img,
-                        current_state=get_joint_states(env)[0]
+                        room_img=room_img, wrist_img=wrist_img, current_state=get_joint_states(env)[0]
                     )
-                    action_plan.extend(action_chunk[: replan_steps])
+                    action_plan.extend(action_chunk[:replan_steps])
 
                 action = action_plan.popleft()
 
@@ -128,8 +120,9 @@ def main():
     # close the simulator
     env.close()
 
+
 if __name__ == "__main__":
     # run the main function
     main()
     # close sim app
-    simulation_app.close() 
+    simulation_app.close()

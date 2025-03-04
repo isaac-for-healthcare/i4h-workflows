@@ -1,21 +1,21 @@
 import argparse
 import os
+
 import numpy as np
 from PIL import Image
-
+from policy_runner.runners import PI0PolicyRunner
+from rti_dds.publisher import Publisher
 from rti_dds.schemas.camera_info import CameraInfo
 from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
 from rti_dds.schemas.franka_info import FrankaInfo
-
-from rti_dds.publisher import Publisher
 from rti_dds.subscriber import SubscriberWithCallback
-from policy_runner.runners import PI0PolicyRunner
 
 current_state = {
     "room_cam": None,
     "wrist_cam": None,
     "joint_pos": None,
 }
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -74,11 +74,17 @@ def main():
                 current_state=np.array(joint_pos[:7]),
             )
             i = FrankaCtrlInput()
-            # actions are relative positions, if run with absolate positions, need to add the current joint positions
+            # actions are relative positions, if run with absolute positions, need to add the current joint positions
             # actions shape is (50, 6), must reshape to (300,)
-            i.joint_positions = np.array(actions).astype(np.float32).reshape(300,).tolist()
+            i.joint_positions = (
+                np.array(actions)
+                .astype(np.float32)
+                .reshape(
+                    300,
+                )
+                .tolist()
+            )
             return i
-
 
     writer = PolicyPublisher(args.topic_out, args.domain_id)
 
@@ -95,7 +101,11 @@ def main():
         if topic == args.topic_in_franka_pos:
             o: FrankaInfo = data
             current_state["joint_pos"] = o.joints_state_positions
-        if current_state["room_cam"] is not None and current_state["wrist_cam"] is not None and current_state["joint_pos"] is not None:
+        if (
+            current_state["room_cam"] is not None
+            and current_state["wrist_cam"] is not None
+            and current_state["joint_pos"] is not None
+        ):
             writer.write(0.1, 1.0)
             print(f"[INFO]: Published joint position to {args.topic_out}")
             # clean the buffer

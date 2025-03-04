@@ -65,7 +65,7 @@ These tasks are detected by the `gym.register` function in the [exts/robotic_us_
 
 These registered tasks are then further defined in the [environment configuration file](exts/robotic_us_ext/robotic_us_ext/tasks/ultrasound/approach/config/franka/franka_manager_rl_env_cfg.py).
 
-Available tasks: 
+Available tasks:
 - `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0`: FrankaUsRs with relative actions
 - `Isaac-Reach-Torso-FrankaUsRs-IK-RL-Abs-v0` : FrankaUsRs with absolute actions
 
@@ -93,6 +93,7 @@ export PYTHONPATH=`pwd`
 ```sh
 python policies/state_machine/pi0_policy/eval.py \
     --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
+    --enable_camera \
     --ckpt_path <path to ckpt>/pi0_aortic_scan_v0.3/19000 \
     --repo_id hf/chiron_aortic
 ```

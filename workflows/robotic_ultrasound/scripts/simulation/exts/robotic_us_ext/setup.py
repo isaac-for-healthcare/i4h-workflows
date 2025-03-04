@@ -1,16 +1,14 @@
 """Installation script for the 'robotic_ultrasound' python package."""
 
 import os
-import toml
 
+import toml
 from setuptools import setup
 
 # Obtain the extension data from the extension.toml file
 EXTENSION_PATH = os.path.dirname(os.path.realpath(__file__))
 # Read the extension.toml file
-EXTENSION_TOML_DATA = toml.load(
-    os.path.join(EXTENSION_PATH, "config", "extension.toml")
-)
+EXTENSION_TOML_DATA = toml.load(os.path.join(EXTENSION_PATH, "config", "extension.toml"))
 
 # Minimum dependencies required prior to installation
 INSTALL_REQUIRES = [
@@ -35,9 +33,7 @@ setup(
     description=EXTENSION_TOML_DATA["package"]["description"],
     keywords=EXTENSION_TOML_DATA["package"]["keywords"],
     install_requires=INSTALL_REQUIRES,
-    dependency_links=[
-        "https://data.dgl.ai/wheels/torch-2.4/cu121/repo.html"
-    ],
+    dependency_links=["https://data.dgl.ai/wheels/torch-2.4/cu121/repo.html"],
     license="MIT",
     include_package_data=True,
     python_requires=">=3.10",

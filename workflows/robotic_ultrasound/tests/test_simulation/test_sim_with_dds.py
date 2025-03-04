@@ -1,14 +1,15 @@
 import os
 import time
 import unittest
-import numpy as np
 from unittest import skipUnless
-from rti_dds.subscriber import SubscriberWithCallback
+
+import numpy as np
 from rti_dds.schemas.camera_info import CameraInfo
 from rti_dds.schemas.franka_info import FrankaInfo
+from rti_dds.subscriber import SubscriberWithCallback
 
 try:
-    import rti.connextdds as dds
+    import rti.connextdds as dds  # noqa: F401
 
     license_path = os.getenv("RTI_LICENSE_FILE")
     RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
@@ -19,6 +20,8 @@ except ImportError:
 Must immediately execute the `sim_with_dds.py` in another process after executing this test.
 
 """
+
+
 @skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
 class TestSimWithDDS(unittest.TestCase):
     def setUp(self):

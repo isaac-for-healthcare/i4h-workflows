@@ -6,8 +6,7 @@
 import gymnasium as gym
 
 from ..teleop import ik_rel_env_cfg
-from . import franka_manager_rl_env_cfg
-from . import agents
+from . import agents, franka_manager_rl_env_cfg
 
 ##
 # Register Gym environments.
@@ -35,7 +34,6 @@ gym.register(
 )
 
 
-
 ##
 # Inverse Kinematics - Relative Pose Control
 ##
@@ -50,4 +48,3 @@ gym.register(
     },
     disable_env_checker=True,
 )
-
