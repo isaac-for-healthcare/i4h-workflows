@@ -20,6 +20,7 @@ except ImportError:
 
 """
 Must execute the pi0 policy runner in another process before execute this test.
+Ensure the `height=480` and `with=640` in the pi0 policy runner.
 
 """
 
@@ -99,7 +100,6 @@ class TestRunPI0Policy(unittest.TestCase):
         """Test publisher initialization"""
         self.assertEqual(self.r_cam_writer.domain_id, self.domain_id)
         self.assertEqual(self.reader.domain_id, self.domain_id)
-        self.test_pass = False
 
     def test_write(self):
         """Test write method with actual DDS communication"""

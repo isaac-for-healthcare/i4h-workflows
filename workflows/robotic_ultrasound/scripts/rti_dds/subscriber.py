@@ -77,6 +77,7 @@ class Subscriber(ABC):
                 time.sleep(self.period if self.period > 0 else 1)
             except Exception as e:
                 print(f"Error in {self.dds_reader.topic_name}: {e}")
+                raise e
 
     def read_data(self) -> Any:
         """
