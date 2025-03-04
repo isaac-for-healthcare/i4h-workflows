@@ -2,7 +2,7 @@
     "projectBaseUrl":"${workspaceFolder}",
     "igmorePatterns": [
         {
-            "pattern": "https://github.com/isaac-for-healthcare/i4h-asset-catalog"
+            "pattern": "^https://github.com/isaac-for-healthcare/i4h-asset-catalog"
         }
     ],
     "timeout": "20s",
