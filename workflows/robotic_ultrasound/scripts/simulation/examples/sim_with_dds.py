@@ -1,6 +1,7 @@
 import os
 import time
 import argparse
+import collections
 import gymnasium as gym
 import torch
 import numpy as np
@@ -63,10 +64,9 @@ from simulation.policies.state_machine.utils import (
     get_robot_obs,
     compute_relative_action,
     get_joint_states,
-    KeyboardHandler
 )
 from rti_dds.publisher import Publisher
-from rti_dds.subscriber import SubscriberWithCallback
+from rti_dds.subscriber import SubscriberWithQueue
 from rti_dds.schemas.camera_info import CameraInfo
 from rti_dds.schemas.franka_info import FrankaInfo
 from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
@@ -151,10 +151,6 @@ def main():
     reset_steps = 20
     max_timesteps = 250
 
-    # Start the keyboard listener in a separate thread
-    keyboard_handler = KeyboardHandler()
-    keyboard_handler.start_keyboard_listener()
-
     # allow environment to settle
     for _ in range(reset_steps):
         reset_tensor = get_reset_action(env)
@@ -164,19 +160,9 @@ def main():
     w_cam_writer = WristCamPublisher()
     pos_writer = PosPublisher()
 
-    # FIXME: not fully tested yet
-    def cb(topic, data):
-        o: FrankaCtrlInput = data
-        action = np.frombuffer(o.joint_positions, dtype=np.float32)
-        # convert to torch
-        action = torch.tensor(action, device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
-        # step the environment
-        obs, rew, terminated, truncated, info_ = env.step(action)
-
-
-    reader = SubscriberWithCallback(cb, args_cli.domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / 30)
+    reader = SubscriberWithQueue(args_cli.domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / 30)
     reader.start()
-    time.sleep(1.0)
+
     # Number of steps played before replanning
     replan_steps = 5
 
@@ -184,21 +170,32 @@ def main():
     while simulation_app.is_running():
         global reset_flag
         with torch.inference_mode():
-            for t in range(max_timesteps):
-                # Reset the environment on 'r' key press
-                if keyboard_handler.reset_flag:
-                    keyboard_handler.reset_flag = False
-                    break
+            action_plan = collections.deque()
 
-                # get images
-                pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
-                pub_data["joint_pos"] = get_joint_states(env)[0]
-                r_cam_writer.write(0.1, 1.0)
-                time.sleep(0.1)
-                w_cam_writer.write(0.1, 1.0)
-                time.sleep(0.1)
-                pos_writer.write(0.1, 1.0)
-                time.sleep(5.0)
+            for t in range(max_timesteps):
+                if not action_plan:
+                    # get images
+                    pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
+                    pub_data["joint_pos"] = get_joint_states(env)[0]
+                    r_cam_writer.write(0.1, 1.0)
+                    w_cam_writer.write(0.1, 1.0)
+                    pos_writer.write(0.1, 1.0)
+                    ret = None
+                    while ret is None:
+                        ret = reader.read_data()
+                    o: FrankaCtrlInput = ret
+                    action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(50, 6)
+                    action_plan.extend(action_chunk[: replan_steps])
+
+                action = action_plan.popleft()
+
+                action = action.astype(np.float32)
+
+                # convert to torch
+                action = torch.tensor(action, device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
+
+                # step the environment
+                obs, rew, terminated, truncated, info_ = env.step(action)
 
             env.reset()
             for _ in range(reset_steps):

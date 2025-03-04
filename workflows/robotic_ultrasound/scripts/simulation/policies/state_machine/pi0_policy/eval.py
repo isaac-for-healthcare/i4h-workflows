@@ -80,10 +80,6 @@ def main():
     reset_steps = 20
     max_timesteps = 250
 
-    # Start the keyboard listener in a separate thread
-    keyboard_handler = KeyboardHandler()
-    keyboard_handler.start_keyboard_listener()
-
     # allow environment to settle
     for _ in range(reset_steps):
         reset_tensor = get_reset_action(env)
@@ -103,13 +99,7 @@ def main():
         with torch.inference_mode():
             action_plan = collections.deque()
 
-
             for t in range(max_timesteps):
-                # Reset the environment on 'r' key press
-                if keyboard_handler.reset_flag:
-                    keyboard_handler.reset_flag = False
-                    break
-
                 if not action_plan:
                     # get images
                     room_img, wrist_img = get_np_images(env)

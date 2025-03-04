@@ -66,7 +66,11 @@ class TestRunPI0Policy(unittest.TestCase):
 
         def cb(topic, data):
             self.assertEqual(topic, "topic_franka_ctrl")
-            self.assertIsNotNone(data)
+            self.assertIsInstance(data, FrankaCtrlInput)
+            o: FrankaCtrlInput = data
+            action_chunk = np.array(o.joint_positions, dtype=np.float32)
+            self.assertEqual(action_chunk.shape, (300,))
+            self.test_pass = True
 
         """Set up test fixtures before each test method"""
         self.domain_id = 101  # Use a unique domain ID for testing
@@ -74,6 +78,8 @@ class TestRunPI0Policy(unittest.TestCase):
         self.w_cam_writer = TestWristCamPublisher(self.domain_id)
         self.pos_writer = TestPosPublisher(self.domain_id)
         self.reader = SubscriberWithCallback(cb, self.domain_id, "topic_franka_ctrl", FrankaCtrlInput, 1 / 30)
+        self.test_pass = False
+        self.reader.start()
         time.sleep(1.0)
 
     def tearDown(self):
@@ -93,17 +99,19 @@ class TestRunPI0Policy(unittest.TestCase):
         """Test publisher initialization"""
         self.assertEqual(self.r_cam_writer.domain_id, self.domain_id)
         self.assertEqual(self.reader.domain_id, self.domain_id)
-        self.reader.start()
+        self.test_pass = False
 
     def test_write(self):
         """Test write method with actual DDS communication"""
         # Write data
         self.r_cam_writer.write(0.1, 1.0)
-        time.sleep(1.0)
         self.w_cam_writer.write(0.1, 1.0)
-        time.sleep(1.0)
         self.pos_writer.write(0.1, 1.0)
-        time.sleep(10)
+        for _ in range(10):
+            if self.test_pass:
+                break
+            time.sleep(1.0)
+        self.assertTrue(self.test_pass)
 
 
 if __name__ == "__main__":

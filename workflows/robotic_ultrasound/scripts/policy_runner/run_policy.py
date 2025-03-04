@@ -73,17 +73,11 @@ def main():
                 wrist_img=np.array(wrist_img),
                 current_state=np.array(joint_pos[:7]),
             )
-            actions = np.array(actions).astype(np.float32)
-
-            # First action only
-            for action in actions:
-                target_jp = [i for i in joint_pos]
-                for i in range(len(action)):
-                    target_jp[i] = target_jp[i] + action[i]
-
-                i = FrankaCtrlInput()
-                i.joint_positions = target_jp
-                return i
+            i = FrankaCtrlInput()
+            # actions are relative positions, if run with absolate positions, need to add the current joint positions
+            # actions shape is (50, 6), must reshape to (300,)
+            i.joint_positions = np.array(actions).astype(np.float32).reshape(300,).tolist()
+            return i
 
 
     writer = PolicyPublisher(args.topic_out, args.domain_id)
@@ -101,17 +95,15 @@ def main():
         if topic == args.topic_in_franka_pos:
             o: FrankaInfo = data
             current_state["joint_pos"] = o.joints_state_positions
-            if current_state["room_cam"] is not None and current_state["wrist_cam"] is not None and current_state["joint_pos"] is not None:
-                writer.write(0.1, 1.0)
-                print(f"[INFO]: Published joint position to {args.topic_out}")
+        if current_state["room_cam"] is not None and current_state["wrist_cam"] is not None and current_state["joint_pos"] is not None:
+            writer.write(0.1, 1.0)
+            print(f"[INFO]: Published joint position to {args.topic_out}")
+            # clean the buffer
+            current_state["room_cam"] = current_state["wrist_cam"] = current_state["joint_pos"] = None
 
-    r_cam_reader = SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_room_camera, CameraInfo, hz)
-    w_cam_reader = SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_wrist_camera, CameraInfo, hz)
-    f_pos_reader = SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_franka_pos, FrankaInfo, hz)
-
-    r_cam_reader.start()
-    w_cam_reader.start()
-    f_pos_reader.start()
+    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_room_camera, CameraInfo, hz).start()
+    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_wrist_camera, CameraInfo, hz).start()
+    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_franka_pos, FrankaInfo, hz).start()
 
 
 if __name__ == "__main__":
