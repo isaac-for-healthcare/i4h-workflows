@@ -18,8 +18,6 @@ INSTALL_REQUIRES = [
     "dgl",
     "onnxruntime-gpu==1.19.0",
     "pynput",
-    "torch==2.6.0",
-    "torchvision==0.21.0",
 ]
 
 # Installation operation

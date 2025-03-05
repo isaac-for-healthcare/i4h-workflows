@@ -17,26 +17,22 @@
 conda create -n robotic_ultrasound python=3.10 -y
 # Activate the environment
 conda activate robotic_ultrasound
-# Install PyTorch on CUDA 12
-pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
 # Upgrade pip
 pip install --upgrade pip
 # Install IsaacSim
 pip install isaacsim==4.2.0.2 isaacsim-extscache-physics==4.2.0.2 isaacsim-extscache-kit==4.2.0.2 isaacsim-extscache-kit-sdk==4.2.0.2 --extra-index-url https://pypi.nvidia.com
-# Verify installation
-isaacsim
 # Install Isaac Lab outside of the repo
-cd ..
+cd <some workspace>
 git clone git@github.com:isaac-sim/IsaacLab.git
 cd IsaacLab
 # Checkout v1.4.1
 git checkout v1.4.1
+cd IsaacLab
 # Patch (temporary workaround for Isaacsim 4.2 + IsaacLab 1.4.1)
 sed -i 's/rsl-rl/rsl-rl-lib/g' source/extensions/omni.isaac.lab_tasks/setup.py
 # Install dependencies
 sudo apt install cmake build-essential
 # Install Isaac Lab
-cd IsaacLab
 ./isaaclab.sh --install
 # Test installation
 python source/standalone/tutorials/00_sim/create_empty.py

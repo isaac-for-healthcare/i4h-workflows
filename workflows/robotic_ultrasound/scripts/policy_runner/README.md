@@ -7,12 +7,8 @@
 
 3. To install `openpi` in python 3.10 without `uv` environment, and support `IsaacSim 4.2`, we need below minor steps:
 - `git clone git@github.com:Physical-Intelligence/openpi.git`
-- Extract all the dependencies (except `openpi-client`) from `pyproject.toml` and create a `requirements.txt` file.
-- Change the python requirement in `pyproject.toml` to `>=3.10`.
-- Add `LeRobot` dependency to the requirements.txt:
-`git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56`
 - Changes for `openpi/src/openpi/shared/download.py` (just temp workaround, will not need it after upgrading to IsaacSim 4.5):
-  ```
+  ```py
   -import boto3.s3.transfer as s3_transfer
   +# import boto3.s3.transfer as s3_transfer
 
@@ -27,22 +23,30 @@
   -date = datetime.datetime(year, month, day, tzinfo=datetime.UTC)
   +date = datetime.datetime(year, month, day, tzinfo=datetime.timezone.utc)
   ```
-
-- ```sh
-  pip install -r requirements.txt
+- Change the python requirement in `pyproject.toml` to `>=3.10`.
+- Install `lerobot`, `openpi-client` and `openpi`:
+  ```sh
+  conda activate robotic_ultrasound
+  pip install toml
+  pip install -e git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56#egg=lerobot
   pip install -e packages/openpi-client/
   pip install -e .
   ```
-4. Now that move to the [scripts](../) folder and specify python path:
+
+4 Install `RTI` for communication, refer to [DDS Setup](../README.md).
+
+5. Now that move to the [scripts](../) folder and specify python path:
 ```sh
 export PYTHONPATH=`pwd`
 ```
 
 5. Return to this folder and run the following command:
 ```sh
-python run_policy.py  \
-    --rti_license_file <path to>rti_license.dat \
+python policy_runner/run_policy.py  \
+    --rti_license_file <path to>/rti_license.dat \
     --ckpt_path <path to>/pi0_aortic_scan_v0.3/19000 \
     --repo_id hf/chiron_aortic \
-    --domain_id <domain id>
+    --domain_id <domain id> \
+    --height <input image height> \
+    --width <input image width>
 ```

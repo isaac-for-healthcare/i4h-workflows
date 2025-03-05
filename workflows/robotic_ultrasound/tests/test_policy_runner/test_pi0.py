@@ -21,7 +21,7 @@ except ImportError:
 
 """
 Must execute the pi0 policy runner in another process before execute this test.
-Ensure the `height=480` and `with=640` in the pi0 policy runner.
+Ensure to set the `height=480` and `width=640` in the`run_policy.py`.
 
 """
 
