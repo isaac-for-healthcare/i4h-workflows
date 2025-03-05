@@ -17,7 +17,7 @@ def extract_dependencies(toml_file, output_file):
     with open(output_file, "w") as file:
         for dep in filtered_dependencies:
             # Remove any extra characters like quotes
-            dep = dep.strip(""").strip(""")
+            dep = dep.strip('"').strip("'")
             file.write(f"{dep}\n")
 
 
