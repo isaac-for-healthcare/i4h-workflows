@@ -82,8 +82,14 @@ For detailed steps, refer to the [official documentation on importing URDF](http
    - Set the local poses to align properly
 
 ### Step 6: Test the Robot
-1. Enter simulation mode to verify the probe moves with the arm
-2. Test different arm poses to ensure the connection is robust
+1. Enter simulation mode to verify the probe moves with the arm:
+   - Click the "Play" button in the top toolbar of Isaac Sim
+   - Alternatively, press Ctrl+P (or Cmd+P on Mac) to start the simulation
+   - The simulation status will change from "Stopped" to "Playing"
+2. Test different arm poses to ensure the connection is robust:
+   - Use the articulation controller or joint control panel to move the robot
+   - Verify that the probe moves naturally with the arm without detaching
+   - Check for any unexpected behavior or collisions
 
 
 ## 5. Additional Resources
