@@ -28,6 +28,11 @@
   +date = datetime.datetime(year, month, day, tzinfo=datetime.timezone.utc)
   ```
 
+To simplify the process, we have a script that does all the steps above:
+```sh
+bash ./install_scripts/install_openpi_for_isaac_4.2.sh
+```
+
 - ```sh
   pip install -r requirements.txt
   pip install -e packages/openpi-client/
