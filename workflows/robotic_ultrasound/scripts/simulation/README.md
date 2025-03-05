@@ -7,6 +7,7 @@
 - [Apps](#apps)
   - [PI Zero Policy Training](#pi-zero-policy-training)
   - [PI Zero Policy Evaluation](#pi-zero-policy-evaluation)
+  - [Examples](#examples)
 
 # Requirements
 
@@ -37,7 +38,7 @@ python source/standalone/tutorials/00_sim/create_empty.py
 
 # Installation
 
-2. Follow the [Installation](#installation) instructions below to install the extension.
+Follow the [Installation](#installation) instructions below to install the extension.
 
 From the root directory, run:
 
@@ -89,4 +90,25 @@ python policies/state_machine/pi0_policy/eval.py \
     --enable_camera \
     --ckpt_path <path to ckpt>/pi0_aortic_scan_v0.3/19000 \
     --repo_id hf/chiron_aortic
+```
+
+# Examples
+
+## Simulation for robotic ultrasound based on DDS communication
+This example should work together with the `pi0 policy runner` via DDS communication,
+so please ensure to launch the `run_policy.py` with `height=224`, `width=224`,
+and the same `domain id` as this example in another terminal.
+
+When `run_policy` is launched and idle waiting for the data,
+move to the [scripts](../) folder and specify python path:
+```sh
+export PYTHONPATH=`pwd`
+```
+Then back to this folder and execute:
+```sh
+python examples/sim_with_dds.py \
+    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
+    --enable_camera \
+    --domain_id <domain id> \
+    --rti_license_file <path to>/rti_license.dat
 ```
