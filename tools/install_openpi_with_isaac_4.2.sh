@@ -31,6 +31,6 @@ rm "$pyproject_path.bak"
 rm "$file_path.bak"
 
 # Install the dependencies
-pip install -e git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56#egg=lerobot
+pip install git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56
 pip install -e openpi/packages/openpi-client/
 pip install -e openpi/.
