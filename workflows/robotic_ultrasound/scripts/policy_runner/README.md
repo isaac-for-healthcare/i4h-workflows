@@ -1,16 +1,30 @@
 # Policy runner for both the simulation and physical world
 
 ## Run PI0 policy with DDS communication
-1. [FIXME: change to `asset-catalog`] Download the v0.3 model weights from [GDrive](https://drive.google.com/drive/folders/1sL4GAETSMbxxcefsTsOkX7wXkTsbDqhW?usp=sharing)
 
-2. Please check the [I4H asset catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog) for assets downloading, put the USD assets as "./assets".
+### Prepare Model Weights
 
-3. To install `openpi` in python 3.10 without `uv` environment, and support `IsaacSim 4.2`, a script is prepared in `install_scripts/install_openpi_for_isaac_4.2.sh`. You can run it by:
+[FIXME: change to `asset-catalog`] Download the v0.3 model weights from [GDrive](https://drive.google.com/drive/folders/1sL4GAETSMbxxcefsTsOkX7wXkTsbDqhW?usp=sharing)
+
+### Prepare USD Assets
+
+Please check the [I4H asset catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog) for assets downloading, put the USD assets as "./assets".
+
+### Install Dependencies
+
+Before installing dependencies, please activate the python virtual environment, referring to the [Setup Doc](../README.md).
+
+```sh
+conda activate robotic_ultrasound
+```
+
+To install `openpi` in python 3.10 without `uv` environment and support `IsaacSim 4.2`, several workarounds are required. To simplify the process, a script is prepared in `install_scripts/install_openpi_for_isaac_4.2.sh`. You can run it by:
+
 ```sh
 bash ./install_scripts/install_openpi_for_isaac_4.2.sh
 ```
 
-If you want to install `openpi` manually, you need below minor steps:
+If you want to install dependencies manually, please follow below steps:
 
 - `git clone git@github.com:Physical-Intelligence/openpi.git`
 - Changes for `openpi/src/openpi/shared/download.py` (just temp workaround, will not need it after upgrading to IsaacSim 4.5):
@@ -31,23 +45,21 @@ If you want to install `openpi` manually, you need below minor steps:
   ```
 - Change the python requirement in `pyproject.toml` to `>=3.10`.
 - Install `lerobot`, `openpi-client` and `openpi`:
-  First of all, create a python visual environment, referring to the [python setup](../README.md), then execute:
+
   ```sh
-  conda activate robotic_ultrasound
-  pip install toml
   pip install -e git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56#egg=lerobot
   pip install -e packages/openpi-client/
   pip install -e .
   ```
+- Setup Python Path:
 
-4 Install `RTI` for communication, refer to [DDS Setup](../README.md).
-
-5. Now that move to the [scripts](../) folder and specify python path:
+Move to the [scripts](../) folder and specify python path:
 ```sh
 export PYTHONPATH=`pwd`
 ```
 
-5. Return to this folder and run the following command:
+### Run Policy
+
 ```sh
 python run_policy.py  \
     --rti_license_file <path to>/rti_license.dat \

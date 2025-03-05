@@ -5,13 +5,9 @@ git clone git@github.com:Physical-Intelligence/openpi.git
 cd openpi
 git checkout 581e07d73af36d336cef1ec9d7172553b2332193
 cd ..
-# Install toml to process pyproject.toml
-pip install toml
 
 # Extract dependencies from pyproject.toml and create requirements.txt and add LeRobot dependency
 pyproject_path="openpi/pyproject.toml"
-requirements_path="openpi/requirements.txt"
-python install_scripts/produce_openpi_requirements.py "$pyproject_path" "$requirements_path" --add-lerobot
 
 # Update pyproject.toml to use python >= 3.10
 sed -i.bak -e 's/requires-python = ">=3.11"/requires-python = ">=3.10"/' "$pyproject_path"
@@ -37,6 +33,6 @@ rm "$pyproject_path.bak"
 rm "$file_path.bak"
 
 # Install the dependencies
-pip install -r "$requirements_path"
+pip install -e git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56#egg=lerobot
 pip install -e openpi/packages/openpi-client/
 pip install -e openpi/.

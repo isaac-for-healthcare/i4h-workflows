@@ -13,7 +13,7 @@
 
 Follow [instructions](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html) to install IsaacLab. TLDR;
 
-First of all, create a python visual environment, referring to the [python setup](../README.md), then execute:
+First of all, create a python virtual environment, referring to the [Setup Doc](../README.md), then execute:
 ```sh
 # Upgrade pip
 pip install --upgrade pip
