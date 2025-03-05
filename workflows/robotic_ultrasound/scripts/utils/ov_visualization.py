@@ -309,6 +309,7 @@ class VisualizationApp:
                 self.connect_to_dds_subscriber(config.target.topic_info, TargetInfo, self.on_receive_target_annotations)
 
         # UltraSound
+        # FIXME: uncomment when the ultrasound simulation is ready
         if config.ultrasound and config.ultrasound.enabled:
             pass
             # if config.ultrasound.topic_info:
@@ -367,7 +368,7 @@ class VisualizationApp:
 
     def on_streaming_wrist_camera(self) -> None:
         """Handle wrist camera streaming control."""
-        
+
         if self.sub_wrist_camera_rgb is not None:
             self.sub_wrist_camera_rgb.stop()
         if self.sub_wrist_camera_depth is not None:

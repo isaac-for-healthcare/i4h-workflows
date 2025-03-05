@@ -3,7 +3,7 @@ from typing import Tuple
 
 from pydantic import BaseModel
 
-domain_id = int(os.environ.get("OVH_DDS_DOMAIN_ID", 101))
+domain_id = int(os.environ.get("OVH_DDS_DOMAIN_ID", 0))
 physics_dt = float(os.environ.get("OVH_PHYSICS_DT", 1 / 30.0))
 period = float(os.environ.get("OVH_DEFAULT_HZ", 1 / 30.0))
 h = int(os.environ.get("OVH_HEIGHT", 224))
