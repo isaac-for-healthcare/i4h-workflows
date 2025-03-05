@@ -7,7 +7,8 @@
 
 3. To install `openpi` in python 3.10 without `uv` environment, and support `IsaacSim 4.2`, we need below minor steps:
 - `git clone git@github.com:Physical-Intelligence/openpi.git`
-- Extract all the dependencies from `pyproject.toml` and create a `requirements.txt` file.
+- Extract all the dependencies (except `openpi-client`) from `pyproject.toml` and create a `requirements.txt` file.
+- Change the python requirement in `pyproject.toml` to `>=3.10`.
 - Add `LeRobot` dependency to the requirements.txt:
 `git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56`
 - Changes for `openpi/src/openpi/shared/download.py` (just temp workaround, will not need it after upgrading to IsaacSim 4.5):
@@ -29,8 +30,7 @@
 
 - ```sh
   pip install -r requirements.txt
-  ```
-- ```sh
+  pip install -e packages/openpi-client/
   pip install -e .
   ```
 4. Now that move to the [scripts](../) folder and specify python path:
