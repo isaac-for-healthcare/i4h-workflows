@@ -25,7 +25,6 @@ git clone git@github.com:isaac-sim/IsaacLab.git
 cd IsaacLab
 # Checkout v1.4.1
 git checkout v1.4.1
-cd IsaacLab
 # Patch (temporary workaround for Isaacsim 4.2 + IsaacLab 1.4.1)
 sed -i 's/rsl-rl/rsl-rl-lib/g' source/extensions/omni.isaac.lab_tasks/setup.py
 # Install dependencies

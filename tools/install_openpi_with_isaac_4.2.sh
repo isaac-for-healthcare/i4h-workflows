@@ -8,7 +8,10 @@ cd ..
 
 # Update python version in pyproject.toml
 pyproject_path="openpi/pyproject.toml"
-sed -i.bak -e 's/requires-python = ">=3.11"/requires-python = ">=3.10"/' "$pyproject_path"
+sed -i.bak \
+    -e 's/requires-python = ">=3.11"/requires-python = ">=3.10"/' \
+    -e 's/"s3fs>=2024.9.0"/"s3fs==2024.9.0"/' \
+    "$pyproject_path"
 
 # Apply temporary workaround for openpi/src/openpi/shared/download.py
 file_path="openpi/src/openpi/shared/download.py"
