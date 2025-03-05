@@ -110,8 +110,8 @@ class PosPublisher(Publisher):
 
 def get_reset_action(env, use_rel: bool = True):
     """Get the reset action."""
-    reset_pos = torch.tensor(RobotPositions.SETUP, device="cuda:0")
-    reset_quat = torch.tensor(RobotQuaternions.DOWN, device="cuda:0")
+    reset_pos = torch.tensor(RobotPositions.SETUP, device=args_cli.device)
+    reset_quat = torch.tensor(RobotQuaternions.DOWN, device=args_cli.device)
     reset_tensor = torch.cat([reset_pos, reset_quat], dim=-1)
     reset_tensor = reset_tensor.repeat(env.unwrapped.num_envs, 1)
     if not use_rel:

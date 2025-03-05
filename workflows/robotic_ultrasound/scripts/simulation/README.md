@@ -78,7 +78,7 @@ Currently there are these robot configurations that can be used in various tasks
 ## PI Zero Policy Evaluation
 Set up `openpi` referring to [PI0 runner](../policy_runner/README.md).
 
-4. Now that move to the [scripts](../) folder and specify python path:
+Move to the [scripts](../) folder and specify python path:
 ```sh
 export PYTHONPATH=`pwd`
 ```

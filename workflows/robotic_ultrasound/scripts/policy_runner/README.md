@@ -29,7 +29,7 @@
   ```sh
   conda activate robotic_ultrasound
   pip install toml
-  pip install -e git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56#egg=lerobot
+  pip install git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56
   pip install -e packages/openpi-client/
   pip install -e .
   ```
