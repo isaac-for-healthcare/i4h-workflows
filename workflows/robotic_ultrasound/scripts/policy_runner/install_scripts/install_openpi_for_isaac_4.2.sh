@@ -35,3 +35,8 @@ sed -i.bak -e 's/datetime\.UTC/datetime.timezone.utc/' "$file_path"
 # Remove the backup files
 rm "$pyproject_path.bak"
 rm "$file_path.bak"
+
+# Install the dependencies
+pip install -r "$requirements_path"
+pip install -e openpi/packages/openpi-client/
+pip install -e openpi/.

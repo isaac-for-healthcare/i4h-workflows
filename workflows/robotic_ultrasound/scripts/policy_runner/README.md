@@ -5,7 +5,13 @@
 
 2. Please check the [I4H asset catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog) for assets downloading, put the USD assets as "./assets".
 
-3. To install `openpi` in python 3.10 without `uv` environment, and support `IsaacSim 4.2`, we need below minor steps:
+3. To install `openpi` in python 3.10 without `uv` environment, and support `IsaacSim 4.2`, a script is prepared in `install_scripts/install_openpi_for_isaac_4.2.sh`. You can run it by:
+```sh
+bash ./install_scripts/install_openpi_for_isaac_4.2.sh
+```
+
+If you want to install `openpi` manually, you need below minor steps:
+
 - `git clone git@github.com:Physical-Intelligence/openpi.git`
 - Extract all the dependencies (except `openpi-client`) from `pyproject.toml` and create a `requirements.txt` file.
 - Change the python requirement in `pyproject.toml` to `>=3.10`.
@@ -28,16 +34,12 @@
   +date = datetime.datetime(year, month, day, tzinfo=datetime.timezone.utc)
   ```
 
-To simplify the process, we have a script that does all the steps above:
-```sh
-bash ./install_scripts/install_openpi_for_isaac_4.2.sh
-```
-
 - ```sh
   pip install -r requirements.txt
   pip install -e packages/openpi-client/
   pip install -e .
   ```
+
 4. Now that move to the [scripts](../) folder and specify python path:
 ```sh
 export PYTHONPATH=`pwd`
