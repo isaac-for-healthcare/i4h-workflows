@@ -18,7 +18,7 @@ Before installing dependencies, please activate the python virtual environment, 
 conda activate robotic_ultrasound
 ```
 
-To install `openpi` in python 3.10 without `uv` environment and support `IsaacSim 4.2`, several workarounds are required. To simplify the process, a script [install_openpi_with_isaac_4.2.sh](../../../../tools/install_openpi_with_isaac_4.2.sh) is prepared in the folder `tools` under the root directory of the repo. Please move to the corresponding folder and run the following command (then move back to the current folder):
+To install `openpi` in python 3.10 without `uv` environment and support `IsaacSim 4.2`, several workarounds are required. To simplify the process, a script [install_openpi_with_isaac_4.2.sh](../../../../tools/install_openpi_with_isaac_4.2.sh) is prepared in the folder `tools` under the root directory of the repository (i.e. `/path-to-i4h-workflows/i4h-workflows/tools/`). Please move to the corresponding folder and run the following command (then move back to the current folder):
 
 ```sh
 bash install_openpi_with_isaac_4.2.sh
