@@ -85,7 +85,7 @@ export PYTHONPATH=`pwd`
 
 5. Return to this folder and run the following command:
 ```sh
-python policies/state_machine/pi0_policy/eval.py \
+python environments/state_machine/pi0_policy/eval.py \
     --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
     --enable_camera \
     --ckpt_path <path to ckpt>/pi0_aortic_scan_v0.3/19000 \
@@ -99,7 +99,7 @@ This example should work together with the `pi0 policy runner` via DDS communica
 so please ensure to launch the `run_policy.py` with `height=224`, `width=224`,
 and the same `domain id` as this example in another terminal.
 
-When `run_policy` is launched and idle waiting for the data,
+When `run_policy.py` is launched and idle waiting for the data,
 move to the [scripts](../) folder and specify python path:
 ```sh
 export PYTHONPATH=`pwd`

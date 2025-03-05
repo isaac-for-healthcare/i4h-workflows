@@ -11,8 +11,8 @@ from rti_dds.schemas.camera_info import CameraInfo
 from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
 from rti_dds.schemas.franka_info import FrankaInfo
 from rti_dds.subscriber import SubscriberWithQueue
-from simulation.policies.state_machine.act_policy.act_utils import get_np_images
-from simulation.policies.state_machine.utils import compute_relative_action, get_joint_states, get_robot_obs
+from simulation.environments.state_machine.act_policy.act_utils import get_np_images
+from simulation.environments.state_machine.utils import compute_relative_action, get_joint_states, get_robot_obs
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Run simulation in a single-arm manipulator, communication via DDS.")
@@ -61,7 +61,7 @@ reset_flag = False
 from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: E402
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.policies.state_machine.meta_state_machine.ultrasound_state_machine import (  # noqa: E402
+from simulation.environments.state_machine.meta_state_machine.ultrasound_state_machine import (  # noqa: E402
     RobotPositions,
     RobotQuaternions,
 )
