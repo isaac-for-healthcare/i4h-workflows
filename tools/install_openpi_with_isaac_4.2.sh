@@ -6,10 +6,8 @@ cd openpi
 git checkout 581e07d73af36d336cef1ec9d7172553b2332193
 cd ..
 
-# Extract dependencies from pyproject.toml and create requirements.txt and add LeRobot dependency
+# Update python version in pyproject.toml
 pyproject_path="openpi/pyproject.toml"
-
-# Update pyproject.toml to use python >= 3.10
 sed -i.bak -e 's/requires-python = ">=3.11"/requires-python = ">=3.10"/' "$pyproject_path"
 
 # Apply temporary workaround for openpi/src/openpi/shared/download.py

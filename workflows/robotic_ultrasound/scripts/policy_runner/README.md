@@ -18,13 +18,13 @@ Before installing dependencies, please activate the python virtual environment, 
 conda activate robotic_ultrasound
 ```
 
-To install `openpi` in python 3.10 without `uv` environment and support `IsaacSim 4.2`, several workarounds are required. To simplify the process, a script is prepared in `install_scripts/install_openpi_for_isaac_4.2.sh`. You can run it by:
+To install `openpi` in python 3.10 without `uv` environment and support `IsaacSim 4.2`, several workarounds are required. To simplify the process, a script [install_openpi_with_isaac_4.2.sh](../../../../tools/install_openpi_with_isaac_4.2.sh) is prepared in the folder `tools` under the root directory of the repo. Please move to the corresponding folder and run the following command (then move back to the current folder):
 
 ```sh
-bash ./install_scripts/install_openpi_for_isaac_4.2.sh
+bash install_openpi_with_isaac_4.2.sh
 ```
 
-If you want to install dependencies manually, please follow below steps:
+(Optional) If you want to install dependencies manually, please follow below steps:
 
 - `git clone git@github.com:Physical-Intelligence/openpi.git`
 - Changes for `openpi/src/openpi/shared/download.py` (just temp workaround, will not need it after upgrading to IsaacSim 4.5):
@@ -51,14 +51,17 @@ If you want to install dependencies manually, please follow below steps:
   pip install -e packages/openpi-client/
   pip install -e .
   ```
-- Setup Python Path:
 
-Move to the [scripts](../) folder and specify python path:
+### Setup Python Path
+
+Please move to the [scripts](../) folder and specify python path:
 ```sh
 export PYTHONPATH=`pwd`
 ```
 
 ### Run Policy
+
+Please move back to the current folder and run the following command:
 
 ```sh
 python run_policy.py  \
