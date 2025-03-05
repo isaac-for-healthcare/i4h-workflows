@@ -10,13 +10,10 @@
 
 # Requirements
 
-1. Follow [instructions](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html) to install IsaacLab. [Miniconda](https://docs.anaconda.com/miniconda/install/#quick-command-line-install) is suggested for virtual environment setup. TLDR;
+Follow [instructions](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html) to install IsaacLab. TLDR;
 
+First of all, create a python visual environment, referring to the [python setup](../README.md), then execute:
 ```sh
-# Create a new conda environment
-conda create -n robotic_ultrasound python=3.10 -y
-# Activate the environment
-conda activate robotic_ultrasound
 # Upgrade pip
 pip install --upgrade pip
 # Install IsaacSim

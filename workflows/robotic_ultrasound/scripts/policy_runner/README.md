@@ -25,6 +25,7 @@
   ```
 - Change the python requirement in `pyproject.toml` to `>=3.10`.
 - Install `lerobot`, `openpi-client` and `openpi`:
+  First of all, create a python visual environment, referring to the [python setup](../README.md), then execute:
   ```sh
   conda activate robotic_ultrasound
   pip install toml
@@ -42,7 +43,7 @@ export PYTHONPATH=`pwd`
 
 5. Return to this folder and run the following command:
 ```sh
-python policy_runner/run_policy.py  \
+python run_policy.py  \
     --rti_license_file <path to>/rti_license.dat \
     --ckpt_path <path to>/pi0_aortic_scan_v0.3/19000 \
     --repo_id hf/chiron_aortic \
