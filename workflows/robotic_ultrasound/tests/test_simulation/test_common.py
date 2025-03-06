@@ -4,8 +4,24 @@ from unittest import mock
 
 import numpy as np
 from parameterized import parameterized
+from simulation.configs.config import (
+    Config,
+    FrankaConfig,
+    RoomCameraConfig,
+    TargetConfig,
+    UltraSoundConfig,
+    WristCameraConfig,
+)
 from simulation.utils.common import colorize_depth, get_exp_config, list_exp_configs
-from tests.test_simulation.common_config import config as expected_config
+
+expected_config = Config(
+    main_usd_path="./basic.usda",
+    room_camera=RoomCameraConfig(prim_path="/RoomCamera", enabled=True),
+    wrist_camera=WristCameraConfig(prim_path="/Franka/panda_hand/geometry/realsense/realsense_camera", enabled=True),
+    franka=FrankaConfig(prim_path="/Franka", ik=False, auto_pos=False, enabled=True),
+    target=TargetConfig(prim_path="/Target", auto_pos=False, enabled=True),
+    ultrasound=UltraSoundConfig(prim_path="/Target", enabled=True),
+)
 
 
 class TestCommonUtils(unittest.TestCase):
