@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import rti.asyncio
-import rti.connextdds as dds
+import rti.connextdds as dds  # noqa: F401
 
 
 class Subscriber(ABC):
@@ -68,12 +68,16 @@ class Subscriber(ABC):
         """
         self.logger.info(f"{self.domain_id}:{self.topic} - Thread is reading data => {self.dds_reader.topic_name}")
         while self.stop_event and not self.stop_event.is_set():
-            for data in self.dds_reader.take_data():
-                if self.add_to_queue:
-                    self.data_q.put(data)
-                else:
-                    self.consume(data)
-            time.sleep(self.period if self.period > 0 else 1)
+            try:
+                for data in self.dds_reader.take_data():
+                    if self.add_to_queue:
+                        self.data_q.put(data)
+                    else:
+                        self.consume(data)
+                time.sleep(self.period if self.period > 0 else 1)
+            except Exception as e:
+                print(f"Error in {self.dds_reader.topic_name}: {e}")
+                raise e
 
     def read_data(self) -> Any:
         """

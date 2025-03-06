@@ -27,7 +27,7 @@ def run_tests_with_coverage(project_root):
 
                         # add project root to pythonpath
                         env = os.environ.copy()
-                        pythonpath = [os.path.join(project_root, "scripts")]
+                        pythonpath = [os.path.join(project_root, "scripts"), tests_dir]
 
                         if "PYTHONPATH" in env:
                             env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
