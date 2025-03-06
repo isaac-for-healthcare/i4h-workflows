@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import dearpygui.dearpygui as dpg
 import numpy as np
-import rti.connextdds as dds
+import rti.connextdds as dds  # noqa: F401
 from PIL import Image
 from rti_dds.schemas.camera_ctrl import CameraCtrlInput
 from rti_dds.schemas.camera_info import CameraInfo
@@ -28,11 +28,11 @@ config = get_exp_config(parser.parse_args().config)
 rng = np.random.default_rng(config.random_seed)
 
 
-class SimulatorApp:
+class VisualizationApp:
     """A visualization application for robotic ultrasound simulation."""
 
     # Class-level constants
-    DEFAULT_WINDOW_NAME: str = "OV Holoscan - Demo App"
+    DEFAULT_WINDOW_NAME: str = "Robotic Ultrasound Visualization"
     DEFAULT_RESIZEABLE: bool = True
     DEFAULT_CAMERA_RANGE_START: float = 20.0
     DEFAULT_CAMERA_RANGE_END: float = 200.0
@@ -40,16 +40,16 @@ class SimulatorApp:
     TARGET_MOVE_MODES: List[str] = ["Random", "Y-Axis"]
     CAMERA_ZOOM_STEP: float = 0.2
     MOUSE_WHEEL_STEP: float = 5.0
-    WINDOW_PADDING: int = 60
+    WINDOW_WIDTH_PADDING: int = 60
     WINDOW_HEIGHT_PADDING: int = 300
     TEXT_WIDTH: int = 530
     BORDER_COLORS = {"room_camera": [255, 0, 0, 255], "wrist_camera": [0, 255, 0, 255], "ultrasound": [0, 0, 255, 255]}
 
     def __init__(self) -> None:
-        """Initialize the SimulatorApp with default settings."""
+        """Initialize the VisualizationApp with default settings."""
         self.window_name: str = self.DEFAULT_WINDOW_NAME
         self.window_width: int = (
-            config.room_camera.width + config.wrist_camera.width + config.ultrasound.width + self.WINDOW_PADDING
+            config.room_camera.width + config.wrist_camera.width + config.ultrasound.width + self.WINDOW_WIDTH_PADDING
         )
         self.window_height: int = (
             max(config.room_camera.height, config.wrist_camera.height) + self.WINDOW_HEIGHT_PADDING
@@ -73,13 +73,13 @@ class SimulatorApp:
     def _init_image_data(self) -> None:
         """Initialize image data arrays for cameras and ultrasound."""
         self.room_camera_image_data: np.ndarray = np.zeros(
-            (config.room_camera.height, config.room_camera.width, 4), dtype=np.float32
+            (config.room_camera.height, config.room_camera.width, 3), dtype=np.float32
         )
         self.wrist_camera_image_data: np.ndarray = np.zeros(
-            (config.wrist_camera.height, config.wrist_camera.width, 4), dtype=np.float32
+            (config.wrist_camera.height, config.wrist_camera.width, 3), dtype=np.float32
         )
         self.ultrasound_image_data: np.ndarray = np.zeros(
-            (config.ultrasound.height, config.ultrasound.width, 4), dtype=np.float32
+            (config.ultrasound.height, config.ultrasound.width, 3), dtype=np.float32
         )
 
     def _init_dds_attributes(self) -> None:
@@ -153,7 +153,7 @@ class SimulatorApp:
             dpg.add_key_press_handler(callback=self.key_press_event)
 
     # UI components
-    def add_texture_widget(self, config, value, tag, format=dpg.mvFormat_Float_rgba) -> None:
+    def add_texture_widget(self, config, value, tag, format=dpg.mvFormat_Float_rgb) -> None:
         """Create a texture widget for a camera or image."""
         dpg.add_raw_texture(width=config.width, height=config.height, default_value=value, tag=tag, format=format)
 
@@ -292,7 +292,7 @@ class SimulatorApp:
         """Initialize all DDS connections."""
         self.on_streaming_room_camera()
         self.on_streaming_wrist_camera()
-        self.on_streaming_ultrasound()
+        # self.on_streaming_ultrasound()
 
         # Franka
         if config.franka and config.franka.enabled:
@@ -309,13 +309,15 @@ class SimulatorApp:
                 self.connect_to_dds_subscriber(config.target.topic_info, TargetInfo, self.on_receive_target_annotations)
 
         # UltraSound
+        # FIXME: uncomment when the ultrasound simulation is ready
         if config.ultrasound and config.ultrasound.enabled:
-            if config.ultrasound.topic_info:
-                self.connect_to_dds_subscriber(
-                    config.ultrasound.topic_info,
-                    UltraSoundProbeInfo,
-                    self.on_receive_ultrasound_annotations,
-                )
+            pass
+            # if config.ultrasound.topic_info:
+            #     self.connect_to_dds_subscriber(
+            #         config.ultrasound.topic_info,
+            #         UltraSoundProbeInfo,
+            #         self.on_receive_ultrasound_annotations,
+            #     )
 
     def connect_to_dds_publisher(self, topic: Topic, cls) -> None:
         """Connect to a DDS publisher."""
@@ -366,6 +368,7 @@ class SimulatorApp:
 
     def on_streaming_wrist_camera(self) -> None:
         """Handle wrist camera streaming control."""
+
         if self.sub_wrist_camera_rgb is not None:
             self.sub_wrist_camera_rgb.stop()
         if self.sub_wrist_camera_depth is not None:
@@ -451,7 +454,7 @@ class SimulatorApp:
             except:  # noqa: E722
                 print(traceback.format_exc())
         else:
-            img_array = np.frombuffer(s.data, dtype=np.uint8).reshape(h, w, 4)
+            img_array = np.frombuffer(s.data, dtype=np.uint8).reshape(h, w, 3)
 
         if is_room:
             np.divide(img_array, 255.0, out=self.room_camera_image_data)
@@ -478,9 +481,9 @@ class SimulatorApp:
     def on_receive_franka_annotations(self, topic_name: str, s: FrankaInfo) -> None:
         """Handle received Franka robot state data."""
         self.current_joints_state_positions = s.joints_state_positions
-        self.current_joints_state_velocities = s.joints_state_velocities
+        # self.current_joints_state_velocities = s.joints_state_velocities
         dpg.set_value("joints_state_positions", [round(p, 4) for p in s.joints_state_positions])
-        dpg.set_value("joints_state_velocities", [round(p, 4) for p in s.joints_state_velocities])
+        # dpg.set_value("joints_state_velocities", [round(p, 4) for p in s.joints_state_velocities])
 
     def on_receive_target_annotations(self, topic_name: str, s: TargetInfo) -> None:
         """Handle received target position data."""
@@ -582,4 +585,4 @@ class SimulatorApp:
         dpg.destroy_context()
 
 
-SimulatorApp.run_app()
+VisualizationApp.run_app()
