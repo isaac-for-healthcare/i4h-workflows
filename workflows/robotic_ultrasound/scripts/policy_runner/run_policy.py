@@ -56,11 +56,11 @@ def main():
     if args.rti_license_file is None or not os.path.isabs(args.rti_license_file):
         raise ValueError("RTI license file must be an existing absolute path.")
     os.environ["RTI_LICENSE_FILE"] = args.rti_license_file
-    hz = 1 / 30
+    hz = 30
 
     class PolicyPublisher(Publisher):
         def __init__(self, topic: str, domain_id: int):
-            super().__init__(topic, FrankaCtrlInput, hz, domain_id)
+            super().__init__(topic, FrankaCtrlInput, 1 / hz, domain_id)
 
         def produce(self, dt: float, sim_time: float):
             r_cam_buffer = np.frombuffer(current_state["room_cam"], dtype=np.uint8)
@@ -111,9 +111,9 @@ def main():
             # clean the buffer
             current_state["room_cam"] = current_state["wrist_cam"] = current_state["joint_pos"] = None
 
-    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_room_camera, CameraInfo, hz).start()
-    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_wrist_camera, CameraInfo, hz).start()
-    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_franka_pos, FrankaInfo, hz).start()
+    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_room_camera, CameraInfo, 1 / hz).start()
+    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_wrist_camera, CameraInfo, 1 / hz).start()
+    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_franka_pos, FrankaInfo, 1 / hz).start()
 
 
 if __name__ == "__main__":

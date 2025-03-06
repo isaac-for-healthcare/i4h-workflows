@@ -71,11 +71,12 @@ pub_data = {
     "wrist_cam": None,
     "joint_pos": None,
 }
+hz = 30
 
 
 class RoomCamPublisher(Publisher):
     def __init__(self):
-        super().__init__(args_cli.topic_in_room_camera, CameraInfo, 1 / 30, args_cli.domain_id)
+        super().__init__(args_cli.topic_in_room_camera, CameraInfo, 1 / hz, args_cli.domain_id)
 
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
@@ -88,7 +89,7 @@ class RoomCamPublisher(Publisher):
 
 class WristCamPublisher(Publisher):
     def __init__(self):
-        super().__init__(args_cli.topic_in_wrist_camera, CameraInfo, 1 / 30, args_cli.domain_id)
+        super().__init__(args_cli.topic_in_wrist_camera, CameraInfo, 1 / hz, args_cli.domain_id)
 
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
@@ -100,7 +101,7 @@ class WristCamPublisher(Publisher):
 
 class PosPublisher(Publisher):
     def __init__(self):
-        super().__init__(args_cli.topic_in_franka_pos, FrankaInfo, 1 / 30, args_cli.domain_id)
+        super().__init__(args_cli.topic_in_franka_pos, FrankaInfo, 1 / hz, args_cli.domain_id)
 
     def produce(self, dt: float, sim_time: float):
         output = FrankaInfo()
@@ -157,7 +158,7 @@ def main():
     w_cam_writer = WristCamPublisher()
     pos_writer = PosPublisher()
 
-    reader = SubscriberWithQueue(args_cli.domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / 30)
+    reader = SubscriberWithQueue(args_cli.domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
     reader.start()
 
     # Number of steps played before replanning
