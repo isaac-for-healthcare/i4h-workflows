@@ -1,22 +1,17 @@
 import os
+import shutil
 import tempfile
 import zipfile
-import logging
 from typing import Literal
 
-
 import omni.client
-import shutil
 
-
-SHA256_HASH = {
-    "0.1": "9cecada4748a203e3880a391924ce5f1343494530753368dd9be65aeb0535cf9"
-}
+SHA256_HASH = {"0.1": "9cecada4748a203e3880a391924ce5f1343494530753368dd9be65aeb0535cf9"}
 
 I4H_ASSET_ROOT = {
     "nucleus": "https://isaac-dev.ov.nvidia.com/omni/web3/omniverse://isaac-dev.ov.nvidia.com",
     "staging": "",  # FIXME: Add staging asset root
-    "production": ""  # FIXME: Add production asset root
+    "production": "",  # FIXME: Add production asset root
 }
 
 DEFAULT_DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), ".cache", "i4h-assets")
@@ -36,7 +31,9 @@ def get_i4h_asset_path(version: Literal["0.1"] = "0.1") -> str:
     return remote_path
 
 
-def retrieve_asset(version: Literal["0.1"] = "0.1", download_dir: str | None = None, force_download: bool = False) -> str:
+def retrieve_asset(
+    version: Literal["0.1"] = "0.1", download_dir: str | None = None, force_download: bool = False
+) -> str:
     """
     Download the asset from the remote path to the download directory.
     """
@@ -45,7 +42,7 @@ def retrieve_asset(version: Literal["0.1"] = "0.1", download_dir: str | None = N
 
     if not os.path.exists(download_dir):
         os.makedirs(download_dir)
-    
+
     remote_path = get_i4h_asset_path(version)
     sha256_hash = SHA256_HASH.get(version)  # Already checked by get_i4h_asset_path
 
