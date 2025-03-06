@@ -57,4 +57,4 @@
 
 ## Reporting issues
 
-Please open a [Issue Request](https://github.com/isaac-for-healthcare/i4h-workflows/issues) to request an enhancement, bug fix, or other change in HoloHub.
+Please open a [Issue Request](https://github.com/isaac-for-healthcare/i4h-workflows/issues) to request an enhancement, bug fix, or other change in Isaac for Healthcare.
