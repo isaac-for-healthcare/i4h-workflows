@@ -23,8 +23,8 @@ def main():
     parser.add_argument("--repo_id", type=str, help="the LeRobot repo id for the dataset norm.")
     parser.add_argument("--rti_license_file", type=str, help="the path of rti_license_file.")
     parser.add_argument("--domain_id", type=int, default=0, help="domain id.")
-    parser.add_argument("--height", type=int, default=480, help="input image height.")
-    parser.add_argument("--width", type=int, default=640, help="input image width.")
+    parser.add_argument("--height", type=int, default=224, help="input image height.")
+    parser.add_argument("--width", type=int, default=224, help="input image width.")
     parser.add_argument(
         "--topic_in_room_camera",
         type=str,
