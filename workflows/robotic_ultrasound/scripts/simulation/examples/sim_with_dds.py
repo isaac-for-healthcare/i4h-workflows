@@ -22,7 +22,8 @@ parser.add_argument(
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument("--rti_license_file", type=str, help="the path of rti_license_file.")
-parser.add_argument("--domain_id", type=int, default=0, help="domain id.")
+parser.add_argument("--infer_domain_id", type=int, default=0, help="domain id to publish data for inference.")
+parser.add_argument("--viz_domain_id", type=int, default=1, help="domain id to publish data for visualization.")
 parser.add_argument(
     "--topic_in_room_camera",
     type=str,
@@ -75,8 +76,8 @@ hz = 30
 
 
 class RoomCamPublisher(Publisher):
-    def __init__(self):
-        super().__init__(args_cli.topic_in_room_camera, CameraInfo, 1 / hz, args_cli.domain_id)
+    def __init__(self, domain_id: int):
+        super().__init__(args_cli.topic_in_room_camera, CameraInfo, 1 / hz, domain_id)
 
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
@@ -88,8 +89,8 @@ class RoomCamPublisher(Publisher):
 
 
 class WristCamPublisher(Publisher):
-    def __init__(self):
-        super().__init__(args_cli.topic_in_wrist_camera, CameraInfo, 1 / hz, args_cli.domain_id)
+    def __init__(self, domain_id: int):
+        super().__init__(args_cli.topic_in_wrist_camera, CameraInfo, 1 / hz, domain_id)
 
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
@@ -100,8 +101,8 @@ class WristCamPublisher(Publisher):
 
 
 class PosPublisher(Publisher):
-    def __init__(self):
-        super().__init__(args_cli.topic_in_franka_pos, FrankaInfo, 1 / hz, args_cli.domain_id)
+    def __init__(self, domain_id: int):
+        super().__init__(args_cli.topic_in_franka_pos, FrankaInfo, 1 / hz, domain_id)
 
     def produce(self, dt: float, sim_time: float):
         output = FrankaInfo()
@@ -154,12 +155,15 @@ def main():
         reset_tensor = get_reset_action(env)
         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
-    r_cam_writer = RoomCamPublisher()
-    w_cam_writer = WristCamPublisher()
-    pos_writer = PosPublisher()
+    infer_r_cam_writer = RoomCamPublisher(args_cli.infer_domain_id)
+    infer_w_cam_writer = WristCamPublisher(args_cli.infer_domain_id)
+    infer_pos_writer = PosPublisher(args_cli.infer_domain_id)
+    viz_r_cam_writer = RoomCamPublisher(args_cli.viz_domain_id)
+    viz_w_cam_writer = WristCamPublisher(args_cli.viz_domain_id)
+    viz_pos_writer = PosPublisher(args_cli.viz_domain_id)
 
-    reader = SubscriberWithQueue(args_cli.domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
-    reader.start()
+    infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
+    infer_reader.start()
 
     # Number of steps played before replanning
     replan_steps = 5
@@ -171,16 +175,20 @@ def main():
             action_plan = collections.deque()
 
             for t in range(max_timesteps):
+                # get and publish the current images and joint positions
+                pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
+                pub_data["joint_pos"] = get_joint_states(env)[0]
+                viz_r_cam_writer.write(0.1, 1.0)
+                viz_w_cam_writer.write(0.1, 1.0)
+                viz_pos_writer.write(0.1, 1.0)
                 if not action_plan:
-                    # get images
-                    pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
-                    pub_data["joint_pos"] = get_joint_states(env)[0]
-                    r_cam_writer.write(0.1, 1.0)
-                    w_cam_writer.write(0.1, 1.0)
-                    pos_writer.write(0.1, 1.0)
+                    # publish the images and joint positions when run policy inference
+                    infer_r_cam_writer.write(0.1, 1.0)
+                    infer_w_cam_writer.write(0.1, 1.0)
+                    infer_pos_writer.write(0.1, 1.0)
                     ret = None
                     while ret is None:
-                        ret = reader.read_data()
+                        ret = infer_reader.read_data()
                     o: FrankaCtrlInput = ret
                     action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(50, 6)
                     action_plan.extend(action_chunk[:replan_steps])
@@ -200,6 +208,7 @@ def main():
                 reset_tensor = get_reset_action(env)
                 obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
+    infer_reader.stop()
     # close the simulator
     env.close()
 

@@ -49,6 +49,7 @@ def main():
         default="topic_franka_ctrl",
         help="topic name to publish generated franka actions",
     )
+    parser.add_argument("--verbose", type=bool, default=False, help="whether to print the log.")
     args = parser.parse_args()
 
     pi0_policy = PI0PolicyRunner(ckpt_path=args.ckpt_path, repo_id=args.repo_id)
@@ -89,7 +90,8 @@ def main():
     writer = PolicyPublisher(args.topic_out, args.domain_id)
 
     def dds_callback(topic, data):
-        print(f"[INFO]: Received data from {topic}")
+        if args.verbose:
+            print(f"[INFO]: Received data from {topic}")
         if topic == args.topic_in_room_camera:
             o: CameraInfo = data
             current_state["room_cam"] = o.data
@@ -107,7 +109,8 @@ def main():
             and current_state["joint_pos"] is not None
         ):
             writer.write(0.1, 1.0)
-            print(f"[INFO]: Published joint position to {args.topic_out}")
+            if args.verbose:
+                print(f"[INFO]: Published joint position to {args.topic_out}")
             # clean the buffer
             current_state["room_cam"] = current_state["wrist_cam"] = current_state["joint_pos"] = None
 

@@ -108,6 +108,7 @@ Then back to this folder and execute:
 python examples/sim_with_dds.py \
     --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
     --enable_camera \
-    --domain_id <domain id> \
+    --infer_domain_id <domain id> \
+    --viz_domain_id <domain id> \
     --rti_license_file <path to>/rti_license.dat
 ```
