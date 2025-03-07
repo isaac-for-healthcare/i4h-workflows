@@ -24,7 +24,7 @@ with mock.patch("argparse.ArgumentParser.parse_args") as mock_parse_args:
     # Now import the module after patching
     import dearpygui.dearpygui as dpg
 
-    from workflows.robotic_ultrasound.scripts.utils.ov_visualization import SimulatorApp
+    from workflows.robotic_ultrasound.scripts.utils.ov_visualization import VisualizationApp
 
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
@@ -36,7 +36,7 @@ except ImportError:
 
 
 @skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
-class TestSimulatorApp(unittest.TestCase):
+class TestVisualizationApp(unittest.TestCase):
     def setUp(self):
         dpg.destroy_context()
 
@@ -44,11 +44,11 @@ class TestSimulatorApp(unittest.TestCase):
         dpg.destroy_context()
 
     def test_app_initialization(self):
-        self.app = SimulatorApp()
+        self.app = VisualizationApp()
 
         # Test basic initialization properties
-        self.assertEqual(self.app.window_name, SimulatorApp.DEFAULT_WINDOW_NAME)
-        self.assertEqual(self.app.resizeable, SimulatorApp.DEFAULT_RESIZEABLE)
+        self.assertEqual(self.app.window_name, VisualizationApp.DEFAULT_WINDOW_NAME)
+        self.assertEqual(self.app.resizeable, VisualizationApp.DEFAULT_RESIZEABLE)
         self.assertEqual(self.app.room_camera_range_start, self.app.DEFAULT_CAMERA_RANGE_START)
         self.assertEqual(self.app.room_camera_range_end, self.app.DEFAULT_CAMERA_RANGE_END)
 
@@ -58,7 +58,7 @@ class TestSimulatorApp(unittest.TestCase):
         self.assertTrue(hasattr(self.app, "ultrasound_image_data"))
 
     def test_create_app_lifecycle(self):
-        self.app = SimulatorApp()
+        self.app = VisualizationApp()
 
         # Create the app UI
         self.app.create_app()
@@ -74,7 +74,7 @@ class TestSimulatorApp(unittest.TestCase):
             dpg.render_dearpygui_frame()
 
     def test_mouse_wheel_event(self):
-        self.app = SimulatorApp()
+        self.app = VisualizationApp()
         self.app.create_app()
 
         # Get initial zoom value
@@ -96,7 +96,7 @@ class TestSimulatorApp(unittest.TestCase):
         self.assertEqual(final_value, initial_value)
 
     def test_key_press_simulation(self):
-        self.app = SimulatorApp()
+        self.app = VisualizationApp()
         self.app.create_app()
 
         # Get initial zoom value
@@ -116,7 +116,7 @@ class TestSimulatorApp(unittest.TestCase):
         self.assertAlmostEqual(current_value, expected_value, places=5)
 
     def test_ui_state_updates(self):
-        self.app = SimulatorApp()
+        self.app = VisualizationApp()
         self.app.create_app()
 
         # Test enabling/disabling a camera stream
@@ -134,7 +134,7 @@ class TestSimulatorApp(unittest.TestCase):
         self.assertEqual(dpg.get_value("room_camera_mode"), "RGB")
 
     def test_non_ui_functionality(self):
-        self.app = SimulatorApp()
+        self.app = VisualizationApp()
 
         # Test that we can create image data arrays of the right shape
         self.assertEqual(self.app.room_camera_image_data.shape[2], 4)  # Should be RGBA format
@@ -148,7 +148,7 @@ class TestSimulatorApp(unittest.TestCase):
     def test_app_run_brief(self):
         # Create a thread to run the app
         def run_app_briefly():
-            app = SimulatorApp()
+            app = VisualizationApp()
             app.create_app()
 
             # Run for a short time (200ms)
@@ -175,7 +175,7 @@ class TestSimulatorApp(unittest.TestCase):
         mock_subscriber_instance = mock.MagicMock()
         mock_subscriber.return_value = mock_subscriber_instance
 
-        self.app = SimulatorApp()
+        self.app = VisualizationApp()
         self.app.create_app()
 
         # Call connect_to_dds
@@ -189,7 +189,7 @@ class TestSimulatorApp(unittest.TestCase):
                 self.assertTrue(mock_connect_sub.called)
 
     def test_on_receive_methods(self):
-        self.app = SimulatorApp()
+        self.app = VisualizationApp()
         self.app.create_app()
 
         # Test on_receive_franka_annotations
@@ -210,7 +210,7 @@ class TestSimulatorApp(unittest.TestCase):
         self.app.on_receive_ultrasound_annotations("test_topic", mock_usp_info)
 
     def test_publish_methods(self):
-        self.app = SimulatorApp()
+        self.app = VisualizationApp()
         self.app.create_app()  # We need to create the app UI first
 
         c = config.room_camera
@@ -281,7 +281,7 @@ class TestSimulatorApp(unittest.TestCase):
                 self.assertTrue(mock_thread_instance.start.called)
 
     def test_on_camera_annotations(self):
-        self.app = SimulatorApp()
+        self.app = VisualizationApp()
         self.app.create_app()
 
         # Create mock camera info for RGB
@@ -314,7 +314,7 @@ class TestSimulatorApp(unittest.TestCase):
                 self.app.on_camera_annotations(mock_camera_depth, mock_config, True)
 
     def test_on_receive_ultrasound_image(self):
-        self.app = SimulatorApp()
+        self.app = VisualizationApp()
         self.app.create_app()
 
         # Create mock ultrasound data
