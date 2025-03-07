@@ -24,7 +24,7 @@ with mock.patch("argparse.ArgumentParser.parse_args") as mock_parse_args:
     # Now import the module after patching
     import dearpygui.dearpygui as dpg
 
-    from workflows.robotic_ultrasound.scripts.utils.ov_visualization import VisualizationApp
+    from workflows.robotic_ultrasound.scripts.utils.visualization import VisualizationApp
 
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
