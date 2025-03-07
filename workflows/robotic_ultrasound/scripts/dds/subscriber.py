@@ -37,7 +37,6 @@ class Subscriber(ABC):
         self.stop_event = None
         self.add_to_queue = add_to_queue
         self.data_q: Any = queue.Queue()
-        self.logger = logging.getLogger(__name__)
 
     # TODO:: Switch to Async instead of Sync
     async def read_async(self):
@@ -50,13 +49,13 @@ class Subscriber(ABC):
         if self.dds_reader is None:
             p = dds.DomainParticipant(domain_id=self.domain_id)
             self.dds_reader = dds.DataReader(dds.Topic(p, self.topic, self.cls))
-        self.logger.info(f"{self.domain_id}:{self.topic} - Thread is reading data => {self.dds_reader.topic_name}")
+        print(f"{self.domain_id}:{self.topic} - Thread is reading data => {self.dds_reader.topic_name}")
         async for data in self.dds_reader.take_data_async():
             if self.add_to_queue:
                 self.data_q.put(data)
             else:
                 self.consume(data)
-        self.logger.info(f"{self.domain_id}:{self.topic} - Thread End")
+        print(f"{self.domain_id}:{self.topic} - Thread End")
 
     def read_sync(self):
         """
@@ -66,7 +65,7 @@ class Subscriber(ABC):
         period. Data is either stored in the queue or processed immediately based on
         add_to_queue setting.
         """
-        self.logger.info(f"{self.domain_id}:{self.topic} - Thread is reading data => {self.dds_reader.topic_name}")
+        print(f"{self.domain_id}:{self.topic} - Thread is reading data => {self.dds_reader.topic_name}")
         while self.stop_event and not self.stop_event.is_set():
             try:
                 for data in self.dds_reader.take_data():
@@ -101,7 +100,7 @@ class Subscriber(ABC):
         start_time = time.monotonic()
         while not self.data_q.empty():
             data = self.data_q.get()
-            self.logger.info(f"{self.domain_id}:{self.topic} - Queue has data to run action: {data}")
+            print(f"{self.domain_id}:{self.topic} - Queue has data to run action: {data}")
             self.consume(data)
         exec_time = time.monotonic() - start_time
         return exec_time
