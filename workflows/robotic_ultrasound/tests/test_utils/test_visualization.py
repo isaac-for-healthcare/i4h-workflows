@@ -137,7 +137,7 @@ class TestVisualizationApp(unittest.TestCase):
         self.app = VisualizationApp()
 
         # Test that we can create image data arrays of the right shape
-        self.assertEqual(self.app.room_camera_image_data.shape[2], 4)  # Should be RGBA format
+        self.assertEqual(self.app.room_camera_image_data.shape[2], 3)  # Should be RGB format
         self.assertTrue(np.all(self.app.room_camera_image_data == 0))  # Should start with zeros
 
         # Test that we can modify the image data
@@ -287,7 +287,7 @@ class TestVisualizationApp(unittest.TestCase):
         # Create mock camera info for RGB
         mock_camera_rgb = mock.MagicMock()
         h, w = 480, 640
-        mock_camera_rgb.data = np.zeros((h * w * 4), dtype=np.uint8).tobytes()
+        mock_camera_rgb.data = np.zeros((h * w * 3), dtype=np.uint8).tobytes()
         mock_camera_rgb.focal_len = 100.0
 
         # Create mock camera config
@@ -307,10 +307,8 @@ class TestVisualizationApp(unittest.TestCase):
             mock_camera_depth.focal_len = 100.0
 
             # Mock colorize_depth
-            with mock.patch(
-                "workflows.robotic_ultrasound.scripts.utils.visualization.colorize_depth"
-            ) as mock_colorize:
-                mock_colorize.return_value = np.zeros((h, w, 4), dtype=np.uint8)
+            with mock.patch("workflows.robotic_ultrasound.scripts.utils.visualization.colorize_depth") as mock_colorize:
+                mock_colorize.return_value = np.zeros((h, w, 3), dtype=np.uint8)
                 self.app.on_camera_annotations(mock_camera_depth, mock_config, True)
 
     def test_on_receive_ultrasound_image(self):
@@ -330,14 +328,14 @@ class TestVisualizationApp(unittest.TestCase):
 
             # Mock np.array
             with mock.patch("numpy.array") as mock_np_array:
-                mock_np_array.return_value = np.zeros((h, w, 4), dtype=np.uint8)
+                mock_np_array.return_value = np.zeros((h, w, 3), dtype=np.uint8)
 
                 # Call the method
                 self.app.on_receive_ultrasound_image("test_topic", mock_usp_data)
 
                 # Verify the calls
                 mock_image.fromarray.assert_called_once()
-                mock_img.convert.assert_called_once_with("RGBA")
+                mock_img.convert.assert_called_once_with("RGB")
                 mock_np_array.assert_called_once()
 
     # Add a cleanup method to restore sys.argv

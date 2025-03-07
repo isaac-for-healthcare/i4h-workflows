@@ -473,7 +473,7 @@ class VisualizationApp:
 
         h = config.ultrasound.height
         w = config.ultrasound.width
-        img = Image.fromarray(np.frombuffer(s.data, dtype=np.uint8).reshape(h, w)).convert("RGBA")
+        img = Image.fromarray(np.frombuffer(s.data, dtype=np.uint8).reshape(h, w, 3)).convert("RGB")
         img_array = np.array(img)
         np.divide(img_array, 255.0, out=self.ultrasound_image_data)
         dpg.set_value("ultrasound_image_data", self.ultrasound_image_data)

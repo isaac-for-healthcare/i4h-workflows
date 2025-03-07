@@ -11,4 +11,3 @@ pip install dearpygui
 ```bash
 python utils/visualization.py
 ```
-
