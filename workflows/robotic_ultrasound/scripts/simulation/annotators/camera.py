@@ -3,13 +3,13 @@ from typing import List, Optional
 
 import omni.replicator.core as rep
 import omni.usd
+from dds.publisher import Publisher
+from dds.schemas.camera_ctrl import CameraCtrlInput
+from dds.schemas.camera_info import CameraInfo
+from dds.subscriber import Subscriber
 from omni.kit.viewport.utility import get_active_viewport_window
 from omni.replicator.core.scripts.utils import viewport_manager
 from omni.syntheticdata import SyntheticData
-from rti_dds.publisher import Publisher
-from rti_dds.schemas.camera_ctrl import CameraCtrlInput
-from rti_dds.schemas.camera_info import CameraInfo
-from rti_dds.subscriber import Subscriber
 from simulation.configs.config import CameraConfig
 
 __all__ = ["CameraPublisher", "CameraSubscriber"]
@@ -64,7 +64,7 @@ class CameraPublisher(Publisher):
 
         Returns:
             CameraInfo object containing camera data and parameters,
-                refer to rti_dds.schemas.camera_info.CameraInfo
+                refer to dds.schemas.camera_info.CameraInfo
         """
         prim = self.stage.GetPrimAtPath(self.prim_path)
         output = CameraInfo()
@@ -132,7 +132,7 @@ class CameraSubscriber(Subscriber):
 
         Args:
             input: Camera control input containing new camera parameters,
-                refer to rti_dds.schemas.camera_ctrl.CameraCtrlInput
+                refer to dds.schemas.camera_ctrl.CameraCtrlInput
         """
         if input.focal_len:
             self.logger.info(f"Camera:: Set New Focal Length: {input.focal_len}")
