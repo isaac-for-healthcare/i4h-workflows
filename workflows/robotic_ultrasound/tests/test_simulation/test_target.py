@@ -3,9 +3,9 @@ import unittest
 from importlib.util import find_spec
 from unittest import skipUnless
 
+from dds.schemas.target_ctrl import TargetCtrlInput
+from dds.schemas.target_info import TargetInfo
 from isaacsim import SimulationApp
-from rti_dds.schemas.target_ctrl import TargetCtrlInput
-from rti_dds.schemas.target_info import TargetInfo
 
 simulation_app = SimulationApp({"headless": True})
 
