@@ -169,7 +169,7 @@ class TestVisualizationApp(unittest.TestCase):
         # If thread is still alive after timeout, there might be an issue
         self.assertFalse(thread.is_alive(), "App thread didn't complete in expected time")
 
-    @mock.patch("workflows.robotic_ultrasound.scripts.utils.ov_visualization.SubscriberWithCallback")
+    @mock.patch("workflows.robotic_ultrasound.scripts.utils.visualization.SubscriberWithCallback")
     def test_connect_to_dds(self, mock_subscriber):
         # Mock the SubscriberWithCallback to avoid actual DDS connections
         mock_subscriber_instance = mock.MagicMock()
@@ -308,7 +308,7 @@ class TestVisualizationApp(unittest.TestCase):
 
             # Mock colorize_depth
             with mock.patch(
-                "workflows.robotic_ultrasound.scripts.utils.ov_visualization.colorize_depth"
+                "workflows.robotic_ultrasound.scripts.utils.visualization.colorize_depth"
             ) as mock_colorize:
                 mock_colorize.return_value = np.zeros((h, w, 4), dtype=np.uint8)
                 self.app.on_camera_annotations(mock_camera_depth, mock_config, True)
@@ -323,7 +323,7 @@ class TestVisualizationApp(unittest.TestCase):
         mock_usp_data.data = np.zeros((h * w), dtype=np.uint8).tobytes()
 
         # Mock PIL.Image.fromarray and convert
-        with mock.patch("workflows.robotic_ultrasound.scripts.utils.ov_visualization.Image") as mock_image:
+        with mock.patch("workflows.robotic_ultrasound.scripts.utils.visualization.Image") as mock_image:
             mock_img = mock.MagicMock()
             mock_img.convert.return_value = mock_img
             mock_image.fromarray.return_value = mock_img

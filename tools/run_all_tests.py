@@ -34,7 +34,7 @@ def run_tests_with_coverage(project_root):
                         else:
                             env["PYTHONPATH"] = ":".join(pythonpath)
 
-                        if "test_ov_visualization" in test_path:  # virtual display for GUI tests
+                        if "test_visualization" in test_path:  # virtual display for GUI tests
                             cmd = [
                                 "xvfb-run",
                                 "-a",
