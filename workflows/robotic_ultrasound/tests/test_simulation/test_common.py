@@ -5,7 +5,7 @@ from unittest import mock
 import numpy as np
 from parameterized import parameterized
 from simulation.utils.common import colorize_depth, get_exp_config, list_exp_configs
-from tests.test_simulation.common_config import config as expected_config
+from test_simulation.common_config import config as expected_config
 
 
 class TestCommonUtils(unittest.TestCase):

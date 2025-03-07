@@ -7,7 +7,7 @@ from unittest import skipUnless
 from dds.subscriber import Subscriber, SubscriberWithCallback, SubscriberWithQueue
 
 try:
-    import rti.connextdds as dds
+    import rti.connextdds as dds  # noqa: F401
     import rti.idl as idl
 
     license_path = os.getenv("RTI_LICENSE_FILE")

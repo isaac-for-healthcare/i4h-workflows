@@ -2,6 +2,11 @@
 
 ## Pre-commit
 
+To install `pre-commit`, run the following command:
+```bash
+pip install pre-commit
+```
+
 To check your code before committing, run the following command:
 
 ```bash
