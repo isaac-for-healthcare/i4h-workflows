@@ -1,9 +1,7 @@
 import torch
-from openpi.models import pi0
 from openpi.policies import policy_config
-from openpi.training.config import DataConfig, TrainConfig
 from openpi_client import image_tools
-from policy_runner.utils import LeRobotDataConfig
+from policy_runner.config import get_config
 
 
 class PI0PolicyRunner:
@@ -23,17 +21,7 @@ class PI0PolicyRunner:
         repo_id,
         task_description="Conduct a ultrasound scan on the liver.",
     ):
-        config = TrainConfig(
-            name="pi0_scan",
-            model=pi0.Pi0Config(),
-            data=LeRobotDataConfig(
-                repo_id=repo_id,
-                base_config=DataConfig(
-                    local_files_only=True,  # Set to True for local-only datasets.
-                    prompt_from_task=True,
-                ),
-            ),
-        )
+        config = get_config(name="robotic_ultrasound", repo_id=repo_id)
         self.model = policy_config.create_trained_policy(config, ckpt_path)
         # Prompt for the model
         self.task_description = task_description

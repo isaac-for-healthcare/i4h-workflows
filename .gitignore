@@ -136,6 +136,14 @@ ENV/
 env.bak/
 venv.bak/
 
+# Openpi
+*openpi/
+
+# Training data
+*pi_zero/assets/
+*pi_zero/checkpoints/
+*pi_zero/wandb/
+
 # Spyder project settings
 .spyderproject
 .spyproject

@@ -1,5 +1,7 @@
 import dataclasses
 import pathlib
+import os
+import tqdm
 
 import einops
 import numpy as np
@@ -7,6 +9,10 @@ import openpi.transforms as _transforms
 from openpi import transforms
 from openpi.models import model as _model
 from openpi.training.config import DataConfig, DataConfigFactory, ModelTransformFactory
+from openpi.compute_norm_stats import create_dataset
+from openpi.shared import normalize
+from openpi.models import model as _model
+import openpi.training.data_loader as _data_loader
 
 
 def _parse_image(image) -> np.ndarray:
@@ -23,6 +29,43 @@ def _parse_image(image) -> np.ndarray:
     if image.shape[0] == 3:
         image = einops.rearrange(image, "c h w -> h w c")
     return image
+
+
+def compute_normalization_stats(config, max_frames=None):
+    """Compute normalization statistics for the dataset."""
+    data_config, dataset = create_dataset(config)
+
+    num_frames = len(dataset)
+    shuffle = False
+
+    if max_frames is not None and max_frames < num_frames:
+        num_frames = max_frames
+        shuffle = True
+
+    # Reduce num_workers to 0 to avoid multiprocessing issues
+    data_loader = _data_loader.TorchDataLoader(
+        dataset,
+        local_batch_size=1,
+        num_workers=8,  # Changed from 8 to 0
+        shuffle=shuffle,
+        num_batches=num_frames,
+    )
+
+    keys = ["state", "actions"]
+    stats = {key: normalize.RunningStats() for key in keys}
+
+    for batch in tqdm.tqdm(data_loader, total=num_frames, desc="Computing stats"):
+        for key in keys:
+            if key in batch:
+                values = np.asarray(batch[key][0])
+                stats[key].update(values.reshape(-1, values.shape[-1]))
+
+    norm_stats = {key: stats[key].get_statistics() for key in keys}
+
+    output_path = config.assets_dirs / data_config.repo_id
+    print(f"Writing stats to: {output_path}")
+    os.makedirs(output_path, exist_ok=True)
+    normalize.save(output_path, norm_stats)
 
 
 @dataclasses.dataclass(frozen=True)
