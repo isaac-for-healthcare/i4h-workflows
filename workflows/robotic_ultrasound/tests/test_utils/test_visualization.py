@@ -318,7 +318,7 @@ class TestVisualizationApp(unittest.TestCase):
         # Create mock ultrasound data
         mock_usp_data = mock.MagicMock()
         h, w = 480, 640
-        mock_usp_data.data = np.zeros((h * w), dtype=np.uint8).tobytes()
+        mock_usp_data.data = np.zeros((h * w * 3), dtype=np.uint8).tobytes()
 
         # Mock PIL.Image.fromarray and convert
         with mock.patch("workflows.robotic_ultrasound.scripts.utils.visualization.Image") as mock_image:
