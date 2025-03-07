@@ -1,18 +1,10 @@
 """
 Minimal example script for converting a dataset to LeRobot format.
 
-We use the Libero dataset (stored in RLDS) for this example, but it can be easily
-modified for any other data you have saved in a custom format.
-
 Usage:
 python convert_hdf5_to_lerobot.py /path/to/your/data [--repo_id REPO_ID]
 
-Note: to run the script, you need to install tensorflow_datasets:
-`uv pip install tensorflow tensorflow_datasets`
-
-You can download the raw Libero datasets from https://huggingface.co/datasets/openvla/modified_libero_rlds
 The resulting dataset will get saved to the $LEROBOT_HOME directory.
-Running this conversion script will take approximately 30 minutes.
 """
 
 import argparse
@@ -24,6 +16,7 @@ import shutil
 import h5py
 import tqdm
 from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME, LeRobotDataset
+from openpi_client import image_tools
 
 
 def main(data_dir: str, repo_id: str, task_prompt: str):
@@ -79,8 +72,8 @@ def main(data_dir: str, repo_id: str, task_prompt: str):
                 rgb = f[root_name]["observations/rgb"][step]
                 dataset.add_frame(
                     {
-                        "image": rgb[0],
-                        "wrist_image": rgb[1],
+                        "image": image_tools.resize_with_pad(rgb[0], 224, 224),
+                        "wrist_image": image_tools.resize_with_pad(rgb[1], 224, 224),
                         "state": f[root_name]["abs_joint_pos"][step],
                         "actions": f[root_name]["action"][step],
                     }
@@ -105,4 +98,4 @@ if __name__ == "__main__":
         "--task_prompt", type=str, default="Perform a liver ultrasound.", help="Prompt description of the task"
     )
     args = parser.parse_args()
-    main(args.data_dir, args.repo_id, args.task_prompt, args.task_prompt)
+    main(args.data_dir, args.repo_id, args.task_prompt)
