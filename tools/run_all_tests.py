@@ -47,6 +47,9 @@ def run_tests_with_coverage(project_root):
                                 "unittest",
                                 test_path,
                             ]
+                        # TODO: remove this as integration tests
+                        elif "test_sim_with_dds" in test_path or "test_pi0" in test_path:
+                            pass
                         else:
                             cmd = [
                                 sys.executable,

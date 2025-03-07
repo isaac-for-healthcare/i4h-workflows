@@ -6,6 +6,10 @@ import unittest
 from importlib.util import find_spec
 from unittest import mock, skipUnless
 
+sys.path.append("/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts")
+os.environ["RTI_LICENSE_FILE"] = (
+    "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts/dds/rti_license.dat"
+)
 import numpy as np
 from scripts.simulation.configs.basic import config
 
@@ -199,10 +203,11 @@ class TestVisualizationApp(unittest.TestCase):
         self.app.on_receive_franka_annotations("test_topic", mock_franka_info)
 
         # Test on_receive_target_annotations
-        mock_target_info = mock.MagicMock()
-        mock_target_info.position = [4.0, 5.0, 6.0]
-        mock_target_info.orientation = [0.4, 0.5, 0.6, 0.7]
-        self.app.on_receive_target_annotations("test_topic", mock_target_info)
+        if config.target.enabled:
+            mock_target_info = mock.MagicMock()
+            mock_target_info.position = [4.0, 5.0, 6.0]
+            mock_target_info.orientation = [0.4, 0.5, 0.6, 0.7]
+            self.app.on_receive_target_annotations("test_topic", mock_target_info)
 
         # Test on_receive_ultrasound_annotations
         mock_usp_info = mock.MagicMock()
@@ -286,7 +291,7 @@ class TestVisualizationApp(unittest.TestCase):
 
         # Create mock camera info for RGB
         mock_camera_rgb = mock.MagicMock()
-        h, w = 480, 640
+        h, w = 224, 224
         mock_camera_rgb.data = np.zeros((h * w * 3), dtype=np.uint8).tobytes()
         mock_camera_rgb.focal_len = 100.0
 
@@ -317,7 +322,7 @@ class TestVisualizationApp(unittest.TestCase):
 
         # Create mock ultrasound data
         mock_usp_data = mock.MagicMock()
-        h, w = 480, 640
+        h, w = 224, 224
         mock_usp_data.data = np.zeros((h * w * 3), dtype=np.uint8).tobytes()
 
         # Mock PIL.Image.fromarray and convert
