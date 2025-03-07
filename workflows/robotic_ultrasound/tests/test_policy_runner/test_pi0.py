@@ -4,12 +4,12 @@ import unittest
 from unittest import skipUnless
 
 import numpy as np
-from PIL import Image
 from dds.publisher import Publisher
 from dds.schemas.camera_info import CameraInfo
 from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
+from PIL import Image
 
 try:
     import rti.connextdds as dds  # noqa: F401
