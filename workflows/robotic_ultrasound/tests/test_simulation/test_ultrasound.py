@@ -3,8 +3,8 @@ import unittest
 from importlib.util import find_spec
 from unittest import skipUnless
 
+from dds.schemas.usp_info import UltraSoundProbeInfo
 from isaacsim import SimulationApp
-from rti_dds.schemas.usp_info import UltraSoundProbeInfo
 
 simulation_app = SimulationApp({"headless": True})
 import omni.usd  # noqa: E402
