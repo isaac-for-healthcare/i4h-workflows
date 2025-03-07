@@ -20,7 +20,9 @@ current_state = {
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ckpt_path", type=str, help="checkpoint path.")
-    parser.add_argument("--repo_id", type=str, default="i4h/robotic_ultrasound", help="the LeRobot repo id for the dataset norm.")
+    parser.add_argument(
+        "--repo_id", type=str, default="i4h/robotic_ultrasound", help="the LeRobot repo id for the dataset norm."
+    )
     parser.add_argument("--rti_license_file", type=str, help="the path of rti_license_file.")
     parser.add_argument("--domain_id", type=int, default=0, help="domain id.")
     parser.add_argument("--height", type=int, default=224, help="input image height.")

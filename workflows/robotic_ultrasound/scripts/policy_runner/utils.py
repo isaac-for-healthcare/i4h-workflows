@@ -1,18 +1,18 @@
 import dataclasses
-import pathlib
 import os
-import tqdm
+import pathlib
 
 import einops
 import numpy as np
+import tqdm
+
+import openpi.training.data_loader as _data_loader
 import openpi.transforms as _transforms
 from openpi import transforms
-from openpi.models import model as _model
-from openpi.training.config import DataConfig, DataConfigFactory, ModelTransformFactory
 from openpi.compute_norm_stats import create_dataset
-from openpi.shared import normalize
 from openpi.models import model as _model
-import openpi.training.data_loader as _data_loader
+from openpi.shared import normalize
+from openpi.training.config import DataConfig, DataConfigFactory, ModelTransformFactory
 
 
 def _parse_image(image) -> np.ndarray:

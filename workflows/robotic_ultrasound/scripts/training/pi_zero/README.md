@@ -154,7 +154,7 @@ To view detailed training metrics, ensure you log into W&B:
 wandb login
 ```
 
-## 🚀 Testing Inference 
+## 🚀 Testing Inference
 -  See the [policy_runner README](../../policy_runner/README.md) for more information on how to test inference with the trained model.
 
 

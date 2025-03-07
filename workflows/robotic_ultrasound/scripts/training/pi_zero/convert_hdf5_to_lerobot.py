@@ -15,15 +15,16 @@ The resulting dataset will get saved to the $LEROBOT_HOME directory.
 Running this conversion script will take approximately 30 minutes.
 """
 
-import shutil
-import re
+import argparse
 import glob
 import os
-import argparse
-from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
+import re
+import shutil
+
 import h5py
 import tqdm
+from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME, LeRobotDataset
+
 
 def main(data_dir: str, repo_id: str, task_prompt: str):
     final_output_path = LEROBOT_HOME / repo_id
@@ -65,23 +66,23 @@ def main(data_dir: str, repo_id: str, task_prompt: str):
     # Collect all the hdf5 files in the data directory
     data_files = sorted(glob.glob(os.path.join(data_dir, "*.hdf5")))
     # Get the episode names from the file names
-    episode_names = [re.search(r'data_(\d+)\.hdf5', os.path.basename(f)).group(1) for f in data_files]
+    episode_names = [re.search(r"data_(\d+)\.hdf5", os.path.basename(f)).group(1) for f in data_files]
 
     # Loop over raw Libero datasets and write episodes to the LeRobot dataset
     # You can modify this for your own data format
     for episode_idx in tqdm.tqdm(episode_names):
-        hdf5_path = os.path.join(data_dir, f'data_{episode_idx}.hdf5')
-        with h5py.File(hdf5_path, 'r') as f:
+        hdf5_path = os.path.join(data_dir, f"data_{episode_idx}.hdf5")
+        with h5py.File(hdf5_path, "r") as f:
             root_name = "data/demo_0"
-            num_steps = len(f[root_name]['action'])
+            num_steps = len(f[root_name]["action"])
             for step in range(num_steps):
-                rgb = f[root_name]['observations/rgb'][step]
+                rgb = f[root_name]["observations/rgb"][step]
                 dataset.add_frame(
                     {
                         "image": rgb[0],
                         "wrist_image": rgb[1],
-                        "state": f[root_name]['abs_joint_pos'][step],
-                        "actions": f[root_name]['action'][step],
+                        "state": f[root_name]["abs_joint_pos"][step],
+                        "actions": f[root_name]["action"][step],
                     }
                 )
         dataset.save_episode(task=task_prompt)
@@ -94,9 +95,14 @@ def main(data_dir: str, repo_id: str, task_prompt: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert HDF5 files to LeRobot format")
     parser.add_argument("data_dir", type=str, help="Root directory of the HDF5 files to convert")
-    parser.add_argument("--repo_id", type=str, default="i4h/robotic_ultrasound", 
-                        help="Directory to save the dataset under (relative to LEROBOT_HOME)")
-    parser.add_argument("--task_prompt", type=str, default="Perform a liver ultrasound.", 
-                        help="Prompt description of the task")
+    parser.add_argument(
+        "--repo_id",
+        type=str,
+        default="i4h/robotic_ultrasound",
+        help="Directory to save the dataset under (relative to LEROBOT_HOME)",
+    )
+    parser.add_argument(
+        "--task_prompt", type=str, default="Perform a liver ultrasound.", help="Prompt description of the task"
+    )
     args = parser.parse_args()
     main(args.data_dir, args.repo_id, args.task_prompt, args.task_prompt)

@@ -1,23 +1,29 @@
-from openpi.models.pi0 import Pi0Config
-from openpi.training.weight_loaders import CheckpointWeightLoader
-from openpi.training.config import TrainConfig, DataConfig
 from policy_runner.utils import LeRobotDataConfig
+
+from openpi.models.pi0 import Pi0Config
+from openpi.training.config import DataConfig, TrainConfig
+from openpi.training.weight_loaders import CheckpointWeightLoader
 
 # Config registry to store all available configurations
 _CONFIG_REGISTRY = {}
 
+
 def register_config(name: str):
     """Decorator to register a configuration function in the registry."""
+
     def _register(config_fn):
         _CONFIG_REGISTRY[name] = config_fn
         return config_fn
+
     return _register
+
 
 def get_config(name: str, repo_id: str, exp_name: str = None) -> TrainConfig:
     """Get a configuration by name from the registry."""
     if name not in _CONFIG_REGISTRY:
         raise ValueError(f"Config '{name}' not found. Available configs: {list(_CONFIG_REGISTRY.keys())}")
     return _CONFIG_REGISTRY[name](repo_id, exp_name)
+
 
 # Register configurations
 @register_config("robotic_ultrasound")
@@ -37,6 +43,7 @@ def get_robotic_ultrasound_config(repo_id: str, exp_name: str):
         resume=True,
         exp_name=exp_name,
     )
+
 
 @register_config("robotic_ultrasound_lora")
 def get_robotic_ultrasound_lora_config(repo_id: str, exp_name: str):
