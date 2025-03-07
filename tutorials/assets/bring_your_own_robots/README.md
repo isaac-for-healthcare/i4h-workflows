@@ -2,7 +2,7 @@
 
 This tutorial demonstrates how to replace the Franka Hand with an ultrasound probe to create a robotic ultrasound scanning system in NVIDIA Omniverse.
 
-## 1. Understanding CAD and URDF Formats
+## Understanding CAD and URDF Formats
 
 ### CAD (Computer-Aided Design)
 CAD files are 3D models created in specialized software like SolidWorks, Fusion 360, or Blender. They provide detailed geometric information about parts but don't contain information about how parts move relative to each other.
@@ -23,7 +23,7 @@ URDF is an XML-based format used in robotics (especially ROS) to describe the ph
 
 A URDF defines not just how a robot looks, but how it moves and interacts with the physical world.
 
-## 2. Converting Files to USD Format
+## Converting Files to USD Format
 
 ### Converting CAD to USD
 
@@ -50,7 +50,7 @@ To convert URDF to USD for use in Isaac Sim:
 
 For detailed steps, refer to the [official documentation on importing URDF](https://docs.isaacsim.omniverse.nvidia.com/latest/robot_setup/import_urdf.html).
 
-## 3. Replacing Franka Hand with Ultrasound Probe
+## Replacing Franka Hand with Ultrasound Probe
 
 ### Step 1: Import the Franka Robot
 1. In Isaac Sim, load the Franka USD file (either from the built-in assets or by importing a URDF)
@@ -92,7 +92,7 @@ For detailed steps, refer to the [official documentation on importing URDF](http
    - Check for any unexpected behavior or collisions
 
 
-## 5. Additional Resources
+## Additional Resources
 
 - [URDF to USD Conversion Documentation](https://docs.isaacsim.omniverse.nvidia.com/latest/robot_setup/import_urdf.html#tutorial-import-urdf)
 - [Omniverse CAD Extension Documentation](https://docs.omniverse.nvidia.com/extensions/latest/ext_cad-converter/manual.html)
