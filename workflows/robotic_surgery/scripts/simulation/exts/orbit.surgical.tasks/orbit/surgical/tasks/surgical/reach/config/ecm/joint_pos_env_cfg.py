@@ -7,15 +7,13 @@ from __future__ import annotations
 
 import math
 
-from orbit.surgical.assets import ORBITSURGICAL_ASSETS_DATA_DIR
-
 import omni.isaac.lab.sim as sim_utils
+import orbit.surgical.tasks.surgical.reach.mdp as mdp
 from omni.isaac.lab.assets import AssetBaseCfg
 from omni.isaac.lab.managers import EventTermCfg as EventTerm
 from omni.isaac.lab.sensors import CameraCfg, FrameTransformerCfg
 from omni.isaac.lab.utils import configclass
-
-import orbit.surgical.tasks.surgical.reach.mdp as mdp
+from orbit.surgical.assets import ORBITSURGICAL_ASSETS_DATA_DIR
 from orbit.surgical.tasks.surgical.reach.reach_env_cfg import ReachEnvCfg
 
 ##
@@ -91,7 +89,7 @@ class ECMReachEnvCfg(ReachEnvCfg):
                 pos_z=(-0.12, -0.08),
                 roll=(math.pi, math.pi),
                 pitch=(0.0, 0.0),
-                yaw=(-math.pi/2, -math.pi/2),
+                yaw=(-math.pi / 2, -math.pi / 2),
             ),
         )
         # set the scale of the visualization markers to (0.01, 0.01, 0.01)
@@ -106,7 +104,7 @@ class ECMReachEnvCfg(ReachEnvCfg):
                 "velocity_range": (0.0, 0.0),
             },
         )
-        
+
         # Listens to the required transforms
         marker_cfg = FRAME_MARKER_CFG.copy()
         marker_cfg.markers["frame"].scale = (0.01, 0.01, 0.01)

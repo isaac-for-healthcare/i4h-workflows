@@ -38,20 +38,16 @@ simulation_app = app_launcher.app
 
 """Rest everything else."""
 
-import gymnasium as gym
-import torch
 from collections.abc import Sequence
 
+import gymnasium as gym
+import orbit.surgical.tasks  # noqa: F401
+import torch
 import warp as wp
-
 from omni.isaac.lab.assets import RigidObject
 from omni.isaac.lab.assets.rigid_object.rigid_object_data import RigidObjectData
-
-from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
-
 from omni.isaac.lab.utils.math import subtract_frame_transforms
-
-import orbit.surgical.tasks  # noqa: F401
+from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
 from orbit.surgical.tasks.surgical.lift.lift_env_cfg import LiftEnvCfg
 
 # initialize warp

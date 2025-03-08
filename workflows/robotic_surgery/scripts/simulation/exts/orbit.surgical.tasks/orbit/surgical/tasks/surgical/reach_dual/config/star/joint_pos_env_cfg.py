@@ -8,14 +8,13 @@ from __future__ import annotations
 import math
 
 import omni.isaac.lab.sim as sim_utils
+import orbit.surgical.tasks.surgical.reach_dual.mdp as mdp
 from omni.isaac.lab.assets import AssetBaseCfg
 from omni.isaac.lab.managers import EventTermCfg as EventTerm
 from omni.isaac.lab.managers import SceneEntityCfg
 from omni.isaac.lab.sensors import FrameTransformerCfg
 from omni.isaac.lab.utils import configclass
 from omni.isaac.lab.utils.assets import ISAAC_NUCLEUS_DIR
-
-import orbit.surgical.tasks.surgical.reach_dual.mdp as mdp
 from orbit.surgical.tasks.surgical.reach_dual.reach_env_cfg import ReachEnvCfg
 
 ##
@@ -78,7 +77,7 @@ class STARReachEnvCfg(ReachEnvCfg):
                 pos_y=(0.0, 0.3),
                 pos_z=(0.2, 0.4),
                 roll=(0.0, 0.0),
-                pitch=((2/3)*math.pi, (2/3)*math.pi),
+                pitch=((2 / 3) * math.pi, (2 / 3) * math.pi),
                 yaw=(0.0, 0.0),
             ),
         )
@@ -93,7 +92,7 @@ class STARReachEnvCfg(ReachEnvCfg):
                 pos_y=(0.0, 0.3),
                 pos_z=(0.2, 0.4),
                 roll=(0.0, 0.0),
-                pitch=((2/3)*math.pi, (2/3)*math.pi),
+                pitch=((2 / 3) * math.pi, (2 / 3) * math.pi),
                 yaw=(0.0, 0.0),
             ),
         )

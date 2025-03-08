@@ -4,8 +4,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import gymnasium as gym
 import os
+
+import gymnasium as gym
 
 from . import agents, ik_abs_env_cfg, ik_rel_env_cfg, joint_pos_env_cfg
 

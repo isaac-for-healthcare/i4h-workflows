@@ -16,7 +16,6 @@ Reference: https://github.com/SamuelSchmidgall/SurgicalGym
 import omni.isaac.lab.sim as sim_utils
 from omni.isaac.lab.actuators import ImplicitActuatorCfg
 from omni.isaac.lab.assets.articulation import ArticulationCfg
-
 from orbit.surgical.assets import ORBITSURGICAL_ASSETS_DATA_DIR
 
 ##

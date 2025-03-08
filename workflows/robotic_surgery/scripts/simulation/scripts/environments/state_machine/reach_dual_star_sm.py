@@ -38,19 +38,15 @@ simulation_app = app_launcher.app
 
 """Rest everything else."""
 
-import gymnasium as gym
-import torch
 from collections.abc import Sequence
 
-import warp as wp
-
-from omni.isaac.lab.assets import RigidObject
-
-from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
-
-from omni.isaac.lab.utils.math import subtract_frame_transforms
-
+import gymnasium as gym
 import orbit.surgical.tasks  # noqa: F401
+import torch
+import warp as wp
+from omni.isaac.lab.assets import RigidObject
+from omni.isaac.lab.utils.math import subtract_frame_transforms
+from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
 from orbit.surgical.tasks.surgical.reach_dual.reach_env_cfg import ReachEnvCfg
 
 # initialize warp
@@ -156,11 +152,11 @@ class ReachSm:
         self.sm_wait_time[env_ids] = 0.0
 
     def compute(
-            self,
-            ee_1_pose: torch.Tensor,
-            ee_2_pose: torch.Tensor,
-            des_final_pose_1: torch.Tensor,
-            des_final_pose_2: torch.Tensor
+        self,
+        ee_1_pose: torch.Tensor,
+        ee_2_pose: torch.Tensor,
+        des_final_pose_1: torch.Tensor,
+        des_final_pose_2: torch.Tensor,
     ):
         """Compute the desired state of the robot's end-effector."""
         # convert all transformations from (w, x, y, z) to (x, y, z, w)
@@ -232,13 +228,17 @@ def main():
             robot_2: RigidObject = env.scene["robot_2"]
             # -- end-effector frame
             ee_1_frame_sensor = env.unwrapped.scene["ee_1_frame"]
-            tcp_1_rest_position = ee_1_frame_sensor.data.target_pos_w[..., 0, :].clone() - env.unwrapped.scene.env_origins
+            tcp_1_rest_position = (
+                ee_1_frame_sensor.data.target_pos_w[..., 0, :].clone() - env.unwrapped.scene.env_origins
+            )
             tcp_1_rest_position_b, _ = subtract_frame_transforms(
                 robot_1.data.root_state_w[:, :3], robot_1.data.root_state_w[:, 3:7], tcp_1_rest_position
             )
             tcp_1_rest_orientation = ee_1_frame_sensor.data.target_quat_w[..., 0, :].clone()
             ee_2_frame_sensor = env.unwrapped.scene["ee_2_frame"]
-            tcp_2_rest_position = ee_2_frame_sensor.data.target_pos_w[..., 0, :].clone() - env.unwrapped.scene.env_origins
+            tcp_2_rest_position = (
+                ee_2_frame_sensor.data.target_pos_w[..., 0, :].clone() - env.unwrapped.scene.env_origins
+            )
             tcp_2_rest_position_b, _ = subtract_frame_transforms(
                 robot_2.data.root_state_w[:, :3], robot_2.data.root_state_w[:, 3:7], tcp_2_rest_position
             )
