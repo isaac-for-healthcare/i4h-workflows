@@ -2,13 +2,13 @@ import argparse
 import os
 
 import numpy as np
+from dds.publisher import Publisher
+from dds.schemas.camera_info import CameraInfo
+from dds.schemas.franka_ctrl import FrankaCtrlInput
+from dds.schemas.franka_info import FrankaInfo
+from dds.subscriber import SubscriberWithCallback
 from PIL import Image
 from policy_runner.runners import PI0PolicyRunner
-from rti_dds.publisher import Publisher
-from rti_dds.schemas.camera_info import CameraInfo
-from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
-from rti_dds.schemas.franka_info import FrankaInfo
-from rti_dds.subscriber import SubscriberWithCallback
 
 current_state = {
     "room_cam": None,

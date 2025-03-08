@@ -1,8 +1,8 @@
 from typing import Any
 
+from dds.publisher import Publisher
+from dds.schemas.usp_info import UltraSoundProbeInfo
 from omni.isaac.core.prims import XFormPrim
-from rti_dds.publisher import Publisher
-from rti_dds.schemas.usp_info import UltraSoundProbeInfo
 from simulation.configs.config import UltraSoundConfig
 
 
@@ -35,7 +35,7 @@ class UltraSoundPublisher(Publisher):
 
         Returns:
             UltraSoundProbeInfo: Probe state information including position and orientation
-                refer to rti_dds.schemas.usp_info.UltraSoundProbeInfo.
+                refer to dds.schemas.usp_info.UltraSoundProbeInfo.
         """
         usb = XFormPrim(prim_path=self.prim_path)
         position, orientation = usb.get_world_pose()
