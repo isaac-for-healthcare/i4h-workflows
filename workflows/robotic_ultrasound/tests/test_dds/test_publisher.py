@@ -3,10 +3,10 @@ import time
 import unittest
 from unittest import skipUnless
 
-from rti_dds.publisher import Publisher
+from dds.publisher import Publisher
 
 try:
-    import rti.connextdds as dds
+    import rti.connextdds as dds  # noqa: F401
     import rti.idl as idl
 
     license_path = os.getenv("RTI_LICENSE_FILE")
