@@ -27,6 +27,6 @@ __version__ = ORBITSURGICAL_ASSETS_METADATA["package"]["version"]
 # Configuration for different assets.
 ##
 
-from .ecm import *
-from .psm import *
-from .star import *
+from .ecm import *  # noqa: E402, F403
+from .psm import *  # noqa: E402, F403
+from .star import *  # noqa: E402, F403
