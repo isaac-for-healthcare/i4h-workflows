@@ -11,7 +11,7 @@ It uses the `warp` library to run the state machine in parallel on the GPU.
 
 .. code-block:: bash
 
-    ${IsaacLab_PATH}/isaaclab.sh -p scripts/environments/state_machine/reach_psm_sm.py --num_envs 1
+    ${IsaacLab_PATH}/isaaclab.sh -p workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_psm_sm.py --num_envs 1
 
 """
 
