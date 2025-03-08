@@ -80,7 +80,7 @@ python convert_hdf5_to_lerobot.py /path/to/your/hdf5/data
 ```
 
 **Arguments:**
-- `data_dir`: Path to the directory containing HDF5 files
+- `--data_dir`: Path to the directory containing HDF5 files
 - `--repo_id`: Name for your dataset (default: "i4h/robotic_ultrasound")
 - `--task_prompt`: Text description of the task (default: "Perform a liver ultrasound.")
 
