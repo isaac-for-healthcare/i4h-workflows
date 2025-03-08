@@ -78,57 +78,6 @@ ${IsaacLab_PATH}/isaaclab.sh --install
 Once you are in the virtual environment, you do not need to use `${IsaacLab_PATH}/isaaclab.sh -p` to run python scripts. You can use the default python executable in your environment by running `python` or `python3`. However, for the rest of the documentation, we will assume that you are using `${IsaacLab_PATH}/isaaclab.sh -p` to run python scripts.
 
 
-## Workflows
-
-We adopt all robot learning workflows from Isaac Lab. We use the OpenAI Gym registry to register these environments. For each environment, we provide a default configuration file that defines the scene, observations, rewards and action spaces.
-
-The list of environments available registered with OpenAI Gym can be found by running:
-
-```bash
-${IsaacLab_PATH}/isaaclab.sh -p workflows/robotic_surgery/scripts/simulation/scripts/environments/list_envs.py
-```
-
-### Basic agents
-
-These include basic agents that output zero or random agents. They are useful to ensure that the environments are configured correctly.
-
-Zero-action agent on `Isaac-Reach-PSM-v0`:
-
-```bash
-${IsaacLab_PATH}/isaaclab.sh -p workflows/robotic_surgery/scripts/simulation/scripts/environments/zero_agent.py --task Isaac-Reach-PSM-v0 --num_envs 32
-```
-
-Random-action agent on `Isaac-Reach-PSM-v0`:
-
-```bash
-${IsaacLab_PATH}/isaaclab.sh -p workflows/robotic_surgery/scripts/simulation/scripts/environments/random_agent.py --task Isaac-Reach-PSM-v0 --num_envs 32
-```
-
-### Teleoperation
-
-We provide interfaces for providing commands in SE(2) and SE(3) space for robot control. In case of SE(2) teleoperation, the returned command is the linear x-y velocity and yaw rate, while in SE(3), the returned command is a 6-D vector representing the change in pose.
-
-To play inverse kinematics (IK) control with a keyboard device:
-
-```bash
-${IsaacLab_PATH}/isaaclab.sh -p workflows/robotic_surgery/scripts/simulation/scripts/environments/teleoperation/teleop_se3_agent.py --task Isaac-Lift-Needle-PSM-IK-Rel-v0 --num_envs 1 --teleop_device keyboard
-```
-
-The script prints the teleoperation events configured. For keyboard, these are as follows:
-
-```
-Keyboard Controller for SE(3): Se3Keyboard
-    Reset all commands: L
-    Toggle gripper (open/close): K
-    Move arm along x-axis: W/S
-    Move arm along y-axis: A/D
-    Move arm along z-axis: Q/E
-    Rotate arm along x-axis: Z/X
-    Rotate arm along y-axis: T/G
-    Rotate arm along z-axis: C/V
-```
-
-
 ## Acknowledgement
 
 ### License
