@@ -44,7 +44,7 @@ To train a PI Zero model, you'll need to collect robotic ultrasound data. We pro
 
 Navigate to the simulation directory and use the state machine to collect data:
 ```bash
-# TODO: Data collection and state machine needs to be added to the repo
+# FIXME: Data collection and state machine needs to be added to the repo
 cd simulation/environments/state_machine
 python reach_torso_abs.py --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 --enable_cameras --num_episodes 10 --collection_methods hdf5
 ```
@@ -61,7 +61,7 @@ The collected data will be saved in HDF5 format in the `data/` directory with a 
 #
 You can validate the collected data by playing it back:
 ```bash
-# TODO: Add playback script
+# FIXME: Add playback script
 python scripts/state_machine/playback_recorded.py --data_path /path/to/your/data --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 --enable_camera --use_rel
 ```
 
