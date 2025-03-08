@@ -207,11 +207,9 @@ pre-commit run --all-files
 
 ## Acknowledgement
 
-NVIDIA Isaac Sim is available freely under [individual license](https://www.nvidia.com/en-us/omniverse/download/). For more information about its license terms, please check [here](https://docs.omniverse.nvidia.com/app_isaacsim/common/NVIDIA_Omniverse_License_Agreement.html#software-support-supplement).
+NVIDIA Isaac Sim is available freely under [individual license](https://www.nvidia.com/en-us/omniverse/download/). For more information about its license terms, please check [here](https://docs.omniverse.nvidia.com/install-guide/latest/common/NVIDIA_Omniverse_License_Agreement.html).
 
 Isaac Lab is released under [BSD-3-Clause License](https://github.com/isaac-sim/IsaacLab/blob/main/LICENSE).
-
-Project template is partially from [Template for Isaac Lab Projects](https://github.com/isaac-sim/IsaacLabExtensionTemplate).
 
 ### License
 
@@ -220,9 +218,9 @@ This source code is released under [BSD-3-Clause License](https://github.com/orb
 
 **Author: Masoud Moghani, moghani@cs.toronto.edu**
 
-## Citing
+## Acknowledgement
 
-If you use this framework in your work, please cite [this paper](https://arxiv.org/abs/2404.16027):
+Isaac for Healthcare - Robotic Surgery initiated from the [ORBIT-Surgical](https://orbit-surgical.github.io/) framework. We would appreciate if you would cite [this paper](https://arxiv.org/abs/2404.16027) in academic publications as well:
 
 ```text
 @article{yu2024orbit,
