@@ -29,9 +29,26 @@ sed -i.bak -e 's/)[[:space:]]*-> s3_transfer\.TransferManager[[:space:]]*:/):/' 
 # Modify the datetime line
 sed -i.bak -e 's/datetime\.UTC/datetime.timezone.utc/' "$file_path"
 
+# Modify the type hints in training/utils.py to use Any instead of optax types
+utils_path="openpi/src/openpi/training/utils.py"
+sed -i.bak \
+    -e 's/opt_state: optax\.OptState/opt_state: Any/' \
+    "$utils_path"
+
 # Remove the backup files
 rm "$pyproject_path.bak"
 rm "$file_path.bak"
+rm "$utils_path.bak"
+
+# Add training script to openpi module
+if [ ! -f openpi/src/openpi/train.py ]; then
+    cp openpi/scripts/train.py openpi/src/openpi/train.py
+fi
+
+# Add norm stats generator script to openpi module
+if [ ! -f openpi/src/openpi/compute_norm_stats.py ]; then
+    cp openpi/scripts/compute_norm_stats.py openpi/src/openpi/compute_norm_stats.py
+fi
 
 # Install the dependencies
 pip install git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56
