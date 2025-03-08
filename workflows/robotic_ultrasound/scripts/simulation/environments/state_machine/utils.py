@@ -3,6 +3,7 @@ from enum import Enum
 
 import onnxruntime as ort
 import torch
+from scipy.spatial.transform import Rotation
 from omni.isaac.lab.utils.math import compute_pose_error
 from pynput import keyboard
 
@@ -78,6 +79,101 @@ def get_joint_states(env):
     robot_data = env.unwrapped.scene["robot"].data
     robot_joint_pos = robot_data.joint_pos
     return robot_joint_pos.cpu().numpy()
+
+def compute_transform_matrix(w1_point, w2_point, scale=1000.0):
+    """
+        Create a transform matrix to convert from Isaac Sim coordinates (meters) to NIFTI coordinates (millimeters)
+        
+        Args:
+            w1_point: point in Isaac Sim coordinates (meters)
+            w2_point: point in NIFTI coordinates (millimeters)
+            scale: scaling factor to convert meters to millimeters
+    """
+    R = torch.tensor([
+        [scale, 0, 0],
+        [0, 0, -scale],
+        [0, -scale, 0]
+    ], dtype=torch.float64)
+    w1_point = torch.tensor(w1_point, dtype=torch.float64).unsqueeze(-1)  # Isaac sim coordinates (meters)
+    w2_point = torch.tensor(w2_point, dtype=torch.float64)  # NIFTI coordinates (millimeters)
+    
+    t = w2_point - (R @ w1_point).squeeze(-1)
+    
+    transform_matrix = torch.eye(4)
+    transform_matrix[:3, :3] = R
+    transform_matrix[:3, 3] = t
+    
+    return transform_matrix
+
+def isaac_to_organ_orientation(isaac_quat):
+    """
+    Convert quaternion from Isaac Sim to organ coordinate system Euler angles
+    
+    Args:
+        isaac_quat: Quaternion in [w, x, y, z] format from Isaac Sim
+    
+    Returns:
+        Euler angles in organ coordinate system [x, y, z] in degrees
+    """
+    # Step 1: Convert Isaac Sim quaternion to rotation matrix
+    # Reformat from [w,x,y,z] to [x,y,z,w] for scipy
+    isaac_quat_scipy = [isaac_quat[1], isaac_quat[2], isaac_quat[3], isaac_quat[0]]
+    isaac_rot = Rotation.from_quat(isaac_quat_scipy)
+    
+    # Step 2: Create reference orientations
+    # Define "down" in Isaac Sim using a quaternion [0,1,0,0]
+    isaac_down_quat = [1, 0, 0, 0]  # [x,y,z,w] format for scipy
+    isaac_down_rot = Rotation.from_quat(isaac_down_quat)
+    
+    # Define "down" in organ coordinates using Euler angles [0,0,-90]
+    organ_down_rot = Rotation.from_euler('xyz', [0, 0, -90], degrees=True)
+    
+    # Step 3: Define the relative rotation needed for the reference
+    # This calculates how to rotate from Isaac "down" to organ "down"
+    reference_mapping = organ_down_rot * isaac_down_rot.inv()
+    
+    # Step 4: Apply the same relative rotation to the current orientation
+    # This preserves the relative angle from "down" in both systems
+    result_rot = reference_mapping * isaac_rot
+    
+    # Step 5: Convert to Euler angles
+    organ_euler = result_rot.as_euler('xyz', degrees=True)
+    
+    return organ_euler
+
+def get_probe_pos_ori(env, transform_matrix=None, log=False):
+    """Get the probe position and orientation from the environment."""
+    # transform matrix from isaac sim to organ coordinate system
+    # transform_matrix = torch.tensor([
+    #     [1000.0, 0.0, 0.0, -600.7168],
+    #     [0.0, 0.0, -1000.0, 89.2832],
+    #     [0.0, -1000.0, 0.0, -330.6],
+    #     [0.0, 0.0, 0.0, 1.0]
+    # ])
+    
+    # Get probe data
+    probe_data = env.unwrapped.scene["ee_frame"].data
+    
+    # Get probe position (1, 1, 3)
+    probe_pos = (probe_data.target_pos_w - env.unwrapped.scene.env_origins)  # Shape (1, 1, 3)
+    
+    # Extract the position and make it homogeneous
+    probe_pos_flat = probe_pos.squeeze(0).squeeze(0)  # Remove batch dimensions
+    pos_homogeneous = torch.cat([probe_pos_flat, torch.tensor([1.0], device=probe_pos.device)], dim=-1)
+    
+    # Apply transform matrix
+    transformed_pos = transform_matrix.to(probe_pos.device) @ pos_homogeneous
+    transformed_pos = transformed_pos[:3]  # Keep only x, y, z
+    
+    # Get probe orientation (1, 1, 4)
+    probe_ori = probe_data.target_quat_w.squeeze(0).squeeze(0)  # Shape (4,)
+    
+    transformed_ori = isaac_to_organ_orientation(probe_ori.cpu().numpy())
+    if log:
+        print(f"transformed_ori: {transformed_ori}")
+        print(f"transformed_pos: {transformed_pos}")
+    
+    return transformed_pos.cpu().numpy(), transformed_ori
 
 
 def load_onnx_model(model_path):
