@@ -178,3 +178,9 @@ cython_debug/
 
 # VSCode
 .vscode/
+
+# No USD files allowed in the repo
+**/*.usd
+**/*.usda
+**/*.usdc
+**/*.usdz
