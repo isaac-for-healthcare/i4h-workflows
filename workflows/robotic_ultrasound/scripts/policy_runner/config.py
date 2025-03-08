@@ -1,8 +1,7 @@
-from policy_runner.utils import LeRobotDataConfig
-
 from openpi.models.pi0 import Pi0Config
 from openpi.training.config import DataConfig, TrainConfig
 from openpi.training.weight_loaders import CheckpointWeightLoader
+from policy_runner.utils import LeRobotDataConfig
 
 # Config registry to store all available configurations
 _CONFIG_REGISTRY = {}

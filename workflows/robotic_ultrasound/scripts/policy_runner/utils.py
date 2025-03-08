@@ -4,10 +4,9 @@ import pathlib
 
 import einops
 import numpy as np
-import tqdm
-
 import openpi.training.data_loader as _data_loader
 import openpi.transforms as _transforms
+import tqdm
 from openpi import transforms
 from openpi.compute_norm_stats import create_dataset
 from openpi.models import model as _model
