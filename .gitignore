@@ -139,6 +139,9 @@ venv.bak/
 # Openpi
 *openpi/
 
+# IsaacLab
+*IsaacLab/
+
 # Training data
 **/pi_zero/assets/
 **/pi_zero/checkpoints/

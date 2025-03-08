@@ -1,11 +1,10 @@
 import argparse
 import os
 
-from policy_runner.config import get_config
-from policy_runner.utils import compute_normalization_stats
-
 from openpi import train
 from openpi.training.config import DataConfigFactory
+from policy_runner.config import get_config
+from policy_runner.utils import compute_normalization_stats
 
 
 def ensure_norm_stats_exist(config):
