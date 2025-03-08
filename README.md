@@ -9,13 +9,13 @@
 [![Linux platform](https://img.shields.io/badge/platform-linux--64-orange.svg)](https://releases.ubuntu.com/20.04/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-yellow.svg)](https://opensource.org/license/apache-2-0)
 
-**Isaac-for-Healthcare** is a domain-specific framework built on top of Nvidia Isaac Sim and Nvidia Omniverse, enabling developers to design, simulate, test, and train AI-based robots and autonomous systems, and generate synthetic data across:
+**Isaac-for-Healthcare** is a domain-specific framework built on top of Nvidia Isaac Sim/Lab and Nvidia Omniverse, enabling developers to design, simulate, test, and train AI-based robots and autonomous systems, and generate synthetic data across:
 - **Therapeutics** (e.g., surgical robotics, interventional radiology and radiotherapy)
-- **Diagnostics** (e.g., ultrasound (US), computed tomography (CT), cone-beam CT)
+- **Diagnostics** (e.g., ultrasound (US), computed tomography (CT), cone-beam CT (CBCT))
 - **Hospital & patient care** (e.g., hospitals, operating rooms and intensive care units with medication delivery, supply transport, disinfection robots, cobots)
 - **Rehabilitation & assistive technologies** (e.g., physical therapy robots, exoskeletons, etc.)
 
-Isaac-for-Healthcare will extend and tailor Isaac Sim/Lab and Omniverse to enable multi-scale simulation (in a highly realistic virtual environment) — from anatomy to sensors, surgical instruments, robotic systems, operating rooms, intensive care units, labs, SPD, and full hospital environments.
+Isaac-for-Healthcare will extend and tailor Isaac Sim/Lab and Omniverse to enable multi-scale simulation (in a highly realistic virtual environment) — from anatomy to sensors, surgical instruments, robotic systems, operating rooms, intensive care units, labs, sterile processing departments (SPD), and full hospital environments.
 
 Isaac-for-Healthcare enables healthcare technology developers to leverage **NVIDIA technologies** to:
 - Accelerate development and testing of AI algorithms with synthetic data generated in digital twin.
