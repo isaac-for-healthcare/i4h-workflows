@@ -11,7 +11,7 @@ os.environ["RTI_LICENSE_FILE"] = (
     "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts/dds/rti_license.dat"
 )
 import numpy as np
-from scripts.simulation.configs.basic import config
+from simulation.configs.basic import config
 
 # Mock sys.argv before importing the module
 original_argv = sys.argv
