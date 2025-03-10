@@ -158,11 +158,11 @@ def main():
     
     # get transform matrix from isaac sim to organ coordinate system
     transform_matrix = compute_transform_matrix(
-        w1_point=[0.6, 0.0, 0.09],
-        w2_point=[-0.7168, -0.7168, -330.6],
+        ov_point=[0.6, 0.0, 0.09],  # initial position of the organ in isaac sim
+        nifti_point=[-0.7168, -0.7168, -330.6],  # corresponding position in nifti coordinate system
         scale=1000.0
     )
-    print(f"[INFO]: transform_matrix: {transform_matrix}")
+    print(f"[INFO]: Coordinate transform matrix: {transform_matrix}")
     print(f"[INFO]: Gym observation space: {env.observation_space}")
     print(f"[INFO]: Gym action space: {env.action_space}")
 
