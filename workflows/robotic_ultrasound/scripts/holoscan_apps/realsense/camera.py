@@ -1,14 +1,13 @@
 import argparse
 import os
 
+import holoscan
 import numpy as np
 import pyrealsense2 as rs
 import rti.connextdds as dds
-
-import holoscan
+from holoscan.conditions import CountCondition
 from holoscan.core import Application, Operator
 from holoscan.core._core import OperatorSpec
-from holoscan.conditions import CountCondition
 from holoscan.operators.holoviz import HolovizOp
 from holoscan.resources import UnboundedAllocator
 from rti_dds.schemas.camera_info import CameraInfo

@@ -1,5 +1,6 @@
 import pyrealsense2 as rs
 
+
 def count_devices():
     # Create a context object to get access to connected devices
     context = rs.context()

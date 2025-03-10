@@ -3,11 +3,8 @@ import unittest
 from importlib.util import find_spec
 from unittest import skipUnless
 
-import numpy as np
-from dds.schemas.camera_ctrl import CameraCtrlInput
-from dds.schemas.camera_info import CameraInfo
-from holoscan_apps.realsense.enumerate import count_devices
 from holoscan_apps.realsense.camera import RealsenseApp
+from holoscan_apps.realsense.enumerate import count_devices
 
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
