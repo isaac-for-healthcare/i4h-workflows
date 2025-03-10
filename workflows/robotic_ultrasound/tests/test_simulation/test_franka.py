@@ -7,8 +7,7 @@ import numpy as np
 from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from isaacsim import SimulationApp
-
-from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
+from utils.assets import robotic_ultrasound_assets as rus_assets
 
 simulation_app = SimulationApp({"headless": True})
 

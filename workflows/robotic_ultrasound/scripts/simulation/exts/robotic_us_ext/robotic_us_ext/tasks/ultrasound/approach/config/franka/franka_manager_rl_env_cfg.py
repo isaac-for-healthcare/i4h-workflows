@@ -25,8 +25,7 @@ from omni.isaac.lab.utils import configclass
 #  FRANKA_PANDA_REALSENSE_CFG for camera in USD
 from robotic_us_ext.lab_assets.franka import FRANKA_PANDA_HIGH_PD_FORCE_CFG, FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG
 from robotic_us_ext.tasks.ultrasound.approach import mdp
-
-from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
+from utils.assets import robotic_ultrasound_assets as rus_assets
 
 from omni.isaac.lab.markers.config import FRAME_MARKER_CFG  # isort: skip
 

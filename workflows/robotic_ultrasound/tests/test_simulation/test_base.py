@@ -8,8 +8,7 @@ from dds.publisher import Publisher
 from dds.subscriber import Subscriber
 from isaacsim import SimulationApp
 from parameterized import parameterized
-
-from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
+from utils.assets import robotic_ultrasound_assets as rus_assets
 
 simulation_app = SimulationApp({"headless": True})
 import omni.usd  # noqa: E402

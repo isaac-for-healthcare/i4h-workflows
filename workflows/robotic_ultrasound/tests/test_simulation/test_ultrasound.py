@@ -5,8 +5,7 @@ from unittest import skipUnless
 
 from dds.schemas.usp_info import UltraSoundProbeInfo
 from isaacsim import SimulationApp
-
-from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
+from utils.assets import robotic_ultrasound_assets as rus_assets
 
 simulation_app = SimulationApp({"headless": True})
 import omni.usd  # noqa: E402

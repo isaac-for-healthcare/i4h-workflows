@@ -6,8 +6,7 @@ from unittest import skipUnless
 from dds.schemas.target_ctrl import TargetCtrlInput
 from dds.schemas.target_info import TargetInfo
 from isaacsim import SimulationApp
-
-from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
+from utils.assets import robotic_ultrasound_assets as rus_assets
 
 simulation_app = SimulationApp({"headless": True})
 

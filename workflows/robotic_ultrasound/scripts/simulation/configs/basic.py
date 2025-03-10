@@ -6,8 +6,7 @@ from simulation.configs.config import (
     UltraSoundConfig,
     WristCameraConfig,
 )
-
-from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
+from utils.assets import robotic_ultrasound_assets as rus_assets
 
 config = Config(
     main_usd_path=rus_assets.basic,
