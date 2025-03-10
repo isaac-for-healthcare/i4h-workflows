@@ -82,11 +82,25 @@ def get_joint_states(env):
     return robot_joint_pos.cpu().numpy()
 
 
+def scale_points(points: Sequence[float], scale: float = 1000.0) -> torch.Tensor:
+    """
+    Scale points from one unit to another (e.g., meters to millimeters).
+
+    Args:
+        points: Points to scale
+        scale: Scaling factor (default: 1000.0 for meters to millimeters)
+
+    Returns:
+        Scaled points
+    """
+    points_tensor = torch.tensor(points, dtype=torch.float64)
+    return points_tensor * scale
+
+
 def compute_transform_matrix(
     ov_point: Sequence[float],
     nifti_point: Sequence[float],
     rotation_matrix: None | torch.Tensor = None,
-    scale: None | float = 1000.0,
 ):
     """
     Create a transform matrix to convert from Omniverse coordinates (meters) to NIFTI coordinates (millimeters)
@@ -100,8 +114,6 @@ def compute_transform_matrix(
             - x-axis remains as x-axis
             - y-axis maps to negative z-axis
             - z-axis maps to negative y-axis
-        scale: Optional scaling factor to convert from meters to millimeters.
-            Default value is 1000.0, which converts meters to millimeters.
 
     Returns:
         A 4x4 homogeneous transformation matrix that maps points from Omniverse to NIFTI coordinates.
@@ -112,10 +124,6 @@ def compute_transform_matrix(
     else:
         R = rotation_matrix
 
-    # Apply scaling if provided
-    if scale is not None:
-        R = R * scale
-
     # Convert input points to tensors
     ov_point = torch.tensor(ov_point, dtype=torch.float64).unsqueeze(-1)
     nifti_point = torch.tensor(nifti_point, dtype=torch.float64)
@@ -124,7 +132,7 @@ def compute_transform_matrix(
     t = nifti_point - (R @ ov_point).squeeze(-1)
 
     # Create full 4x4 transform_matrix matrix
-    transform_matrix = torch.eye(4)
+    transform_matrix = torch.eye(4, dtype=torch.float64)
     transform_matrix[:3, :3] = R
     transform_matrix[:3, 3] = t
 
@@ -177,37 +185,63 @@ def ov_to_nifti_orientation(
     return organ_euler
 
 
-def get_probe_pos_ori(env, transform_matrix, log=False):
-    """Get the probe position and orientation from the environment.
+def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
+    """Get the probe position and orientation from the environment and transform to organ coordinate system.
+
+    This function performs two separate transformations:
+    1. Position transformation: Converts 3D position from Isaac Sim (meters) to organ coordinate system (millimeters)
+       using a homogeneous transformation matrix
+    2. Orientation transformation: Converts quaternion orientation from Isaac Sim to Euler angles in organ coordinate system
 
     Args:
-        env: The simulation environment.
-        transform_matrix: Optional transformation matrix to convert from Isaac Sim
-                          coordinate system to organ coordinate system.
-        log: If True, print the transformed position and orientation values.
+        env: The simulation environment containing the probe data
+        transform_matrix: 4x4 homogeneous transformation matrix that maps positions
+                          from Isaac Sim coordinate system to organ coordinate system
+        scale: Scaling factor to convert from meters to millimeters (default: 1000.0)
+        log: If True, print the transformed position and orientation values for debugging
+
+    Returns:
+        transformed_position: numpy array of shape (3,) in organ coordinate system (millimeters)
+        transformed_orientation: numpy array of shape (3,) with Euler angles in organ system (degrees)
     """
-    # Get probe data
+    # Get probe data from the end effector frame
     probe_data = env.unwrapped.scene["ee_frame"].data
 
-    # Get probe position (1, 1, 3)
-    probe_pos = probe_data.target_pos_w - env.unwrapped.scene.env_origins  # Shape (1, 1, 3)
+    # Get probe position and remove environment origins offset
+    # Raw tensor has shape (batch_size=1, num_envs=1, 3)
+    probe_pos = probe_data.target_pos_w - env.unwrapped.scene.env_origins
 
-    # Extract the position and make it homogeneous
-    probe_pos_flat = probe_pos.squeeze(0).squeeze(0)  # Remove batch dimensions
+    # Remove batch dimensions to get a simple position vector of shape (3,)
+    probe_pos_flat = probe_pos.squeeze(0).squeeze(0)
+
+    # Scale position from meters to millimeters
+    probe_pos_flat = scale_points(probe_pos_flat, scale=scale)
+
+    # Convert to homogeneous coordinates by adding a 1 as the 4th component
+    # This allows for the application of the 4x4 transformation matrix
     pos_homogeneous = torch.cat([probe_pos_flat, torch.tensor([1.0], device=probe_pos.device)], dim=-1)
 
-    # Apply transform matrix
+    # Apply 4x4 transformation matrix to convert to organ coordinate system
+    # This handles both rotation and translation in one operation
     transformed_pos = transform_matrix.to(probe_pos.device) @ pos_homogeneous
-    transformed_pos = transformed_pos[:3]  # Keep only x, y, z
 
-    # Get probe orientation (1, 1, 4)
-    probe_ori = probe_data.target_quat_w.squeeze(0).squeeze(0)  # Shape (4,)
+    # Extract only the spatial coordinates (x, y, z), discarding homogeneous component
+    transformed_pos = transformed_pos[:3]
 
-    transformed_ori = ov_to_nifti_orientation(probe_ori.cpu().numpy())
+    # Get probe orientation as quaternion [w, x, y, z] and remove batch dimensions
+    # Raw tensor has shape (batch_size=1, num_envs=1, 4)
+    probe_quat = probe_data.target_quat_w.squeeze(0).squeeze(0)  # Shape (4,)
+
+    transformed_ori = ov_to_nifti_orientation(probe_quat.cpu().numpy())
+
+    # Optional logging for debugging
     if log:
-        print(f"transformed_ori: {transformed_ori}")
-        print(f"transformed_pos: {transformed_pos}")
+        print(f"Raw position (Isaac Sim, meters): {probe_pos_flat}")
+        print(f"Transformed position (organ, mm): {transformed_pos}")
+        print(f"Raw orientation (Isaac Sim, quat): {probe_quat}")
+        print(f"Transformed orientation (organ, Euler): {transformed_ori}")
 
+    # Return position as numpy array and orientation as Euler angles
     return transformed_pos.cpu().numpy(), transformed_ori
 
 

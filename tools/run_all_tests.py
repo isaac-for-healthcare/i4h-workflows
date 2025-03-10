@@ -18,7 +18,7 @@ def run_tests_with_coverage(project_root):
     """Run all unittest cases with coverage reporting"""
     try:
         # TODO: add license file to secrets
-        default_license_file = os.path.join(os.getcwd(), project_root, "scripts", "rti_dds", "rti_license.dat")
+        default_license_file = "/home/yunliu/Workspace/Code/chiron-gtc-2025/rti_dds/rti_license.dat"
         os.environ["RTI_LICENSE_FILE"] = os.environ.get("RTI_LICENSE_FILE", default_license_file)
         all_tests_passed = True
         tests_dir = os.path.join(project_root, "tests")

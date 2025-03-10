@@ -165,9 +165,8 @@ def main():
 
     # get transform matrix from isaac sim to organ coordinate system
     transform_matrix = compute_transform_matrix(
-        ov_point=[0.6, 0.0, 0.09],  # initial position of the organ in isaac sim
+        ov_point=[0.6 * 1000, 0.0, 0.09 * 1000],  # initial position of the organ in isaac sim
         nifti_point=[-0.7168, -0.7168, -330.6],  # corresponding position in nifti coordinate system
-        scale=1000.0,
     )
     print(f"[INFO]: Coordinate transform matrix: {transform_matrix}")
     print(f"[INFO]: Gym observation space: {env.observation_space}")
@@ -212,7 +211,7 @@ def main():
                 pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
                 pub_data["joint_pos"] = get_joint_states(env)[0]
                 pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
-                    env, transform_matrix=transform_matrix, log=True
+                    env, transform_matrix=transform_matrix, scale=1000.0, log=True
                 )
                 viz_r_cam_writer.write(0.1, 1.0)
                 viz_w_cam_writer.write(0.1, 1.0)
