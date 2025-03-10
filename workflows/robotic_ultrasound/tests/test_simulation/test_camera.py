@@ -9,12 +9,12 @@ from dds.schemas.camera_info import CameraInfo
 from isaacsim import SimulationApp
 from parameterized import parameterized
 
+from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
+
 simulation_app = SimulationApp({"headless": True})
 
 import omni.usd  # noqa: E402
 from simulation.annotators.camera import CameraPublisher, CameraSubscriber  # noqa: E402
-
-from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
 
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
