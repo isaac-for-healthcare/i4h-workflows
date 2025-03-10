@@ -33,6 +33,19 @@ class Pose:
 
 
 class SubscriberRTIDDS(Operator):
+    """
+    Subscribes to RTI DDS topics and forwards the received data to the next operator in the pipeline.
+    
+    This operator creates a DDS subscriber that listens to a specified topic and emits the received
+    data through its output port. If no data is received, it emits a tuple with None and False to
+    indicate the absence of data.
+    
+    Attributes:
+        domain_id: The DDS domain ID to use for communication.
+        topic: The name of the DDS topic to subscribe to.
+        data_schema: The data schema/type definition for the messages on the topic.
+        period: The period at which to check for new data (in seconds).
+    """
     def __init__(
         self, fragment, *args, domain_id=0, topic="topic_ultrasound_info", data_schema: struct = UltraSoundProbeInfo, **kwargs
     ):
@@ -47,6 +60,12 @@ class SubscriberRTIDDS(Operator):
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec):
+        """
+        Sets up the operator's configuration.
+        
+        This method is called when the operator is created. It initializes the subscriber
+        and starts it to begin listening for incoming data.
+        """
         spec.output("output")
         self.subscriber = SubscriberWithQueue(
             domain_id=self.domain_id,
@@ -57,6 +76,18 @@ class SubscriberRTIDDS(Operator):
         self.subscriber.start()
 
     def compute(self, op_input, op_output, context):
+        """
+        Computes the operator's logic.
+        
+        This method is called when the operator is executed. It reads data from the subscriber
+        and emits it through the output port. If no data is available, it emits a tuple with None
+        and False to indicate the absence of data.
+        
+        Args:
+            op_input: The input port of the operator.
+            op_output: The output port of the operator.
+            context: The context of the operator.
+        """
         data = self.subscriber.read_data()
         if data is not None:
             op_output.emit((data, True), "output")
@@ -67,6 +98,12 @@ class SubscriberRTIDDS(Operator):
 class Simulator(Operator):
     """
     Ultrasound simulator with careful initialization
+    
+    Args:
+        fragment: The fragment of the operator.
+        out_height: The height of the output image.
+        out_width: The width of the output image.
+        start_pose: The initial pose of the probe, default is [0, 0, 0, 0, 0, 0].
     """
     def __init__(
         self,
@@ -92,6 +129,12 @@ class Simulator(Operator):
         
 
     def setup(self, spec: OperatorSpec):
+        """
+        Sets up the operator's configuration.
+        
+        This method is called when the operator is created. It initializes the materials
+        and world, and adds the meshes to the world.
+        """
         spec.output("output")
         spec.input("input")
         
@@ -106,6 +149,13 @@ class Simulator(Operator):
         
         # Helper function to safely add a mesh
         def add_mesh(filename, material_name):
+            """
+            Adds a mesh to the world.
+            
+            Args:
+                filename: The name of the mesh file to add.
+                material_name: The name of the material to use for the mesh.
+            """
             # Construct the full path to the mesh file
             mesh_dir = os.path.dirname(os.path.abspath(__file__))
             mesh_path = os.path.join(mesh_dir, "mesh", filename)
@@ -183,6 +233,12 @@ class Simulator(Operator):
             
 
     def compute(self, op_input, op_output, context):
+        """
+        Computes the operator's logic.
+        
+        This method is called when the operator is executed. It receives probe information
+        and processes the probe pose, then runs the simulation and processes the ultrasound image.
+        """
         probe_info, receiving = op_input.receive("input")
             
         # Process the probe pose
@@ -256,6 +312,12 @@ class Simulator(Operator):
 class PublisherRTIDDS(Operator):
     """
     Transmit incomming stream over RTI-Topic
+    
+    Args:
+        fragment: The fragment of the operator.
+        domain_id: The DDS domain ID to use for communication.
+        topic: The name of the DDS topic to publish to.
+        data_schema: The data schema/type definition for the messages on the topic.
     """
 
     def __init__(
@@ -270,12 +332,24 @@ class PublisherRTIDDS(Operator):
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec):
+        """
+        Sets up the operator's configuration.
+        
+        This method is called when the operator is created. It initializes the writer
+        and creates a DDS domain participant.
+        """
         spec.input("input")
         self.message = self.data_schema()
         self.dp = dds.DomainParticipant(domain_id=self.domain_id)
         self.writer = dds.DataWriter(self.dp.implicit_publisher, dds.Topic(self.dp, self.topic, self.data_schema))
 
     def compute(self, op_input, op_output, context):
+        """
+        Computes the operator's logic.
+        
+        This method is called when the operator is executed. It receives data from the input port
+        and publishes it to the DDS topic.
+        """
         # Get received data
         data = op_input.receive("input")[""]
 
@@ -292,6 +366,17 @@ class PublisherRTIDDS(Operator):
 
 
 class StreamingSimulator(Application):
+    """
+    Streaming simulator application that subscribes to a probe position topic and publishes
+    ultrasound data to a DDS topic.
+    
+    Args:
+        output_topic: The name of the DDS topic to publish ultrasound data to.
+        input_topic: The name of the DDS topic to subscribe to for probe position data.
+        domain_id: The DDS domain ID to use for communication.
+        out_width: The width of the output image.
+        out_height: The height of the output image.
+    """
     def __init__(self, output_topic: str, input_topic: str, domain_id: int, out_width: int, out_height: int):
         super().__init__()
         self.output_topic = output_topic
@@ -302,6 +387,9 @@ class StreamingSimulator(Application):
         self.period = 1 / 25.0  # period s
 
     def compose(self):
+        """
+        Composes the application's operators and flows.
+        """
         period_ns = int(self.period * 1e9)
         dds_sub = SubscriberRTIDDS(self, name="subscriber", domain_id=self.domain_id, topic=self.input_topic)
         sim = Simulator(
