@@ -1,23 +1,19 @@
 import argparse
 import os
 from dataclasses import dataclass
+
 # import numpy as np
 import numpy as np
 import rti.connextdds as dds
-from rti.types import struct
-from scipy.spatial.transform import Rotation
-
 from holoscan.conditions import PeriodicCondition
 from holoscan.core import Application, MetadataPolicy, Operator, OperatorSpec
 from holoscan.operators import HolovizOp
+from rti.types import struct
 
 try:
     import raysim.cuda as rs
 except Exception as e:
-    raise ImportError(
-        f"Failed to initialize ray_sim_python: {e}\n"
-        "Please check the installation and dependencies."
-    )
+    raise ImportError(f"Failed to initialize ray_sim_python: {e}\n" "Please check the installation and dependencies.")
 
 # Rest of your imports
 from dds.schemas.usp_data import UltraSoundProbeData
@@ -28,6 +24,7 @@ from dds.subscriber import SubscriberWithQueue
 @dataclass
 class Pose:
     """3D pose with position and orientation"""
+
     position: np.ndarray  # [x, y, z]
     orientation: np.ndarray  # as quaternians from isaac_sim
 
@@ -35,19 +32,26 @@ class Pose:
 class SubscriberRTIDDS(Operator):
     """
     Subscribes to RTI DDS topics and forwards the received data to the next operator in the pipeline.
-    
+
     This operator creates a DDS subscriber that listens to a specified topic and emits the received
     data through its output port. If no data is received, it emits a tuple with None and False to
     indicate the absence of data.
-    
+
     Attributes:
         domain_id: The DDS domain ID to use for communication.
         topic: The name of the DDS topic to subscribe to.
         data_schema: The data schema/type definition for the messages on the topic.
         period: The period at which to check for new data (in seconds).
     """
+
     def __init__(
-        self, fragment, *args, domain_id=0, topic="topic_ultrasound_info", data_schema: struct = UltraSoundProbeInfo, **kwargs
+        self,
+        fragment,
+        *args,
+        domain_id=0,
+        topic="topic_ultrasound_info",
+        data_schema: struct = UltraSoundProbeInfo,
+        **kwargs,
     ):
         self.domain_id = domain_id
         self.topic = topic
@@ -62,7 +66,7 @@ class SubscriberRTIDDS(Operator):
     def setup(self, spec):
         """
         Sets up the operator's configuration.
-        
+
         This method is called when the operator is created. It initializes the subscriber
         and starts it to begin listening for incoming data.
         """
@@ -78,11 +82,11 @@ class SubscriberRTIDDS(Operator):
     def compute(self, op_input, op_output, context):
         """
         Computes the operator's logic.
-        
+
         This method is called when the operator is executed. It reads data from the subscriber
         and emits it through the output port. If no data is available, it emits a tuple with None
         and False to indicate the absence of data.
-        
+
         Args:
             op_input: The input port of the operator.
             op_output: The output port of the operator.
@@ -98,13 +102,14 @@ class SubscriberRTIDDS(Operator):
 class Simulator(Operator):
     """
     Ultrasound simulator with careful initialization
-    
+
     Args:
         fragment: The fragment of the operator.
         out_height: The height of the output image.
         out_width: The width of the output image.
         start_pose: The initial pose of the probe, default is [0, 0, 0, 0, 0, 0].
     """
+
     def __init__(
         self,
         fragment,
@@ -126,32 +131,31 @@ class Simulator(Operator):
         self.meshes = []  # Store mesh references
         self.last_time_probe_info = None
         super().__init__(fragment, *args, **kwargs)
-        
 
     def setup(self, spec: OperatorSpec):
         """
         Sets up the operator's configuration.
-        
+
         This method is called when the operator is created. It initializes the materials
         and world, and adds the meshes to the world.
         """
         spec.output("output")
         spec.input("input")
-        
+
         # Create materials
         self.materials = rs.Materials()
-        
+
         # Create world
         self.world = rs.World("water")
-        
+
         # Add meshes
         self.meshes = []  # Clear and rebuild mesh list
-        
+
         # Helper function to safely add a mesh
         def add_mesh(filename, material_name):
             """
             Adds a mesh to the world.
-            
+
             Args:
                 filename: The name of the mesh file to add.
                 material_name: The name of the material to use for the mesh.
@@ -168,7 +172,7 @@ class Simulator(Operator):
             except Exception as e:
                 print(f"Error adding mesh {mesh_path}: {e}")
                 return False
-        
+
         # Add meshes one by one
         mesh_configs = [
             ("tumor1.obj", "fat"),
@@ -183,28 +187,28 @@ class Simulator(Operator):
             ("Stomach.obj", "water"),
             ("Pancreas.obj", "liver"),
             ("Small_bowel.obj", "water"),
-            ("Colon.obj", "water")
+            ("Colon.obj", "water"),
         ]
-        
+
         # Count successful mesh additions
         success_count = 0
         for filename, material in mesh_configs:
             if add_mesh(filename, material):
                 success_count += 1
-        
+
         if success_count == 0:
             print("WARNING: No meshes were successfully added to the world!")
-        
+
         # Create probe position
         position = np.array(self.start_pose[:3], dtype=np.float32)
         rotation = np.array(self.start_pose[3:], dtype=np.float32)
-        
-        if hasattr(position, 'get'):
+
+        if hasattr(position, "get"):
             position = position.get()
             rotation = rotation.get()
-        
+
         initial_pose = rs.Pose(position, rotation)
-        
+
         # Create ultrasound probe
         self.probe = rs.UltrasoundProbe(
             initial_pose,
@@ -213,16 +217,16 @@ class Simulator(Operator):
             radius=45.0,
             frequency=2.5,
             elevational_height=7.0,
-            num_el_samples=10
+            num_el_samples=10,
         )
-        
+
         # Create simulator
         try:
             self.simulator = rs.RaytracingUltrasoundSimulator(self.world, self.materials)
         except Exception as e:
             print(f"ERROR creating simulator: {e}")
             raise RuntimeError(f"Failed to create simulator: {e}")
-        
+
         # Create simulation parameters
         self.sim_params = rs.SimParams()
         self.sim_params.conv_psf = True
@@ -230,17 +234,16 @@ class Simulator(Operator):
         self.sim_params.t_far = 180.0
         self.sim_params.b_mode_size = (self.out_height, self.out_width)
         # self.sim_params.enable_cuda_timing = True
-            
 
     def compute(self, op_input, op_output, context):
         """
         Computes the operator's logic.
-        
+
         This method is called when the operator is executed. It receives probe information
         and processes the probe pose, then runs the simulation and processes the ultrasound image.
         """
         probe_info, receiving = op_input.receive("input")
-            
+
         # Process the probe pose
         self._process_probe_pose(probe_info, receiving)
 
@@ -254,7 +257,7 @@ class Simulator(Operator):
     def _process_probe_pose(self, probe_info, receiving=True):
         """
         Process the probe pose data and update the probe position.
-        
+
         Args:
             probe_info: The probe information containing position and orientation
             receiving: Boolean indicating if probe info is being received
@@ -275,7 +278,7 @@ class Simulator(Operator):
         # Convert from lists or cupy arrays to numpy arrays
         translation_array = np.array(translation, dtype=np.float32)
         rotation_array = np.array(rot_euler, dtype=np.float32)
-            
+
         # Create new pose and update probe
         new_pose = rs.Pose(translation_array, rotation_array)
         self.probe.set_pose(new_pose)
@@ -283,11 +286,11 @@ class Simulator(Operator):
     def _process_ultrasound_image(self, b_mode_image, receiving=True):
         """
         Process the ultrasound image for display.
-        
+
         Args:
             b_mode_image: The B-mode ultrasound image
             receiving: Boolean indicating if probe info is being received
-            
+
         Returns:
             RGB image data ready for display
         """
@@ -299,20 +302,20 @@ class Simulator(Operator):
             img_uint8 = np.zeros((self.out_height, self.out_width), dtype=np.uint8)
         else:
             img_uint8 = (normalized_image * 255).astype(np.uint8)
-        
+
         # Create RGB output
         rgb_data = np.stack([img_uint8, img_uint8, img_uint8], axis=-1)
         # if not receiving:
         #     # Red box in the top left if no probe info is received
         #     rgb_data[:40, :40, :] = [255, 0, 0]
-            
+
         return rgb_data
 
 
 class PublisherRTIDDS(Operator):
     """
-    Transmit incomming stream over RTI-Topic
-    
+    Transmit incoming stream over RTI-Topic
+
     Args:
         fragment: The fragment of the operator.
         domain_id: The DDS domain ID to use for communication.
@@ -334,7 +337,7 @@ class PublisherRTIDDS(Operator):
     def setup(self, spec):
         """
         Sets up the operator's configuration.
-        
+
         This method is called when the operator is created. It initializes the writer
         and creates a DDS domain participant.
         """
@@ -346,7 +349,7 @@ class PublisherRTIDDS(Operator):
     def compute(self, op_input, op_output, context):
         """
         Computes the operator's logic.
-        
+
         This method is called when the operator is executed. It receives data from the input port
         and publishes it to the DDS topic.
         """
@@ -354,12 +357,12 @@ class PublisherRTIDDS(Operator):
         data = op_input.receive("input")[""]
 
         # Check if it's a cupy array and convert to numpy if needed
-        if hasattr(data, 'get'):
+        if hasattr(data, "get"):
             scan_converted_image_cpu = np.array(data).get()
         else:
             # Already a numpy array, no need for .get()
             scan_converted_image_cpu = np.array(data)
-        
+
         # Publish the data
         self.message.data = scan_converted_image_cpu.tobytes()
         self.writer.write(self.message)
@@ -369,7 +372,7 @@ class StreamingSimulator(Application):
     """
     Streaming simulator application that subscribes to a probe position topic and publishes
     ultrasound data to a DDS topic.
-    
+
     Args:
         output_topic: The name of the DDS topic to publish ultrasound data to.
         input_topic: The name of the DDS topic to subscribe to for probe position data.
@@ -377,6 +380,7 @@ class StreamingSimulator(Application):
         out_width: The width of the output image.
         out_height: The height of the output image.
     """
+
     def __init__(self, output_topic: str, input_topic: str, domain_id: int, out_width: int, out_height: int):
         super().__init__()
         self.output_topic = output_topic
@@ -398,7 +402,7 @@ class StreamingSimulator(Application):
             name="simulator",
             out_height=self.out_height,
             out_width=self.out_width,
-            start_pose=np.array([-54.0, -150., -360, 0, 0, -np.pi/2], dtype=np.float32)
+            start_pose=np.array([-54.0, -150.0, -360, 0, 0, -np.pi / 2], dtype=np.float32),
         )
 
         sim.metadata_policy = MetadataPolicy.RAISE

@@ -2,6 +2,7 @@ import argparse
 import collections
 import os
 import time
+
 import gymnasium as gym
 import numpy as np
 import torch
@@ -13,7 +14,13 @@ from dds.schemas.usp_info import UltraSoundProbeInfo
 from dds.subscriber import SubscriberWithQueue
 from omni.isaac.lab.app import AppLauncher
 from simulation.environments.state_machine.act_policy.act_utils import get_np_images
-from simulation.environments.state_machine.utils import compute_relative_action, get_joint_states, get_robot_obs, get_probe_pos_ori, compute_transform_matrix
+from simulation.environments.state_machine.utils import (
+    compute_relative_action,
+    compute_transform_matrix,
+    get_joint_states,
+    get_probe_pos_ori,
+    get_robot_obs,
+)
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Run simulation in a single-arm manipulator, communication via DDS.")
@@ -118,6 +125,7 @@ class PosPublisher(Publisher):
         output.joints_state_positions = pub_data["joint_pos"].tolist()
         return output
 
+
 class ProbePosPublisher(Publisher):
     def __init__(self, domain_id: int):
         super().__init__(args_cli.topic_in_probe_pos, UltraSoundProbeInfo, 1 / hz, domain_id)
@@ -155,12 +163,12 @@ def main():
 
     # create environment
     env = gym.make(args_cli.task, cfg=env_cfg)
-    
+
     # get transform matrix from isaac sim to organ coordinate system
     transform_matrix = compute_transform_matrix(
         ov_point=[0.6, 0.0, 0.09],  # initial position of the organ in isaac sim
         nifti_point=[-0.7168, -0.7168, -330.6],  # corresponding position in nifti coordinate system
-        scale=1000.0
+        scale=1000.0,
     )
     print(f"[INFO]: Coordinate transform matrix: {transform_matrix}")
     print(f"[INFO]: Gym observation space: {env.observation_space}")
@@ -206,7 +214,9 @@ def main():
                 # get and publish the current images and joint positions
                 pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
                 pub_data["joint_pos"] = get_joint_states(env)[0]
-                pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(env, transform_matrix=transform_matrix, log=True)
+                pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
+                    env, transform_matrix=transform_matrix, log=True
+                )
                 viz_r_cam_writer.write(0.1, 1.0)
                 viz_w_cam_writer.write(0.1, 1.0)
                 viz_pos_writer.write(0.1, 1.0)
@@ -216,7 +226,7 @@ def main():
                     infer_r_cam_writer.write(0.1, 1.0)
                     infer_w_cam_writer.write(0.1, 1.0)
                     infer_pos_writer.write(0.1, 1.0)
-                    
+
                     ret = None
                     while ret is None:
                         ret = infer_reader.read_data()

@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 from enum import Enum
 from typing import Sequence
+
 import onnxruntime as ort
 import torch
-from scipy.spatial.transform import Rotation
 from omni.isaac.lab.utils.math import compute_pose_error
 from pynput import keyboard
+from scipy.spatial.transform import Rotation
 
 
 # MARK: - State Machine Enums + Dataclasses
@@ -80,10 +81,16 @@ def get_joint_states(env):
     robot_joint_pos = robot_data.joint_pos
     return robot_joint_pos.cpu().numpy()
 
-def compute_transform_matrix(ov_point: Sequence[float], nifti_point: Sequence[float], rotation_matrix: None | torch.Tensor = None, scale: None | float = 1000.0):
+
+def compute_transform_matrix(
+    ov_point: Sequence[float],
+    nifti_point: Sequence[float],
+    rotation_matrix: None | torch.Tensor = None,
+    scale: None | float = 1000.0,
+):
     """
     Create a transform matrix to convert from Omniverse coordinates (meters) to NIFTI coordinates (millimeters)
-    
+
     Args:
         ov_point: point in Omniverse coordinates (meters)
         nifti_point: point in NIFTI coordinates (millimeters)
@@ -93,107 +100,114 @@ def compute_transform_matrix(ov_point: Sequence[float], nifti_point: Sequence[fl
             - x-axis remains as x-axis
             - y-axis maps to negative z-axis
             - z-axis maps to negative y-axis
-        scale: Optional scaling factor to convert from meters to millimeters. 
+        scale: Optional scaling factor to convert from meters to millimeters.
             Default value is 1000.0, which converts meters to millimeters.
-            
+
     Returns:
         A 4x4 homogeneous transformation matrix that maps points from Omniverse to NIFTI coordinates.
     """
     # Create rotation component of the transform matrix
     if rotation_matrix is None:
-        R = torch.tensor([
-            [1, 0, 0],
-            [0, 0, -1],
-            [0, -1, 0]
-        ], dtype=torch.float64)
+        R = torch.tensor([[1, 0, 0], [0, 0, -1], [0, -1, 0]], dtype=torch.float64)
     else:
         R = rotation_matrix
-    
+
     # Apply scaling if provided
     if scale is not None:
         R = R * scale
-    
+
     # Convert input points to tensors
     ov_point = torch.tensor(ov_point, dtype=torch.float64).unsqueeze(-1)
     nifti_point = torch.tensor(nifti_point, dtype=torch.float64)
-    
+
     # Calculate translation component
     t = nifti_point - (R @ ov_point).squeeze(-1)
-    
+
     # Create full 4x4 transform_matrix matrix
-    transform_matrix = torch.eye(4, dtype=torch.float64)
+    transform_matrix = torch.eye(4)
     transform_matrix[:3, :3] = R
     transform_matrix[:3, 3] = t
-    
+
     return transform_matrix
 
-def ov_to_nifti_orientation(ov_quat):
+
+def ov_to_nifti_orientation(
+    ov_quat, ov_down_quat: None | Sequence[float] = None, organ_down_quat: None | Sequence[float] = None
+):
     """
     Convert quaternion from Omniverse to organ coordinate system Euler angles
-    
+
     Args:
         ov_quat: Quaternion in [w, x, y, z] format from Omniverse
-    
+        ov_down_quat: Quaternion in [w, x, y, z] format for Omniverse "down", default is [0, 1, 0, 0]
+        organ_down_quat: Euler angles in [x, y, z] format for organ "down", default is [0, 0, -90]
+
     Returns:
         Euler angles in organ coordinate system [x, y, z] in degrees
     """
+    if ov_down_quat is None:
+        ov_down_quat = [0, 1, 0, 0]
+    if organ_down_quat is None:
+        organ_down_quat = [0, 0, -90]
+
     # Step 1: Convert Omniverse quaternion to rotation matrix
     # Reformat from [w,x,y,z] to [x,y,z,w] for scipy
     ov_quat_scipy = [ov_quat[1], ov_quat[2], ov_quat[3], ov_quat[0]]
     ov_rot = Rotation.from_quat(ov_quat_scipy)
-    
+
     # Step 2: Create reference orientations
     # Define "down" in Omniverse using a quaternion [0,1,0,0]
-    ov_down_quat = [1, 0, 0, 0]  # [x,y,z,w] format for scipy
+    ov_down_quat = [ov_down_quat[1], ov_down_quat[2], ov_down_quat[3], ov_down_quat[0]]  # [x,y,z,w] format for scipy
     ov_down_rot = Rotation.from_quat(ov_down_quat)
-    
+
     # Define "down" in organ coordinates using Euler angles [0,0,-90]
-    organ_down_rot = Rotation.from_euler('xyz', [0, 0, -90], degrees=True)
-    
+    organ_down_rot = Rotation.from_euler("xyz", organ_down_quat, degrees=True)
+
     # Step 3: Define the relative rotation needed for the reference
     # This calculates how to rotate from Omniverse "down" to organ "down"
     reference_mapping = organ_down_rot * ov_down_rot.inv()
-    
+
     # Step 4: Apply the same relative rotation to the current orientation
     # This preserves the relative angle from "down" in both systems
     result_rot = reference_mapping * ov_rot
-    
+
     # Step 5: Convert to Euler angles
-    organ_euler = result_rot.as_euler('xyz', degrees=True)
-    
+    organ_euler = result_rot.as_euler("xyz", degrees=True)
+
     return organ_euler
+
 
 def get_probe_pos_ori(env, transform_matrix, log=False):
     """Get the probe position and orientation from the environment.
-    
+
     Args:
         env: The simulation environment.
-        transform_matrix: Optional transformation matrix to convert from Isaac Sim 
+        transform_matrix: Optional transformation matrix to convert from Isaac Sim
                           coordinate system to organ coordinate system.
-        log: If True, print the transformed position and orientation values. 
+        log: If True, print the transformed position and orientation values.
     """
     # Get probe data
     probe_data = env.unwrapped.scene["ee_frame"].data
-    
+
     # Get probe position (1, 1, 3)
-    probe_pos = (probe_data.target_pos_w - env.unwrapped.scene.env_origins)  # Shape (1, 1, 3)
-    
+    probe_pos = probe_data.target_pos_w - env.unwrapped.scene.env_origins  # Shape (1, 1, 3)
+
     # Extract the position and make it homogeneous
     probe_pos_flat = probe_pos.squeeze(0).squeeze(0)  # Remove batch dimensions
     pos_homogeneous = torch.cat([probe_pos_flat, torch.tensor([1.0], device=probe_pos.device)], dim=-1)
-    
+
     # Apply transform matrix
     transformed_pos = transform_matrix.to(probe_pos.device) @ pos_homogeneous
     transformed_pos = transformed_pos[:3]  # Keep only x, y, z
-    
+
     # Get probe orientation (1, 1, 4)
     probe_ori = probe_data.target_quat_w.squeeze(0).squeeze(0)  # Shape (4,)
-    
+
     transformed_ori = ov_to_nifti_orientation(probe_ori.cpu().numpy())
     if log:
         print(f"transformed_ori: {transformed_ori}")
         print(f"transformed_pos: {transformed_pos}")
-    
+
     return transformed_pos.cpu().numpy(), transformed_ori
 
 
