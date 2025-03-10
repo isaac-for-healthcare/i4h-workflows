@@ -5,9 +5,35 @@ import sys
 def install_dependencies():
     """Install project dependencies from requirements.txt"""
     try:
-        # run nvidia-smi and prepare if there is no GPU
         subprocess.check_call(["nvidia-smi"])
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "numpy", "torch", "coverage", "parameterized"])
+        # Install dependencies
+        subprocess.check_call(["sudo", "apt-get", "install", "-y", "xvfb", "x11-utils", "cmake", "build-essential"])
+        # Test dependencies
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "coverage", "parameterized", "dearpygui"])
+        # Install IsaacSim
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "rti.connext",
+                "isaacsim==4.2.0.2",
+                "isaacsim-extscache-physics==4.2.0.2",
+                "isaacsim-extscache-kit==4.2.0.2",
+                "isaacsim-extscache-kit-sdk==4.2.0.2",
+                "--extra-index-url",
+                "https://pypi.nvidia.com",
+            ]
+        )
+        # Install IsaacLab
+        subprocess.check_call(["git", "clone", "-b", "v1.4.1", "git@github.com:isaac-sim/IsaacLab.git"])
+        subprocess.check_call(
+            ["sed", "-i", "s/rsl-rl/rsl-rl-lib/g", "IsaacLab/source/extensions/omni.isaac.lab_tasks/setup.py"]
+        )
+        subprocess.check_call(["./isaaclab.sh", "--install"], cwd="./IsaacLab")
+        # Install OpenPI
+        subprocess.check_call(["./tools/install_openpi_with_isaac_4.2.sh"])
         print("Dependencies installed successfully!")
 
     except subprocess.CalledProcessError as e:

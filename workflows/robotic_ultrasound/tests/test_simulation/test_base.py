@@ -4,10 +4,10 @@ from importlib.util import find_spec
 from unittest import skipUnless
 from unittest.mock import MagicMock
 
+from dds.publisher import Publisher
+from dds.subscriber import Subscriber
 from isaacsim import SimulationApp
 from parameterized import parameterized
-from rti_dds.publisher import Publisher
-from rti_dds.subscriber import Subscriber
 
 simulation_app = SimulationApp({"headless": True})
 import omni.usd  # noqa: E402

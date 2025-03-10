@@ -3,14 +3,14 @@ from typing import Any
 
 import numpy as np
 import omni.usd
+from dds.publisher import Publisher
+from dds.schemas.franka_ctrl import FrankaCtrlInput
+from dds.schemas.franka_info import FrankaInfo
+from dds.subscriber import Subscriber
 from omni.isaac.core.robots import Robot
 from omni.isaac.core.utils.types import ArticulationAction
 from omni.isaac.franka import KinematicsSolver
 from omni.isaac.franka.controllers.rmpflow_controller import RMPFlowController
-from rti_dds.publisher import Publisher
-from rti_dds.schemas.franka_ctrl import FrankaCtrlInput
-from rti_dds.schemas.franka_info import FrankaInfo
-from rti_dds.subscriber import Subscriber
 from simulation.configs.config import FrankaConfig
 
 
@@ -49,7 +49,7 @@ class FrankaPublisher(Publisher):
 
         Returns:
             FrankaInfo: Robot state information including joint positions and velocities,
-                refer to rti_dds.schemas.franka_info.FrankaInfo.
+                refer to dds.schemas.franka_info.FrankaInfo.
         """
         joints_state = self.franka.get_joints_state()
         output = FrankaInfo()
@@ -115,7 +115,7 @@ class FrankaSubscriber(Subscriber):
 
         Args:
             input: Control input message containing target states and joint states,
-                refer to rti_dds.schemas.franka_ctrl.FrankaCtrlInput.
+                refer to dds.schemas.franka_ctrl.FrankaCtrlInput.
         """
         actions = None
         if input.target_position:

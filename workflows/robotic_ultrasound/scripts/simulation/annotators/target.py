@@ -1,10 +1,10 @@
 from typing import Any
 
+from dds.publisher import Publisher
+from dds.schemas.target_ctrl import TargetCtrlInput
+from dds.schemas.target_info import TargetInfo
+from dds.subscriber import Subscriber
 from omni.isaac.core.prims import XFormPrim
-from rti_dds.publisher import Publisher
-from rti_dds.schemas.target_ctrl import TargetCtrlInput
-from rti_dds.schemas.target_info import TargetInfo
-from rti_dds.subscriber import Subscriber
 from simulation.configs.config import TargetConfig
 
 
@@ -35,7 +35,7 @@ class TargetPublisher(Publisher):
 
         Returns:
             TargetInfo: Target state information including position and orientation,
-                refer to rti_dds.schemas.target_info.TargetInfo.
+                refer to dds.schemas.target_info.TargetInfo.
         """
         target = XFormPrim(prim_path=self.prim_path)
         position, orientation = target.get_world_pose()
@@ -86,7 +86,7 @@ class TargetSubscriber(Subscriber):
 
         Args:
             input: Control input message containing target position and orientation,
-                refer to rti_dds.schemas.target_ctrl.TargetCtrlInput.
+                refer to dds.schemas.target_ctrl.TargetCtrlInput.
         """
         print(f"Target:: Set Target New Position: {input.position}")
 

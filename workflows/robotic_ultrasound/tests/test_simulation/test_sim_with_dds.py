@@ -4,9 +4,9 @@ import unittest
 from unittest import skipUnless
 
 import numpy as np
-from rti_dds.schemas.camera_info import CameraInfo
-from rti_dds.schemas.franka_info import FrankaInfo
-from rti_dds.subscriber import SubscriberWithCallback
+from dds.schemas.camera_info import CameraInfo
+from dds.schemas.franka_info import FrankaInfo
+from dds.subscriber import SubscriberWithCallback
 
 try:
     import rti.connextdds as dds  # noqa: F401
