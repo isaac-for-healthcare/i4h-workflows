@@ -28,6 +28,7 @@ from robotic_us_ext.lab_assets.franka import FRANKA_PANDA_HIGH_PD_FORCE_CFG, FRA
 from robotic_us_ext.tasks.ultrasound.approach import mdp
 
 from omni.isaac.lab.markers.config import FRAME_MARKER_CFG  # isort: skip
+from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
 
 FRAME_MARKER_SMALL_CFG = FRAME_MARKER_CFG.copy()
 FRAME_MARKER_SMALL_CFG.markers["frame"].scale = (0.10, 0.10, 0.10)
@@ -53,7 +54,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
             pos=[0.4804, 0.02017, -0.83415], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, -90.0]), degrees=True)
         ),
         spawn=sim_utils.UsdFileCfg(
-            usd_path=os.path.join(os.getcwd(), "assets/Collected_table/table_with_cover/table_with_cover.usd"),
+            usd_path=rus_assets.table_with_cover,
         ),
     )
 
@@ -65,7 +66,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         prim_path="{ENV_REGEX_NS}/organs",
         init_state=RigidObjectCfg.InitialStateCfg(pos=[0.6, 0.0, 0.09]),
         spawn=sim_utils.UsdFileCfg(
-            usd_path=os.path.join(os.getcwd(), "assets/Collected_phantom/phantom.usda"),
+            usd_path=rus_assets.phantom,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(rigid_body_enabled=True),
             mass_props=sim_utils.MassPropertiesCfg(mass=1000.0),
             collision_props=sim_utils.CollisionPropertiesCfg(),

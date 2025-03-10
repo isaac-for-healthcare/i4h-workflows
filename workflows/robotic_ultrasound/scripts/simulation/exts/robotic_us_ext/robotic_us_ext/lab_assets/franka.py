@@ -23,6 +23,7 @@ import omni.isaac.lab.sim as sim_utils
 from omni.isaac.lab.actuators import ImplicitActuatorCfg
 from omni.isaac.lab.assets.articulation import ArticulationCfg
 from omni.isaac.lab.utils.assets import ISAACLAB_NUCLEUS_DIR
+from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
 
 ##
 # Configuration
@@ -155,8 +156,7 @@ FRANKA_PANDA_REALSENSE_CFG.actuators["panda_forearm"].damping = 80.0
 FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG = NOHAND_FRANKA_PANDA.copy()
 # local filepath
 spawn = sim_utils.UsdFileCfg(
-    usd_path=os.path.join(os.getcwd(), "assets/Collected_panda_assembly/panda_assembly.usda"),
-    # usd_path="omniverse://localhost/Library/sage/2025-10-02/robot/Collected_panda_assembly/panda_assembly.usda",
+    usd_path=rus_assets.panda,
     activate_contact_sensors=True,
     rigid_props=sim_utils.RigidBodyPropertiesCfg(
         disable_gravity=True,

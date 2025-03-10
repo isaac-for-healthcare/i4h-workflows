@@ -13,6 +13,7 @@ simulation_app = SimulationApp({"headless": True})
 
 import omni.usd  # noqa: E402
 from simulation.annotators.camera import CameraPublisher, CameraSubscriber  # noqa: E402
+from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
 
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
@@ -28,7 +29,7 @@ class TestCameraBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.test_dir = os.path.dirname(os.path.abspath(__file__))
-        cls.usda_path = os.path.join(cls.test_dir, "basic.usda")
+        cls.usda_path = rus_assets.basic
         cls.camera_prim_path = "/RoomCamera"
         assert os.path.exists(cls.usda_path), f"basic.usda not found at {cls.usda_path}"
 
