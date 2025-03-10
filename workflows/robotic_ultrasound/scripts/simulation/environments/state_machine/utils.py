@@ -80,20 +80,32 @@ def get_joint_states(env):
     robot_joint_pos = robot_data.joint_pos
     return robot_joint_pos.cpu().numpy()
 
-def compute_transform_matrix(ov_point, nifti_point, scale=1000.0):
+def compute_transform_matrix(ov_point, nifti_point, transform_matrix: None | torch.Tensor = None, scale: None | float = 1000.0):
     """
         Create a transform matrix to convert from Omniverse coordinates (meters) to NIFTI coordinates (millimeters)
         
         Args:
             ov_point: point in Omniverse coordinates (meters)
             nifti_point: point in NIFTI coordinates (millimeters)
-            scale: scaling factor to convert meters to millimeters
+            transform_matrix: Optional transform matrix to convert from Omniverse to NIFTI coordinates.
+                If None, the default transform matrix will be used.
+                The default transform matrix performs the following axis mapping:
+                - x-axis remains as x-axis
+                - y-axis maps to negative z-axis
+                - z-axis maps to negative y-axis
+            scale: Optional scaling factor to convert from meters to millimeters. 
+                Default value is 1000.0, which converts meters to millimeters.
     """
-    R = torch.tensor([
-        [scale, 0, 0],
-        [0, 0, -scale],
-        [0, -scale, 0]
-    ], dtype=torch.float64)
+    if transform_matrix is None:
+        R = torch.tensor([
+            [1, 0, 0],
+            [0, 0, -1],
+            [0, 1, 0]
+        ], dtype=torch.float64)
+    else:
+        R = transform_matrix
+    if scale is not None:
+        R = R * scale
     ov_point = torch.tensor(ov_point, dtype=torch.float64).unsqueeze(-1)
     nifti_point = torch.tensor(nifti_point, dtype=torch.float64)
     
