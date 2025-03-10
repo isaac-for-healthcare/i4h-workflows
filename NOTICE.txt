@@ -30,8 +30,8 @@ Licensed under Apache 2.0 (https://github.com/huggingface/lerobot/blob/main/LICE
 openpi (https://github.com/Physical-Intelligence/openpi)
 Licensed under Apache 2.0 (https://github.com/Physical-Intelligence/openpi/blob/main/LICENSE)
 
-Orbit Surgical (https://github.com/orbit-surgical/orbit-surgical)
-2024, The ORBIT-Surgical Project Developers.
+Orbit-Surgical (https://github.com/orbit-surgical/orbit-surgical)
+2024-2025, The ORBIT-Surgical Project Developers.
 Licensed under BSD-3-Clause (https://github.com/orbit-surgical/orbit-surgical/blob/main/LICENCE)
 
 parametrized (https://github.com/wolever/parameterized)
