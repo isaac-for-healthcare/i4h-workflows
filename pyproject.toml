@@ -7,6 +7,7 @@ use_parentheses = true
 line_length = 120
 py_version = 310
 group_by_package = true
+known_third_party = ["openpi"]
 
 [tool.ruff]
 line-length = 120

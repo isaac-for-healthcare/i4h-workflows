@@ -29,6 +29,9 @@ This will fix the linting errors and formatting errors.
 # Optional: Install dependencies for CI pipelines
 python tools/install_deps.py
 
+export RTI_LICENSE_FILE=<path to your RTI license file>
+ls $RTI_LICENSE_FILE
+
 # Run all tests
 python tools/run_all_tests.py
 ```
