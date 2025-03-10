@@ -1,4 +1,4 @@
-# Copyright (c) 2024, The ORBIT-Surgical Project Developers.
+# Copyright (c) 2024-2025, The ORBIT-Surgical Project Developers.
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -41,13 +41,13 @@ simulation_app = app_launcher.app
 from collections.abc import Sequence
 
 import gymnasium as gym
-import orbit.surgical.tasks  # noqa: F401
+import robotic.surgery.tasks  # noqa: F401
 import torch
 import warp as wp
 from omni.isaac.lab.assets import RigidObject
 from omni.isaac.lab.utils.math import subtract_frame_transforms
 from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
-from orbit.surgical.tasks.surgical.reach.reach_env_cfg import ReachEnvCfg
+from robotic.surgery.tasks.surgical.reach.reach_env_cfg import ReachEnvCfg
 
 # initialize warp
 wp.init()
