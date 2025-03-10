@@ -1,7 +1,6 @@
 import argparse
 import collections
 import os
-import time
 
 import gymnasium as gym
 import numpy as np
