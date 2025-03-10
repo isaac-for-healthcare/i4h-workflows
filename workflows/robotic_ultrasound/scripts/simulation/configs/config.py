@@ -63,7 +63,7 @@ class UltraSoundConfig(BaseModel):
     width: int = w
     topic_ctrl: Topic | None = Topic(name="topic_ultrasound_ctrl")
     topic_info: Topic | None = Topic(name="topic_ultrasound_info")
-    topic_data: Topic | None = Topic(name="topic_ultrasound_data", domain_id=2)
+    topic_data: Topic | None = Topic(name="topic_ultrasound_data")
     enabled: bool = False
 
 

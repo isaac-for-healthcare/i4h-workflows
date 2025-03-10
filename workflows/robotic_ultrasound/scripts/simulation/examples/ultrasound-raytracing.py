@@ -326,7 +326,7 @@ class PublisherRTIDDS(Operator):
     def __init__(
         self, fragment, *args, domain_id=0, topic="output_topic", data_schema: struct = UltraSoundProbeData, **kwargs
     ):
-        self.domain_id = 2
+        self.domain_id = domain_id
         self.topic = topic
         self.data_schema = data_schema
         self.writer = None
