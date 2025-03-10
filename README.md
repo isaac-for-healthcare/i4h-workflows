@@ -66,10 +66,10 @@ The Isaac for Healthcare framework is under [Apache 2.0](./LICENSE).
 The [Robotic Surgery workflow](./workflows/robotic_surgery/) initiated from the [ORBIT-Surgical](https://orbit-surgical.github.io/) framework. We would appreciate if you would cite it in academic publications as well:
 
 ```
-@INPROCEEDINGS{Orbit-Surgical,
+@inproceedings{ORBIT-Surgical,
   author={Yu, Qinxi and Moghani, Masoud and Dharmarajan, Karthik and Schorp, Vincent and Panitch, William Chung-Ho and Liu, Jingzhou and Hari, Kush and Huang, Huang and Mittal, Mayank and Goldberg, Ken and Garg, Animesh},
   booktitle={2024 IEEE International Conference on Robotics and Automation (ICRA)},
-  title={Orbit-Surgical: An Open-Simulation Framework for Learning Surgical Augmented Dexterity},
+  title={ORBIT-Surgical: An Open-Simulation Framework for Learning Surgical Augmented Dexterity},
   year={2024},
   pages={15509-15516},
   doi={10.1109/ICRA57147.2024.10611637}
