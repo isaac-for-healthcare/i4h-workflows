@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-
+from typing import Sequence
 import onnxruntime as ort
 import torch
 from scipy.spatial.transform import Rotation
@@ -80,38 +80,48 @@ def get_joint_states(env):
     robot_joint_pos = robot_data.joint_pos
     return robot_joint_pos.cpu().numpy()
 
-def compute_transform_matrix(ov_point, nifti_point, transform_matrix: None | torch.Tensor = None, scale: None | float = 1000.0):
+def compute_transform_matrix(ov_point: Sequence[float], nifti_point: Sequence[float], rotation_matrix: None | torch.Tensor = None, scale: None | float = 1000.0):
     """
-        Create a transform matrix to convert from Omniverse coordinates (meters) to NIFTI coordinates (millimeters)
-        
-        Args:
-            ov_point: point in Omniverse coordinates (meters)
-            nifti_point: point in NIFTI coordinates (millimeters)
-            transform_matrix: Optional transform matrix to convert from Omniverse to NIFTI coordinates.
-                If None, the default transform matrix will be used.
-                The default transform matrix performs the following axis mapping:
-                - x-axis remains as x-axis
-                - y-axis maps to negative z-axis
-                - z-axis maps to negative y-axis
-            scale: Optional scaling factor to convert from meters to millimeters. 
-                Default value is 1000.0, which converts meters to millimeters.
+    Create a transform matrix to convert from Omniverse coordinates (meters) to NIFTI coordinates (millimeters)
+    
+    Args:
+        ov_point: point in Omniverse coordinates (meters)
+        nifti_point: point in NIFTI coordinates (millimeters)
+        rotation_matrix: Optional rotation matrix to convert from Omniverse to NIFTI coordinates.
+            If None, the default rotation matrix will be used.
+            The default rotation matrix performs the following axis mapping:
+            - x-axis remains as x-axis
+            - y-axis maps to negative z-axis
+            - z-axis maps to negative y-axis
+        scale: Optional scaling factor to convert from meters to millimeters. 
+            Default value is 1000.0, which converts meters to millimeters.
+            
+    Returns:
+        A 4x4 homogeneous transformation matrix that maps points from Omniverse to NIFTI coordinates.
     """
-    if transform_matrix is None:
+    # Create rotation component of the transform matrix
+    if rotation_matrix is None:
         R = torch.tensor([
             [1, 0, 0],
             [0, 0, -1],
-            [0, 1, 0]
+            [0, -1, 0]
         ], dtype=torch.float64)
     else:
-        R = transform_matrix
+        R = rotation_matrix
+    
+    # Apply scaling if provided
     if scale is not None:
         R = R * scale
+    
+    # Convert input points to tensors
     ov_point = torch.tensor(ov_point, dtype=torch.float64).unsqueeze(-1)
     nifti_point = torch.tensor(nifti_point, dtype=torch.float64)
     
+    # Calculate translation component
     t = nifti_point - (R @ ov_point).squeeze(-1)
     
-    transform_matrix = torch.eye(4)
+    # Create full 4x4 transform_matrix matrix
+    transform_matrix = torch.eye(4, dtype=torch.float64)
     transform_matrix[:3, :3] = R
     transform_matrix[:3, 3] = t
     
