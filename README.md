@@ -74,4 +74,11 @@ The [Robotic Surgery workflow](./workflows/robotic_surgery/) initiated from the 
   pages={15509-15516},
   doi={10.1109/ICRA57147.2024.10611637}
 }
+
+@inproceedings{SuFIA-BC,
+  author={Moghani, Masoud and Nelson, Nigel and Ghanem, Mohamed and Diaz-Pinto, Andres and Hari, Kush and Azizian, Mahdi and Goldberg, Ken and Huver, Sean and Garg, Animesh},
+  booktitle={2025 IEEE International Conference on Robotics and Automation (ICRA)},
+  title={SuFIA-BC: Generating High Quality Demonstration Data for Visuomotor Policy Learning in Surgical Subtasks},
+  year={2025},
+}
 ```
