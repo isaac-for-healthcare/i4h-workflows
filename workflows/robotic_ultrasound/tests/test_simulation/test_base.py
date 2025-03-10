@@ -13,6 +13,7 @@ simulation_app = SimulationApp({"headless": True})
 import omni.usd  # noqa: E402
 from pxr import Usd  # noqa: E402
 from simulation.annotators.base import Annotator  # noqa: E402
+
 from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
 
 TEST_CASES = [

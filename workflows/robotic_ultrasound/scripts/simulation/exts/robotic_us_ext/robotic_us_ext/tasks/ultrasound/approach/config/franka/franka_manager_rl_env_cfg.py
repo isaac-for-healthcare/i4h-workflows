@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-import os
 from dataclasses import MISSING
 
 import omni.isaac.lab.sim as sim_utils
@@ -27,8 +26,9 @@ from omni.isaac.lab.utils import configclass
 from robotic_us_ext.lab_assets.franka import FRANKA_PANDA_HIGH_PD_FORCE_CFG, FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG
 from robotic_us_ext.tasks.ultrasound.approach import mdp
 
-from omni.isaac.lab.markers.config import FRAME_MARKER_CFG  # isort: skip
 from workflows.robotic_ultrasound.scripts.utils.assets import robotic_ultrasound_assets as rus_assets
+
+from omni.isaac.lab.markers.config import FRAME_MARKER_CFG  # isort: skip
 
 FRAME_MARKER_SMALL_CFG = FRAME_MARKER_CFG.copy()
 FRAME_MARKER_SMALL_CFG.markers["frame"].scale = (0.10, 0.10, 0.10)

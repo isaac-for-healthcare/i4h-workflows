@@ -1,6 +1,8 @@
 import os
 from dataclasses import dataclass
+
 from i4h_asset_helper import get_i4h_local_asset_path
+
 
 @dataclass
 class Enums:
@@ -18,6 +20,7 @@ class Assets(Enums):
         for attr in dir(self):
             if not attr.startswith("_"):
                 setattr(self, attr, os.path.join(download_dir, getattr(self, attr)))
+
 
 # singleton
 robotic_ultrasound_assets = Assets()
