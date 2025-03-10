@@ -2,22 +2,22 @@
 
 ---
 
-# Isaac-for-Healthcare Workflows
+# Isaac for Healthcare - Workflows
 
 [![IsaacSim](https://img.shields.io/badge/IsaacSim-4.2.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/4.2.0/index.html)
 [![Python](https://img.shields.io/badge/python-3.10-blue.svg)](https://docs.python.org/3/whatsnew/3.10.html)
 [![Linux platform](https://img.shields.io/badge/platform-linux--64-orange.svg)](https://releases.ubuntu.com/20.04/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-yellow.svg)](https://opensource.org/license/apache-2-0)
 
-**Isaac-for-Healthcare** is a domain-specific framework built on top of Nvidia Isaac Sim/Lab and Nvidia Omniverse, enabling developers to design, simulate, test, and train AI-based robots and autonomous systems, and generate synthetic data across:
+**Isaac for Healthcare** is a domain-specific framework built on top of Nvidia Isaac Sim/Lab and Nvidia Omniverse, enabling developers to design, simulate, test, and train AI-based robots and autonomous systems, and generate synthetic data across:
 - **Therapeutics** (e.g., surgical robotics, interventional radiology and radiotherapy)
 - **Diagnostics** (e.g., ultrasound (US), computed tomography (CT), cone-beam CT (CBCT))
 - **Hospital & patient care** (e.g., hospitals, operating rooms and intensive care units with medication delivery, supply transport, disinfection robots, cobots)
 - **Rehabilitation & assistive technologies** (e.g., physical therapy robots, exoskeletons, etc.)
 
-Isaac-for-Healthcare will extend and tailor Isaac Sim/Lab and Omniverse to enable multi-scale simulation (in a highly realistic virtual environment) — from anatomy to sensors, surgical instruments, robotic systems, operating rooms, intensive care units, labs, sterile processing departments (SPD), and full hospital environments.
+Isaac for Healthcare will extend and tailor Isaac Sim/Lab and Omniverse to enable multi-scale simulation (in a highly realistic virtual environment) — from anatomy to sensors, surgical instruments, robotic systems, operating rooms, intensive care units, labs, sterile processing departments (SPD), and full hospital environments.
 
-Isaac-for-Healthcare enables healthcare technology developers to leverage **NVIDIA technologies** to:
+Isaac for Healthcare enables healthcare technology developers to leverage **NVIDIA technologies** to:
 - Accelerate development and testing of AI algorithms with synthetic data generated in digital twin.
 - Accelerate development, training and testing of robotic policies in digital twin environments.
 - Enable development, training and testing of systems with hardware-in-the-loop (HIL).
@@ -27,7 +27,7 @@ Isaac-for-Healthcare enables healthcare technology developers to leverage **NVID
 
 ![Key features](./docs/source/key_features.jpg)
 
-**Isaac-for-Healthcare Workflows** will bring the combined power of digital twins and physical AI for:
+**Isaac for Healthcare Workflows** will bring the combined power of digital twins and physical AI for:
 - **Digital prototyping** of next-gen healthcare robotic systems, sensors and instruments.
 - **Training AI models** with synthetic data generation (SDG) augmented with real data.
 - **Evaluating AI models** in digital twin environment with HIL.
@@ -55,11 +55,11 @@ These may happen as bug reports, feature requests, or code contributions. For de
 
 ## Troubleshooting & Support
 
-Please [submit an issue](https://github.com/isaac-for-healthcare/i4h-workflows/issues) to request and enhancement, bug fix, or other change in Isaac-for-Healthcare Workflows.
+Please [submit an issue](https://github.com/isaac-for-healthcare/i4h-workflows/issues) to request and enhancement, bug fix, or other change in Isaac for Healthcare Workflows.
 
 ## License
 
-The Isaac-for-Healthcare framework is under [Apache 2.0](./LICENSE).
+The Isaac for Healthcare framework is under [Apache 2.0](./LICENSE).
 
 ## Acknowledgement
 
