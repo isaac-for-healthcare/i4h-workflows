@@ -190,8 +190,9 @@ def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
 
     This function performs two separate transformations:
     1. Position transformation: Converts 3D position from Isaac Sim (meters) to organ coordinate system (millimeters)
-       using a homogeneous transformation matrix
-    2. Orientation transformation: Converts quaternion orientation from Isaac Sim to Euler angles in organ coordinate system
+        using a homogeneous transformation matrix
+    2. Orientation transformation: Converts quaternion orientation from Isaac Sim to
+        Euler angles in organ coordinate system
 
     Args:
         env: The simulation environment containing the probe data
