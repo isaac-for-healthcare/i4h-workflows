@@ -38,7 +38,7 @@ class UltrasoundStateMachine:
             robot_obs: Current robot observations
 
         Returns:
-            Combined action tensor
+            Tuple of relative and absolute commands
         """
         self.sm_state.robot_obs = robot_obs
         self.sm_state.contact_normal_force = self.get_normal_force()

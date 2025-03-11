@@ -24,18 +24,8 @@ parser.add_argument(
     default=["room_camera", "wrist_camera"],
     help="List of camera names to capture from.",
 )
-parser.add_argument(
-    "--reset_steps", 
-    type=int, 
-    default=15, 
-    help="Number of steps to take during environment reset."
-)
-parser.add_argument(
-    "--max_steps", 
-    type=int, 
-    default=350, 
-    help="Maximum number of steps before forcing a reset."
-)
+parser.add_argument("--reset_steps", type=int, default=15, help="Number of steps to take during environment reset.")
+parser.add_argument("--max_steps", type=int, default=350, help="Maximum number of steps before forcing a reset.")
 
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -54,9 +44,9 @@ from meta_state_machine.ultrasound_state_machine import UltrasoundStateMachine  
 from modules.force_module import ForceControlModule  # noqa: F401, E402
 from modules.orientation_module import OrientationControlModule  # noqa: F401, E402
 from modules.path_planning_module import PathPlanningModule  # noqa: F401, E402
-from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg # noqa: F401, E402
+from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: F401, E402
 from robotic_us_ext import tasks  # noqa: F401, E402
-from utils import ( # noqa: F401, E402
+from utils import (  # noqa: F401, E402
     KeyboardHandler,
     RobotPositions,
     RobotQuaternions,
@@ -112,7 +102,7 @@ def main():
     reset_quat = torch.tensor(RobotQuaternions.DOWN, device=args_cli.device)
     reset_tensor = torch.cat([reset_pos, reset_quat], dim=-1)
     reset_tensor = reset_tensor.repeat(env.unwrapped.num_envs, 1)
-    # simulate physics
+
     count = 0
     while simulation_app.is_running() and (
         data_collector is None or data_collector.completed_episodes < args_cli.num_episodes
@@ -145,13 +135,12 @@ def main():
                     obs, rew, terminated, truncated, info_ = env.step(rel_commands)
 
             robot_obs = get_robot_obs(env)
-            # print("robot_obs:", robot_obs)
 
             # Compute combined action from all modules
             rel_commands, abs_commands = state_machine.compute_action(env, robot_obs[0])
             print(f"Step@{count} w/ action: {abs_commands}")
             print(f"State: {state_machine.sm_state.state}")
-            # Step rel_commands
+            # Step using relative commands
             obs, rew, terminated, truncated, info_ = env.step(rel_commands)
 
             # Record data if collecting
