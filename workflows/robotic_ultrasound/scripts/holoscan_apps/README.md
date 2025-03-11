@@ -1,4 +1,6 @@
+# RealSense Camera
 
+## Setup
 
 If your system GLIBC doesn't match, and you get this error then run
 ```
@@ -12,7 +14,9 @@ pip install rti.connext
 pip install holoscan
 ```
 
+## Running Application
+
 To run realsense camera
 ```
-python3 holoscan/realsense/camera.py
+python3 holoscan_apps/realsense/camera.py
 ```

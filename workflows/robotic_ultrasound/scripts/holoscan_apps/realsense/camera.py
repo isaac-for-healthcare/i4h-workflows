@@ -95,7 +95,7 @@ class RealsenseOp(Operator):
             depth = np.asanyarray(frames.get_depth_frame().get_data()).astype(np.float32) / 1000.0
             self.depth_writer.write(CameraInfo(data=depth.tobytes(), width=self.width, height=self.height))
             if not self.show_holoviz:
-                op_output.emit({"depth": holoscan.as_tensor(color)}, "depth")
+                op_output.emit({"depth": holoscan.as_tensor(depth)}, "depth")
 
 
 class NoOp(Operator):
