@@ -6,7 +6,8 @@
 - [Environments](#environments)
 - [Apps](#apps)
   - [PI Zero Policy Evaluation](#pi-zero-policy-evaluation)
-  - [Examples](#examples)
+  - [Policy Evaluation w/ DDS](#policy-evaluation-w-dds)
+  - [Liver Scan State Machine](#liver-scan-state-machine)
 
 # Requirements
 
@@ -89,9 +90,7 @@ python environments/state_machine/pi0_policy/eval.py \
 This should open a stage with Franka arm and run the robotic ultrasound actions:
 ![pi0 simulation](../../../../docs/source/pi0_sim.jpg)
 
-# Examples
-
-## Simulation for robotic ultrasound based on DDS communication
+## Policy Evaluation w/ DDS
 This example should work together with the `pi0 policy runner` via DDS communication,
 so please ensure to launch the `run_policy.py` with `height=224`, `width=224`,
 and the same `domain id` as this example in another terminal.
@@ -111,11 +110,11 @@ python examples/sim_with_dds.py \
     --rti_license_file <path to>/rti_license.dat
 ```
 
-# Liver Scan State Machine
+## Liver Scan State Machine
 
 The Liver Scan State Machine provides a structured approach to performing ultrasound scans on a simulated liver. It implements a state-based workflow that guides the robotic arm through the scanning procedure.
 
-## Overview
+### Overview
 
 The state machine transitions through the following states:
 - **SETUP**: Initial positioning of the robot
@@ -129,12 +128,12 @@ The state machine integrates multiple control modules:
 - **Orientation Control**: Maintains proper probe orientation
 - **Path Planning**: Guides the robot through the scanning trajectory
 
-## Requirements
+### Requirements
 
 - This implementation works **only with a single environment** (`--num_envs 1`).
 - It should be used with the `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0` environment.
 
-## Usage
+### Usage
 
 move to the [scripts](../) folder and specify the python path:
 ```sh
@@ -161,7 +160,7 @@ python environments/state_machine/liver_scan_sm.py \
 
 This will collect data for 2 complete episodes and store it in HDF5 format.
 
-## Command Line Arguments
+### Command Line Arguments
 
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -173,7 +172,7 @@ This will collect data for 2 complete episodes and store it in HDF5 format.
 | `--reset_steps` | int | 15 | Number of steps to take during environment reset |
 | `--max_steps` | int | 350 | Maximum number of steps before forcing a reset |
 
-## Data Collection Details
+### Data Collection Details
 
 When data collection is enabled (`--num_episodes > 0`), the state machine will:
 
