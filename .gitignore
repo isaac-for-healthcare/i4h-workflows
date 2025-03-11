@@ -190,3 +190,11 @@ cython_debug/
 
 # VSCode
 .vscode/
+
+# ignore obj usd usda files
+*.obj
+*.usd
+*.usda
+*.mtl 
+*.png
+*.usdc
