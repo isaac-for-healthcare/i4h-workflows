@@ -7,6 +7,7 @@ import torch
 from omni.isaac.lab.utils.math import compute_pose_error
 from pynput import keyboard
 from scipy.spatial.transform import Rotation
+import numpy as np
 
 
 # MARK: - State Machine Enums + Dataclasses
@@ -112,7 +113,7 @@ def compute_transform_matrix(
             If None, the default rotation matrix will be used.
             The default rotation matrix performs the following axis mapping:
             - x-axis remains as x-axis
-            - y-axis maps to negative z-axis
+            - y-axis maps to z-axis
             - z-axis maps to negative y-axis
 
     Returns:
@@ -144,44 +145,70 @@ def ov_to_nifti_orientation(
 ):
     """
     Convert quaternion from Omniverse to organ coordinate system Euler angles
-
+    
     Args:
         ov_quat: Quaternion in [w, x, y, z] format from Omniverse
-        ov_down_quat: Quaternion in [w, x, y, z] format for Omniverse "down", default is [0, 1, 0, 0]
-        organ_down_quat: Euler angles in [x, y, z] format for organ "down", default is [0, 0, -90]
-
+        ov_down_quat: Quaternion in [w, x, y, z] format for Omniverse "down" direction, default is [0, 1, 0, 0]
+        organ_down_quat: Euler angles in [x, y, z] format for organ "down" direction, default is [-π/2, 0, 0]
+    
     Returns:
-        Euler angles in organ coordinate system [x, y, z] in degrees
+        Euler angles in organ coordinate system [x, y, z] in radians
+        
+    Coordinate mapping:
+        - Omniverse x → organ x
+        - Omniverse y → organ -z
+        - Omniverse z → organ -y
+        
+    Downward direction mapping:
+        - Omniverse [π, 0, 0] or quaternion [0, 1, 0, 0] → organ [-π/2, 0, 0]
     """
+    # Set default values if not provided
     if ov_down_quat is None:
-        ov_down_quat = [0, 1, 0, 0]
+        ov_down_quat = [0, 1, 0, 0]  # Omniverse "down" quaternion [w, x, y, z]
+        
     if organ_down_quat is None:
-        organ_down_quat = [0, 0, -90]
-
+        organ_down_quat = [-np.pi / 2, 0, 0]  # Organ "down" Euler angles [x, y, z]
+    
     # Step 1: Convert Omniverse quaternion to rotation matrix
     # Reformat from [w,x,y,z] to [x,y,z,w] for scipy
     ov_quat_scipy = [ov_quat[1], ov_quat[2], ov_quat[3], ov_quat[0]]
     ov_rot = Rotation.from_quat(ov_quat_scipy)
-
+    
     # Step 2: Create reference orientations
-    # Define "down" in Omniverse using a quaternion [0,1,0,0]
-    ov_down_quat = [ov_down_quat[1], ov_down_quat[2], ov_down_quat[3], ov_down_quat[0]]  # [x,y,z,w] format for scipy
-    ov_down_rot = Rotation.from_quat(ov_down_quat)
-
-    # Define "down" in organ coordinates using Euler angles [0,0,-90]
-    organ_down_rot = Rotation.from_euler("xyz", organ_down_quat, degrees=True)
-
-    # Step 3: Define the relative rotation needed for the reference
-    # This calculates how to rotate from Omniverse "down" to organ "down"
-    reference_mapping = organ_down_rot * ov_down_rot.inv()
-
-    # Step 4: Apply the same relative rotation to the current orientation
-    # This preserves the relative angle from "down" in both systems
-    result_rot = reference_mapping * ov_rot
-
-    # Step 5: Convert to Euler angles
-    organ_euler = result_rot.as_euler("xyz", degrees=True)
-
+    # Define "down" in Omniverse using the provided quaternion
+    ov_down_scipy = [ov_down_quat[1], ov_down_quat[2], ov_down_quat[3], ov_down_quat[0]]  # [x,y,z,w] format for scipy
+    ov_down_rot = Rotation.from_quat(ov_down_scipy)
+    
+    # Define "down" in organ coordinates using the provided Euler angles
+    organ_down_rot = Rotation.from_euler('xyz', organ_down_quat, degrees=False)
+    
+    # Step 3: Define the coordinate system transformation (x→x, y→z, z→-y)
+    coord_transform = np.array([
+        [1, 0, 0],
+        [0, 0, -1],
+        [0, -1, 0]
+    ])
+    
+    # Step 4: Apply coordinate system transformation to Omniverse rotation
+    # First convert to matrix representation
+    ov_matrix = ov_rot.as_matrix()
+    # Transform the rotation matrix to organ coordinate system
+    transformed_matrix = coord_transform @ ov_matrix @ coord_transform.T
+    # Convert back to a rotation object
+    transformed_rot = Rotation.from_matrix(transformed_matrix)
+    
+    # Step 5: Apply this same relative rotation to the organ "down" orientation
+    # First transform the Omniverse down direction
+    ov_down_matrix = ov_down_rot.as_matrix()
+    transformed_down_matrix = coord_transform @ ov_down_matrix @ coord_transform.T
+    transformed_down_rot = Rotation.from_matrix(transformed_down_matrix)
+    
+    # Combine the transformed down direction with the relative rotation
+    final_rot = organ_down_rot * transformed_down_rot.inv() * transformed_rot
+    
+    # Step 7: Convert to Euler angles
+    organ_euler = final_rot.as_euler('xyz', degrees=False)
+    
     return organ_euler
 
 
