@@ -146,6 +146,7 @@ venv.bak/
 **/pi_zero/assets/
 **/pi_zero/checkpoints/
 **/pi_zero/wandb/
+**/data/hdf5/
 
 # Spyder project settings
 .spyderproject
