@@ -2,19 +2,23 @@ import argparse
 import os
 
 import numpy as np
+from PIL import Image
+from policy_runner.runners import PI0PolicyRunner
 from dds.publisher import Publisher
 from dds.schemas.camera_info import CameraInfo
 from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
-from PIL import Image
-from policy_runner.runners import PI0PolicyRunner
+from openpi_client import image_tools
 
 current_state = {
     "room_cam": None,
     "wrist_cam": None,
     "joint_pos": None,
 }
+
+# Ensure pi0 doesn't take all GPU memory
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 
 
 def main():
@@ -59,7 +63,7 @@ def main():
     if args.rti_license_file is None or not os.path.isabs(args.rti_license_file):
         raise ValueError("RTI license file must be an existing absolute path.")
     os.environ["RTI_LICENSE_FILE"] = args.rti_license_file
-    hz = 30
+    hz = 20
 
     class PolicyPublisher(Publisher):
         def __init__(self, topic: str, domain_id: int):
@@ -67,14 +71,14 @@ def main():
 
         def produce(self, dt: float, sim_time: float):
             r_cam_buffer = np.frombuffer(current_state["room_cam"], dtype=np.uint8)
-            room_img = Image.fromarray(r_cam_buffer.reshape(args.height, args.width, 3), "RGB")
+            room_img = image_tools.convert_to_uint8(image_tools.resize_with_pad(r_cam_buffer, 224, 224))
             w_cam_buffer = np.frombuffer(current_state["wrist_cam"], dtype=np.uint8)
-            wrist_img = Image.fromarray(w_cam_buffer.reshape(args.height, args.width, 3), "RGB")
+            wrist_img = image_tools.convert_to_uint8(image_tools.resize_with_pad(w_cam_buffer, 224, 224))
             joint_pos = current_state["joint_pos"]
             actions = pi0_policy.infer(
-                room_img=np.array(room_img),
-                wrist_img=np.array(wrist_img),
-                current_state=np.array(joint_pos[:7]),
+                room_img=room_img,
+                wrist_img=wrist_img,
+                current_state=joint_pos,
             )
             i = FrankaCtrlInput()
             # actions are relative positions, if run with absolute positions, need to add the current joint positions
@@ -83,7 +87,7 @@ def main():
                 np.array(actions)
                 .astype(np.float32)
                 .reshape(
-                    300,
+                    350,
                 )
                 .tolist()
             )

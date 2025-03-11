@@ -12,7 +12,7 @@ from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithQueue
 from omni.isaac.lab.app import AppLauncher
 from simulation.environments.state_machine.act_policy.act_utils import get_np_images
-from simulation.environments.state_machine.utils import compute_relative_action, get_joint_states, get_robot_obs
+from simulation.environments.state_machine.utils import compute_relative_action, get_joint_states, get_robot_obs, write_joint_positions
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Run simulation in a single-arm manipulator, communication via DDS.")
@@ -72,7 +72,7 @@ pub_data = {
     "wrist_cam": None,
     "joint_pos": None,
 }
-hz = 30
+hz = 20
 
 
 class RoomCamPublisher(Publisher):
@@ -147,7 +147,7 @@ def main():
         raise ValueError("RTI license file must be an existing absolute path.")
     os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
 
-    reset_steps = 20
+    reset_steps = 70
     max_timesteps = 250
 
     # allow environment to settle
@@ -177,7 +177,8 @@ def main():
             for t in range(max_timesteps):
                 # get and publish the current images and joint positions
                 pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
-                pub_data["joint_pos"] = get_joint_states(env)[0]
+                joint_pos = get_joint_states(env)
+                pub_data["joint_pos"] = joint_pos[0]
                 viz_r_cam_writer.write(0.1, 1.0)
                 viz_w_cam_writer.write(0.1, 1.0)
                 viz_pos_writer.write(0.1, 1.0)
@@ -193,15 +194,19 @@ def main():
                     action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(50, 6)
                     action_plan.extend(action_chunk[:replan_steps])
 
-                action = action_plan.popleft()
+                rel_action = action_plan.popleft()
 
-                action = action.astype(np.float32)
+                rel_action = rel_action.astype(np.float32)
 
                 # convert to torch
-                action = torch.tensor(action, device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
+                rel_action = rel_action.tensor(rel_action, device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
+                joint_pos = torch.tensor(joint_pos, device=env.unwrapped.device)
+                abs_joint_pos = joint_pos + rel_action
+                write_joint_positions(env, abs_joint_pos)
+                env.sim.step()
 
                 # step the environment
-                obs, rew, terminated, truncated, info_ = env.step(action)
+                # obs, rew, terminated, truncated, info_ = env.step(action)
 
             env.reset()
             for _ in range(reset_steps):

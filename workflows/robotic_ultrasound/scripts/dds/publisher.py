@@ -24,6 +24,7 @@ class Publisher(ABC):
         self.domain_id = domain_id
         self.logger = logging.getLogger(__name__)
         self.dds_writer = dds.DataWriter(dds.Topic(dds.DomainParticipant(domain_id=domain_id), topic, cls))
+        time.sleep(2)
 
     def write(self, dt: float, sim_time: float) -> float:
         """

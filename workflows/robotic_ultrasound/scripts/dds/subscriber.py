@@ -48,6 +48,7 @@ class Subscriber(ABC):
         if self.dds_reader is None:
             p = dds.DomainParticipant(domain_id=self.domain_id)
             self.dds_reader = dds.DataReader(dds.Topic(p, self.topic, self.cls))
+            time.sleep(2)
         print(f"{self.domain_id}:{self.topic} - Thread is reading data => {self.dds_reader.topic_name}")
         async for data in self.dds_reader.take_data_async():
             if self.add_to_queue:
