@@ -98,11 +98,6 @@ def scale_points(points: Sequence[float], scale: float = 1000.0) -> torch.Tensor
     return points_tensor * scale
 
 
-def to_scipy_quat(quat):
-    """Convert from [w,x,y,z] to scipy's [x,y,z,w] format."""
-    return [quat[1], quat[2], quat[3], quat[0]]
-
-
 def compute_transform_matrix(
     ov_point: Sequence[float],
     nifti_point: Sequence[float],
@@ -126,7 +121,7 @@ def compute_transform_matrix(
     """
     # Create rotation component of the transform matrix
     if rotation_matrix is None:
-        R = torch.tensor([[1, 0, 0], [0, 0, -1], [0, -1, 0]], dtype=torch.float64)
+        R = torch.tensor([[1, 0, 0], [0, 0, -1], [0, 1, 0]], dtype=torch.float64)
     else:
         R = rotation_matrix
 
@@ -166,7 +161,7 @@ def ov_to_nifti_orientation(
 
     Coordinate mapping:
         - Omniverse x → organ x
-        - Omniverse y → organ -z
+        - Omniverse y → organ z
         - Omniverse z → organ -y
 
     Downward direction mapping:
@@ -181,19 +176,16 @@ def ov_to_nifti_orientation(
 
     # set default coordinate system transformation if not provided
     if rotation_matrix is None:
-        coord_transform = np.array([[1, 0, 0], [0, 0, -1], [0, -1, 0]])
+        coord_transform = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
     else:
         coord_transform = rotation_matrix
 
     # Step 1: Convert Omniverse quaternion to rotation matrix
-    # Reformat from [w,x,y,z] to [x,y,z,w] for scipy
-    ov_quat_scipy = to_scipy_quat(ov_quat)
-    ov_rot = Rotation.from_quat(ov_quat_scipy)
+    ov_rot = Rotation.from_quat(ov_quat, scalar_first=True)
 
     # Step 2: Create reference orientations
     # Define "down" in Omniverse using the provided quaternion
-    ov_down_scipy = to_scipy_quat(ov_down_quat)
-    ov_down_rot = Rotation.from_quat(ov_down_scipy)
+    ov_down_rot = Rotation.from_quat(ov_down_quat, scalar_first=True)
 
     # Define "down" in organ coordinates using the provided Euler angles
     organ_down_rot = Rotation.from_euler("xyz", organ_down_quat, degrees=False)

@@ -1,6 +1,7 @@
 import argparse
 import collections
 import os
+import time
 
 import gymnasium as gym
 import numpy as np
@@ -166,7 +167,7 @@ def main():
     # get transform matrix from isaac sim to organ coordinate system
     transform_matrix = compute_transform_matrix(
         ov_point=[0.6 * 1000, 0.0, 0.09 * 1000],  # initial position of the organ in isaac sim
-        nifti_point=[-0.7168, -0.7168, -330.6],  # corresponding position in nifti coordinate system
+        nifti_point=[0, -0.7168, 18.1250],  # corresponding position in nifti coordinate system
     )
     print(f"[INFO]: Coordinate transform matrix: {transform_matrix}")
     print(f"[INFO]: Gym observation space: {env.observation_space}")
@@ -196,6 +197,8 @@ def main():
     viz_probe_pos_writer = ProbePosPublisher(args_cli.viz_domain_id)
     infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
     infer_reader.start()
+    # wait for 10 seconds to ensure the writer and reader are ready
+    time.sleep(10)
 
     # Number of steps played before replanning
     replan_steps = 5
