@@ -32,7 +32,12 @@ parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument(
     "--sensitivity", type=float, default=1.0, help="Sensitivity factor."
 )
-
+parser.add_argument(
+    "--topic_in_probe_pos",
+    type=str,
+    default="topic_ultrasound_info",
+    help="topic name to consume probe pos",
+)
 
 parser.add_argument(
     "--rti_license_file", type=str, default=None, help="Path to the RTI license file."
@@ -82,6 +87,7 @@ import torch  # noqa: F401, E402
 from dds.publisher import Publisher  # noqa: F401, E402
 from dds.schemas.camera_info import CameraInfo  # noqa: F401, E402
 from dds.schemas.franka_info import FrankaInfo  # noqa: F401, E402
+from dds.schemas.usp_info import UltraSoundProbeInfo  # noqa: F401, E402
 from omni.isaac.lab.devices import Se3Keyboard, Se3SpaceMouse  # noqa: F401, E402
 from omni.isaac.lab.managers import SceneEntityCfg  # noqa: F401, E402
 from omni.isaac.lab.managers import TerminationTermCfg as DoneTerm  # noqa: F401, E402
@@ -89,6 +95,14 @@ from omni.isaac.lab_tasks.manager_based.manipulation.lift import mdp  # noqa: F4
 from omni.isaac.lab_tasks.utils import parse_env_cfg  # noqa: F401, E402
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
+from simulation.environments.state_machine.utils import (
+    compute_relative_action,
+    compute_transform_matrix,
+    get_joint_states,
+    get_probe_pos_ori,
+    get_robot_obs,
+)
+
 
 # Add RTI DDS imports
 if args_cli.rti_license_file is None or not os.path.isabs(args_cli.rti_license_file):
@@ -153,6 +167,16 @@ class PosPublisher(Publisher):
         output.joints_state_positions = pub_data["joint_pos"].tolist()
         return output
     
+class ProbePosPublisher(Publisher):
+    def __init__(self, domain_id: int):
+        super().__init__(args_cli.topic_in_probe_pos, UltraSoundProbeInfo, 1 / hz, domain_id)
+
+    def produce(self, dt: float, sim_time: float):
+        output = UltraSoundProbeInfo()
+        output.position = pub_data["probe_pos"].tolist()
+        output.orientation = pub_data["probe_ori"].tolist()
+        return output
+    
 def get_joint_states(env):
     """Get the robot joint states from the environment."""
     robot_data = env.unwrapped.scene["robot"].data
@@ -180,6 +204,12 @@ def main():
         )
     # create environment
     env = gym.make(args_cli.task, cfg=env_cfg)
+
+        # get transform matrix from isaac sim to organ coordinate system
+    transform_matrix = compute_transform_matrix(
+        ov_point=[0.6 * 1000, 0.0, 0.09 * 1000],  # initial position of the organ in isaac sim
+        nifti_point=[0, -0.7168, 18.1250],  # corresponding position in nifti coordinate system
+    )
     # check environment name (for reach , we don't allow the gripper)
     if "Reach" in args_cli.task:
         omni.log.warn(
@@ -218,7 +248,9 @@ def main():
     # Create publishers for cameras
     viz_r_cam_writer = RoomCamPublisher(args_cli.viz_domain_id)
     viz_w_cam_writer = WristCamPublisher(args_cli.viz_domain_id)
-    viz_pos_writer = PosPublisher(args_cli.viz_domain_id)  # Added robot pose publisher
+    # viz_pos_writer = PosPublisher(args_cli.viz_domain_id)
+    viz_probe_pos_writer = ProbePosPublisher(args_cli.viz_domain_id)
+  # Added robot pose publisher
 
     # simulate environment
     while simulation_app.is_running():
@@ -276,13 +308,15 @@ def main():
             )
             pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
             pub_data["wrist_cam"] = rgb_images[0, 1, ...].cpu().numpy()
-            
+            pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
+                    env, transform_matrix=transform_matrix, scale=1000.0, log=True
+                )
             # Get and publish joint positions
             pub_data["joint_pos"] = get_joint_states(env)[0]
 
             viz_r_cam_writer.write(0.1, 1.0)
             viz_w_cam_writer.write(0.1, 1.0)
-            viz_pos_writer.write(0.1, 1.0)  # Added robot pose publishing
+            viz_probe_pos_writer.write(0.1, 1.0)
 
     env.close()
 

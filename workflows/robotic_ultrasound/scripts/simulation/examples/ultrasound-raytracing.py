@@ -388,7 +388,7 @@ class StreamingSimulator(Application):
         self.domain_id = domain_id
         self.out_width = out_width
         self.out_height = out_height
-        self.period = 1 / 25.0  # period s
+        self.period = 1 / 10 # period s
 
     def compose(self):
         """
