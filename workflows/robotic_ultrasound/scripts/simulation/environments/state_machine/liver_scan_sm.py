@@ -5,9 +5,9 @@
 
 import argparse
 import os
+
 from dds.publisher import Publisher
 from dds.schemas.camera_info import CameraInfo
-
 from omni.isaac.lab.app import AppLauncher
 
 # add argparse arguments
@@ -211,7 +211,7 @@ def main():
             # Publish camera data
             pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
             pub_data["wrist_cam"] = rgb_images[0, 1, ...].cpu().numpy()
-            print(f"Publishing camera data to DDS")
+            print("Publishing camera data to DDS")
             print(f"Room cam: {pub_data['room_cam'].shape}, dtype: {pub_data['room_cam'].dtype}")
             print(f"Wrist cam: {pub_data['wrist_cam'].shape}, dtype: {pub_data['wrist_cam'].dtype}")
             viz_r_cam_writer.write(0.1, 1.0)

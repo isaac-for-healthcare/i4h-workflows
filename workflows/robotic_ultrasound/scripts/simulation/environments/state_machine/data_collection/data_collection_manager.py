@@ -6,8 +6,9 @@ from typing import Dict
 import gymnasium as gym
 import numpy as np
 import torch
-from .data_collector import RobomimicDataCollector
 from utils import UltrasoundState, get_joint_states
+
+from .data_collector import RobomimicDataCollector
 
 
 @dataclass
