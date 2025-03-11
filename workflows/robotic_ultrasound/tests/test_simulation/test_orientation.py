@@ -1,13 +1,10 @@
-import sys
 import unittest
 
 import numpy as np
 import torch
 from parameterized import parameterized
 from scipy.spatial.transform import Rotation
-
-sys.path.append("/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts")
-from simulation.environments.state_machine.utils import ov_to_nifti_orientation
+from simulation.environments.state_machine.utils import ov_to_nifti_orientation, to_scipy_quat
 
 # Define the default rotation matrix used in the function
 DEFAULT_ROTATION_MATRIX = torch.tensor([[1, 0, 0], [0, 0, -1], [0, -1, 0]], dtype=torch.float64)
@@ -88,7 +85,7 @@ class TestOrientationConversion(unittest.TestCase):
         # For cases with expected Euler angles, compare directly
         if expected_result is None:
             # Calculate the expected result based on the new implementation
-            ov_quat_scipy = [ov_quat[1], ov_quat[2], ov_quat[3], ov_quat[0]]
+            ov_quat_scipy = to_scipy_quat(ov_quat)
             ov_rot = Rotation.from_quat(ov_quat_scipy)
 
             if ov_down_quat is None:
