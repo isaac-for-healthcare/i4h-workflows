@@ -30,7 +30,7 @@ def _parse_image(image) -> np.ndarray:
     return image
 
 
-def compute_normalization_stats(config, max_frames=None):
+def compute_normalization_stats(config, max_frames=None, batch_size=1):
     """Compute normalization statistics for the dataset."""
     data_config, dataset = create_dataset(config)
 
@@ -44,7 +44,7 @@ def compute_normalization_stats(config, max_frames=None):
     # Reduce num_workers to 0 to avoid multiprocessing issues
     data_loader = _data_loader.TorchDataLoader(
         dataset,
-        local_batch_size=1,
+        local_batch_size=batch_size,
         num_workers=8,  # Changed from 8 to 0
         shuffle=shuffle,
         num_batches=num_frames,

@@ -6,6 +6,7 @@ import unittest
 
 import h5py
 import numpy as np
+import torch
 from openpi import train
 from policy_runner.config import get_config
 from policy_runner.utils import compute_normalization_stats
@@ -123,7 +124,9 @@ class TestNormalizationStats(TestBase):
     def test_compute_normalization_stats(self):
         """Test that normalization statistics can be computed successfully."""
         # Compute normalization statistics
-        compute_normalization_stats(self.test_config)
+        # get number of GPUs
+        num_gpus = torch.cuda.device_count()
+        compute_normalization_stats(self.test_config, batch_size=num_gpus)
 
         # Check that the stats file was created
         output_path = self.test_config.assets_dirs / self.TEST_REPO_ID

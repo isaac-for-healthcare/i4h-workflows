@@ -111,9 +111,7 @@ def main(
             return
 
     # Create LeRobot dataset, define features to store
-    dataset = create_lerobot_dataset(
-        final_output_path, image_shape=image_shape, **dataset_config_kwargs
-    )
+    dataset = create_lerobot_dataset(final_output_path, image_shape=image_shape, **dataset_config_kwargs)
 
     # Collect all the hdf5 files in the data directory
     data_files = sorted(glob.glob(os.path.join(data_dir, "*.hdf5")))
@@ -144,12 +142,8 @@ def main(
                 rgb = f[root_name]["observations/rgb"][step]
                 dataset.add_frame(
                     {
-                        "image": image_tools.resize_with_pad(
-                            rgb[0], image_shape[0], image_shape[1]
-                        ),
-                        "wrist_image": image_tools.resize_with_pad(
-                            rgb[1], image_shape[0], image_shape[1]
-                        ),
+                        "image": image_tools.resize_with_pad(rgb[0], image_shape[0], image_shape[1]),
+                        "wrist_image": image_tools.resize_with_pad(rgb[1], image_shape[0], image_shape[1]),
                         "state": f[root_name]["abs_joint_pos"][step],
                         "actions": f[root_name]["action"][step],
                     }
@@ -163,9 +157,7 @@ def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert HDF5 files to LeRobot format")
-    parser.add_argument(
-        "data_dir", type=str, help="Root directory of the HDF5 files to convert"
-    )
+    parser.add_argument("data_dir", type=str, help="Root directory of the HDF5 files to convert")
     parser.add_argument(
         "--repo_id",
         type=str,
