@@ -2,10 +2,11 @@ import math
 from dataclasses import dataclass
 from enum import Enum
 
+import numpy as np
 import onnxruntime as ort
 import torch
+from omni.isaac.lab.utils import convert_dict_to_backend
 from omni.isaac.lab.utils.math import compute_pose_error, quat_from_euler_xyz
-from pynput import keyboard
 
 
 # MARK: - State Machine Enums + Dataclasses
@@ -45,7 +46,7 @@ class RobotQuaternions:
     """Robot quaternion configurations stored as torch tensors."""
 
     # Define Euler angles in degrees for DOWN orientation (90 degrees around Y)
-    DOWN_EULER_DEG = (180.0, 0.0, -90.0)
+    DOWN_EULER_DEG = (180.0, 0.0, 180)
     # Convert to radians and then to quaternion
     DOWN: tuple[float, float, float, float] = tuple(
         quat_from_euler_xyz(
@@ -133,6 +134,17 @@ def get_joint_states(env):
     return robot_joint_pos.cpu().numpy()
 
 
+def get_np_images(env):
+    """Get numpy images from the environment."""
+    third_person_img = convert_dict_to_backend(env.unwrapped.scene["room_camera"].data.output, backend="numpy")["rgb"]
+    third_person_img = third_person_img[0, :, :, :3].astype(np.uint8)
+
+    wrist_img1 = convert_dict_to_backend(env.unwrapped.scene["wrist_camera"].data.output, backend="numpy")["rgb"]
+    wrist_img1 = wrist_img1[0, :, :, :3].astype(np.uint8)
+
+    return third_person_img, wrist_img1
+
+
 def load_onnx_model(model_path):
     """Load the ACT ONNX model."""
     providers = ["CUDAExecutionProvider"] if ort.get_device() == "GPU" else ["CPUExecutionProvider"]
@@ -141,34 +153,3 @@ def load_onnx_model(model_path):
     session = ort.InferenceSession(model_path, providers=providers)
     print(f"session using: {session.get_providers()}")
     return session
-
-
-class KeyboardHandler:
-    def __init__(self):
-        self.reset_flag = False
-        self.listener = None
-
-    def on_press(self, key):
-        """Callback function to handle key press events."""
-        try:
-            if key.char == "r":
-                self.reset_flag = True
-        except AttributeError:
-            pass
-
-    def start_keyboard_listener(self):
-        """Start a separate thread to listen for keyboard events."""
-        self.listener = keyboard.Listener(on_press=self.on_press)
-        self.listener.start()
-
-    def stop_keyboard_listener(self):
-        """Stop the keyboard listener."""
-        if self.listener:
-            self.listener.stop()
-
-    def is_reset_requested(self):
-        """Check if a reset has been requested."""
-        if self.reset_flag:
-            self.reset_flag = False  # Reset the flag after checking
-            return True
-        return False
