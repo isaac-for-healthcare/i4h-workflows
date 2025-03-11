@@ -24,7 +24,7 @@ def install_dependencies():
                 "isaacsim-extscache-physics==4.2.0.2",
                 "isaacsim-extscache-kit==4.2.0.2",
                 "isaacsim-extscache-kit-sdk==4.2.0.2",
-                "pyrealsense",
+                "pyrealsense2",
                 "holoscan==2.9.0",
                 "--extra-index-url",
                 "https://pypi.nvidia.com",
