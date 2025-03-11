@@ -5,7 +5,6 @@
 - [Installation](#installation)
 - [Environments](#environments)
 - [Apps](#apps)
-  - [PI Zero Policy Training](#pi-zero-policy-training)
   - [PI Zero Policy Evaluation](#pi-zero-policy-evaluation)
   - [Examples](#examples)
 
@@ -71,9 +70,6 @@ Currently there are these robot configurations that can be used in various tasks
 
 # Apps
 
-## PI Zero Policy Training
-[FIXME]
-
 ## PI Zero Policy Evaluation
 Set up `openpi` referring to [PI0 runner](../policy_runner/README.md).
 
@@ -90,6 +86,8 @@ python environments/state_machine/pi0_policy/eval.py \
     --ckpt_path <path to ckpt>/pi0_aortic_scan_v0.3/19000 \
     --repo_id hf/chiron_aortic
 ```
+This should open a stage with Franka arm and run the robotic ultrasound actions:
+![pi0 simulation](../../../../docs/source/pi0_sim.jpg)
 
 # Examples
 
