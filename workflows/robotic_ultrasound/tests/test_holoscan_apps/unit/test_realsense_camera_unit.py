@@ -3,6 +3,7 @@ import unittest
 
 from holoscan_apps.realsense.camera import RealsenseApp
 
+
 class TestRealSenseCameraUnit(unittest.TestCase):
     def test_realsense_app(self):
         domain_id = 4321
@@ -25,7 +26,7 @@ class TestRealSenseCameraUnit(unittest.TestCase):
             test,
             count,
         )
-        
+
         self.assertIsNotNone(app)
         self.assertEqual(app.width, width)
         self.assertEqual(app.height, height)
