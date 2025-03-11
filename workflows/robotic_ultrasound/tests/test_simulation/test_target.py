@@ -6,7 +6,7 @@ from unittest import skipUnless
 from dds.schemas.target_ctrl import TargetCtrlInput
 from dds.schemas.target_info import TargetInfo
 from isaacsim import SimulationApp
-from utils.assets import robotic_ultrasound_assets as rus_assets
+from utils.assets import robotic_ultrasound_assets as us_robot_assets
 
 simulation_app = SimulationApp({"headless": True})
 
@@ -27,7 +27,7 @@ class TestTargetBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.test_dir = os.path.dirname(os.path.abspath(__file__))
-        cls.usda_path = rus_assets.basic
+        cls.usda_path = us_robot_assets.basic
         cls.target_prim_path = "/Target"
         assert os.path.exists(cls.usda_path), f"basic.usda not found at {cls.usda_path}"
 
