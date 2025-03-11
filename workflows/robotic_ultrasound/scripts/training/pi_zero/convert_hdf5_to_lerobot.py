@@ -2,7 +2,8 @@
 Minimal example script for converting a dataset to LeRobot format.
 
 Usage:
-python convert_hdf5_to_lerobot.py /path/to/your/data [--repo_id REPO_ID] [--task_prompt TASK_PROMPT] [--image_shape IMAGE_SHAPE]
+python convert_hdf5_to_lerobot.py /path/to/your/data \
+    [--repo_id REPO_ID] [--task_prompt TASK_PROMPT] [--image_shape IMAGE_SHAPE]
 
 The resulting dataset will get saved to the $LEROBOT_HOME directory.
 """
@@ -106,7 +107,7 @@ def main(
         try:
             shutil.rmtree(final_output_path)
         except Exception as e:
-            print(f"Error removing {final_output_path}: {e}")
+            print(f"Error removing {final_output_path}: {e}. Please ensure that you have write permissions.")
             return
 
     # Create LeRobot dataset, define features to store
