@@ -151,7 +151,7 @@ def ov_to_nifti_orientation(
 
     Args:
         ov_quat: Quaternion in [w, x, y, z] format from Omniverse
-        rotation_matrix: 4x4 homogeneous transformation matrix that maps positions
+        rotation_matrix: 3x3 rotation matrix that maps positions
             from Isaac Sim coordinate system to organ coordinate system
         ov_down_quat: Quaternion in [w, x, y, z] format for Omniverse "down" direction, default is [0, 1, 0, 0]
         organ_down_quat: Euler angles in [x, y, z] format for organ "down" direction, default is [-π/2, 0, 0]
