@@ -5,9 +5,9 @@
 
 import argparse
 import os
+
 from dds.publisher import Publisher
 from dds.schemas.camera_info import CameraInfo
-
 from omni.isaac.lab.app import AppLauncher
 
 # add argparse arguments
@@ -83,6 +83,7 @@ pub_data = {
 }
 hz = 30
 
+
 class RoomCamPublisher(Publisher):
     def __init__(self, domain_id: int):
         super().__init__(args_cli.topic_in_room_camera, CameraInfo, 1 / hz, domain_id)
@@ -95,6 +96,7 @@ class RoomCamPublisher(Publisher):
         output.data = pub_data["room_cam"].tobytes()
         return output
 
+
 class WristCamPublisher(Publisher):
     def __init__(self, domain_id: int):
         super().__init__(args_cli.topic_in_wrist_camera, CameraInfo, 1 / hz, domain_id)
@@ -105,6 +107,7 @@ class WristCamPublisher(Publisher):
         output.width = 224
         output.data = pub_data["wrist_cam"].tobytes()
         return output
+
 
 def main():
     """Main function."""
@@ -211,7 +214,7 @@ def main():
             # Publish camera data
             pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
             pub_data["wrist_cam"] = rgb_images[0, 1, ...].cpu().numpy()
-            print(f"Publishing camera data to DDS")
+            print("Publishing camera data to DDS")
             print(f"Room cam: {pub_data['room_cam'].shape}, dtype: {pub_data['room_cam'].dtype}")
             print(f"Wrist cam: {pub_data['wrist_cam'].shape}, dtype: {pub_data['wrist_cam'].dtype}")
             viz_r_cam_writer.write(0.1, 1.0)
@@ -219,8 +222,6 @@ def main():
 
             # Record data if collecting
             if data_collector is not None:
-
-
                 data_collector.record_step(
                     env,
                     obs,
@@ -230,17 +231,10 @@ def main():
                     state_machine.sm_state.state.value,  # Add current state as string
                 )
 
-
-
-
             # Update counter
             count += 1
     # close the environment
     env.close()
-
-
-
-
 
 
 if __name__ == "__main__":
