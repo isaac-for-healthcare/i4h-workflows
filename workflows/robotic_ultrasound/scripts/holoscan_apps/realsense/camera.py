@@ -14,6 +14,10 @@ from holoscan.resources import UnboundedAllocator
 
 
 class RealsenseOp(Operator):
+    """
+    Operator to interface with an Intel RealSense camera.
+    Captures RGB and depth frames, optionally publishing them via DDS.
+    """
     def __init__(
         self,
         fragment,
@@ -28,6 +32,19 @@ class RealsenseOp(Operator):
         show_holoviz,
         **kwargs,
     ):
+        """
+        Initialize the RealSense operator.
+
+        Parameters:
+        - domain_id (int): DDS domain ID.
+        - width (int): Width of the camera stream.
+        - height (int): Height of the camera stream.
+        - topic_rgb (str): DDS topic for RGB frames.
+        - topic_depth (str): DDS topic for depth frames.
+        - device_idx (int): Camera device index.
+        - framerate (int): Frame rate for the camera stream.
+        - show_holoviz (bool): Whether to display frames using Holoviz.
+        """
         self.domain_id = domain_id
         self.width = width
         self.height = height
@@ -43,12 +60,17 @@ class RealsenseOp(Operator):
         self.depth_writer = None
 
     def setup(self, spec: OperatorSpec):
+        """Define the output ports for the operator."""
         if self.topic_rgb:
             spec.output("color")
         if self.topic_depth and not self.show_holoviz:
             spec.output("depth")
 
     def start(self):
+        """
+        Configure and start the RealSense camera pipeline.
+        Sets up DDS writers if topics are provided.
+        """
         config = rs.config()
         context = rs.context()
         for device in context.query_devices():
@@ -84,7 +106,9 @@ class RealsenseOp(Operator):
         self.pipeline.start(config)
 
     def compute(self, op_input, op_output, context):
-
+        """
+        Capture frames from the RealSense camera and publish them via DDS.
+        """
         frames = self.pipeline.wait_for_frames()
         color = None
         if self.rgb_writer:
@@ -99,22 +123,27 @@ class RealsenseOp(Operator):
 
 
 class NoOp(Operator):
+    """A sink operator that takes input and discards them."""
     def __init__(self, fragment, depth, *args, **kwargs):
+        """Initialize the operator."""
         self.depth = depth
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec: OperatorSpec):
+        """Define input ports for color and optional depth."""
         spec.input("color")
         if self.depth:
             spec.input("depth")
 
     def compute(self, op_input, op_output, context):
+        """Receive and discard input frames."""
         op_input.receive("color")
         if self.depth:
             op_input.receive("depth")
 
 
 class RealsenseApp(Application):
+    """Application to run the RealSense operator and process its output."""
     def __init__(self, domain_id, height, width, topic_rgb, topic_depth, device_idx, framerate, show_holoviz, count):
         self.domain_id = domain_id
         self.height = height
@@ -128,6 +157,7 @@ class RealsenseApp(Application):
         super().__init__()
 
     def compose(self):
+        """Create and connect application operators."""
         camera = RealsenseOp(
             self,
             CountCondition(self, self.count),
@@ -158,6 +188,7 @@ class RealsenseApp(Application):
 
 
 def main():
+    """Parse command-line arguments and run the application."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", action="store_true", help="show holoviz")
     parser.add_argument(
