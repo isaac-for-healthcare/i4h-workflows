@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 from enum import Enum
 
@@ -5,7 +6,6 @@ import onnxruntime as ort
 import torch
 from omni.isaac.lab.utils.math import compute_pose_error, quat_from_euler_xyz
 from pynput import keyboard
-import math
 
 
 # MARK: - State Machine Enums + Dataclasses
@@ -31,6 +31,7 @@ class RobotPositions:
 @dataclass(frozen=True)
 class RobotQuaternions:
     """Robot quaternion configurations stored as torch tensors."""
+
     # Define Euler angles in degrees for DOWN orientation (90 degrees around Y)
     DOWN_EULER_DEG = (180.0, 0.0, 180)
     # Convert to radians and then to quaternion
