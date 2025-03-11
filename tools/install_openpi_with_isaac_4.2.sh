@@ -54,3 +54,10 @@ fi
 pip install git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56
 pip install -e openpi/packages/openpi-client/
 pip install -e openpi/.
+
+# Revert the "import changes of "$file_path after installation to prevent errors
+sed -i \
+    -e 's/^# import boto3\.s3\.transfer as s3_transfer/import boto3.s3.transfer as s3_transfer/' \
+    -e 's/^# import s3transfer\.futures as s3_transfer_futures/import s3transfer.futures as s3_transfer_futures/' \
+    -e 's/^# from types_boto3_s3\.service_resource import ObjectSummary/from types_boto3_s3.service_resource import ObjectSummary/' \
+    "$file_path"
