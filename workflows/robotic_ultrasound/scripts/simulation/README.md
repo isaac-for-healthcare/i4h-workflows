@@ -110,3 +110,99 @@ python examples/sim_with_dds.py \
     --viz_domain_id <domain id> \
     --rti_license_file <path to>/rti_license.dat
 ```
+
+# Liver Scan State Machine
+
+The Liver Scan State Machine provides a structured approach to performing ultrasound scans on a simulated liver. It implements a state-based workflow that guides the robotic arm through the scanning procedure.
+
+## Overview
+
+The state machine transitions through the following states:
+- **SETUP**: Initial positioning of the robot
+- **APPROACH**: Moving toward the organ
+- **CONTACT**: Making contact with the organ surface
+- **SCANNING**: Performing the ultrasound scan
+- **DONE**: Completing the scan procedure
+
+The state machine integrates multiple control modules:
+- **Force Control**: Manages contact forces during scanning
+- **Orientation Control**: Maintains proper probe orientation
+- **Path Planning**: Guides the robot through the scanning trajectory
+
+## Requirements
+
+- This implementation works **only with a single environment** (`--num_envs 1`).
+- It should be used with the `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0` environment.
+
+## Usage
+
+### Setup
+
+1. First, navigate to the state machine directory and set up the Python path:
+
+```sh
+cd workflows/robotic_ultrasound/scripts/simulation/environments/state_machine
+export PYTHONPATH=${PYTHONPATH}:`pwd`
+```
+
+2. Return to the simulation directory:
+
+```sh
+cd ../../../
+```
+
+### Running the State Machine
+
+To run the state machine without data collection:
+
+```sh
+python environments/state_machine/liver_scan_sm.py \
+    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
+    --enable_camera
+```
+
+### Data Collection
+
+To run the state machine and collect data for a specified number of episodes:
+
+```sh
+python environments/state_machine/liver_scan_sm.py \
+    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
+    --enable_camera \
+    --num_episodes 2
+```
+
+This will collect data for 2 complete episodes and store it in HDF5 format.
+
+## Command Line Arguments
+
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--task` | str | None | Name of the task (environment) to use |
+| `--num_episodes` | int | 0 | Number of episodes to collect data for (0 = no data collection) |
+| `--camera_names` | list[str] | ["room_camera", "wrist_camera"] | List of camera names to capture images from |
+| `--disable_fabric` | flag | False | Disable fabric and use USD I/O operations |
+| `--num_envs` | int | 1 | Number of environments to spawn (must be 1 for this script) |
+| `--reset_steps` | int | 15 | Number of steps to take during environment reset |
+| `--max_steps` | int | 350 | Maximum number of steps before forcing a reset |
+
+## Data Collection Details
+
+When data collection is enabled (`--num_episodes > 0`), the state machine will:
+
+1. Create a timestamped directory in `./data/hdf5/` to store the collected data
+2. Record observations, actions, and state information at each step
+3. Capture RGB and depth images from the specified cameras
+4. Store all data in HDF5 format compatible with robomimic
+
+The collected data includes:
+- Robot observations (position, orientation)
+- Torso observations (organ position, orientation)
+- Relative and absolute actions
+- State machine state
+- Joint positions
+- Camera images
+
+## Keyboard Controls
+
+During execution, you can press the 'r' key to reset the environment and state machine.
