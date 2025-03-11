@@ -81,6 +81,7 @@ import omni.log  # noqa: F401, E402
 import torch  # noqa: F401, E402
 from dds.publisher import Publisher  # noqa: F401, E402
 from dds.schemas.camera_info import CameraInfo  # noqa: F401, E402
+from dds.schemas.franka_info import FrankaInfo  # noqa: F401, E402
 from omni.isaac.lab.devices import Se3Keyboard, Se3SpaceMouse  # noqa: F401, E402
 from omni.isaac.lab.managers import SceneEntityCfg  # noqa: F401, E402
 from omni.isaac.lab.managers import TerminationTermCfg as DoneTerm  # noqa: F401, E402
@@ -112,6 +113,7 @@ def capture_camera_images(env, cam_names, device="cuda"):
 pub_data = {
     "room_cam": None,
     "wrist_cam": None,
+    "joint_pos": None,  # Added for robot pose
 }
 hz = 30
 
@@ -139,6 +141,23 @@ class WristCamPublisher(Publisher):
         output.width = 224
         output.data = pub_data["wrist_cam"].tobytes()
         return output
+
+
+# Add new publisher class with existing publishers
+class PosPublisher(Publisher):
+    def __init__(self, domain_id: int):
+        super().__init__("topic_franka_info", FrankaInfo, 1 / hz, domain_id)
+
+    def produce(self, dt: float, sim_time: float):
+        output = FrankaInfo()
+        output.joints_state_positions = pub_data["joint_pos"].tolist()
+        return output
+    
+def get_joint_states(env):
+    """Get the robot joint states from the environment."""
+    robot_data = env.unwrapped.scene["robot"].data
+    robot_joint_pos = robot_data.joint_pos
+    return robot_joint_pos.cpu().numpy()
 
 
 def main():
@@ -199,6 +218,7 @@ def main():
     # Create publishers for cameras
     viz_r_cam_writer = RoomCamPublisher(args_cli.viz_domain_id)
     viz_w_cam_writer = WristCamPublisher(args_cli.viz_domain_id)
+    viz_pos_writer = PosPublisher(args_cli.viz_domain_id)  # Added robot pose publisher
 
     # simulate environment
     while simulation_app.is_running():
@@ -256,9 +276,13 @@ def main():
             )
             pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
             pub_data["wrist_cam"] = rgb_images[0, 1, ...].cpu().numpy()
+            
+            # Get and publish joint positions
+            pub_data["joint_pos"] = get_joint_states(env)[0]
 
             viz_r_cam_writer.write(0.1, 1.0)
             viz_w_cam_writer.write(0.1, 1.0)
+            viz_pos_writer.write(0.1, 1.0)  # Added robot pose publishing
 
     env.close()
 
