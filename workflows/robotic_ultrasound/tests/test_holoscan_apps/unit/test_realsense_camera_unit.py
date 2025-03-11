@@ -1,4 +1,3 @@
-import os
 import unittest
 
 from holoscan_apps.realsense.camera import RealsenseApp
