@@ -18,8 +18,7 @@ EXTENSION_TOML_DATA = toml.load(os.path.join(EXTENSION_PATH, "config", "extensio
 # Minimum dependencies required prior to installation
 INSTALL_REQUIRES = [
     "psutil",
-    "protobuf>=3.20.2, < 5.0.0",
-    "rsl-rl@git+https://github.com/leggedrobotics/rsl_rl.git@v2.0.1"
+    "toml"
 ]
 
 # Installation operation

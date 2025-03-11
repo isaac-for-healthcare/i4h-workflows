@@ -13,90 +13,58 @@
 
 ## Overview
 
-ORBIT-Surgical is a physics-based surgical robot simulation framework with photorealistic rendering in NVIDIA Omniverse. ORBIT-Surgical leverages GPU parallelization to train reinforcement learning and imitation learning algorithms to facilitate study of robot learning to augment human surgical skills. ORBIT-Surgical is built upon [NVIDIA Isaac Sim](https://docs.omniverse.nvidia.com/isaacsim/latest/overview.html) to leverage the latest simulation capabilities for photo-realistic scenes and fast and accurate simulation.
+Robotic Surgery is a physics-based surgical robot simulation framework with photorealistic rendering in NVIDIA Omniverse. Robotic Surgery leverages GPU parallelization to train reinforcement learning and imitation learning algorithms to facilitate study of robot learning to augment human surgical skills.
 
 
 ## Setup
 
-### Basic Setup
+Robotic Surgery is built upon NVIDIA [Isaac Sim 4.1.0](https://docs.isaacsim.omniverse.nvidia.com/4.1.0/index.html) and [Isaac Lab 1.2.0](https://github.com/isaac-sim/IsaacLab).
 
-ORBIT-Surgical is built upon NVIDIA [Isaac Sim](https://docs.omniverse.nvidia.com/isaacsim/latest/index.html) and [Isaac Lab](https://github.com/isaac-sim/IsaacLab). For detailed instructions on how to install these dependencies, please refer to the [Isaac Lab installation guide](https://isaac-sim.github.io/IsaacLab/v1.2.0/source/setup/installation/index.html).
+For detailed instructions on how to install these dependencies, please refer to the [Isaac Sim installation guide](https://docs.isaacsim.omniverse.nvidia.com/4.1.0/installation/index.html) and [Isaac Lab installation guide](https://isaac-sim.github.io/IsaacLab/v1.2.0/source/setup/installation/index.html).
 
-Please follow the Isaac Sim [documentation](https://docs.omniverse.nvidia.com/isaacsim/latest/installation/install_workstation.html) to install the Isaac Sim 4.1.0 release.
+We recommend using `conda` to create a new environment and install all the dependencies:
+
+### 1. Prepare Isaac Lab Repository and Create a Conda Environment
 
 Clone [Isaac Lab repository](https://github.com/isaac-sim/IsaacLab):
 
 ```bash
 git clone https://github.com/isaac-sim/IsaacLab.git
-
 cd IsaacLab
-
-# Checkout v1.2.0
 git checkout v1.2.0
+sed -i 's/rsl-rl/rsl-rl-lib/g' source/extensions/omni.isaac.lab_tasks/setup.py
+# define the IsaacLab_PATH environment variable
+export IsaacLab_PATH=`pwd`
 ```
 
-Clone [ORBIT-Surgical repository](https://github.com/orbit-surgical/orbit-surgical) to a directory **outside** the Isaac Lab installation directory:
+Create a new conda environment via Isaac Lab script:
 
 ```bash
-git clone https://github.com/orbit-surgical/orbit-surgical
-
-cd <repo root>/workflows/robotic_surgery/scripts/simulation
+${IsaacLab_PATH}/isaaclab.sh --conda robotic_surgery
+# activate conda environment
+conda activate robotic_surgery
 ```
 
-Define the following environment variable to specify the path to your Isaac Lab installation directory:
+### 2. Install Isaac Sim
 
 ```bash
-# Set the IsaacLab_PATH environment variable to point to your Isaac Lab installation directory
-export IsaacLab_PATH=<your_IsaacLab_PATH>
+pip install isaacsim==4.1.0.0 isaacsim-extscache-physics==4.1.0.0 isaacsim-extscache-kit==4.1.0.0 isaacsim-extscache-kit-sdk==4.1.0.0 --extra-index-url https://pypi.nvidia.com
 ```
 
-Set up a symbolic link between the installed Isaac Sim root folder and `_isaac_sim` in the Isaac Lab directory.
+### 3. Install Isaac Lab
 
 ```bash
-# create a symbolic link
-ln -s ~/.local/share/ov/pkg/isaac-sim-4.1.0 ${IsaacLab_PATH}/_isaac_sim
-```
-
-Although using a virtual environment is optional, we recommend using `conda` (detailed instructions [here](https://isaac-sim.github.io/IsaacLab/v1.2.0/source/setup/installation/binaries_installation.html#setting-up-the-conda-environment-optional)).
-
-From within the ORBIT-Surgical directory, create and activate your `conda` environment, followed by installing Isaac Lab and ORBIT-Surgical:
-
-```bash
-# Create conda environment
-${IsaacLab_PATH}/isaaclab.sh --conda orbitsurgical
-
-# Activate conda environment
-conda activate orbitsurgical
-
-# Install all ORBIT-Surgical extensions
-./orbitsurgical.sh
-
-# Install all isaac lab extensions
 ${IsaacLab_PATH}/isaaclab.sh --install
 ```
 
-Once you are in the virtual environment, you do not need to use `${IsaacLab_PATH}/isaaclab.sh -p` to run python scripts. You can use the default python executable in your environment by running `python` or `python3`. However, for the rest of the documentation, we will assume that you are using `${IsaacLab_PATH}/isaaclab.sh -p` to run python scripts.
+### 4. Install Robotic Surgery
 
-
-## Acknowledgement
-
-### License
-
-This source code is ported from the [ORBIT-Surgical](https://orbit-surgical.github.io/) framework released under [BSD-3-Clause License](https://github.com/orbit-surgical/orbit-surgical/blob/main/LICENCE).
-
-NVIDIA Isaac Sim is available freely under [individual license](https://www.nvidia.com/en-us/omniverse/download/). For more information about its license terms, please check [here](https://docs.omniverse.nvidia.com/install-guide/latest/common/NVIDIA_Omniverse_License_Agreement.html).
-
-Isaac Lab is released under [BSD-3-Clause License](https://github.com/isaac-sim/IsaacLab/blob/main/LICENSE).
-
-### Citing
-
-The development of Isaac for Healthcare - Robotic Surgery was initiated from the [ORBIT-Surgical](https://orbit-surgical.github.io/) framework. We would appreciate if you would cite [this paper](https://arxiv.org/abs/2404.16027) in academic publications as well:
-
-```text
-@article{yu2024orbit,
-  title={ORBIT-Surgical: An Open-Simulation Framework for Learning Surgical Augmented Dexterity},
-  author={Yu, Qinxi and Moghani, Masoud and Dharmarajan, Karthik and Schorp, Vincent and Panitch, William Chung-Ho and Liu, Jingzhou and Hari, Kush and Huang, Huang and Mittal, Mayank and Goldberg, Ken and others},
-  journal={arXiv preprint arXiv:2404.16027},
-  year={2024}
-}
+```bash
+# move to a directory outside of IsaacLab installation directory
+cd ..
+git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
+cd i4h-workflows
+./workflows/robotic_surgery/scripts/simulation/robotic_surgery.sh
 ```
+
+Please note that once you are in the virtual environment, you do not need to use `${IsaacLab_PATH}/isaaclab.sh -p` to run python scripts. You can use the default python executable in your environment by running `python` or `python3`. However, for the rest of the documentation, we will assume that you are using `${IsaacLab_PATH}/isaaclab.sh -p` to run python scripts.
