@@ -134,6 +134,7 @@ def main(
         return
 
     # Loop over raw Libero datasets and write episodes to the LeRobot dataset
+    # You can modify this for your own data format
     for episode_idx in tqdm.tqdm(episode_names):
         hdf5_path = os.path.join(data_dir, f"data_{episode_idx}.hdf5")
         with h5py.File(hdf5_path, "r") as f:
