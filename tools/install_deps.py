@@ -2,6 +2,13 @@ import subprocess
 import sys
 
 
+def install_i4h_assets_helper():
+    subprocess.check_call(["git", "clone", "git@github.com:isaac-for-healthcare/i4h-asset-catalog.git"])
+    subprocess.check_call(["pushd", "i4h-asset-catalog"])
+    subprocess.check_call(["pip", "install", "-e", "."])
+    subprocess.check_call(["popd"])
+
+
 def install_dependencies():
     """Install project dependencies from requirements.txt"""
     try:
@@ -34,6 +41,7 @@ def install_dependencies():
         subprocess.check_call(["./isaaclab.sh", "--install"], cwd="./IsaacLab")
         # Install OpenPI
         subprocess.check_call(["./tools/install_openpi_with_isaac_4.2.sh"])
+        install_i4h_assets_helper()
         print("Dependencies installed successfully!")
 
     except subprocess.CalledProcessError as e:

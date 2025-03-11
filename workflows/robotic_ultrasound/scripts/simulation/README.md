@@ -83,7 +83,7 @@ export PYTHONPATH=`pwd`
 python environments/state_machine/pi0_policy/eval.py \
     --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
     --enable_camera \
-    --ckpt_path <path to ckpt>/pi0_aortic_scan_v0.3/19000 \
+    --ckpt_path /localhome/local-mingxinz/.cache/i4h-assets/5ba92d5b71c0b8e03119c04e26b340ad52d1e25a1b7e68859a4cf064ccf2646d/Policies/AorticScan \
     --repo_id hf/chiron_aortic
 ```
 This should open a stage with Franka arm and run the robotic ultrasound actions:
