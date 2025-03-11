@@ -110,3 +110,160 @@ python examples/sim_with_dds.py \
     --viz_domain_id <domain id> \
     --rti_license_file <path to>/rti_license.dat
 ```
+
+# Liver Scan State Machine
+
+The Liver Scan State Machine provides a structured approach to performing ultrasound scans on a simulated liver. It implements a state-based workflow that guides the robotic arm through the scanning procedure.
+
+## Overview
+
+The state machine transitions through the following states:
+- **SETUP**: Initial positioning of the robot
+- **APPROACH**: Moving toward the organ
+- **CONTACT**: Making contact with the organ surface
+- **SCANNING**: Performing the ultrasound scan
+- **DONE**: Completing the scan procedure
+
+The state machine integrates multiple control modules:
+- **Force Control**: Manages contact forces during scanning
+- **Orientation Control**: Maintains proper probe orientation
+- **Path Planning**: Guides the robot through the scanning trajectory
+
+## Requirements
+
+- This implementation works **only with a single environment** (`--num_envs 1`).
+- It should be used with the `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0` environment.
+
+## Usage
+
+### Setup
+
+1. First, navigate to the state machine directory and set up the Python path:
+
+```sh
+cd workflows/robotic_ultrasound/scripts/simulation/environments/state_machine
+export PYTHONPATH=${PYTHONPATH}:`pwd`
+```
+
+2. Return to the simulation directory:
+
+```sh
+cd ../../../
+```
+
+### Running the State Machine
+
+To run the state machine without data collection:
+
+```sh
+python environments/state_machine/liver_scan_sm.py \
+    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
+    --enable_camera
+```
+
+### Data Collection
+
+To run the state machine and collect data for a specified number of episodes:
+
+```sh
+python environments/state_machine/liver_scan_sm.py \
+    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
+    --enable_camera \
+    --num_episodes 2
+```
+
+This will collect data for 2 complete episodes and store it in HDF5 format.
+
+## Command Line Arguments
+
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--task` | str | None | Name of the task (environment) to use |
+| `--num_episodes` | int | 0 | Number of episodes to collect data for (0 = no data collection) |
+| `--camera_names` | list[str] | ["room_camera", "wrist_camera"] | List of camera names to capture images from |
+| `--disable_fabric` | flag | False | Disable fabric and use USD I/O operations |
+| `--num_envs` | int | 1 | Number of environments to spawn (must be 1 for this script) |
+| `--reset_steps` | int | 15 | Number of steps to take during environment reset |
+| `--max_steps` | int | 350 | Maximum number of steps before forcing a reset |
+
+## Data Collection Details
+
+When data collection is enabled (`--num_episodes > 0`), the state machine will:
+
+1. Create a timestamped directory in `./data/hdf5/` to store the collected data
+2. Record observations, actions, and state information at each step
+3. Capture RGB and depth images from the specified cameras
+4. Store all data in HDF5 format compatible with robomimic
+
+The collected data includes:
+- Robot observations (position, orientation)
+- Torso observations (organ position, orientation)
+- Relative and absolute actions
+- State machine state
+- Joint positions
+- Camera images
+
+## Keyboard Controls
+
+During execution, you can press the 'r' key to reset the environment and state machine.
+
+# Teleoperation
+
+The teleoperation interface allows direct control of the robotic arm using various input devices. It supports keyboard, SpaceMouse, and gamepad controls for precise manipulation of the ultrasound probe.
+
+## Setup
+
+Follow the same setup steps as before to ensure your environment is properly configured.
+
+## Running Teleoperation
+
+Basic teleoperation can be started with:
+
+```sh
+python environments/teleoperation/teleop_se3_agent.py \
+    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
+    --teleop_device keyboard
+```
+
+## Command Line Arguments
+
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--teleop_device` | str | "keyboard" | Device for control ("keyboard", "spacemouse", or "gamepad") |
+| `--sensitivity` | float | 1.0 | Control sensitivity multiplier |
+| `--disable_fabric` | bool | False | Disable fabric and use USD I/O operations |
+| `--num_envs` | int | 1 | Number of environments to simulate |
+| `--viz_domain_id` | int | 1 | Domain ID for visualization data publishing |
+| `--rti_license_file` | str | None | Path to the RTI license file (required) |
+
+## Control Schemes
+
+### Keyboard Controls
+- **Translation**:
+  - W/S: Forward/Backward
+  - A/D: Left/Right
+  - Q/E: Up/Down
+- **Rotation**:
+  - I/K: Pitch
+  - J/L: Yaw
+  - U/O: Roll
+- **Other**:
+  - L: Reset environment
+
+### Camera Visualization
+
+The teleoperation script supports real-time camera visualization through DDS communication. It publishes both room camera and wrist camera feeds at 30Hz. To enable camera visualization:
+
+```sh
+python environments/teleoperation/teleop_se3_agent.py \
+    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
+    --teleop_device keyboard \
+    --viz_domain_id 1 \
+    --rti_license_file <path to>/rti_license.dat
+```
+
+The camera feeds are published on the following default topics:
+- Room camera: `topic_room_camera_data_rgb`
+- Wrist camera: `topic_wrist_camera_data_rgb`
+
+Both cameras output 224x224 RGB images that can be visualized using compatible DDS subscribers.
