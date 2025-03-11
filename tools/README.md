@@ -30,6 +30,14 @@ python tools/install_deps.py
 export RTI_LICENSE_FILE=<path to your RTI license file>
 ls $RTI_LICENSE_FILE
 
+# Optional: Download the assets
+git clone git@github.com:isaac-for-healthcare/i4h-asset-catalog.git
+cd i4h-asset-catalog
+git checkout mz/asset_mgmt  # FIXME: remove this after the asset catalog is merged
+pip install -e .
+# NOTE: for the first time, make sure to run this command with a display. # Otherwise, you will not be able to authenticate in a web browser.
+i4h-asset-retrieve
+
 # Run all tests
 python tools/run_all_tests.py
 ```
