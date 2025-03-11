@@ -63,7 +63,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     # Leaving the props empty will use the default values.
     organs = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/organs",
-        init_state=RigidObjectCfg.InitialStateCfg(pos=[0.6, 0.0, 0.09]),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=[0.6, 0.0, 0.09], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, 180.0]), degrees=True)),
         spawn=sim_utils.UsdFileCfg(
             usd_path=os.path.join(os.getcwd(), "assets/Collected_phantom/phantom.usda"),
             rigid_props=sim_utils.RigidBodyPropertiesCfg(rigid_body_enabled=True),
@@ -97,9 +97,9 @@ class RoboticSoftCfg(InteractiveSceneCfg):
             clipping_range=(0.1, 1.0e5),
         ),
         offset=CameraCfg.OffsetCfg(
-            pos=(0.55942, -0.56039, 0.36243),
-            rot=euler_angles_to_quats(torch.tensor([248.0, 0.0, 0.0]), degrees=True),
-            convention="ros",
+            pos=(0.55942, 0.56039, 0.36243),
+            rot=euler_angles_to_quats(torch.tensor([248.0, 0.0, 180.0]), degrees=True),
+            convention="ros"
         ),
     )
 

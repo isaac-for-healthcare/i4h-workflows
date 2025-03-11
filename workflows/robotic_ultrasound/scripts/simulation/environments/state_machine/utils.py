@@ -3,8 +3,9 @@ from enum import Enum
 
 import onnxruntime as ort
 import torch
-from omni.isaac.lab.utils.math import compute_pose_error
+from omni.isaac.lab.utils.math import compute_pose_error, quat_from_euler_xyz
 from pynput import keyboard
+import math
 
 
 # MARK: - State Machine Enums + Dataclasses
@@ -30,8 +31,16 @@ class RobotPositions:
 @dataclass(frozen=True)
 class RobotQuaternions:
     """Robot quaternion configurations stored as torch tensors."""
-
-    DOWN: tuple[float, float, float, float] = (0.0, 1.0, 0.0, 0.0)
+    # Define Euler angles in degrees for DOWN orientation (90 degrees around Y)
+    DOWN_EULER_DEG = (180.0, 0.0, 180)
+    # Convert to radians and then to quaternion
+    DOWN: tuple[float, float, float, float] = tuple(
+        quat_from_euler_xyz(
+            torch.tensor(math.radians(DOWN_EULER_DEG[0])),  # X rotation (rad)
+            torch.tensor(math.radians(DOWN_EULER_DEG[1])),  # Y rotation (rad)
+            torch.tensor(math.radians(DOWN_EULER_DEG[2])),  # Z rotation (rad)
+        ).tolist()
+    )
 
 
 @dataclass
