@@ -9,7 +9,6 @@ from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
 from PIL import Image
 from policy_runner.runners import PI0PolicyRunner
-
 current_state = {
     "room_cam": None,
     "wrist_cam": None,
@@ -78,12 +77,12 @@ def main():
             )
             i = FrankaCtrlInput()
             # actions are relative positions, if run with absolute positions, need to add the current joint positions
-            # actions shape is (50, 6), must reshape to (300,)
+            # actions shape is (50, 7), must reshape to (350,)
             i.joint_positions = (
                 np.array(actions)
                 .astype(np.float32)
                 .reshape(
-                    300,
+                    350,
                 )
                 .tolist()
             )

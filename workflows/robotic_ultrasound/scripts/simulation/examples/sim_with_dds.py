@@ -198,7 +198,7 @@ def main():
     infer_reader.start()
 
     # Number of steps played before replanning
-    replan_steps = 5
+    replan_steps = 50
 
     # simulate environment
     while simulation_app.is_running():
@@ -217,6 +217,7 @@ def main():
                 viz_w_cam_writer.write(0.1, 1.0)
                 viz_pos_writer.write(0.1, 1.0)
                 viz_probe_pos_writer.write(0.1, 1.0)
+
                 if not action_plan:
                     # publish the images and joint positions when run policy inference
                     infer_r_cam_writer.write(0.1, 1.0)
@@ -227,18 +228,31 @@ def main():
                     while ret is None:
                         ret = infer_reader.read_data()
                     o: FrankaCtrlInput = ret
-                    action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(50, 6)
+                    action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(50, 7)
                     action_plan.extend(action_chunk[:replan_steps])
 
-                action = action_plan.popleft()
 
+                action = action_plan.popleft()
                 action = action.astype(np.float32)
 
-                # convert to torch
+                # Get current joint positions since we're dealing with relative actions
+                current_joint_positions = get_joint_states(env)[0]
+                # Add current joint positions to the relative action to get absolute position
+                action += current_joint_positions
+
+                # Convert to torch tensor
                 action = torch.tensor(action, device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
 
-                # step the environment
-                obs, rew, terminated, truncated, info_ = env.step(action)
+                # Step the environment with a mock action
+                mock_action = torch.zeros_like(reset_tensor)
+                # make a relative action in pose, and orientation in axis angle format with a small change in x and rotation in yaw
+                obs, rew, terminated, truncated, info_ = env.step(mock_action)
+
+                # Apply the joint positions directly to the robot
+                joint_vel = torch.zeros_like(action)
+                env.unwrapped.scene["robot"].write_joint_state_to_sim(action, joint_vel)
+                env.unwrapped.scene["robot"].reset()
+
 
             env.reset()
             for _ in range(reset_steps):

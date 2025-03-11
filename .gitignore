@@ -189,3 +189,11 @@ cython_debug/
 
 # VSCode
 .vscode/
+
+# Asset files
+*.obj
+*.mtl
+*.usd
+*.usda
+**/assets/
+**/asset/

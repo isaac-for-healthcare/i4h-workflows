@@ -11,7 +11,7 @@ from holoscan.operators import HolovizOp
 from rti.types import struct
 
 try:
-    import raysim.cuda as rs
+    import ray_sim_python as rs
 except Exception as e:
     raise ImportError(f"Failed to initialize ray_sim_python: {e}\n" "Please check the installation and dependencies.")
 
