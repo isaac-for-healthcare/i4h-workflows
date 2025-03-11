@@ -1,14 +1,4 @@
-![Isaac for Healthcare - Robotic Surgery](media/teaser.png)
-
----
-
 # Isaac for Healthcare - Robotic Surgery
-
-[![IsaacSim](https://img.shields.io/badge/IsaacSim-4.1.0-silver.svg)](https://docs.omniverse.nvidia.com/isaacsim/latest/overview.html)
-[![Isaac Lab](https://img.shields.io/badge/IsaacLab-1.2.0-silver)](https://isaac-sim.github.io/IsaacLab/v1.2.0/index.html)
-[![Python](https://img.shields.io/badge/python-3.10-blue.svg)](https://docs.python.org/3/whatsnew/3.10.html)
-[![Linux platform](https://img.shields.io/badge/platform-linux--64-orange.svg)](https://releases.ubuntu.com/20.04/)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
 
 
 ## Overview
@@ -65,6 +55,7 @@ cd ..
 git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
 ./workflows/robotic_surgery/scripts/simulation/robotic_surgery.sh
+export PYTHONPATH=`pwd`
 ```
 
 Please note that once you are in the virtual environment, you do not need to use `${IsaacLab_PATH}/isaaclab.sh -p` to run python scripts. You can use the default python executable in your environment by running `python` or `python3`. However, for the rest of the documentation, we will assume that you are using `${IsaacLab_PATH}/isaaclab.sh -p` to run python scripts.
