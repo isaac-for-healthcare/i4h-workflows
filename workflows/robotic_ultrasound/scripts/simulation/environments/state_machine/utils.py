@@ -4,9 +4,10 @@ from typing import Sequence
 
 import onnxruntime as ort
 import torch
-from omni.isaac.lab.utils.math import compute_pose_error
+from omni.isaac.lab.utils.math import compute_pose_error, quat_from_euler_xyz
 from pynput import keyboard
 from scipy.spatial.transform import Rotation
+import math
 
 
 # MARK: - State Machine Enums + Dataclasses
@@ -33,7 +34,15 @@ class RobotPositions:
 class RobotQuaternions:
     """Robot quaternion configurations stored as torch tensors."""
 
-    DOWN: tuple[float, float, float, float] = (0.0, 1.0, 0.0, 0.0)
+    DOWN_EULER_DEG = (180.0, 0.0, 180.0)
+    # Convert to radians and then to quaternion
+    DOWN: tuple[float, float, float, float] = tuple(
+        quat_from_euler_xyz(
+            torch.tensor(math.radians(DOWN_EULER_DEG[0])),  # X rotation (rad)
+            torch.tensor(math.radians(DOWN_EULER_DEG[1])),  # Y rotation (rad)
+            torch.tensor(math.radians(DOWN_EULER_DEG[2])),  # Z rotation (rad)
+        ).tolist()
+    )
 
 
 @dataclass
@@ -80,6 +89,21 @@ def get_joint_states(env):
     robot_data = env.unwrapped.scene["robot"].data
     robot_joint_pos = robot_data.joint_pos
     return robot_joint_pos.cpu().numpy()
+
+def write_joint_positions(env, joint_positions):
+    """Set the joint positions of the robot directly.
+
+    Args:
+        env (gymnasium Env): The Gymnasium environment containing the robot.
+        joint_positions (list or numpy array): The desired joint positions. Should be a list or array of length equal to the number of joints.
+
+    Returns:
+        None
+    """
+    robot = env.unwrapped.scene["robot"]
+    # Set the joint positions in the robot's data
+    joint_vel = torch.zeros_like(joint_positions)
+    robot.write_joint_state_to_sim(joint_positions, joint_vel)
 
 
 def scale_points(points: Sequence[float], scale: float = 1000.0) -> torch.Tensor:

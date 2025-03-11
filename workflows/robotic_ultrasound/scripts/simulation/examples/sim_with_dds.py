@@ -19,7 +19,9 @@ from simulation.environments.state_machine.utils import (
     get_joint_states,
     get_probe_pos_ori,
     get_robot_obs,
+    write_joint_positions
 )
+
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Run simulation in a single-arm manipulator, communication via DDS.")
