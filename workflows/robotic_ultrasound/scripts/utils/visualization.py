@@ -292,7 +292,7 @@ class VisualizationApp:
         """Initialize all DDS connections."""
         self.on_streaming_room_camera()
         self.on_streaming_wrist_camera()
-        # self.on_streaming_ultrasound()
+        self.on_streaming_ultrasound()
 
         # Franka
         if config.franka and config.franka.enabled:
@@ -309,15 +309,13 @@ class VisualizationApp:
                 self.connect_to_dds_subscriber(config.target.topic_info, TargetInfo, self.on_receive_target_annotations)
 
         # UltraSound
-        # FIXME: uncomment when the ultrasound simulation is ready
         if config.ultrasound and config.ultrasound.enabled:
-            pass
-            # if config.ultrasound.topic_info:
-            #     self.connect_to_dds_subscriber(
-            #         config.ultrasound.topic_info,
-            #         UltraSoundProbeInfo,
-            #         self.on_receive_ultrasound_annotations,
-            #     )
+            if config.ultrasound.topic_info:
+                self.connect_to_dds_subscriber(
+                    config.ultrasound.topic_info,
+                    UltraSoundProbeInfo,
+                    self.on_receive_ultrasound_annotations,
+                )
 
     def connect_to_dds_publisher(self, topic: Topic, cls) -> None:
         """Connect to a DDS publisher."""

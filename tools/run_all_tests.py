@@ -7,6 +7,12 @@ PROJECT_ROOTS = [
     "workflows/robotic_ultrasound",
 ]
 
+XVFB_TEST_CASES = [
+    "test_orientation",
+    "test_transform_matrix",
+    "test_visualization",
+]
+
 
 def run_tests_with_coverage(project_root):
     """Run all unittest cases with coverage reporting"""
@@ -24,6 +30,7 @@ def run_tests_with_coverage(project_root):
                 for test_file in os.listdir(test_dir):
                     if test_file.startswith("test_") and test_file.endswith(".py"):
                         test_path = os.path.join(test_dir, test_file)
+                        test_name = os.path.basename(test_path).replace(".py", "")
                         print(f"\nRunning test: {test_path}")
 
                         # add project root to pythonpath
@@ -35,7 +42,8 @@ def run_tests_with_coverage(project_root):
                         else:
                             env["PYTHONPATH"] = ":".join(pythonpath)
 
-                        if "test_visualization" in test_path:  # virtual display for GUI tests
+                        # Check if this test needs a virtual display
+                        if test_name in XVFB_TEST_CASES:  # virtual display for GUI tests
                             cmd = [
                                 "xvfb-run",
                                 "-a",
