@@ -5,12 +5,12 @@ import holoscan
 import numpy as np
 import pyrealsense2 as rs
 import rti.connextdds as dds
+from dds.schemas.camera_info import CameraInfo
 from holoscan.conditions import CountCondition
 from holoscan.core import Application, Operator
 from holoscan.core._core import OperatorSpec
 from holoscan.operators.holoviz import HolovizOp
 from holoscan.resources import UnboundedAllocator
-from rti_dds.schemas.camera_info import CameraInfo
 
 
 class RealsenseOp(Operator):
