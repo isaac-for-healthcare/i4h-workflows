@@ -6,7 +6,9 @@ from typing import Dict
 import gymnasium as gym
 import numpy as np
 import torch
-from utils import UltrasoundState, get_joint_states
+from simulation.environments.state_machine.utils import UltrasoundState, get_joint_states
+
+from .data_collector import RobomimicDataCollector
 
 from .data_collector import RobomimicDataCollector
 
@@ -31,6 +33,7 @@ class DataCollectionManager:
     num_episodes: int
     num_envs: int
     device: str
+    is_testing: bool = False
 
     def __post_init__(self):
         """Initialize the data collection manager after instance creation.
@@ -48,6 +51,13 @@ class DataCollectionManager:
 
         # Initialize episode storage
         self.completed_episodes = 0
+
+        # Create dummy data for testing if needed
+        if self.is_testing:
+            # Dummy torso data: position (3) + quaternion (4)
+            self.dummy_torso_obs = np.zeros((self.num_envs, 7))
+            # Dummy joint positions
+            self.dummy_joint_states = np.zeros((self.num_envs, 7))
 
     def _setup_hdf5(self, date):
         """Set up HDF5 data collection infrastructure.
@@ -95,8 +105,14 @@ class DataCollectionManager:
         rel_action_np = rel_action.cpu().numpy()
         abs_action_np = abs_action.cpu().numpy()
         robot_obs_np = robot_obs.cpu().numpy()
-        torso_obs = self.get_torso_obs(env)
-        abs_joint_pos = get_joint_states(env)
+
+        # Get real or dummy data based on testing flag
+        if self.is_testing:
+            torso_obs = self.dummy_torso_obs
+            abs_joint_pos = self.dummy_joint_states
+        else:
+            torso_obs = self.get_torso_obs(env)
+            abs_joint_pos = get_joint_states(env)
         state_np = self.state_to_np(state)
 
         # Store in HDF5

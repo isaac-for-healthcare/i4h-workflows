@@ -59,15 +59,16 @@ simulation_app = app_launcher.app
 """Import remaining modules."""
 import gymnasium as gym  # noqa: F401, E402
 import torch  # noqa: F401, E402
-from data_collection.data_collection_manager import DataCollectionManager  # noqa: F401, E402
 from meta_state_machine.ultrasound_state_machine import UltrasoundStateMachine  # noqa: F401, E402
-from modules.force_module import ForceControlModule  # noqa: F401, E402
-from modules.orientation_module import OrientationControlModule  # noqa: F401, E402
-from modules.path_planning_module import PathPlanningModule  # noqa: F401, E402
 from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: F401, E402
 from robotic_us_ext import tasks  # noqa: F401, E402
-from utils import (  # noqa: F401, E402
-    KeyboardHandler,
+from simulation.environments.state_machine.data_collection import DataCollectionManager  # noqa: F401, E402
+from simulation.environments.state_machine.modules.force_module import ForceControlModule  # noqa: F401, E402
+from simulation.environments.state_machine.modules.orientation_module import (  # noqa: F401, E402
+    OrientationControlModule,
+)
+from simulation.environments.state_machine.modules.path_planning_module import PathPlanningModule  # noqa: F401, E402
+from simulation.environments.state_machine.utils import (  # noqa: F401, E402
     RobotPositions,
     RobotQuaternions,
     UltrasoundState,
@@ -135,10 +136,6 @@ def main():
     # reset environment at start
     obs = env.reset()
 
-    # Start the keyboard listener in a separate thread
-    keyboard_handler = KeyboardHandler()
-    keyboard_handler.start_keyboard_listener()
-
     print(f"[INFO]: Gym observation space: {env.observation_space}")
     print(f"[INFO]: Gym action space: {env.action_space}")
 
@@ -166,15 +163,10 @@ def main():
         data_collector is None or data_collector.completed_episodes < args_cli.num_episodes
     ):
         with torch.inference_mode():
-            # Reset the environment on 'r' key press
             # Handle reset conditions
-            if (
-                str(state_machine.sm_state.state) == str(UltrasoundState.DONE)
-                or (count % args_cli.max_steps == 0 and count > 0)
-                or keyboard_handler.reset_flag
+            if str(state_machine.sm_state.state) == str(UltrasoundState.DONE) or (
+                count % args_cli.max_steps == 0 and count > 0
             ):
-                keyboard_handler.reset_flag = False
-
                 if data_collector is not None:
                     if str(state_machine.sm_state.state) == str(UltrasoundState.DONE):
                         data_collector.on_episode_complete()

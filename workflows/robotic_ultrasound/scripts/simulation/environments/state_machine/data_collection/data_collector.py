@@ -11,10 +11,10 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections.abc import Iterable
 
-import carb
 import h5py
 import numpy as np
 import torch
@@ -71,7 +71,6 @@ class RobomimicDataCollector:
         self._flush_freq = flush_freq
         self._num_envs = num_envs
         self._idx_offset = 0
-        self._ignore_idxs = set()
 
         print(self.__str__())
 
@@ -82,6 +81,7 @@ class RobomimicDataCollector:
         self._is_first_interaction = True
         self._is_stop = False
         self._dataset = dict()
+        self.logger = logging.getLogger(__name__)
 
     def __del__(self):
         """Destructor that ensures data is properly saved before object deletion.
@@ -112,14 +112,6 @@ class RobomimicDataCollector:
         """
         return self._demo_count
 
-    def ignore_idxs(self, idxs: list[int]):
-        """Mark specific environment indices to be ignored during data collection.
-
-        Args:
-            idxs (list[int]): List of environment indices to ignore.
-        """
-        self._ignore_idxs = self._ignore_idxs.union(set(idxs))
-
     def increment_idxs(self):
         """Increment the environment index offset and reset tracking state.
 
@@ -128,7 +120,6 @@ class RobomimicDataCollector:
         of environments.
         """
         self._idx_offset += self._num_envs
-        self._ignore_idxs = set()
         self._dataset = dict()
 
     def is_stopped(self) -> bool:
@@ -147,7 +138,6 @@ class RobomimicDataCollector:
         for a new episode.
         """
         if self._is_first_interaction:
-            # self._demo_count = 0
             self._is_first_interaction = False
         self._dataset = dict()
 
@@ -171,11 +161,11 @@ class RobomimicDataCollector:
             will log a warning and return without storing data.
         """
         if self._is_first_interaction:
-            carb.log_warn("Please call reset before adding new data. Calling reset...")
+            self.logger.warning("Please call reset before adding new data. Calling reset...")
             self.reset()
 
         if self._is_stop:
-            carb.log_warn(f"Desired number of demonstrations collected: {self._demo_count} >= {self._num_demos}.")
+            self.logger.warning(f"Desired number of demonstrations collected: {self._demo_count} >= {self._num_demos}.")
             return
 
         if isinstance(value, torch.Tensor):

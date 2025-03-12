@@ -6,7 +6,8 @@
 - [Environments](#environments)
 - [Apps](#apps)
   - [PI Zero Policy Evaluation](#pi-zero-policy-evaluation)
-  - [Examples](#examples)
+  - [Policy Evaluation w/ DDS](#policy-evaluation-w-dds)
+  - [Liver Scan State Machine](#liver-scan-state-machine)
 
 # Requirements
 
@@ -89,19 +90,17 @@ python environments/state_machine/pi0_policy/eval.py \
 This should open a stage with Franka arm and run the robotic ultrasound actions:
 ![pi0 simulation](../../../../docs/source/pi0_sim.jpg)
 
-# Examples
-
-## Simulation for robotic ultrasound based on DDS communication
+## Policy Evaluation w/ DDS
 This example should work together with the `pi0 policy runner` via DDS communication,
 so please ensure to launch the `run_policy.py` with `height=224`, `width=224`,
 and the same `domain id` as this example in another terminal.
 
 When `run_policy.py` is launched and idle waiting for the data,
-move to the [scripts](../) folder and specify python path:
+move to the [scripts](../) folder and specify the python path:
 ```sh
 export PYTHONPATH=`pwd`
 ```
-Then back to this folder and execute:
+Then move back to this folder and execute:
 ```sh
 python examples/sim_with_dds.py \
     --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
@@ -111,11 +110,11 @@ python examples/sim_with_dds.py \
     --rti_license_file <path to>/rti_license.dat
 ```
 
-# Liver Scan State Machine
+## Liver Scan State Machine
 
 The Liver Scan State Machine provides a structured approach to performing ultrasound scans on a simulated liver. It implements a state-based workflow that guides the robotic arm through the scanning procedure.
 
-## Overview
+### Overview
 
 The state machine transitions through the following states:
 - **SETUP**: Initial positioning of the robot
@@ -129,31 +128,18 @@ The state machine integrates multiple control modules:
 - **Orientation Control**: Maintains proper probe orientation
 - **Path Planning**: Guides the robot through the scanning trajectory
 
-## Requirements
+### Requirements
 
 - This implementation works **only with a single environment** (`--num_envs 1`).
 - It should be used with the `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0` environment.
 
-## Usage
+### Usage
 
-### Setup
-
-1. First, navigate to the state machine directory and set up the Python path:
-
+move to the [scripts](../) folder and specify the python path:
 ```sh
-cd workflows/robotic_ultrasound/scripts/simulation/environments/state_machine
-export PYTHONPATH=${PYTHONPATH}:`pwd`
+export PYTHONPATH=`pwd`
 ```
-
-2. Return to the simulation directory:
-
-```sh
-cd ../../../
-```
-
-### Running the State Machine
-
-To run the state machine without data collection:
+Then move back to this folder and execute:
 
 ```sh
 python environments/state_machine/liver_scan_sm.py \
@@ -174,7 +160,7 @@ python environments/state_machine/liver_scan_sm.py \
 
 This will collect data for 2 complete episodes and store it in HDF5 format.
 
-## Command Line Arguments
+### Command Line Arguments
 
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -186,7 +172,7 @@ This will collect data for 2 complete episodes and store it in HDF5 format.
 | `--reset_steps` | int | 15 | Number of steps to take during environment reset |
 | `--max_steps` | int | 350 | Maximum number of steps before forcing a reset |
 
-## Data Collection Details
+### Data Collection Details
 
 When data collection is enabled (`--num_episodes > 0`), the state machine will:
 

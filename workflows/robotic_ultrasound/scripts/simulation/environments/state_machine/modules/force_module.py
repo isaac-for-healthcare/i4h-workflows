@@ -1,5 +1,5 @@
 import torch
-from utils import SMState, UltrasoundState
+from simulation.environments.state_machine.utils import SMState, UltrasoundState
 
 from .base_module import BaseControlModule
 
