@@ -286,6 +286,7 @@ class Simulator(Operator):
         self.sim_params.buffer_size = sim_config["buffer_size"]
         self.sim_params.t_far = sim_config["t_far"]
         self.sim_params.b_mode_size = (self.out_height, self.out_width)
+        self.sim_params.enable_cuda_timing = True
 
     def compute(self, op_input, op_output, context):
         """
