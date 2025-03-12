@@ -1,6 +1,6 @@
-<p align="center">
-  <img src="./docs/source/surgery.png" alt="Robotic Surgery" style="display: inline-block; height: 450px; width: 800px; margin-right: 10px;" />
-  <img src="./docs/source/ultrasound.jpg" alt="Robotic Ultrasound" style="display: inline-block; height: 450px; width: 800px;" />
+<p align="center" style="display: flex; justify-content: center; gap: 10px;">
+  <img src="./docs/source/surgery.png" alt="Robotic Surgery" style="width: 45%; height: auto; aspect-ratio: 16/9; object-fit: cover;" />
+  <img src="./docs/source/ultrasound.jpg" alt="Robotic Ultrasound" style="width: 45%; height: auto; aspect-ratio: 16/9; object-fit: cover;" />
 </p>
 
 
