@@ -38,15 +38,13 @@ simulation_app = app_launcher.app
 
 """Rest everything follows."""
 
-import gymnasium as gym
 import os
+
+import gymnasium as gym
+import robotic.surgery.tasks  # noqa: F401
 import torch
-
-from rsl_rl.runners import OnPolicyRunner
-
 from omni.isaac.lab.envs import DirectMARLEnv, multi_agent_to_single_agent
 from omni.isaac.lab.utils.dict import print_dict
-
 from omni.isaac.lab_tasks.utils import get_checkpoint_path, parse_env_cfg
 from omni.isaac.lab_tasks.utils.wrappers.rsl_rl import (
     RslRlOnPolicyRunnerCfg,
@@ -54,7 +52,7 @@ from omni.isaac.lab_tasks.utils.wrappers.rsl_rl import (
     export_policy_as_jit,
     export_policy_as_onnx,
 )
-import robotic.surgery.tasks  # noqa: F401
+from rsl_rl.runners import OnPolicyRunner
 
 
 def main():

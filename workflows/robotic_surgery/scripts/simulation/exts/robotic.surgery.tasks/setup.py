@@ -16,10 +16,7 @@ EXTENSION_PATH = os.path.dirname(os.path.realpath(__file__))
 EXTENSION_TOML_DATA = toml.load(os.path.join(EXTENSION_PATH, "config", "extension.toml"))
 
 # Minimum dependencies required prior to installation
-INSTALL_REQUIRES = [
-    "psutil",
-    "toml"
-]
+INSTALL_REQUIRES = ["psutil", "toml"]
 
 # Installation operation
 setup(

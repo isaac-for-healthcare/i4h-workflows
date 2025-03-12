@@ -44,13 +44,12 @@ simulation_app = app_launcher.app
 
 """Rest everything follows."""
 
-import gymnasium as gym
 import os
-import torch
 from datetime import datetime
 
-from rsl_rl.runners import OnPolicyRunner
-
+import gymnasium as gym
+import robotic.surgery.tasks  # noqa: F401
+import torch
 from omni.isaac.lab.envs import (
     DirectMARLEnv,
     DirectMARLEnvCfg,
@@ -60,11 +59,10 @@ from omni.isaac.lab.envs import (
 )
 from omni.isaac.lab.utils.dict import print_dict
 from omni.isaac.lab.utils.io import dump_pickle, dump_yaml
-
 from omni.isaac.lab_tasks.utils import get_checkpoint_path
 from omni.isaac.lab_tasks.utils.hydra import hydra_task_config
 from omni.isaac.lab_tasks.utils.wrappers.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlVecEnvWrapper
-import robotic.surgery.tasks  # noqa: F401
+from rsl_rl.runners import OnPolicyRunner
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
