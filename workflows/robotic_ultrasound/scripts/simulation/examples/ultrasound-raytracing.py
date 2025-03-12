@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 from dataclasses import dataclass
 
@@ -7,7 +8,6 @@ import numpy as np
 import rti.connextdds as dds
 from holoscan.conditions import PeriodicCondition
 from holoscan.core import Application, MetadataPolicy, Operator, OperatorSpec
-from holoscan.operators import HolovizOp
 from rti.types import struct
 
 try:
@@ -108,6 +108,7 @@ class Simulator(Operator):
         out_height: The height of the output image.
         out_width: The width of the output image.
         start_pose: The initial pose of the probe, default is [0, 0, 0, 0, 0, 0].
+        config_path: Path to a JSON configuration file with probe parameters.
     """
 
     def __init__(
@@ -117,12 +118,14 @@ class Simulator(Operator):
         out_height=500,
         out_width=500,
         start_pose=np.zeros((6,)),
+        config_path=None,
         **kwargs,
     ):
         # Initialize all critical variables first
         self.out_height = out_height
         self.out_width = out_width
         self.start_pose = start_pose
+        self.config_path = config_path
         self.simulator = None
         self.sim_params = None
         self.probe = None
@@ -209,15 +212,64 @@ class Simulator(Operator):
 
         initial_pose = rs.Pose(position, rotation)
 
-        # Create ultrasound probe
+        # Load probe configuration from JSON file if provided
+        default_probe_params = {
+            "num_elements": 4096,
+            "opening_angle": 73.0,
+            "radius": 45.0,
+            "frequency": 2.5,
+            "elevational_height": 7.0,
+            "num_el_samples": 10,
+        }
+
+        default_sim_params = {
+            "conv_psf": True,
+            "buffer_size": 4096,
+            "t_far": 180.0,
+        }
+
+        probe_params = default_probe_params
+        sim_config = default_sim_params
+
+        if self.config_path:
+            try:
+                with open(self.config_path, "r") as f:
+                    config_data = json.load(f)
+
+                    # Load probe parameters
+                    if "probe_params" in config_data:
+                        # Use values from JSON, falling back to defaults for any missing parameters
+                        for key in default_probe_params:
+                            if key in config_data["probe_params"]:
+                                probe_params[key] = config_data["probe_params"][key]
+                        print(f"Loaded probe configuration from {self.config_path}")
+                    else:
+                        print(f"Warning: No 'probe_params' section found in {self.config_path}. Using defaults.")
+
+                    # Load simulation parameters
+                    if "sim_params" in config_data:
+                        # Use values from JSON, falling back to defaults for any missing parameters
+                        for key in default_sim_params:
+                            if key in config_data["sim_params"]:
+                                sim_config[key] = config_data["sim_params"][key]
+                        print(f"Loaded simulation parameters from {self.config_path}")
+                    else:
+                        print(f"Warning: No 'sim_params' section found in {self.config_path}. Using defaults.")
+            except Exception as e:
+                print(f"Error loading configuration from {self.config_path}: {e}")
+                print("Using default parameters")
+        else:
+            print("No config file specified. Using default parameters.")
+
+        # Create ultrasound probe with configured parameters
         self.probe = rs.UltrasoundProbe(
             initial_pose,
-            num_elements=4096,
-            opening_angle=73.0,
-            radius=45.0,
-            frequency=2.5,
-            elevational_height=7.0,
-            num_el_samples=10,
+            num_elements=probe_params["num_elements"],
+            opening_angle=probe_params["opening_angle"],
+            radius=probe_params["radius"],
+            frequency=probe_params["frequency"],
+            elevational_height=probe_params["elevational_height"],
+            num_el_samples=probe_params["num_el_samples"],
         )
 
         # Create simulator
@@ -227,11 +279,11 @@ class Simulator(Operator):
             print(f"ERROR creating simulator: {e}")
             raise RuntimeError(f"Failed to create simulator: {e}")
 
-        # Create simulation parameters
+        # Create simulation parameters with configured values
         self.sim_params = rs.SimParams()
-        self.sim_params.conv_psf = True
-        self.sim_params.buffer_size = 4096
-        self.sim_params.t_far = 180.0
+        self.sim_params.conv_psf = sim_config["conv_psf"]
+        self.sim_params.buffer_size = sim_config["buffer_size"]
+        self.sim_params.t_far = sim_config["t_far"]
         self.sim_params.b_mode_size = (self.out_height, self.out_width)
 
     def compute(self, op_input, op_output, context):
@@ -255,7 +307,7 @@ class Simulator(Operator):
         b_mode_image = self.simulator.simulate(self.probe, self.sim_params)
 
         # Process the image
-        rgb_data = self._process_ultrasound_image(b_mode_image, receiving)
+        rgb_data = self._process_ultrasound_image(b_mode_image)
         op_output.emit({"": rgb_data}, "output")
 
     def _process_probe_pose(self, probe_info, receiving=True):
@@ -287,13 +339,12 @@ class Simulator(Operator):
         new_pose = rs.Pose(translation_array, rotation_array)
         self.probe.set_pose(new_pose)
 
-    def _process_ultrasound_image(self, b_mode_image, receiving=True):
+    def _process_ultrasound_image(self, b_mode_image):
         """
         Process the ultrasound image for display.
 
         Args:
             b_mode_image: The B-mode ultrasound image
-            receiving: Boolean indicating if probe info is being received
 
         Returns:
             RGB image data ready for display
@@ -353,6 +404,11 @@ class UltrasoundSimPublisher(Operator):
 
         This method is called when the operator is executed. It receives data from the input port
         and publishes it to the DDS topic.
+
+        Args:
+            op_input: The input port of the operator. In this case, it is the ultrasound image.
+            op_output: The output port of the operator. In this case, it is the ultrasound image.
+            context: The context of the operator.
         """
         # Get received data
         data = op_input.receive("input")[""]
@@ -380,49 +436,58 @@ class StreamingSimulator(Application):
         domain_id: The DDS domain ID to use for communication.
         out_width: The width of the output image.
         out_height: The height of the output image.
+        start_pose: The initial pose of the probe.
+        config_path: Path to a JSON configuration file with probe parameters.
     """
 
-    def __init__(self, output_topic: str, input_topic: str, domain_id: int, out_width: int, out_height: int):
+    def __init__(
+        self,
+        domain_id=0,
+        output_topic="topic_ultrasound_data",
+        input_topic="topic_ultrasound_info",
+        out_width=224,
+        out_height=224,
+        start_pose=np.zeros((6,)),
+        period=1 / 30.0,
+        config_path=None,
+    ):
         super().__init__()
+        self.domain_id = domain_id
         self.output_topic = output_topic
         self.input_topic = input_topic
-        self.domain_id = domain_id
         self.out_width = out_width
         self.out_height = out_height
-        self.period = 1 / 25.0  # period s
+        self.start_pose = start_pose
+        self.config_path = config_path
+        self.period = period
 
     def compose(self):
         """
         Composes the application's operators and flows.
         """
         period_ns = int(self.period * 1e9)
-        dds_sub = UltrasoundSimSubscriber(self, name="subscriber", domain_id=self.domain_id, topic=self.input_topic)
-        sim = Simulator(
+        dds_sub = UltrasoundSimSubscriber(
+            self,
+            domain_id=self.domain_id,
+            topic=self.input_topic,
+            name="subscriber",
+        )
+
+        # Create the simulator
+        simulator = Simulator(
             self,
             PeriodicCondition(self, period_ns),
-            name="simulator",
             out_height=self.out_height,
             out_width=self.out_width,
-            start_pose=np.array([-54.0, -150.0, -360, 0, 0, -np.pi / 2], dtype=np.float32),
+            start_pose=self.start_pose,
+            config_path=self.config_path,
+            name="simulator",
         )
-
-        sim.metadata_policy = MetadataPolicy.RAISE
+        simulator.metadata_policy = MetadataPolicy.RAISE
         dds_pub = UltrasoundSimPublisher(self, name="st", domain_id=self.domain_id, topic=self.output_topic)
-        holoviz_op = HolovizOp(
-            self,
-            name="holoviz",
-            width=self.out_width,
-            height=self.out_height,
-            tensors=[
-                dict(name="", type="color", opacity=1.0, priority=0),
-            ],
-        )
-        holoviz_op.metadata_policy = MetadataPolicy.RAISE
-
         # Connect flows
-        self.add_flow(dds_sub, sim)
-        # self.add_flow(sim, holoviz_op, {("output", "receivers")})
-        self.add_flow(sim, dds_pub)
+        self.add_flow(dds_sub, simulator)
+        self.add_flow(simulator, dds_pub)
 
 
 def main():
@@ -437,13 +502,13 @@ def main():
     parser.add_argument(
         "--height",
         type=int,
-        default=int(os.environ.get("OVH_HEIGHT", 300)),
+        default=int(os.environ.get("OVH_HEIGHT", 224)),
         help="height",
     )
     parser.add_argument(
         "--width",
         type=int,
-        default=int(os.environ.get("OVH_WIDTH", 400)),
+        default=int(os.environ.get("OVH_WIDTH", 224)),
         help="width",
     )
     parser.add_argument(
@@ -458,6 +523,18 @@ def main():
         default="topic_ultrasound_data",
         help="topic name to publish generated ultrasound data",
     )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="path to custom JSON configuration file with probe parameters and simulation parameters",
+    )
+    parser.add_argument(
+        "--period",
+        type=float,
+        default=1 / 30.0,
+        help="period of the simulation",
+    )
     args = parser.parse_args()
     app = StreamingSimulator(
         domain_id=args.domain_id,
@@ -465,6 +542,8 @@ def main():
         input_topic=args.topic_in,
         out_width=args.width,
         out_height=args.height,
+        period=args.period,
+        config_path=args.config,
     )
 
     app.is_metadata_enabled = True
