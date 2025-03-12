@@ -17,7 +17,7 @@ The robotic ultrasound workflow is built on the following dependencies:
 
 ### Install NVIDIA Driver and CUDA Toolkit
 
-1. Install the latest NVIDIA driver and CUDA toolkit from [NVIDIA website](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/)
+1. Install the latest NVIDIA driver from [NVIDIA website](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/)
 
 2. Install the latest [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
 
