@@ -112,8 +112,8 @@ def compute_transform_matrix(
         rotation_matrix: Optional rotation matrix to convert from Omniverse to NIFTI coordinates.
             If None, the default rotation matrix will be used.
             The default rotation matrix performs the following axis mapping:
-            - x-axis remains as x-axis
-            - y-axis maps to z-axis
+            - x-axis maps to negative x-axis
+            - y-axis maps to negative z-axis
             - z-axis maps to negative y-axis
 
     Returns:
@@ -121,7 +121,7 @@ def compute_transform_matrix(
     """
     # Create rotation component of the transform matrix
     if rotation_matrix is None:
-        R = torch.tensor([[1, 0, 0], [0, 0, -1], [0, 1, 0]], dtype=torch.float64)
+        R = torch.tensor([[-1, 0, 0], [0, 0, -1], [0, -1, 0]], dtype=torch.float64)
     else:
         R = rotation_matrix
 
@@ -169,14 +169,14 @@ def ov_to_nifti_orientation(
     """
     # Set default values if not provided
     if ov_down_quat is None:
-        ov_down_quat = [0, 1, 0, 0]  # Omniverse "down" quaternion [w, x, y, z]
+        ov_down_quat = [0, 0, 1, 0]  # Omniverse "down" quaternion [w, x, y, z]
 
     if organ_down_quat is None:
         organ_down_quat = [-np.pi / 2, 0, 0]  # Organ "down" Euler angles [x, y, z]
 
     # set default coordinate system transformation if not provided
     if rotation_matrix is None:
-        coord_transform = np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]])
+        coord_transform = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])
     else:
         coord_transform = rotation_matrix
 
