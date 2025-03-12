@@ -8,9 +8,9 @@ from omni.isaac.lab.sensors import FrameTransformerCfg
 from omni.isaac.lab.sim.schemas.schemas_cfg import RigidBodyPropertiesCfg
 from omni.isaac.lab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from omni.isaac.lab.utils import configclass
-from robotic.surgery.assets import ROBOTICSURGERY_ASSETS_DATA_DIR
 from robotic.surgery.tasks.surgical.lift import mdp
 from robotic.surgery.tasks.surgical.lift.lift_env_cfg import LiftEnvCfg
+from simulation.utils.assets import robotic_surgery_assets
 
 ##
 # Pre-defined configs
@@ -56,7 +56,7 @@ class NeedleLiftEnvCfg(LiftEnvCfg):
             prim_path="{ENV_REGEX_NS}/Object",
             init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.015), rot=(1, 0, 0, 0)),
             spawn=UsdFileCfg(
-                usd_path=f"{ROBOTICSURGERY_ASSETS_DATA_DIR}/Props/Surgical_needle/needle_sdf.usd",
+                usd_path=robotic_surgery_assets.Needle,
                 scale=(0.4, 0.4, 0.4),
                 rigid_props=RigidBodyPropertiesCfg(
                     solver_position_iteration_count=16,

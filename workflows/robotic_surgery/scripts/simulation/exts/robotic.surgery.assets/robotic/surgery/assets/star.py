@@ -16,7 +16,7 @@ Reference: https://github.com/SamuelSchmidgall/SurgicalGym
 import omni.isaac.lab.sim as sim_utils
 from omni.isaac.lab.actuators import ImplicitActuatorCfg
 from omni.isaac.lab.assets.articulation import ArticulationCfg
-from robotic.surgery.assets import ROBOTICSURGERY_ASSETS_DATA_DIR
+from simulation.utils.assets import robotic_surgery_assets
 
 ##
 # Configuration
@@ -24,7 +24,7 @@ from robotic.surgery.assets import ROBOTICSURGERY_ASSETS_DATA_DIR
 
 STAR_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=f"{ROBOTICSURGERY_ASSETS_DATA_DIR}/Robots/STAR/star.usd",
+        usd_path=robotic_surgery_assets.STAR,
         activate_contact_sensors=False,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,

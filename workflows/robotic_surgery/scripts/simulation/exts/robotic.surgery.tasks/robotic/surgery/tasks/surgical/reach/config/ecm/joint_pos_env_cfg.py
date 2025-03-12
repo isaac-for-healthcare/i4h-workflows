@@ -13,8 +13,8 @@ from omni.isaac.lab.assets import AssetBaseCfg
 from omni.isaac.lab.managers import EventTermCfg as EventTerm
 from omni.isaac.lab.sensors import CameraCfg, FrameTransformerCfg
 from omni.isaac.lab.utils import configclass
-from robotic.surgery.assets import ROBOTICSURGERY_ASSETS_DATA_DIR
 from robotic.surgery.tasks.surgical.reach.reach_env_cfg import ReachEnvCfg
+from simulation.utils.assets import robotic_surgery_assets
 
 ##
 # Pre-defined configs
@@ -41,7 +41,7 @@ class ECMReachEnvCfg(ReachEnvCfg):
         self.scene.table = AssetBaseCfg(
             prim_path="{ENV_REGEX_NS}/Table",
             spawn=sim_utils.UsdFileCfg(
-                usd_path=f"{ROBOTICSURGERY_ASSETS_DATA_DIR}/Props/Table/table.usd",
+                usd_path=robotic_surgery_assets.Table,
             ),
             init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, -0.457)),
         )

@@ -17,7 +17,7 @@ Reference: https://github.com/med-air/SurRoL
 import omni.isaac.lab.sim as sim_utils
 from omni.isaac.lab.actuators import ImplicitActuatorCfg
 from omni.isaac.lab.assets.articulation import ArticulationCfg
-from robotic.surgery.assets import ROBOTICSURGERY_ASSETS_DATA_DIR
+from simulation.utils.assets import robotic_surgery_assets
 
 ##
 # Configuration
@@ -25,7 +25,7 @@ from robotic.surgery.assets import ROBOTICSURGERY_ASSETS_DATA_DIR
 
 ECM_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=f"{ROBOTICSURGERY_ASSETS_DATA_DIR}/Robots/dVRK/ECM/ecm.usd",
+        usd_path=robotic_surgery_assets.dVRK_ECM,
         activate_contact_sensors=False,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,

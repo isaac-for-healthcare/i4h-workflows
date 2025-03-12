@@ -7,7 +7,14 @@ from i4h_asset_helper import get_i4h_local_asset_path
 @dataclass
 class Enums:
     """Enums for the assets in the robotic surgery workflow."""
+    dVRK_ECM = "Robots/dVRK/ECM/ecm.usd"
     dVRK_PSM = "Robots/dVRK/PSM/psm_col.usd"
+    STAR = "Robots/STAR/star.usd"
+    Board = "Props/Board/board.usd"
+    Block = "Props/PegBlock/block.usd"
+    Needle = "Props/SutureNeedle/needle_sdf.usd"
+    SuturePad = "Props/SuturePad/suture_pad.usd"
+    Table = "Props/Table/table.usd"
 
 
 class Assets(Enums):

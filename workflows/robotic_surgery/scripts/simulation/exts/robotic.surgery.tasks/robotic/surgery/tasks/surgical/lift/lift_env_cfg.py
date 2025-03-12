@@ -19,7 +19,7 @@ from omni.isaac.lab.scene import InteractiveSceneCfg
 from omni.isaac.lab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg
 from omni.isaac.lab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg, UsdFileCfg
 from omni.isaac.lab.utils import configclass
-from robotic.surgery.assets import ROBOTICSURGERY_ASSETS_DATA_DIR
+from simulation.utils.assets import robotic_surgery_assets
 
 from . import mdp
 
@@ -46,7 +46,7 @@ class ObjectTableSceneCfg(InteractiveSceneCfg):
     table = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Table",
         init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, -0.457)),
-        spawn=UsdFileCfg(usd_path=f"{ROBOTICSURGERY_ASSETS_DATA_DIR}/Props/Table/table.usd"),
+        spawn=UsdFileCfg(usd_path=robotic_surgery_assets.Table),
     )
 
     # plane

@@ -17,7 +17,6 @@ Reference: https://github.com/med-air/SurRoL
 import omni.isaac.lab.sim as sim_utils
 from omni.isaac.lab.actuators import ImplicitActuatorCfg
 from omni.isaac.lab.assets.articulation import ArticulationCfg
-from robotic.surgery.assets import ROBOTICSURGERY_ASSETS_DATA_DIR
 from simulation.utils.assets import robotic_surgery_assets
 
 ##
