@@ -18,6 +18,7 @@ class RealsenseOp(Operator):
     Operator to interface with an Intel RealSense camera.
     Captures RGB and depth frames, optionally publishing them via DDS.
     """
+
     def __init__(
         self,
         fragment,
@@ -124,6 +125,7 @@ class RealsenseOp(Operator):
 
 class NoOp(Operator):
     """A sink operator that takes input and discards them."""
+
     def __init__(self, fragment, depth, *args, **kwargs):
         """Initialize the operator."""
         self.depth = depth
@@ -144,6 +146,7 @@ class NoOp(Operator):
 
 class RealsenseApp(Application):
     """Application to run the RealSense operator and process its output."""
+
     def __init__(self, domain_id, height, width, topic_rgb, topic_depth, device_idx, framerate, show_holoviz, count):
         self.domain_id = domain_id
         self.height = height
