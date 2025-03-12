@@ -1,6 +1,8 @@
-![Robitic ultrasound](./docs/source/ultrasound.jpg)
+<p align="center">
+  <img src="./docs/source/surgery.png" alt="Robotic Surgery" style="display: inline-block; height: 450px; width: 800px; margin-right: 10px;" />
+  <img src="./docs/source/ultrasound.jpg" alt="Robotic Ultrasound" style="display: inline-block; height: 450px; width: 800px;" />
+</p>
 
----
 
 # Isaac for Healthcare - Workflows
 
