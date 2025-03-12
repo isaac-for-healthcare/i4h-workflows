@@ -22,6 +22,7 @@ class PI0PolicyRunner:
         task_description="Conduct a ultrasound scan on the liver.",
     ):
         config = get_config(name="robotic_ultrasound", repo_id=repo_id)
+        print(f"Loading model from {ckpt_path}...")
         self.model = policy_config.create_trained_policy(config, ckpt_path)
         # Prompt for the model
         self.task_description = task_description
