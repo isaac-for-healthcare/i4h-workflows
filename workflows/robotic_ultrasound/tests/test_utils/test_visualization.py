@@ -6,10 +6,6 @@ import unittest
 from importlib.util import find_spec
 from unittest import mock, skipUnless
 
-sys.path.append("/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts")
-os.environ["RTI_LICENSE_FILE"] = (
-    "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts/dds/rti_license.dat"
-)
 import numpy as np
 from simulation.configs.basic import config
 
