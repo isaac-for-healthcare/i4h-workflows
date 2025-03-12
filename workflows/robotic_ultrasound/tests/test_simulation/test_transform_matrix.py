@@ -5,6 +5,9 @@ import torch
 from parameterized import parameterized
 from simulation.environments.state_machine.utils import compute_transform_matrix
 
+# Define the default rotation matrix used in tests (not relying on function default)
+DEFAULT_ROTATION_MATRIX = torch.tensor([[1, 0, 0], [0, 0, -1], [0, -1, 0]], dtype=torch.float64)
+
 # Define test cases for parameterized tests
 TEST_CASES = [
     # name, ov_point, nifti_point, rotation_matrix, expected_result
@@ -12,7 +15,7 @@ TEST_CASES = [
         "default_transform",  # Default behavior
         [0.1, 0.2, 0.3],  # ov_point
         [100.0, -300.0, 200.0],  # nifti_point
-        None,  # rotation_matrix
+        DEFAULT_ROTATION_MATRIX,  # Explicitly provide rotation_matrix
         torch.tensor(
             [[1.0, 0.0, 0.0, 99.9], [0.0, 0.0, -1.0, -299.7], [0.0, -1.0, 0.0, 200.2], [0.0, 0.0, 0.0, 1.0]],
             dtype=torch.float64,
@@ -29,7 +32,7 @@ TEST_CASES = [
         "real_world_example",
         [0.6, 0.0, 0.09],  # From example in codebase
         [-0.7168, -0.7168, -330.6],  # From example in codebase
-        None,
+        DEFAULT_ROTATION_MATRIX,  # Explicitly provide rotation_matrix
         None,  # Will be calculated in the test
     ),
 ]
@@ -42,11 +45,8 @@ class TestTransformMatrix(unittest.TestCase):
 
         # For cases where we need to calculate the expected matrix
         if expected_matrix is None:
-            # Get the rotation matrix
-            if rotation_matrix is None:
-                R = torch.tensor([[1, 0, 0], [0, 0, -1], [0, -1, 0]], dtype=torch.float64)
-            else:
-                R = rotation_matrix
+            # Use the provided rotation matrix (no default fallback)
+            R = rotation_matrix
 
             # Calculate translation
             ov_point_tensor = torch.tensor(ov_point, dtype=torch.float64).unsqueeze(-1)
@@ -67,8 +67,8 @@ class TestTransformMatrix(unittest.TestCase):
     def test_transform_point_correctness(self):
         test_mappings = [
             # ov_point, nifti_point, rotation_matrix
-            ([0.1, 0.2, 0.3], [100.0, -300.0, 200.0], None),
-            ([0.5, 0.0, 0.1], [-0.7168, -0.7168, -330.6], None),
+            ([0.1, 0.2, 0.3], [100.0, -300.0, 200.0], DEFAULT_ROTATION_MATRIX),
+            ([0.5, 0.0, 0.1], [-0.7168, -0.7168, -330.6], DEFAULT_ROTATION_MATRIX),
         ]
 
         for ov_point, nifti_point, rotation_matrix in test_mappings:
