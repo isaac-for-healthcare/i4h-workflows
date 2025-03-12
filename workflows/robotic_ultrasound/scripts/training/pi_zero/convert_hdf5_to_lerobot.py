@@ -27,7 +27,7 @@ def create_lerobot_dataset(
     fps: int = 10,
     image_shape: tuple[int, int, int] = (224, 224, 3),
     state_shape: tuple[int, ...] = (7,),
-    action_shape: tuple[int, ...] = (6,),
+    actions_shape: tuple[int, ...] = (6,),
     image_writer_threads: int = 10,
     image_writer_processes: int = 5,
 ):
@@ -43,13 +43,17 @@ def create_lerobot_dataset(
     - fps: Frames per second for the dataset.
     - image_shape: Tuple defining the shape of the image data.
     - state_shape: Tuple defining the shape of the state data.
-    - action_shape: Tuple defining the shape of the action data.
+    - actions_shape: Tuple defining the shape of the action data.
     - image_writer_threads: Number of threads for image writing.
     - image_writer_processes: Number of processes for image writing.
 
     Returns:
     - An instance of LeRobotDataset configured with the specified parameters.
     """
+
+    if os.path.isdir(output_path):
+        raise Exception(f"Output path {output_path} already exists.")
+
     return LeRobotDataset.create(
         repo_id=output_path,
         robot_type=robot_type,
@@ -72,7 +76,7 @@ def create_lerobot_dataset(
             },
             "actions": {
                 "dtype": "float32",
-                "shape": action_shape,
+                "shape": actions_shape,
                 "names": ["actions"],
             },
         },
@@ -107,13 +111,14 @@ def main(
         try:
             shutil.rmtree(final_output_path)
         except Exception as e:
-            print(f"Error removing {final_output_path}: {e}. Please ensure that you have write permissions.")
-            return
+            raise Exception(f"Error removing {final_output_path}: {e}. Please ensure that you have write permissions.")
 
     # Create LeRobot dataset, define features to store
     dataset = create_lerobot_dataset(final_output_path, image_shape=image_shape, **dataset_config_kwargs)
 
     # Collect all the hdf5 files in the data directory
+    if not os.path.isdir(data_dir):
+        raise Exception(f"Data directory {data_dir} does not exist.")
     data_files = sorted(glob.glob(os.path.join(data_dir, "*.hdf5")))
     if not data_files:
         warnings.warn(f"No HDF5 files found in {data_dir}")
