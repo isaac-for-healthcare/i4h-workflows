@@ -28,6 +28,7 @@ def install_isaaclab():
     )
     subprocess.check_call(["./isaaclab.sh", "--install"], cwd="./IsaacLab")
 
+
 def install_holoscan():
     """Install Holoscan"""
     print("Installing Holoscan...")

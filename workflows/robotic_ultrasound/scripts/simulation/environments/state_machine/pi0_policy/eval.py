@@ -6,8 +6,12 @@ import numpy as np
 import torch
 from omni.isaac.lab.app import AppLauncher
 from policy_runner import PI0PolicyRunner
-from simulation.environments.state_machine.act_policy.act_utils import get_np_images
-from simulation.environments.state_machine.utils import compute_relative_action, get_joint_states, get_robot_obs
+from simulation.environments.state_machine.utils import (
+    compute_relative_action,
+    get_joint_states,
+    get_np_images,
+    get_robot_obs,
+)
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 # add argparse arguments
@@ -38,10 +42,7 @@ reset_flag = False
 from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: E402
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.meta_state_machine.ultrasound_state_machine import (  # noqa: E402
-    RobotPositions,
-    RobotQuaternions,
-)
+from simulation.environments.state_machine.utils import RobotPositions, RobotQuaternions  # noqa: E402
 
 
 def get_reset_action(env, use_rel: bool = True):

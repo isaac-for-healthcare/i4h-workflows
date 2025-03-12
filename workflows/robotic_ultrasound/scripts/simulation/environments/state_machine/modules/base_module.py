@@ -6,7 +6,7 @@ import torch
 class BaseControlModule(ABC):
     """Abstract base class for all control modules."""
 
-    def __init__(self, device: str = "cuda:0", use_quaternion: bool = False, using_policy: bool = False):
+    def __init__(self, device: str = "cuda:0", use_quaternion: bool = False):
         """Initialize the base control module.
 
         Args:
@@ -15,7 +15,6 @@ class BaseControlModule(ABC):
         """
         self.device = device
         self.state_dim = 7 if use_quaternion else 6
-        self.using_policy = using_policy
 
     @abstractmethod
     def compute_action(self, env, state) -> torch.Tensor:
