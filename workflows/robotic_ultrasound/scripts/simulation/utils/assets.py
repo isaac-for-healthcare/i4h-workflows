@@ -7,10 +7,12 @@ from i4h_asset_helper import get_i4h_local_asset_path
 @dataclass
 class Enums:
     """Enums for the assets in the robotic ultrasound workflow."""
+
     basic = "Test/basic.usda"
     panda = "Robots/Franka/Collected_panda_assembly/panda_assembly.usda"
     phantom = "Props/ABDPhantom/phantom.usda"
     table_with_cover = "Props/VentionTableWithBlackCover/table_with_cover.usd"
+    policy_ckpt = "Policies/AorticScan"
 
 
 class Assets(Enums):
@@ -25,6 +27,7 @@ class Assets(Enums):
     - table_with_cover: the path to the table_with cover_.usd asset
 
     """
+
     def __init__(self, download_dir: str | None = None):
         """
         Initialize the assets

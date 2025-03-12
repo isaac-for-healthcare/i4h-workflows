@@ -70,7 +70,7 @@ Please move back to the current folder and run the following command:
 ```sh
 python run_policy.py  \
     --rti_license_file <path to>/rti_license.dat \
-    --ckpt_path <path to>/pi0_aortic_scan_v0.3/19000 \
+    --ckpt_path <path to policy model> \
     --repo_id hf/chiron_aortic \
     --domain_id <domain id> \
     --height <input image height> \

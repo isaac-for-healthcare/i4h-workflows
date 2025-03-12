@@ -34,6 +34,16 @@ sudo apt install cmake build-essential
 python source/standalone/tutorials/00_sim/create_empty.py
 ```
 
+# Download the assets
+
+```sh
+git clone git@github.com:isaac-for-healthcare/i4h-asset-catalog.git
+cd i4h-asset-catalog
+pip install -e .
+
+i4h-asset-retrieve
+```
+
 # Installation
 
 Follow the [Installation](#installation) instructions below to install the extension.
@@ -83,9 +93,9 @@ export PYTHONPATH=`pwd`
 python environments/state_machine/pi0_policy/eval.py \
     --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
     --enable_camera \
-    --ckpt_path /localhome/local-mingxinz/.cache/i4h-assets/5ba92d5b71c0b8e03119c04e26b340ad52d1e25a1b7e68859a4cf064ccf2646d/Policies/AorticScan \
     --repo_id hf/chiron_aortic
 ```
+NOTE: You can also specify `--ckpt_path` to run a specific policy.
 This should open a stage with Franka arm and run the robotic ultrasound actions:
 ![pi0 simulation](../../../../docs/source/pi0_sim.jpg)
 

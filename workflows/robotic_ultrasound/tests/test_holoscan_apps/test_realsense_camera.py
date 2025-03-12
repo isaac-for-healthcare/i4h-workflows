@@ -16,6 +16,7 @@ except ImportError:
 
 DEVICES_AVAILABLE = count_devices() > 0
 
+
 @skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
 @skipUnless(DEVICES_AVAILABLE, "No Intel RealSense devices found")
 class TestRealSenseCamera(unittest.TestCase):
