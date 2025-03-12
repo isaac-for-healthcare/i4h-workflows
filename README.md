@@ -45,7 +45,7 @@ For everything you need to get started, including detailed tutorials and step-by
 - [Robotic ultrasound - simulation](./workflows/robotic_ultrasound/scripts/simulation/README.md)
 - [Robotic ultrasound - policy runner](./workflows/robotic_ultrasound/scripts/policy_runner/README.md)
 - <placeholder for "Robotic ultrasound - Holoscan programs">
-- <placeholder for "Robotic surgery">
+- [Robotic surgery - simulation](./workflows/robotic_surgery/scripts/simulation/README.md)
 - [Tutorials](./tutorials)
 
 
