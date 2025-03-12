@@ -1,7 +1,6 @@
 import torch
-from omni.isaac.core.utils.torch.rotations import quat_from_euler_xyz
-from omni.isaac.lab.utils.math import euler_xyz_from_quat
-from utils import RobotQuaternions, SMState, UltrasoundState
+from omni.isaac.lab.utils.math import euler_xyz_from_quat, quat_from_euler_xyz
+from simulation.environments.state_machine.utils import RobotQuaternions, SMState, UltrasoundState
 
 from .base_module import BaseControlModule
 
