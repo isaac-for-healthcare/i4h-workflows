@@ -15,3 +15,8 @@ Install `RTI DDS`:
 ```sh
 pip install rti.connext
 ```
+3. Make sure `PYTHONPATH` and `RTI_LICENSE_FILE` is set
+```sh
+export PYTHONPATH=`/path-to-i4h-workflows/workflows/robotic_ultrasound/scripts`
+export RTI_LICENSE_FILE=<path-to-rti-license-file>
+```

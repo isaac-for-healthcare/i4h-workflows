@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-import os
 from dataclasses import MISSING
 
 import omni.isaac.lab.sim as sim_utils
@@ -26,6 +25,7 @@ from omni.isaac.lab.utils import configclass
 #  FRANKA_PANDA_REALSENSE_CFG for camera in USD
 from robotic_us_ext.lab_assets.franka import FRANKA_PANDA_HIGH_PD_FORCE_CFG, FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG
 from robotic_us_ext.tasks.ultrasound.approach import mdp
+from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 from omni.isaac.lab.markers.config import FRAME_MARKER_CFG  # isort: skip
 
@@ -53,7 +53,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
             pos=[0.4804, 0.02017, -0.83415], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, -90.0]), degrees=True)
         ),
         spawn=sim_utils.UsdFileCfg(
-            usd_path=os.path.join(os.getcwd(), "assets/Collected_table/table_with_cover/table_with_cover.usd"),
+            usd_path=robot_us_assets.table_with_cover,
         ),
     )
 
@@ -63,9 +63,11 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     # Leaving the props empty will use the default values.
     organs = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/organs",
-        init_state=RigidObjectCfg.InitialStateCfg(pos=[0.6, 0.0, 0.09]),
+        init_state=RigidObjectCfg.InitialStateCfg(
+            pos=[0.6, 0.0, 0.09], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, 180.0]), degrees=True)
+        ),
         spawn=sim_utils.UsdFileCfg(
-            usd_path=os.path.join(os.getcwd(), "assets/Collected_phantom/phantom.usda"),
+            usd_path=robot_us_assets.phantom,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(rigid_body_enabled=True),
             mass_props=sim_utils.MassPropertiesCfg(mass=1000.0),
             collision_props=sim_utils.CollisionPropertiesCfg(),
@@ -97,8 +99,8 @@ class RoboticSoftCfg(InteractiveSceneCfg):
             clipping_range=(0.1, 1.0e5),
         ),
         offset=CameraCfg.OffsetCfg(
-            pos=(0.55942, -0.56039, 0.36243),
-            rot=euler_angles_to_quats(torch.tensor([248.0, 0.0, 0.0]), degrees=True),
+            pos=(0.55942, 0.56039, 0.36243),
+            rot=euler_angles_to_quats(torch.tensor([248.0, 0.0, 180.0]), degrees=True),
             convention="ros",
         ),
     )

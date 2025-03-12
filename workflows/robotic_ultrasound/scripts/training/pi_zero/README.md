@@ -40,36 +40,7 @@ This script:
 
 To train a PI Zero model, you'll need to collect robotic ultrasound data. We provide a state machine implementation in the simulation environment that can generate training episodes that emulate a liver ultrasound scan.
 
-### Using the State Machine
-
-Navigate to the simulation directory and use the state machine to collect data:
-```bash
-# FIXME: Data collection and state machine needs to be added to the repo
-cd simulation/environments/state_machine
-python reach_torso_abs.py --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 --enable_cameras --num_episodes 10 --collection_methods hdf5
-```
-**Arguments:**
-- `--task`: Simulation environment to use (options: `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0`, `Isaac-Reach-Torso-FrankaUsRs-IK-RL-Abs-v0`)
-- `--enable_cameras`: Enable camera rendering for visual observations
-- `--num_episodes`: Number of episodes to collect
-- `--collection_methods`: Collection methods to use (options: `hdf5`, `zarr`, defa) Default is both
-
-The collected data will be saved in HDF5 format in the `data/` directory with a timestamp and task name.
-
-### Validating Collected Data
-
-#
-You can validate the collected data by playing it back:
-```bash
-# FIXME: Add playback script
-python scripts/state_machine/playback_recorded.py --data_path /path/to/your/data --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 --enable_camera --use_rel
-```
-
-**Arguments:**
-- `--data_path`: Path to the collected HDF5 data directory
-- `--task`: Task to use for playback
-- `--enable_camera`: Enable camera rendering
-- `--use_rel`: Use relative actions (default: False)
+See the [simulation README](../../simulation/README.md#liver-scan-state-machine) for more information on how to collect data.
 
 ## 🔄 Data Conversion
 
@@ -83,6 +54,7 @@ python convert_hdf5_to_lerobot.py /path/to/your/hdf5/data
 - `--data_dir`: Path to the directory containing HDF5 files
 - `--repo_id`: Name for your dataset (default: "i4h/robotic_ultrasound")
 - `--task_prompt`: Text description of the task (default: "Perform a liver ultrasound.")
+- `--image_shape`: Shape of the image data as a comma-separated string, e.g., '224,224,3' (default: '224,224,3')
 
 The script will:
 1. Create a LeRobot dataset with the specified name
