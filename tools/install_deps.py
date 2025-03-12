@@ -8,6 +8,8 @@ def install_dependencies():
         subprocess.check_call(["nvidia-smi"])
         # Install dependencies
         subprocess.check_call(["sudo", "apt-get", "install", "-y", "xvfb", "x11-utils", "cmake", "build-essential"])
+        # Install specific version of gcc for conda env
+        subprocess.check_call(["conda", "install", "-c", "conda-forge", "gcc=13.3.0"])
         # Test dependencies
         subprocess.check_call([sys.executable, "-m", "pip", "install", "coverage", "parameterized", "dearpygui"])
         # Install IsaacSim
@@ -22,6 +24,8 @@ def install_dependencies():
                 "isaacsim-extscache-physics==4.2.0.2",
                 "isaacsim-extscache-kit==4.2.0.2",
                 "isaacsim-extscache-kit-sdk==4.2.0.2",
+                "pyrealsense2",
+                "holoscan==2.9.0",
                 "--extra-index-url",
                 "https://pypi.nvidia.com",
             ]
