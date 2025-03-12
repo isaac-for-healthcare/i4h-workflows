@@ -3,12 +3,7 @@ from typing import Dict
 import torch
 from omni.isaac.core.prims import RigidPrimView
 from simulation.environments.state_machine.modules.base_module import BaseControlModule
-from simulation.environments.state_machine.utils import (
-    RobotPositions,
-    RobotQuaternions,
-    SMState,
-    compute_relative_action,
-)
+from simulation.environments.state_machine.utils import SMState, compute_relative_action
 
 
 class UltrasoundStateMachine:
@@ -23,10 +18,7 @@ class UltrasoundStateMachine:
         """
         self.modules = modules
         self.device = device
-        self.organ_offset = torch.tensor(RobotPositions.ORGAN_OFFSET, device=device)
-        self.target_offset = torch.tensor(RobotPositions.TARGET_OFFSET, device=device)
-        self.down_quaternion = torch.tensor(RobotQuaternions.DOWN, device=device)
-        self.state = SMState()
+        self.sm_state = SMState()
         self.object_view = RigidPrimView(
             prim_paths_expr="/World/envs/env.*/Robot/panda_hand",
             name="robot",
@@ -37,7 +29,6 @@ class UltrasoundStateMachine:
         )
         self.object_view.initialize()
         self.assert_module_order()
-        self.set_using_policy()
 
     def compute_action(self, env, robot_obs: torch.Tensor) -> torch.Tensor:
         """Compute combined action from all active modules.
@@ -47,25 +38,21 @@ class UltrasoundStateMachine:
             robot_obs: Current robot observations
 
         Returns:
-            Combined action tensor
+            Tuple of relative and absolute commands
         """
-        self.state.robot_obs = robot_obs
-        self.state.contact_normal_force = self.get_normal_force()
+        self.sm_state.robot_obs = robot_obs
+        self.sm_state.contact_normal_force = self.get_normal_force()
         # Only use first env observation
         module_actions = {}
 
         for name, module in self.modules.items():
-            action, state = module.compute_action(env, self.state)
+            action, state = module.compute_action(env, self.sm_state)
             module_actions[name] = action
-            self.state = state
+            self.sm_state = state
 
         abs_commands = sum(module_actions.values())
 
         rel_commands = compute_relative_action(abs_commands, robot_obs.unsqueeze(0))
-
-        # The policy already outputs relative actions, so we need to convert to absolute
-        if self.using_policy:
-            rel_commands[:, :3] = abs_commands[:, :3]
 
         return rel_commands, abs_commands
 
@@ -85,7 +72,7 @@ class UltrasoundStateMachine:
 
     def reset(self) -> None:
         """Reset the state machine and all modules."""
-        self.state.reset()
+        self.sm_state.reset()
         for module in self.modules.values():
             module.reset()
 
@@ -96,8 +83,3 @@ class UltrasoundStateMachine:
             "orientation",
             "path_planning",
         ], "Modules must be in the correct order"
-
-    def set_using_policy(self):
-        """Set the using_policy flag for both the state machine and force module."""
-        assert "force" in self.modules, "Force module must be present"
-        self.using_policy = self.modules["force"].using_policy

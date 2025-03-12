@@ -12,13 +12,12 @@ from dds.schemas.franka_info import FrankaInfo
 from dds.schemas.usp_info import UltraSoundProbeInfo
 from dds.subscriber import SubscriberWithQueue
 from omni.isaac.lab.app import AppLauncher
-from simulation.environments.state_machine.act_policy.act_utils import get_np_images
 from simulation.environments.state_machine.utils import (
     compute_relative_action,
-    compute_transform_matrix,
     get_joint_states,
-    get_probe_pos_ori,
+    get_np_images,
     get_robot_obs,
+    get_probe_pos_ori,
 )
 
 # add argparse arguments
@@ -75,10 +74,7 @@ reset_flag = False
 from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: E402
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.meta_state_machine.ultrasound_state_machine import (  # noqa: E402
-    RobotPositions,
-    RobotQuaternions,
-)
+from simulation.environments.state_machine.utils import RobotPositions, RobotQuaternions  # noqa: E402
 
 pub_data = {
     "room_cam": None,

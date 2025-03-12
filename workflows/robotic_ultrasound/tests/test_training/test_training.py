@@ -24,7 +24,7 @@ class TestBase(unittest.TestCase):
         self.test_data_dir = os.path.join(self.cache_dir, self.TEST_REPO_ID)
 
         # Setup temporary directories
-        self.current_dir = os.path.dirname(__file__)
+        self.current_dir = os.getcwd()
         self.tmp_assets_dir = os.path.join(self.current_dir, "assets")
         self.tmp_checkpoints_dir = os.path.join(self.current_dir, "checkpoints")
         self.tmp_wandb_dir = os.path.join(self.current_dir, "wandb")

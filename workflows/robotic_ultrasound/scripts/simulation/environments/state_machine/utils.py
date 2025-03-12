@@ -6,8 +6,8 @@ from typing import Sequence
 import numpy as np
 import onnxruntime as ort
 import torch
+from omni.isaac.lab.utils import convert_dict_to_backend
 from omni.isaac.lab.utils.math import compute_pose_error, quat_from_euler_xyz
-from pynput import keyboard
 from scipy.spatial.transform import Rotation
 
 
@@ -23,12 +23,24 @@ class UltrasoundState(Enum):
 
 
 @dataclass(frozen=True)
+class PhantomScanPositions:
+    """
+    Defines scan positions in the phantom's local coordinate frame.
+    All positions are relative to the phantom's origin.
+    """
+
+    SCAN_START: tuple[float, float, float] = (0.0030, 0.05, 0.2)
+    SCAN_CONTACT: tuple[float, float, float] = (0.0030, 0.05, 0.0983)  # Starting position of scan
+    SCAN_END: tuple[float, float, float] = (-0.0473, -0.0399, 0.0857)
+
+
+@dataclass(frozen=True)
 class RobotPositions:
     """Robot position configurations stored as torch tensors."""
 
-    SETUP: tuple[float, float, float] = (0.3229, -0.0110, 0.3000)
-    ORGAN_OFFSET: tuple[float, float, float] = (0.0040, -0.0519 + 0.08, 0.1510)
-    TARGET_OFFSET: tuple[float, float, float] = (0.0040, -0.08, 0.00)
+    SETUP: tuple[float, float, float] = (0.0178, -0.04, 0.6)
+    ORGAN_OFFSET: tuple[float, float, float] = (0.0178, -0.04, 0.0968)
+    TARGET_OFFSET: tuple[float, float, float] = (0.0476, 0.0469, 0.0850)
 
 
 @dataclass(frozen=True)
@@ -75,6 +87,37 @@ def compute_relative_action(action: torch.Tensor, robot_obs: torch.Tensor, retur
         return rel_action.cpu().numpy()
     else:
         return rel_action
+
+
+def capture_camera_images(env, cam_names, device="cuda"):
+    """
+    Captures RGB and depth images from specified cameras
+
+    Args:
+        env: The environment containing the cameras
+        cam_names (list): List of camera names to capture from
+        device (str): Device to use for tensor operations
+
+    Returns:
+        tuple: (stacked_rgbs, stacked_depths) - Tensors of shape (1, num_cams, H, W, 3) and (1, num_cams, H, W)
+    """
+    depths, rgbs = [], []
+    for cam_name in cam_names:
+        camera_data = env.unwrapped.scene[cam_name].data
+
+        # Extract RGB and depth images
+        rgb = camera_data.output["rgb"][..., :3].squeeze(0)
+        depth = camera_data.output["distance_to_image_plane"].squeeze(0)
+
+        # Append to lists
+        rgbs.append(rgb)
+        depths.append(depth)
+
+    # Stack results
+    stacked_rgbs = torch.stack(rgbs).unsqueeze(0)
+    stacked_depths = torch.stack(depths).unsqueeze(0)
+
+    return stacked_rgbs, stacked_depths
 
 
 def get_robot_obs(env):
@@ -282,6 +325,15 @@ def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
 
     # Return position as numpy array and orientation as Euler angles
     return transformed_pos.cpu().numpy(), transformed_ori
+def get_np_images(env):
+    """Get numpy images from the environment."""
+    third_person_img = convert_dict_to_backend(env.unwrapped.scene["room_camera"].data.output, backend="numpy")["rgb"]
+    third_person_img = third_person_img[0, :, :, :3].astype(np.uint8)
+
+    wrist_img1 = convert_dict_to_backend(env.unwrapped.scene["wrist_camera"].data.output, backend="numpy")["rgb"]
+    wrist_img1 = wrist_img1[0, :, :, :3].astype(np.uint8)
+
+    return third_person_img, wrist_img1
 
 
 def load_onnx_model(model_path):
@@ -292,34 +344,3 @@ def load_onnx_model(model_path):
     session = ort.InferenceSession(model_path, providers=providers)
     print(f"session using: {session.get_providers()}")
     return session
-
-
-class KeyboardHandler:
-    def __init__(self):
-        self.reset_flag = False
-        self.listener = None
-
-    def on_press(self, key):
-        """Callback function to handle key press events."""
-        try:
-            if key.char == "r":
-                self.reset_flag = True
-        except AttributeError:
-            pass
-
-    def start_keyboard_listener(self):
-        """Start a separate thread to listen for keyboard events."""
-        self.listener = keyboard.Listener(on_press=self.on_press)
-        self.listener.start()
-
-    def stop_keyboard_listener(self):
-        """Stop the keyboard listener."""
-        if self.listener:
-            self.listener.stop()
-
-    def is_reset_requested(self):
-        """Check if a reset has been requested."""
-        if self.reset_flag:
-            self.reset_flag = False  # Reset the flag after checking
-            return True
-        return False
