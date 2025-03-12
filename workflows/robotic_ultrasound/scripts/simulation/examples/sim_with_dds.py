@@ -1,7 +1,6 @@
 import argparse
 import collections
 import os
-import time
 
 import gymnasium as gym
 import numpy as np
@@ -197,8 +196,6 @@ def main():
     viz_probe_pos_writer = ProbePosPublisher(args_cli.viz_domain_id)
     infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
     infer_reader.start()
-    # wait for 10 seconds to ensure the writer and reader are ready
-    time.sleep(10)
 
     # Number of steps played before replanning
     replan_steps = 5
@@ -216,15 +213,15 @@ def main():
                 pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
                     env, transform_matrix=transform_matrix, scale=1000.0, log=True
                 )
-                viz_r_cam_writer.write(0.1, 1.0)
-                viz_w_cam_writer.write(0.1, 1.0)
-                viz_pos_writer.write(0.1, 1.0)
-                viz_probe_pos_writer.write(0.1, 1.0)
+                viz_r_cam_writer.write()
+                viz_w_cam_writer.write()
+                viz_pos_writer.write()
+                viz_probe_pos_writer.write()
                 if not action_plan:
                     # publish the images and joint positions when run policy inference
-                    infer_r_cam_writer.write(0.1, 1.0)
-                    infer_w_cam_writer.write(0.1, 1.0)
-                    infer_pos_writer.write(0.1, 1.0)
+                    infer_r_cam_writer.write()
+                    infer_w_cam_writer.write()
+                    infer_pos_writer.write()
 
                     ret = None
                     while ret is None:

@@ -19,6 +19,7 @@ def get_tests(test_root):
     path = f"{test_root}/**/test_*.py"
     return glob.glob(path, recursive=True)
 
+
 def run_tests_with_coverage(project_root):
     """Run all unittest cases with coverage reporting"""
     try:
@@ -29,7 +30,7 @@ def run_tests_with_coverage(project_root):
         tests_dir = os.path.join(project_root, "tests")
         print(f"Looking for tests in {tests_dir}")
         tests = get_tests(tests_dir)
-            
+
         for test_path in tests:
             test_name = os.path.basename(test_path).replace(".py", "")
             print(f"\nRunning test: {test_path}")
@@ -72,9 +73,7 @@ def run_tests_with_coverage(project_root):
                     test_path,
                 ]
 
-            process = subprocess.Popen(
-                cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-            )
+            process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             stdout, stderr = process.communicate()
 
             # Filter out extension loading messages

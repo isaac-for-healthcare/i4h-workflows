@@ -29,7 +29,7 @@ class Pose:
     orientation: np.ndarray  # as quaternians from isaac_sim
 
 
-class SubscriberRTIDDS(Operator):
+class UltrasoundSimSubscriber(Operator):
     """
     Subscribes to RTI DDS topics and forwards the received data to the next operator in the pipeline.
 
@@ -233,7 +233,6 @@ class Simulator(Operator):
         self.sim_params.buffer_size = 4096
         self.sim_params.t_far = 180.0
         self.sim_params.b_mode_size = (self.out_height, self.out_width)
-        # self.sim_params.enable_cuda_timing = True
 
     def compute(self, op_input, op_output, context):
         """
@@ -241,6 +240,11 @@ class Simulator(Operator):
 
         This method is called when the operator is executed. It receives probe information
         and processes the probe pose, then runs the simulation and processes the ultrasound image.
+
+        Args:
+            op_input: The input port of the operator. In this case, it is the probe information.
+            op_output: The output port of the operator. In this case, it is the ultrasound image.
+            context: The context of the operator.
         """
         probe_info, receiving = op_input.receive("input")
 
@@ -305,14 +309,11 @@ class Simulator(Operator):
 
         # Create RGB output
         rgb_data = np.stack([img_uint8, img_uint8, img_uint8], axis=-1)
-        # if not receiving:
-        #     # Red box in the top left if no probe info is received
-        #     rgb_data[:40, :40, :] = [255, 0, 0]
 
         return rgb_data
 
 
-class PublisherRTIDDS(Operator):
+class UltrasoundSimPublisher(Operator):
     """
     Transmit incoming stream over RTI-Topic
 
@@ -395,7 +396,7 @@ class StreamingSimulator(Application):
         Composes the application's operators and flows.
         """
         period_ns = int(self.period * 1e9)
-        dds_sub = SubscriberRTIDDS(self, name="subscriber", domain_id=self.domain_id, topic=self.input_topic)
+        dds_sub = UltrasoundSimSubscriber(self, name="subscriber", domain_id=self.domain_id, topic=self.input_topic)
         sim = Simulator(
             self,
             PeriodicCondition(self, period_ns),
@@ -406,7 +407,7 @@ class StreamingSimulator(Application):
         )
 
         sim.metadata_policy = MetadataPolicy.RAISE
-        dds_pub = PublisherRTIDDS(self, name="st", domain_id=self.domain_id, topic=self.output_topic)
+        dds_pub = UltrasoundSimPublisher(self, name="st", domain_id=self.domain_id, topic=self.output_topic)
         holoviz_op = HolovizOp(
             self,
             name="holoviz",
