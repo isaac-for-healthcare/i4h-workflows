@@ -225,7 +225,7 @@ def ov_to_nifti_orientation(
         ov_down_quat = [0, 0, 1, 0]  # Omniverse "down" quaternion [w, x, y, z]
 
     if organ_down_quat is None:
-        organ_down_quat = [-np.pi / 2, 0, 0]  # Organ "down" Euler angles [x, y, z]
+        organ_down_quat = [-np.pi / 2, -np.pi / 2, 0]  # Organ "down" Euler angles [x, y, z]
 
     # set default coordinate system transformation if not provided
     if rotation_matrix is None:
@@ -318,14 +318,13 @@ def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
 
     # Optional logging for debugging
     if log:
-        print(f"Raw position (Isaac Sim, meters): {probe_pos_flat}")
+        print(f"Raw position (Isaac Sim, mm): {probe_pos_flat}")
         print(f"Transformed position (organ, mm): {transformed_pos}")
         print(f"Raw orientation (Isaac Sim, quat): {probe_quat}")
         print(f"Transformed orientation (organ, Euler): {transformed_ori}")
 
     # Return position as numpy array and orientation as Euler angles
     return transformed_pos.cpu().numpy(), transformed_ori
-
 
 def get_np_images(env):
     """Get numpy images from the environment."""

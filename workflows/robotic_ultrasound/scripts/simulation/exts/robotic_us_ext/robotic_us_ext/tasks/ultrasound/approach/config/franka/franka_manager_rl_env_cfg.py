@@ -136,6 +136,22 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         ],
     )
 
+    # Frame transformer from organ to robot base frame 
+
+    organ_to_robot_transform = FrameTransformerCfg(
+        prim_path="{ENV_REGEX_NS}/organs",
+        debug_vis=True,
+        visualizer_cfg=FRAME_MARKER_SMALL_CFG.replace(prim_path="/Visuals/organ_frame"), 
+        target_frames=[
+            FrameTransformerCfg.FrameCfg(
+                prim_path="{ENV_REGEX_NS}/Robot/TCP",
+                name="organ_frame",
+                offset=OffsetCfg(pos=[0.0, 0.0, 0.0]),
+            ),
+        ],
+  
+    )
+
 
 ##
 # MDP settings

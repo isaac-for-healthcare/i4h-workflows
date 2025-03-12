@@ -199,6 +199,73 @@ The collected data includes:
 - Joint positions
 - Camera images
 
+
+## Keyboard Controls
+
+During execution, you can press the 'r' key to reset the environment and state machine.
+
+# Teleoperation
+
+The teleoperation interface allows direct control of the robotic arm using various input devices. It supports keyboard, SpaceMouse, and gamepad controls for precise manipulation of the ultrasound probe.
+
+## Setup
+
+Follow the same setup steps as before to ensure your environment is properly configured.
+
+## Running Teleoperation
+
+Basic teleoperation can be started with:
+
+```sh
+python environments/teleoperation/teleop_se3_agent.py \
+    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
+    --teleop_device keyboard
+```
+
+## Command Line Arguments
+
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--teleop_device` | str | "keyboard" | Device for control ("keyboard", "spacemouse", or "gamepad") |
+| `--sensitivity` | float | 1.0 | Control sensitivity multiplier |
+| `--disable_fabric` | bool | False | Disable fabric and use USD I/O operations |
+| `--num_envs` | int | 1 | Number of environments to simulate |
+| `--viz_domain_id` | int | 1 | Domain ID for visualization data publishing |
+| `--rti_license_file` | str | None | Path to the RTI license file (required) |
+
+## Control Schemes
+
+### Keyboard Controls
+- **Translation**:
+  - W/S: Forward/Backward
+  - A/D: Left/Right
+  - Q/E: Up/Down
+- **Rotation**:
+  - I/K: Pitch
+  - J/L: Yaw
+  - U/O: Roll
+- **Other**:
+  - L: Reset environment
+
+### Camera Visualization
+
+The teleoperation script supports real-time camera visualization through DDS communication. It publishes both room camera and wrist camera feeds at 30Hz. To enable camera visualization:
+
+```sh
+python environments/teleoperation/teleop_se3_agent.py \
+    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
+    --teleop_device keyboard \
+    --viz_domain_id 1 \
+    --rti_license_file <path to>/rti_license.dat
+```
+
+The camera feeds are published on the following default topics:
+- Room camera: `topic_room_camera_data_rgb`
+- Wrist camera: `topic_wrist_camera_data_rgb`
+
+Both cameras output 224x224 RGB images that can be visualized using compatible DDS subscribers.
+
+
 ## Ultrasound Raytracing Simulation
 
 This example implements a standalone ultrasound raytracing simulator that generates realistic ultrasound images

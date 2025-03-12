@@ -196,3 +196,10 @@ cython_debug/
 
 # Wandb
 wandb/
+# ignore obj usd usda files
+*.obj
+*.usd
+*.usda
+*.mtl
+*.png
+*.usdc

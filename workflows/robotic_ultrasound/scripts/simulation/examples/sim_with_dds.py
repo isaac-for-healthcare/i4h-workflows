@@ -1,6 +1,7 @@
 import argparse
 import collections
 import os
+import time
 
 import gymnasium as gym
 import numpy as np
@@ -193,6 +194,8 @@ def main():
     viz_probe_pos_writer = ProbePosPublisher(args_cli.viz_domain_id)
     infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
     infer_reader.start()
+    # wait for 10 seconds to ensure the writer and reader are ready
+    time.sleep(10)
 
     # Number of steps played before replanning
     replan_steps = 15
