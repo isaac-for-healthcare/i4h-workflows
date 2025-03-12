@@ -58,4 +58,32 @@ cd i4h-workflows
 export PYTHONPATH=`pwd`
 ```
 
-Please note that once you are in the virtual environment, you do not need to use `${IsaacLab_PATH}/isaaclab.sh -p` to run python scripts. You can use the default python executable in your environment by running `python` or `python3`. However, for the rest of the documentation, we will assume that you are using `${IsaacLab_PATH}/isaaclab.sh -p` to run python scripts.
+
+## Robotic Surgery Tasks
+
+We provide examples on hand-crafted state machines for the robotic surgery environments, demonstrating the execution of surgical subtasks.
+
+- **dVRK-PSM Reach**: da Vinci Research Kit (dVRK) Patient Side Manipulator (PSM) to reach a desired pose:
+```bash
+python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_psm_sm.py
+```
+
+- **Dual-arm dVRK-PSM Reach**: dual-arm dVRK-PSM to reach a desired pose:
+```bash
+python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_dual_psm_sm.py
+```
+
+- **STAR Reach**: STAR arm to reach a desired pose:
+```bash
+python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_star_sm.py
+```
+
+- **Suture Needle Lift**: lift a suture needle to a desired pose:
+```bash
+python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/lift_needle_sm.py
+```
+
+- **Peg Block Lift**: lift a peg block to a desired pose:
+```bash
+python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/lift_block_sm.py
+```
