@@ -378,39 +378,6 @@ def main():
             # # convert to numpy and publish
             # pub_data["probe_pos"] = pos_np
             # pub_data["probe_ori"] = euler_angles
-
-
-
-            # # make homogeneous transformation matrix
-            # transform_matrix = make_pose(pos_ee_from_organ, quat_ee_from_organ)
-            # print("transform_matrix:", transform_matrix)
-            # print("transform_matrix shape:", transform_matrix.shape)
-
-            # # create the transformation matrix for T_nifti_to_sim, based on 180 degree rotation around x-axis as rotation only
-            # euler_angles = np.array([180.0, 0.0, 0.0])
-            # euler_angles_rad = np.radians(euler_angles)
-            # euler_angles_rad = torch.tensor(euler_angles_rad, device=env.unwrapped.device)
-            # quat_nifti_to_sim = math_utils.quat_from_euler_xyz(roll=euler_angles_rad[0], pitch=euler_angles_rad[1], yaw=euler_angles_rad[2])
-            # T_nifti_to_sim = make_pose(torch.zeros(3), quat_nifti_to_sim)
-            # print("T_nifti_to_sim:", T_nifti_to_sim)
-            # print("T_nifti_to_sim shape:", T_nifti_to_sim.shape)
-
-            # #compute the final transform matrix
-            # T_ee_from_nifti = T_nifti_to_sim @ transform_matrix
-            # print("T_ee_from_nifti:", T_ee_from_nifti)
-            # print("T_ee_from_nifti shape:", T_ee_from_nifti.shape)
-            
-            # # apply a scale to get ftom m to mm
-            # pos_ee_from_organ = pos_ee_from_organ * 1000.0
-
-            # # The orientation in euler angels need to be rotated by 180 degrees around the x-axis to match the nifti coordinate system
-            # extra_rotation = np.array([180.0, 0.0, 0.0])
-
-
-            # convert to numpy ans squeeze
-            # pub_data["probe_pos"] = pos_ee_from_organ
-            # # orientation in euler angles
-            # pub_data["probe_ori"] = ori_ee_from_organ
             
             
             # Get and publish camera images
@@ -419,9 +386,9 @@ def main():
             )
             pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
             pub_data["wrist_cam"] = rgb_images[0, 1, ...].cpu().numpy()
-            # pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
-            #         env, transform_matrix=transform_matrix, scale=1000.0, log=True
-            #     )
+            pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
+                    env, transform_matrix=transform_matrix, scale=1000.0, log=True
+                )
             # Get and publish joint positions
             pub_data["joint_pos"] = get_joint_states(env)[0]
 
