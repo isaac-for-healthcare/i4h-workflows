@@ -1,3 +1,4 @@
+import glob
 import os
 import subprocess
 import sys
@@ -8,6 +9,11 @@ PROJECT_ROOTS = [
 ]
 
 
+def get_tests(test_root):
+    path = f"{test_root}/**/test_*.py"
+    return glob.glob(path, recursive=True)
+
+
 def run_tests_with_coverage(project_root):
     """Run all unittest cases with coverage reporting"""
     try:
@@ -16,75 +22,69 @@ def run_tests_with_coverage(project_root):
         os.environ["RTI_LICENSE_FILE"] = os.environ.get("RTI_LICENSE_FILE", default_license_file)
         all_tests_passed = True
         tests_dir = os.path.join(project_root, "tests")
-
         print(f"Looking for tests in {tests_dir}")
-        for name in os.listdir(tests_dir):
-            test_dir = os.path.join(tests_dir, name)
-            if os.path.isdir(test_dir):
-                for test_file in os.listdir(test_dir):
-                    if test_file.startswith("test_") and test_file.endswith(".py"):
-                        test_path = os.path.join(test_dir, test_file)
-                        print(f"\nRunning test: {test_path}")
+        tests = get_tests(tests_dir)
 
-                        # add project root to pythonpath
-                        env = os.environ.copy()
-                        pythonpath = [os.path.join(project_root, "scripts"), tests_dir]
+        for test_path in tests:
+            print(f"\nRunning test: {test_path}")
 
-                        if "PYTHONPATH" in env:
-                            env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
-                        else:
-                            env["PYTHONPATH"] = ":".join(pythonpath)
+            # add project root to pythonpath
+            env = os.environ.copy()
+            pythonpath = [os.path.join(project_root, "scripts"), tests_dir]
 
-                        if "test_visualization" in test_path:  # virtual display for GUI tests
-                            cmd = [
-                                "xvfb-run",
-                                "-a",
-                                sys.executable,
-                                "-m",
-                                "coverage",
-                                "run",
-                                "--parallel-mode",
-                                "-m",
-                                "unittest",
-                                test_path,
-                            ]
-                        # TODO: remove this as integration tests
-                        elif "test_sim_with_dds" in test_path or "test_pi0" in test_path:
-                            continue
-                        else:
-                            cmd = [
-                                sys.executable,
-                                "-m",
-                                "coverage",
-                                "run",
-                                "--parallel-mode",
-                                "-m",
-                                "unittest",
-                                test_path,
-                            ]
+            if "PYTHONPATH" in env:
+                env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
+            else:
+                env["PYTHONPATH"] = ":".join(pythonpath)
 
-                        process = subprocess.Popen(
-                            cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-                        )
-                        stdout, stderr = process.communicate()
+            if "test_visualization" in test_path:  # virtual display for GUI tests
+                cmd = [
+                    "xvfb-run",
+                    "-a",
+                    sys.executable,
+                    "-m",
+                    "coverage",
+                    "run",
+                    "--parallel-mode",
+                    "-m",
+                    "unittest",
+                    test_path,
+                ]
+            # TODO: remove this as integration tests
+            elif "test_sim_with_dds" in test_path or "test_pi0" in test_path:
+                continue
+            else:
+                cmd = [
+                    sys.executable,
+                    "-m",
+                    "coverage",
+                    "run",
+                    "--parallel-mode",
+                    "-m",
+                    "unittest",
+                    test_path,
+                ]
 
-                        # Filter out extension loading messages
-                        filtered_stdout = "\n".join(
-                            [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
-                        )
-                        filtered_stderr = "\n".join(
-                            [line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)]
-                        )
+            process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate()
 
-                        # Print filtered output
-                        if filtered_stdout.strip():
-                            print(filtered_stdout)
-                        if filtered_stderr.strip():
-                            print(filtered_stderr)
+            # Filter out extension loading messages
+            filtered_stdout = "\n".join(
+                [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
+            )
+            filtered_stderr = "\n".join(
+                [line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)]
+            )
 
-                        result = process
-                        if result.returncode != 0:
-                            all_tests_passed = False
+            # Print filtered output
+            if filtered_stdout.strip():
+                print(filtered_stdout)
+            if filtered_stderr.strip():
+                print(filtered_stderr)
+
+            result = process
+            if result.returncode != 0:
+                all_tests_passed = False
 
         # combine coverage results
         subprocess.run([sys.executable, "-m", "coverage", "combine"])
