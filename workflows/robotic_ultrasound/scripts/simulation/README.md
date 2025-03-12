@@ -1,65 +1,17 @@
 # IsaacLab simulation for robotic ultrasound
 
 ## Table of Contents
-- [Requirements](#requirements)
 - [Installation](#installation)
 - [Environments](#environments)
 - [Apps](#apps)
   - [PI Zero Policy Evaluation](#pi-zero-policy-evaluation)
   - [Policy Evaluation w/ DDS](#policy-evaluation-w-dds)
   - [Liver Scan State Machine](#liver-scan-state-machine)
-
-# Requirements
-
-Follow [instructions](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html) to install IsaacLab. TLDR;
-
-First of all, create a python virtual environment, referring to the [Setup Doc](../README.md), then execute:
-```sh
-# Upgrade pip
-pip install --upgrade pip
-# Install IsaacSim
-pip install isaacsim==4.2.0.2 isaacsim-extscache-physics==4.2.0.2 isaacsim-extscache-kit==4.2.0.2 isaacsim-extscache-kit-sdk==4.2.0.2 --extra-index-url https://pypi.nvidia.com
-# Install Isaac Lab outside of the repo
-cd <some workspace>
-git clone git@github.com:isaac-sim/IsaacLab.git
-cd IsaacLab
-# Checkout v1.4.1
-git checkout v1.4.1
-# Patch (temporary workaround for Isaacsim 4.2 + IsaacLab 1.4.1)
-sed -i 's/rsl-rl/rsl-rl-lib/g' source/extensions/omni.isaac.lab_tasks/setup.py
-# Install dependencies
-sudo apt install cmake build-essential
-# Install Isaac Lab
-./isaaclab.sh --install
-# Test installation
-python source/standalone/tutorials/00_sim/create_empty.py
-```
-
-# Download the assets
-
-```sh
-git clone git@github.com:isaac-for-healthcare/i4h-asset-catalog.git
-cd i4h-asset-catalog
-pip install -e .
-
-i4h-asset-retrieve
-```
+  - [Ultrasound Raytracing Simulation](#ultrasound-raytracing-simulation)
 
 # Installation
 
-Follow the [Installation](#installation) instructions below to install the extension.
-
-From the root directory, run:
-
-```sh
-# Activate the environment
-conda activate robotic_ultrasound
-# Ensure toml is installed
-pip install toml
-# Install the environments
-cd <repo root>/workflows/robotic_ultrasound/scripts/simulation
-python -m pip install -e exts/robotic_us_ext
-```
+Follow the [Environment Setup](../README.md) instructions below to install the extension.
 
 # Environments
 
