@@ -14,7 +14,6 @@ from simulation.environments.state_machine.utils import (
 )
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
-
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script evaluate the pi0 model in a single-arm manipulator.")
 parser.add_argument(
