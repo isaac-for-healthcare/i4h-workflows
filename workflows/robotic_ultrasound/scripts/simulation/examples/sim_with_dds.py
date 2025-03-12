@@ -66,10 +66,7 @@ reset_flag = False
 from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: E402
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.meta_state_machine.ultrasound_state_machine import (  # noqa: E402
-    RobotPositions,
-    RobotQuaternions,
-)
+from simulation.environments.state_machine.utils import RobotPositions, RobotQuaternions  # noqa: E402
 
 pub_data = {
     "room_cam": None,
