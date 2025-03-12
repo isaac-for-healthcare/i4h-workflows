@@ -1,6 +1,6 @@
+import os
 import subprocess
 import sys
-import os
 
 
 def install_dependencies(workflow_name: str = "robotic_ultrasound"):
