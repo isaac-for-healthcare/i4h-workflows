@@ -6,8 +6,12 @@ import numpy as np
 import torch
 from omni.isaac.lab.app import AppLauncher
 from policy_runner import PI0PolicyRunner
-from simulation.environments.state_machine.act_policy.act_utils import get_np_images
-from simulation.environments.state_machine.utils import compute_relative_action, get_joint_states, get_robot_obs
+from simulation.environments.state_machine.utils import (
+    compute_relative_action,
+    get_joint_states,
+    get_np_images,
+    get_robot_obs,
+)
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script evaluate the pi0 model in a single-arm manipulator.")
