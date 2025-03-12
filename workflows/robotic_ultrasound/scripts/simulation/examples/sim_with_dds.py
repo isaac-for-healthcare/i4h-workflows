@@ -61,8 +61,8 @@ parser.add_argument(
     default="topic_franka_ctrl",
     help="topic name to publish generated franka actions",
 )
-
-# append AppLauncher cli argr
+parser.add_argument("--log_probe_pos", action="store_true", default=False, help="Log probe position.")
+# append AppLauncher cli argruments
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
 args_cli = parser.parse_args()
@@ -160,12 +160,6 @@ def main():
     # create environment
     env = gym.make(args_cli.task, cfg=env_cfg)
 
-    # get transform matrix from isaac sim to organ coordinate system
-    transform_matrix = compute_transform_matrix(
-        ov_point=[0.6 * 1000, 0.0, 0.09 * 1000],  # initial position of the organ in isaac sim
-        nifti_point=[0, -0.7168, 18.1250],  # corresponding position in nifti coordinate system
-    )
-    print(f"[INFO]: Coordinate transform matrix: {transform_matrix}")
     print(f"[INFO]: Gym observation space: {env.observation_space}")
     print(f"[INFO]: Gym action space: {env.action_space}")
 
@@ -183,6 +177,13 @@ def main():
     for _ in range(reset_steps):
         reset_tensor = get_reset_action(env)
         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
+
+    # get transform matrix from isaac sim to organ coordinate system
+    transform_matrix = compute_transform_matrix(
+        ov_point=env.unwrapped.scene["organs"].data.root_pos_w.cpu().numpy() * 1000,  # position of the organ in isaac sim
+        nifti_point=[0, -0.7168, 18.1250],  # corresponding position in nifti coordinate system
+    )
+    print(f"[INFO]: Coordinate transform matrix: {transform_matrix}")
 
     infer_r_cam_writer = RoomCamPublisher(args_cli.infer_domain_id)
     infer_w_cam_writer = WristCamPublisher(args_cli.infer_domain_id)
@@ -208,7 +209,7 @@ def main():
                 pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
                 pub_data["joint_pos"] = get_joint_states(env)[0]
                 pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
-                    env, transform_matrix=transform_matrix, scale=1000.0, log=True
+                    env, transform_matrix=transform_matrix, scale=1000.0, log=args_cli.log_probe_pos
                 )
                 viz_r_cam_writer.write()
                 viz_w_cam_writer.write()
