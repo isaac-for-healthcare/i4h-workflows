@@ -14,7 +14,17 @@ class Enums:
 
 
 class Assets(Enums):
-    """Assets for the robotic ultrasound workflow customized for the user download directory."""
+    """
+    Assets for the robotic ultrasound workflow customized for the user download directory.
+
+    This class is a singleton that will download the assets to the user's local asset directory.
+    It has the following attributes:
+    - basic: the path to the basic.usda asset
+    - panda: the path to the panda_assebly.usda asset
+    - phantom: the path to the phantom.usda asset
+    - table_with_cover: the path to the table_with cover_.usd asset
+
+    """
     def __init__(self, download_dir: str | None = None):
         """
         Initialize the assets
