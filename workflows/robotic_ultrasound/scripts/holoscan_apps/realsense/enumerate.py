@@ -7,6 +7,7 @@ def count_devices():
     devices = context.query_devices()
     return len(devices)
 
+
 def list_devices():
     # Create a context object to get access to connected devices
     context = rs.context()
@@ -18,6 +19,7 @@ def list_devices():
     else:
         for i, device in enumerate(devices):
             print(f"Device {i}: {device}")
+
 
 if __name__ == "__main__":
     list_devices()
