@@ -5,7 +5,6 @@
 Make sure the following pip packages are available:
 ```
 pip install pyrealsense2
-pip install rti.connext
 pip install holoscan
 ```
 

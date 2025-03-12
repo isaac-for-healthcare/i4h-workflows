@@ -8,8 +8,6 @@ is suggested for virtual environment setup, install `Miniconda`, then execute:
 conda create -n robotic_ultrasound python=3.10 -y
 # Activate the environment
 conda activate robotic_ultrasound
-# Might be needed if your system GLIBC doesn't match what's used by Holoscan
-conda install -c conda-forge gcc=13.3.0
 ```
 2. RTI DDS is the common communication package for all the scripts,
 please refer to [DDS website](https://www.rti.com/products) for registration.
