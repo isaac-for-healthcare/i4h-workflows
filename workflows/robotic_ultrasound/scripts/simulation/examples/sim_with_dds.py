@@ -62,6 +62,9 @@ parser.add_argument(
     help="topic name to publish generated franka actions",
 )
 parser.add_argument("--log_probe_pos", action="store_true", default=False, help="Log probe position.")
+parser.add_argument(
+    "--scale", type=float, default=1000.0, help="Scale factor to convert from omniverse to organ coordinate system."
+)
 # append AppLauncher cli argruments
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -180,7 +183,8 @@ def main():
 
     # get transform matrix from isaac sim to organ coordinate system
     transform_matrix = compute_transform_matrix(
-        ov_point=env.unwrapped.scene["organs"].data.root_pos_w.cpu().numpy() * 1000,  # position of the organ in isaac sim
+        ov_point=env.unwrapped.scene["organs"].data.root_pos_w.cpu().numpy()
+        * args_cli.scale,  # position of the organ in isaac sim
         nifti_point=[0, -0.7168, 18.1250],  # corresponding position in nifti coordinate system
     )
     print(f"[INFO]: Coordinate transform matrix: {transform_matrix}")
@@ -209,7 +213,7 @@ def main():
                 pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
                 pub_data["joint_pos"] = get_joint_states(env)[0]
                 pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
-                    env, transform_matrix=transform_matrix, scale=1000.0, log=args_cli.log_probe_pos
+                    env, transform_matrix=transform_matrix, scale=args_cli.scale, log=args_cli.log_probe_pos
                 )
                 viz_r_cam_writer.write()
                 viz_w_cam_writer.write()
