@@ -202,3 +202,11 @@ wandb/
 **/*.usda
 **/*.usdc
 **/*.usdz
+
+# Outputs
+**/output/*
+**/outputs/*
+**/videos/*
+**/runs/*
+**/logs/*
+**/recordings/*
