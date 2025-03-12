@@ -35,19 +35,14 @@ ${IsaacLab_PATH}/isaaclab.sh --conda robotic_surgery
 conda activate robotic_surgery
 ```
 
-### 2. Install Isaac Sim
+### 2. Install Isaac Sim and Isaac Lab
 
 ```bash
 pip install isaacsim==4.1.0.0 isaacsim-extscache-physics==4.1.0.0 isaacsim-extscache-kit==4.1.0.0 isaacsim-extscache-kit-sdk==4.1.0.0 --extra-index-url https://pypi.nvidia.com
-```
-
-### 3. Install Isaac Lab
-
-```bash
 ${IsaacLab_PATH}/isaaclab.sh --install
 ```
 
-### 4. Install Robotic Surgery
+### 3. Install Robotic Surgery
 
 ```bash
 # move to a directory outside of IsaacLab installation directory
@@ -55,7 +50,7 @@ cd ..
 git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
 ./workflows/robotic_surgery/scripts/simulation/robotic_surgery.sh
-export PYTHONPATH=`pwd`
+export PYTHONPATH="$(pwd)/workflows/robotic_surgery/scripts"
 ```
 
 
