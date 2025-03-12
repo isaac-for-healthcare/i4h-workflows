@@ -325,6 +325,8 @@ def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
 
     # Return position as numpy array and orientation as Euler angles
     return transformed_pos.cpu().numpy(), transformed_ori
+
+
 def get_np_images(env):
     """Get numpy images from the environment."""
     third_person_img = convert_dict_to_backend(env.unwrapped.scene["room_camera"].data.output, backend="numpy")["rgb"]

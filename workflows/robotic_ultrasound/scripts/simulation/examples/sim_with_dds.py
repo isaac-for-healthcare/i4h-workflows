@@ -14,10 +14,11 @@ from dds.subscriber import SubscriberWithQueue
 from omni.isaac.lab.app import AppLauncher
 from simulation.environments.state_machine.utils import (
     compute_relative_action,
+    compute_transform_matrix,
     get_joint_states,
     get_np_images,
-    get_robot_obs,
     get_probe_pos_ori,
+    get_robot_obs,
 )
 
 # add argparse arguments
