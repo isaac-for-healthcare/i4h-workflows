@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from parameterized import parameterized
 from scipy.spatial.transform import Rotation
-from simulation.environments.state_machine.utils import ov_to_nifti_orientation, to_scipy_quat
+from simulation.environments.state_machine.utils import ov_to_nifti_orientation
 
 # Define the default rotation matrix used in the function
 DEFAULT_ROTATION_MATRIX = torch.tensor([[1, 0, 0], [0, 0, -1], [0, -1, 0]], dtype=torch.float64)
@@ -85,8 +85,7 @@ class TestOrientationConversion(unittest.TestCase):
         # For cases with expected Euler angles, compare directly
         if expected_result is None:
             # Calculate the expected result based on the new implementation
-            ov_quat_scipy = to_scipy_quat(ov_quat)
-            ov_rot = Rotation.from_quat(ov_quat_scipy)
+            ov_rot = Rotation.from_quat(ov_quat, scalar_first=True)
 
             if ov_down_quat is None:
                 ov_down_quat = [0, 1, 0, 0]  # Default [w, x, y, z]
@@ -101,8 +100,7 @@ class TestOrientationConversion(unittest.TestCase):
             else:
                 coord_transform = rotation_matrix
 
-            ov_down_scipy = [ov_down_quat[1], ov_down_quat[2], ov_down_quat[3], ov_down_quat[0]]
-            ov_down_rot = Rotation.from_quat(ov_down_scipy)
+            ov_down_rot = Rotation.from_quat(ov_down_quat, scalar_first=True)
 
             organ_down_rot = Rotation.from_euler("xyz", organ_down_quat, degrees=False)
 
@@ -136,8 +134,8 @@ class TestOrientationConversion(unittest.TestCase):
 
         # Calculate the angular difference between the two in Omniverse
         # Convert to Rotation objects for scipy
-        rot_ov_ref = Rotation.from_quat([ov_ref[1], ov_ref[2], ov_ref[3], ov_ref[0]])
-        rot_ov_rotated = Rotation.from_quat([ov_rotated[1], ov_rotated[2], ov_rotated[3], ov_rotated[0]])
+        rot_ov_ref = Rotation.from_quat(ov_ref, scalar_first=True)
+        rot_ov_rotated = Rotation.from_quat(ov_rotated, scalar_first=True)
         ov_angle = rot_ov_ref.inv() * rot_ov_rotated
         ov_angle_deg = np.linalg.norm(ov_angle.as_rotvec(degrees=True))
 
