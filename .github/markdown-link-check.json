@@ -6,6 +6,9 @@
         },
         {
             "pattern": "https://github.com/isaac-for-healthcare/i4h-workflows"
+        },
+        {
+            "pattern": "https://github.com/isaac-for-healthcare/i4h-sensor-simulation"
         }
     ],
     "timeout": "20s",

@@ -9,6 +9,7 @@ import rti.connextdds as dds
 from holoscan.conditions import PeriodicCondition
 from holoscan.core import Application, MetadataPolicy, Operator, OperatorSpec
 from rti.types import struct
+from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 try:
     import raysim.cuda as rs
@@ -164,8 +165,8 @@ class Simulator(Operator):
                 material_name: The name of the material to use for the mesh.
             """
             # Construct the full path to the mesh file
-            mesh_dir = os.path.dirname(os.path.abspath(__file__))
-            mesh_path = os.path.join(mesh_dir, "mesh", filename)
+            mesh_dir = robot_us_assets.organs
+            mesh_path = os.path.join(mesh_dir, filename)
             try:
                 material_idx = self.materials.get_index(material_name)
                 mesh = rs.Mesh(mesh_path, material_idx)

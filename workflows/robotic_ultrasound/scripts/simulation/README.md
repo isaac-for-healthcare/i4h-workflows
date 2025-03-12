@@ -126,6 +126,10 @@ python examples/sim_with_dds.py \
 This example implements a standalone ultrasound raytracing simulator that generates realistic ultrasound images
 based on 3D meshes. The simulator uses Holoscan framework and DDS communication for realistic performance.
 
+### NVIDIA OptiX Raytracing with Python Bindings
+
+For instructions on preparing and building the Python module, please refer to the [Ultrasound Raytracing README](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/blob/main/ultrasound-raytracing/README.md).
+
 ### Configuration
 
 The simulator supports customization through JSON configuration files. You need to create your own
