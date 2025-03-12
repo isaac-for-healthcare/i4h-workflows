@@ -94,7 +94,7 @@ export PYTHONPATH=`pwd`
 python environments/state_machine/pi0_policy/eval.py \
     --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
     --enable_camera \
-    --repo_id hf/chiron_aortic
+    --repo_id i4h/sim_liver_scan
 ```
 NOTE: You can also specify `--ckpt_path` to run a specific policy.
 This should open a stage with Franka arm and run the robotic ultrasound actions:
