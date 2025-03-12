@@ -82,7 +82,7 @@ Please move back to the current folder and run the following command:
 python run_policy.py  \
     --rti_license_file <path to>/rti_license.dat \
     --ckpt_path <path to policy model> \
-    --repo_id hf/chiron_aortic \
+    --repo_id i4h/sim_liver_scan \
     --domain_id <domain id> \
     --height <input image height> \
     --width <input image width>
