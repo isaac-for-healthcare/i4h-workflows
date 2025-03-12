@@ -13,6 +13,7 @@ class Enums:
     phantom = "Props/ABDPhantom/phantom.usda"
     table_with_cover = "Props/VentionTableWithBlackCover/table_with_cover.usd"
     policy_ckpt = "Policies/AorticScan"
+    organs = "Props/ABDPhantom/Organs"
 
 
 class Assets(Enums):
