@@ -11,7 +11,7 @@
 
 # Installation
 
-Follow the [Environment Setup](../README.md) instructions below to install the extension.
+Follow the [Environment Setup](../README.md#environment-setup) instructions to setup theenvironment and dependencies.
 
 # Environments
 

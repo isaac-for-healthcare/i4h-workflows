@@ -4,9 +4,10 @@
 
 - Ubuntu 22.04
 - NVIDIA GPU with compute capability 8.6 and 32GB of memory
+    - GPUs without RT Cores (A100, H100) are not supported.
 - 50GB of disk space
 
-## Setup
+## Environment Setup
 
 The robotic ultrasound workflow is built on the following dependencies:
 - [IsaacSim 4.2.0.2](https://docs.isaacsim.omniverse.nvidia.com/4.2.0/index.html)
