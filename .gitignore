@@ -196,3 +196,6 @@ cython_debug/
 
 # Wandb
 wandb/
+
+# Third party
+third_party/
