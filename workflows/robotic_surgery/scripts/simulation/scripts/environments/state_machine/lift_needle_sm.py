@@ -250,6 +250,8 @@ def main():
     # reset environment at start
     env.reset()
 
+    env_cfg.episode_length_s = 5.0
+
     # create action buffers (position + quaternion)
     actions = torch.zeros(env.unwrapped.action_space.shape, device=env.unwrapped.device)
     actions[:, 3] = 1.0

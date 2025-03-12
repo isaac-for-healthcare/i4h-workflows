@@ -96,13 +96,13 @@ python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learni
 python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Reach-PSM-Play-v0
 ```
 
-- **Suture Needle Lift (`Isaac-Lift-Needle-PSM-v0`)**:
+- **Suture Needle Lift (`Isaac-Lift-Needle-PSM-IK-Rel-v0`)**:
 
 ```bash
 # run script for training
-python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Lift-Needle-PSM-v0 --headless
+python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Lift-Needle-PSM-IK-Rel-v0 --headless
 # run script for playing with 50 environments
-python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Lift-Needle-PSM-Play-v0
+python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Lift-Needle-PSM-IK-Rel-Play-v0
 ```
 
 ### TensorBoard: TensorFlow's visualization toolkit
