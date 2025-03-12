@@ -136,15 +136,16 @@ class TestConvertHdf5ToLeRobot(TestBase):
         """Test that data directory error can be handled."""
         # check get expected Exception
         fake_data_dir = os.path.join(self.current_dir, "fake_data_dir")
+        error_test_repo_id = "i4h/error_test_data"
         with self.assertRaises(Exception) as context:
-            convert_hdf5_to_lerobot(fake_data_dir, self.TEST_REPO_ID, self.test_prompt)
+            convert_hdf5_to_lerobot(fake_data_dir, error_test_repo_id, self.test_prompt)
         self.assertTrue(f"Data directory {fake_data_dir} does not exist." == str(context.exception))
 
         # check get expected no hdf5 files warning message
         fake_empty_data_dir = os.path.join(self.current_dir, "fake_empty_data_dir")
         os.makedirs(fake_empty_data_dir, exist_ok=True)
         with self.assertWarns(Warning) as context:
-            convert_hdf5_to_lerobot(fake_empty_data_dir, self.TEST_REPO_ID, self.test_prompt)
+            convert_hdf5_to_lerobot(fake_empty_data_dir, error_test_repo_id, self.test_prompt)
         self.assertTrue(f"No HDF5 files found in {fake_empty_data_dir}" == str(context.warning))
 
         # check get expected repo_id warning message
@@ -152,11 +153,12 @@ class TestConvertHdf5ToLeRobot(TestBase):
         wrong_name_hdf5_path = os.path.join(fake_empty_data_dir, "wrong_name_0.hdf5")
         shutil.copy(hdf5_path, wrong_name_hdf5_path)
         with self.assertWarns(Warning) as context:
-            convert_hdf5_to_lerobot(fake_empty_data_dir, self.TEST_REPO_ID, self.test_prompt)
+            convert_hdf5_to_lerobot(fake_empty_data_dir, error_test_repo_id, self.test_prompt)
         self.assertTrue(f"File {wrong_name_hdf5_path} does not match the expected pattern." == str(context.warning))
 
-        # clean up the fake_empty_data_dir
+        # clean up
         shutil.rmtree(fake_empty_data_dir)
+        shutil.rmtree(os.path.join(self.cache_dir, error_test_repo_id))
 
     def test_create_lerobot_dataset(self):
         """Test that LeRobot dataset can be created successfully."""
@@ -168,7 +170,7 @@ class TestConvertHdf5ToLeRobot(TestBase):
                 output_path=output_path,
             )
         self.assertTrue(f"Output path {output_path} already exists." == str(context.exception))
-        # clean up the output_path
+        # clean up
         shutil.rmtree(output_path)
 
         # check normal creation
@@ -190,7 +192,7 @@ class TestConvertHdf5ToLeRobot(TestBase):
         self.assertEqual(test_dataset.features["actions"]["shape"], actions_shape)
         self.assertTrue(os.path.exists(os.path.join(output_path, "meta")))
 
-        # clean up the output_path
+        # clean up
         shutil.rmtree(output_path)
 
 
