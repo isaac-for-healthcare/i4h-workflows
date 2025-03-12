@@ -48,6 +48,16 @@ If you want to install dependencies manually, please follow below steps:
   +date = datetime.datetime(year, month, day, tzinfo=datetime.timezone.utc)
   ```
 - Change the python requirement in `pyproject.toml` to `>=3.10`.
+- Modify the type hints in `openpi/src/openpi/training/utils.py` to use Any instead of optax types:
+  ```py
+  -opt_state: optax.OptState
+  +opt_state: Any
+  ```
+- Add `openpi/src/openpi/train.py` and `openpi/src/openpi/compute_norm_stats.py` to `openpi/src/openpi/`:
+  ```sh
+  cp openpi/scripts/train.py openpi/src/openpi/train.py
+  cp openpi/scripts/compute_norm_stats.py openpi/src/openpi/compute_norm_stats.py
+  ```
 - Install `lerobot`, `openpi-client` and `openpi`:
 
   ```sh
@@ -55,6 +65,7 @@ If you want to install dependencies manually, please follow below steps:
   pip install -e packages/openpi-client/
   pip install -e .
   ```
+- Revert the commented out import statements in `openpi/src/openpi/shared/download.py`.
 
 ### Setup Python Path
 

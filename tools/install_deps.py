@@ -28,6 +28,13 @@ def install_isaaclab():
     )
     subprocess.check_call(["./isaaclab.sh", "--install"], cwd="./IsaacLab")
 
+def install_holoscan():
+    """Install Holoscan"""
+    print("Installing Holoscan...")
+    # resolve gcc version issue with extensions
+    subprocess.check_call(["conda", "install", "-c", "conda-forge", "gcc=13.3.0"])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "holoscan==2.9.0"])
+
 
 def install_dependencies():
     """Install project dependencies from requirements.txt"""
@@ -35,8 +42,6 @@ def install_dependencies():
         subprocess.check_call(["nvidia-smi"])
         # Install dependencies
         subprocess.check_call(["sudo", "apt-get", "install", "-y", "xvfb", "x11-utils", "cmake", "build-essential"])
-        # Install specific version of gcc for conda env
-        subprocess.check_call(["conda", "install", "-c", "conda-forge", "gcc=13.3.0"])
         # Test dependencies
         subprocess.check_call([sys.executable, "-m", "pip", "install", "coverage", "parameterized", "dearpygui"])
         # Install IsaacSim
@@ -52,7 +57,6 @@ def install_dependencies():
                 "isaacsim-extscache-kit==4.2.0.2",
                 "isaacsim-extscache-kit-sdk==4.2.0.2",
                 "pyrealsense2",
-                "holoscan==2.9.0",
                 "--extra-index-url",
                 "https://pypi.nvidia.com",
             ]
@@ -62,6 +66,7 @@ def install_dependencies():
         install_robot_ultrasound_ext()
         # Install OpenPI
         subprocess.check_call(["./tools/install_openpi_with_isaac_4.2.sh"])
+        install_holoscan()
         print("Dependencies installed successfully!")
 
     except subprocess.CalledProcessError as e:
