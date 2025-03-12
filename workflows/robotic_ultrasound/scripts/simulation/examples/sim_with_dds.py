@@ -148,7 +148,7 @@ def main():
         raise ValueError("RTI license file must be an existing absolute path.")
     os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
 
-    reset_steps = 20
+    reset_steps = 40
     max_timesteps = 250
 
     # allow environment to settle
@@ -167,7 +167,7 @@ def main():
     infer_reader.start()
 
     # Number of steps played before replanning
-    replan_steps = 5
+    replan_steps = 15
 
     # simulate environment
     while simulation_app.is_running():

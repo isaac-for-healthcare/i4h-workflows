@@ -142,6 +142,9 @@ venv.bak/
 # IsaacLab
 *IsaacLab/
 
+# I4H Assets
+*i4h-asset-catalog/
+
 # Training data
 **/pi_zero/assets/
 **/pi_zero/checkpoints/
@@ -190,3 +193,6 @@ cython_debug/
 
 # VSCode
 .vscode/
+
+# Wandb
+wandb/
