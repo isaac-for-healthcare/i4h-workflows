@@ -42,7 +42,9 @@ def install_dependencies():
     try:
         subprocess.check_call(["nvidia-smi"])
         # Install dependencies
-        subprocess.check_call(["sudo", "apt-get", "install", "-y", "xvfb", "x11-utils", "cmake", "build-essential"])
+        subprocess.check_call(
+            ["sudo", "apt-get", "install", "-y", "xvfb", "x11-utils", "cmake", "build-essential", "pybind11-dev"]
+        )
         # Test dependencies
         subprocess.check_call([sys.executable, "-m", "pip", "install", "coverage", "parameterized", "dearpygui"])
         # Install IsaacSim
