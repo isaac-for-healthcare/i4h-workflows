@@ -98,6 +98,12 @@ parser.add_argument(
     default="topic_franka_ctrl",
     help="topic name to publish generated franka actions",
 )
+parser.add_argument(
+    "--qos_provider_path",
+    type=str,
+    default="../dds/qos_profiles.xml",
+    help="qos provider path",
+)
 parser.add_argument("--log_probe_pos", action="store_true", default=False, help="Log probe position.")
 parser.add_argument(
     "--scale", type=float, default=1000.0, help="Scale factor to convert from omniverse to organ coordinate system."
@@ -131,7 +137,7 @@ hz = 30
 
 class RoomCamPublisher(Publisher):
     def __init__(self, topic: str, domain_id: int, rgb: bool = True):
-        super().__init__(topic, CameraInfo, 1 / hz, domain_id)
+        super().__init__(topic, CameraInfo, 1 / hz, domain_id, args_cli.qos_provider_path, "i4h_transport::SHMEM+LAN", "RoboticUltrasoundLibrary::CameraInfo")
         self.rgb = rgb
 
     def produce(self, dt: float, sim_time: float):
@@ -148,7 +154,7 @@ class RoomCamPublisher(Publisher):
 
 class WristCamPublisher(Publisher):
     def __init__(self, topic: str, domain_id: int, rgb: bool = True):
-        super().__init__(topic, CameraInfo, 1 / hz, domain_id)
+        super().__init__(topic, CameraInfo, 1 / hz, domain_id, args_cli.qos_provider_path, "i4h_transport::SHMEM+LAN", "RoboticUltrasoundLibrary::CameraInfo")
         self.rgb = rgb
 
     def produce(self, dt: float, sim_time: float):
@@ -164,7 +170,7 @@ class WristCamPublisher(Publisher):
 
 class PosPublisher(Publisher):
     def __init__(self, domain_id: int):
-        super().__init__(args_cli.topic_in_franka_pos, FrankaInfo, 1 / hz, domain_id)
+        super().__init__(args_cli.topic_in_franka_pos, FrankaInfo, 1 / hz, domain_id, args_cli.qos_provider_path, "i4h_transport::SHMEM+LAN", "RoboticUltrasoundLibrary::FrankaInfo")
 
     def produce(self, dt: float, sim_time: float):
         output = FrankaInfo()
@@ -174,7 +180,7 @@ class PosPublisher(Publisher):
 
 class ProbePosPublisher(Publisher):
     def __init__(self, domain_id: int):
-        super().__init__(args_cli.topic_in_probe_pos, UltraSoundProbeInfo, 1 / hz, domain_id)
+        super().__init__(args_cli.topic_in_probe_pos, UltraSoundProbeInfo, 1 / hz, domain_id, args_cli.qos_provider_path, "i4h_transport::SHMEM+LAN", "RoboticUltrasoundLibrary::UspInfo")
 
     def produce(self, dt: float, sim_time: float):
         output = UltraSoundProbeInfo()
@@ -242,7 +248,7 @@ def main():
     )
     viz_pos_writer = PosPublisher(args_cli.viz_domain_id)
     viz_probe_pos_writer = ProbePosPublisher(args_cli.viz_domain_id)
-    infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
+    infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz, args_cli.qos_provider_path, "i4h_transport::SHMEM+LAN", "RoboticUltrasoundLibrary::FrankaCtrl")
     infer_reader.start()
 
     # Number of steps played before replanning

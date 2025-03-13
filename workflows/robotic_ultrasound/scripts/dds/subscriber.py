@@ -18,13 +18,14 @@ import queue
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Callable
 
 import rti.asyncio
 import rti.connextdds as dds  # noqa: F401
+from .base import DDSEntity
 
 
-class Subscriber(ABC):
+class Subscriber(DDSEntity, ABC):
     """
     Abstract base class for DDS subscribers.
 
@@ -37,22 +38,49 @@ class Subscriber(ABC):
         cls: The class type of the data being received.
         period: Time period between successive reads in seconds (1/frequency).
         domain_id: The DDS domain ID to subscribe on.
+        qos_provider_path: Path to XML file containing QoS profiles.
+        transport_profile: Transport QoS profile name (format: "Library::Profile").
+        reader_profile: Reader QoS profile name (format: "Library::Profile").
         add_to_queue: If True, stores received data in a queue.
             If False, processes data immediately. Defaults to True.
-
     """
 
-    def __init__(self, topic: str, cls: Any, period: float, domain_id: int, add_to_queue: bool = True):
-        self.topic = topic
-        self.cls = cls
-        self.period = period
-        self.domain_id = domain_id
+    def __init__(
+        self, 
+        topic: str, 
+        cls: Any, 
+        period: float, 
+        domain_id: int,
+        qos_provider_path: str,
+        transport_profile: str,
+        reader_profile: str,
+        add_to_queue: bool = True
+    ):
+        super().__init__(
+            topic=topic,
+            cls=cls,
+            period=period,
+            domain_id=domain_id,
+            qos_provider_path=qos_provider_path,
+            transport_profile=transport_profile,
+            entity_profile=reader_profile
+        )
         self.dds_reader = None
         self.stop_event = None
         self.add_to_queue = add_to_queue
         self.data_q: Any = queue.Queue()
 
-    # TODO:: Switch to Async instead of Sync
+    def _get_entity_qos(self, provider: dds.QosProvider, profile_name: str) -> dds.DataReaderQos:
+        """Get reader-specific QoS settings from provider."""
+        return provider.datareader_qos_from_profile(profile_name)
+
+    def _initialize_reader(self) -> None:
+        """Initialize the DDS reader with QoS settings."""
+        participant = self._create_participant()
+        dds_topic = self._create_topic(participant)
+        _, _, reader_qos = self._get_cached_qos(self.entity_profile)
+        self.dds_reader = dds.DataReader(dds_topic, qos=reader_qos)
+
     async def read_async(self):
         """
         Asynchronously read data from the DDS topic.
@@ -61,8 +89,7 @@ class Subscriber(ABC):
         stores it in the queue or processes it immediately based on add_to_queue setting.
         """
         if self.dds_reader is None:
-            p = dds.DomainParticipant(domain_id=self.domain_id)
-            self.dds_reader = dds.DataReader(dds.Topic(p, self.topic, self.cls))
+            self._initialize_reader()
         print(f"{self.domain_id}:{self.topic} - Thread is reading data => {self.dds_reader.topic_name}")
         async for data in self.dds_reader.take_data_async():
             if self.add_to_queue:
@@ -110,6 +137,9 @@ class Subscriber(ABC):
         Args:
             dt: Delta time since last update.
             sim_time: Current simulation time.
+
+        Returns:
+            float: Execution time in seconds.
         """
         start_time = time.monotonic()
         while not self.data_q.empty():
@@ -130,8 +160,7 @@ class Subscriber(ABC):
         self.stop_event = threading.Event()
 
         if self.dds_reader is None:
-            p = dds.DomainParticipant(domain_id=self.domain_id)
-            self.dds_reader = dds.DataReader(dds.Topic(p, self.topic, self.cls))
+            self._initialize_reader()
 
         try:
             loop = asyncio.get_running_loop()
@@ -139,14 +168,6 @@ class Subscriber(ABC):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         loop.run_in_executor(None, self.read_sync)
-
-    def receive_topic(self):
-        """
-        Start asynchronous topic reception.
-
-        This method runs the asynchronous reading loop using rti.asyncio.
-        """
-        rti.asyncio.run(self.read_async())
 
     def stop(self):
         """
@@ -176,18 +197,36 @@ class SubscriberWithQueue(Subscriber):
     """
     Subscriber implementation that stores received data in a queue.
 
-    This class is designed for cases where you want to process the data
-    at your own pace by explicitly calling read_data().
-
     Args:
         domain_id: The DDS domain ID to subscribe on.
         topic: The DDS topic name to subscribe to.
         cls: The class type of the data being received.
         period: Time period between successive reads in seconds.
+        qos_provider_path: Path to XML file containing QoS profiles.
+        transport_profile: Transport QoS profile name (format: "Library::Profile").
+        reader_profile: Reader QoS profile name (format: "Library::Profile").
     """
 
-    def __init__(self, domain_id: int, topic: str, cls: Any, period: float):
-        super().__init__(topic, cls, period, domain_id, add_to_queue=True)
+    def __init__(
+        self, 
+        domain_id: int, 
+        topic: str, 
+        cls: Any, 
+        period: float,
+        qos_provider_path: str,
+        transport_profile: str,
+        reader_profile: str
+    ):
+        super().__init__(
+            topic, 
+            cls, 
+            period, 
+            domain_id, 
+            add_to_queue=True,
+            qos_provider_path=qos_provider_path,
+            transport_profile=transport_profile,
+            reader_profile=reader_profile
+        )
 
     def consume(self, data) -> None:
         """
@@ -199,15 +238,12 @@ class SubscriberWithQueue(Subscriber):
         Raises:
             RuntimeError: If called directly. Use read_data() instead.
         """
-        self.logger.error("This should not happen; Call read_data() explicitly.")
+        raise RuntimeError("This should not happen; Call read_data() explicitly.")
 
 
 class SubscriberWithCallback(Subscriber):
     """
     Subscriber implementation that processes data immediately via callback.
-
-    This class is designed for cases where you want to process the data
-    as soon as it arrives using a callback function.
 
     Args:
         cb: Callback function that takes (topic, data) as arguments.
@@ -215,10 +251,32 @@ class SubscriberWithCallback(Subscriber):
         topic: The DDS topic name to subscribe to.
         cls: The class type of the data being received.
         period: Time period between successive reads in seconds.
+        qos_provider_path: Path to XML file containing QoS profiles.
+        transport_profile: Transport QoS profile name (format: "Library::Profile").
+        reader_profile: Reader QoS profile name (format: "Library::Profile").
     """
 
-    def __init__(self, cb, domain_id: int, topic: str, cls: Any, period: float):
-        super().__init__(topic, cls, period, domain_id, add_to_queue=False)
+    def __init__(
+        self, 
+        cb: Callable, 
+        domain_id: int, 
+        topic: str, 
+        cls: Any, 
+        period: float,
+        qos_provider_path: str,
+        transport_profile: str,
+        reader_profile: str
+    ):
+        super().__init__(
+            topic, 
+            cls, 
+            period, 
+            domain_id, 
+            add_to_queue=False,
+            qos_provider_path=qos_provider_path,
+            transport_profile=transport_profile,
+            reader_profile=reader_profile
+        )
         self.cb = cb
 
     def consume(self, data) -> None:
