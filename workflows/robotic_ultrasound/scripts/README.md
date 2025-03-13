@@ -5,6 +5,7 @@
 - Ubuntu 22.04
 - NVIDIA GPU with compute capability 8.6 and 32GB of memory
     - GPUs without RT Cores (A100, H100) are not supported.
+- NVIDIA Driver Version >= 555
 - 50GB of disk space
 
 ## Environment Setup
@@ -15,13 +16,12 @@ The robotic ultrasound workflow is built on the following dependencies:
 - [openpi](https://github.com/Physical-Intelligence/openpi) and [lerobot](https://github.com/huggingface/lerobot)
 - [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing)
 
-### Install NVIDIA Driver and CUDA Toolkit
+### Install NVIDIA Driver
 
-1. Install the latest NVIDIA driver from [NVIDIA website](https://www.nvidia.com/en-us/drivers/)
+Install or upgrade to the latest NVIDIA driver from [NVIDIA website](https://www.nvidia.com/en-us/drivers/)
 
-2. Install the latest [NVIDIA Container Toolkit](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/)
+**NOTE**: [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing) requires driver version >= 555.
 
-NOTE: Please refer to the [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing) for more details on the version compatibility.
 
 ### Obtain license of RTI DDS
 
@@ -39,7 +39,10 @@ conda create -n robotic_ultrasound python=3.10 -y
 conda activate robotic_ultrasound
 ```
 
-If you want to use the ultrasound-raytracing simulator, install and build it by following the instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation).
+To use the ultrasound-raytracing simulator, you can
+- (experimental) Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/ultrasound-raytracing) and extract the folder to `workflows/robotic_ultrasound/scripts/raysim`.
+
+- Install and build it by following the instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation).
 
 
 Install other dependencies by running:
@@ -55,8 +58,9 @@ i4h-asset-retrieve
 ```
 
 ### Set environment variables before running the scripts
-Make sure `PYTHONPATH` and `RTI_LICENSE_FILE` is set
+Make sure `PYTHONPATH`, `RTI_LICENSE_FILE` and `LD_PRELOAD` is set
 ```sh
 export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts`
 export RTI_LICENSE_FILE=<path-to-rti-license-file>
+export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
 ```
