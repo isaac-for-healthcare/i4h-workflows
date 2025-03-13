@@ -43,3 +43,10 @@ pip install isaacsim==4.1.0.0 isaacsim-extscache-physics==4.1.0.0 \
 echo "Installing IsaacLab ..."
 yes Yes | ./isaaclab.sh --install
 popd
+
+# ---- Install robotic.surgery.assets and robotic.surgery.tasks ----
+echo "Installing robotic.surgery.assets and robotic.surgery.tasks..."
+python -m pip install -e $PROJECT_ROOT/workflows/robotic_surgery/scripts/simulation/exts/robotic.surgery.assets
+python -m pip install -e $PROJECT_ROOT/workflows/robotic_surgery/scripts/simulation/exts/robotic.surgery.tasks
+
+echo "Dependencies installed successfully!"
