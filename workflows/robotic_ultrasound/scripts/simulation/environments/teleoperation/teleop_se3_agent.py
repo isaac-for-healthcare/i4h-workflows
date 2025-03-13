@@ -177,6 +177,65 @@ class ProbePosPublisher(Publisher):
         output.orientation = pub_data["probe_ori"].tolist()
         return output
     
+def make_pose(pos, rot):
+    """
+    Make homogeneous pose matrices from a set of translation vectors and rotation matrices.
+
+    Args:
+        pos (torch.Tensor): batch of position vectors with last dimension of 3
+        rot (torch.Tensor): batch of rotation matrices with last 2 dimensions of (3, 3)
+
+    Returns:
+        pose (torch.Tensor): batch of pose matrices with last 2 dimensions of (4, 4)
+    """
+    assert isinstance(pos, torch.Tensor), "Input must be a torch tensor"
+    assert isinstance(rot, torch.Tensor), "Input must be a torch tensor"
+    assert pos.shape[:-1] == rot.shape[:-2]
+    assert pos.shape[-1] == rot.shape[-2] == rot.shape[-1] == 3
+    pose = torch.zeros(pos.shape[:-1] + (4, 4), dtype=pos.dtype, device=pos.device)
+    pose[..., :3, :3] = rot
+    pose[..., :3, 3] = pos
+    pose[..., 3, 3] = 1.0
+    return pose
+
+def matrix_from_pos_quat(pos, quat):
+    """Convert position and quaternion to a 4x4 transformation matrix.
+    
+    Args:
+        pos (torch.Tensor): Position vector of shape (1, 3)
+        quat (torch.Tensor): Quaternion of shape (1, 4) in (w, x, y, z) format
+        
+    Returns:
+        torch.Tensor: 4x4 homogeneous transformation matrix
+    """
+    # Type assertions
+    assert isinstance(pos, torch.Tensor), "Position must be a torch.Tensor"
+    assert isinstance(quat, torch.Tensor), "Quaternion must be a torch.Tensor"
+    
+    # Shape assertions
+    assert pos.shape == (1, 3), f"Position must have shape (1, 3), got {pos.shape}"
+    assert quat.shape == (1, 4), f"Quaternion must have shape (1, 4), got {quat.shape}"
+    
+    # Datatype assertions
+    assert pos.dtype == torch.float64, "Position must be double precision (float64)"
+    assert quat.dtype == torch.float64, "Quaternion must be double precision (float64)"
+    
+    # Convert quaternion to rotation matrix
+    rot = math_utils.matrix_from_quat(quat)
+    
+    # Create transformation matrix
+    transform = make_pose(pos, rot)
+    
+    return transform
+
+def quat_from_euler_xyy_deg(roll, pitch, yaw, device="cuda"):
+    euler_angles = np.array([roll, pitch, yaw])
+    euler_angles_rad = np.radians(euler_angles)
+    euler_angles_rad = torch.tensor(euler_angles_rad, device=device).double()
+    quat_sim_to_nifti = math_utils.quat_from_euler_xyz(roll=euler_angles_rad[0], pitch=euler_angles_rad[1], yaw=euler_angles_rad[2])
+    quat_sim_to_nifti = quat_sim_to_nifti.unsqueeze(0)
+    return quat_sim_to_nifti
+    
 def get_joint_states(env):
     """Get the robot joint states from the environment."""
     robot_data = env.unwrapped.scene["robot"].data
@@ -324,45 +383,27 @@ def main():
             env.step(actions)
 
             
-            print(env.unwrapped.scene["organ_to_robot_transform"])            
-            pos_ee_from_organ = env.unwrapped.scene["organ_to_robot_transform"].data.target_pos_source[0]
+            # Get the end-effector pose in the organ frame
+            pos_ee_from_organ = env.unwrapped.scene["organ_to_robot_transform"].data.target_pos_source[0].double()
             quat_ee_from_organ = env.unwrapped.scene["organ_to_robot_transform"].data.target_quat_source[0]
-            print("quat_ee_from_organ:", quat_ee_from_organ)
-            print("quat_ee_from_organ shape:", quat_ee_from_organ.shape)
 
-            yaw, pitch, roll = math_utils.euler_xyz_from_quat(quat_ee_from_organ)
-            numpy_orientation = np.array([yaw.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), roll.squeeze().cpu().numpy()])
-            print("numpy_orientation:", numpy_orientation)
-            print("numpy_orientation shape:", numpy_orientation.shape)
+            #add additional rotations here if needed
+            probe_to_probe_us_quat = quat_from_euler_xyy_deg(0.0, 0.0, 0.0)
+            quat = math_utils.quat_mul(probe_to_probe_us_quat, quat_ee_from_organ)
+            pos =  math_utils.quat_apply(probe_to_probe_us_quat, pos_ee_from_organ) 
 
-            ori_ee_from_organ = numpy_orientation
-            pos_ee_from_organ_np = pos_ee_from_organ.cpu().numpy()
-            print("relative transforms:", pos_ee_from_organ_np)
-            print("relative transforms shape:", pos_ee_from_organ_np.shape)
-            print("relative orientations:", ori_ee_from_organ)
-            print("relative orientations shape:", ori_ee_from_organ.shape)
+            # Describe the orientation of the organ frame in the nifti frame
+            quat_sim_to_nifti = quat_from_euler_xyy_deg(90.0, 180.0, 0.0)
+            trans_sim_to_nifti = torch.zeros(1, 3, device=env.unwrapped.device)
+            trans_sim_to_nifti[0, 2] = -390.0 / 1000.0
+            
+            # apply the transformation from sim_to_nifti frame -> returns the orientation of the end-effector in the nifti frame, using quaternion transformation
+            # Done: check if this matches classic transformation matrices results. --> test_transform.py
+            quat = math_utils.quat_mul(quat_sim_to_nifti, quat)
+            pos =  math_utils.quat_apply(quat_sim_to_nifti, pos) + trans_sim_to_nifti
 
-            # Do the pose transformations in quaternion form 
-            euler_angles = np.array([90.0 ,180.0, 0.0, ])
-            euler_angles_rad = np.radians(euler_angles)
-            euler_angles_rad = torch.tensor(euler_angles_rad, device=env.unwrapped.device)
-            quat_nifti_to_sim = math_utils.quat_from_euler_xyz(roll=euler_angles_rad[0], pitch=euler_angles_rad[1], yaw=euler_angles_rad[2])
-            # add a dimension to make [1, 4]    
-            quat_nifti_to_sim = quat_nifti_to_sim.unsqueeze(0)
-            trans_nifti_to_sim = torch.zeros(1, 3, device=env.unwrapped.device)
-            # add an offset in z direction
-            trans_nifti_to_sim[0, 2] = -390.0 / 1000.0
-            # print shape of quats
-            print("quat_nifti_to_sim shape:", quat_nifti_to_sim.shape)
-            print("quat_ee_from_organ shape:", quat_ee_from_organ.shape)
-            # apply the transformation from sim_to_nifti frame
-            quat = math_utils.quat_mul(quat_nifti_to_sim, quat_ee_from_organ)
-            # print shape of pos_ee_from_organ
-            print("pos_ee_from_organ shape:", pos_ee_from_organ.shape)
-            print(f"dtype of pos_ee_from_organ: {pos_ee_from_organ.dtype}")
-            #make pos_ee_from_organ a double
-            pos_ee_from_organ = pos_ee_from_organ.double()
-            pos =  math_utils.quat_apply(quat_nifti_to_sim, pos_ee_from_organ) + trans_nifti_to_sim
+            # print("pos_ee_from_organ shape:", pos_ee_from_organ.shape)
+            # print(f"dtype of pos_ee_from_organ: {pos_ee_from_organ.dtype}")
 
 
             # scale the position from m to mm

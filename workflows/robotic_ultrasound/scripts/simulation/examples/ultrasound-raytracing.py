@@ -12,7 +12,7 @@ from rti.types import struct
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 try:
-    import raysim.cuda as rs
+    import ray_sim_python as rs
 except Exception as e:
     raise ImportError(f"Failed to initialize ray_sim_python: {e}\n" "Please check the installation and dependencies.")
 
