@@ -11,9 +11,7 @@ def monitor_output(process, target_line, found_event):
     """Monitor process output for target_line and set event when found."""
     try:
         for line in iter(process.stdout.readline, ''):
-            print(line, end='')  # Print output in real-time
             if target_line in line:
-                print(f"Found target line: {target_line}")
                 found_event.set()
     except (ValueError, IOError):
         # Handle case where stdout is closed
@@ -54,7 +52,6 @@ def run_with_monitoring(command, timeout_seconds, target_line=None):
         while time.time() - start_time < timeout_seconds:
             if target_line and found_event.is_set():
                 target_found = True
-                print(f"Target line found before timeout, continuing to run...")
             
             # Check if process has already terminated
             if process.poll() is not None:
@@ -115,7 +112,7 @@ class TestReachPSMSM(unittest.TestCase):
     def test_reach_psm_sm(self):
         # relative to the SCRIPTS_PATH
         command = "python simulation/scripts/environments/state_machine/reach_dual_psm_sm.py --headless"
-        timeout = 30
+        timeout = 20
         target_line = "Environment stepped"
         exit_code, found_target = run_with_monitoring(command, timeout, target_line)
         self.assertEqual(found_target, True)
