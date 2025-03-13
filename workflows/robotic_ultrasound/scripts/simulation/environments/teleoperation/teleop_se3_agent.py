@@ -198,7 +198,7 @@ def make_pose(pos, rot):
     pose[..., 3, 3] = 1.0
     return pose
 
-def matrix_from_pos_quat(pos, quat):
+def matrix_from_pos_quat(pos, quat, device="cuda"):
     """Convert position and quaternion to a 4x4 transformation matrix.
     
     Args:
@@ -219,6 +219,10 @@ def matrix_from_pos_quat(pos, quat):
     # Datatype assertions
     assert pos.dtype == torch.float64, "Position must be double precision (float64)"
     assert quat.dtype == torch.float64, "Quaternion must be double precision (float64)"
+
+    # put on device
+    pos = pos.to(device)
+    quat = quat.to(device)
     
     # Convert quaternion to rotation matrix
     rot = math_utils.matrix_from_quat(quat)
@@ -300,12 +304,12 @@ def main():
     if args_cli.teleop_device.lower() == "keyboard":
         teleop_interface = Se3Keyboard(
             pos_sensitivity=0.05 * args_cli.sensitivity,
-            rot_sensitivity=0.05 * args_cli.sensitivity,
+            rot_sensitivity=0.15 * args_cli.sensitivity,
         )
     elif args_cli.teleop_device.lower() == "spacemouse":
         teleop_interface = Se3SpaceMouse(
             pos_sensitivity=0.05 * args_cli.sensitivity,
-            rot_sensitivity=0.005 * args_cli.sensitivity,
+            rot_sensitivity=0.015 * args_cli.sensitivity,
         )
     else:
         raise ValueError(
@@ -406,8 +410,30 @@ def main():
             # add additional rotations here if needed
             # qnew​=qold​ × qz​(α).
 
-            # probe_to_probe_us_quat = quat_from_euler_xyz_deg(0.0, 0.0, -90.0)
+            probe_to_probe_us_quat = quat_from_euler_xyz_deg(0.0, 0.0, -90.0)
+            # create a matrix from pos quat
+            probe_to_probe_us_matrix = matrix_from_pos_quat(torch.zeros(1, 3).double(), probe_to_probe_us_quat)
+
+            #create a matrix from pos quat
+            quat_matrix = matrix_from_pos_quat(pos, quat)
+
+            # multiply with local transform probe to probe us
+            quat_matrix = torch.matmul(quat_matrix, probe_to_probe_us_matrix)
+            # convert matrix to quat and compare with below 
+            quat = math_utils.quat_from_matrix(quat_matrix[:, :3, :3])
+
+            quat = math_utils.normalize(quat)
+            print("quat:", quat)
+            print("quat shape:", quat.shape)
+            #normalize the quat
+
+            # apply the transformation to the end-effector pose
             # quat = math_utils.quat_mul(quat, probe_to_probe_us_quat)
+
+            # # print both and compare 
+            # print("quat_local:", quat_local)
+            # print("quat:", quat)
+            # assert torch.allclose(quat_local, quat)
             # pos =  math_utils.quat_apply(probe_to_probe_us_quat, pos) 
 
             # scale the position from m to mm
@@ -416,7 +442,8 @@ def main():
 
             #convert the quat to euler angles
             roll, pitch, yaw = math_utils.euler_xyz_from_quat(quat)
-            euler_angles = np.array([yaw.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), roll.squeeze().cpu().numpy()])
+            # stack the euler angles into roll pich yaw tensor 
+            euler_angles = np.array([roll.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), yaw.squeeze().cpu().numpy()])
             euler_angles_deg = np.degrees(euler_angles)
             # print the results in euler angles in degrees
             print("pos:", pos_np)
