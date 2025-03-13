@@ -2,13 +2,10 @@
     "projectBaseUrl":"${workspaceFolder}",
     "ignorePatterns": [
         {
-            "pattern": "https://github.com/isaac-for-healthcare/i4h-asset-catalog"
+            "pattern": "https://github.com/isaac-for-healthcare"
         },
         {
-            "pattern": "https://github.com/isaac-for-healthcare/i4h-workflows"
-        },
-        {
-            "pattern": "https://github.com/isaac-for-healthcare/i4h-sensor-simulation"
+            "pattern": "install_openpi_with_isaac_4.2.sh"
         }
     ],
     "timeout": "20s",
