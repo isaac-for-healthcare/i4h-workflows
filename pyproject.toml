@@ -15,3 +15,6 @@ target-version = "py310"
 
 [tool.ruff.lint]
 extend-select = ["E501"]
+
+[tool.codespell]
+ignore-words-list = "solum"

@@ -33,6 +33,9 @@ ls $RTI_LICENSE_FILE
 # Optional: Download the assets
 i4h-asset-retrieve
 
+# For apps that require a build step
+tools/build.sh
+
 # Run all tests
 python tools/run_all_tests.py
 ```
