@@ -324,60 +324,64 @@ def main():
             env.step(actions)
 
             
-            # print(env.unwrapped.scene["organ_to_robot_transform"])            
-            # pos_ee_from_organ = env.unwrapped.scene["organ_to_robot_transform"].data.target_pos_source[0]
-            # quat_ee_from_organ = env.unwrapped.scene["organ_to_robot_transform"].data.target_quat_source[0]
-            # print("quat_ee_from_organ:", quat_ee_from_organ)
-            # print("quat_ee_from_organ shape:", quat_ee_from_organ.shape)
-            # yaw, pitch, roll = math_utils.euler_xyz_from_quat(quat_ee_from_organ)
-            # numpy_orientation = np.array([yaw.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), roll.squeeze().cpu().numpy()])
-            # print("numpy_orientation:", numpy_orientation)
-            # print("numpy_orientation shape:", numpy_orientation.shape)
-            # ori_ee_from_organ = numpy_orientation
-            # pos_ee_from_organ_np = pos_ee_from_organ.cpu().numpy()
-            # print("relative transforms:", pos_ee_from_organ_np)
-            # print("relative transforms shape:", pos_ee_from_organ_np.shape)
-            # print("relative orientations:", ori_ee_from_organ)
-            # print("relative orientations shape:", ori_ee_from_organ.shape)
+            print(env.unwrapped.scene["organ_to_robot_transform"])            
+            pos_ee_from_organ = env.unwrapped.scene["organ_to_robot_transform"].data.target_pos_source[0]
+            quat_ee_from_organ = env.unwrapped.scene["organ_to_robot_transform"].data.target_quat_source[0]
+            print("quat_ee_from_organ:", quat_ee_from_organ)
+            print("quat_ee_from_organ shape:", quat_ee_from_organ.shape)
 
-            # # Do the pose transformations in quaternion form 
-            # euler_angles = np.array([0.0, 0.0, 0.0])
-            # euler_angles_rad = np.radians(euler_angles)
-            # euler_angles_rad = torch.tensor(euler_angles_rad, device=env.unwrapped.device)
-            # quat_nifti_to_sim = math_utils.quat_from_euler_xyz(roll=euler_angles_rad[0], pitch=euler_angles_rad[1], yaw=euler_angles_rad[2])
-            # # add a dimension to make [1, 4]    
-            # quat_nifti_to_sim = quat_nifti_to_sim.unsqueeze(0)
-            # trans_nifti_to_sim = torch.zeros(1, 3, device=env.unwrapped.device)
-            # # add an offset in z direction
-            # # print shape of quats
-            # print("quat_nifti_to_sim shape:", quat_nifti_to_sim.shape)
-            # print("quat_ee_from_organ shape:", quat_ee_from_organ.shape)
-            # # apply the transformation from sim_to_nifti frame
-            # quat = math_utils.quat_mul(quat_nifti_to_sim, quat_ee_from_organ)
-            # # print shape of pos_ee_from_organ
-            # print("pos_ee_from_organ shape:", pos_ee_from_organ.shape)
-            # print(f"dtype of pos_ee_from_organ: {pos_ee_from_organ.dtype}")
-            # #make pos_ee_from_organ a double
-            # pos_ee_from_organ = pos_ee_from_organ.double()
-            # pos =  math_utils.quat_apply(quat_nifti_to_sim, pos_ee_from_organ) + trans_nifti_to_sim
+            yaw, pitch, roll = math_utils.euler_xyz_from_quat(quat_ee_from_organ)
+            numpy_orientation = np.array([yaw.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), roll.squeeze().cpu().numpy()])
+            print("numpy_orientation:", numpy_orientation)
+            print("numpy_orientation shape:", numpy_orientation.shape)
 
-            # # print the results
-            # print("pos:", pos)
-            # print("pos shape:", pos.shape)
-            # print("quat:", quat)
-            # print("quat shape:", quat.shape)
+            ori_ee_from_organ = numpy_orientation
+            pos_ee_from_organ_np = pos_ee_from_organ.cpu().numpy()
+            print("relative transforms:", pos_ee_from_organ_np)
+            print("relative transforms shape:", pos_ee_from_organ_np.shape)
+            print("relative orientations:", ori_ee_from_organ)
+            print("relative orientations shape:", ori_ee_from_organ.shape)
 
-            # # scale the position from m to mm
-            # pos = pos * 1000.0
-            # pos_np = pos.cpu().numpy().squeeze()
+            # Do the pose transformations in quaternion form 
+            euler_angles = np.array([90.0 ,180.0, 0.0, ])
+            euler_angles_rad = np.radians(euler_angles)
+            euler_angles_rad = torch.tensor(euler_angles_rad, device=env.unwrapped.device)
+            quat_nifti_to_sim = math_utils.quat_from_euler_xyz(roll=euler_angles_rad[0], pitch=euler_angles_rad[1], yaw=euler_angles_rad[2])
+            # add a dimension to make [1, 4]    
+            quat_nifti_to_sim = quat_nifti_to_sim.unsqueeze(0)
+            trans_nifti_to_sim = torch.zeros(1, 3, device=env.unwrapped.device)
+            # add an offset in z direction
+            trans_nifti_to_sim[0, 2] = -390.0 / 1000.0
+            # print shape of quats
+            print("quat_nifti_to_sim shape:", quat_nifti_to_sim.shape)
+            print("quat_ee_from_organ shape:", quat_ee_from_organ.shape)
+            # apply the transformation from sim_to_nifti frame
+            quat = math_utils.quat_mul(quat_nifti_to_sim, quat_ee_from_organ)
+            # print shape of pos_ee_from_organ
+            print("pos_ee_from_organ shape:", pos_ee_from_organ.shape)
+            print(f"dtype of pos_ee_from_organ: {pos_ee_from_organ.dtype}")
+            #make pos_ee_from_organ a double
+            pos_ee_from_organ = pos_ee_from_organ.double()
+            pos =  math_utils.quat_apply(quat_nifti_to_sim, pos_ee_from_organ) + trans_nifti_to_sim
 
-            # #convert the quat to euler angles
-            # roll, pitch, yaw = math_utils.euler_xyz_from_quat(quat)
-            # euler_angles = np.array([yaw.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), roll.squeeze().cpu().numpy()])
 
-            # # convert to numpy and publish
-            # pub_data["probe_pos"] = pos_np
-            # pub_data["probe_ori"] = euler_angles
+            # scale the position from m to mm
+            pos = pos * 1000.0
+            pos_np = pos.cpu().numpy().squeeze()
+
+            #convert the quat to euler angles
+            roll, pitch, yaw = math_utils.euler_xyz_from_quat(quat)
+            euler_angles = np.array([yaw.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), roll.squeeze().cpu().numpy()])
+
+            # print the results
+            print("pos:", pos_np)
+            print("pos shape:", pos_np.shape)
+            print("quat:", euler_angles)
+            print("quat shape:", euler_angles.shape)
+
+            # convert to numpy and publish
+            pub_data["probe_pos"] = pos_np
+            pub_data["probe_ori"] = euler_angles
             
             
             # Get and publish camera images
@@ -386,10 +390,10 @@ def main():
             )
             pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
             pub_data["wrist_cam"] = rgb_images[0, 1, ...].cpu().numpy()
-            pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
-                    env, transform_matrix=transform_matrix, scale=1000.0, log=True
-                )
-            # Get and publish joint positions
+            # pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
+            #         env, transform_matrix=transform_matrix, scale=1000.0, log=True
+            #     )
+            # # Get and publish joint positions
             pub_data["joint_pos"] = get_joint_states(env)[0]
 
             viz_r_cam_writer.write(0.1, 1.0)

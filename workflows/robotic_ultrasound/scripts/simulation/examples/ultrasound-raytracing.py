@@ -61,7 +61,7 @@ class UltrasoundSimSubscriber(Operator):
         self.message = None
         self.dp = None
         self.subscriber = None
-        self.period = 1 / 30.0
+        self.period = 1 / 200.0
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec):
@@ -286,6 +286,7 @@ class Simulator(Operator):
         self.sim_params.buffer_size = sim_config["buffer_size"]
         self.sim_params.t_far = sim_config["t_far"]
         self.sim_params.b_mode_size = (self.out_height, self.out_width)
+        self.sim_params.enable_cuda_timing = True
 
     def compute(self, op_input, op_output, context):
         """
@@ -335,6 +336,7 @@ class Simulator(Operator):
         # Convert from lists or cupy arrays to numpy arrays
         translation_array = np.array(translation, dtype=np.float32)
         rotation_array = np.array(rot_euler, dtype=np.float32)
+
 
         # Create new pose and update probe
         new_pose = rs.Pose(translation_array, rotation_array)
