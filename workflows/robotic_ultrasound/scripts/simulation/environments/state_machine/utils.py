@@ -59,6 +59,26 @@ class RobotQuaternions:
     )
 
 
+@dataclass(frozen=True)
+class OrganEulerAngles:
+    """Organ Euler angle configurations stored as torch tensors."""
+
+    DOWN: tuple[float, float, float] = (-np.pi / 2, -np.pi / 2, 0)
+
+
+@dataclass(frozen=True)
+class CoordinateTransform:
+    """Coordinate transformation matrices stored as torch tensors.
+
+    The coordinate transformation matrix performs the following axis mapping:
+        - x-axis maps to negative x-axis
+        - y-axis maps to negative z-axis
+        - z-axis maps to negative y-axis
+    """
+
+    OMNIVERSE_TO_ORGAN: torch.Tensor = torch.tensor([[-1, 0, 0], [0, 0, -1], [0, -1, 0]], dtype=torch.float64)
+
+
 @dataclass
 class SMState:
     """State machine state container."""
@@ -163,20 +183,13 @@ def compute_transform_matrix(
         ov_point: point in Omniverse coordinates (meters)
         nifti_point: point in NIFTI coordinates (millimeters)
         rotation_matrix: Optional rotation matrix to convert from Omniverse to NIFTI coordinates.
-            If None, the default rotation matrix will be used.
-            The default rotation matrix performs the following axis mapping:
-            - x-axis maps to negative x-axis
-            - y-axis maps to negative z-axis
-            - z-axis maps to negative y-axis
+            If None, the default rotation matrix CoordinateTransform.OMNIVERSE_TO_ORGAN will be used.
 
     Returns:
         A 4x4 homogeneous transformation matrix that maps points from Omniverse to NIFTI coordinates.
     """
     # Create rotation component of the transform matrix
-    if rotation_matrix is None:
-        R = torch.tensor([[-1, 0, 0], [0, 0, -1], [0, -1, 0]], dtype=torch.float64)
-    else:
-        R = rotation_matrix
+    R = CoordinateTransform.OMNIVERSE_TO_ORGAN if rotation_matrix is None else rotation_matrix
 
     # Convert input points to tensors
     ov_point = torch.tensor(ov_point, dtype=torch.float64).unsqueeze(-1)
@@ -206,30 +219,24 @@ def ov_to_nifti_orientation(
         ov_quat: Quaternion in [w, x, y, z] format from Omniverse
         rotation_matrix: 3x3 rotation matrix that maps positions
             from Isaac Sim coordinate system to organ coordinate system
-        ov_down_quat: Quaternion in [w, x, y, z] format for Omniverse "down" direction, default is [0, 1, 0, 0]
-        organ_down_quat: Euler angles in [x, y, z] format for organ "down" direction, default is [-π/2, 0, 0]
+        ov_down_quat: Quaternion in [w, x, y, z] format for Omniverse "down" direction,
+            default is RobotQuaternions.DOWN
+        organ_down_quat: Euler angles in [x, y, z] format for organ "down" direction,
+            default is OrganEulerAngles.DOWN
 
     Returns:
         Euler angles in organ coordinate system [x, y, z] in radians
-
-    Coordinate mapping:
-        - Omniverse x → organ x
-        - Omniverse y → organ z
-        - Omniverse z → organ -y
-
-    Downward direction mapping:
-        - Omniverse [π, 0, 0] or quaternion [0, 1, 0, 0] → organ [-π/2, 0, 0]
     """
     # Set default values if not provided
     if ov_down_quat is None:
-        ov_down_quat = [0, 0, 1, 0]  # Omniverse "down" quaternion [w, x, y, z]
+        ov_down_quat = RobotQuaternions.DOWN  # Omniverse "down" quaternion [w, x, y, z]
 
     if organ_down_quat is None:
-        organ_down_quat = [-np.pi / 2, 0, 0]  # Organ "down" Euler angles [x, y, z]
+        organ_down_quat = OrganEulerAngles.DOWN  # Organ "down" Euler angles [x, y, z]
 
     # set default coordinate system transformation if not provided
     if rotation_matrix is None:
-        coord_transform = np.array([[-1, 0, 0], [0, 0, -1], [0, -1, 0]])
+        coord_transform = np.array(CoordinateTransform.OMNIVERSE_TO_ORGAN)
     else:
         coord_transform = rotation_matrix
 
@@ -318,7 +325,7 @@ def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
 
     # Optional logging for debugging
     if log:
-        print(f"Raw position (Isaac Sim, meters): {probe_pos_flat}")
+        print(f"Raw position (Isaac Sim, mm): {probe_pos_flat}")
         print(f"Transformed position (organ, mm): {transformed_pos}")
         print(f"Raw orientation (Isaac Sim, quat): {probe_quat}")
         print(f"Transformed orientation (organ, Euler): {transformed_ori}")
