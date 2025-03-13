@@ -196,3 +196,7 @@ cython_debug/
 
 # Wandb
 wandb/
+
+# third-party files
+**/clarius_cast/include
+**/clarius_solum/include
