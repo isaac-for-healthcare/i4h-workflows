@@ -264,7 +264,7 @@ def main():
         with torch.inference_mode():
             # step environment
             dones = env.step(actions)[-2]
-
+            print("Environment stepped")
             # observations
             robot: RigidObject = env.unwrapped.scene["robot"]
             # -- end-effector frame
