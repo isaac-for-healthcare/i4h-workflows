@@ -20,8 +20,10 @@ from typing import Any
 
 import rti.connextdds as dds  # noqa: F401
 
+from .base import DDSEntity
 
-class Publisher(ABC):
+
+class Publisher(DDSEntity, ABC):
     """
     Base class for all publishers.
 
@@ -30,15 +32,41 @@ class Publisher(ABC):
         cls: The class type of the data to publish.
         period: Time period between successive publications in seconds.
         domain_id: The DDS domain ID to publish to.
+        qos_provider_path: Path to XML file containing QoS profiles.
+        transport_profile: Transport QoS profile name (format: "Library::Profile").
+        writer_profile: Writer QoS profile name (format: "Library::Profile").
     """
 
-    def __init__(self, topic: str, cls: Any, period: float, domain_id: int):
-        self.topic = topic
-        self.cls = cls
-        self.period = period
-        self.domain_id = domain_id
+    def __init__(
+        self, 
+        topic: str, 
+        cls: Any, 
+        period: float, 
+        domain_id: int,
+        qos_provider_path: str,
+        transport_profile: str,
+        writer_profile: str
+    ):
+        super().__init__(
+            topic=topic,
+            cls=cls,
+            period=period,
+            domain_id=domain_id,
+            qos_provider_path=qos_provider_path,
+            transport_profile=transport_profile,
+            entity_profile=writer_profile
+        )
         self.logger = logging.getLogger(__name__)
-        self.dds_writer = dds.DataWriter(dds.Topic(dds.DomainParticipant(domain_id=domain_id), topic, cls))
+
+        # Initialize DDS entities with QoS
+        participant = self._create_participant()
+        dds_topic = self._create_topic(participant)
+        _, _, writer_qos = self._get_cached_qos(writer_profile)
+        self.dds_writer = dds.DataWriter(dds_topic, qos=writer_qos)
+
+    def _get_entity_qos(self, provider: dds.QosProvider, profile_name: str) -> dds.DataWriterQos:
+        """Get writer-specific QoS settings from provider."""
+        return provider.datawriter_qos_from_profile(profile_name)
 
     def write(self, dt: float = 0.0, sim_time: float = 0.0) -> float:
         """
