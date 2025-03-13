@@ -197,6 +197,20 @@ cython_debug/
 # Wandb
 wandb/
 
+# No USD files allowed in the repo
+**/*.usd
+**/*.usda
+**/*.usdc
+**/*.usdz
+
+# Outputs
+**/output/*
+**/outputs/*
+**/videos/*
+**/runs/*
+**/logs/*
+**/recordings/*
+
 # Third party
 third_party/
 
