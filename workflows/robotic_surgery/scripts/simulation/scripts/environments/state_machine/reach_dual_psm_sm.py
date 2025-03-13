@@ -221,7 +221,7 @@ def main():
         with torch.inference_mode():
             # step environment
             dones = env.step(actions)[-2]
-
+            print("Environment stepped")
             # observations
             robot_1: RigidObject = env.unwrapped.scene["robot_1"]
             robot_2: RigidObject = env.unwrapped.scene["robot_2"]
