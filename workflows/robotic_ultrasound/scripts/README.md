@@ -39,10 +39,10 @@ conda create -n robotic_ultrasound python=3.10 -y
 conda activate robotic_ultrasound
 ```
 
-To use the ultrasound-raytracing simulator, you can
+To use the ultrasound-raytracing simulator, you can choose one of the following options:
 - (experimental) Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/ultrasound-raytracing) and extract the folder to `workflows/robotic_ultrasound/scripts/raysim`.
 
-- Install and build it by following the instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation).
+- (recommended) Install and build it by following the instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation).
 
 
 Install other dependencies by running:
