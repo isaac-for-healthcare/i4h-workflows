@@ -43,6 +43,3 @@ pip install isaacsim==4.1.0.0 isaacsim-extscache-physics==4.1.0.0 \
 echo "Installing IsaacLab ..."
 yes Yes | ./isaaclab.sh --install
 popd
-
-
-
