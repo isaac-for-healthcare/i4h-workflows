@@ -7,7 +7,7 @@ def install_dependencies(workflow_name: str = "robotic_ultrasound"):
     """Install project dependencies from requirements.txt"""
     try:
         # Install test dependencies
-        apt_cmd = ["apt-get", "install", "-y", "xvfb", "x11-utils", "cmake", "build-essential"]
+        apt_cmd = ["apt-get", "install", "-y", "xvfb", "x11-utils", "cmake", "build-essential", "pybind11-dev"]
         # check if the user is root
         if os.geteuid() != 0:
             apt_cmd.insert(0, "sudo")
