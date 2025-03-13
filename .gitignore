@@ -203,3 +203,6 @@ third_party/
 # third-party files
 **/clarius_cast/include
 **/clarius_solum/include
+
+# raysim install
+workflows/robotic_ultrasound/scripts/raysim
