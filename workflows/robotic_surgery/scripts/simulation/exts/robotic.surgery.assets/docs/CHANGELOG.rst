@@ -15,7 +15,7 @@ Changed
 Added
 ^^^^^
 
-* Initial release of the extension.
+* Initial release of ORBIT-Surgical.
 
 * The following robot configurations are added:
 

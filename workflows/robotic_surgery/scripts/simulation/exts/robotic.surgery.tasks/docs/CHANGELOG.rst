@@ -7,7 +7,7 @@ Changelog
 Added
 ^^^^^
 
-* Initial release of the extension.
+* Initial release of ORBIT-Surgical.
 
 * The following environments are added:
 
