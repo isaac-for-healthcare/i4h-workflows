@@ -228,7 +228,7 @@ def matrix_from_pos_quat(pos, quat):
     
     return transform
 
-def quat_from_euler_xyy_deg(roll, pitch, yaw, device="cuda"):
+def quat_from_euler_xyz_deg(roll, pitch, yaw, device="cuda"):
     euler_angles = np.array([roll, pitch, yaw])
     euler_angles_rad = np.radians(euler_angles)
     euler_angles_rad = torch.tensor(euler_angles_rad, device=device).double()
@@ -387,24 +387,28 @@ def main():
             pos_ee_from_organ = env.unwrapped.scene["organ_to_robot_transform"].data.target_pos_source[0].double()
             quat_ee_from_organ = env.unwrapped.scene["organ_to_robot_transform"].data.target_quat_source[0]
 
-            #add additional rotations here if needed
-            probe_to_probe_us_quat = quat_from_euler_xyy_deg(0.0, 0.0, 0.0)
-            quat = math_utils.quat_mul(probe_to_probe_us_quat, quat_ee_from_organ)
-            pos =  math_utils.quat_apply(probe_to_probe_us_quat, pos_ee_from_organ) 
+
 
             # Describe the orientation of the organ frame in the nifti frame
-            quat_sim_to_nifti = quat_from_euler_xyy_deg(90.0, 180.0, 0.0)
+            quat_sim_to_nifti = quat_from_euler_xyz_deg(90.0, 180.0, 0.0)
             trans_sim_to_nifti = torch.zeros(1, 3, device=env.unwrapped.device)
             trans_sim_to_nifti[0, 2] = -390.0 / 1000.0
             
             # apply the transformation from sim_to_nifti frame -> returns the orientation of the end-effector in the nifti frame, using quaternion transformation
             # Done: check if this matches classic transformation matrices results. --> test_transform.py
-            quat = math_utils.quat_mul(quat_sim_to_nifti, quat)
-            pos =  math_utils.quat_apply(quat_sim_to_nifti, pos) + trans_sim_to_nifti
+            quat = math_utils.quat_mul(quat_sim_to_nifti, quat_ee_from_organ)
+            pos =  math_utils.quat_apply(quat_sim_to_nifti, pos_ee_from_organ) + trans_sim_to_nifti
 
             # print("pos_ee_from_organ shape:", pos_ee_from_organ.shape)
             # print(f"dtype of pos_ee_from_organ: {pos_ee_from_organ.dtype}")
 
+            # Add an additional rotation to the end-effector pose from sim to nifti frame
+            # add additional rotations here if needed
+            # qnew​=qold​ × qz​(α).
+
+            # probe_to_probe_us_quat = quat_from_euler_xyz_deg(0.0, 0.0, -90.0)
+            # quat = math_utils.quat_mul(quat, probe_to_probe_us_quat)
+            # pos =  math_utils.quat_apply(probe_to_probe_us_quat, pos) 
 
             # scale the position from m to mm
             pos = pos * 1000.0
@@ -413,12 +417,12 @@ def main():
             #convert the quat to euler angles
             roll, pitch, yaw = math_utils.euler_xyz_from_quat(quat)
             euler_angles = np.array([yaw.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), roll.squeeze().cpu().numpy()])
-
-            # print the results
+            euler_angles_deg = np.degrees(euler_angles)
+            # print the results in euler angles in degrees
             print("pos:", pos_np)
             print("pos shape:", pos_np.shape)
-            print("quat:", euler_angles)
-            print("quat shape:", euler_angles.shape)
+            print("euler angles:", euler_angles_deg)
+            print("euler shape:", euler_angles.shape)
 
             # convert to numpy and publish
             pub_data["probe_pos"] = pos_np
