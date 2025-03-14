@@ -109,6 +109,9 @@ python environments/state_machine/liver_scan_sm.py \
     --enable_camera
 ```
 
+To enable DDS use add `--rti_license_file <abs_path_license>` or export the environment variable with the respective path. E.g. `export RTI_LICENSE_FILE=<abs_path_license>;` before launching.
+
+
 ### Data Collection
 
 To run the state machine and collect data for a specified number of episodes:
