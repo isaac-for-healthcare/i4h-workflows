@@ -26,6 +26,7 @@ import pyclariuscast  # noqa: E402
 # The current image
 img = None
 
+
 def processed_image_cb(image, width, height, sz, microns_per_pixel, timestamp, angle, imu):
     """
     Callback function that processes a scan-converted image.
@@ -50,6 +51,7 @@ def processed_image_cb(image, width, height, sz, microns_per_pixel, timestamp, a
     else:
         # Handle JPEG
         img = Image.open(BytesIO(image))
+
 
 def raw_image_cb(image, lines, samples, bps, axial, lateral, timestamp, jpg, rf, angle):
     """
@@ -128,6 +130,7 @@ def buttons_cb(button, clicks):
 
 class NoOp(Operator):
     """A sink operator that takes input and discards them."""
+
     def setup(self, spec: OperatorSpec):
         """Define input ports."""
         spec.input("input")
@@ -142,6 +145,7 @@ class ClariusCastOp(Operator):
     Operator to interface with a Clarius UltraSound Probe using Clarius Cast APIs.
     Captures processed image data from a Clarius Probe and publishes it via DDS.
     """
+
     def __init__(self, fragment, *args, ip, port, domain_id, width, height, topic_out, **kwargs):
         """
         Initializes the ClariusCastOp operator.
@@ -225,6 +229,7 @@ class ClariusCastOp(Operator):
 
 class ClariusCastApp(Application):
     """Application for streaming Ultrasound image data using Clarius Cast APIs"""
+
     def __init__(self, ip, port, domain_id, height, width, topic_out, show_holoviz):
         """
         Initializes the ClariusCastApp application.
