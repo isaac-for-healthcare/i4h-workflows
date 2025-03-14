@@ -64,3 +64,16 @@ export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts`
 export RTI_LICENSE_FILE=<path-to-rti-license-file>
 export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
 ```
+
+## Run the scripts
+
+Navigate to these sub-directories and run the scripts.
+
+- [DDS](./dds)
+- [Holoscan Apps](./holoscan_apps)
+- [Policy Runner](./policy_runner)
+- [Simulation](./simulation)
+- [Training](./training)
+- [Utils](./utils)
+
+Please note that you may need to simultaneously run multiple scripts in different sub-directories to complete the entire workflow. For example, you need to have 4 different terminals running the policy runner, the sim_with_dds and ultrasound raytracing simulations, and the visualization in the `utils` directory.
