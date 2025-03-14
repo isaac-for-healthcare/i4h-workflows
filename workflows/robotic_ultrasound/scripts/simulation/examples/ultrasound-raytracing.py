@@ -9,10 +9,9 @@ import rti.connextdds as dds
 from holoscan.conditions import PeriodicCondition
 from holoscan.core import Application, MetadataPolicy, Operator, OperatorSpec
 from rti.types import struct
-from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 try:
-    import ray_sim_python as rs
+    import raysim.cuda as rs
 except Exception as e:
     raise ImportError(f"Failed to initialize ray_sim_python: {e}\n" "Please check the installation and dependencies.")
 
@@ -165,7 +164,9 @@ class Simulator(Operator):
                 material_name: The name of the material to use for the mesh.
             """
             # Construct the full path to the mesh file
-            mesh_dir = robot_us_assets.organs
+            # mesh_dir = robot_us_assets.organs
+            mesh_dir = "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts/simulation/examples/transformed_obj"
+            # mesh_dir = "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts/simulation/examples/mesh"
             mesh_path = os.path.join(mesh_dir, filename)
             try:
                 material_idx = self.materials.get_index(material_name)
@@ -337,7 +338,6 @@ class Simulator(Operator):
         translation_array = np.array(translation, dtype=np.float32)
         rotation_array = np.array(rot_euler, dtype=np.float32)
 
-
         # Create new pose and update probe
         new_pose = rs.Pose(translation_array, rotation_array)
         self.probe.set_pose(new_pose)
@@ -381,7 +381,7 @@ class UltrasoundSimPublisher(Operator):
     def __init__(
         self, fragment, *args, domain_id=0, topic="output_topic", data_schema: struct = UltraSoundProbeData, **kwargs
     ):
-        self.domain_id = domain_id
+        self.domain_id = 2
         self.topic = topic
         self.data_schema = data_schema
         self.writer = None
