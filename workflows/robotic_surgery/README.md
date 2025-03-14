@@ -15,43 +15,25 @@ The robotic surgery workflow is built on the following dependencies:
 - [IsaacLab 1.2.0](https://isaac-sim.github.io/IsaacLab/v1.2.0/source/setup/installation/index.html)
 
 
-### 1. Prepare Isaac Lab Repository and Create a Conda Environment
+### Install NVIDIA Driver
 
-Clone [Isaac Lab repository](https://github.com/isaac-sim/IsaacLab):
+Install or upgrade to the latest NVIDIA driver from [NVIDIA website](https://www.nvidia.com/en-us/drivers/)
 
+
+### Install Dependencies
+
+Conda is suggested for virtual environment setup, install `Miniconda` from [Miniconda website](https://docs.anaconda.com/miniconda/install/#quick-command-line-install).
+
+The following command line will create a conda environment named `robotic_surgery` and install all dependencies by running:
 ```bash
-git clone https://github.com/isaac-sim/IsaacLab.git
-cd IsaacLab
-git checkout v1.2.0
-sed -i 's/rsl-rl/rsl-rl-lib/g' source/extensions/omni.isaac.lab_tasks/setup.py
-# define the IsaacLab_PATH environment variable
-export IsaacLab_PATH=`pwd`
-```
-
-Create a new conda environment via Isaac Lab script:
-
-```bash
-${IsaacLab_PATH}/isaaclab.sh --conda robotic_surgery
-# activate conda environment
+cd <path-to-i4h-workflows>
+bash tools/env_setup_robot_surgery.sh
 conda activate robotic_surgery
 ```
 
-### 2. Install Isaac Sim and Isaac Lab
-
+**NOTE**: If you want to specify a different conda environment name, you can pass the name as an argument to the script.
 ```bash
-pip install isaacsim==4.1.0.0 isaacsim-extscache-physics==4.1.0.0 isaacsim-extscache-kit==4.1.0.0 isaacsim-extscache-kit-sdk==4.1.0.0 git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git --extra-index-url https://pypi.nvidia.com
-${IsaacLab_PATH}/isaaclab.sh --install
-```
-
-### 3. Install Robotic Surgery
-
-```bash
-# move to a directory outside of IsaacLab installation directory
-cd ..
-git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
-cd i4h-workflows
-./workflows/robotic_surgery/scripts/simulation/robotic_surgery.sh
-export PYTHONPATH="$(pwd)/workflows/robotic_surgery/scripts"
+bash tools/env_setup_robot_surgery.sh <conda_env_name>
 ```
 
 ### Download the I4H assets

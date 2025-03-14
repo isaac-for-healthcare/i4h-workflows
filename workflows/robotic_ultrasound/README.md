@@ -48,7 +48,7 @@ To use the ultrasound-raytracing simulator, you can choose one of the following 
 Install other dependencies by running:
 ```bash
 cd <path-to-i4h-workflows>
-python tools/install_deps.py
+bash tools/env_setup_robot_us.sh
 ```
 
 ### Download the I4H assets
