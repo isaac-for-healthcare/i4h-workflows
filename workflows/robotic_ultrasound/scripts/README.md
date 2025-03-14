@@ -53,6 +53,9 @@ python tools/install_deps.py
 
 ### Download the I4H assets
 
+Use the following command will download the assets to the `~/.cache/i4h-assets/<sha256>` directory.
+Please refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/main/docs/catalog_helper.md) for more details.
+
 ```sh
 i4h-asset-retrieve
 ```
