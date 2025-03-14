@@ -110,11 +110,31 @@ def run_with_monitoring(command, timeout_seconds, target_line=None):
 
 
 SM_CASES = [
-    ("python -u simulation/scripts/environments/state_machine/lift_block_sm.py --headless", 20, "Resetting the state machine."),
-    ("python -u simulation/scripts/environments/state_machine/lift_needle_sm.py --headless", 20, "Resetting the state machine."),
-    ("python -u simulation/scripts/environments/state_machine/reach_dual_psm_sm.py --headless", 20, "Resetting the state machine."),
-    ("python -u simulation/scripts/environments/state_machine/reach_psm_sm.py --headless", 20, "Resetting the state machine."),
-    ("python -u simulation/scripts/environments/state_machine/reach_star_sm.py --headless", 20, "Resetting the state machine."),
+    (
+        "python -u simulation/scripts/environments/state_machine/lift_block_sm.py --headless",
+        20,
+        "Resetting the state machine.",
+    ),
+    (
+        "python -u simulation/scripts/environments/state_machine/lift_needle_sm.py --headless",
+        20,
+        "Resetting the state machine.",
+    ),
+    (
+        "python -u simulation/scripts/environments/state_machine/reach_dual_psm_sm.py --headless",
+        20,
+        "Resetting the state machine.",
+    ),
+    (
+        "python -u simulation/scripts/environments/state_machine/reach_psm_sm.py --headless",
+        20,
+        "Resetting the state machine.",
+    ),
+    (
+        "python -u simulation/scripts/environments/state_machine/reach_star_sm.py --headless",
+        20,
+        "Resetting the state machine.",
+    ),
 ]
 
 
