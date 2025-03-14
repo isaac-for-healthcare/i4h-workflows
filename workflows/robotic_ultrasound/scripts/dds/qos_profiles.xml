@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+<dds xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
      xsi:noNamespaceSchemaLocation="https://community.rti.com/schema/current/rti_dds_qos_profiles.xsd">
 
     <!-- Transport library to provide optimizations for the domain participant -->
@@ -44,7 +44,7 @@
     </qos_library>
 
     <qos_library name="RoboticUltrasoundLibrary">
-        
+
         <!-- Camera Info Profile - For camera metadata -->
         <qos_profile name="CameraInfo" base_name="BuiltinQosLib::Generic.BestEffort">
             <datawriter_qos>
@@ -158,4 +158,4 @@
         </qos_profile>
 
     </qos_library>
-</dds> 
+</dds>

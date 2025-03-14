@@ -38,14 +38,14 @@ class Publisher(DDSEntity, ABC):
     """
 
     def __init__(
-        self, 
-        topic: str, 
-        cls: Any, 
-        period: float, 
+        self,
+        topic: str,
+        cls: Any,
+        period: float,
         domain_id: int,
         qos_provider_path: str,
         transport_profile: str,
-        writer_profile: str
+        writer_profile: str,
     ):
         super().__init__(
             topic=topic,
@@ -54,7 +54,7 @@ class Publisher(DDSEntity, ABC):
             domain_id=domain_id,
             qos_provider_path=qos_provider_path,
             transport_profile=transport_profile,
-            entity_profile=writer_profile
+            entity_profile=writer_profile,
         )
         self.logger = logging.getLogger(__name__)
 
