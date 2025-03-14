@@ -237,23 +237,15 @@ def ov_to_nifti_orientation(
         Euler angles in organ coordinate system [x, y, z] in radians
     """
     # Set default values if not provided
-    if ov_down_quat is None:
-        ov_down_quat = torch.tensor(RobotQuaternions.DOWN, dtype=torch.float64, device=env.unwrapped.device).unsqueeze(
-            0
-        )  # Omniverse "down" quaternion [w, x, y, z]
+    ov_down_quat = RobotQuaternions.DOWN if ov_down_quat is None else ov_down_quat
+    ov_down_quat = torch.tensor(ov_down_quat, dtype=torch.float64, device=env.unwrapped.device).unsqueeze(0)
 
-    if organ_down_quat is None:
-        organ_down_quat = torch.tensor(
-            OrganEulerAngles.DOWN, dtype=torch.float64, device=env.unwrapped.device
-        ).unsqueeze(0)  # Organ "down" Euler angles [x, y, z]
+    organ_down_quat = OrganEulerAngles.DOWN if organ_down_quat is None else organ_down_quat
+    organ_down_quat = torch.tensor(organ_down_quat, dtype=torch.float64, device=env.unwrapped.device).unsqueeze(0)
 
-    # set default coordinate system transformation if not provided
-    if rotation_matrix is None:
-        coord_transform = torch.tensor(
-            CoordinateTransform.OMNIVERSE_TO_ORGAN, dtype=torch.float64, device=env.unwrapped.device
-        )
-    else:
-        coord_transform = rotation_matrix
+    coord_transform = CoordinateTransform.OMNIVERSE_TO_ORGAN if rotation_matrix is None else rotation_matrix
+    coord_transform = torch.tensor(coord_transform, dtype=torch.float64, device=env.unwrapped.device)
+
 
     _, delta_rot = compute_pose_error(
         torch.zeros(1, 3, device=env.unwrapped.device),
@@ -264,8 +256,13 @@ def ov_to_nifti_orientation(
     )
     delta_rot = math_utils.matrix_from_quat(delta_rot)
 
+    # Apply coordinate transformation to delta rotation
     delta_rot_ct = coord_transform @ delta_rot @ torch.inverse(coord_transform)
-    ee_from_organ_matrix = delta_rot_ct.inverse() @ math_utils.matrix_from_quat(organ_down_quat.double())
+
+    # Apply coordinate transformation to organ down quaternion
+    ee_from_organ_matrix = delta_rot_ct.inverse() @ math_utils.matrix_from_quat(organ_down_quat)
+
+    # Convert to quaternion
     quat = math_utils.quat_from_matrix(ee_from_organ_matrix)
 
     quat = math_utils.normalize(quat)
@@ -276,7 +273,7 @@ def ov_to_nifti_orientation(
     return euler_angles
 
 
-def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
+def get_probe_pos_ori(env, transform_matrix, scale: float | None = 1000.0, log=False):
     """Get the probe position and orientation from the environment and transform to organ coordinate system.
 
     This function performs two separate transformations:
@@ -288,8 +285,9 @@ def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
     Args:
         env: The simulation environment containing the probe data
         transform_matrix: 4x4 homogeneous transformation matrix that maps positions
-                          from Isaac Sim coordinate system to organ coordinate system
+            from Isaac Sim coordinate system to organ coordinate system
         scale: Scaling factor to convert from meters to millimeters (default: 1000.0)
+            If None, no scaling is applied
         log: If True, print the transformed position and orientation values for debugging
 
     Returns:
@@ -299,39 +297,32 @@ def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
     # Get probe data from the end effector frame
     probe_data = env.unwrapped.scene["ee_frame"].data
 
-    # Get probe position and remove environment origins offset
-    # Raw tensor has shape (batch_size=1, num_envs=1, 3)
+    # Get probe position and remove environment origins offset (raw tensor has shape (batch_size=1, num_envs=1, 3))
     probe_pos = probe_data.target_pos_w - env.unwrapped.scene.env_origins
+    # Get probe orientation quaternion [w,x,y,z] (shape: batch_size=1, num_envs=1, 4)
+    probe_quat = probe_data.target_quat_w.squeeze(0)
 
     # Remove batch dimensions to get a simple position vector of shape (3,)
     probe_pos_flat = probe_pos.squeeze(0).squeeze(0)
 
-    # Scale position from meters to millimeters
-    probe_pos_flat = scale_points(probe_pos_flat, scale=scale)
+    if scale is not None:
+        probe_pos_flat = scale_points(probe_pos_flat, scale=scale)
 
     # Convert to homogeneous coordinates by adding a 1 as the 4th component
-    # This allows for the application of the 4x4 transformation matrix
     pos_homogeneous = torch.cat([probe_pos_flat, torch.tensor([1.0], device=probe_pos.device)], dim=-1)
 
     # Apply 4x4 transformation matrix to convert to organ coordinate system
-    # This handles both rotation and translation in one operation
     transformed_pos = transform_matrix.to(probe_pos.device) @ pos_homogeneous
-
-    # Extract only the spatial coordinates (x, y, z), discarding homogeneous component
     transformed_pos = transformed_pos[:3]
-
-    # Get probe orientation as quaternion [w, x, y, z] and remove batch dimensions
-    # Raw tensor has shape (batch_size=1, num_envs=1, 4)
-    probe_quat = probe_data.target_quat_w.squeeze(0)  # Shape (1, 4)
 
     transformed_ori = ov_to_nifti_orientation(env, probe_quat)
 
     # Optional logging for debugging
     if log:
-        print(f"Raw position (Isaac Sim, mm): {probe_pos_flat}")
-        print(f"Transformed position (organ, mm): {transformed_pos}")
-        print(f"Raw orientation (Isaac Sim, quat): {probe_quat}")
-        print(f"Transformed orientation (organ, Euler): {transformed_ori}")
+        print(f"Raw position (OV world, mm): {probe_pos_flat}")
+        print(f"Transformed position (CT world, mm): {transformed_pos}")
+        print(f"Raw orientation (OV world, quat): {probe_quat}")
+        print(f"Transformed orientation (CT world, Euler): {transformed_ori}")
 
     # Return position as numpy array and orientation as Euler angles
     return transformed_pos.cpu().numpy(), transformed_ori
