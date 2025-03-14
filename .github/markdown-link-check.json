@@ -3,9 +3,6 @@
     "ignorePatterns": [
         {
             "pattern": "https://github.com/isaac-for-healthcare"
-        },
-        {
-            "pattern": "install_openpi_with_isaac_4.2.sh"
         }
     ],
     "timeout": "20s",

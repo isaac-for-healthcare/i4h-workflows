@@ -24,10 +24,10 @@ This workflow enables you to:
 
 ## 🛠️ Installation
 
-First, install the OpenPI repository and its dependencies using our [provided script](../../../../../tools/install_openpi_with_isaac_4.2.sh):
+First, install the OpenPI repository and its dependencies using our [provided script](../../../../../tools/env_setup_robot_us.sh):
 ```bash
 # Install OpenPI with dependencies
-./tools/install_openpi_with_isaac_4.2.sh
+./tools/env_setup_robot_us.sh
 ```
 
 This script:

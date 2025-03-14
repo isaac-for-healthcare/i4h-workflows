@@ -55,6 +55,43 @@
     (d) I understand and agree that this project and the contribution are public and that a record of the contribution (including all personal information I submit with it, including my sign-off) is maintained indefinitely and may be redistributed consistent with this project or the open source license(s) involved.
   ```
 
+## Pre-commit Hooks
+
+We use pre-commit hooks to ensure code quality. To set up pre-commit:
+
+1. Install pre-commit:
+   ```bash
+   pip install pre-commit
+   ```
+
+2. To check your code before committing:
+   ```bash
+   pre-commit run --all-files
+   ```
+
+3. To automatically fix linting and formatting errors:
+   ```bash
+   pre-commit run -c tools/premerge-autofix.yaml --all-files
+   ```
+
+## Running Tests
+
+Before submitting your contribution, ensure all tests pass in the workflow(s) you contributed:
+
+```bash
+# Set up your RTI license
+export RTI_LICENSE_FILE=<path to your RTI license file>
+
+# Optional: Install dependencies for CI pipelines
+python tools/install_deps.py --workflow <workflow_name>
+
+# Optional: Download required assets
+i4h-asset-retrieve
+
+# Run all tests
+python tools/run_all_tests.py --workflow <workflow_name>
+```
+
 ## Reporting issues
 
 Please open a [Issue Request](https://github.com/isaac-for-healthcare/i4h-workflows/issues) to request an enhancement, bug fix, or other change in Isaac for Healthcare.

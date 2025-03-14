@@ -25,6 +25,15 @@ if [ -d "$PROJECT_ROOT/third_party" ]; then
     exit 1
 fi
 
+# ---- Install build tools ----
+echo "Installing build tools..."
+if [ "$EUID" -ne 0 ]; then
+    sudo apt-get install -y cmake build-essential pybind11-dev
+else
+    apt-get install -y cmake build-essential
+fi
+
+
 # ---- Install IsaacSim and necessary dependencies ----
 echo "Installing IsaacSim..."
 pip install isaacsim==4.2.0.2 isaacsim-extscache-physics==4.2.0.2 \
@@ -125,3 +134,21 @@ conda install -c conda-forge gcc=13.3.0 -y
 pip install holoscan==2.9.0
 
 echo "Dependencies installed successfully!"
+
+HOLOSCAN_DIR=$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/holoscan_apps/
+
+echo "Building Holoscan Apps"
+
+pushd $HOLOSCAN_DIR
+
+# clean previous downloads and builds
+rm -rf build
+rm -rf clarius_solum/include
+rm -rf clarius_solum/lib
+rm -rf clarius_cast/include
+rm -rf clarius_cast/lib
+cmake -B build -S . && cmake --build build
+
+popd
+
+echo "Holoscan Apps build completed!"
