@@ -4,6 +4,7 @@ import subprocess
 import threading
 import time
 import unittest
+
 from parameterized import parameterized
 
 SCRIPTS_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "scripts")
@@ -116,8 +117,8 @@ SM_CASES = [
     ("python simulation/scripts/environments/state_machine/reach_star_sm.py --headless", 20, "Environment stepped"),
 ]
 
-class TestSurgerySM(unittest.TestCase):
 
+class TestSurgerySM(unittest.TestCase):
     @parameterized.expand(SM_CASES)
     def test_surgery_sm(self, command, timeout, target_line):
         # Run and monitor command
