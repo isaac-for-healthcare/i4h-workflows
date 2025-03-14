@@ -11,7 +11,7 @@
 
 # Installation
 
-Follow the [Environment Setup](../README.md#environment-setup) instructions to setup the environment and dependencies.
+Follow the [Environment Setup](../../README.md#environment-setup) instructions to setup the environment and dependencies.
 
 # Environments
 

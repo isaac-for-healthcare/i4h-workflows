@@ -12,7 +12,7 @@ Please check the [I4H asset catalog](https://github.com/isaac-for-healthcare/i4h
 
 ### Install Dependencies
 
-Follow the [Environment Setup](../README.md#environment-setup) instructions to setup the environment and dependencies.
+Follow the [Environment Setup](../../README.md#environment-setup) instructions to setup the environment and dependencies.
 
 
 ### Setup Python Path
