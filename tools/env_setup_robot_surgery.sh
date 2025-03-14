@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Get the parent parent directory of the current script
+# Get the parent directory of the current script
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 
 # Check if running in a conda environment
