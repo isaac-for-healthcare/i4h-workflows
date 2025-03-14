@@ -86,9 +86,9 @@ def processed_image_cb(image, width, height, size, micros_per_pixel, origin_x, o
     global img
 
     if bpp == 4:
-        img = Image.frombytes("RGBA", (width, height), image).convert('L')
+        img = Image.frombytes("RGBA", (width, height), image).convert("L")
     else:
-        img = Image.open(BytesIO(image)).convert('L')
+        img = Image.open(BytesIO(image)).convert("L")
 
 
 def imu_port_cb(port):
@@ -153,6 +153,7 @@ def buttons_cb(button, clicks):
 
 class NoOp(Operator):
     """A sink operator that takes input and discards them."""
+
     def setup(self, spec: OperatorSpec):
         """Define input ports."""
         spec.input("input")
@@ -167,6 +168,7 @@ class ClariusSolumOp(Operator):
     Operator to interface with a Clarius UltraSound Probe using Clarius Solum APIs.
     Captures processed image data from a Clarius Probe and publishes it via DDS.
     """
+
     def __init__(self, fragment, *args, ip, port, cert, model, app, domain_id, width, height, topic_out, **kwargs):
         """
         Initializes the ClariusSolumOp operator.
@@ -261,7 +263,7 @@ class ClariusSolumOp(Operator):
         print(f"Creating writer for topic: {self.domain_id}:{self.topic_out}")
 
     def compute(self, op_input, op_output, context):
-        """ Processes the current ultrasound image and publishes it via DDS and to the downstream operator."""
+        """Processes the current ultrasound image and publishes it via DDS and to the downstream operator."""
         global img
 
         if img is None:
@@ -287,7 +289,7 @@ class ClariusSolumApp(Application):
     """
 
     def __init__(self, ip, port, cert, model, app, domain_id, height, width, topic_out, show_holoviz):
-        """ Initializes the ClariusSolumApp application.
+        """Initializes the ClariusSolumApp application.
 
         Parameters:
             ip: IP address of the Clarius probe.

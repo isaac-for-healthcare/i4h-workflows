@@ -250,6 +250,8 @@ def main():
     # reset environment at start
     env.reset()
 
+    env_cfg.episode_length_s = 5.0
+
     # create action buffers (position + quaternion)
     actions = torch.zeros(env.unwrapped.action_space.shape, device=env.unwrapped.device)
     actions[:, 3] = 1.0
@@ -262,7 +264,6 @@ def main():
         with torch.inference_mode():
             # step environment
             dones = env.step(actions)[-2]
-
             # observations
             robot: RigidObject = env.unwrapped.scene["robot"]
             # -- end-effector frame
@@ -292,7 +293,7 @@ def main():
             # reset state machine
             if dones.any():
                 pick_sm.reset_idx(dones.nonzero(as_tuple=False).squeeze(-1))
-
+                print("Resetting the state machine.")
     # close the environment
     env.close()
 
