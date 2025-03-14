@@ -8,7 +8,7 @@ Robotic Surgery is a physics-based surgical robot simulation framework with phot
 
 ## Setup
 
-Please refer to the [README](../README.md) for instructions on how to install the dependencies.
+Please refer to the [README](../../README.md#environment-setup) for instructions on how to install the dependencies.
 
 ## Robotic Surgery Tasks
 
