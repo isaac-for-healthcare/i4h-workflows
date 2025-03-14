@@ -17,6 +17,7 @@ class DDSEntity(ABC):
         transport_profile: Transport QoS profile name (format: "Library::Profile").
         entity_profile: Entity-specific QoS profile name (format: "Library::Profile").
     """
+
     # Cache for QoS profiles - shared across all instances
     _QOS_CACHE: Dict[str, Dict[str, Tuple[dds.DomainParticipantQos, dds.TopicQos, Any]]] = {}
 
@@ -28,7 +29,7 @@ class DDSEntity(ABC):
         domain_id: int,
         qos_provider_path: str,
         transport_profile: str,
-        entity_profile: str
+        entity_profile: str,
     ):
         self.topic = topic
         self.cls = cls
@@ -51,18 +52,18 @@ class DDSEntity(ABC):
         # Check if provider is cached
         if self.qos_provider_path not in DDSEntity._QOS_CACHE:
             DDSEntity._QOS_CACHE[self.qos_provider_path] = {}
-        
+
         provider_cache = DDSEntity._QOS_CACHE[self.qos_provider_path]
-        
+
         # Check if profile is cached
         if profile_name not in provider_cache:
             provider = dds.QosProvider(self.qos_provider_path)
             provider_cache[profile_name] = (
                 provider.participant_qos_from_profile(profile_name),
                 provider.topic_qos_from_profile(profile_name),
-                self._get_entity_qos(provider, profile_name)
+                self._get_entity_qos(provider, profile_name),
             )
-        
+
         return provider_cache[profile_name]
 
     def _get_entity_qos(self, provider: dds.QosProvider, profile_name: str) -> Any:
@@ -82,17 +83,9 @@ class DDSEntity(ABC):
     def _create_participant(self) -> dds.DomainParticipant:
         """Create a DDS domain participant with cached QoS settings."""
         participant_qos, _, _ = self._get_cached_qos(self.transport_profile)
-        return dds.DomainParticipant(
-            domain_id=self.domain_id,
-            qos=participant_qos
-        )
+        return dds.DomainParticipant(domain_id=self.domain_id, qos=participant_qos)
 
     def _create_topic(self, participant: dds.DomainParticipant) -> dds.Topic:
         """Create a DDS topic with cached QoS settings."""
         _, topic_qos, _ = self._get_cached_qos(self.entity_profile)
-        return dds.Topic(
-            participant,
-            self.topic,
-            self.cls,
-            qos=topic_qos
-        ) 
+        return dds.Topic(participant, self.topic, self.cls, qos=topic_qos)

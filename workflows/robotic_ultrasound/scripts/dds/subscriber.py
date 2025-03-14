@@ -20,8 +20,8 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Callable
 
-import rti.asyncio
 import rti.connextdds as dds  # noqa: F401
+
 from .base import DDSEntity
 
 
@@ -46,15 +46,15 @@ class Subscriber(DDSEntity, ABC):
     """
 
     def __init__(
-        self, 
-        topic: str, 
-        cls: Any, 
-        period: float, 
+        self,
+        topic: str,
+        cls: Any,
+        period: float,
         domain_id: int,
         qos_provider_path: str,
         transport_profile: str,
         reader_profile: str,
-        add_to_queue: bool = True
+        add_to_queue: bool = True,
     ):
         super().__init__(
             topic=topic,
@@ -63,7 +63,7 @@ class Subscriber(DDSEntity, ABC):
             domain_id=domain_id,
             qos_provider_path=qos_provider_path,
             transport_profile=transport_profile,
-            entity_profile=reader_profile
+            entity_profile=reader_profile,
         )
         self.dds_reader = None
         self.stop_event = None
@@ -208,24 +208,24 @@ class SubscriberWithQueue(Subscriber):
     """
 
     def __init__(
-        self, 
-        domain_id: int, 
-        topic: str, 
-        cls: Any, 
+        self,
+        domain_id: int,
+        topic: str,
+        cls: Any,
         period: float,
         qos_provider_path: str,
         transport_profile: str,
-        reader_profile: str
+        reader_profile: str,
     ):
         super().__init__(
-            topic, 
-            cls, 
-            period, 
-            domain_id, 
+            topic,
+            cls,
+            period,
+            domain_id,
             add_to_queue=True,
             qos_provider_path=qos_provider_path,
             transport_profile=transport_profile,
-            reader_profile=reader_profile
+            reader_profile=reader_profile,
         )
 
     def consume(self, data) -> None:
@@ -257,25 +257,25 @@ class SubscriberWithCallback(Subscriber):
     """
 
     def __init__(
-        self, 
-        cb: Callable, 
-        domain_id: int, 
-        topic: str, 
-        cls: Any, 
+        self,
+        cb: Callable,
+        domain_id: int,
+        topic: str,
+        cls: Any,
         period: float,
         qos_provider_path: str,
         transport_profile: str,
-        reader_profile: str
+        reader_profile: str,
     ):
         super().__init__(
-            topic, 
-            cls, 
-            period, 
-            domain_id, 
+            topic,
+            cls,
+            period,
+            domain_id,
             add_to_queue=False,
             qos_provider_path=qos_provider_path,
             transport_profile=transport_profile,
-            reader_profile=reader_profile
+            reader_profile=reader_profile,
         )
         self.cb = cb
 
