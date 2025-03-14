@@ -12,7 +12,7 @@ from rti.types import struct
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 try:
-    import raysim.cuda as rs
+    import ray_sim_python as rs
 except Exception as e:
     raise ImportError(f"Failed to initialize ray_sim_python: {e}\n" "Please check the installation and dependencies.")
 
@@ -61,7 +61,7 @@ class UltrasoundSimSubscriber(Operator):
         self.message = None
         self.dp = None
         self.subscriber = None
-        self.period = 1 / 30.0
+        self.period = 1 / 200.0
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec):
@@ -336,6 +336,7 @@ class Simulator(Operator):
         # Convert from lists or cupy arrays to numpy arrays
         translation_array = np.array(translation, dtype=np.float32)
         rotation_array = np.array(rot_euler, dtype=np.float32)
+
 
         # Create new pose and update probe
         new_pose = rs.Pose(translation_array, rotation_array)
