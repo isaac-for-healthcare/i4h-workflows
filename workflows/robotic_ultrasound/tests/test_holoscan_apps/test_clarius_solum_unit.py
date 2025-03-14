@@ -5,7 +5,6 @@ from holoscan_apps.clarius_solum.clarius_solum import ClariusSolumApp
 
 class TestClariusSolumUnit(unittest.TestCase):
     def test_clarius_solum_app(self):
-
         ip = "192.168.1.1"
         port = 5858
         cert = "/path/to/cert"
