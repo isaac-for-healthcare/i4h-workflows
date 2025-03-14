@@ -181,13 +181,7 @@ def main():
         reset_tensor = get_reset_action(env)
         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
-    # get transform matrix from isaac sim to organ coordinate system
-    transform_matrix = compute_transform_matrix(
-        ov_point=env.unwrapped.scene["organs"].data.root_pos_w.cpu().numpy()
-        * args_cli.scale,  # position of the organ in isaac sim
-        nifti_point=[0, -0.7168, 18.1250],  # corresponding position in nifti coordinate system
-    )
-    print(f"[INFO]: Coordinate transform matrix: {transform_matrix}")
+
 
     infer_r_cam_writer = RoomCamPublisher(args_cli.infer_domain_id)
     infer_w_cam_writer = WristCamPublisher(args_cli.infer_domain_id)
@@ -199,6 +193,10 @@ def main():
     infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
     infer_reader.start()
 
+    import time
+
+    time.sleep(10)
+
     # Number of steps played before replanning
     replan_steps = 15
 
@@ -207,7 +205,15 @@ def main():
         global reset_flag
         with torch.inference_mode():
             action_plan = collections.deque()
-
+            # get transform matrix from isaac sim to organ coordinate system
+            transform_matrix = compute_transform_matrix(
+                ov_point=env.unwrapped.scene["organs"].data.root_pos_w.cpu().numpy()
+                * args_cli.scale,  # position of the organ in isaac sim
+                # ov_point=[0.6 * 1000, 0.0, 0.09 * 1000],
+                nifti_point=[0, -0.7168, 18.1250],  # corresponding position in nifti coordinate system
+            )
+            print(env.unwrapped.scene["organs"].data.root_pos_w.cpu().numpy())
+            print(f"[INFO]: Coordinate transform matrix: {transform_matrix}")
             for t in range(max_timesteps):
                 # get and publish the current images and joint positions
                 pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
