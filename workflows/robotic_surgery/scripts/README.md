@@ -10,7 +10,7 @@
 
 ## Environment Setup
 
-The robotic ultrasound workflow is built on the following dependencies:
+The robotic surgery workflow is built on the following dependencies:
 - [IsaacSim 4.1.0.0](https://docs.isaacsim.omniverse.nvidia.com/4.1.0/index.html)
 - [IsaacLab 1.2.0](https://isaac-sim.github.io/IsaacLab/v1.2.0/source/setup/installation/index.html)
 
