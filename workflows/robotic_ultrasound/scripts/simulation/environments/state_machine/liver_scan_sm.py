@@ -29,6 +29,7 @@ parser.add_argument(
 )
 parser.add_argument("--reset_steps", type=int, default=15, help="Number of steps to take during environment reset.")
 parser.add_argument("--max_steps", type=int, default=350, help="Maximum number of steps before forcing a reset.")
+parser.add_argument("--debug", action="store_true", default=False, help="Enable debug output.")
 
 # Add DDS-related arguments
 parser.add_argument("--rti_license_file", type=str, help="the path of rti_license_file.")
@@ -139,8 +140,9 @@ def main():
     # reset environment at start
     obs = env.reset()
 
-    print(f"[INFO]: Gym observation space: {env.observation_space}")
-    print(f"[INFO]: Gym action space: {env.action_space}")
+    if args_cli.debug:
+        print(f"[INFO]: Gym observation space: {env.observation_space}")
+        print(f"[INFO]: Gym action space: {env.action_space}")
 
     # Initialize control modules
     modules = {
@@ -174,11 +176,13 @@ def main():
                     if str(state_machine.sm_state.state) == str(UltrasoundState.DONE):
                         data_collector.on_episode_complete()
                     else:
-                        print(f"State: {state_machine.sm_state.state}")
+                        if args_cli.debug:
+                            print(f"State: {state_machine.sm_state.state}")
                         data_collector.on_episode_reset()
 
-                print("-" * 80)
-                print("[INFO]: Resetting environment...")
+                if args_cli.debug:
+                    print("-" * 80)
+                    print("[INFO]: Resetting environment...")
                 count = 0
                 env.reset()
                 state_machine.reset()
@@ -191,24 +195,27 @@ def main():
 
             # Compute combined action from all modules
             rel_commands, abs_commands = state_machine.compute_action(env, robot_obs[0])
-            print(f"Step@{count} w/ action: {abs_commands}")
-            print(f"State: {state_machine.sm_state.state}")
+            if args_cli.debug:
+                print(f"Step@{count} w/ action: {abs_commands}")
+                print(f"State: {state_machine.sm_state.state}")
             # Step using relative commands
             obs, rew, terminated, truncated, info_ = env.step(rel_commands)
 
             # Capture camera images if data collection is happening
             rgb_images, depth_images = capture_camera_images(env, args_cli.camera_names, device=args_cli.device)
-            print(f"RGB images: {rgb_images.shape}")
-            print(f"Depth images: {depth_images.shape}")
+            if args_cli.debug:
+                print(f"RGB images: {rgb_images.shape}")
+                print(f"Depth images: {depth_images.shape}")
 
             obs["rgb_images"] = rgb_images
             obs["depth_images"] = depth_images
             # Publish camera data
             pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
             pub_data["wrist_cam"] = rgb_images[0, 1, ...].cpu().numpy()
-            print("Publishing camera data to DDS")
-            print(f"Room cam: {pub_data['room_cam'].shape}, dtype: {pub_data['room_cam'].dtype}")
-            print(f"Wrist cam: {pub_data['wrist_cam'].shape}, dtype: {pub_data['wrist_cam'].dtype}")
+            if args_cli.debug:
+                print("Publishing camera data to DDS")
+                print(f"Room cam: {pub_data['room_cam'].shape}, dtype: {pub_data['room_cam'].dtype}")
+                print(f"Wrist cam: {pub_data['wrist_cam'].shape}, dtype: {pub_data['wrist_cam'].dtype}")
             viz_r_cam_writer.write(0.1, 1.0)
             viz_w_cam_writer.write(0.1, 1.0)
 
