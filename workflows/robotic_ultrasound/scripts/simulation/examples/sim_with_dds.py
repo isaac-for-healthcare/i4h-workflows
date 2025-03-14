@@ -181,8 +181,6 @@ def main():
         reset_tensor = get_reset_action(env)
         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
-
-
     infer_r_cam_writer = RoomCamPublisher(args_cli.infer_domain_id)
     infer_w_cam_writer = WristCamPublisher(args_cli.infer_domain_id)
     infer_pos_writer = PosPublisher(args_cli.infer_domain_id)
@@ -192,10 +190,6 @@ def main():
     viz_probe_pos_writer = ProbePosPublisher(args_cli.viz_domain_id)
     infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
     infer_reader.start()
-
-    import time
-
-    time.sleep(10)
 
     # Number of steps played before replanning
     replan_steps = 15
@@ -212,7 +206,6 @@ def main():
                 # ov_point=[0.6 * 1000, 0.0, 0.09 * 1000],
                 nifti_point=[0, -0.7168, 18.1250],  # corresponding position in nifti coordinate system
             )
-            print(env.unwrapped.scene["organs"].data.root_pos_w.cpu().numpy())
             print(f"[INFO]: Coordinate transform matrix: {transform_matrix}")
             for t in range(max_timesteps):
                 # get and publish the current images and joint positions

@@ -219,7 +219,6 @@ def main():
             viz_r_cam_writer.write(0.1, 1.0)
             viz_w_cam_writer.write(0.1, 1.0)
 
-
             # Record data if collecting
             if data_collector is not None:
                 # Capture camera images if data collection is happening

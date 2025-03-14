@@ -246,7 +246,6 @@ def ov_to_nifti_orientation(
     coord_transform = CoordinateTransform.OMNIVERSE_TO_ORGAN if rotation_matrix is None else rotation_matrix
     coord_transform = torch.tensor(coord_transform, dtype=torch.float64, device=env.unwrapped.device)
 
-
     _, delta_rot = compute_pose_error(
         torch.zeros(1, 3, device=env.unwrapped.device),
         ov_quat,
