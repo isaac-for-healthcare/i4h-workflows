@@ -65,6 +65,8 @@ i4h-asset-retrieve
 
 ## Run the scripts
 
+The robotic surgery workflow provides several example scripts demonstrating surgical robot simulations, state machine implementations, and reinforcement learning capabilities. These examples include dVRK and STAR robot arm control, suture needle manipulation, and peg block tasks.
+
 Navigate to these sub-directories and run the scripts.
 
-- [Simulation](./simulation)
+- [Simulation](./scripts/simulation)

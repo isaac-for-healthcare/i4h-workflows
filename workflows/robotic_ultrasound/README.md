@@ -70,13 +70,14 @@ export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
 
 ## Run the scripts
 
+The robotic ultrasound workflow provides several example scripts demonstrating the ultrasound raytracing simulation, holoscan apps, policy model runner, training, and etc.
+
 Navigate to these sub-directories and run the scripts.
 
-- [DDS](./dds)
-- [Holoscan Apps](./holoscan_apps)
-- [Policy Runner](./policy_runner)
-- [Simulation](./simulation)
-- [Training](./training)
-- [Utils](./utils)
+- [Holoscan Apps](./scripts/holoscan_apps)
+- [Policy Runner](./scripts/policy_runner)
+- [Simulation](./scripts/simulation)
+- [Training](./scripts/training)
+- [Visualization Utilities](./scripts/utils)
 
-Please note that you may need to simultaneously run multiple scripts in different sub-directories to complete the entire workflow. For example, you need to have 4 different terminals running the policy runner, the sim_with_dds and ultrasound raytracing simulations, and the visualization in the `utils` directory.
+Please note that you may need to simultaneously run multiple scripts in different sub-directories to complete the entire workflow. For example, you need to have 4 different terminals running the visualization, policy runner, the sim_with_dds and ultrasound raytracing simulations.
