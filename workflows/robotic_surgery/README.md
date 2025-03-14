@@ -46,6 +46,12 @@ Please refer to the [Asset Container Helper](https://github.com/isaac-for-health
 i4h-asset-retrieve
 ```
 
+### Set environment variables before running the scripts
+Make sure `PYTHONPATH` is set:
+```sh
+export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_surgery/scripts`
+```
+
 ## Run the scripts
 
 The robotic surgery workflow provides several example scripts demonstrating surgical robot simulations, state machine implementations, and reinforcement learning capabilities. These examples include dVRK and STAR robot arm control, suture needle manipulation, and peg block tasks.
