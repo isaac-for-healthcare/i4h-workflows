@@ -4,11 +4,11 @@ from enum import Enum
 from typing import Sequence
 
 import numpy as np
+import omni.isaac.lab.utils.math as math_utils
 import onnxruntime as ort
 import torch
 from omni.isaac.lab.utils import convert_dict_to_backend
 from omni.isaac.lab.utils.math import compute_pose_error, quat_from_euler_xyz
-from scipy.spatial.transform import Rotation
 
 
 # MARK: - State Machine Enums + Dataclasses
@@ -63,7 +63,14 @@ class RobotQuaternions:
 class OrganEulerAngles:
     """Organ Euler angle configurations stored as torch tensors."""
 
-    DOWN: tuple[float, float, float] = (-np.pi / 2, -np.pi / 2, 0)
+    DOWN_EULER_DEG: tuple[float, float, float] = (-90, -90, 0)
+    DOWN: tuple[float, float, float, float] = tuple(
+        quat_from_euler_xyz(
+            torch.tensor(math.radians(DOWN_EULER_DEG[0])),  # X rotation (rad)
+            torch.tensor(math.radians(DOWN_EULER_DEG[1])),  # Y rotation (rad)
+            torch.tensor(math.radians(DOWN_EULER_DEG[2])),  # Z rotation (rad)
+        ).tolist()
+    )
 
 
 @dataclass(frozen=True)
@@ -207,7 +214,9 @@ def compute_transform_matrix(
 
 
 def ov_to_nifti_orientation(
+    env,
     ov_quat,
+    rotation_matrix: None | torch.Tensor = None,
     ov_down_quat: None | Sequence[float] = None,
     organ_down_quat: None | Sequence[float] = None,
 ):
@@ -215,7 +224,10 @@ def ov_to_nifti_orientation(
     Convert quaternion from Omniverse to organ coordinate system Euler angles
 
     Args:
+        env: The simulation environment containing the robot data
         ov_quat: Quaternion in [w, x, y, z] format from Omniverse
+        rotation_matrix: 3 homogeneous transformation matrix that maps positions
+            from Isaac Sim coordinate system to organ coordinate system
         ov_down_quat: Quaternion in [w, x, y, z] format for Omniverse "down" direction,
             default is RobotQuaternions.DOWN
         organ_down_quat: Euler angles in [x, y, z] format for organ "down" direction,
@@ -226,28 +238,42 @@ def ov_to_nifti_orientation(
     """
     # Set default values if not provided
     if ov_down_quat is None:
-        ov_down_quat = RobotQuaternions.DOWN  # Omniverse "down" quaternion [w, x, y, z]
+        ov_down_quat = torch.tensor(RobotQuaternions.DOWN, dtype=torch.float64, device=env.unwrapped.device).unsqueeze(
+            0
+        )  # Omniverse "down" quaternion [w, x, y, z]
 
     if organ_down_quat is None:
-        organ_down_quat = OrganEulerAngles.DOWN  # Organ "down" Euler angles [x, y, z]
+        organ_down_quat = torch.tensor(
+            OrganEulerAngles.DOWN, dtype=torch.float64, device=env.unwrapped.device
+        ).unsqueeze(0)  # Organ "down" Euler angles [x, y, z]
 
-    ov_rot = Rotation.from_quat(ov_quat, scalar_first=True)
+    # set default coordinate system transformation if not provided
+    if rotation_matrix is None:
+        coord_transform = torch.tensor(
+            CoordinateTransform.OMNIVERSE_TO_ORGAN, dtype=torch.float64, device=env.unwrapped.device
+        )
+    else:
+        coord_transform = rotation_matrix
 
-    # Define "down" in Omniverse using the provided quaternion
-    ov_down_rot = Rotation.from_quat(ov_down_quat, scalar_first=True)
+    _, delta_rot = compute_pose_error(
+        torch.zeros(1, 3, device=env.unwrapped.device),
+        ov_quat,
+        torch.zeros(1, 3, device=env.unwrapped.device),
+        ov_down_quat,
+        rot_error_type="quat",
+    )
+    delta_rot = math_utils.matrix_from_quat(delta_rot)
 
-    # Define "down" in organ coordinates using the provided Euler angles
-    organ_down_rot = Rotation.from_euler("xyz", organ_down_quat, degrees=False)
+    delta_rot_ct = coord_transform @ delta_rot @ torch.inverse(coord_transform)
+    ee_from_organ_matrix = delta_rot_ct.inverse() @ math_utils.matrix_from_quat(organ_down_quat.double())
+    quat = math_utils.quat_from_matrix(ee_from_organ_matrix)
 
-    transformed_rot = Rotation.from_matrix(ov_rot.as_matrix())
+    quat = math_utils.normalize(quat)
+    roll, pitch, yaw = math_utils.euler_xyz_from_quat(quat)
+    # stack the euler angles into roll pich yaw tensor
+    euler_angles = np.array([roll.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), yaw.squeeze().cpu().numpy()])
 
-    transformed_down_rot = Rotation.from_matrix(ov_down_rot.as_matrix())
-
-    final_rot = organ_down_rot * transformed_down_rot.inv() * transformed_rot
-
-    organ_euler = final_rot.as_euler("xyz", degrees=False)
-
-    return organ_euler
+    return euler_angles
 
 
 def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
@@ -296,9 +322,9 @@ def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
 
     # Get probe orientation as quaternion [w, x, y, z] and remove batch dimensions
     # Raw tensor has shape (batch_size=1, num_envs=1, 4)
-    probe_quat = probe_data.target_quat_w.squeeze(0).squeeze(0)  # Shape (4,)
+    probe_quat = probe_data.target_quat_w.squeeze(0)  # Shape (1, 4)
 
-    transformed_ori = ov_to_nifti_orientation(probe_quat.cpu().numpy())
+    transformed_ori = ov_to_nifti_orientation(env, probe_quat)
 
     # Optional logging for debugging
     if log:
@@ -309,6 +335,7 @@ def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
 
     # Return position as numpy array and orientation as Euler angles
     return transformed_pos.cpu().numpy(), transformed_ori
+
 
 def get_np_images(env):
     """Get numpy images from the environment."""

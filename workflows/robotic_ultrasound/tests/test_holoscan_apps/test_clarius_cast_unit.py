@@ -5,7 +5,6 @@ from holoscan_apps.clarius_cast.clarius_cast import ClariusCastApp
 
 class TestClariusCastUnit(unittest.TestCase):
     def test_clarius_cast_app(self):
-
         ip = "192.168.1.1"
         port = 5858
         domain_id = 421

@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+
 from omni.isaac.lab.app import AppLauncher
 
 # add argparse arguments
