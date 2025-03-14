@@ -5,6 +5,7 @@ from unittest import skipUnless
 
 from dds.schemas.usp_info import UltraSoundProbeInfo
 from isaacsim import SimulationApp
+from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 simulation_app = SimulationApp({"headless": True})
 import omni.usd  # noqa: E402
@@ -24,7 +25,7 @@ class TestUltraSoundBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.test_dir = os.path.dirname(os.path.abspath(__file__))
-        cls.usda_path = os.path.join(cls.test_dir, "basic.usda")
+        cls.usda_path = robot_us_assets.basic
         cls.us_prim_path = "/Target"
         assert os.path.exists(cls.usda_path), f"basic.usda not found at {cls.usda_path}"
 

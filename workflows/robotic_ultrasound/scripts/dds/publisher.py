@@ -25,7 +25,7 @@ class Publisher(ABC):
         self.logger = logging.getLogger(__name__)
         self.dds_writer = dds.DataWriter(dds.Topic(dds.DomainParticipant(domain_id=domain_id), topic, cls))
 
-    def write(self, dt: float, sim_time: float) -> float:
+    def write(self, dt: float = 0.0, sim_time: float = 0.0) -> float:
         """
         Write data to the DDS writer.
 
@@ -47,7 +47,7 @@ class Publisher(ABC):
         return exec_time
 
     @abstractmethod
-    def produce(self, dt: float, sim_time: float) -> Any:
+    def produce(self, dt: float = 0.0, sim_time: float = 0.0) -> Any:
         """
         Produce data to be published.
 

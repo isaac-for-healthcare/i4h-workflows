@@ -30,6 +30,12 @@ python tools/install_deps.py
 export RTI_LICENSE_FILE=<path to your RTI license file>
 ls $RTI_LICENSE_FILE
 
+# Optional: Download the assets
+i4h-asset-retrieve
+
+# For apps that require a build step
+tools/build.sh
+
 # Run all tests
 python tools/run_all_tests.py
 ```

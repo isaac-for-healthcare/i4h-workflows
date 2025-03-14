@@ -6,9 +6,11 @@ import unittest
 
 import h5py
 import numpy as np
+import torch
 from openpi import train
 from policy_runner.config import get_config
 from policy_runner.utils import compute_normalization_stats
+from training.pi_zero.convert_hdf5_to_lerobot import create_lerobot_dataset
 from training.pi_zero.convert_hdf5_to_lerobot import main as convert_hdf5_to_lerobot
 
 
@@ -24,7 +26,7 @@ class TestBase(unittest.TestCase):
         self.test_data_dir = os.path.join(self.cache_dir, self.TEST_REPO_ID)
 
         # Setup temporary directories
-        self.current_dir = os.path.dirname(__file__)
+        self.current_dir = os.getcwd()
         self.tmp_assets_dir = os.path.join(self.current_dir, "assets")
         self.tmp_checkpoints_dir = os.path.join(self.current_dir, "checkpoints")
         self.tmp_wandb_dir = os.path.join(self.current_dir, "wandb")
@@ -116,6 +118,83 @@ class TestConvertHdf5ToLeRobot(TestBase):
         self.assertTrue(os.path.exists(meta_data_dir), f"Meta data directory not created at {meta_data_dir}")
         self.assertTrue(os.path.exists(data_dir), f"Data directory not created at {data_dir}")
 
+    def test_convert_hdf5_to_lerobot_repo_permission_error_handling(self):
+        """Test that permission error can be handled."""
+        # create a tmp folder that have the permission issue when use shutil.rmtree
+        tmp_dir = os.path.join(self.cache_dir, "tmp_repo")
+        os.makedirs(tmp_dir, exist_ok=True)
+        os.chmod(tmp_dir, 0o000)
+        # check get expected error message
+        with self.assertRaises(Exception) as context:
+            convert_hdf5_to_lerobot(self.hdf5_data_dir, "tmp_repo", self.test_prompt)
+        self.assertTrue("Please ensure that you have write permissions" in str(context.exception))
+        # clean up the tmp folder with right permission
+        os.chmod(tmp_dir, 0o755)
+        shutil.rmtree(tmp_dir)
+
+    def test_convert_hdf5_to_lerobot_data_dir_error_handling(self):
+        """Test that data directory error can be handled."""
+        # check get expected Exception
+        fake_data_dir = os.path.join(self.current_dir, "fake_data_dir")
+        error_test_repo_id = "i4h/error_test_data"
+        with self.assertRaises(Exception) as context:
+            convert_hdf5_to_lerobot(fake_data_dir, error_test_repo_id, self.test_prompt)
+        self.assertTrue(f"Data directory {fake_data_dir} does not exist." == str(context.exception))
+
+        # check get expected no hdf5 files warning message
+        fake_empty_data_dir = os.path.join(self.current_dir, "fake_empty_data_dir")
+        os.makedirs(fake_empty_data_dir, exist_ok=True)
+        with self.assertWarns(Warning) as context:
+            convert_hdf5_to_lerobot(fake_empty_data_dir, error_test_repo_id, self.test_prompt)
+        self.assertTrue(f"No HDF5 files found in {fake_empty_data_dir}" == str(context.warning))
+
+        # check get expected repo_id warning message
+        hdf5_path = os.path.join(self.hdf5_data_dir, "data_0.hdf5")
+        wrong_name_hdf5_path = os.path.join(fake_empty_data_dir, "wrong_name_0.hdf5")
+        shutil.copy(hdf5_path, wrong_name_hdf5_path)
+        with self.assertWarns(Warning) as context:
+            convert_hdf5_to_lerobot(fake_empty_data_dir, error_test_repo_id, self.test_prompt)
+        self.assertTrue(f"File {wrong_name_hdf5_path} does not match the expected pattern." == str(context.warning))
+
+        # clean up
+        shutil.rmtree(fake_empty_data_dir)
+        shutil.rmtree(os.path.join(self.cache_dir, error_test_repo_id))
+
+    def test_create_lerobot_dataset(self):
+        """Test that LeRobot dataset can be created successfully."""
+        output_path = os.path.join(self.current_dir, "test_dataset_output")
+        # check get expected Exception
+        os.makedirs(output_path, exist_ok=True)
+        with self.assertRaises(Exception) as context:
+            create_lerobot_dataset(
+                output_path=output_path,
+            )
+        self.assertTrue(f"Output path {output_path} already exists." == str(context.exception))
+        # clean up
+        shutil.rmtree(output_path)
+
+        # check normal creation
+        fps = 5
+        image_shape = (128, 128, 3)
+        state_shape = (7,)
+        actions_shape = (6,)
+        test_dataset = create_lerobot_dataset(
+            output_path=output_path,
+            fps=fps,
+            image_shape=image_shape,
+            state_shape=state_shape,
+            actions_shape=actions_shape,
+        )
+
+        self.assertEqual(test_dataset.fps, fps)
+        self.assertEqual(test_dataset.features["image"]["shape"], image_shape)
+        self.assertEqual(test_dataset.features["state"]["shape"], state_shape)
+        self.assertEqual(test_dataset.features["actions"]["shape"], actions_shape)
+        self.assertTrue(os.path.exists(os.path.join(output_path, "meta")))
+
+        # clean up
+        shutil.rmtree(output_path)
+
 
 class TestNormalizationStats(TestBase):
     """Test the computation of normalization statistics."""
@@ -123,7 +202,9 @@ class TestNormalizationStats(TestBase):
     def test_compute_normalization_stats(self):
         """Test that normalization statistics can be computed successfully."""
         # Compute normalization statistics
-        compute_normalization_stats(self.test_config)
+        # get number of GPUs
+        num_gpus = torch.cuda.device_count()
+        compute_normalization_stats(self.test_config, batch_size=num_gpus)
 
         # Check that the stats file was created
         output_path = self.test_config.assets_dirs / self.TEST_REPO_ID

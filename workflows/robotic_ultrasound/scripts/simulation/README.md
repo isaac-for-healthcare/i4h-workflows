@@ -35,6 +35,16 @@ sudo apt install cmake build-essential
 python source/standalone/tutorials/00_sim/create_empty.py
 ```
 
+# Download the assets
+
+```sh
+git clone git@github.com:isaac-for-healthcare/i4h-asset-catalog.git
+cd i4h-asset-catalog
+pip install -e .
+
+i4h-asset-retrieve
+```
+
 # Installation
 
 Follow the [Installation](#installation) instructions below to install the extension.
@@ -84,9 +94,9 @@ export PYTHONPATH=`pwd`
 python environments/state_machine/pi0_policy/eval.py \
     --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
     --enable_camera \
-    --ckpt_path <path to ckpt>/pi0_aortic_scan_v0.3/19000 \
-    --repo_id hf/chiron_aortic
+    --repo_id i4h/sim_liver_scan
 ```
+NOTE: You can also specify `--ckpt_path` to run a specific policy.
 This should open a stage with Franka arm and run the robotic ultrasound actions:
 ![pi0 simulation](../../../../docs/source/pi0_sim.jpg)
 
@@ -188,3 +198,85 @@ The collected data includes:
 - State machine state
 - Joint positions
 - Camera images
+
+## Ultrasound Raytracing Simulation
+
+This example implements a standalone ultrasound raytracing simulator that generates realistic ultrasound images
+based on 3D meshes. The simulator uses Holoscan framework and DDS communication for realistic performance.
+
+### NVIDIA OptiX Raytracing with Python Bindings
+
+For instructions on preparing and building the Python module, please refer to the [Ultrasound Raytracing README](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/blob/main/ultrasound-raytracing/README.md).
+
+### Configuration
+
+The simulator supports customization through JSON configuration files. You need to create your own
+configuration file following the structure below:
+
+```json
+{
+    "probe_params": {
+        "num_elements": 4096,
+        "opening_angle": 73.0,
+        "radius": 45.0,
+        "frequency": 2.5,
+        "elevational_height": 7.0,
+        "num_el_samples": 10
+    },
+    "sim_params": {
+        "conv_psf": true,
+        "buffer_size": 4096,
+        "t_far": 180.0
+    }
+}
+```
+
+#### Probe Parameters
+
+| Parameter | Description | Default Value |
+|-----------|-------------|---------------|
+| num_elements | Number of elements in the ultrasound probe | 4096 |
+| opening_angle | Beam opening angle in degrees | 73.0 |
+| radius | Radius of the ultrasound probe in mm | 45.0 |
+| frequency | Ultrasound frequency in MHz | 2.5 |
+| elevational_height | Height of the elevation plane in mm | 7.0 |
+| num_el_samples | Number of samples in the elevation direction | 10 |
+
+#### Simulation Parameters
+
+| Parameter | Description | Default Value |
+|-----------|-------------|---------------|
+| conv_psf | Whether to use convolution point spread function | true |
+| buffer_size | Size of the simulation buffer | 4096 |
+| t_far | Maximum time/distance for ray tracing (in units relevant to the simulation) | 180.0 |
+
+##### Minimal Configuration Example
+
+You only need to specify the parameters you want to change - any omitted parameters will use their default values:
+
+```json
+{
+    "probe_params": {
+        "frequency": 3.5,
+        "radius": 55.0
+    },
+    "sim_params": {
+        "t_far": 200.0
+    }
+}
+```
+
+### Running the Simulator
+
+To run the ultrasound raytracing simulator:
+
+```sh
+python examples/ultrasound-raytracing.py \
+    --domain_id <domain_id> \
+    --height 224 \
+    --width 224 \
+    --topic_in topic_ultrasound_info \
+    --topic_out topic_ultrasound_data \
+    --viz_domain_id <domain id> \
+    --config path/to/your_config.json
+```

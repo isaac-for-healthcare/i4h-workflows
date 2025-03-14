@@ -7,6 +7,7 @@ import numpy as np
 from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from isaacsim import SimulationApp
+from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 simulation_app = SimulationApp({"headless": True})
 
@@ -29,7 +30,7 @@ class TestFrankaBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.test_dir = os.path.dirname(os.path.abspath(__file__))
-        cls.usda_path = os.path.join(cls.test_dir, "basic.usda")
+        cls.usda_path = robot_us_assets.basic
         cls.franka_prim_path = "/Franka"
         assert os.path.exists(cls.usda_path), f"basic.usda not found at {cls.usda_path}"
 

@@ -142,6 +142,9 @@ venv.bak/
 # IsaacLab
 *IsaacLab/
 
+# I4H Assets
+*i4h-asset-catalog/
+
 # Training data
 **/pi_zero/assets/
 **/pi_zero/checkpoints/
@@ -191,10 +194,23 @@ cython_debug/
 # VSCode
 .vscode/
 
-# ignore obj usd usda files
-*.obj
-*.usd
-*.usda
-*.mtl
-*.png
-*.usdc
+# Wandb
+wandb/
+
+# No USD files allowed in the repo
+**/*.usd
+**/*.usda
+**/*.usdc
+**/*.usdz
+
+# Outputs
+**/output/*
+**/outputs/*
+**/videos/*
+**/runs/*
+**/logs/*
+**/recordings/*
+
+# third-party files
+**/clarius_cast/include
+**/clarius_solum/include

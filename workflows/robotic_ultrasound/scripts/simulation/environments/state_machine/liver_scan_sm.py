@@ -174,7 +174,7 @@ def main():
                     if str(state_machine.sm_state.state) == str(UltrasoundState.DONE):
                         data_collector.on_episode_complete()
                     else:
-                        # print(f"State: {state_machine.sm_state.state}")
+                        print(f"State: {state_machine.sm_state.state}")
                         data_collector.on_episode_reset()
 
                 print("-" * 80)
@@ -191,8 +191,8 @@ def main():
 
             # Compute combined action from all modules
             rel_commands, abs_commands = state_machine.compute_action(env, robot_obs[0])
-            # print(f"Step@{count} w/ action: {abs_commands}")
-            # print(f"State: {state_machine.sm_state.state}")
+            print(f"Step@{count} w/ action: {abs_commands}")
+            print(f"State: {state_machine.sm_state.state}")
             # Step using relative commands
             obs, rew, terminated, truncated, info_ = env.step(rel_commands)
 
@@ -212,8 +212,14 @@ def main():
             viz_r_cam_writer.write(0.1, 1.0)
             viz_w_cam_writer.write(0.1, 1.0)
 
+
             # Record data if collecting
             if data_collector is not None:
+                # Capture camera images if data collection is happening
+                rgb_images, depth_images = capture_camera_images(env, args_cli.camera_names, device=args_cli.device)
+                obs["rgb_images"] = rgb_images
+                obs["depth_images"] = depth_images
+
                 data_collector.record_step(
                     env,
                     obs,

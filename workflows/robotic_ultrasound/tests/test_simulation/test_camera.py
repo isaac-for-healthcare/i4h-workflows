@@ -8,6 +8,7 @@ from dds.schemas.camera_ctrl import CameraCtrlInput
 from dds.schemas.camera_info import CameraInfo
 from isaacsim import SimulationApp
 from parameterized import parameterized
+from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 simulation_app = SimulationApp({"headless": True})
 
@@ -28,7 +29,7 @@ class TestCameraBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.test_dir = os.path.dirname(os.path.abspath(__file__))
-        cls.usda_path = os.path.join(cls.test_dir, "basic.usda")
+        cls.usda_path = robot_us_assets.basic
         cls.camera_prim_path = "/RoomCamera"
         assert os.path.exists(cls.usda_path), f"basic.usda not found at {cls.usda_path}"
 

@@ -8,6 +8,7 @@ from dds.publisher import Publisher
 from dds.subscriber import Subscriber
 from isaacsim import SimulationApp
 from parameterized import parameterized
+from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 simulation_app = SimulationApp({"headless": True})
 import omni.usd  # noqa: E402
@@ -33,9 +34,8 @@ class TestAnnotator(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Set up the USD stage with basic.usda file."""
-        # Get path to basic.usda
         cls.test_dir = os.path.dirname(os.path.abspath(__file__))
-        cls.basic_usd_path = os.path.join(cls.test_dir, "basic.usda")
+        cls.basic_usd_path = robot_us_assets.basic
         assert os.path.exists(cls.basic_usd_path), f"basic.usda not found at {cls.basic_usd_path}"
 
     def setUp(self):
@@ -67,7 +67,7 @@ class TestAnnotator(unittest.TestCase):
 
     @parameterized.expand([("/Target", "Target path"), ("/Franka", "Franka path")])
     def test_init_with_valid_paths(self, prim_path, test_desc):
-        """Test initialization with valid paths from basic.usda."""
+        """Test initialization with valid paths"""
         annotator = Annotator(
             name="test_annotator",
             prim_path=prim_path,

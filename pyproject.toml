@@ -7,7 +7,7 @@ use_parentheses = true
 line_length = 120
 py_version = 310
 group_by_package = true
-known_third_party = ["openpi"]
+known_third_party = ["openpi", "i4h_asset_helper"]
 
 [tool.ruff]
 line-length = 120
@@ -15,3 +15,7 @@ target-version = "py310"
 
 [tool.ruff.lint]
 extend-select = ["E501"]
+extend-ignore = ["E402"]
+
+[tool.codespell]
+ignore-words-list = "solum"

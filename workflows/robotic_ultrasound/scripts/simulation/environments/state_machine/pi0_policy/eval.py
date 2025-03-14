@@ -6,8 +6,13 @@ import numpy as np
 import torch
 from omni.isaac.lab.app import AppLauncher
 from policy_runner import PI0PolicyRunner
-from simulation.environments.state_machine.act_policy.act_utils import get_np_images
-from simulation.environments.state_machine.utils import compute_relative_action, get_joint_states, get_robot_obs
+from simulation.environments.state_machine.utils import (
+    compute_relative_action,
+    get_joint_states,
+    get_np_images,
+    get_robot_obs,
+)
+from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script evaluate the pi0 model in a single-arm manipulator.")
@@ -16,7 +21,12 @@ parser.add_argument(
 )
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
-parser.add_argument("--ckpt_path", type=str, help="checkpoint path.")
+parser.add_argument(
+    "--ckpt_path",
+    type=str,
+    default=None,
+    help="checkpoint path. Default to use policy checkpoint in the latest assets.",
+)
 parser.add_argument("--repo_id", type=str, help="the LeRobot repo id for the dataset norm.")
 
 # append AppLauncher cli argr
@@ -32,10 +42,7 @@ reset_flag = False
 from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: E402
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.meta_state_machine.ultrasound_state_machine import (  # noqa: E402
-    RobotPositions,
-    RobotQuaternions,
-)
+from simulation.environments.state_machine.utils import RobotPositions, RobotQuaternions  # noqa: E402
 
 
 def get_reset_action(env, use_rel: bool = True):
@@ -80,7 +87,7 @@ def main():
         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
     policy_runner = PI0PolicyRunner(
-        ckpt_path=args_cli.ckpt_path,
+        ckpt_path=args_cli.ckpt_path if args_cli.ckpt_path else robot_us_assets.policy_ckpt,
         repo_id=args_cli.repo_id,
         task_description="Conduct a ultrasound scan on the liver.",
     )
