@@ -200,7 +200,6 @@ def main():
         with torch.inference_mode():
             # step environment
             dones = env.step(actions)[-2]
-            print("Environment stepped")
             # observations
             robot: RigidObject = env.unwrapped.scene["robot"]
             # -- end-effector frame
@@ -219,6 +218,7 @@ def main():
             # reset state machine
             if dones.any():
                 reach_sm.reset_idx(dones.nonzero(as_tuple=False).squeeze(-1))
+                print("Resetting the state machine.")
 
     # close the environment
     env.close()

@@ -110,9 +110,9 @@ def run_with_monitoring(command, timeout_seconds, target_line=None):
 class TestReachPSMSM(unittest.TestCase):
     def test_reach_psm_sm(self):
         # relative to the SCRIPTS_PATH
-        command = "python simulation/scripts/environments/state_machine/lift_block_sm.py --headless"
+        command = "python -u simulation/scripts/environments/state_machine/reach_psm_sm.py --headless"
         timeout = 20
-        target_line = "Environment stepped"
+        target_line = "Resetting the state machine."
         exit_code, found_target = run_with_monitoring(command, timeout, target_line)
         self.assertEqual(found_target, True)
 
