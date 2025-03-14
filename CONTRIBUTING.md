@@ -79,14 +79,14 @@ We use pre-commit hooks to ensure code quality. To set up pre-commit:
 Before submitting your contribution, ensure all tests pass in the workflow(s) you contributed:
 
 ```bash
-# Set up your RTI license
-export RTI_LICENSE_FILE=<path to your RTI license file>
-
-# Optional: Install dependencies for CI pipelines
+# Install dependencies
 python tools/install_deps.py --workflow <workflow_name>
 
-# Optional: Download required assets
+# Download required assets
 i4h-asset-retrieve
+
+# Set up your RTI license, skip if you are only running tests for robotic_surgery
+export RTI_LICENSE_FILE=<path to your RTI license file>
 
 # Run all tests
 python tools/run_all_tests.py --workflow <workflow_name>

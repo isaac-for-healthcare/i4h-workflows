@@ -24,11 +24,19 @@ Install or upgrade to the latest NVIDIA driver from [NVIDIA website](https://www
 
 Conda is suggested for virtual environment setup, install `Miniconda` from [Miniconda website](https://docs.anaconda.com/miniconda/install/#quick-command-line-install).
 
+Conda is suggested for virtual environment setup, install `Miniconda` from [Miniconda website](https://docs.anaconda.com/miniconda/install/#quick-command-line-install) and create a new virtual environment with Python 3.10.
+
+```sh
+# Create a new conda environment
+conda create -n robotic_surgery python=3.10 -y
+# Activate the environment
+conda activate robotic_surgery
+```
+
 The following command line will create a conda environment named `robotic_surgery` and install all dependencies by running:
 ```bash
 cd <path-to-i4h-workflows>
 bash tools/env_setup_robot_surgery.sh
-conda activate robotic_surgery
 ```
 
 **NOTE**: If you want to specify a different conda environment name, you can pass the name as an argument to the script.
