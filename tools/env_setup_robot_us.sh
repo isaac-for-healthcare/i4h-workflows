@@ -152,3 +152,9 @@ cmake -B build -S . && cmake --build build
 popd
 
 echo "Holoscan Apps build completed!"
+
+# ---- Install libstdcxx-ng for raysim ----
+echo "Installing libstdcxx-ng..."
+conda install -c conda-forge libstdcxx-ng=13.2.0 -y
+
+echo "Dependencies installed successfully!"

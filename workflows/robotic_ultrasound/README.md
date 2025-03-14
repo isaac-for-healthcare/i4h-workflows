@@ -65,7 +65,6 @@ Make sure `PYTHONPATH`, `RTI_LICENSE_FILE` and `LD_PRELOAD` is set
 ```sh
 export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts`
 export RTI_LICENSE_FILE=<path-to-rti-license-file>
-export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
 ```
 
 ## Run the scripts
