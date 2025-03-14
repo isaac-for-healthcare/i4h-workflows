@@ -218,5 +218,5 @@ third_party/
 **/clarius_cast/include
 **/clarius_solum/include
 
-# raysim install
+# Raytracing Ultrasound Simulator
 workflows/robotic_ultrasound/scripts/raysim
