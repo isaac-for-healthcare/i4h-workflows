@@ -50,3 +50,6 @@ python -m pip install -e $PROJECT_ROOT/workflows/robotic_surgery/scripts/simulat
 python -m pip install -e $PROJECT_ROOT/workflows/robotic_surgery/scripts/simulation/exts/robotic.surgery.tasks
 
 echo "Dependencies installed successfully!"
+
+echo "Please run the following command to activate the conda environment:"
+echo "conda activate $CONDA_ENV_NAME"
