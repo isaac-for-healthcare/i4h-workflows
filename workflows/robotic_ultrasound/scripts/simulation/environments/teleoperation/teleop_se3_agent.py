@@ -379,40 +379,8 @@ def main():
             quat_MeshToEE = math_utils.quat_mul(quat_MeshToOrgan, quat_OrganToEE)
             pos_MeshToEE = math_utils.quat_apply(quat_MeshToOrgan, pos_OrganToEE) + mesh_offset
 
-            # print("pos_ee_from_organ shape:", pos_ee_from_organ.shape)
-            # print(f"dtype of pos_ee_from_organ: {pos_ee_from_organ.dtype}")
-
-            # Add an additional rotation to the end-effector pose from sim to nifti frame
-            # add additional rotations here if needed
-            # qnew​=qold​ × qz​(α).   
-            # # create a matrix from pos quat for MeshToEE
-            # matrix_EEToUS = matrix_from_pos_quat(torch.zeros(1, 3).double(), quat_EEToUS)
-
-            # # create a matrix from pos quat
-            # matrix_MeshToEE = matrix_from_pos_quat(pos_MeshToEE, quat_MeshToEE)
-
-            # # multiply with local transform probe to probe us
-            # matrix_MeshToUS = torch.matmul(matrix_MeshToEE, matrix_EEToUS)
-            # # convert matrix to quat and compare with below
-            # quat_MeshToUS = math_utils.quat_from_matrix(matrix_MeshToUS[:, :3, :3])
-            # pos_MeshToUS = matrix_MeshToUS[:, :3, 3]
-
             quat_MeshToUS = math_utils.quat_mul(quat_MeshToEE, quat_EEToUS)
             pos_MeshToUS = pos_MeshToEE
-
-            # quat_MeshToUS = math_utils.normalize(quat_MeshToUS)
-            # print("quat:", quat_MeshToUS)
-            # print("quat shape:", quat_MeshToUS.shape)
-            # normalize the quat
-
-            # apply the transformation to the end-effector pose
-            # quat = math_utils.quat_mul(quat, probe_to_probe_us_quat)
-
-            # # print both and compare
-            # print("quat_local:", quat_local)
-            # print("quat:", quat)
-            # assert torch.allclose(quat_local, quat)
-            # pos =  math_utils.quat_apply(probe_to_probe_us_quat, pos)
 
             # scale the position from m to mm
             pos = pos_MeshToUS * 1000.0
@@ -439,10 +407,6 @@ def main():
             rgb_images, _ = capture_camera_images(env, ["room_camera", "wrist_camera"], device=env.unwrapped.device)
             pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
             pub_data["wrist_cam"] = rgb_images[0, 1, ...].cpu().numpy()
-            # pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
-            #         env, transform_matrix=transform_matrix, scale=1000.0, log=True
-            #     )
-            # # Get and publish joint positions
             pub_data["joint_pos"] = get_joint_states(env)[0]
 
             viz_r_cam_writer.write(0.1, 1.0)

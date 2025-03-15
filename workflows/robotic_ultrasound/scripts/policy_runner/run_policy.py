@@ -24,9 +24,17 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ckpt_path", type=str, default=None, help="checkpoint path.")
     parser.add_argument(
-        "--repo_id", type=str, default="i4h/sim_liver_scan", help="the LeRobot repo id for the dataset norm."
+        "--ckpt_path",
+        type=str,
+        default=None,
+        help="checkpoint path. Default will use the policy model in the downloaded assets."
+    )
+    parser.add_argument(
+        "--repo_id",
+        type=str,
+        default="i4h/sim_liver_scan",
+        help="the LeRobot repo id for the dataset norm. This is included in the checkpoint folder by default."
     )
     parser.add_argument("--rti_license_file", type=str, default=None,help="the path of rti_license_file.")
     parser.add_argument("--domain_id", type=int, default=0, help="domain id.")
