@@ -1,38 +1,9 @@
-## Pre-commit
+## Tools
 
-To install `pre-commit`, run the following command:
-```bash
-pip install pre-commit
-```
+This folder contains tools for the project.
 
-To check your code before committing, run the following command:
-
-```bash
-pre-commit run --all-files
-```
-This will only check the changes and will not modify the code.
-
-To run autofix, run the following command:
-
-```bash
-pre-commit run -c tools/premerge-autofix.yaml --all-files
-```
-
-This will fix the linting errors and formatting errors.
-
-
-## Test
-
-```bash
-# Optional: Install dependencies for CI pipelines
-python tools/install_deps.py
-
-export RTI_LICENSE_FILE=<path to your RTI license file>
-ls $RTI_LICENSE_FILE
-
-# Optional: Download the assets
-i4h-asset-retrieve
-
-# Run all tests
-python tools/run_all_tests.py
-```
+- `install_deps.py`: Install dependencies for the project for CI running.
+- `run_all_tests.py`: Run all tests for the project for a workflow.
+- `env_setup_robot_us.sh`: Install dependencies for the robotic ultrasound workflow.
+- `env_setup_robot_surgery.sh`: Install dependencies for the robotic surgery workflow.
+- `premerge-autofix.yaml`: Pre-commit autofix for the project.
