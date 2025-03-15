@@ -1,12 +1,15 @@
+import argparse
 import glob
 import os
 import subprocess
 import sys
 import traceback
 
-PROJECT_ROOTS = [
-    "workflows/robotic_ultrasound",
+WORKFLOWS = [
+    "robotic_ultrasound",
+    "robotic_surgery",
 ]
+
 
 XVFB_TEST_CASES = [
     "test_orientation",
@@ -20,11 +23,13 @@ def get_tests(test_root):
     return glob.glob(path, recursive=True)
 
 
-def run_tests_with_coverage(project_root):
+def run_tests_with_coverage(workflow_name):
     """Run all unittest cases with coverage reporting"""
+    project_root = f"workflows/{workflow_name}"
+
     try:
         # TODO: add license file to secrets
-        default_license_file = os.path.join(os.getcwd(), project_root, "scripts", "rti_dds", "rti_license.dat")
+        default_license_file = os.path.join(os.getcwd(), project_root, "scripts", "dds", "rti_license.dat")
         os.environ["RTI_LICENSE_FILE"] = os.environ.get("RTI_LICENSE_FILE", default_license_file)
         all_tests_passed = True
         tests_dir = os.path.join(project_root, "tests")
@@ -119,9 +124,12 @@ def run_tests_with_coverage(project_root):
 
 
 if __name__ == "__main__":
-    exit_code = 0
-    for project_root in PROJECT_ROOTS:
-        result = run_tests_with_coverage(project_root)
-        if result != 0:
-            exit_code = result
+    parser = argparse.ArgumentParser(description="Run all tests for a workflow")
+    parser.add_argument("--workflow", type=str, default="robotic_ultrasound", help="Workflow name")
+    args = parser.parse_args()
+
+    if args.workflow not in WORKFLOWS:
+        raise ValueError(f"Invalid workflow name: {args.workflow}")
+
+    exit_code = run_tests_with_coverage(args.workflow)
     sys.exit(exit_code)

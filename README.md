@@ -1,6 +1,8 @@
-![Robitic ultrasound](./docs/source/ultrasound.jpg)
+<p align="center" style="display: flex; justify-content: center; gap: 10px;">
+  <img src="./docs/source/surgery.png" alt="Robotic Surgery" style="width: 45%; height: auto; aspect-ratio: 16/9; object-fit: cover;" />
+  <img src="./docs/source/ultrasound.jpg" alt="Robotic Ultrasound" style="width: 45%; height: auto; aspect-ratio: 16/9; object-fit: cover;" />
+</p>
 
----
 
 # Isaac for Healthcare - Workflows
 
@@ -42,8 +44,8 @@ For everything you need to get started, including detailed tutorials and step-by
 
 - [Robotic ultrasound - simulation](./workflows/robotic_ultrasound/scripts/simulation/README.md)
 - [Robotic ultrasound - policy runner](./workflows/robotic_ultrasound/scripts/policy_runner/README.md)
-- <placeholder for "Robotic ultrasound - Holoscan programs">
-- <placeholder for "Robotic surgery">
+- [Robotic ultrasound - holoscan apps](./workflows/robotic_ultrasound/scripts/holoscan_apps/README.md)
+- [Robotic surgery - simulation](./workflows/robotic_surgery/scripts/simulation/README.md)
 - [Tutorials](./tutorials)
 
 

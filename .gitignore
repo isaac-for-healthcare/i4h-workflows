@@ -203,3 +203,27 @@ wandb/
 *.mtl
 *.png
 *.usdc
+
+# No USD files allowed in the repo
+**/*.usd
+**/*.usda
+**/*.usdc
+**/*.usdz
+
+# Outputs
+**/output/*
+**/outputs/*
+**/videos/*
+**/runs/*
+**/logs/*
+**/recordings/*
+
+# Third party
+third_party/
+
+# third-party files
+**/clarius_cast/include
+**/clarius_solum/include
+
+# Raytracing Ultrasound Simulator
+workflows/robotic_ultrasound/scripts/raysim
