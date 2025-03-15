@@ -24,7 +24,7 @@ parser.add_argument(
     default="keyboard",
     help="Device for interacting with environment",
 )
-parser.add_argument("--task", type=str, default=None, help="Name of the task.")
+parser.add_argument("--task", type=str, default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0", help="Name of the task. Default is Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0.")
 parser.add_argument("--sensitivity", type=float, default=1.0, help="Sensitivity factor.")
 parser.add_argument(
     "--topic_in_probe_pos",
@@ -37,7 +37,7 @@ parser.add_argument("--rti_license_file", type=str, default=None, help="Path to 
 parser.add_argument(
     "--viz_domain_id",
     type=int,
-    default=1,
+    default=0,
     help="domain id to publish data for visualization.",
 )
 
@@ -91,9 +91,10 @@ from robotic_us_ext import tasks  # noqa: F401, E402
 from simulation.environments.state_machine.utils import compute_transform_matrix, get_joint_states
 
 # Add RTI DDS imports
-if args_cli.rti_license_file is None or not os.path.isabs(args_cli.rti_license_file):
-    raise ValueError("RTI license file must be an existing absolute path.")
-os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
+if args_cli.rti_license_file is not None:
+    if not os.path.isabs(args_cli.rti_license_file):
+        raise ValueError("RTI license file must be an existing absolute path.")
+    os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
 
 
 def capture_camera_images(env, cam_names, device="cuda"):
@@ -367,18 +368,18 @@ def main():
             env.step(actions)
 
             # Get the end-effector pose in the organ frame
-            pos_ee_from_organ = env.unwrapped.scene["organ_to_robot_transform"].data.target_pos_source[0].double()
-            quat_ee_from_organ = env.unwrapped.scene["organ_to_robot_transform"].data.target_quat_source[0]
+            pos_OrganToEE = env.unwrapped.scene["organ_to_robot_transform"].data.target_pos_source[0].double()
+            quat_OrganToEE = env.unwrapped.scene["organ_to_robot_transform"].data.target_quat_source[0]
 
             # Describe the orientation of the organ frame in the nifti frame
-            quat_sim_to_nifti = quat_from_euler_xyz_deg(90.0, 180.0, 0.0)
-            trans_sim_to_nifti = torch.zeros(1, 3, device=env.unwrapped.device)
-            trans_sim_to_nifti[0, 2] = -390.0 / 1000.0
+            quat_MeshToOrgan = quat_from_euler_xyz_deg(90.0, 180.0, 0.0)
+            trans_MeshOffset = torch.zeros(1, 3, device=env.unwrapped.device)
+            trans_MeshOffset[0, 2] = -360.0 / 1000.0
 
             # apply the transformation from sim_to_nifti frame -> returns the orientation of the end-effector in the nifti frame, using quaternion transformation
             # Done: check if this matches classic transformation matrices results. --> test_transform.py
-            quat = math_utils.quat_mul(quat_sim_to_nifti, quat_ee_from_organ)
-            pos = math_utils.quat_apply(quat_sim_to_nifti, pos_ee_from_organ) + trans_sim_to_nifti
+            quat_MeshToEE = math_utils.quat_mul(quat_MeshToOrgan, quat_OrganToEE)
+            pos_MeshToEE = math_utils.quat_apply(quat_MeshToOrgan, pos_OrganToEE) + trans_MeshOffset
 
             # print("pos_ee_from_organ shape:", pos_ee_from_organ.shape)
             # print(f"dtype of pos_ee_from_organ: {pos_ee_from_organ.dtype}")
@@ -387,21 +388,21 @@ def main():
             # add additional rotations here if needed
             # qnew​=qold​ × qz​(α).
 
-            probe_to_probe_us_quat = quat_from_euler_xyz_deg(0.0, 0.0, -90.0)
-            # create a matrix from pos quat
-            probe_to_probe_us_matrix = matrix_from_pos_quat(torch.zeros(1, 3).double(), probe_to_probe_us_quat)
+            quat_EEToUS = quat_from_euler_xyz_deg(0.0, 0.0, -90.0)
+            # create a matrix from pos quat for MeshToEE
+            matrix_EEToUS = matrix_from_pos_quat(torch.zeros(1, 3).double(), quat_EEToUS)
 
             # create a matrix from pos quat
-            quat_matrix = matrix_from_pos_quat(pos, quat)
+            matrix_MeshToEE = matrix_from_pos_quat(pos_MeshToEE, quat_MeshToEE)
 
             # multiply with local transform probe to probe us
-            quat_matrix = torch.matmul(quat_matrix, probe_to_probe_us_matrix)
+            matrix_MeshToUS = torch.matmul(matrix_MeshToEE, matrix_EEToUS)
             # convert matrix to quat and compare with below
-            quat = math_utils.quat_from_matrix(quat_matrix[:, :3, :3])
+            quat_MeshToUS = math_utils.quat_from_matrix(matrix_MeshToUS[:, :3, :3])
 
-            quat = math_utils.normalize(quat)
-            print("quat:", quat)
-            print("quat shape:", quat.shape)
+            quat_MeshToUS = math_utils.normalize(quat_MeshToUS)
+            print("quat:", quat_MeshToUS)
+            print("quat shape:", quat_MeshToUS.shape)
             # normalize the quat
 
             # apply the transformation to the end-effector pose
@@ -414,11 +415,11 @@ def main():
             # pos =  math_utils.quat_apply(probe_to_probe_us_quat, pos)
 
             # scale the position from m to mm
-            pos = pos * 1000.0
+            pos = pos_MeshToEE * 1000.0
             pos_np = pos.cpu().numpy().squeeze()
 
             # convert the quat to euler angles
-            roll, pitch, yaw = math_utils.euler_xyz_from_quat(quat)
+            roll, pitch, yaw = math_utils.euler_xyz_from_quat(quat_MeshToUS)
             # stack the euler angles into roll pich yaw tensor
             euler_angles = np.array(
                 [roll.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), yaw.squeeze().cpu().numpy()]

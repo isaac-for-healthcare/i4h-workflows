@@ -43,6 +43,7 @@ v_{offset} = \{x_{center}, y_{center}, z_{center}\}
 ```
 
 #### Find the rotation matrix to align the USD axes with the organ axes
+Here we assume the organ meshes has Superior-Inferior-Left-Right-Anterior-Posterior (SI-LR-AP) axes. We used those axis to align the organ meshes with the exterior model.
 
 1. Find the basis vector in the coordinate system representing the internal organ meshes
 ```math
@@ -60,7 +61,7 @@ v_{offset} = \{x_{center}, y_{center}, z_{center}\}
 
 3. Find the rotation matrix to map USD world coordinate system to the organ mesh coordinate system
 ```math
-R_{usd \rightarrow mesh} = \begin{bmatrix}
+R_{mesh \rightarrow usd} = \begin{bmatrix}
 -1 & 0 & 0 \\
 0 & 0 & -1 \\
 0 & -1 & 0
@@ -69,18 +70,20 @@ R_{usd \rightarrow mesh} = \begin{bmatrix}
 
 4. To finish the transformation, we have
 ```math
-T_{usd \rightarrow mesh} = \begin{bmatrix}
-R_{usd \rightarrow mesh} & v_{offset} \\
+T_{mesh \rightarrow usd} = \begin{bmatrix}
+R_{mesh \rightarrow usd} & v_{offset} \\
 0 & 1
 \end{bmatrix}
 ```
 
-We offer a helper function to process the transformation (FIXME: add link). You will need to convert the rotation matrix to quaternion and pass it with the offset to the helper function.
+We offer a helper function to load the transformation (FIXME: add link). To bring your sets of exterior model and meshes, you will need to convert the rotation matrix to quaternion and pass it with the offsets:
 ```math
-q_{usd \rightarrow mesh} = \text{quat\_from\_matrix}(R_{usd \rightarrow mesh}) = [0.0000,  0.0000,  0.7071, -0.7071]
+q_{mesh \rightarrow usd} = \text{quat\_from\_matrix}(R_{mesh \rightarrow usd})
 ```
+In the setup above, the quaternion is `[0.0000,  0.0000,  0.7071, -0.7071]`.
 
-### Alignment with organ meshes that abide NIFTI coordinate system
+
+### Alignment with organ meshes that abide by NIFTI coordinate system
 
 TBD
 
