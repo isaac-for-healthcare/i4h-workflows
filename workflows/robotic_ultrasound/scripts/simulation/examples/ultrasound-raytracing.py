@@ -337,7 +337,6 @@ class Simulator(Operator):
         translation_array = np.array(translation, dtype=np.float32)
         rotation_array = np.array(rot_euler, dtype=np.float32)
 
-
         # Create new pose and update probe
         new_pose = rs.Pose(translation_array, rotation_array)
         self.probe.set_pose(new_pose)

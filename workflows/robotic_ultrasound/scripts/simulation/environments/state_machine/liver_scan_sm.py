@@ -5,6 +5,7 @@
 
 import argparse
 import os
+
 from dds.publisher import Publisher
 from dds.schemas.camera_info import CameraInfo
 from omni.isaac.lab.app import AppLauncher
@@ -217,7 +218,6 @@ def main():
                 print(f"Wrist cam: {pub_data['wrist_cam'].shape}, dtype: {pub_data['wrist_cam'].dtype}")
             viz_r_cam_writer.write(0.1, 1.0)
             viz_w_cam_writer.write(0.1, 1.0)
-
 
             # Record data if collecting
             if data_collector is not None:

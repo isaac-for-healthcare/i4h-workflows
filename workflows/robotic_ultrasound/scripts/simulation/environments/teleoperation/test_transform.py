@@ -1,8 +1,10 @@
-import unittest
-import omni.isaac.lab.utils.math as math_utils  
-import numpy as np 
-import torch
 import argparse
+import unittest
+
+import numpy as np
+import omni.isaac.lab.utils.math as math_utils
+import torch
+
 
 def make_pose(pos, rot):
     """
@@ -25,43 +27,48 @@ def make_pose(pos, rot):
     pose[..., 3, 3] = 1.0
     return pose
 
+
 def matrix_from_pos_quat(pos, quat):
     """Convert position and quaternion to a 4x4 transformation matrix.
-    
+
     Args:
         pos (torch.Tensor): Position vector of shape (1, 3)
         quat (torch.Tensor): Quaternion of shape (1, 4) in (w, x, y, z) format
-        
+
     Returns:
         torch.Tensor: 4x4 homogeneous transformation matrix
     """
     # Type assertions
     assert isinstance(pos, torch.Tensor), "Position must be a torch.Tensor"
     assert isinstance(quat, torch.Tensor), "Quaternion must be a torch.Tensor"
-    
+
     # Shape assertions
     assert pos.shape == (1, 3), f"Position must have shape (1, 3), got {pos.shape}"
     assert quat.shape == (1, 4), f"Quaternion must have shape (1, 4), got {quat.shape}"
-    
+
     # Datatype assertions
     assert pos.dtype == torch.float64, "Position must be double precision (float64)"
     assert quat.dtype == torch.float64, "Quaternion must be double precision (float64)"
-    
+
     # Convert quaternion to rotation matrix
     rot = math_utils.matrix_from_quat(quat)
-    
+
     # Create transformation matrix
     transform = make_pose(pos, rot)
-    
+
     return transform
+
 
 def quat_from_euler_xyy_deg(roll, pitch, yaw):
     euler_angles = np.array([roll, pitch, yaw])
     euler_angles_rad = np.radians(euler_angles)
     euler_angles_rad = torch.tensor(euler_angles_rad).double()
-    quat_sim_to_nifti = math_utils.quat_from_euler_xyz(roll=euler_angles_rad[0], pitch=euler_angles_rad[1], yaw=euler_angles_rad[2])
+    quat_sim_to_nifti = math_utils.quat_from_euler_xyz(
+        roll=euler_angles_rad[0], pitch=euler_angles_rad[1], yaw=euler_angles_rad[2]
+    )
     quat_sim_to_nifti = quat_sim_to_nifti.unsqueeze(0)
     return quat_sim_to_nifti
+
 
 class TestQuaternionVsMatrixTransforms(unittest.TestCase):
     def setUp(self):
@@ -70,10 +77,10 @@ class TestQuaternionVsMatrixTransforms(unittest.TestCase):
         self.quat_ee_from_organ = quat_from_euler_xyy_deg(12.0, 23.0, -19.0)
         self.pose_ee_from_organ = matrix_from_pos_quat(self.pos_ee_from_organ, self.quat_ee_from_organ)
 
-        # transform probe orientations 
+        # transform probe orientations
         self.quat_probe_to_probe_us = quat_from_euler_xyy_deg(0.0, 0.0, -90.0)
         self.pose_probe_to_probe_us = matrix_from_pos_quat(torch.zeros(1, 3).double(), self.quat_probe_to_probe_us)
-        
+
         # Setup sim to nifti transformation
         self.quat_sim_to_nifti = quat_from_euler_xyy_deg(90.0, 180.0, 0.0)
         self.trans_sim_to_nifti = torch.zeros(1, 3).double()
@@ -94,19 +101,19 @@ class TestQuaternionVsMatrixTransforms(unittest.TestCase):
         # Assert the results are equal
         self.assertTrue(
             torch.allclose(pose_ee_in_nifti_frame, pose_quat_pos),
-            "Matrix multiplication and quaternion transformation methods produce different results"
+            "Matrix multiplication and quaternion transformation methods produce different results",
         )
 
         # Additional shape checks
         self.assertEqual(
-            pose_ee_in_nifti_frame.shape, 
-            (1, 4, 4), 
-            f"Expected shape (1, 4, 4), got {pose_ee_in_nifti_frame.shape}"
+            pose_ee_in_nifti_frame.shape, (1, 4, 4), f"Expected shape (1, 4, 4), got {pose_ee_in_nifti_frame.shape}"
         )
 
     def test_three_transformations(self):
         # Method 1: Using 4x4 matrix multiplication
-        pose_ee_in_nifti_frame = torch.matmul(self.pose_sim_to_nifti, torch.matmul(self.pose_probe_to_probe_us, self.pose_ee_from_organ))
+        pose_ee_in_nifti_frame = torch.matmul(
+            self.pose_sim_to_nifti, torch.matmul(self.pose_probe_to_probe_us, self.pose_ee_from_organ)
+        )
 
         # Method 2: Using quaternion operations
         quat = math_utils.quat_mul(self.quat_probe_to_probe_us, self.quat_ee_from_organ)
@@ -126,25 +133,21 @@ class TestQuaternionVsMatrixTransforms(unittest.TestCase):
         # Assert the results are equal
         self.assertTrue(
             torch.allclose(pose_ee_in_nifti_frame, pose_quat_pos),
-            "Matrix multiplication and quaternion transformation methods produce different results"
+            "Matrix multiplication and quaternion transformation methods produce different results",
         )
 
         # Additional shape checks
         self.assertEqual(
-            pose_ee_in_nifti_frame.shape, 
-            (1, 4, 4), 
-            f"Expected shape (1, 4, 4), got {pose_ee_in_nifti_frame.shape}"
+            pose_ee_in_nifti_frame.shape, (1, 4, 4), f"Expected shape (1, 4, 4), got {pose_ee_in_nifti_frame.shape}"
         )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--verbose', '-v', action='store_true', help='Print detailed transformation results')
+    parser.add_argument("--verbose", "-v", action="store_true", help="Print detailed transformation results")
     args = parser.parse_args()
-    
+
     # Set verbose flag for all test cases
     TestQuaternionVsMatrixTransforms.verbose = args.verbose
-    
-    unittest.main(argv=['first-arg-is-ignored'], exit=False)
 
-
-
+    unittest.main(argv=["first-arg-is-ignored"], exit=False)
