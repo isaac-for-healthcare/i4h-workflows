@@ -88,7 +88,7 @@ from omni.isaac.lab_tasks.manager_based.manipulation.lift import mdp  # noqa: F4
 from omni.isaac.lab_tasks.utils import parse_env_cfg  # noqa: F401, E402
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.utils import compute_transform_matrix, get_joint_states
+from simulation.environments.state_machine.utils import get_joint_states
 
 # Add RTI DDS imports
 if args_cli.rti_license_file is not None:
@@ -282,11 +282,6 @@ def main():
     # create environment
     env = gym.make(args_cli.task, cfg=env_cfg)
 
-    # get transform matrix from isaac sim to organ coordinate system
-    transform_matrix = compute_transform_matrix(
-        ov_point=[0.6288 * 1000, 0.0, 0.09 * 1000],  # initial position of the organ in isaac sim
-        nifti_point=[0, -0.7168, 18.1250],  # corresponding position in nifti coordinate system
-    )
     # check environment name (for reach , we don't allow the gripper)
     if "Reach" in args_cli.task:
         omni.log.warn(
@@ -326,6 +321,15 @@ def main():
     # viz_pos_writer = PosPublisher(args_cli.viz_domain_id)
     viz_probe_pos_writer = ProbePosPublisher(args_cli.viz_domain_id)
     # Added robot pose publisher
+
+    # Describe the orientation of the organ frame in the nifti frame (mesh coords system)
+    quat_MeshToOrgan = quat_from_euler_xyz_deg(90.0, 180.0, 0.0)
+    # Describe how to position the mesh objects in the organ frame so that it roughly match
+    mesh_offset = torch.zeros(1, 3, device=env.unwrapped.device)
+    mesh_offset[0, 2] = -360.0 / 1000.0
+
+    # Fixed orientation of the end-effector to the ultrasound probe
+    quat_EEToUS = quat_from_euler_xyz_deg(0.0, 0.0, -90.0)
 
     # simulate environment
     while simulation_app.is_running():
@@ -371,39 +375,34 @@ def main():
             pos_OrganToEE = env.unwrapped.scene["organ_to_robot_transform"].data.target_pos_source[0].double()
             quat_OrganToEE = env.unwrapped.scene["organ_to_robot_transform"].data.target_quat_source[0]
 
-            # Describe the orientation of the organ frame in the nifti frame
-            quat_MeshToOrgan = quat_from_euler_xyz_deg(90.0, 180.0, 0.0)
-            trans_MeshOffset = torch.zeros(1, 3, device=env.unwrapped.device)
-            trans_MeshOffset[0, 2] = -360.0 / 1000.0
-
             # apply the transformation from sim_to_nifti frame -> returns the orientation of the end-effector in the nifti frame, using quaternion transformation
-            # Done: check if this matches classic transformation matrices results. --> test_transform.py
             quat_MeshToEE = math_utils.quat_mul(quat_MeshToOrgan, quat_OrganToEE)
-            pos_MeshToEE = math_utils.quat_apply(quat_MeshToOrgan, pos_OrganToEE) + trans_MeshOffset
+            pos_MeshToEE = math_utils.quat_apply(quat_MeshToOrgan, pos_OrganToEE) + mesh_offset
 
             # print("pos_ee_from_organ shape:", pos_ee_from_organ.shape)
             # print(f"dtype of pos_ee_from_organ: {pos_ee_from_organ.dtype}")
 
             # Add an additional rotation to the end-effector pose from sim to nifti frame
             # add additional rotations here if needed
-            # qnew​=qold​ × qz​(α).
+            # qnew​=qold​ × qz​(α).   
+            # # create a matrix from pos quat for MeshToEE
+            # matrix_EEToUS = matrix_from_pos_quat(torch.zeros(1, 3).double(), quat_EEToUS)
 
-            quat_EEToUS = quat_from_euler_xyz_deg(0.0, 0.0, -90.0)
-            # create a matrix from pos quat for MeshToEE
-            matrix_EEToUS = matrix_from_pos_quat(torch.zeros(1, 3).double(), quat_EEToUS)
+            # # create a matrix from pos quat
+            # matrix_MeshToEE = matrix_from_pos_quat(pos_MeshToEE, quat_MeshToEE)
 
-            # create a matrix from pos quat
-            matrix_MeshToEE = matrix_from_pos_quat(pos_MeshToEE, quat_MeshToEE)
+            # # multiply with local transform probe to probe us
+            # matrix_MeshToUS = torch.matmul(matrix_MeshToEE, matrix_EEToUS)
+            # # convert matrix to quat and compare with below
+            # quat_MeshToUS = math_utils.quat_from_matrix(matrix_MeshToUS[:, :3, :3])
+            # pos_MeshToUS = matrix_MeshToUS[:, :3, 3]
 
-            # multiply with local transform probe to probe us
-            matrix_MeshToUS = torch.matmul(matrix_MeshToEE, matrix_EEToUS)
-            # convert matrix to quat and compare with below
-            quat_MeshToUS = math_utils.quat_from_matrix(matrix_MeshToUS[:, :3, :3])
-            pos_MeshToUS = matrix_MeshToUS[:, :3, 3]
+            quat_MeshToUS = math_utils.quat_mul(quat_MeshToEE, quat_EEToUS)
+            pos_MeshToUS = pos_MeshToEE
 
-            quat_MeshToUS = math_utils.normalize(quat_MeshToUS)
-            print("quat:", quat_MeshToUS)
-            print("quat shape:", quat_MeshToUS.shape)
+            # quat_MeshToUS = math_utils.normalize(quat_MeshToUS)
+            # print("quat:", quat_MeshToUS)
+            # print("quat shape:", quat_MeshToUS.shape)
             # normalize the quat
 
             # apply the transformation to the end-effector pose
