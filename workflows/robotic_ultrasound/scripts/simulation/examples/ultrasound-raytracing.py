@@ -12,7 +12,7 @@ from rti.types import struct
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 try:
-    import ray_sim_python as rs
+    import raysim.cuda as rs
 except Exception as e:
     raise ImportError(f"Failed to initialize ray_sim_python: {e}\n" "Please check the installation and dependencies.")
 
@@ -94,6 +94,7 @@ class UltrasoundSimSubscriber(Operator):
             context: The context of the operator.
         """
         data = self.subscriber.read_data()
+        print(f"*** data: {data}")
         if data is not None:
             op_output.emit((data, True), "output")
         else:
@@ -181,17 +182,17 @@ class Simulator(Operator):
         mesh_configs = [
             ("Tumor1.obj", "fat"),
             ("Tumor2.obj", "water"),
-            ("Liver.obj", "liver"),
-            ("Skin.obj", "fat"),
-            ("Bone.obj", "bone"),
-            ("Vessels.obj", "water"),
-            ("Gallbladder.obj", "water"),
-            ("Spleen.obj", "liver"),
+            # ("Liver.obj", "liver"),
+            # ("Skin.obj", "fat"),
+            # ("Bone.obj", "bone"),
+            # ("Vessels.obj", "water"),
+            # ("Gallbladder.obj", "water"),
+            # ("Spleen.obj", "liver"),
             # ("Heart.obj", "liver"),
-            ("Stomach.obj", "water"),
-            ("Pancreas.obj", "liver"),
-            ("Small_bowel.obj", "water"),
-            ("Colon.obj", "water"),
+            # ("Stomach.obj", "water"),
+            # ("Pancreas.obj", "liver"),
+            # ("Small_bowel.obj", "water"),
+            # ("Colon.obj", "water"),
         ]
 
         # Count successful mesh additions
@@ -321,6 +322,7 @@ class Simulator(Operator):
             receiving: Boolean indicating if probe info is being received
         """
         # Mock pose if no probe info is received
+        print(f"*** receiving: {receiving}")
         if receiving:
             translation = probe_info.position
             rot_euler = probe_info.orientation
@@ -336,6 +338,8 @@ class Simulator(Operator):
         # Convert from lists or cupy arrays to numpy arrays
         translation_array = np.array(translation, dtype=np.float32)
         rotation_array = np.array(rot_euler, dtype=np.float32)
+        print(f"*** translation_array: {translation_array}")
+        print(f"***rotation_array: {rotation_array}")
 
         # Create new pose and update probe
         new_pose = rs.Pose(translation_array, rotation_array)

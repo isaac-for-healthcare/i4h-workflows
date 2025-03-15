@@ -64,12 +64,7 @@ export PYTHONPATH=`pwd`
 ```
 Then move back to this folder and execute:
 ```sh
-python examples/sim_with_dds.py \
-    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
-    --enable_camera \
-    --infer_domain_id <domain id> \
-    --viz_domain_id <domain id> \
-    --rti_license_file <path to>/rti_license.dat
+python examples/sim_with_dds.py --enable_cameras
 ```
 
 ## Liver Scan State Machine
@@ -104,9 +99,7 @@ export PYTHONPATH=`pwd`
 Then move back to this folder and execute:
 
 ```sh
-python environments/state_machine/liver_scan_sm.py \
-    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
-    --enable_camera
+python environments/state_machine/liver_scan_sm.py --enable_cameras
 ```
 
 To enable DDS use add `--rti_license_file <abs_path_license>` or export the environment variable with the respective path. E.g. `export RTI_LICENSE_FILE=<abs_path_license>;` before launching.
@@ -172,9 +165,7 @@ Follow the same setup steps as before to ensure your environment is properly con
 Basic teleoperation can be started with:
 
 ```sh
-python environments/teleoperation/teleop_se3_agent.py \
-    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
-    --teleop_device keyboard
+python environments/teleoperation/teleop_se3_agent.py --teleop_device keyboard
 ```
 
 ## Command Line Arguments
@@ -191,27 +182,14 @@ python environments/teleoperation/teleop_se3_agent.py \
 ## Control Schemes
 
 ### Keyboard Controls
-- **Translation**:
-  - W/S: Forward/Backward
-  - A/D: Left/Right
-  - Q/E: Up/Down
-- **Rotation**:
-  - I/K: Pitch
-  - J/L: Yaw
-  - U/O: Roll
-- **Other**:
-  - L: Reset environment
+- Please check the [Se3Keyboard documentation](https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.devices.html#isaaclab.devices.Se3Keyboard)
 
 ### Camera Visualization
 
 The teleoperation script supports real-time camera visualization through DDS communication. It publishes both room camera and wrist camera feeds at 30Hz. To enable camera visualization:
 
 ```sh
-python environments/teleoperation/teleop_se3_agent.py \
-    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
-    --teleop_device keyboard \
-    --viz_domain_id 1 \
-    --rti_license_file <path to>/rti_license.dat
+python environments/teleoperation/teleop_se3_agent.py --enable_cameras
 ```
 
 The camera feeds are published on the following default topics:
@@ -293,12 +271,5 @@ You only need to specify the parameters you want to change - any omitted paramet
 To run the ultrasound raytracing simulator:
 
 ```sh
-python examples/ultrasound-raytracing.py \
-    --domain_id <domain_id> \
-    --height 224 \
-    --width 224 \
-    --topic_in topic_ultrasound_info \
-    --topic_out topic_ultrasound_data \
-    --viz_domain_id <domain id> \
-    --config path/to/your_config.json
+python examples/ultrasound-raytracing.py
 ```

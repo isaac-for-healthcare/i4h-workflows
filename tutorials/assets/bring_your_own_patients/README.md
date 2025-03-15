@@ -47,16 +47,24 @@ Here we assume the organ meshes has Superior-Inferior-Left-Right-Anterior-Poster
 
 1. Find the basis vector in the coordinate system representing the internal organ meshes
 ```math
-\vec{v}_{mesh_lr} = (1, 0, 0)
-\vec{v}_{mesh_ap} = (0, 1, 0)
-\vec{v}_{mesh_si} = (0, 0, 1)
+\vec{v}_{mesh_{lr}} = (1, 0, 0)
+```
+```math
+\vec{v}_{mesh_{ap}} = (0, 1, 0)
+```
+```math
+\vec{v}_{mesh_{si}} = (0, 0, 1)
 ```
 
 2. Find the basis vector in the USD coordinate system representing placement of the exterior model
 ```math
-\vec{v}_{usd_lr} = (-1, 0, 0)
-\vec{v}_{usd_ap} = (0, 0, -1)
-\vec{v}_{usd_si} = (0, -1, 0)
+\vec{v}_{usd_{lr}} = (-1, 0, 0)
+```
+```math
+\vec{v}_{usd_{ap}} = (0, 0, -1)
+```
+```math
+\vec{v}_{usd_{si}} = (0, -1, 0)
 ```
 
 3. Find the rotation matrix to map USD world coordinate system to the organ mesh coordinate system
