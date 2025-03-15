@@ -9,7 +9,7 @@ class Enums:
     """Enums for the assets in the robotic surgery workflow."""
 
     dVRK_ECM = "Robots/dVRK/ECM/ecm.usd"
-    dVRK_PSM = "Robots/dVRK/PSM/psm_col.usd"
+    dVRK_PSM = "Robots/dVRK/PSM/psm.usd"
     STAR = "Robots/STAR/star.usd"
     Board = "Props/Board/board.usd"
     Block = "Props/PegBlock/block.usd"
