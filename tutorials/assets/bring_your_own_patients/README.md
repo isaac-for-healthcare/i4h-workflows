@@ -21,5 +21,68 @@ Before starting, ensure you have:
 - MONAI framework installed
 - Required dependencies as specified in the tutorial
 
+## Aligning the internal organ meshes with the exterior model from different assets
+
+If you have different assets for the patients, e.g. model for the exterior of the body and mesh models for the internal organs, you can use the following transformations to combine them.
+
+### Model for the outside of the body
+Exterior model asset follows the [USD convention](https://docs.omniverse.nvidia.com/isaacsim/latest/reference_conventions.html#usd-axes).
+
+### Models for the inside organs
+
+The models can be meshe files of different organs organized with relative positions. It could be derived from CT/MRI scans, MAISI or 3D models from other sources.
+
+### Steps to approximate align meshes and model
+
+#### Compute the offset needed to center the organ meshes
+
+Treat the organ meshes as a whole, and find the offset to center the organ meshes. So that the origin of the organ meshes is the center of the mass of the organ meshes.
+
+```math
+v_{offset} = \{x_{center}, y_{center}, z_{center}\}
+```
+
+#### Find the rotation matrix to align the USD axes with the organ axes
+
+1. Find the basis vector in the coordinate system representing the internal organ meshes
+```math
+\vec{v}_{mesh_lr} = (1, 0, 0)
+\vec{v}_{mesh_ap} = (0, 1, 0)
+\vec{v}_{mesh_si} = (0, 0, 1)
+```
+
+2. Find the basis vector in the USD coordinate system representing placement of the exterior model
+```math
+\vec{v}_{usd_lr} = (-1, 0, 0)
+\vec{v}_{usd_ap} = (0, 0, -1)
+\vec{v}_{usd_si} = (0, -1, 0)
+```
+
+3. Find the rotation matrix to map USD world coordinate system to the organ mesh coordinate system
+```math
+R_{usd \rightarrow mesh} = \begin{bmatrix}
+-1 & 0 & 0 \\
+0 & 0 & -1 \\
+0 & -1 & 0
+\end{bmatrix}
+```
+
+4. To finish the transformation, we have
+```math
+T_{usd \rightarrow mesh} = \begin{bmatrix}
+R_{usd \rightarrow mesh} & v_{offset} \\
+0 & 1
+\end{bmatrix}
+```
+
+We offer a helper function to process the transformation (FIXME: add link). You will need to convert the rotation matrix to quaternion and pass it with the offset to the helper function.
+```math
+q_{usd \rightarrow mesh} = \text{quat\_from\_matrix}(R_{usd \rightarrow mesh}) = [0.0000,  0.0000,  0.7071, -0.7071]
+```
+
+### Alignment with organ meshes that abide NIFTI coordinate system
+
+TBD
+
 ## Support
 If you encounter any issues during the conversion process, please refer to the tutorial documentation or raise an issue in this repository.
