@@ -1,9 +1,9 @@
-# Scripts for all robotic surgery simulations
+# Robotic Surgery Workflow
 
 ## System Requirements
 
 - Ubuntu 22.04
-- NVIDIA GPU with compute capability 8.6 and 32GB of memory
+- NVIDIA GPU with ray tracing capability
     - GPUs without RT Cores (A100, H100) are not supported.
 - NVIDIA Driver Version >= 555
 - 50GB of disk space

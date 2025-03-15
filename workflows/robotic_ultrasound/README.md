@@ -1,4 +1,4 @@
-# Scripts for all the simulation and physical world logic
+# Robotic Ultrasound Workflow
 
 ## System Requirements
 
