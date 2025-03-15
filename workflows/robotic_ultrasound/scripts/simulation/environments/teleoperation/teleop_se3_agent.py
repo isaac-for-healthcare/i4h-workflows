@@ -399,6 +399,7 @@ def main():
             matrix_MeshToUS = torch.matmul(matrix_MeshToEE, matrix_EEToUS)
             # convert matrix to quat and compare with below
             quat_MeshToUS = math_utils.quat_from_matrix(matrix_MeshToUS[:, :3, :3])
+            pos_MeshToUS = matrix_MeshToUS[:, :3, 3]
 
             quat_MeshToUS = math_utils.normalize(quat_MeshToUS)
             print("quat:", quat_MeshToUS)
@@ -415,7 +416,7 @@ def main():
             # pos =  math_utils.quat_apply(probe_to_probe_us_quat, pos)
 
             # scale the position from m to mm
-            pos = pos_MeshToEE * 1000.0
+            pos = pos_MeshToUS * 1000.0
             pos_np = pos.cpu().numpy().squeeze()
 
             # convert the quat to euler angles

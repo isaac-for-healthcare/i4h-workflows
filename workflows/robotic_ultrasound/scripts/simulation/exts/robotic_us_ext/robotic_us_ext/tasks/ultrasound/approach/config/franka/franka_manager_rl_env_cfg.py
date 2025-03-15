@@ -64,7 +64,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     organs = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/organs",
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=[0.6, 0.0, 0.09], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, 0.0]), degrees=True)
+            pos=[0.6, 0.0, 0.09], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, 180.0]), degrees=True)
         ),
         spawn=sim_utils.UsdFileCfg(
             usd_path=robot_us_assets.phantom,
