@@ -211,6 +211,9 @@ wandb/
 **/logs/*
 **/recordings/*
 
+# Third party
+third_party/
+
 # third-party files
 **/clarius_cast/include
 **/clarius_solum/include

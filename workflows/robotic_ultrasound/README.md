@@ -1,4 +1,4 @@
-# Scripts for all the simulation and physical world logic
+# Robotic Ultrasound Workflow
 
 ## System Requirements
 
@@ -48,7 +48,7 @@ To use the ultrasound-raytracing simulator, you can choose one of the following 
 Install other dependencies by running:
 ```bash
 cd <path-to-i4h-workflows>
-python tools/install_deps.py
+bash tools/env_setup_robot_us.sh
 ```
 
 ### Download the I4H assets
@@ -65,7 +65,6 @@ Make sure `PYTHONPATH`, `RTI_LICENSE_FILE` and `LD_PRELOAD` is set
 ```sh
 export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts`
 export RTI_LICENSE_FILE=<path-to-rti-license-file>
-export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6
 ```
 
 ## Run the scripts

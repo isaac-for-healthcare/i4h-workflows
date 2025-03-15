@@ -2,13 +2,7 @@
     "projectBaseUrl":"${workspaceFolder}",
     "ignorePatterns": [
         {
-            "pattern": "https://github.com/isaac-for-healthcare/i4h-asset-catalog"
-        },
-        {
-            "pattern": "https://github.com/isaac-for-healthcare/i4h-workflows"
-        },
-        {
-            "pattern": "https://github.com/isaac-for-healthcare/i4h-sensor-simulation"
+            "pattern": "https://github.com/isaac-for-healthcare"
         }
     ],
     "timeout": "20s",

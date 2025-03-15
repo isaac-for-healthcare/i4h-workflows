@@ -1,9 +1,9 @@
-# Scripts for all robotic surgery simulations
+# Robotic Surgery Workflow
 
 ## System Requirements
 
 - Ubuntu 22.04
-- NVIDIA GPU with compute capability 8.6 and 32GB of memory
+- NVIDIA GPU with ray tracing capability
     - GPUs without RT Cores (A100, H100) are not supported.
 - NVIDIA Driver Version >= 555
 - 50GB of disk space
@@ -15,43 +15,26 @@ The robotic surgery workflow is built on the following dependencies:
 - [IsaacLab 1.2.0](https://isaac-sim.github.io/IsaacLab/v1.2.0/source/setup/installation/index.html)
 
 
-### 1. Prepare Isaac Lab Repository and Create a Conda Environment
+### Install NVIDIA Driver
 
-Clone [Isaac Lab repository](https://github.com/isaac-sim/IsaacLab):
+Install or upgrade to the latest NVIDIA driver from [NVIDIA website](https://www.nvidia.com/en-us/drivers/)
 
-```bash
-git clone https://github.com/isaac-sim/IsaacLab.git
-cd IsaacLab
-git checkout v1.2.0
-sed -i 's/rsl-rl/rsl-rl-lib/g' source/extensions/omni.isaac.lab_tasks/setup.py
-# define the IsaacLab_PATH environment variable
-export IsaacLab_PATH=`pwd`
-```
 
-Create a new conda environment via Isaac Lab script:
+### Install Dependencies
 
-```bash
-${IsaacLab_PATH}/isaaclab.sh --conda robotic_surgery
-# activate conda environment
+Conda is suggested for virtual environment setup, install `Miniconda` from [Miniconda website](https://docs.anaconda.com/miniconda/install/#quick-command-line-install) and create a new virtual environment with Python 3.10.
+
+```sh
+# Create a new conda environment
+conda create -n robotic_surgery python=3.10 -y
+# Activate the environment
 conda activate robotic_surgery
 ```
 
-### 2. Install Isaac Sim and Isaac Lab
-
+The following command line will install all dependencies:
 ```bash
-pip install isaacsim==4.1.0.0 isaacsim-extscache-physics==4.1.0.0 isaacsim-extscache-kit==4.1.0.0 isaacsim-extscache-kit-sdk==4.1.0.0 git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git --extra-index-url https://pypi.nvidia.com
-${IsaacLab_PATH}/isaaclab.sh --install
-```
-
-### 3. Install Robotic Surgery
-
-```bash
-# move to a directory outside of IsaacLab installation directory
-cd ..
-git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
-cd i4h-workflows
-./workflows/robotic_surgery/scripts/simulation/robotic_surgery.sh
-export PYTHONPATH="$(pwd)/workflows/robotic_surgery/scripts"
+cd <path-to-i4h-workflows>
+bash tools/env_setup_robot_surgery.sh
 ```
 
 ### Download the I4H assets
@@ -61,6 +44,12 @@ Please refer to the [Asset Container Helper](https://github.com/isaac-for-health
 
 ```sh
 i4h-asset-retrieve
+```
+
+### Set environment variables before running the scripts
+Make sure `PYTHONPATH` is set:
+```sh
+export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_surgery/scripts`
 ```
 
 ## Run the scripts
