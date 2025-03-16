@@ -207,7 +207,7 @@ class RealsenseApp(Application):
 
 def main():
     """Parse command-line arguments and run the application."""
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Run the RealSense camera application")
     parser.add_argument("--test", action="store_true", help="show holoviz")
     parser.add_argument(
         "--count",

@@ -508,52 +508,49 @@ class StreamingSimulator(Application):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Run ultrasound simulation with DDS")
     parser.add_argument("--test", action="store_true", help="run local test")
     parser.add_argument(
         "--domain_id",
         type=int,
         default=int(os.environ.get("OVH_DDS_DOMAIN_ID", 0)),
-        help="domain id. Default is 0.",
+        help="domain id.",
     )
     parser.add_argument(
         "--height",
         type=int,
         default=int(os.environ.get("OVH_HEIGHT", 224)),
-        help="height. Default is 224.",
+        help="height.",
     )
     parser.add_argument(
         "--width",
         type=int,
         default=int(os.environ.get("OVH_WIDTH", 224)),
-        help="width. Default is 224.",
+        help="width.",
     )
     parser.add_argument(
         "--topic_in",
         type=str,
         default="topic_ultrasound_info",
-        help="topic name to consume prob pos. Default is topic_ultrasound_info.",
+        help="topic name to consume prob pos.",
     )
     parser.add_argument(
         "--topic_out",
         type=str,
         default="topic_ultrasound_data",
-        help="topic name to publish generated ultrasound data. Default is topic_ultrasound_data.",
+        help="topic name to publish generated ultrasound data.",
     )
     parser.add_argument(
         "--config",
         type=str,
         default=None,
-        help=(
-            "path to custom JSON configuration file with probe parameters and simulation parameters. "
-            "Default is None."
-        ),
+        help="path to custom JSON configuration file with probe parameters and simulation parameters. ")
     )
     parser.add_argument(
         "--period",
         type=float,
         default=1 / 30.0,
-        help="period of the simulation. Default is 1 / 30.0. (30 Hz)",
+        help="period of the simulation each cycle (1/frequency). Unit is second.",
     )
     args = parser.parse_args()
     app = StreamingSimulator(

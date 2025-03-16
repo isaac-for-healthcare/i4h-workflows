@@ -37,7 +37,7 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Run the openpi0 policy runner")
     parser.add_argument(
         "--ckpt_path",
         type=str,
@@ -56,42 +56,40 @@ def main():
     parser.add_argument(
         "--rti_license_file",
         type=str,
-        default=None,
-        help="the path of rti_license_file. Default will use environment variables `RTI_LICENSE_FILE`",
+        default=os.getenv("RTI_LICENSE_FILE"),
+        help="the path of rti_license_file."
     )
-    parser.add_argument("--domain_id", type=int, default=0, help="domain id. Default is 0.")
-    parser.add_argument("--height", type=int, default=224, help="input image height. Default is 224.")
-    parser.add_argument("--width", type=int, default=224, help="input image width. Default is 224.")
+    parser.add_argument("--domain_id", type=int, default=0, help="domain id.")
+    parser.add_argument("--height", type=int, default=224, help="input image height.")
+    parser.add_argument("--width", type=int, default=224, help="input image width.")
     parser.add_argument(
         "--topic_in_room_camera",
         type=str,
         default="topic_room_camera_data_rgb",
-        help="topic name to consume room camera rgb. Default is `topic_room_camera_data_rgb`.",
+        help="topic name to consume room camera rgb.",
     )
     parser.add_argument(
         "--topic_in_wrist_camera",
         type=str,
         default="topic_wrist_camera_data_rgb",
-        help="topic name to consume wrist camera rgb. Default is `topic_wrist_camera_data_rgb`.",
+        help="topic name to consume wrist camera rgb.",
     )
     parser.add_argument(
         "--topic_in_franka_pos",
         type=str,
         default="topic_franka_info",
-        help="topic name to consume franka pos. Default is `topic_franka_info`.",
+        help="topic name to consume franka pos.",
     )
     parser.add_argument(
         "--topic_out",
         type=str,
         default="topic_franka_ctrl",
-        help="topic name to publish generated franka actions. Default is `topic_franka_ctrl`.",
+        help="topic name to publish generated franka actions.",
     )
-    parser.add_argument("--verbose", type=bool, default=False, help="whether to print the log. Default is False.")
+    parser.add_argument("--verbose", type=bool, default=False, help="whether to print the log.")
     args = parser.parse_args()
 
-    pi0_policy = PI0PolicyRunner(
-        ckpt_path=args.ckpt_path if args.ckpt_path is not None else robot_us_assets.policy_ckpt, repo_id=args.repo_id
-    )
+    pi0_policy = PI0PolicyRunner(ckpt_path=args.ckpt_path, repo_id=args.repo_id)
 
     if args.rti_license_file is not None:
         if not os.path.isabs(args.rti_license_file):

@@ -367,7 +367,7 @@ class ClariusSolumApp(Application):
 def main():
     """Parse command-line arguments and run the application."""
     cwd = os.path.dirname(os.path.abspath(__file__))
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Run the Clarius Solum application")
     parser.add_argument("--test", action="store_true", help="show holoviz")
     parser.add_argument(
         "--ip",
