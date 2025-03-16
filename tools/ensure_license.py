@@ -15,7 +15,6 @@
 
 import os
 
-
 LICENSE_TYPES = {
     "apache_2_0": "tools/misc/apache_2_0.txt",
     "orbit_surgical": "tools/misc/orbit_surgical.txt",
@@ -39,7 +38,6 @@ def load_license_lines():
             license_lines.append(content)
         licenses[type] = license_lines
     return licenses
-
 
 
 def check_license_in_file(file_path):
