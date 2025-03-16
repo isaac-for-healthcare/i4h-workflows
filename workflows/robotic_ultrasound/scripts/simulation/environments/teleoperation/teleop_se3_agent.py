@@ -323,11 +323,11 @@ def main():
     # Added robot pose publisher
 
     # Describe the orientation of the organ frame in the nifti frame (mesh coords system)
-    quat_MeshToOrgan = torch.tensor([[0.0, 0.0, 0.7071, -0.7071]], device=env.unwrapped.device, dtype=torch.float64)
+    quat_MeshToOrgan = torch.tensor([[0.7071, 0.7071, 0, 0]], device=env.unwrapped.device, dtype=torch.float64)
     quat_MeshToOrgan = math_utils.normalize(quat_MeshToOrgan)
     # Describe how to position the mesh objects in the organ frame so that it roughly match
     mesh_offset = torch.zeros(1, 3, device=env.unwrapped.device)
-    mesh_offset[0, 2] = -360.0 / 1000.0
+    mesh_offset[0, 2] = 0.0 / 1000.0
 
     # Fixed orientation of the end-effector to the ultrasound probe
     quat_EEToUS = quat_from_euler_xyz_deg(0.0, 0.0, -90.0)
