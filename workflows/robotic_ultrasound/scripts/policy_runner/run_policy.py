@@ -35,7 +35,12 @@ def main():
         default="i4h/sim_liver_scan",
         help="the LeRobot repo id for the dataset norm. This is included in the checkpoint folder by default.",
     )
-    parser.add_argument("--rti_license_file", type=str, default=None, help="the path of rti_license_file.")
+    parser.add_argument(
+        "--rti_license_file",
+        type=str,
+        default=None,
+        help="the path of rti_license_file. Default will use environment variables `RTI_LICENSE_FILE`",
+    )
     parser.add_argument("--domain_id", type=int, default=0, help="domain id.")
     parser.add_argument("--height", type=int, default=224, help="input image height.")
     parser.add_argument("--width", type=int, default=224, help="input image width.")

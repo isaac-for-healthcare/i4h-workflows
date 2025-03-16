@@ -34,7 +34,12 @@ parser.add_argument(
     default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0",
     help="Name of the task. Default is Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0.",
 )
-parser.add_argument("--rti_license_file", type=str, default=None, help="the path of rti_license_file.")
+parser.add_argument(
+    "--rti_license_file",
+    type=str,
+    default=None,
+    help="the path of rti_license_file. Default will use environment variables `RTI_LICENSE_FILE`",
+)
 parser.add_argument("--infer_domain_id", type=int, default=0, help="domain id to publish data for inference.")
 parser.add_argument("--viz_domain_id", type=int, default=1, help="domain id to publish data for visualization.")
 parser.add_argument(

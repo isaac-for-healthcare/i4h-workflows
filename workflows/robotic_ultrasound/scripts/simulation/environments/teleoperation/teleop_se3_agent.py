@@ -38,7 +38,12 @@ parser.add_argument(
     help="topic name to consume probe pos",
 )
 
-parser.add_argument("--rti_license_file", type=str, default=None, help="Path to the RTI license file.")
+parser.add_argument(
+    "--rti_license_file",
+    type=str,
+    default=None,
+    help="the path of rti_license_file. Default will use environment variables `RTI_LICENSE_FILE`",
+)
 parser.add_argument(
     "--viz_domain_id",
     type=int,

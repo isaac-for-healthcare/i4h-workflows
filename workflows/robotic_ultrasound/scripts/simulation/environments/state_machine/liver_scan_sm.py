@@ -32,7 +32,12 @@ parser.add_argument("--max_steps", type=int, default=350, help="Maximum number o
 parser.add_argument("--debug", action="store_true", default=False, help="Enable debug output.")
 
 # Add DDS-related arguments
-parser.add_argument("--rti_license_file", type=str, help="the path of rti_license_file.")
+parser.add_argument(
+    "--rti_license_file",
+    type=str,
+    default=None,
+    help="the path of rti_license_file. Default will use environment variables `RTI_LICENSE_FILE`",
+)
 parser.add_argument("--infer_domain_id", type=int, default=0, help="domain id to publish data for inference.")
 parser.add_argument("--viz_domain_id", type=int, default=1, help="domain id to publish data for visualization.")
 parser.add_argument(
