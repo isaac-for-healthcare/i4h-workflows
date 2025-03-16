@@ -275,10 +275,12 @@ def main():
 
             env.step(actions)
 
-            # Get the end-effector pose in the US frame.
-            # The transform chain is:
+            # Get the pose of the mesh objects (mesh), which are aligned with the organ (organ) in the US image view (us)
+            # The US is attached to the end-effector (ee), so we have the following computation logics:
+            # Each frame-to-frame transformation is available in the scene
             # mesh -> organ -> ee -> us
-            # # Uncomment below to use the explicit transform chain
+            quat_mesh_to_us, pos_mesh_to_us = compute_transform_chain(env, ["mesh", "organ", "ee", "us"])
+            # The following is the explicit transform chain, which is equivalent to the above
             # quat_MeshToOrgan = env.unwrapped.scene["mesh_to_organ_transform"].data.target_quat_source[0]
             # pos_MeshToOrgan = env.unwrapped.scene["mesh_to_organ_transform"].data.target_pos_source[0]
             # quat_OrganToEE = env.unwrapped.scene["organ_to_ee_transform"].data.target_quat_source[0]
@@ -290,7 +292,7 @@ def main():
             # pos_MeshToEE = pos_MeshToOrgan + math_utils.quat_apply(quat_MeshToOrgan, pos_OrganToEE)
             # quat_MeshToUS = math_utils.quat_mul(quat_MeshToEE, quat_EEToUS)
             # pos_MeshToUS = pos_MeshToEE + math_utils.quat_apply(quat_MeshToEE, pos_EEToUS)
-            quat_mesh_to_us, pos_mesh_to_us = compute_transform_chain(env, ["mesh", "organ", "ee", "us"])
+
             pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us)
 
             # Get and publish camera images

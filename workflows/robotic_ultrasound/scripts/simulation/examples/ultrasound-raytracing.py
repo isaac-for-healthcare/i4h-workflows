@@ -61,7 +61,7 @@ class UltrasoundSimSubscriber(Operator):
         self.message = None
         self.dp = None
         self.subscriber = None
-        self.period = 1 / 200.0
+        self.period = 1 / 30.0
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec):
