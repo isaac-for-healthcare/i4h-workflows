@@ -37,11 +37,13 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the openpi0 policy runner")
+    parser = argparse.ArgumentParser(
+        description="Run the openpi0 policy runner", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        default=None,
+        default=robot_us_assets.policy_ckpt,
         help="checkpoint path. Default will use the policy model in the downloaded assets.",
     )
     parser.add_argument(
@@ -54,10 +56,7 @@ def main():
         ),
     )
     parser.add_argument(
-        "--rti_license_file",
-        type=str,
-        default=os.getenv("RTI_LICENSE_FILE"),
-        help="the path of rti_license_file."
+        "--rti_license_file", type=str, default=os.getenv("RTI_LICENSE_FILE"), help="the path of rti_license_file."
     )
     parser.add_argument("--domain_id", type=int, default=0, help="domain id.")
     parser.add_argument("--height", type=int, default=224, help="input image height.")

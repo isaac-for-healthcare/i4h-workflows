@@ -39,7 +39,7 @@ parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument(
     "--ckpt_path",
     type=str,
-    default=None,
+    default=robot_us_assets.policy_ckpt,
     help="checkpoint path. Default to use policy checkpoint in the latest assets.",
 )
 parser.add_argument("--repo_id", type=str, help="the LeRobot repo id for the dataset norm.")
@@ -102,7 +102,7 @@ def main():
         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
     policy_runner = PI0PolicyRunner(
-        ckpt_path=args_cli.ckpt_path if args_cli.ckpt_path else robot_us_assets.policy_ckpt,
+        ckpt_path=args_cli.ckpt_path,
         repo_id=args_cli.repo_id,
         task_description="Conduct a ultrasound scan on the liver.",
     )

@@ -41,8 +41,8 @@ parser.add_argument(
     "--config",
     type=str,
     choices=list_exp_configs(),
-    default="basic", 
-    help="Configuration name to use for visualization. Only `basic` is supported for now."
+    default="basic",
+    help="Configuration name to use for visualization. Only `basic` is supported for now.",
 )
 config = get_exp_config(parser.parse_args().config)
 
