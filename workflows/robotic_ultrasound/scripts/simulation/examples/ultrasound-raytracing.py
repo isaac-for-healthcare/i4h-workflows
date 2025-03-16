@@ -544,7 +544,7 @@ def main():
         "--config",
         type=str,
         default=None,
-        help="path to custom JSON configuration file with probe parameters and simulation parameters. ")
+        help="path to custom JSON configuration file with probe parameters and simulation parameters. ",
     )
     parser.add_argument(
         "--period",
