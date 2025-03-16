@@ -177,7 +177,7 @@ def compute_transform_chain(env, route: list[str]):
     Compute the transformation from the origin frame to the target frame using the route of frames.
 
     Args:
-        frame_name: The name of the frame.
+        env: the environment object containing the transformations in the scene.
         route: The route of frames to compute the transformation.
 
     Returns:
