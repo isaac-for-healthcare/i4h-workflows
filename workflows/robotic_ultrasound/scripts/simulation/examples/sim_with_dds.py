@@ -28,10 +28,10 @@ from dds.schemas.usp_info import UltraSoundProbeInfo
 from dds.subscriber import SubscriberWithQueue
 from omni.isaac.lab.app import AppLauncher
 from simulation.environments.state_machine.utils import (
+    capture_camera_images,
     compute_relative_action,
     compute_transform_sequence,
     get_joint_states,
-    get_np_images,
     get_probe_pos_ori,
     get_robot_obs,
 )
@@ -63,10 +63,22 @@ parser.add_argument(
     help="topic name to consume room camera rgb",
 )
 parser.add_argument(
+    "--topic_in_room_camera_depth",
+    type=str,
+    default="topic_room_camera_data_depth",
+    help="topic name to consume room camera depth",
+)
+parser.add_argument(
     "--topic_in_wrist_camera",
     type=str,
     default="topic_wrist_camera_data_rgb",
     help="topic name to consume wrist camera rgb",
+)
+parser.add_argument(
+    "--topic_in_wrist_camera_depth",
+    type=str,
+    default="topic_wrist_camera_data_depth",
+    help="topic name to consume wrist camera depth",
 )
 parser.add_argument(
     "--topic_in_franka_pos",
@@ -111,6 +123,8 @@ pub_data = {
     "joint_pos": None,
     "probe_pos": None,
     "probe_ori": None,
+    "room_cam_depth": None,
+    "wrist_cam_depth": None,
 }
 hz = 30
 
@@ -128,6 +142,19 @@ class RoomCamPublisher(Publisher):
         return output
 
 
+class RoomCamDepthPublisher(Publisher):
+    def __init__(self, domain_id: int):
+        super().__init__(args_cli.topic_in_room_camera_depth, CameraInfo, 1 / hz, domain_id)
+
+    def produce(self, dt: float, sim_time: float):
+        output = CameraInfo()
+        output.focal_len = 12.0
+        output.height = 224
+        output.width = 224
+        output.data = pub_data["room_cam_depth"].tobytes()
+        return output
+
+
 class WristCamPublisher(Publisher):
     def __init__(self, domain_id: int):
         super().__init__(args_cli.topic_in_wrist_camera, CameraInfo, 1 / hz, domain_id)
@@ -137,6 +164,18 @@ class WristCamPublisher(Publisher):
         output.height = 224
         output.width = 224
         output.data = pub_data["wrist_cam"].tobytes()
+        return output
+
+
+class WristCamDepthPublisher(Publisher):
+    def __init__(self, domain_id: int):
+        super().__init__(args_cli.topic_in_wrist_camera_depth, CameraInfo, 1 / hz, domain_id)
+
+    def produce(self, dt: float, sim_time: float):
+        output = CameraInfo()
+        output.height = 224
+        output.width = 224
+        output.data = pub_data["wrist_cam_depth"].tobytes()
         return output
 
 
@@ -212,10 +251,15 @@ def main():
     infer_pos_writer = PosPublisher(args_cli.infer_domain_id)
     viz_r_cam_writer = RoomCamPublisher(args_cli.viz_domain_id)
     viz_w_cam_writer = WristCamPublisher(args_cli.viz_domain_id)
+    viz_r_cam_depth_writer = RoomCamDepthPublisher(args_cli.viz_domain_id)
+    viz_w_cam_depth_writer = WristCamDepthPublisher(args_cli.viz_domain_id)
     viz_pos_writer = PosPublisher(args_cli.viz_domain_id)
     viz_probe_pos_writer = ProbePosPublisher(args_cli.viz_domain_id)
     infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
     infer_reader.start()
+    import time
+
+    time.sleep(10)
 
     # Number of steps played before replanning
     replan_steps = 15
@@ -228,7 +272,17 @@ def main():
 
             for t in range(max_timesteps):
                 # get and publish the current images and joint positions
-                pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
+                rgb_images, depth_images = capture_camera_images(
+                    env, ["room_camera", "wrist_camera"], device=env.unwrapped.device
+                )
+                pub_data["room_cam"], pub_data["room_cam_depth"] = (
+                    rgb_images[0, 0, ...].cpu().numpy(),
+                    depth_images[0, 0, ...].cpu().numpy(),
+                )
+                pub_data["wrist_cam"], pub_data["wrist_cam_depth"] = (
+                    rgb_images[0, 1, ...].cpu().numpy(),
+                    depth_images[0, 1, ...].cpu().numpy(),
+                )
                 pub_data["joint_pos"] = get_joint_states(env)[0]
                 # Get the pose of the mesh objects (mesh)
                 # The mesh objects are aligned with the organ (organ) in the US image view (us)
@@ -241,6 +295,8 @@ def main():
                 )
                 viz_r_cam_writer.write()
                 viz_w_cam_writer.write()
+                viz_r_cam_depth_writer.write()
+                viz_w_cam_depth_writer.write()
                 viz_pos_writer.write()
                 viz_probe_pos_writer.write()
                 if not action_plan:

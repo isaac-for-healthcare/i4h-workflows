@@ -78,10 +78,22 @@ parser.add_argument(
     help="topic name to consume room camera rgb",
 )
 parser.add_argument(
+    "--topic_in_room_camera_depth",
+    type=str,
+    default="topic_room_camera_data_depth",
+    help="topic name to consume room camera depth",
+)
+parser.add_argument(
     "--topic_in_wrist_camera",
     type=str,
     default="topic_wrist_camera_data_rgb",
     help="topic name to consume wrist camera rgb",
+)
+parser.add_argument(
+    "--topic_in_wrist_camera_depth",
+    type=str,
+    default="topic_wrist_camera_data_depth",
+    help="topic name to consume wrist camera depth",
 )
 
 # parse the arguments
@@ -112,7 +124,12 @@ from omni.isaac.lab_tasks.manager_based.manipulation.lift import mdp  # noqa: F4
 from omni.isaac.lab_tasks.utils import parse_env_cfg  # noqa: F401, E402
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.utils import compute_transform_sequence, get_joint_states, get_probe_pos_ori
+from simulation.environments.state_machine.utils import (
+    capture_camera_images,
+    compute_transform_sequence,
+    get_joint_states,
+    get_probe_pos_ori,
+)
 
 # Add RTI DDS imports
 if args_cli.rti_license_file is not None:
@@ -121,24 +138,13 @@ if args_cli.rti_license_file is not None:
     os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
 
 
-def capture_camera_images(env, cam_names, device="cuda"):
-    """Captures RGB and depth images from specified cameras"""
-    depths, rgbs = [], []
-    for cam_name in cam_names:
-        camera_data = env.unwrapped.scene[cam_name].data
-        rgb = camera_data.output["rgb"][..., :3].squeeze(0)
-        depth = camera_data.output["distance_to_image_plane"].squeeze(0)
-        rgbs.append(rgb)
-        depths.append(depth)
-
-    return torch.stack(rgbs).unsqueeze(0), torch.stack(depths).unsqueeze(0)
-
-
 # Add publisher classes before main()
 pub_data = {
     "room_cam": None,
     "wrist_cam": None,
     "joint_pos": None,  # Added for robot pose
+    "room_cam_depth": None,
+    "wrist_cam_depth": None,
 }
 hz = 30
 
@@ -156,6 +162,19 @@ class RoomCamPublisher(Publisher):
         return output
 
 
+class RoomCamDepthPublisher(Publisher):
+    def __init__(self, domain_id: int):
+        super().__init__(args_cli.topic_in_room_camera_depth, CameraInfo, 1 / hz, domain_id)
+
+    def produce(self, dt: float, sim_time: float):
+        output = CameraInfo()
+        output.focal_len = 12.0
+        output.height = 224
+        output.width = 224
+        output.data = pub_data["room_cam_depth"].tobytes()
+        return output
+
+
 class WristCamPublisher(Publisher):
     def __init__(self, domain_id: int):
         super().__init__(args_cli.topic_in_wrist_camera, CameraInfo, 1 / hz, domain_id)
@@ -165,6 +184,18 @@ class WristCamPublisher(Publisher):
         output.height = 224
         output.width = 224
         output.data = pub_data["wrist_cam"].tobytes()
+        return output
+
+
+class WristCamDepthPublisher(Publisher):
+    def __init__(self, domain_id: int):
+        super().__init__(args_cli.topic_in_wrist_camera_depth, CameraInfo, 1 / hz, domain_id)
+
+    def produce(self, dt: float, sim_time: float):
+        output = CameraInfo()
+        output.height = 224
+        output.width = 224
+        output.data = pub_data["wrist_cam_depth"].tobytes()
         return output
 
 
@@ -247,6 +278,8 @@ def main():
     viz_w_cam_writer = WristCamPublisher(args_cli.viz_domain_id)
     # viz_pos_writer = PosPublisher(args_cli.viz_domain_id)
     viz_probe_pos_writer = ProbePosPublisher(args_cli.viz_domain_id)
+    viz_r_cam_depth_writer = RoomCamDepthPublisher(args_cli.viz_domain_id)
+    viz_w_cam_depth_writer = WristCamDepthPublisher(args_cli.viz_domain_id)
     # Added robot pose publisher
 
     # simulate environment
@@ -298,15 +331,20 @@ def main():
             pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us)
 
             # Get and publish camera images
-            rgb_images, _ = capture_camera_images(env, ["room_camera", "wrist_camera"], device=env.unwrapped.device)
+            rgb_images, depth_images = capture_camera_images(
+                env, ["room_camera", "wrist_camera"], device=env.unwrapped.device
+            )
             pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
+            pub_data["room_cam_depth"] = depth_images[0, 0, ...].cpu().numpy()
             pub_data["wrist_cam"] = rgb_images[0, 1, ...].cpu().numpy()
+            pub_data["wrist_cam_depth"] = depth_images[0, 1, ...].cpu().numpy()
             pub_data["joint_pos"] = get_joint_states(env)[0]
 
-            viz_r_cam_writer.write(0.1, 1.0)
-            viz_w_cam_writer.write(0.1, 1.0)
-            viz_probe_pos_writer.write(0.1, 1.0)
-
+            viz_r_cam_writer.write()
+            viz_w_cam_writer.write()
+            viz_probe_pos_writer.write()
+            viz_r_cam_depth_writer.write()
+            viz_w_cam_depth_writer.write()
     env.close()
 
 
