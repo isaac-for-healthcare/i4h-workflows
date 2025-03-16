@@ -4,11 +4,11 @@ from enum import Enum
 from typing import Sequence
 
 import numpy as np
+import omni.isaac.lab.utils.math as math_utils  # noqa: F401, E402
 import onnxruntime as ort
 import torch
 from omni.isaac.lab.utils import convert_dict_to_backend
 from omni.isaac.lab.utils.math import compute_pose_error, quat_from_euler_xyz
-from scipy.spatial.transform import Rotation
 
 
 # MARK: - State Machine Enums + Dataclasses
@@ -171,121 +171,65 @@ def scale_points(points: Sequence[float], scale: float = 1000.0) -> torch.Tensor
     return points_tensor * scale
 
 
-def compute_transform_matrix(
-    ov_point: Sequence[float],
-    nifti_point: Sequence[float],
-    rotation_matrix: None | torch.Tensor = None,
-):
+def compute_transform_sequence(env, sequence_order: list[str]):
     """
-    Create a transform matrix to convert from Omniverse coordinates (meters) to NIFTI coordinates (millimeters)
+    Compute the transformation from the 1st frame to the last frame by following the sequence order of frames.
+    This is useful for getting the transformation in the scene, when only frame-to-frame transformations are available.
+    The definition of `frame` is the same as the `frame` in the `env.unwrapped.scene`,
+    but it is not necessary to have the actual frame in the scene.
+    For example, we can use the `us` frame as long as a transformation from `us` to another actual frame is available.
+
 
     Args:
-        ov_point: point in Omniverse coordinates (meters)
-        nifti_point: point in NIFTI coordinates (millimeters)
-        rotation_matrix: Optional rotation matrix to convert from Omniverse to NIFTI coordinates.
-            If None, the default rotation matrix CoordinateTransform.OMNIVERSE_TO_ORGAN will be used.
+        env: the environment object containing the transformations in the scene.
+        sequence_order: the sequence order of frames to compute the transformation.
+            For example, if we have frames `A`, `B`, `C`, and we want to compute the transformation from `A` to `C`,
+            the sequence_order should be `[A, B, C]`.
 
     Returns:
-        A 4x4 homogeneous transformation matrix that maps points from Omniverse to NIFTI coordinates.
+        quat, pos: The quaternion and position from the 1st frame to the last frame.
     """
+
     # Create rotation component of the transform matrix
-    R = CoordinateTransform.OMNIVERSE_TO_ORGAN if rotation_matrix is None else rotation_matrix
+    def transform_name(start, end):
+        return f"{start}_to_{end}_transform"
 
-    # Convert input points to tensors
-    ov_point = torch.tensor(ov_point, dtype=torch.float64).unsqueeze(-1)
-    nifti_point = torch.tensor(nifti_point, dtype=torch.float64)
+    if len(sequence_order) <= 1:
+        raise ValueError(f"sequence_order must contain at least two frames: {sequence_order}")
 
-    # Calculate translation component
-    t = nifti_point - (R @ ov_point).squeeze(-1)
+    quat = None
+    pos = None
 
-    # Create full 4x4 transform_matrix matrix
-    transform_matrix = torch.eye(4, dtype=torch.float64)
-    transform_matrix[:3, :3] = R
-    transform_matrix[:3, 3] = t
+    for i in range(len(sequence_order) - 1):
+        start = sequence_order[i]
+        end = sequence_order[i + 1]
 
-    return transform_matrix
+        try:
+            transform_obj = env.unwrapped.scene[transform_name(start, end)]
+        except Exception as e:
+            print(f"Error getting transform object {transform_name(start, end)}: {e}")
+            raise e
+
+        next_quat = transform_obj.data.target_quat_source[0]
+        next_pos = transform_obj.data.target_pos_source[0]
+
+        if quat is None and pos is None:
+            quat = next_quat
+            pos = next_pos
+        else:
+            # The order of updating pos and quat can't be switched be below
+            pos = pos + math_utils.quat_apply(quat, next_pos)
+            quat = math_utils.quat_mul(quat, next_quat)
+
+    return quat, pos
 
 
-def ov_to_nifti_orientation(
-    ov_quat,
-    rotation_matrix: None | torch.Tensor = None,
-    ov_down_quat: None | Sequence[float] = None,
-    organ_down_quat: None | Sequence[float] = None,
-):
+def get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us, scale: float = 1000.0, log=False):
     """
-    Convert quaternion from Omniverse to organ coordinate system Euler angles
-
+    Convert the probe position and orientation to match input formats of raysim
     Args:
-        ov_quat: Quaternion in [w, x, y, z] format from Omniverse
-        rotation_matrix: 3x3 rotation matrix that maps positions
-            from Isaac Sim coordinate system to organ coordinate system
-        ov_down_quat: Quaternion in [w, x, y, z] format for Omniverse "down" direction,
-            default is RobotQuaternions.DOWN
-        organ_down_quat: Euler angles in [x, y, z] format for organ "down" direction,
-            default is OrganEulerAngles.DOWN
-
-    Returns:
-        Euler angles in organ coordinate system [x, y, z] in radians
-    """
-    # Set default values if not provided
-    if ov_down_quat is None:
-        ov_down_quat = RobotQuaternions.DOWN  # Omniverse "down" quaternion [w, x, y, z]
-
-    if organ_down_quat is None:
-        organ_down_quat = OrganEulerAngles.DOWN  # Organ "down" Euler angles [x, y, z]
-
-    # set default coordinate system transformation if not provided
-    if rotation_matrix is None:
-        coord_transform = np.array(CoordinateTransform.OMNIVERSE_TO_ORGAN)
-    else:
-        coord_transform = rotation_matrix
-
-    # Step 1: Convert Omniverse quaternion to rotation matrix
-    ov_rot = Rotation.from_quat(ov_quat, scalar_first=True)
-
-    # Step 2: Create reference orientations
-    # Define "down" in Omniverse using the provided quaternion
-    ov_down_rot = Rotation.from_quat(ov_down_quat, scalar_first=True)
-
-    # Define "down" in organ coordinates using the provided Euler angles
-    organ_down_rot = Rotation.from_euler("xyz", organ_down_quat, degrees=False)
-
-    # Step 3: Apply coordinate system transformation to Omniverse rotation
-    # First convert to matrix representation
-    ov_matrix = ov_rot.as_matrix()
-    # Transform the rotation matrix to organ coordinate system
-    transformed_matrix = coord_transform @ ov_matrix @ coord_transform.T
-    # Convert back to a rotation object
-    transformed_rot = Rotation.from_matrix(transformed_matrix)
-
-    # Step 4: Apply this same relative rotation to the organ "down" orientation
-    # First transform the Omniverse down direction
-    ov_down_matrix = ov_down_rot.as_matrix()
-    transformed_down_matrix = coord_transform @ ov_down_matrix @ coord_transform.T
-    transformed_down_rot = Rotation.from_matrix(transformed_down_matrix)
-
-    # Combine the transformed down direction with the relative rotation
-    final_rot = organ_down_rot * transformed_down_rot.inv() * transformed_rot
-
-    # Step 5: Convert to Euler angles
-    organ_euler = final_rot.as_euler("xyz", degrees=False)
-
-    return organ_euler
-
-
-def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
-    """Get the probe position and orientation from the environment and transform to organ coordinate system.
-
-    This function performs two separate transformations:
-    1. Position transformation: Converts 3D position from Isaac Sim (meters) to organ coordinate system (millimeters)
-        using a homogeneous transformation matrix
-    2. Orientation transformation: Converts quaternion orientation from Isaac Sim to
-        Euler angles in organ coordinate system
-
-    Args:
-        env: The simulation environment containing the probe data
-        transform_matrix: 4x4 homogeneous transformation matrix that maps positions
-                          from Isaac Sim coordinate system to organ coordinate system
+        quat_mesh_to_us: Quaternion in [w, x, y, z] format that can map mesh obj to us image view
+        pos_mesh_to_us: Position in meters that can map mesh obj to us image view
         scale: Scaling factor to convert from meters to millimeters (default: 1000.0)
         log: If True, print the transformed position and orientation values for debugging
 
@@ -294,44 +238,26 @@ def get_probe_pos_ori(env, transform_matrix, scale: float = 1000.0, log=False):
         transformed_orientation: numpy array of shape (3,) with Euler angles in organ system (degrees)
     """
     # Get probe data from the end effector frame
-    probe_data = env.unwrapped.scene["ee_frame"].data
+    # scale the position from m to mm
+    pos = pos_mesh_to_us * scale
+    if isinstance(pos, torch.Tensor):
+        pos_np = pos.cpu().numpy().squeeze()
+    else:
+        pos_np = pos.squeeze()
 
-    # Get probe position and remove environment origins offset
-    # Raw tensor has shape (batch_size=1, num_envs=1, 3)
-    probe_pos = probe_data.target_pos_w - env.unwrapped.scene.env_origins
-
-    # Remove batch dimensions to get a simple position vector of shape (3,)
-    probe_pos_flat = probe_pos.squeeze(0).squeeze(0)
-
-    # Scale position from meters to millimeters
-    probe_pos_flat = scale_points(probe_pos_flat, scale=scale)
-
-    # Convert to homogeneous coordinates by adding a 1 as the 4th component
-    # This allows for the application of the 4x4 transformation matrix
-    pos_homogeneous = torch.cat([probe_pos_flat, torch.tensor([1.0], device=probe_pos.device)], dim=-1)
-
-    # Apply 4x4 transformation matrix to convert to organ coordinate system
-    # This handles both rotation and translation in one operation
-    transformed_pos = transform_matrix.to(probe_pos.device) @ pos_homogeneous
-
-    # Extract only the spatial coordinates (x, y, z), discarding homogeneous component
-    transformed_pos = transformed_pos[:3]
-
-    # Get probe orientation as quaternion [w, x, y, z] and remove batch dimensions
-    # Raw tensor has shape (batch_size=1, num_envs=1, 4)
-    probe_quat = probe_data.target_quat_w.squeeze(0).squeeze(0)  # Shape (4,)
-
-    transformed_ori = ov_to_nifti_orientation(probe_quat.cpu().numpy())
+    # convert the quat to euler angles
+    roll, pitch, yaw = math_utils.euler_xyz_from_quat(quat_mesh_to_us)
+    # stack the euler angles into roll pitch yaw tensor
+    euler_angles = np.array([roll.squeeze().cpu(), pitch.squeeze().cpu(), yaw.squeeze().cpu()])
 
     # Optional logging for debugging
     if log:
-        print(f"Raw position (Isaac Sim, mm): {probe_pos_flat}")
-        print(f"Transformed position (organ, mm): {transformed_pos}")
-        print(f"Raw orientation (Isaac Sim, quat): {probe_quat}")
-        print(f"Transformed orientation (organ, Euler): {transformed_ori}")
+        # print the results in euler angles in degrees
+        print("pos:", pos_np)
+        print("euler angles:", np.degrees(euler_angles))
 
     # Return position as numpy array and orientation as Euler angles
-    return transformed_pos.cpu().numpy(), transformed_ori
+    return pos_np, euler_angles
 
 
 def get_np_images(env):

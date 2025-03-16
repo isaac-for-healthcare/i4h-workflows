@@ -14,7 +14,7 @@ from dds.subscriber import SubscriberWithQueue
 from omni.isaac.lab.app import AppLauncher
 from simulation.environments.state_machine.utils import (
     compute_relative_action,
-    compute_transform_matrix,
+    compute_transform_sequence,
     get_joint_states,
     get_np_images,
     get_probe_pos_ori,
@@ -27,8 +27,18 @@ parser.add_argument(
     "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
 )
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
-parser.add_argument("--task", type=str, default=None, help="Name of the task.")
-parser.add_argument("--rti_license_file", type=str, help="the path of rti_license_file.")
+parser.add_argument(
+    "--task",
+    type=str,
+    default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0",
+    help="Name of the task. Default is Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0.",
+)
+parser.add_argument(
+    "--rti_license_file",
+    type=str,
+    default=None,
+    help="the path of rti_license_file. Default will use environment variables `RTI_LICENSE_FILE`",
+)
 parser.add_argument("--infer_domain_id", type=int, default=0, help="domain id to publish data for inference.")
 parser.add_argument("--viz_domain_id", type=int, default=1, help="domain id to publish data for visualization.")
 parser.add_argument(
@@ -169,9 +179,10 @@ def main():
     # reset environment
     obs = env.reset()
 
-    if args_cli.rti_license_file is None or not os.path.isabs(args_cli.rti_license_file):
-        raise ValueError("RTI license file must be an existing absolute path.")
-    os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
+    if args_cli.rti_license_file is not None:
+        if not os.path.isabs(args_cli.rti_license_file):
+            raise ValueError("RTI license file must be an existing absolute path.")
+        os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
 
     reset_steps = 40
     max_timesteps = 250
@@ -180,14 +191,6 @@ def main():
     for _ in range(reset_steps):
         reset_tensor = get_reset_action(env)
         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
-
-    # get transform matrix from isaac sim to organ coordinate system
-    transform_matrix = compute_transform_matrix(
-        ov_point=env.unwrapped.scene["organs"].data.root_pos_w.cpu().numpy()
-        * args_cli.scale,  # position of the organ in isaac sim
-        nifti_point=[0, -0.7168, 18.1250],  # corresponding position in nifti coordinate system
-    )
-    print(f"[INFO]: Coordinate transform matrix: {transform_matrix}")
 
     infer_r_cam_writer = RoomCamPublisher(args_cli.infer_domain_id)
     infer_w_cam_writer = WristCamPublisher(args_cli.infer_domain_id)
@@ -212,8 +215,14 @@ def main():
                 # get and publish the current images and joint positions
                 pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
                 pub_data["joint_pos"] = get_joint_states(env)[0]
+                # Get the pose of the mesh objects (mesh)
+                # The mesh objects are aligned with the organ (organ) in the US image view (us)
+                # The US is attached to the end-effector (ee), so we have the following computation logics:
+                # Each frame-to-frame transformation is available in the scene
+                # mesh -> organ -> ee -> us
+                quat_mesh_to_us, pos_mesh_to_us = compute_transform_sequence(env, ["mesh", "organ", "ee", "us"])
                 pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
-                    env, transform_matrix=transform_matrix, scale=args_cli.scale, log=args_cli.log_probe_pos
+                    quat_mesh_to_us, pos_mesh_to_us, scale=args_cli.scale, log=args_cli.log_probe_pos
                 )
                 viz_r_cam_writer.write()
                 viz_w_cam_writer.write()

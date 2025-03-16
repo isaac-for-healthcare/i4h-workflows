@@ -286,6 +286,7 @@ class Simulator(Operator):
         self.sim_params.buffer_size = sim_config["buffer_size"]
         self.sim_params.t_far = sim_config["t_far"]
         self.sim_params.b_mode_size = (self.out_height, self.out_width)
+        self.sim_params.enable_cuda_timing = True
 
     def compute(self, op_input, op_output, context):
         """
@@ -498,43 +499,46 @@ def main():
         "--domain_id",
         type=int,
         default=int(os.environ.get("OVH_DDS_DOMAIN_ID", 0)),
-        help="domain id",
+        help="domain id. Default is 0.",
     )
     parser.add_argument(
         "--height",
         type=int,
         default=int(os.environ.get("OVH_HEIGHT", 224)),
-        help="height",
+        help="height. Default is 224.",
     )
     parser.add_argument(
         "--width",
         type=int,
         default=int(os.environ.get("OVH_WIDTH", 224)),
-        help="width",
+        help="width. Default is 224.",
     )
     parser.add_argument(
         "--topic_in",
         type=str,
         default="topic_ultrasound_info",
-        help="topic name to consume prob pos",
+        help="topic name to consume prob pos. Default is topic_ultrasound_info.",
     )
     parser.add_argument(
         "--topic_out",
         type=str,
         default="topic_ultrasound_data",
-        help="topic name to publish generated ultrasound data",
+        help="topic name to publish generated ultrasound data. Default is topic_ultrasound_data.",
     )
     parser.add_argument(
         "--config",
         type=str,
         default=None,
-        help="path to custom JSON configuration file with probe parameters and simulation parameters",
+        help=(
+            "path to custom JSON configuration file with probe parameters and simulation parameters. "
+            "Default is None."
+        ),
     )
     parser.add_argument(
         "--period",
         type=float,
         default=1 / 30.0,
-        help="period of the simulation",
+        help="period of the simulation. Default is 1 / 30.0. (30 Hz)",
     )
     args = parser.parse_args()
     app = StreamingSimulator(

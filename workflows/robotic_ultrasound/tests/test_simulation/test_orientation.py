@@ -1,178 +1,88 @@
 import unittest
+from unittest.mock import MagicMock
 
 import numpy as np
+import omni.isaac.lab.utils.math as math_utils
 import torch
-from parameterized import parameterized
-from scipy.spatial.transform import Rotation
-from simulation.environments.state_machine.utils import ov_to_nifti_orientation
-
-# Define the default rotation matrix used in the function
-DEFAULT_ROTATION_MATRIX = torch.tensor([[1, 0, 0], [0, 0, -1], [0, -1, 0]], dtype=torch.float64)
-# Define explicit test values for defaults (not using function defaults)
-TEST_OV_DOWN_QUAT = [0, 1, 0, 0]  # [w, x, y, z]
-TEST_ORGAN_DOWN_QUAT = [-np.pi / 2, 0, 0]  # [x, y, z]
-
-# Define test cases for parameterized tests
-TEST_CASES = [
-    # name, ov_quat, rotation_matrix, ov_down_quat, organ_down_quat, expected_result
-    (
-        "default_down_quaternion",  # Test with default down settings
-        [0, 1, 0, 0],  # ov_quat: Omniverse "down" quaternion [w, x, y, z]
-        DEFAULT_ROTATION_MATRIX,  # Use explicit rotation matrix
-        TEST_OV_DOWN_QUAT,  # Use explicit ov_down_quat
-        TEST_ORGAN_DOWN_QUAT,  # Use explicit organ_down_quat
-        np.array([-np.pi / 2, 0.0, 0.0]),  # Expected result
-    ),
-    (
-        "rotated_quaternion",  # Test with a quaternion rotated 90 degrees around Y
-        [0.7071, 0, 0.7071, 0],  # ov_quat: 90° rotation around Y axis [w, x, y, z]
-        DEFAULT_ROTATION_MATRIX,  # Use explicit rotation matrix
-        TEST_OV_DOWN_QUAT,  # Use explicit ov_down_quat
-        TEST_ORGAN_DOWN_QUAT,  # Use explicit organ_down_quat
-        None,  # Will verify using rotation matrices
-    ),
-    (
-        "custom_down_quaternions",  # Test with custom down definitions
-        [0.5, 0.5, 0.5, 0.5],  # ov_quat: arbitrary rotation
-        DEFAULT_ROTATION_MATRIX,  # Use explicit rotation matrix
-        [0, 0, 1, 0],  # ov_down_quat: different "down" direction in Omniverse
-        [0, -np.pi / 2, 0],  # organ_down_quat: different "down" in organ system
-        None,  # Will be calculated in test
-    ),
-    (
-        "identity_quaternion",  # Test with identity quaternion
-        [1, 0, 0, 0],  # ov_quat: identity quaternion [w, x, y, z]
-        DEFAULT_ROTATION_MATRIX,  # Use explicit rotation matrix
-        TEST_OV_DOWN_QUAT,  # Use explicit ov_down_quat
-        TEST_ORGAN_DOWN_QUAT,  # Use explicit organ_down_quat
-        None,  # Will be calculated in test
-    ),
-    (
-        "real_world_example",
-        [0.3758, 0.8235, 0.3686, 0.2114],
-        DEFAULT_ROTATION_MATRIX,  # Use explicit rotation matrix
-        TEST_OV_DOWN_QUAT,  # Use explicit ov_down_quat
-        TEST_ORGAN_DOWN_QUAT,  # Use explicit organ_down_quat
-        None,  # Will be calculated in test
-    ),
-    (
-        "custom_rotation_matrix",
-        [0, 1, 0, 0],  # ov_quat: Omniverse "down" quaternion [w, x, y, z]
-        torch.tensor([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=torch.float64),  # Identity rotation matrix
-        TEST_OV_DOWN_QUAT,  # Use explicit ov_down_quat
-        TEST_ORGAN_DOWN_QUAT,  # Use explicit organ_down_quat
-        None,  # Will be calculated in test
-    ),
-]
-
-INVERSE_TEST_CASES = [
-    # ov_quat, rotation_matrix
-    ([1, 0, 0, 0], DEFAULT_ROTATION_MATRIX),  # Identity
-    ([0, 1, 0, 0], DEFAULT_ROTATION_MATRIX),  # 180° around X
-    ([0.7071, 0, 0.7071, 0], DEFAULT_ROTATION_MATRIX),  # 90° around Y
-    ([0.7071, 0, 0, 0.7071], DEFAULT_ROTATION_MATRIX),  # 90° around Z
-    ([0.9239, 0.3827, 0, 0], DEFAULT_ROTATION_MATRIX),  # 45° around X
-]
+from simulation.environments.state_machine.utils import compute_transform_sequence, get_probe_pos_ori
 
 
-class TestOrientationConversion(unittest.TestCase):
-    @parameterized.expand(TEST_CASES)
-    def test_orientation_conversion(
-        self, name, ov_quat, rotation_matrix, ov_down_quat, organ_down_quat, expected_result
-    ):
-        # Call the function with the test parameters
-        result_euler = ov_to_nifti_orientation(
-            ov_quat=ov_quat, rotation_matrix=rotation_matrix, ov_down_quat=ov_down_quat, organ_down_quat=organ_down_quat
-        )
+class TestComputeTransformSequence(unittest.TestCase):
+    def setUp(self):
+        # Create a mock environment
+        self.env = MagicMock()
+        self.env.unwrapped.scene = {}
 
-        # For cases with expected Euler angles, compare directly
-        if expected_result is None:
-            # Calculate the expected result based on the new implementation
-            ov_rot = Rotation.from_quat(ov_quat, scalar_first=True)
+        # Create mock transform objects
+        self.transform_a_to_b = MagicMock()
+        self.transform_b_to_c = MagicMock()
 
-            # Convert to numpy for calculations
-            if isinstance(rotation_matrix, torch.Tensor):
-                coord_transform = rotation_matrix.numpy()
-            else:
-                coord_transform = rotation_matrix
+        # Set up quaternions and positions for transforms
+        self.quat_a_to_b = torch.tensor([1.0, 0.0, 0.0, 0.0])  # Identity quaternion
+        self.pos_a_to_b = torch.tensor([1.0, 0.0, 0.0])  # 1 unit in x direction
 
-            ov_down_rot = Rotation.from_quat(ov_down_quat, scalar_first=True)
+        self.quat_b_to_c = torch.tensor([0.7071, 0.0, 0.7071, 0.0])  # 90 degree rotation around y
+        self.pos_b_to_c = torch.tensor([0.0, 1.0, 0.0])  # 1 unit in y direction
 
-            organ_down_rot = Rotation.from_euler("xyz", organ_down_quat, degrees=False)
+        # Configure mock transform objects
+        self.transform_a_to_b.data.target_quat_source = self.quat_a_to_b.unsqueeze(0)
+        self.transform_a_to_b.data.target_pos_source = self.pos_a_to_b.unsqueeze(0)
 
-            # Apply the coordinate transformation to both orientations
-            ov_matrix = ov_rot.as_matrix()
-            transformed_matrix = coord_transform @ ov_matrix @ coord_transform.T
-            transformed_rot = Rotation.from_matrix(transformed_matrix)
+        self.transform_b_to_c.data.target_quat_source = self.quat_b_to_c.unsqueeze(0)
+        self.transform_b_to_c.data.target_pos_source = self.pos_b_to_c.unsqueeze(0)
 
-            ov_down_matrix = ov_down_rot.as_matrix()
-            transformed_down_matrix = coord_transform @ ov_down_matrix @ coord_transform.T
-            transformed_down_rot = Rotation.from_matrix(transformed_down_matrix)
+        # Add transforms to the scene
+        self.env.unwrapped.scene["a_to_b_transform"] = self.transform_a_to_b
+        self.env.unwrapped.scene["b_to_c_transform"] = self.transform_b_to_c
 
-            # Calculate the final rotation
-            final_rot = organ_down_rot * transformed_down_rot.inv() * transformed_rot
-            expected_result = final_rot.as_euler("xyz", degrees=False)
+    def test_compute_transform_sequence(self):
+        # Test the transformation from A to C
+        quat, pos = compute_transform_sequence(self.env, ["a", "b", "c"])
 
-        # Compare directly with the result
-        self.assertTrue(
-            np.allclose(result_euler, expected_result, rtol=1e-5, atol=1e-3),
-            f"Failed for {name}.\nExpected: {expected_result}\nGot: {result_euler}",
-        )
+        # Expected results:
+        # - Position should be [1.0, 1.0, 0.0] (first move 1 in x, then 1 in y)
+        # - Quaternion should be the multiplication of the two quaternions
+        expected_quat = math_utils.quat_mul(self.quat_a_to_b, self.quat_b_to_c)
+        expected_pos = self.pos_a_to_b + math_utils.quat_apply(self.quat_a_to_b, self.pos_b_to_c)
 
-    def test_orientation_mapping_consistency(self):
-        # Define a reference orientation and a rotated orientation in Omniverse
-        ov_ref = np.array([0, 1, 0, 0])  # Reference "down" orientation [w, x, y, z]
-        ov_rotated = np.array([0, 0.9239, 0, 0.3827])  # 45° around Z axis
+        self.assertTrue(torch.allclose(quat, expected_quat, atol=1e-4))
+        self.assertTrue(torch.allclose(pos, expected_pos, atol=1e-4))
 
-        # Convert both to organ system with explicit parameters
-        organ_ref = ov_to_nifti_orientation(
-            ov_ref,
-            rotation_matrix=DEFAULT_ROTATION_MATRIX,
-            ov_down_quat=TEST_OV_DOWN_QUAT,
-            organ_down_quat=TEST_ORGAN_DOWN_QUAT,
-        )
-        organ_rotated = ov_to_nifti_orientation(
-            ov_rotated,
-            rotation_matrix=DEFAULT_ROTATION_MATRIX,
-            ov_down_quat=TEST_OV_DOWN_QUAT,
-            organ_down_quat=TEST_ORGAN_DOWN_QUAT,
-        )
+    def test_single_frame_error(self):
+        # Test that an error is raised when only one frame is provided
+        with self.assertRaises(ValueError):
+            compute_transform_sequence(self.env, ["a"])
 
-        # Calculate the angular difference between the two in Omniverse
-        # Convert to Rotation objects for scipy
-        rot_ov_ref = Rotation.from_quat(ov_ref, scalar_first=True)
-        rot_ov_rotated = Rotation.from_quat(ov_rotated, scalar_first=True)
-        ov_angle = rot_ov_ref.inv() * rot_ov_rotated
-        ov_angle_deg = np.linalg.norm(ov_angle.as_rotvec(degrees=True))
+    def test_empty_sequence_error(self):
+        # Test that an error is raised when an empty sequence is provided
+        with self.assertRaises(ValueError):
+            compute_transform_sequence(self.env, [])
 
-        # Calculate the angular difference in the organ system using rotation matrices
-        rot_organ_ref = Rotation.from_euler("xyz", organ_ref, degrees=False)
-        rot_organ_rotated = Rotation.from_euler("xyz", organ_rotated, degrees=False)
-        organ_angle = rot_organ_ref.inv() * rot_organ_rotated
-        organ_angle_deg = np.linalg.norm(organ_angle.as_rotvec(degrees=True))
+    def test_missing_transform_error(self):
+        # Test that an error is raised when a transform is missing
+        with self.assertRaises(Exception):
+            compute_transform_sequence(self.env, ["a", "d", "c"])
 
-        # The angles should be approximately the same (the transformation preserves angles)
-        self.assertAlmostEqual(
-            ov_angle_deg,
-            organ_angle_deg,
-            delta=2.0,
-            msg=f"Angle in Omniverse: {ov_angle_deg}, Angle in organ system: {organ_angle_deg}",
-        )
 
-    @parameterized.expand(INVERSE_TEST_CASES)
-    def test_inverse_mapping(self, ov_quat, rotation_matrix):
-        mapped_euler = ov_to_nifti_orientation(
-            ov_quat=ov_quat,
-            rotation_matrix=rotation_matrix,
-            ov_down_quat=ov_quat,  # Use the input quaternion as reference
-            organ_down_quat=[0, 0, 0],  # Target neutral orientation
-        )
+class TestGetProbePositionOrientation(unittest.TestCase):
+    def setUp(self):
+        # Create test quaternions and positions
+        self.quat_mesh_to_us = torch.tensor([[1.0, 0.0, 0.0, 0.0]])  # Identity quaternion
+        self.pos_mesh_to_us = torch.tensor([[0.1, 0.2, 0.3]])  # Position in meters
 
-        # The result should be close to [0,0,0]
-        self.assertTrue(
-            np.allclose(mapped_euler, [0, 0, 0], rtol=1e-5, atol=1e-3),
-            f"Inverse mapping failed for {ov_quat}.\nGot: {mapped_euler}",
-        )
+        # Create numpy versions for testing
+        self.quat_mesh_to_us_np = np.array([1.0, 0.0, 0.0, 0.0])
+        self.pos_mesh_to_us_np = np.array([0.1, 0.2, 0.3])
+
+    def test_get_probe_pos_ori_torch_input(self):
+        # Test with torch tensor inputs
+        pos, euler = get_probe_pos_ori(self.quat_mesh_to_us, self.pos_mesh_to_us)
+
+        # Check position scaling (meters to millimeters)
+        expected_pos = np.array([100.0, 200.0, 300.0])
+        expected_euler = np.array([0.0, 0.0, 0.0])
+        self.assertTrue(np.allclose(pos, expected_pos))
+        self.assertTrue(np.allclose(euler, expected_euler))
 
 
 if __name__ == "__main__":

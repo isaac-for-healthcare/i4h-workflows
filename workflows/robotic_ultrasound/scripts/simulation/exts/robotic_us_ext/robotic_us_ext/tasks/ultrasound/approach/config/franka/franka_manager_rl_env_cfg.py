@@ -31,6 +31,8 @@ from omni.isaac.lab.markers.config import FRAME_MARKER_CFG  # isort: skip
 
 FRAME_MARKER_SMALL_CFG = FRAME_MARKER_CFG.copy()
 FRAME_MARKER_SMALL_CFG.markers["frame"].scale = (0.10, 0.10, 0.10)
+FRAME_MARKER_TINY_CFG = FRAME_MARKER_CFG.copy()
+FRAME_MARKER_TINY_CFG.markers["frame"].scale = (0.01, 0.01, 0.01)
 
 
 @configclass
@@ -131,6 +133,77 @@ class RoboticSoftCfg(InteractiveSceneCfg):
                         0,
                         0,
                     ),  # rotate 180 about x-axis to make the end-effector point down
+                ),
+            ),
+        ],
+    )
+
+    # Transform Mesh to Organ Frame.
+    # Mesh object files are used to simulate ultrasound images.
+    # It abides by the original coordinate system specified in the object files.
+    # Usually it doesn't align with the organ frame, which follows USD convention.
+    # We need this transsform to compute the transformation between.
+    # Particularly, we used to to derive how the ultrasound probe sees the mesh objects
+    mesh_to_organ_transform = FrameTransformerCfg(
+        prim_path="{ENV_REGEX_NS}/organs",
+        debug_vis=True,
+        visualizer_cfg=FRAME_MARKER_TINY_CFG.replace(prim_path="/Visuals/mesh_to_organ_transform"),
+        target_frames=[
+            FrameTransformerCfg.FrameCfg(
+                prim_path="{ENV_REGEX_NS}/organs",
+                name="mesh_to_organ_transform",
+                offset=OffsetCfg(
+                    # Describe how to position the mesh objects relative to the organ.
+                    # The mesh objects needs to be aligned so that it looks like organs in the body.
+                    # The center of the meshes can be offset from the origin of the mesh coordinate frame.
+                    # The center of the organ seems to be always the origin of the USD file.
+                    # To align center to center, we need to offset the mesh to the center
+                    # This value[2] can be a large negative number, e.g. -360 in some previous asset case.
+                    pos=[0.0, 0.0, 0.0],  # unit: m, offset from the center of the organ to the origin
+                    # Describe the orientation of the organ frame in the  mesh coords frame
+                    # The mesh is used to generate US raytracing, and can be found in the assets folder
+                    # It can be also be the Nifti frame, if the axes are aligned.
+                    rot=(0.7071, 0.7071, 0, 0),  # quaternion
+                ),
+            ),
+        ],
+    )
+
+    # Transform Organ to EE Frame.
+    # The displacement/rotation between the organ and the end-effector changes during the task
+    # This transform is used to track the relative displacement/rotation.
+    organ_to_ee_transform = FrameTransformerCfg(
+        prim_path="{ENV_REGEX_NS}/organs",
+        debug_vis=True,
+        visualizer_cfg=FRAME_MARKER_SMALL_CFG.replace(prim_path="/Visuals/organ_frame"),
+        target_frames=[
+            FrameTransformerCfg.FrameCfg(
+                prim_path="{ENV_REGEX_NS}/Robot/TCP",
+                name="organ_to_ee_transform",
+                offset=OffsetCfg(pos=[0.0, 0.0, 0.0]),
+            ),
+        ],
+    )
+
+    # Transform EE Frame to US Frame.
+    # The end-effector follows the USD convention but the US image does not.
+    # Usually US image uses z for the depth direction, and x for the lateral.
+    # End-effector uses z for the depth direction, but y for the lateral.
+    # This transform is used to compute the transformation between the two coordinate systems.
+    ee_to_us_transform = FrameTransformerCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/TCP",
+        debug_vis=True,
+        visualizer_cfg=FRAME_MARKER_TINY_CFG.replace(prim_path="/Visuals/ee_to_us_transform"),
+        target_frames=[
+            FrameTransformerCfg.FrameCfg(
+                prim_path="{ENV_REGEX_NS}/Robot/TCP",
+                name="organ_to_ee_transform",
+                offset=OffsetCfg(
+                    pos=[0.0, 0.0, 0.0],
+                    # The EE and US frame are following different conventions, though both are right-handed.
+                    # Please check https://github.com/isaac-for-healthcare/i4h-workflows/pull/60#discussion_r1996523645
+                    # for more details.
+                    rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, -90.0]), degrees=True),
                 ),
             ),
         ],

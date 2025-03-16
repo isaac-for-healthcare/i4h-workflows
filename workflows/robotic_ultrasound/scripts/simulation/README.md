@@ -42,12 +42,14 @@ export PYTHONPATH=`pwd`
 ```
 
 5. Return to this folder and run the following command:
+
 ```sh
 python environments/state_machine/pi0_policy/eval.py \
     --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
     --enable_camera \
     --repo_id i4h/sim_liver_scan
 ```
+
 NOTE: You can also specify `--ckpt_path` to run a specific policy.
 This should open a stage with Franka arm and run the robotic ultrasound actions:
 ![pi0 simulation](../../../../docs/source/pi0_sim.jpg)
@@ -64,12 +66,7 @@ export PYTHONPATH=`pwd`
 ```
 Then move back to this folder and execute:
 ```sh
-python examples/sim_with_dds.py \
-    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
-    --enable_camera \
-    --infer_domain_id <domain id> \
-    --viz_domain_id <domain id> \
-    --rti_license_file <path to>/rti_license.dat
+python examples/sim_with_dds.py --enable_cameras
 ```
 
 ## Liver Scan State Machine
@@ -104,13 +101,8 @@ export PYTHONPATH=`pwd`
 Then move back to this folder and execute:
 
 ```sh
-python environments/state_machine/liver_scan_sm.py \
-    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
-    --enable_camera
+python environments/state_machine/liver_scan_sm.py --enable_cameras
 ```
-
-To enable DDS use add `--rti_license_file <abs_path_license>` or export the environment variable with the respective path. E.g. `export RTI_LICENSE_FILE=<abs_path_license>;` before launching.
-
 
 ### Data Collection
 
@@ -118,7 +110,6 @@ To run the state machine and collect data for a specified number of episodes:
 
 ```sh
 python environments/state_machine/liver_scan_sm.py \
-    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
     --enable_camera \
     --num_episodes 2
 ```
@@ -154,6 +145,57 @@ The collected data includes:
 - Joint positions
 - Camera images
 
+
+## Keyboard Controls
+
+During execution, you can press the 'r' key to reset the environment and state machine.
+
+## Teleoperation
+
+The teleoperation interface allows direct control of the robotic arm using various input devices. It supports keyboard, SpaceMouse, and gamepad controls for precise manipulation of the ultrasound probe.
+
+### Running Teleoperation
+
+Basic teleoperation can be started with:
+
+```sh
+python environments/teleoperation/teleop_se3_agent.py --enable_cameras
+```
+
+### Command Line Arguments
+
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--teleop_device` | str | "keyboard" | Device for control ("keyboard", "spacemouse", or "gamepad") |
+| `--sensitivity` | float | 1.0 | Control sensitivity multiplier |
+| `--disable_fabric` | bool | False | Disable fabric and use USD I/O operations |
+| `--num_envs` | int | 1 | Number of environments to simulate |
+| `--viz_domain_id` | int | 1 | Domain ID for visualization data publishing |
+| `--rti_license_file` | str | None | Path to the RTI license file (required) |
+
+### Control Schemes
+
+#### Keyboard Controls
+- Please check the [Se3Keyboard documentation](https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.devices.html#isaaclab.devices.Se3Keyboard)
+
+### Camera Visualization
+
+The teleoperation script supports real-time camera visualization through DDS communication. It publishes both room camera and wrist camera feeds at 30Hz.
+
+The camera feeds are published on the following default topics:
+- Room camera: `topic_room_camera_data_rgb`
+- Wrist camera: `topic_wrist_camera_data_rgb`
+
+Both cameras output 224x224 RGB images that can be visualized using compatible DDS subscribers.
+
+### Ultrasound Image Visualization
+
+The teleoperation script also supports real-time ultrasound image visualization through DDS communication. It publishes the ultrasound image at 30Hz.
+
+Please refer to the [Ultrasound Raytracing Simulation](#ultrasound-raytracing-simulation) section for more details on how to visualize the ultrasound image.
+
+
+
 ## Ultrasound Raytracing Simulation
 
 This example implements a standalone ultrasound raytracing simulator that generates realistic ultrasound images
@@ -163,10 +205,13 @@ based on 3D meshes. The simulator uses Holoscan framework and DDS communication 
 
 For instructions on preparing and building the Python module, please refer to the [Ultrasound Raytracing README](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/blob/main/ultrasound-raytracing/README.md).
 
+### Setup
+
+Please refer to the [Environment Setup](../../README.md#install-the-raytracing-ultrasound-simulator) instructions to setup the `raysim` module correctly.
+
 ### Configuration
 
-The simulator supports customization through JSON configuration files. You need to create your own
-configuration file following the structure below:
+Optionally, the simulator supports customization through JSON configuration files. You need to create your configuration file following the structure below:
 
 ```json
 {
@@ -226,12 +271,17 @@ You only need to specify the parameters you want to change - any omitted paramet
 To run the ultrasound raytracing simulator:
 
 ```sh
-python examples/ultrasound-raytracing.py \
-    --domain_id <domain_id> \
-    --height 224 \
-    --width 224 \
-    --topic_in topic_ultrasound_info \
-    --topic_out topic_ultrasound_data \
-    --viz_domain_id <domain id> \
-    --config path/to/your_config.json
+python examples/ultrasound-raytracing.py
 ```
+
+### Command Line Arguments
+
+| Argument | Description | Default Value |
+|----------|-------------|---------------|
+| --domain_id | Domain ID for DDS communication | 0 |
+| --height | Input image height | 224 |
+| --width | Input image width | 224 |
+| --topic_in | Topic name to consume probe position | topic_ultrasound_info |
+| --topic_out | Topic name to publish generated ultrasound data | topic_ultrasound_data |
+| --config | Path to custom JSON configuration file with probe parameters and simulation parameters | None |
+| --period | Period of the simulation (in seconds) | 1/30.0 (30 Hz) |
