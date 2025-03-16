@@ -11,3 +11,10 @@ pip install dearpygui
 ```bash
 python utils/visualization.py
 ```
+
+This will open a GUI that displays multiple real-time feeds:
+- Room camera view
+- Wrist camera view
+- Ultrasound image with probe position information
+
+![visulization](../../../../docs/source/visualization.png)
