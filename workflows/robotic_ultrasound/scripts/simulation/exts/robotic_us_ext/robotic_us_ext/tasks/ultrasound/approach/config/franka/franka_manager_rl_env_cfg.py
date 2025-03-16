@@ -138,7 +138,12 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         ],
     )
 
-    # Frame transformer from organ to robot base frame
+    # Transform Mesh to Organ Frame.
+    # Mesh object files are used to simulate ultrasound images.
+    # It abides by the original coordinate system specified in the object files.
+    # Usually it doesn't align with the organ frame, which follows USD convention.
+    # We need this transsform to compute the transformation between.
+    # Particularly, we used to to derive how the ultrasound probe sees the mesh objects
     mesh_to_organ_transform = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/organs",
         debug_vis=True,
@@ -164,6 +169,9 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         ],
     )
 
+    # Transform Organ to EE Frame.
+    # The displacement/rotation between the organ and the end-effector changes during the task
+    # This transform is used to track the relative displacement/rotation.
     organ_to_ee_transform = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/organs",
         debug_vis=True,
@@ -177,6 +185,11 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         ],
     )
 
+    # Transform EE Frame to US Frame.
+    # The end-effector follows the USD convention but the US image does not.
+    # Usually US image uses z for the depth direction, and x for the lateral.
+    # End-effector uses z for the depth direction, but y for the lateral.
+    # This transform is used to compute the transformation between the two coordinate systems.
     ee_to_us_transform = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/Robot/TCP",
         debug_vis=True,

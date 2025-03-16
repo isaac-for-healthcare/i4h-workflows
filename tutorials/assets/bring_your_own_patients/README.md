@@ -5,15 +5,9 @@ This guide helps you convert your own CT or MRI scans into USD (Universal Scene 
 ## Overview
 You can use your own medical imaging data (CT or MRI scans) and corresponding segmentation masks to create 3D models of organs and anatomical structures in USD format. This format is widely used in 3D visualization and can be loaded into various applications supporting USD.
 
-## Tutorial Reference
-For a detailed walkthrough of the conversion process, please refer to the [MONAI Omniverse Integration Tutorial](https://github.com/Project-MONAI/tutorials/blob/main/modules/omniverse/omniverse_integration.ipynb). This comprehensive tutorial demonstrates:
+## Preparing Model Objects and USD
 
-- How to load and preprocess medical imaging data
-- Converting segmentation masks to 3D meshes
-- Exporting the results to USD format
-- Visualizing the generated 3D models
-
-## Requirements
+### Requirements
 Before starting, ensure you have:
 - Your medical imaging data and corresponding segmentation masks in supported formats:
   - NIFTI (.nii, .nii.gz), NRRD (.nrrd), Single-series DICOM images (.dcm)
@@ -21,20 +15,32 @@ Before starting, ensure you have:
 - MONAI framework installed
 - Required dependencies as specified in the tutorial
 
-## Aligning the internal organ meshes with the exterior model from different assets
+### Steps
+For a detailed walkthrough of the conversion process, please refer to the [MONAI Omniverse Integration Tutorial](https://github.com/Project-MONAI/tutorials/blob/main/modules/omniverse/omniverse_integration.ipynb). This comprehensive tutorial demonstrates:
 
-If you have different assets for the patients, e.g. model for the exterior of the body and mesh models for the internal organs, you can use the following transformations to combine them.
+- How to load and preprocess medical imaging data
+- Converting segmentation masks to 3D meshes
+- Exporting the results to USD format
+- Visualizing the generated 3D models
 
-### Model for the outside of the body
-Exterior model asset follows the [USD convention](https://docs.omniverse.nvidia.com/isaacsim/latest/reference_conventions.html#usd-axes).
+### Updating the Assets in the Simulation
 
-### Models for the inside organs
+Currently, the robotic ultrasound workflow uses the assets in [I4H Asset Catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog). To replace the assets with your own, you need to modify the [environment configuration file](../../../workflows/robotic_ultrasound/scripts/simulation/exts/robotic_us_ext/robotic_us_ext/tasks/ultrasound/approach/config/franka/franka_manager_rl_env_cfg.py) to update the `usd_path` for `organ` in `RoboticSoftCfg`, as well as the `mesh_dir` in [ultrasound-raytracing.py](../../../workflows/robotic_ultrasound/scripts/simulation/examples/ultrasound-raytracing.py).
 
-The models can be mesh files of different organs organized with relative positions. It could be derived from CT/MRI scans, MAISI or 3D models from other sources.
+### Assets from different sources
 
-### Steps to approximate align meshes and model
+If you generate the mesh and USD files from the different source (e.g. mesh from CT scan but USD from public human body 3D model), you need to align the meshes to acheive realistic simulation results. 
 
-#### Compute the offset needed to center the organ meshes
+- USD model follows the [USD convention](https://docs.omniverse.nvidia.com/isaacsim/latest/reference_conventions.html#usd-axes).
+  - It is the `organ` frame in the [environment configuration file](../../../workflows/robotic_ultrasound/scripts/simulation/exts/robotic_us_ext/robotic_us_ext/tasks/ultrasound/approach/config/franka/franka_manager_rl_env_cfg.py)
+
+- Mesh object for the organs
+  - It could be derived from CT/MRI scans, MAISI or 3D models from other sources.
+  - We assume the organ mesh files share the same coordinate system. If not, you need to use 3D visualization software to align them.
+
+- Approximate align meshes and model by offseting and rotating the axes:
+
+#### Step 1: Compute the offset needed to center the organ meshes
 
 Treat the organ meshes as a whole, and find the offset to center the organ meshes. So that the origin of the organ meshes is the center of the mass of the organ meshes.
 
@@ -42,21 +48,27 @@ Treat the organ meshes as a whole, and find the offset to center the organ meshe
 v_{offset} = \{x_{center}, y_{center}, z_{center}\}
 ```
 
-#### Find the rotation matrix to align the USD axes with the organ axes
+#### Step 2:Find the rotation matrix to align the USD axes with the organ axes
 Here we assume the organ meshes has Superior-Inferior-Left-Right-Anterior-Posterior (SI-LR-AP) axes. We used those axis to align the organ meshes with the exterior model.
 
-1. Find the basis vector in the coordinate system representing the internal organ meshes
+We place the body model in both the mesh and USD coordinate systems. Ribs and spines are rendered to show the orientation.
+![image](./transformation.png)
+
+It need to be noted that this placement of the body model is based on how the USD model is created. You will need to make sure SI-LR-AP axes are generally aligned.
+
+
+Find the basis vector in the coordinate system representing the internal organ meshes
 ```math
-\vec{v}_{mesh_{lr}} = (1, 0, 0)
+\vec{v}_{mesh_{lr}} = (-1, 0, 0)
 ```
 ```math
 \vec{v}_{mesh_{ap}} = (0, 1, 0)
 ```
 ```math
-\vec{v}_{mesh_{si}} = (0, 0, 1)
+\vec{v}_{mesh_{si}} = (0, 0, -1)
 ```
 
-2. Find the basis vector in the USD coordinate system representing placement of the exterior model
+Find the basis vector in the USD coordinate system representing placement of the exterior model
 ```math
 \vec{v}_{usd_{lr}} = (-1, 0, 0)
 ```
@@ -67,33 +79,27 @@ Here we assume the organ meshes has Superior-Inferior-Left-Right-Anterior-Poster
 \vec{v}_{usd_{si}} = (0, -1, 0)
 ```
 
-3. Find the rotation matrix to map USD world coordinate system to the organ mesh coordinate system
+Find the rotation matrix to map USD world coordinate system to the organ mesh coordinate system
 ```math
 R_{mesh \rightarrow usd} = \begin{bmatrix}
--1 & 0 & 0 \\
+1 & 0 & 0 \\
 0 & 0 & -1 \\
-0 & -1 & 0
+0 & 1 & 0
 \end{bmatrix}
 ```
 
-4. To finish the transformation, we have
-```math
-T_{mesh \rightarrow usd} = \begin{bmatrix}
-R_{mesh \rightarrow usd} & v_{offset} \\
-0 & 1
-\end{bmatrix}
-```
+#### Step 3: Convert the rotation matrix to quaternion
 
-We offer a helper function to load the transformation (FIXME: add link). To bring your sets of exterior model and meshes, you will need to convert the rotation matrix to quaternion and pass it with the offsets:
+
 ```math
 q_{mesh \rightarrow usd} = \text{quat\_from\_matrix}(R_{mesh \rightarrow usd})
 ```
-In the setup above, the quaternion is `[0.0000,  0.0000,  0.7071, -0.7071]`.
+In the default setup above, the quaternion is `(0.7071, 0.7071, 0, 0)` and offset is `(0, 0, 0)` in `mesh_to_organ_transform`.
 
 
-### Alignment with organ meshes that abide by NIFTI coordinate system
+### Alignment of Assets from one source
 
-TBD
+Coming soon.
 
 ## Support
 If you encounter any issues during the conversion process, please refer to the tutorial documentation or raise an issue in this repository.
