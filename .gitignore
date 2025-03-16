@@ -196,12 +196,9 @@ cython_debug/
 
 # Wandb
 wandb/
-# ignore obj usd usda files
+# ignore obj
 *.obj
-*.usd
-*.usda
 *.mtl
-*.png
 *.usdc
 
 # No USD files allowed in the repo
