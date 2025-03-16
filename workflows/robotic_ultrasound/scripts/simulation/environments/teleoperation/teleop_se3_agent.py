@@ -239,35 +239,6 @@ def quat_from_euler_xyz_deg(roll, pitch, yaw, device="cuda"):
     return quat_sim_to_nifti
 
 
-def get_joint_states(env):
-    """Get the robot joint states from the environment."""
-    robot_data = env.unwrapped.scene["robot"].data
-    robot_joint_pos = robot_data.joint_pos
-    return robot_joint_pos.cpu().numpy()
-
-
-def make_pose(pos, rot):
-    """
-    Make homogeneous pose matrices from a set of translation vectors and rotation matrices.
-
-    Args:
-        pos (torch.Tensor): batch of position vectors with last dimension of 3
-        rot (torch.Tensor): batch of rotation matrices with last 2 dimensions of (3, 3)
-
-    Returns:
-        pose (torch.Tensor): batch of pose matrices with last 2 dimensions of (4, 4)
-    """
-    assert isinstance(pos, torch.Tensor), "Input must be a torch tensor"
-    assert isinstance(rot, torch.Tensor), "Input must be a torch tensor"
-    assert pos.shape[:-1] == rot.shape[:-2]
-    assert pos.shape[-1] == rot.shape[-2] == rot.shape[-1] == 3
-    pose = torch.zeros(pos.shape[:-1] + (4, 4), dtype=pos.dtype, device=pos.device)
-    pose[..., :3, :3] = rot
-    pose[..., :3, 3] = pos
-    pose[..., 3, 3] = 1.0
-    return pose
-
-
 def main():
     """Running keyboard teleoperation with Isaac Lab manipulation environment."""
     # parse configuration
@@ -378,7 +349,6 @@ def main():
             # quat_EEToUS = env.unwrapped.scene["ee_to_us_transform"].data.target_quat_source[0]
             # pos_EEToUS = env.unwrapped.scene["ee_to_us_transform"].data.target_pos_source[0]
 
-            # # Apply the transformation from sim_to_nifti frame -> returns the orientation of the end-effector in the nifti frame, using quaternion transformation
             # quat_MeshToEE = math_utils.quat_mul(quat_MeshToOrgan, quat_OrganToEE)
             # pos_MeshToEE = pos_MeshToOrgan + math_utils.quat_apply(quat_MeshToOrgan, pos_OrganToEE)
             # quat_MeshToUS = math_utils.quat_mul(quat_MeshToEE, quat_EEToUS)

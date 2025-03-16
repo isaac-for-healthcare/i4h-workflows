@@ -310,7 +310,7 @@ def get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us, scale: float = 1000.0, lo
 
     # convert the quat to euler angles
     roll, pitch, yaw = math_utils.euler_xyz_from_quat(quat_mesh_to_us)
-    # stack the euler angles into roll pich yaw tensor
+    # stack the euler angles into roll pitch yaw tensor
     euler_angles = np.array([roll.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), yaw.squeeze().cpu().numpy()])
 
     # Optional logging for debugging

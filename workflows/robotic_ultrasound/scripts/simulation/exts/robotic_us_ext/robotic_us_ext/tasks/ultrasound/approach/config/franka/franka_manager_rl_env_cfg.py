@@ -149,11 +149,12 @@ class RoboticSoftCfg(InteractiveSceneCfg):
                 name="mesh_to_organ_transform",
                 offset=OffsetCfg(
                     # Describe how to position the mesh objects relative to the organ.
-                    # The mesh objects are not necessarily aligned. The center of the mesh can be offset from the origin.
+                    # The mesh objects needs to be aligned so that it looks like organs in the body.
+                    # The center of the meshes can be offset from the origin of the mesh coordinate frame.
                     # The center of the organ seems to be always the origin of the USD file.
                     # To align center to center, we need to offset the mesh to the center
                     # This value[2] can be a large negative number, e.g. -360 in some previous asset case.
-                    pos=[0.0, 0.0, 0.0],  # unit: m
+                    pos=[0.0, 0.0, 0.0],  # unit: m, offset from the center of the organ to the origin
                     # Describe the orientation of the organ frame in the  mesh coords frame
                     # The mesh is used to generate US raytracing, and can be found in the assets folder
                     # It can be also be the Nifti frame, if the axes are aligned.
