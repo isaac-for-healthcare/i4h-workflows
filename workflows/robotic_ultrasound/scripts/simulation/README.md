@@ -277,3 +277,15 @@ To run the ultrasound raytracing simulator:
 ```sh
 python examples/ultrasound-raytracing.py
 ```
+
+### Command Line Arguments
+
+| Argument | Description | Default Value |
+|----------|-------------|---------------|
+| --domain_id | Domain ID for DDS communication | 0 |
+| --height | Input image height | 224 |
+| --width | Input image width | 224 |
+| --topic_in | Topic name to consume probe position | topic_ultrasound_info |
+| --topic_out | Topic name to publish generated ultrasound data | topic_ultrasound_data |
+| --config | Path to custom JSON configuration file with probe parameters and simulation parameters | None |
+| --period | Period of the simulation (in seconds) | 1/30.0 (30 Hz) |
