@@ -37,9 +37,7 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run the openpi0 policy runner", formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
+    parser = argparse.ArgumentParser(description="Run the openpi0 policy runner")
     parser.add_argument(
         "--ckpt_path",
         type=str,
