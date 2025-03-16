@@ -28,7 +28,12 @@ parser.add_argument(
     "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
 )
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
-parser.add_argument("--task", type=str, default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0", help="Name of the task. Default is Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0.")
+parser.add_argument(
+    "--task",
+    type=str,
+    default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0",
+    help="Name of the task. Default is Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0.",
+)
 parser.add_argument("--rti_license_file", type=str, default=None, help="the path of rti_license_file.")
 parser.add_argument("--infer_domain_id", type=int, default=0, help="domain id to publish data for inference.")
 parser.add_argument("--viz_domain_id", type=int, default=1, help="domain id to publish data for visualization.")

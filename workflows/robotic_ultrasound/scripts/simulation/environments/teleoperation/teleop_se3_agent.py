@@ -24,7 +24,12 @@ parser.add_argument(
     default="keyboard",
     help="Device for interacting with environment",
 )
-parser.add_argument("--task", type=str, default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0", help="Name of the task. Default is Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0.")
+parser.add_argument(
+    "--task",
+    type=str,
+    default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0",
+    help="Name of the task. Default is Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0.",
+)
 parser.add_argument("--sensitivity", type=float, default=1.0, help="Sensitivity factor.")
 parser.add_argument(
     "--topic_in_probe_pos",
@@ -88,7 +93,7 @@ from omni.isaac.lab_tasks.manager_based.manipulation.lift import mdp  # noqa: F4
 from omni.isaac.lab_tasks.utils import parse_env_cfg  # noqa: F401, E402
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.utils import get_joint_states, compute_transform_chain, get_probe_pos_ori
+from simulation.environments.state_machine.utils import compute_transform_chain, get_joint_states, get_probe_pos_ori
 
 # Add RTI DDS imports
 if args_cli.rti_license_file is not None:

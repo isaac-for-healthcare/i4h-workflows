@@ -4,12 +4,12 @@ from enum import Enum
 from typing import Sequence
 
 import numpy as np
+import omni.isaac.lab.utils.math as math_utils  # noqa: F401, E402
 import onnxruntime as ort
 import torch
 from omni.isaac.lab.utils import convert_dict_to_backend
 from omni.isaac.lab.utils.math import compute_pose_error, quat_from_euler_xyz
 from scipy.spatial.transform import Rotation
-import omni.isaac.lab.utils.math as math_utils  # noqa: F401, E402
 
 
 # MARK: - State Machine Enums + Dataclasses
@@ -183,13 +183,14 @@ def compute_transform_chain(env, route: list[str]):
     Returns:
         quat, pos: The quaternion and position from the 1st frame to the last frame.
     """
+
     # Create rotation component of the transform matrix
     def transform_name(start, end):
         return f"{start}_to_{end}_transform"
-    
+
     if len(route) <= 1:
         raise ValueError(f"Route must contain at least two frames: {route}")
-    
+
     quat = None
     pos = None
 
@@ -202,7 +203,7 @@ def compute_transform_chain(env, route: list[str]):
         except Exception as e:
             print(f"Error getting transform object {transform_name(start, end)}: {e}")
             raise e
-        
+
         next_quat = transform_obj.data.target_quat_source[0]
         next_pos = transform_obj.data.target_pos_source[0]
 
@@ -215,9 +216,8 @@ def compute_transform_chain(env, route: list[str]):
             # The order of updating pos and quat can't be switched be below
             pos = pos + math_utils.quat_apply(quat, next_pos)
             quat = math_utils.quat_mul(quat, next_quat)
-            
 
-    return quat, pos    
+    return quat, pos
 
 
 def ov_to_nifti_orientation(
@@ -311,9 +311,7 @@ def get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us, scale: float = 1000.0, lo
     # convert the quat to euler angles
     roll, pitch, yaw = math_utils.euler_xyz_from_quat(quat_mesh_to_us)
     # stack the euler angles into roll pich yaw tensor
-    euler_angles = np.array(
-        [roll.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), yaw.squeeze().cpu().numpy()]
-    )
+    euler_angles = np.array([roll.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), yaw.squeeze().cpu().numpy()])
 
     # Optional logging for debugging
     if log:

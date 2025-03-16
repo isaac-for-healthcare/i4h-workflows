@@ -9,7 +9,6 @@ from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
 from PIL import Image
 from policy_runner.runners import PI0PolicyRunner
-
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 current_state = {
@@ -28,15 +27,15 @@ def main():
         "--ckpt_path",
         type=str,
         default=None,
-        help="checkpoint path. Default will use the policy model in the downloaded assets."
+        help="checkpoint path. Default will use the policy model in the downloaded assets.",
     )
     parser.add_argument(
         "--repo_id",
         type=str,
         default="i4h/sim_liver_scan",
-        help="the LeRobot repo id for the dataset norm. This is included in the checkpoint folder by default."
+        help="the LeRobot repo id for the dataset norm. This is included in the checkpoint folder by default.",
     )
-    parser.add_argument("--rti_license_file", type=str, default=None,help="the path of rti_license_file.")
+    parser.add_argument("--rti_license_file", type=str, default=None, help="the path of rti_license_file.")
     parser.add_argument("--domain_id", type=int, default=0, help="domain id.")
     parser.add_argument("--height", type=int, default=224, help="input image height.")
     parser.add_argument("--width", type=int, default=224, help="input image width.")
@@ -68,8 +67,7 @@ def main():
     args = parser.parse_args()
 
     pi0_policy = PI0PolicyRunner(
-        ckpt_path=args.ckpt_path if args.ckpt_path is not None else robot_us_assets.policy_ckpt,
-        repo_id=args.repo_id
+        ckpt_path=args.ckpt_path if args.ckpt_path is not None else robot_us_assets.policy_ckpt, repo_id=args.repo_id
     )
 
     if args.rti_license_file is not None:

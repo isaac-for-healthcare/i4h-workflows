@@ -150,7 +150,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
                 offset=OffsetCfg(
                     # Describe how to position the mesh objects relative to the organ.
                     # The mesh objects are not necessarily aligned. The center of the mesh can be offset from the origin.
-                    # The center of the organ seems to be always the orgin of the USD file.
+                    # The center of the organ seems to be always the origin of the USD file.
                     # To align center to center, we need to offset the mesh to the center
                     # This value[2] can be a large negative number, e.g. -360 in some previous asset case.
                     pos=[0.0, 0.0, 0.0],  # unit: m
@@ -189,7 +189,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
                     # The EE and US frame are following different conventions, though both are right-handed.
                     # Please check https://github.com/isaac-for-healthcare/i4h-workflows/pull/60#discussion_r1996523645
                     # for more details.
-                    rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, -90.0]), degrees=True)
+                    rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, -90.0]), degrees=True),
                 ),
             ),
         ],

@@ -30,7 +30,7 @@ Exterior model asset follows the [USD convention](https://docs.omniverse.nvidia.
 
 ### Models for the inside organs
 
-The models can be meshe files of different organs organized with relative positions. It could be derived from CT/MRI scans, MAISI or 3D models from other sources.
+The models can be mesh files of different organs organized with relative positions. It could be derived from CT/MRI scans, MAISI or 3D models from other sources.
 
 ### Steps to approximate align meshes and model
 
