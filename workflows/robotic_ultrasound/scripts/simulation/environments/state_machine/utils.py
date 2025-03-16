@@ -172,13 +172,19 @@ def scale_points(points: Sequence[float], scale: float = 1000.0) -> torch.Tensor
     return points_tensor * scale
 
 
-def compute_transform_chain(env, route: list[str]):
+def compute_transform_chain(env, sequence_order: list[str]):
     """
-    Compute the transformation from the origin frame to the target frame using the route of frames.
+    Compute the transformation from the 1st frame to the last frame by following the sequence order of frames.
+    This is useful for getting the transformation in the scene, when only frame-to-frame transformations are available.
+    The definition of `frame` is the same as the `frame` in the `env.unwrapped.scene`, but it is not necessary to have the actual frame
+    in the scene. For example, we can use the `us` frame as long as a transformation from `us` to another actual frame is available.
+
 
     Args:
         env: the environment object containing the transformations in the scene.
-        route: The route of frames to compute the transformation.
+        sequence_order: the sequence order of frames to compute the transformation. For example, if we have frames `A`, `B`, `C`,
+            and we want to compute the transformation from `A` to `C`, the sequence_order should be `[A, B, C]`, if we have
+            transformations `A_to_B_transform` and `B_to_C_transform`.
 
     Returns:
         quat, pos: The quaternion and position from the 1st frame to the last frame.
@@ -188,15 +194,15 @@ def compute_transform_chain(env, route: list[str]):
     def transform_name(start, end):
         return f"{start}_to_{end}_transform"
 
-    if len(route) <= 1:
-        raise ValueError(f"Route must contain at least two frames: {route}")
+    if len(sequence_order) <= 1:
+        raise ValueError(f"sequence_order must contain at least two frames: {sequence_order}")
 
     quat = None
     pos = None
 
-    for i in range(len(route) - 1):
-        start = route[i]
-        end = route[i + 1]
+    for i in range(len(sequence_order) - 1):
+        start = sequence_order[i]
+        end = sequence_order[i + 1]
 
         try:
             transform_obj = env.unwrapped.scene[transform_name(start, end)]
@@ -208,11 +214,9 @@ def compute_transform_chain(env, route: list[str]):
         next_pos = transform_obj.data.target_pos_source[0]
 
         if quat is None and pos is None:
-            print(f"quat and pos for {transform_name(start, end)}")
             quat = next_quat
             pos = next_pos
         else:
-            print(f"multiply quat and pos with {transform_name(start, end)}")
             # The order of updating pos and quat can't be switched be below
             pos = pos + math_utils.quat_apply(quat, next_pos)
             quat = math_utils.quat_mul(quat, next_quat)
@@ -311,7 +315,7 @@ def get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us, scale: float = 1000.0, lo
     # convert the quat to euler angles
     roll, pitch, yaw = math_utils.euler_xyz_from_quat(quat_mesh_to_us)
     # stack the euler angles into roll pitch yaw tensor
-    euler_angles = np.array([roll.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), yaw.squeeze().cpu().numpy()])
+    euler_angles = np.array([roll.squeeze().cpu(), pitch.squeeze().cpu(), yaw.squeeze().cpu()])
 
     # Optional logging for debugging
     if log:
