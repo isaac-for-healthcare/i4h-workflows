@@ -23,8 +23,8 @@ from isaacsim import SimulationApp
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 simulation_app = SimulationApp({"headless": True})
-import omni.usd  # noqa: E402
-from simulation.annotators.ultrasound import UltraSoundPublisher  # noqa: E402
+import omni.usd
+from simulation.annotators.ultrasound import UltraSoundPublisher
 
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))

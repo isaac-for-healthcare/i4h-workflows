@@ -26,9 +26,9 @@ from parameterized import parameterized
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 simulation_app = SimulationApp({"headless": True})
-import omni.usd  # noqa: E402
-from pxr import Usd  # noqa: E402
-from simulation.annotators.base import Annotator  # noqa: E402
+import omni.usd
+from pxr import Usd
+from simulation.annotators.base import Annotator
 
 TEST_CASES = [
     ("none_publishers_subscribers", None, None, 0, 0, None),

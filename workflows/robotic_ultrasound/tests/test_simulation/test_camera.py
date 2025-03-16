@@ -27,8 +27,8 @@ from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 simulation_app = SimulationApp({"headless": True})
 
-import omni.usd  # noqa: E402
-from simulation.annotators.camera import CameraPublisher, CameraSubscriber  # noqa: E402
+import omni.usd
+from simulation.annotators.camera import CameraPublisher, CameraSubscriber
 
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))

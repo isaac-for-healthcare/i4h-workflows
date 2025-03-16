@@ -35,7 +35,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 libsolum_handle = ctypes.CDLL(f"{script_dir}/lib/libsolum.so", ctypes.RTLD_GLOBAL)._handle
 
 sys.path.append(f"{script_dir}/lib")
-import pysolum  # noqa: E402
+import pysolum
 
 # Is probe connected
 connected = False

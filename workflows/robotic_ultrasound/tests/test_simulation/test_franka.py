@@ -26,10 +26,10 @@ from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 simulation_app = SimulationApp({"headless": True})
 
-import omni.usd  # noqa: E402
-from omni.isaac.core import World  # noqa: E402
-from omni.isaac.core.robots import Robot  # noqa: E402
-from simulation.annotators.franka import FrankaPublisher, FrankaSubscriber  # noqa: E402
+import omni.usd
+from omni.isaac.core import World
+from omni.isaac.core.robots import Robot
+from simulation.annotators.franka import FrankaPublisher, FrankaSubscriber
 
 try:
     RTI_AVAILABLE = bool(find_spec("rti.connextdds"))

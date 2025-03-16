@@ -36,7 +36,7 @@ libcast_handle = ctypes.CDLL(f"{script_dir}/lib/libcast.so", ctypes.RTLD_GLOBAL)
 ctypes.cdll.LoadLibrary(f"{script_dir}/lib/pyclariuscast.so")
 
 sys.path.append(f"{script_dir}/lib")
-import pyclariuscast  # noqa: E402
+import pyclariuscast
 
 # The current image
 img = None

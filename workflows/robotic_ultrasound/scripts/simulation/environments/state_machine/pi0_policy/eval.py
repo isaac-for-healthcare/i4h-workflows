@@ -54,10 +54,10 @@ app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 reset_flag = False
 
-from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: E402
+from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.utils import RobotPositions, RobotQuaternions  # noqa: E402
+from simulation.environments.state_machine.utils import RobotPositions, RobotQuaternions
 
 
 def get_reset_action(env, use_rel: bool = True):
