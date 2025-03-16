@@ -31,20 +31,20 @@ parser.add_argument(
     "--disable_fabric",
     action="store_true",
     default=False,
-    help="Disable fabric and use USD I/O operations. Default is False.",
+    help="Disable fabric and use USD I/O operations.",
 )
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 parser.add_argument(
     "--task",
     type=str,
     default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0",
-    help="Name of the task. Default is Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0",
+    help="Name of the task.",
 )
 parser.add_argument(
     "--num_episodes",
     type=int,
     default=0,
-    help="Number of episodes to collect. If 0, no data collection is performed. Default is 0.",
+    help="Number of episodes to collect. If 0, no data collection is performed.",
 )
 parser.add_argument(
     "--camera_names",
@@ -57,21 +57,21 @@ parser.add_argument(
     "--reset_steps",
     type=int,
     default=15,
-    help="Number of steps to take during environment reset. Default is 15.",
+    help="Number of steps to take during environment reset.",
 )
 parser.add_argument(
     "--max_steps",
     type=int,
     default=350,
-    help="Maximum number of steps before forcing a reset. Default is 350.",
+    help="Maximum number of steps before forcing a reset.",
 )
-parser.add_argument("--debug", action="store_true", default=False, help="Enable debug output. Default is False.")
+parser.add_argument("--debug", action="store_true", default=False, help="Enable debug output.")
 
 # Add DDS-related arguments
 parser.add_argument(
     "--rti_license_file",
     type=str,
-    default=None,
+    default=os.getenv("RTI_LICENSE_FILE"),
     help="the path of rti_license_file. Default will use environment variables `RTI_LICENSE_FILE`",
 )
 parser.add_argument("--infer_domain_id", type=int, default=0, help="domain id to publish data for inference.")

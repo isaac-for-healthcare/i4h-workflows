@@ -43,7 +43,7 @@ parser.add_argument(
     "--task",
     type=str,
     default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0",
-    help="Name of the task. Default is Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0.",
+    help="Name of the task.",
 )
 parser.add_argument("--sensitivity", type=float, default=1.0, help="Sensitivity factor.")
 parser.add_argument(
@@ -56,7 +56,7 @@ parser.add_argument(
 parser.add_argument(
     "--rti_license_file",
     type=str,
-    default=None,
+    default=os.getenv("RTI_LICENSE_FILE"),
     help="the path of rti_license_file. Default will use environment variables `RTI_LICENSE_FILE`",
 )
 parser.add_argument(
