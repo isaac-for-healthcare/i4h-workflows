@@ -88,7 +88,7 @@ from omni.isaac.lab_tasks.manager_based.manipulation.lift import mdp  # noqa: F4
 from omni.isaac.lab_tasks.utils import parse_env_cfg  # noqa: F401, E402
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.utils import get_joint_states, compute_transform_chain
+from simulation.environments.state_machine.utils import get_joint_states, compute_transform_chain, get_probe_pos_ori
 
 # Add RTI DDS imports
 if args_cli.rti_license_file is not None:
@@ -378,26 +378,8 @@ def main():
             # pos_MeshToEE = pos_MeshToOrgan + math_utils.quat_apply(quat_MeshToOrgan, pos_OrganToEE)
             # quat_MeshToUS = math_utils.quat_mul(quat_MeshToEE, quat_EEToUS)
             # pos_MeshToUS = pos_MeshToEE + math_utils.quat_apply(quat_MeshToEE, pos_EEToUS)
-            quat_MeshToUS, pos_MeshToUS = compute_transform_chain(env, ["mesh", "organ", "ee", "us"])
-
-            # scale the position from m to mm
-            pos = pos_MeshToUS * 1000.0
-            pos_np = pos.cpu().numpy().squeeze()
-
-            # convert the quat to euler angles
-            roll, pitch, yaw = math_utils.euler_xyz_from_quat(quat_MeshToUS)
-            # stack the euler angles into roll pich yaw tensor
-            euler_angles = np.array(
-                [roll.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), yaw.squeeze().cpu().numpy()]
-            )
-            # euler_angles_deg = np.degrees(euler_angles)
-            # print the results in euler angles in degrees
-            # print("pos:", pos_np)
-            # print("euler angles:", euler_angles_deg)
-
-            # convert to numpy and publish
-            pub_data["probe_pos"] = pos_np
-            pub_data["probe_ori"] = euler_angles
+            quat_mesh_to_us, pos_mesh_to_us = compute_transform_chain(env, ["mesh", "organ", "ee", "us"])
+            pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us)
 
             # Get and publish camera images
             rgb_images, _ = capture_camera_images(env, ["room_camera", "wrist_camera"], device=env.unwrapped.device)

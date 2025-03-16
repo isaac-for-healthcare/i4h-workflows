@@ -15,7 +15,7 @@ from dds.subscriber import SubscriberWithQueue
 from omni.isaac.lab.app import AppLauncher
 from simulation.environments.state_machine.utils import (
     compute_relative_action,
-    compute_transform_matrix,
+    compute_transform_chain,
     get_joint_states,
     get_np_images,
     get_probe_pos_ori,
@@ -183,14 +183,6 @@ def main():
         reset_tensor = get_reset_action(env)
         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
-    # get transform matrix from isaac sim to organ coordinate system
-    transform_matrix = compute_transform_matrix(
-        ov_point=env.unwrapped.scene["organs"].data.root_pos_w.cpu().numpy()
-        * args_cli.scale,  # position of the organ in isaac sim
-        nifti_point=[0, -0.7168, 18.1250],  # corresponding position in nifti coordinate system
-    )
-    print(f"[INFO]: Coordinate transform matrix: {transform_matrix}")
-
     infer_r_cam_writer = RoomCamPublisher(args_cli.infer_domain_id)
     infer_w_cam_writer = WristCamPublisher(args_cli.infer_domain_id)
     infer_pos_writer = PosPublisher(args_cli.infer_domain_id)
@@ -216,8 +208,9 @@ def main():
                 # get and publish the current images and joint positions
                 pub_data["room_cam"], pub_data["wrist_cam"] = get_np_images(env)
                 pub_data["joint_pos"] = get_joint_states(env)[0]
+                quat_mesh_to_us, pos_mesh_to_us = compute_transform_chain(env, ["mesh", "organ", "ee", "us"])
                 pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
-                    env, transform_matrix=transform_matrix, scale=args_cli.scale, log=args_cli.log_probe_pos
+                    quat_mesh_to_us, pos_mesh_to_us, scale=args_cli.scale, log=args_cli.log_probe_pos
                 )
                 viz_r_cam_writer.write()
                 viz_w_cam_writer.write()
