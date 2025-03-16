@@ -31,6 +31,8 @@ from omni.isaac.lab.markers.config import FRAME_MARKER_CFG  # isort: skip
 
 FRAME_MARKER_SMALL_CFG = FRAME_MARKER_CFG.copy()
 FRAME_MARKER_SMALL_CFG.markers["frame"].scale = (0.10, 0.10, 0.10)
+FRAME_MARKER_TINY_CFG = FRAME_MARKER_CFG.copy()
+FRAME_MARKER_TINY_CFG.markers["frame"].scale = (0.01, 0.01, 0.01)
 
 
 @configclass
@@ -64,7 +66,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     organs = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/organs",
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=[0.6, 0.0, 0.09], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, 180.0]), degrees=True)
+            pos=[0.6, 0.0, 0.09], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, 90.0]), degrees=True)
         ),
         spawn=sim_utils.UsdFileCfg(
             usd_path=robot_us_assets.phantom,
@@ -137,6 +139,29 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     )
 
     # Frame transformer from organ to robot base frame
+    mesh_to_organ_transform = FrameTransformerCfg(
+        prim_path="{ENV_REGEX_NS}/organs",
+        debug_vis=True,
+        visualizer_cfg=FRAME_MARKER_TINY_CFG.replace(prim_path="/Visuals/mesh_to_organ_transform"),
+        target_frames=[
+            FrameTransformerCfg.FrameCfg(
+                prim_path="{ENV_REGEX_NS}/organs",
+                name="mesh_to_organ_transform",
+                offset=OffsetCfg(
+                    # Describe how to position the mesh objects relative to the organ.
+                    # The mesh objects are not necessarily aligned. The center of the mesh can be offset from the origin.
+                    # The center of the organ seems to be always the orgin of the USD file.
+                    # To align center to center, we need to offset the mesh to the center
+                    # This value[2] can be a large negative number, e.g. -360 in some previous asset case.
+                    pos=[0.0, 0.0, 0.0],  # unit: m
+                    # Describe the orientation of the organ frame in the  mesh coords frame
+                    # The mesh is used to generate US raytracing, and can be found in the assets folder
+                    # It can be also be the Nifti frame, if the axes are aligned.
+                    rot=(0.7071, 0.7071, 0, 0),  # quaternion
+                ),
+            ),
+        ],
+    )
 
     organ_to_ee_transform = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/organs",
@@ -145,23 +170,25 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         target_frames=[
             FrameTransformerCfg.FrameCfg(
                 prim_path="{ENV_REGEX_NS}/Robot/TCP",
-                name="organ_frame",
+                name="organ_to_ee_transform",
                 offset=OffsetCfg(pos=[0.0, 0.0, 0.0]),
             ),
         ],
     )
 
-    # Offset from End Effector to Ultrasound Image Convention
     ee_to_us_transform = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/Robot/TCP",
-        debug_vis=False,
-        visualizer_cfg=FRAME_MARKER_SMALL_CFG.replace(prim_path="/Visuals/goal_frame"),
+        debug_vis=True,
+        visualizer_cfg=FRAME_MARKER_TINY_CFG.replace(prim_path="/Visuals/ee_to_us_transform"),
         target_frames=[
             FrameTransformerCfg.FrameCfg(
                 prim_path="{ENV_REGEX_NS}/Robot/TCP",
-                name="ee_to_us_transform",
+                name="organ_to_ee_transform",
                 offset=OffsetCfg(
-                    pos=(0.0, 0, 0),
+                    pos=[0.0, 0.0, 0.0],
+                    # The EE and US frame are following different conventions, though both are right-handed.
+                    # Please check https://github.com/isaac-for-healthcare/i4h-workflows/pull/60#discussion_r1996523645
+                    # for more details.
                     rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, -90.0]), degrees=True)
                 ),
             ),

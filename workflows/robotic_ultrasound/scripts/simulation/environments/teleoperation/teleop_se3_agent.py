@@ -322,17 +322,6 @@ def main():
     viz_probe_pos_writer = ProbePosPublisher(args_cli.viz_domain_id)
     # Added robot pose publisher
 
-    # Describe the orientation of the organ frame in the nifti frame (mesh coords system)
-    quat_MeshToOrgan = torch.tensor([[0.7071, 0.7071, 0, 0]], device=env.unwrapped.device, dtype=torch.float64)
-    quat_MeshToOrgan = math_utils.normalize(quat_MeshToOrgan)
-    # Describe how to position the mesh objects in the organ frame so that it roughly match
-    mesh_offset = torch.zeros(1, 3, device=env.unwrapped.device)
-    mesh_offset[0, 2] = 0.0 / 1000.0
-
-    # Fixed orientation of the end-effector to the ultrasound probe
-    quat_EEToUS = env.unwrapped.scene["ee_to_us_transform"].data.target_quat_source[0]
-    # pos_EEToUS is zero and so we don't need to add it
-
     # simulate environment
     while simulation_app.is_running():
         current_time = time.time()
@@ -374,15 +363,18 @@ def main():
             env.step(actions)
 
             # Get the end-effector pose in the organ frame
-            pos_OrganToEE = env.unwrapped.scene["organ_to_ee_transform"].data.target_pos_source[0].double()
+            quat_MeshToOrgan = env.unwrapped.scene["mesh_to_organ_transform"].data.target_quat_source[0]
+            pos_MeshToOrgan = env.unwrapped.scene["mesh_to_organ_transform"].data.target_pos_source[0]
             quat_OrganToEE = env.unwrapped.scene["organ_to_ee_transform"].data.target_quat_source[0]
+            pos_OrganToEE = env.unwrapped.scene["organ_to_ee_transform"].data.target_pos_source[0]
+            quat_EEToUS = env.unwrapped.scene["ee_to_us_transform"].data.target_quat_source[0]
+            pos_EEToUS = env.unwrapped.scene["ee_to_us_transform"].data.target_pos_source[0]
 
             # apply the transformation from sim_to_nifti frame -> returns the orientation of the end-effector in the nifti frame, using quaternion transformation
             quat_MeshToEE = math_utils.quat_mul(quat_MeshToOrgan, quat_OrganToEE)
-            pos_MeshToEE = math_utils.quat_apply(quat_MeshToOrgan, pos_OrganToEE) + mesh_offset
-
+            pos_MeshToEE = pos_MeshToOrgan + math_utils.quat_apply(quat_MeshToOrgan, pos_OrganToEE)
             quat_MeshToUS = math_utils.quat_mul(quat_MeshToEE, quat_EEToUS)
-            pos_MeshToUS = pos_MeshToEE  # because pos_EEToUS is zero, we don't need to add it
+            pos_MeshToUS = pos_MeshToEE + math_utils.quat_apply(quat_MeshToEE, pos_EEToUS)
 
             # scale the position from m to mm
             pos = pos_MeshToUS * 1000.0
