@@ -138,7 +138,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
 
     # Frame transformer from organ to robot base frame
 
-    organ_to_robot_transform = FrameTransformerCfg(
+    organ_to_ee_transform = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/organs",
         debug_vis=True,
         visualizer_cfg=FRAME_MARKER_SMALL_CFG.replace(prim_path="/Visuals/organ_frame"),
@@ -147,6 +147,23 @@ class RoboticSoftCfg(InteractiveSceneCfg):
                 prim_path="{ENV_REGEX_NS}/Robot/TCP",
                 name="organ_frame",
                 offset=OffsetCfg(pos=[0.0, 0.0, 0.0]),
+            ),
+        ],
+    )
+
+    # Offset from End Effector to Ultrasound Image Convention
+    ee_to_us_transform = FrameTransformerCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/TCP",
+        debug_vis=False,
+        visualizer_cfg=FRAME_MARKER_SMALL_CFG.replace(prim_path="/Visuals/goal_frame"),
+        target_frames=[
+            FrameTransformerCfg.FrameCfg(
+                prim_path="{ENV_REGEX_NS}/Robot/TCP",
+                name="ee_to_us_transform",
+                offset=OffsetCfg(
+                    pos=(0.0, 0, 0),
+                    rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, -90.0]), degrees=True)
+                ),
             ),
         ],
     )
