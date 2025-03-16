@@ -98,7 +98,7 @@ from omni.isaac.lab_tasks.manager_based.manipulation.lift import mdp  # noqa: F4
 from omni.isaac.lab_tasks.utils import parse_env_cfg  # noqa: F401, E402
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.utils import compute_transform_chain, get_joint_states, get_probe_pos_ori
+from simulation.environments.state_machine.utils import compute_transform_sequence, get_joint_states, get_probe_pos_ori
 
 # Add RTI DDS imports
 if args_cli.rti_license_file is not None:
@@ -279,7 +279,7 @@ def main():
             # The US is attached to the end-effector (ee), so we have the following computation logics:
             # Each frame-to-frame transformation is available in the scene
             # mesh -> organ -> ee -> us
-            quat_mesh_to_us, pos_mesh_to_us = compute_transform_chain(env, ["mesh", "organ", "ee", "us"])
+            quat_mesh_to_us, pos_mesh_to_us = compute_transform_sequence(env, ["mesh", "organ", "ee", "us"])
             pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us)
 
             # Get and publish camera images

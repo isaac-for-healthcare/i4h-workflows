@@ -15,7 +15,7 @@ from dds.subscriber import SubscriberWithQueue
 from omni.isaac.lab.app import AppLauncher
 from simulation.environments.state_machine.utils import (
     compute_relative_action,
-    compute_transform_chain,
+    compute_transform_sequence,
     get_joint_states,
     get_np_images,
     get_probe_pos_ori,
@@ -220,7 +220,7 @@ def main():
                 # The US is attached to the end-effector (ee), so we have the following computation logics:
                 # Each frame-to-frame transformation is available in the scene
                 # mesh -> organ -> ee -> us
-                quat_mesh_to_us, pos_mesh_to_us = compute_transform_chain(env, ["mesh", "organ", "ee", "us"])
+                quat_mesh_to_us, pos_mesh_to_us = compute_transform_sequence(env, ["mesh", "organ", "ee", "us"])
                 pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
                     quat_mesh_to_us, pos_mesh_to_us, scale=args_cli.scale, log=args_cli.log_probe_pos
                 )

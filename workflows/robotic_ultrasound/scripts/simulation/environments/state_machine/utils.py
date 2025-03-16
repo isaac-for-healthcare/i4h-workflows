@@ -172,7 +172,7 @@ def scale_points(points: Sequence[float], scale: float = 1000.0) -> torch.Tensor
     return points_tensor * scale
 
 
-def compute_transform_chain(env, sequence_order: list[str]):
+def compute_transform_sequence(env, sequence_order: list[str]):
     """
     Compute the transformation from the 1st frame to the last frame by following the sequence order of frames.
     This is useful for getting the transformation in the scene, when only frame-to-frame transformations are available.
