@@ -150,15 +150,11 @@ The collected data includes:
 
 During execution, you can press the 'r' key to reset the environment and state machine.
 
-# Teleoperation
+## Teleoperation
 
 The teleoperation interface allows direct control of the robotic arm using various input devices. It supports keyboard, SpaceMouse, and gamepad controls for precise manipulation of the ultrasound probe.
 
-## Setup
-
-Follow the same setup steps as before to ensure your environment is properly configured.
-
-## Running Teleoperation
+### Running Teleoperation
 
 Basic teleoperation can be started with:
 
@@ -166,7 +162,7 @@ Basic teleoperation can be started with:
 python environments/teleoperation/teleop_se3_agent.py --enable_cameras
 ```
 
-## Command Line Arguments
+### Command Line Arguments
 
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -177,9 +173,9 @@ python environments/teleoperation/teleop_se3_agent.py --enable_cameras
 | `--viz_domain_id` | int | 1 | Domain ID for visualization data publishing |
 | `--rti_license_file` | str | None | Path to the RTI license file (required) |
 
-## Control Schemes
+### Control Schemes
 
-### Keyboard Controls
+#### Keyboard Controls
 - Please check the [Se3Keyboard documentation](https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.devices.html#isaaclab.devices.Se3Keyboard)
 
 ### Camera Visualization
