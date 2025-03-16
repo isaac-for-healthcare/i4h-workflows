@@ -1,10 +1,3 @@
-import os
-import sys
-import threading
-import time
-import unittest
-from importlib.util import find_spec
-from unittest import mock, skipUnless
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
@@ -19,6 +12,14 @@ from unittest import mock, skipUnless
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import os
+import sys
+import threading
+import time
+import unittest
+from importlib.util import find_spec
+from unittest import mock, skipUnless
 
 import numpy as np
 from simulation.configs.basic import config

@@ -41,6 +41,7 @@ def load_license_lines():
     return licenses
 
 
+
 def check_license_in_file(file_path):
     """Check if the file contains all lines of the license header"""
     licenses = load_license_lines()
