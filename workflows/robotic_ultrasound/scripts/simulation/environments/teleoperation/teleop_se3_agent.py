@@ -82,7 +82,6 @@ simulation_app = app_launcher.app
 import time  # noqa: F401, E402
 
 import gymnasium as gym  # noqa: F401, E402
-import numpy as np
 import omni.isaac.lab.utils.math as math_utils  # noqa: F401, E402
 import omni.isaac.lab_tasks  # noqa: F401, E402
 import omni.log  # noqa: F401, E402
@@ -275,7 +274,8 @@ def main():
 
             env.step(actions)
 
-            # Get the pose of the mesh objects (mesh), which are aligned with the organ (organ) in the US image view (us)
+            # Get the pose of the mesh objects (mesh)
+            # The pose of the mesh objects are aligned with the organ (organ) in the US image view (us)
             # The US is attached to the end-effector (ee), so we have the following computation logics:
             # Each frame-to-frame transformation is available in the scene
             # mesh -> organ -> ee -> us

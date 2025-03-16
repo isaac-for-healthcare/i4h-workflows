@@ -29,7 +29,7 @@ Currently, the robotic ultrasound workflow uses the assets in [I4H Asset Catalog
 
 ### Assets from different sources
 
-If you generate the mesh and USD files from the different source (e.g. mesh from CT scan but USD from public human body 3D model), you need to align the meshes to acheive realistic simulation results. 
+If you generate the mesh and USD files from the different source (e.g. mesh from CT scan but USD from public human body 3D model), you need to align the meshes to achieve realistic simulation results.
 
 - USD model follows the [USD convention](https://docs.omniverse.nvidia.com/isaacsim/latest/reference_conventions.html#usd-axes).
   - It is the `organ` frame in the [environment configuration file](../../../workflows/robotic_ultrasound/scripts/simulation/exts/robotic_us_ext/robotic_us_ext/tasks/ultrasound/approach/config/franka/franka_manager_rl_env_cfg.py)
@@ -38,7 +38,7 @@ If you generate the mesh and USD files from the different source (e.g. mesh from
   - It could be derived from CT/MRI scans, MAISI or 3D models from other sources.
   - We assume the organ mesh files share the same coordinate system. If not, you need to use 3D visualization software to align them.
 
-- Approximate align meshes and model by offseting and rotating the axes:
+- Approximate align meshes and model by offsetting and rotating the axes:
 
 #### Step 1: Compute the offset needed to center the organ meshes
 

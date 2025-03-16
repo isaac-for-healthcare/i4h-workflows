@@ -2,8 +2,6 @@ import unittest
 
 import numpy as np
 import torch
-from parameterized import parameterized
-from scipy.spatial.transform import Rotation
 
 # Define the default rotation matrix used in the function
 DEFAULT_ROTATION_MATRIX = torch.tensor([[1, 0, 0], [0, 0, -1], [0, -1, 0]], dtype=torch.float64)

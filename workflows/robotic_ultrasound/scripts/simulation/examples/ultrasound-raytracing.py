@@ -532,7 +532,7 @@ def main():
         help=(
             "path to custom JSON configuration file with probe parameters and simulation parameters. "
             "Default is None."
-        )
+        ),
     )
     parser.add_argument(
         "--period",

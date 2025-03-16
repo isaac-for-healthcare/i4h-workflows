@@ -9,7 +9,6 @@ import onnxruntime as ort
 import torch
 from omni.isaac.lab.utils import convert_dict_to_backend
 from omni.isaac.lab.utils.math import compute_pose_error, quat_from_euler_xyz
-from scipy.spatial.transform import Rotation
 
 
 # MARK: - State Machine Enums + Dataclasses
@@ -176,15 +175,16 @@ def compute_transform_sequence(env, sequence_order: list[str]):
     """
     Compute the transformation from the 1st frame to the last frame by following the sequence order of frames.
     This is useful for getting the transformation in the scene, when only frame-to-frame transformations are available.
-    The definition of `frame` is the same as the `frame` in the `env.unwrapped.scene`, but it is not necessary to have the actual frame
-    in the scene. For example, we can use the `us` frame as long as a transformation from `us` to another actual frame is available.
+    The definition of `frame` is the same as the `frame` in the `env.unwrapped.scene`,
+    but it is not necessary to have the actual frame in the scene.
+    For example, we can use the `us` frame as long as a transformation from `us` to another actual frame is available.
 
 
     Args:
         env: the environment object containing the transformations in the scene.
-        sequence_order: the sequence order of frames to compute the transformation. For example, if we have frames `A`, `B`, `C`,
-            and we want to compute the transformation from `A` to `C`, the sequence_order should be `[A, B, C]`, if we have
-            transformations `A_to_B_transform` and `B_to_C_transform`.
+        sequence_order: the sequence order of frames to compute the transformation.
+            For example, if we have frames `A`, `B`, `C`, and we want to compute the transformation from `A` to `C`,
+            the sequence_order should be `[A, B, C]`.
 
     Returns:
         quat, pos: The quaternion and position from the 1st frame to the last frame.
