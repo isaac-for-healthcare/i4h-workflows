@@ -130,52 +130,35 @@ hz = 30
 
 
 class RoomCamPublisher(Publisher):
-    def __init__(self, domain_id: int):
-        super().__init__(args_cli.topic_in_room_camera, CameraInfo, 1 / hz, domain_id)
+    def __init__(self, topic: str, domain_id: int, rgb: bool = True):
+        super().__init__(topic, CameraInfo, 1 / hz, domain_id)
+        self.rgb = rgb
 
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
         output.focal_len = 12.0
         output.height = 224
         output.width = 224
-        output.data = pub_data["room_cam"].tobytes()
-        return output
-
-
-class RoomCamDepthPublisher(Publisher):
-    def __init__(self, domain_id: int):
-        super().__init__(args_cli.topic_in_room_camera_depth, CameraInfo, 1 / hz, domain_id)
-
-    def produce(self, dt: float, sim_time: float):
-        output = CameraInfo()
-        output.focal_len = 12.0
-        output.height = 224
-        output.width = 224
-        output.data = pub_data["room_cam_depth"].tobytes()
+        if self.rgb:
+            output.data = pub_data["room_cam"].tobytes()
+        else:
+            output.data = pub_data["room_cam_depth"].tobytes()
         return output
 
 
 class WristCamPublisher(Publisher):
-    def __init__(self, domain_id: int):
-        super().__init__(args_cli.topic_in_wrist_camera, CameraInfo, 1 / hz, domain_id)
+    def __init__(self, topic: str, domain_id: int, rgb: bool = True):
+        super().__init__(topic, CameraInfo, 1 / hz, domain_id)
+        self.rgb = rgb
 
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
         output.height = 224
         output.width = 224
-        output.data = pub_data["wrist_cam"].tobytes()
-        return output
-
-
-class WristCamDepthPublisher(Publisher):
-    def __init__(self, domain_id: int):
-        super().__init__(args_cli.topic_in_wrist_camera_depth, CameraInfo, 1 / hz, domain_id)
-
-    def produce(self, dt: float, sim_time: float):
-        output = CameraInfo()
-        output.height = 224
-        output.width = 224
-        output.data = pub_data["wrist_cam_depth"].tobytes()
+        if self.rgb:
+            output.data = pub_data["wrist_cam"].tobytes()
+        else:
+            output.data = pub_data["wrist_cam_depth"].tobytes()
         return output
 
 
@@ -246,20 +229,21 @@ def main():
         reset_tensor = get_reset_action(env)
         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
-    infer_r_cam_writer = RoomCamPublisher(args_cli.infer_domain_id)
-    infer_w_cam_writer = WristCamPublisher(args_cli.infer_domain_id)
+    infer_r_cam_writer = RoomCamPublisher(topic=args_cli.topic_in_room_camera, domain_id=args_cli.infer_domain_id)
+    infer_w_cam_writer = WristCamPublisher(topic=args_cli.topic_in_wrist_camera, domain_id=args_cli.infer_domain_id)
     infer_pos_writer = PosPublisher(args_cli.infer_domain_id)
-    viz_r_cam_writer = RoomCamPublisher(args_cli.viz_domain_id)
-    viz_w_cam_writer = WristCamPublisher(args_cli.viz_domain_id)
-    viz_r_cam_depth_writer = RoomCamDepthPublisher(args_cli.viz_domain_id)
-    viz_w_cam_depth_writer = WristCamDepthPublisher(args_cli.viz_domain_id)
+    viz_r_cam_writer = RoomCamPublisher(topic=args_cli.topic_in_room_camera, domain_id=args_cli.viz_domain_id)
+    viz_w_cam_writer = WristCamPublisher(topic=args_cli.topic_in_wrist_camera, domain_id=args_cli.viz_domain_id)
+    viz_r_cam_depth_writer = RoomCamPublisher(
+        topic=args_cli.topic_in_room_camera_depth, domain_id=args_cli.viz_domain_id, rgb=False
+    )
+    viz_w_cam_depth_writer = WristCamPublisher(
+        topic=args_cli.topic_in_wrist_camera_depth, domain_id=args_cli.viz_domain_id, rgb=False
+    )
     viz_pos_writer = PosPublisher(args_cli.viz_domain_id)
     viz_probe_pos_writer = ProbePosPublisher(args_cli.viz_domain_id)
     infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
     infer_reader.start()
-    import time
-
-    time.sleep(10)
 
     # Number of steps played before replanning
     replan_steps = 15

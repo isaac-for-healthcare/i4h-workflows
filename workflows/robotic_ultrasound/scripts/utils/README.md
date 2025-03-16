@@ -17,4 +17,4 @@ This will open a GUI that displays multiple real-time feeds:
 - Wrist camera view
 - Ultrasound image with probe position information
 
-![visulization](../../../../docs/source/visualization.png)
+![visualization](../../../../docs/source/visualization.png)
