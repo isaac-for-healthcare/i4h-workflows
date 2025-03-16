@@ -9,6 +9,7 @@ import torch
 from omni.isaac.lab.utils import convert_dict_to_backend
 from omni.isaac.lab.utils.math import compute_pose_error, quat_from_euler_xyz
 from scipy.spatial.transform import Rotation
+import omni.isaac.lab.utils.math as math_utils  # noqa: F401, E402
 
 
 # MARK: - State Machine Enums + Dataclasses
@@ -171,39 +172,52 @@ def scale_points(points: Sequence[float], scale: float = 1000.0) -> torch.Tensor
     return points_tensor * scale
 
 
-def compute_transform_matrix(
-    ov_point: Sequence[float],
-    nifti_point: Sequence[float],
-    rotation_matrix: None | torch.Tensor = None,
-):
+def compute_transform_chain(env, route: list[str]):
     """
-    Create a transform matrix to convert from Omniverse coordinates (meters) to NIFTI coordinates (millimeters)
+    Compute the transformation from the origin frame to the target frame using the route of frames.
 
     Args:
-        ov_point: point in Omniverse coordinates (meters)
-        nifti_point: point in NIFTI coordinates (millimeters)
-        rotation_matrix: Optional rotation matrix to convert from Omniverse to NIFTI coordinates.
-            If None, the default rotation matrix CoordinateTransform.OMNIVERSE_TO_ORGAN will be used.
+        frame_name: The name of the frame.
+        route: The route of frames to compute the transformation.
 
     Returns:
-        A 4x4 homogeneous transformation matrix that maps points from Omniverse to NIFTI coordinates.
+        quat, pos: The quaternion and position from the 1st frame to the last frame.
     """
     # Create rotation component of the transform matrix
-    R = CoordinateTransform.OMNIVERSE_TO_ORGAN if rotation_matrix is None else rotation_matrix
+    def transform_name(start, end):
+        return f"{start}_to_{end}_transform"
+    
+    if len(route) <= 1:
+        raise ValueError(f"Route must contain at least two frames: {route}")
+    
+    quat = None
+    pos = None
 
-    # Convert input points to tensors
-    ov_point = torch.tensor(ov_point, dtype=torch.float64).unsqueeze(-1)
-    nifti_point = torch.tensor(nifti_point, dtype=torch.float64)
+    for i in range(len(route) - 1):
+        start = route[i]
+        end = route[i + 1]
 
-    # Calculate translation component
-    t = nifti_point - (R @ ov_point).squeeze(-1)
+        try:
+            transform_obj = env.unwrapped.scene[transform_name(start, end)]
+        except Exception as e:
+            print(f"Error getting transform object {transform_name(start, end)}: {e}")
+            raise e
+        
+        next_quat = transform_obj.data.target_quat_source[0]
+        next_pos = transform_obj.data.target_pos_source[0]
 
-    # Create full 4x4 transform_matrix matrix
-    transform_matrix = torch.eye(4, dtype=torch.float64)
-    transform_matrix[:3, :3] = R
-    transform_matrix[:3, 3] = t
+        if quat is None and pos is None:
+            print(f"quat and pos for {transform_name(start, end)}")
+            quat = next_quat
+            pos = next_pos
+        else:
+            print(f"multiply quat and pos with {transform_name(start, end)}")
+            # The order of updating pos and quat can't be switched be below
+            pos = pos + math_utils.quat_apply(quat, next_pos)
+            quat = math_utils.quat_mul(quat, next_quat)
+            
 
-    return transform_matrix
+    return quat, pos    
 
 
 def ov_to_nifti_orientation(

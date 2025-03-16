@@ -88,7 +88,7 @@ from omni.isaac.lab_tasks.manager_based.manipulation.lift import mdp  # noqa: F4
 from omni.isaac.lab_tasks.utils import parse_env_cfg  # noqa: F401, E402
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.utils import get_joint_states
+from simulation.environments.state_machine.utils import get_joint_states, compute_transform_chain
 
 # Add RTI DDS imports
 if args_cli.rti_license_file is not None:
@@ -362,19 +362,23 @@ def main():
 
             env.step(actions)
 
-            # Get the end-effector pose in the organ frame
-            quat_MeshToOrgan = env.unwrapped.scene["mesh_to_organ_transform"].data.target_quat_source[0]
-            pos_MeshToOrgan = env.unwrapped.scene["mesh_to_organ_transform"].data.target_pos_source[0]
-            quat_OrganToEE = env.unwrapped.scene["organ_to_ee_transform"].data.target_quat_source[0]
-            pos_OrganToEE = env.unwrapped.scene["organ_to_ee_transform"].data.target_pos_source[0]
-            quat_EEToUS = env.unwrapped.scene["ee_to_us_transform"].data.target_quat_source[0]
-            pos_EEToUS = env.unwrapped.scene["ee_to_us_transform"].data.target_pos_source[0]
+            # Get the end-effector pose in the US frame.
+            # The transform chain is:
+            # mesh -> organ -> ee -> us
+            # # Uncomment below to use the explicit transform chain
+            # quat_MeshToOrgan = env.unwrapped.scene["mesh_to_organ_transform"].data.target_quat_source[0]
+            # pos_MeshToOrgan = env.unwrapped.scene["mesh_to_organ_transform"].data.target_pos_source[0]
+            # quat_OrganToEE = env.unwrapped.scene["organ_to_ee_transform"].data.target_quat_source[0]
+            # pos_OrganToEE = env.unwrapped.scene["organ_to_ee_transform"].data.target_pos_source[0]
+            # quat_EEToUS = env.unwrapped.scene["ee_to_us_transform"].data.target_quat_source[0]
+            # pos_EEToUS = env.unwrapped.scene["ee_to_us_transform"].data.target_pos_source[0]
 
-            # apply the transformation from sim_to_nifti frame -> returns the orientation of the end-effector in the nifti frame, using quaternion transformation
-            quat_MeshToEE = math_utils.quat_mul(quat_MeshToOrgan, quat_OrganToEE)
-            pos_MeshToEE = pos_MeshToOrgan + math_utils.quat_apply(quat_MeshToOrgan, pos_OrganToEE)
-            quat_MeshToUS = math_utils.quat_mul(quat_MeshToEE, quat_EEToUS)
-            pos_MeshToUS = pos_MeshToEE + math_utils.quat_apply(quat_MeshToEE, pos_EEToUS)
+            # # Apply the transformation from sim_to_nifti frame -> returns the orientation of the end-effector in the nifti frame, using quaternion transformation
+            # quat_MeshToEE = math_utils.quat_mul(quat_MeshToOrgan, quat_OrganToEE)
+            # pos_MeshToEE = pos_MeshToOrgan + math_utils.quat_apply(quat_MeshToOrgan, pos_OrganToEE)
+            # quat_MeshToUS = math_utils.quat_mul(quat_MeshToEE, quat_EEToUS)
+            # pos_MeshToUS = pos_MeshToEE + math_utils.quat_apply(quat_MeshToEE, pos_EEToUS)
+            quat_MeshToUS, pos_MeshToUS = compute_transform_chain(env, ["mesh", "organ", "ee", "us"])
 
             # scale the position from m to mm
             pos = pos_MeshToUS * 1000.0
@@ -386,10 +390,10 @@ def main():
             euler_angles = np.array(
                 [roll.squeeze().cpu().numpy(), pitch.squeeze().cpu().numpy(), yaw.squeeze().cpu().numpy()]
             )
-            euler_angles_deg = np.degrees(euler_angles)
+            # euler_angles_deg = np.degrees(euler_angles)
             # print the results in euler angles in degrees
-            print("pos:", pos_np)
-            print("euler angles:", euler_angles_deg)
+            # print("pos:", pos_np)
+            # print("euler angles:", euler_angles_deg)
 
             # convert to numpy and publish
             pub_data["probe_pos"] = pos_np
