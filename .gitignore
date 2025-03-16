@@ -136,14 +136,6 @@ ENV/
 env.bak/
 venv.bak/
 
-# Openpi
-*openpi/
-
-# IsaacLab
-*IsaacLab/
-
-# I4H Assets
-*i4h-asset-catalog/
 
 # Training data
 **/pi_zero/assets/
@@ -196,10 +188,10 @@ cython_debug/
 
 # Wandb
 wandb/
-# ignore obj
+
+# 3D models
 *.obj
 *.mtl
-*.usdc
 
 # No USD files allowed in the repo
 **/*.usd

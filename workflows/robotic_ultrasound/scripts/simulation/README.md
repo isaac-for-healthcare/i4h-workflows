@@ -42,12 +42,14 @@ export PYTHONPATH=`pwd`
 ```
 
 5. Return to this folder and run the following command:
+
 ```sh
 python environments/state_machine/pi0_policy/eval.py \
     --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
     --enable_camera \
     --repo_id i4h/sim_liver_scan
 ```
+
 NOTE: You can also specify `--ckpt_path` to run a specific policy.
 This should open a stage with Franka arm and run the robotic ultrasound actions:
 ![pi0 simulation](../../../../docs/source/pi0_sim.jpg)
@@ -102,16 +104,12 @@ Then move back to this folder and execute:
 python environments/state_machine/liver_scan_sm.py --enable_cameras
 ```
 
-To enable DDS use add `--rti_license_file <abs_path_license>` or export the environment variable with the respective path. E.g. `export RTI_LICENSE_FILE=<abs_path_license>;` before launching.
-
-
 ### Data Collection
 
 To run the state machine and collect data for a specified number of episodes:
 
 ```sh
 python environments/state_machine/liver_scan_sm.py \
-    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
     --enable_camera \
     --num_episodes 2
 ```
@@ -165,7 +163,7 @@ Follow the same setup steps as before to ensure your environment is properly con
 Basic teleoperation can be started with:
 
 ```sh
-python environments/teleoperation/teleop_se3_agent.py --teleop_device keyboard
+python environments/teleoperation/teleop_se3_agent.py --enable_cameras
 ```
 
 ## Command Line Arguments
@@ -186,17 +184,20 @@ python environments/teleoperation/teleop_se3_agent.py --teleop_device keyboard
 
 ### Camera Visualization
 
-The teleoperation script supports real-time camera visualization through DDS communication. It publishes both room camera and wrist camera feeds at 30Hz. To enable camera visualization:
-
-```sh
-python environments/teleoperation/teleop_se3_agent.py --enable_cameras
-```
+The teleoperation script supports real-time camera visualization through DDS communication. It publishes both room camera and wrist camera feeds at 30Hz.
 
 The camera feeds are published on the following default topics:
 - Room camera: `topic_room_camera_data_rgb`
 - Wrist camera: `topic_wrist_camera_data_rgb`
 
 Both cameras output 224x224 RGB images that can be visualized using compatible DDS subscribers.
+
+### Ultrasound Image Visualization
+
+The teleoperation script also supports real-time ultrasound image visualization through DDS communication. It publishes the ultrasound image at 30Hz.
+
+Please refer to the [Ultrasound Raytracing Simulation](#ultrasound-raytracing-simulation) section for more details on how to visualize the ultrasound image.
+
 
 
 ## Ultrasound Raytracing Simulation
@@ -208,10 +209,13 @@ based on 3D meshes. The simulator uses Holoscan framework and DDS communication 
 
 For instructions on preparing and building the Python module, please refer to the [Ultrasound Raytracing README](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/blob/main/ultrasound-raytracing/README.md).
 
+### Setup
+
+Please refer to the [Environment Setup](../../README.md#install-the-raytracing-ultrasound-simulator) instructions to setup the `raysim` module correctly.
+
 ### Configuration
 
-The simulator supports customization through JSON configuration files. You need to create your own
-configuration file following the structure below:
+Optionally, the simulator supports customization through JSON configuration files. You need to create your configuration file following the structure below:
 
 ```json
 {

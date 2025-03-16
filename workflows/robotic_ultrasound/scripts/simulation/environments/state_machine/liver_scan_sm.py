@@ -13,12 +13,23 @@ from omni.isaac.lab.app import AppLauncher
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script demonstrates a single-arm manipulator.")
 parser.add_argument(
-    "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
+    "--disable_fabric",
+    action="store_true",
+    default=False,
+    help="Disable fabric and use USD I/O operations. Default is False.",
 )
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
-parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument(
-    "--num_episodes", type=int, default=0, help="Number of episodes to collect. If 0, no data collection is performed."
+    "--task",
+    type=str,
+    default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0",
+    help="Name of the task. Default is Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0",
+)
+parser.add_argument(
+    "--num_episodes",
+    type=int,
+    default=0,
+    help="Number of episodes to collect. If 0, no data collection is performed. Default is 0.",
 )
 parser.add_argument(
     "--camera_names",
@@ -27,9 +38,19 @@ parser.add_argument(
     default=["room_camera", "wrist_camera"],
     help="List of camera names to capture from.",
 )
-parser.add_argument("--reset_steps", type=int, default=15, help="Number of steps to take during environment reset.")
-parser.add_argument("--max_steps", type=int, default=350, help="Maximum number of steps before forcing a reset.")
-parser.add_argument("--debug", action="store_true", default=False, help="Enable debug output.")
+parser.add_argument(
+    "--reset_steps",
+    type=int,
+    default=15,
+    help="Number of steps to take during environment reset. Default is 15.",
+)
+parser.add_argument(
+    "--max_steps",
+    type=int,
+    default=350,
+    help="Maximum number of steps before forcing a reset. Default is 350.",
+)
+parser.add_argument("--debug", action="store_true", default=False, help="Enable debug output. Default is False.")
 
 # Add DDS-related arguments
 parser.add_argument(
@@ -120,9 +141,10 @@ def main():
     """Main function."""
 
     # Add after environment creation
-    if args_cli.rti_license_file is None or not os.path.isabs(args_cli.rti_license_file):
-        raise ValueError("RTI license file must be an existing absolute path.")
-    os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
+    if args_cli.rti_license_file is not None:
+        if not os.path.isabs(args_cli.rti_license_file):
+            raise ValueError("RTI license file must be an existing absolute path.")
+        os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
     # parse configuration
     env_cfg = parse_env_cfg(
         args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric

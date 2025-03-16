@@ -33,7 +33,10 @@ def main():
         "--repo_id",
         type=str,
         default="i4h/sim_liver_scan",
-        help="the LeRobot repo id for the dataset norm. This is included in the checkpoint folder by default.",
+        help=(
+            "LeRobot repo id for the dataset norm. "
+            "Default is `i4h/sim_liver_scan`, which is included in the downloaded assets."
+        ),
     )
     parser.add_argument(
         "--rti_license_file",
@@ -41,34 +44,34 @@ def main():
         default=None,
         help="the path of rti_license_file. Default will use environment variables `RTI_LICENSE_FILE`",
     )
-    parser.add_argument("--domain_id", type=int, default=0, help="domain id.")
-    parser.add_argument("--height", type=int, default=224, help="input image height.")
-    parser.add_argument("--width", type=int, default=224, help="input image width.")
+    parser.add_argument("--domain_id", type=int, default=0, help="domain id. Default is 0.")
+    parser.add_argument("--height", type=int, default=224, help="input image height. Default is 224.")
+    parser.add_argument("--width", type=int, default=224, help="input image width. Default is 224.")
     parser.add_argument(
         "--topic_in_room_camera",
         type=str,
         default="topic_room_camera_data_rgb",
-        help="topic name to consume room camera rgb",
+        help="topic name to consume room camera rgb. Default is `topic_room_camera_data_rgb`.",
     )
     parser.add_argument(
         "--topic_in_wrist_camera",
         type=str,
         default="topic_wrist_camera_data_rgb",
-        help="topic name to consume wrist camera rgb",
+        help="topic name to consume wrist camera rgb. Default is `topic_wrist_camera_data_rgb`.",
     )
     parser.add_argument(
         "--topic_in_franka_pos",
         type=str,
         default="topic_franka_info",
-        help="topic name to consume franka pos",
+        help="topic name to consume franka pos. Default is `topic_franka_info`.",
     )
     parser.add_argument(
         "--topic_out",
         type=str,
         default="topic_franka_ctrl",
-        help="topic name to publish generated franka actions",
+        help="topic name to publish generated franka actions. Default is `topic_franka_ctrl`.",
     )
-    parser.add_argument("--verbose", type=bool, default=False, help="whether to print the log.")
+    parser.add_argument("--verbose", type=bool, default=False, help="whether to print the log. Default is False.")
     args = parser.parse_args()
 
     pi0_policy = PI0PolicyRunner(

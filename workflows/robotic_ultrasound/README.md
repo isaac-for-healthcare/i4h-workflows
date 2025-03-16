@@ -30,6 +30,8 @@ RTI DDS is the common communication package for all the scripts, please refer to
 
 ### Install Dependencies
 
+#### Create a new conda environment
+
 Conda is suggested for virtual environment setup, install `Miniconda` from [Miniconda website](https://docs.anaconda.com/miniconda/install/#quick-command-line-install) and create a new virtual environment with Python 3.10.
 
 ```sh
@@ -39,13 +41,17 @@ conda create -n robotic_ultrasound python=3.10 -y
 conda activate robotic_ultrasound
 ```
 
+#### Install the Raytracing Ultrasound Simulator
 To use the ultrasound-raytracing simulator, you can choose one of the following options:
 - (experimental) Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/ultrasound-raytracing) and extract the folder to `workflows/robotic_ultrasound/scripts/raysim`.
 
 - (recommended) Install and build it by following the instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation).
 
 
-Install other dependencies by running:
+#### Install All Dependencies
+
+You can install all the dependencies by running the following command:
+
 ```bash
 cd <path-to-i4h-workflows>
 bash tools/env_setup_robot_us.sh
