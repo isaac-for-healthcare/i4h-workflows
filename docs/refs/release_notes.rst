@@ -9,7 +9,7 @@ Overview
 
 Welcome to the first official release of Isaac Lab!
 
-We're excited to announce the initial release of Isaac for Healthcare Workflows, a domain-specific framework built on top of NVIDIA Isaac Sim/Lab and NVIDIA Omniverse. 
+We're excited to announce the initial release of Isaac for Healthcare Workflows, a domain-specific framework built on top of NVIDIA Isaac Sim/Lab and NVIDIA Omniverse.
 
 New Features
 ------------
