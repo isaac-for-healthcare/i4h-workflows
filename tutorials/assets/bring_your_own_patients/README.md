@@ -1,4 +1,4 @@
-# Bring Your Own Medical Images
+# Bring Your Own Patients
 
 This guide helps you convert your own CT or MRI scans into USD (Universal Scene Description) files for 3D visualization.
 
