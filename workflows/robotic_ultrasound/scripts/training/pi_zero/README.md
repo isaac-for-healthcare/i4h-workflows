@@ -84,7 +84,7 @@ python train.py --config robotic_ultrasound_lora --exp_name liver_ultrasound
 
 For better GPU memory utilization, you can set:
 ```bash
-XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 python tools/openpi/src/openpi/train.py --config robotic_ultrasound_lora --exp_name liver_ultrasound
+XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 python train.py --config robotic_ultrasound_lora --exp_name liver_ultrasound
 ```
 This allows JAX to use up to 90% of your GPU memory (default is 75%).
 
