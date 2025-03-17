@@ -25,7 +25,7 @@ For a detailed walkthrough of the conversion process, please refer to the [MONAI
 
 ### Updating the Assets in the Simulation
 
-Currently, the robotic ultrasound workflow uses the assets in [I4H Asset Catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog). To replace the assets with your own, you need to modify the [environment configuration file](../../../workflows/robotic_ultrasound/scripts/simulation/exts/robotic_us_ext/robotic_us_ext/tasks/ultrasound/approach/config/franka/franka_manager_rl_env_cfg.py) to update the `usd_path` for `organ` in `RoboticSoftCfg`, as well as the `mesh_dir` in [ultrasound-raytracing.py](../../../workflows/robotic_ultrasound/scripts/simulation/examples/ultrasound-raytracing.py).
+Currently, the robotic ultrasound workflow uses the assets in [I4H Asset Catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog). To replace the assets with your own, you need to modify the [environment configuration file](../../../workflows/robotic_ultrasound/scripts/simulation/exts/robotic_us_ext/robotic_us_ext/tasks/ultrasound/approach/config/franka/franka_manager_rl_env_cfg.py) to update the `usd_path` for `organs` in `RoboticSoftCfg`, as well as the `mesh_dir` in [ultrasound-raytracing.py](../../../workflows/robotic_ultrasound/scripts/simulation/examples/ultrasound-raytracing.py).
 
 ### Assets from different sources
 
@@ -45,7 +45,7 @@ If you generate the mesh and USD files from the different source (e.g. mesh from
 Treat the organ meshes as a whole, and find the offset to center the organ meshes. So that the origin of the organ meshes is the center of the mass of the organ meshes.
 
 ```math
-v_{offset} = \{x_{center}, y_{center}, z_{center}\}
+v_{offset} = \{x_{center},\ y_{center},\ z_{center}\}
 ```
 
 #### Step 2:Find the rotation matrix to align the USD axes with the organ axes
@@ -59,24 +59,24 @@ It need to be noted that this placement of the body model is based on how the US
 
 Find the basis vector in the coordinate system representing the internal organ meshes
 ```math
-\vec{v}_{mesh_{lr}} = (-1, 0, 0)
+\vec{v}_{mesh_{lr}} = (-1,\ 0,\ 0)
 ```
 ```math
-\vec{v}_{mesh_{ap}} = (0, 1, 0)
+\vec{v}_{mesh_{ap}} = (0,\ 1,\ 0)
 ```
 ```math
-\vec{v}_{mesh_{si}} = (0, 0, -1)
+\vec{v}_{mesh_{si}} = (0,\ 0,\ -1)
 ```
 
 Find the basis vector in the USD coordinate system representing placement of the exterior model
 ```math
-\vec{v}_{usd_{lr}} = (-1, 0, 0)
+\vec{v}_{usd_{lr}} = (-1,\ 0,\ 0)
 ```
 ```math
-\vec{v}_{usd_{ap}} = (0, 0, -1)
+\vec{v}_{usd_{ap}} = (0,\ 0,\ -1)
 ```
 ```math
-\vec{v}_{usd_{si}} = (0, -1, 0)
+\vec{v}_{usd_{si}} = (0,\ -1,\ 0)
 ```
 
 Find the rotation matrix to map USD world coordinate system to the organ mesh coordinate system
