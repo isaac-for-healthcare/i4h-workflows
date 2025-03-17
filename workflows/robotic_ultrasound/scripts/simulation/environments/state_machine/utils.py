@@ -22,7 +22,6 @@ import numpy as np
 import omni.isaac.lab.utils.math as math_utils  # noqa: F401, E402
 import onnxruntime as ort
 import torch
-from omni.isaac.lab.utils import convert_dict_to_backend
 from omni.isaac.lab.utils.math import compute_pose_error, quat_from_euler_xyz
 
 
