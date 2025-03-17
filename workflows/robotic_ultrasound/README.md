@@ -1,3 +1,5 @@
+![Robotic Ultrasound Workflow](../../docs/source/robotic_us_workflow.jpg)
+
 # Robotic Ultrasound Workflow
 
 ## System Requirements
