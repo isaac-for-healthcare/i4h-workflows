@@ -28,7 +28,6 @@ WORKFLOWS = [
 
 XVFB_TEST_CASES = [
     "test_orientation",
-    "test_transform_matrix",
     "test_visualization",
 ]
 

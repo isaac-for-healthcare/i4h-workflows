@@ -19,7 +19,7 @@ This will open a GUI that displays multiple real-time feeds:
 - Ultrasound image with probe position information
 
 ## Data Flow Architecture
-The visualization application connects to simulated or real robotic ultrasound data through DDS (Data Distribution Service), a publish-subscribe middleware that enables real-time data exchange between components.
+The visualization application connects to simulated or real data through DDS (Data Distribution Service), a publish-subscribe middleware that enables real-time data exchange between components.
 
 
 ### Policy Running Pipeline
@@ -87,10 +87,3 @@ Each subscriber is implemented as a separate Python thread, allowing asynchronou
   - Try using different domain IDs for each topic to avoid conflicts
   - Add a short delay (time.sleep) after initialization to ensure publishers and subscribers are properly established
   - Check network connectivity if running across multiple machines
-
-### DDS-Specific Issues
-- **Connection problems**: Ensure RTI license is properly installed and the environment variable `RTI_LICENSE_FILE` is set correctly
-- **Topic discovery issues**: Verify that QoS (Quality of Service) settings match between publishers and subscribers
-- **Performance concerns**: Consider adjusting history depth and reliability settings for high-frequency topics
-
-For more detailed information on DDS troubleshooting, refer to the [RTI Getting Started Guide](https://www.rti.com/gettingstarted).
