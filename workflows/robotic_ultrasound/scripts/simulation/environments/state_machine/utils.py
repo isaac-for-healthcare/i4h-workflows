@@ -275,17 +275,6 @@ def get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us, scale: float = 1000.0, lo
     return pos_np, euler_angles
 
 
-def get_np_images(env):
-    """Get numpy images from the environment."""
-    third_person_img = convert_dict_to_backend(env.unwrapped.scene["room_camera"].data.output, backend="numpy")["rgb"]
-    third_person_img = third_person_img[0, :, :, :3].astype(np.uint8)
-
-    wrist_img1 = convert_dict_to_backend(env.unwrapped.scene["wrist_camera"].data.output, backend="numpy")["rgb"]
-    wrist_img1 = wrist_img1[0, :, :, :3].astype(np.uint8)
-
-    return third_person_img, wrist_img1
-
-
 def load_onnx_model(model_path):
     """Load the ACT ONNX model."""
     providers = ["CUDAExecutionProvider"] if ort.get_device() == "GPU" else ["CPUExecutionProvider"]
