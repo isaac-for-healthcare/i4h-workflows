@@ -1,3 +1,5 @@
+![Robotic Surgery Workflow](../../docs/source/robotic_surgery_workflow.jpg)
+
 # Robotic Surgery Workflow
 
 ## System Requirements
