@@ -483,6 +483,7 @@ class StreamingSimulator(Application):
         self.start_pose = start_pose
         self.config_path = config_path
         self.period = period
+        self.qos_provider_path = qos_provider_path
 
     def compose(self):
         """
