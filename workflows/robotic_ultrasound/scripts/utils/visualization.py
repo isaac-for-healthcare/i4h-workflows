@@ -35,8 +35,15 @@ from PIL import Image
 from simulation.configs.config import CameraConfig, Topic
 from simulation.utils.common import colorize_depth, get_exp_config, list_exp_configs
 
-parser = argparse.ArgumentParser(formatter_class=argparse.MetavarTypeHelpFormatter)
-parser.add_argument("-c", "--config", type=str, choices=list_exp_configs(), default="basic")
+parser = argparse.ArgumentParser(description="Visualize the robotic ultrasound simulation")
+parser.add_argument(
+    "-c",
+    "--config",
+    type=str,
+    choices=list_exp_configs(),
+    default="basic",
+    help="Configuration name to use for visualization. Only `basic` is supported for now.",
+)
 config = get_exp_config(parser.parse_args().config)
 
 
