@@ -3,7 +3,6 @@
   <img src="./docs/source/ultrasound.jpg" alt="Robotic Ultrasound" style="width: 45%; height: auto; aspect-ratio: 16/9; object-fit: cover;" />
 </p>
 
-
 # Isaac for Healthcare - Workflows
 
 [![IsaacSim](https://img.shields.io/badge/IsaacSim-4.2.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/4.2.0/index.html)
@@ -11,13 +10,7 @@
 [![Linux platform](https://img.shields.io/badge/platform-linux--64-orange.svg)](https://releases.ubuntu.com/20.04/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-yellow.svg)](https://opensource.org/license/apache-2-0)
 
-**Isaac for Healthcare** is a domain-specific framework built on top of Nvidia Isaac Sim/Lab and Nvidia Omniverse, enabling developers to design, simulate, test, and train AI-based robots and autonomous systems, and generate synthetic data across:
-- **Therapeutics** (e.g., surgical robotics, interventional radiology and radiotherapy)
-- **Diagnostics** (e.g., ultrasound (US), computed tomography (CT), cone-beam CT (CBCT))
-- **Hospital & patient care** (e.g., hospitals, operating rooms and intensive care units with medication delivery, supply transport, disinfection robots, cobots)
-- **Rehabilitation & assistive technologies** (e.g., physical therapy robots, exoskeletons, etc.)
-
-Isaac for Healthcare will extend and tailor Isaac Sim/Lab and Omniverse to enable multi-scale simulation (in a highly realistic virtual environment) — from anatomy to sensors, surgical instruments, robotic systems, operating rooms, intensive care units, labs, sterile processing departments (SPD), and full hospital environments.
+**[Nvidia Isaac for Healthcare](https://github.com/isaac-for-healthcare)** is the 3-computer solution for healthcare robotics.
 
 Isaac for Healthcare enables healthcare technology developers to leverage **NVIDIA technologies** to:
 - Accelerate development and testing of AI algorithms with synthetic data generated in digital twin.
@@ -36,18 +29,19 @@ Isaac for Healthcare enables healthcare technology developers to leverage **NVID
 - **Collecting data for training robotic policies** through imitation learning, by enabling XR and/or haptics enabled teleoperation of robotic systems in digital twin.
 - **Training robotic policies** for augmented dexterity (e.g., in robot-assisted surgery). Leveraging GPU parallelization to train reinforcement and imitation learning algorithms.
 - **Continuous testing (CT) of robotic systems** through HIL digital twin systems.
+- **Deploying robotic policies** for Sim2Real deployment on Nvidia Holoscan.
 - **Creating interactive training** experience for clinicians/users (pre-op planning, post-op evaluations/insights).
 
 ## Getting Started
 
 For everything you need to get started, including detailed tutorials and step-by-step guides, follow these links to learn more about:
 
-- [Robotic ultrasound - simulation](./workflows/robotic_ultrasound/scripts/simulation/README.md)
-- [Robotic ultrasound - policy runner](./workflows/robotic_ultrasound/scripts/policy_runner/README.md)
-- [Robotic ultrasound - holoscan apps](./workflows/robotic_ultrasound/scripts/holoscan_apps/README.md)
-- [Robotic surgery - simulation](./workflows/robotic_surgery/scripts/simulation/README.md)
-- [Tutorials](./tutorials)
-
+- Workflows
+  - [Robotic ultrasound](./workflows/robotic_ultrasound/README.md)
+  - [Robotic surgery](./workflows/robotic_surgery/README.md)
+- Tutorials
+  - [Bring your own patient](./tutorials/assets/bring_your_own_patients/README.md)
+  - [Bring your own robot](./tutorials/assets/bring_your_own_robots/README.md)
 
 ## Contributing to i4h-workflows
 
