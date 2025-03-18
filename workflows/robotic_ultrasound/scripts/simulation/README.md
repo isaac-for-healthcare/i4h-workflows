@@ -229,45 +229,45 @@ Optionally, the simulator supports customization through JSON configuration file
 }
 ```
 
-- Probe Parameters
+##### Probe Parameters
 
-    | Parameter | Description | Default Value |
-    |-----------|-------------|---------------|
-    | num_elements | Number of elements in the ultrasound probe | 4096 |
-    | opening_angle | Beam opening angle in degrees | 73.0 |
-    | radius | Radius of the ultrasound probe in mm | 45.0 |
-    | frequency | Ultrasound frequency in MHz | 2.5 |
-    | elevational_height | Height of the elevation plane in mm | 7.0 |
-    | num_el_samples | Number of samples in the elevation direction | 10 |
+| Parameter | Description | Default Value |
+|-----------|-------------|---------------|
+| num_elements | Number of elements in the ultrasound probe | 4096 |
+| opening_angle | Beam opening angle in degrees | 73.0 |
+| radius | Radius of the ultrasound probe in mm | 45.0 |
+| frequency | Ultrasound frequency in MHz | 2.5 |
+| elevational_height | Height of the elevation plane in mm | 7.0 |
+| num_el_samples | Number of samples in the elevation direction | 10 |
 
-- Simulation Parameters
+##### Simulation Parameters
 
-    | Parameter | Description | Default Value |
-    |-----------|-------------|---------------|
-    | conv_psf | Whether to use convolution point spread function | true |
-    | buffer_size | Size of the simulation buffer | 4096 |
-    | t_far | Maximum time/distance for ray tracing (in units relevant to the simulation) | 180.0 |
+| Parameter | Description | Default Value |
+|-----------|-------------|---------------|
+| conv_psf | Whether to use convolution point spread function | true |
+| buffer_size | Size of the simulation buffer | 4096 |
+| t_far | Maximum time/distance for ray tracing (in units relevant to the simulation) | 180.0 |
 
-- Minimal Configuration Example
+##### Minimal Configuration Example
 
-    You only need to specify the parameters you want to change - any omitted parameters will use their default values:
-    ```json
-    {
-        "probe_params": {
-            "frequency": 3.5,
-            "radius": 55.0
-        },
-        "sim_params": {
-            "t_far": 200.0
-        }
+You only need to specify the parameters you want to change - any omitted parameters will use their default values:
+```json
+{
+    "probe_params": {
+        "frequency": 3.5,
+        "radius": 55.0
+    },
+    "sim_params": {
+        "t_far": 200.0
     }
-    ```
+}
+```
 
 #### Running the Simulator
 
 To run the ultrasound raytracing simulator:
 
-```bash
+```sh
 python examples/ultrasound-raytracing.py
 ```
 
