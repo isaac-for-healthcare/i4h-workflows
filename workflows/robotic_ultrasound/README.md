@@ -1,3 +1,5 @@
+![Robotic Ultrasound Workflow](../../docs/source/robotic_us_workflow.jpg)
+
 # Robotic Ultrasound Workflow
 
 ## System Requirements
@@ -21,6 +23,13 @@ The robotic ultrasound workflow is built on the following dependencies:
 Install or upgrade to the latest NVIDIA driver from [NVIDIA website](https://www.nvidia.com/en-us/drivers/)
 
 **NOTE**: [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing) requires driver version >= 555.
+
+
+### Install CUDA
+
+Install CUDA from [NVIDIA CUDA Quick Start Guide](https://docs.nvidia.com/cuda/cuda-quick-start-guide/index.html)
+
+**NOTE**: [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing) requires CUDA version >= 12.6.
 
 
 ### Obtain license of RTI DDS
