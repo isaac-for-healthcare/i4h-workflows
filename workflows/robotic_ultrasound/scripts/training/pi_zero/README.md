@@ -4,14 +4,16 @@ This repository provides a complete workflow for training [PI Zero](https://www.
 
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Installation](#installation)
-- [Data Collection](#data-collection)
-- [Data Conversion](#data-conversion)
-- [Training Configuration](#training-configuration)
-- [Running Training](#running-training)
-- [Understanding Outputs](#understanding-outputs)
-- [Troubleshooting](#troubleshooting)
+- [Overview](#-overview)
+- [Installation](#️-installation)
+- [Data Collection](#-data-collection)
+- [Data Conversion](#-data-conversion)
+- [Training Configuration](#%EF%B8%8F-training-configuration)
+- [Running Training](#-running-training)
+- [Understanding Outputs](#-understanding-outputs)
+- [Testing Inference](#-testing-inference)
+- [Troubleshooting](#-troubleshooting)
+- [Acknowledgements](#-acknowledgements)
 
 ## 🔍 Overview
 
