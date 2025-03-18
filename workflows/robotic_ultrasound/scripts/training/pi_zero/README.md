@@ -4,8 +4,8 @@ This repository provides a complete workflow for training [PI Zero](https://www.
 
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Installation](#installation)
+- [Overview](#-overview)
+- [Installation](#️installation)
 - [Data Collection](#data-collection)
 - [Data Conversion](#data-conversion)
 - [Training Configuration](#training-configuration)
