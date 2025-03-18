@@ -40,8 +40,8 @@ For everything you need to get started, including detailed tutorials and step-by
   - [Robotic ultrasound](./workflows/robotic_ultrasound/README.md)
   - [Robotic surgery](./workflows/robotic_surgery/README.md)
 - Tutorials
-  - [Bring your own patient](./tutorials/assets/bring_your_own_patients/README.md)
-  - [Bring your own robot](./tutorials/assets/bring_your_own_robots/README.md)
+  - [Bring your own patient](./tutorials/assets/bring_your_own_patient/README.md)
+  - [Bring your own robot](./tutorials/assets/bring_your_own_robot/README.md)
 
 ## Contributing to i4h-workflows
 
