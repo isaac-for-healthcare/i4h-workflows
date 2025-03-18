@@ -159,7 +159,7 @@ def main(
             root_name = "data/demo_0"
             num_steps = len(f[root_name]["action"])
             for step in range(num_steps):
-                rgb = f[root_name]["observations/rgb"][step]
+                rgb = f[root_name]["observations/rgb_images"][step]
                 dataset.add_frame(
                     {
                         "image": image_tools.resize_with_pad(rgb[0], image_shape[0], image_shape[1]),

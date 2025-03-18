@@ -123,7 +123,7 @@ class TestConvertHdf5ToLeRobot(TestBase):
             # Create RGB dataset (num_steps, 2, height, width, 3)
             # Using small 32x32 images to keep the file size small
             rgb_data = np.random.randint(0, 256, size=(num_steps, 2, 32, 32, 3), dtype=np.uint8)
-            obs_group.create_dataset("rgb", data=rgb_data)
+            obs_group.create_dataset("rgb_images", data=rgb_data)
 
     def test_convert_hdf5_to_lerobot(self):
         """Test that HDF5 data can be converted to LeRobot format successfully."""
