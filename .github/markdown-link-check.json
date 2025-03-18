@@ -6,6 +6,9 @@
         },
         {
             "pattern": "^#-.*"
+        },
+        {
+            "pattern": "^#%EF%B8%8F.*"
         }
     ],
     "timeout": "20s",
