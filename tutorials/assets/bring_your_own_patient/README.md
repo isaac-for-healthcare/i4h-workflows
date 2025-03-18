@@ -1,4 +1,4 @@
-# Bring Your Own Patients
+# Bring Your Own Patient
 
 This guide helps you convert your own CT or MRI scans into USD (Universal Scene Description) files for 3D visualization.
 
@@ -48,11 +48,11 @@ Treat the organ meshes as a whole, and find the offset to center the organ meshe
 v_{offset} = \{x_{center},\ y_{center},\ z_{center}\}
 ```
 
-#### Step 2:Find the rotation matrix to align the USD axes with the organ axes
+#### Step 2: Find the rotation matrix to align the USD axes with the organ axes
 Here we assume the organ meshes has Superior-Inferior-Left-Right-Anterior-Posterior (SI-LR-AP) axes. We used those axis to align the organ meshes with the exterior model.
 
 We place the body model in both the mesh and USD coordinate systems. Ribs and spines are rendered to show the orientation.
-![image](./transformation.png)
+![image](../../../docs/source/transformation.png)
 
 It need to be noted that this placement of the body model is based on how the USD model is created. You will need to make sure SI-LR-AP axes are generally aligned.
 
