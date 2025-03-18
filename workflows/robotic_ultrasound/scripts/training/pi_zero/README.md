@@ -11,8 +11,9 @@ This repository provides a complete workflow for training [PI Zero](https://www.
 - [Training Configuration](#%EF%B8%8F-training-configuration)
 - [Running Training](#-running-training)
 - [Understanding Outputs](#-understanding-outputs)
+- [Testing Inference](#-testing-inference)
 - [Troubleshooting](#-troubleshooting)
-- [Acknowledgements](-acknowledgements)
+- [Acknowledgements](#-acknowledgements)
 
 ## 🔍 Overview
 
