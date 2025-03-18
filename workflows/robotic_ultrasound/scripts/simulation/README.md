@@ -251,6 +251,7 @@ Optionally, the simulator supports customization through JSON configuration file
 ##### Minimal Configuration Example
 
 You only need to specify the parameters you want to change - any omitted parameters will use their default values:
+
 ```json
 {
     "probe_params": {
