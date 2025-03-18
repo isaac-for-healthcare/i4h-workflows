@@ -75,6 +75,21 @@ Please refer to the [Asset Container Helper](https://github.com/isaac-for-health
 i4h-asset-retrieve
 ```
 
+- **NOTE**: Downloading the assets is a blocking function, so the following warning is expected:
+
+```sh
+[108,322ms] [Warning] [omni.client.python] Detected a blocking function. This will cause hitches or hangs in the UI. Please switch to the async version:
+  File "<path>/bin/i4h-asset-retrieve", line 8, in <module>
+  File "<path>/i4h_asset_helper/cli.py", line 47, in retrieve_main
+  File "<path>/i4h_asset_helper/assets.py", line 120, in retrieve_asset
+  File "<path>/omni/extscore/omni.client/omni/client/__init__.py", line 610, in read_fil
+```
+After the assets are downloaded, you will see the following message:
+```sh
+Assets downloaded to: <user-home-directory>/.cache/i4h-assets/<SHA256>
+```
+
+
 ### Set environment variables before running the scripts
 Make sure `PYTHONPATH`, `RTI_LICENSE_FILE` and `LD_PRELOAD` is set
 ```sh
