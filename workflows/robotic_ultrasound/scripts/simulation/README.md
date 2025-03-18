@@ -269,7 +269,7 @@ Optionally, the simulator supports customization through JSON configuration file
 
 To run the ultrasound raytracing simulator:
 
-```sh
+```bash
 python examples/ultrasound-raytracing.py
 ```
 
