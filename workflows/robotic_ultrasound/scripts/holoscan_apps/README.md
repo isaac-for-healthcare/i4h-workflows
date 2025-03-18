@@ -1,29 +1,30 @@
-# RealSense Camera
+# Holoscan Apps
+This folder contains Holoscan applications for robotic ultrasound.
 
-## Setup
+## Building the applications
 
-Make sure the following pip packages are available:
-```
-pip install pyrealsense2
-pip install holoscan
-```
-
-## Building Application
-
-The `clarius_cast` and `clarius_solum` applications need to built using cmake.  This
-will download the necessary header files and libraries from Clarius repo, and build the
-python bindings in the case of the Clarius Solum app.
-
-To build the applications run the following commands from this directory:
+Run the following command to build the Holoscan SDK applications.
 
 ```
 cmake -B build -S .
 cmake --build build
 ```
 
-## Running Application
+## Running the applications
 
-To run realsense camera
+After building the applications, you can run them with the instructions below.
+
+### RealSense Camera
 ```
 python3 holoscan_apps/realsense/camera.py
+```
+
+### Clarius Cast
+```
+phthon3 holoscan_apps/clarius_cast/clarius_cast.py
+```
+
+### Clarius Solumn
+```
+python3 holoscan_apps/clarius_solumn/clarius_solumn.py
 ```

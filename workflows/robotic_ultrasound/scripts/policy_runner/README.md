@@ -2,18 +2,9 @@
 
 ## Run PI0 policy with DDS communication
 
-### Prepare Model Weights
+### Prepare Model Weights and USD Assets and Install Dependencies
 
-[FIXME: change to `asset-catalog`] Download the v0.3 model weights from [GDrive](https://drive.google.com/drive/folders/1sL4GAETSMbxxcefsTsOkX7wXkTsbDqhW?usp=sharing)
-
-### Prepare USD Assets
-
-Please check the [I4H asset catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog) for assets downloading, put the USD assets as "./assets".
-
-### Install Dependencies
-
-Follow the [Environment Setup](../../README.md#environment-setup) instructions to setup the environment and dependencies.
-
+Please refer to the [Environment Setup](../../README.md#environment-setup) instructions.
 
 ### Setup Python Path
 
@@ -47,3 +38,13 @@ Here's a markdown table describing the command-line arguments:
 | `--topic_in_franka_pos` | Topic name to consume Franka position data | `topic_franka_info` |
 | `--topic_out` | Topic name to publish generated Franka actions | `topic_franka_ctrl` |
 | `--verbose` | Whether to print logs | False |
+
+## Performance Metrics
+
+### Inference
+
+| Hardware | Average Latency  | Memory Usage | Actions Predicted
+|----------|----------------|-------------------|--------------|
+| NVIDIA RTX 4090 | 100 ms | 9 GB | 50 |
+
+> **Note:** The model predicts the 50 next actions in a single 100ms inference, allowing you to choose how many of these predictions to utilize based on your specific control frequency requirements.
