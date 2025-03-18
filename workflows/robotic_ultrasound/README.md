@@ -105,7 +105,6 @@ Navigate to these sub-directories and run the scripts.
 
 - [Holoscan Apps](./scripts/holoscan_apps)
 - [Policy Runner](./scripts/policy_runner)
-- [Policy Training](./scripts/training)
 - [Simulation](./scripts/simulation)
 - [Training](./scripts/training)
 - [Visualization Utilities](./scripts/utils)
