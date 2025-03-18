@@ -69,7 +69,7 @@ bash tools/env_setup_robot_us.sh
 ### Download the I4H assets
 
 Use the following command will download the assets to the `~/.cache/i4h-assets/<sha256>` directory.
-Please refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/main/docs/catalog_helper.md) for more details.
+Please refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.1.0ea/docs/catalog_helper.md) for more details.
 
 ```sh
 i4h-asset-retrieve
@@ -90,6 +90,7 @@ Navigate to these sub-directories and run the scripts.
 
 - [Holoscan Apps](./scripts/holoscan_apps)
 - [Policy Runner](./scripts/policy_runner)
+- [Policy Training](./scripts/training)
 - [Simulation](./scripts/simulation)
 - [Training](./scripts/training)
 - [Visualization Utilities](./scripts/utils)
