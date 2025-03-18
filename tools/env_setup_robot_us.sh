@@ -44,9 +44,9 @@ fi
 # ---- Install build tools ----
 echo "Installing build tools..."
 if [ "$EUID" -ne 0 ]; then
-    sudo apt-get install -y cmake build-essential pybind11-dev libxcb-cursor
+    sudo apt-get install -y cmake build-essential pybind11-dev libxcb-cursor0
 else
-    apt-get install -y cmake build-essential pybind11-dev libxcb-cursor
+    apt-get install -y cmake build-essential pybind11-dev libxcb-cursor0
 fi
 
 
@@ -55,7 +55,7 @@ echo "Installing IsaacSim..."
 pip install isaacsim==4.2.0.2 isaacsim-extscache-physics==4.2.0.2 \
     isaacsim-extscache-kit==4.2.0.2 isaacsim-extscache-kit-sdk==4.2.0.2 \
     rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
-    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git \
+    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0ea \
     --extra-index-url https://pypi.nvidia.com
 
 

@@ -7,13 +7,14 @@
   - [PI Zero Policy Evaluation](#pi-zero-policy-evaluation)
   - [Policy Evaluation w/ DDS](#policy-evaluation-w-dds)
   - [Liver Scan State Machine](#liver-scan-state-machine)
+  - [Teleoperation](#teleoperation)
   - [Ultrasound Raytracing Simulation](#ultrasound-raytracing-simulation)
 
-# Installation
+## Installation
 
 Follow the [Environment Setup](../../README.md#environment-setup) instructions to setup the environment and dependencies.
 
-# Environments
+## Environments
 
 Isaac-Lab scripts usually receive a `--task <task_name>` argument. This argument is used to select the environment/task to be run.
 These tasks are detected by the `gym.register` function in the [exts/robotic_us_ext/\__init__.py](exts/robotic_us_ext/robotic_us_ext/tasks/ultrasound/approach/config/franka/__init__.py).
@@ -31,9 +32,9 @@ Currently there are these robot configurations that can be used in various tasks
 |----------                                  |---------         |----------             |
 | FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG      | \*-FrankaUsRs-*  | Reach, Teleop         |
 
-# Apps
+## Apps
 
-## PI Zero Policy Evaluation
+### PI Zero Policy Evaluation
 Set up `openpi` referring to [PI0 runner](../policy_runner/README.md).
 
 Move to the [scripts](../) folder and specify python path:
@@ -54,7 +55,7 @@ NOTE: You can also specify `--ckpt_path` to run a specific policy.
 This should open a stage with Franka arm and run the robotic ultrasound actions:
 ![pi0 simulation](../../../../docs/source/pi0_sim.jpg)
 
-## Policy Evaluation w/ DDS
+### Policy Evaluation w/ DDS
 This example should work together with the `pi0 policy runner` via DDS communication,
 so please ensure to launch the `run_policy.py` with `height=224`, `width=224`,
 and the same `domain id` as this example in another terminal.
@@ -69,11 +70,11 @@ Then move back to this folder and execute:
 python examples/sim_with_dds.py --enable_cameras
 ```
 
-## Liver Scan State Machine
+### Liver Scan State Machine
 
 The Liver Scan State Machine provides a structured approach to performing ultrasound scans on a simulated liver. It implements a state-based workflow that guides the robotic arm through the scanning procedure.
 
-### Overview
+#### Overview
 
 The state machine transitions through the following states:
 - **SETUP**: Initial positioning of the robot
@@ -87,12 +88,12 @@ The state machine integrates multiple control modules:
 - **Orientation Control**: Maintains proper probe orientation
 - **Path Planning**: Guides the robot through the scanning trajectory
 
-### Requirements
+#### Requirements
 
 - This implementation works **only with a single environment** (`--num_envs 1`).
 - It should be used with the `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0` environment.
 
-### Usage
+#### Usage
 
 move to the [scripts](../) folder and specify the python path:
 ```sh
@@ -104,7 +105,7 @@ Then move back to this folder and execute:
 python environments/state_machine/liver_scan_sm.py --enable_cameras
 ```
 
-### Data Collection
+#### Data Collection
 
 To run the state machine and collect data for a specified number of episodes:
 
@@ -116,7 +117,7 @@ python environments/state_machine/liver_scan_sm.py \
 
 This will collect data for 2 complete episodes and store it in HDF5 format.
 
-### Command Line Arguments
+#### Command Line Arguments
 
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -128,7 +129,7 @@ This will collect data for 2 complete episodes and store it in HDF5 format.
 | `--reset_steps` | int | 15 | Number of steps to take during environment reset |
 | `--max_steps` | int | 350 | Maximum number of steps before forcing a reset |
 
-### Data Collection Details
+#### Data Collection Details
 
 When data collection is enabled (`--num_episodes > 0`), the state machine will:
 
@@ -146,15 +147,15 @@ The collected data includes:
 - Camera images
 
 
-## Keyboard Controls
+#### Keyboard Controls
 
 During execution, you can press the 'r' key to reset the environment and state machine.
 
-## Teleoperation
+### Teleoperation
 
 The teleoperation interface allows direct control of the robotic arm using various input devices. It supports keyboard, SpaceMouse, and gamepad controls for precise manipulation of the ultrasound probe.
 
-### Running Teleoperation
+#### Running Teleoperation
 
 Basic teleoperation can be started with:
 
@@ -162,7 +163,7 @@ Basic teleoperation can be started with:
 python environments/teleoperation/teleop_se3_agent.py --enable_cameras
 ```
 
-### Command Line Arguments
+#### Command Line Arguments
 
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -173,12 +174,12 @@ python environments/teleoperation/teleop_se3_agent.py --enable_cameras
 | `--viz_domain_id` | int | 1 | Domain ID for visualization data publishing |
 | `--rti_license_file` | str | None | Path to the RTI license file (required) |
 
-### Control Schemes
+#### Control Schemes
 
 #### Keyboard Controls
 - Please check the [Se3Keyboard documentation](https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.devices.html#isaaclab.devices.Se3Keyboard)
 
-### Camera Visualization
+#### Camera Visualization
 
 The teleoperation script supports real-time camera visualization through DDS communication. It publishes both room camera and wrist camera feeds at 30Hz.
 
@@ -188,7 +189,7 @@ The camera feeds are published on the following default topics:
 
 Both cameras output 224x224 RGB images that can be visualized using compatible DDS subscribers.
 
-### Ultrasound Image Visualization
+#### Ultrasound Image Visualization
 
 The teleoperation script also supports real-time ultrasound image visualization through DDS communication. It publishes the ultrasound image at 30Hz.
 
@@ -196,20 +197,17 @@ Please refer to the [Ultrasound Raytracing Simulation](#ultrasound-raytracing-si
 
 
 
-## Ultrasound Raytracing Simulation
+### Ultrasound Raytracing Simulation
 
 This example implements a standalone ultrasound raytracing simulator that generates realistic ultrasound images
 based on 3D meshes. The simulator uses Holoscan framework and DDS communication for realistic performance.
 
-### NVIDIA OptiX Raytracing with Python Bindings
+#### NVIDIA OptiX Raytracing with Python Bindings
 
-For instructions on preparing and building the Python module, please refer to the [Ultrasound Raytracing README](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/blob/main/ultrasound-raytracing/README.md).
+For instructions on preparing and building the Python module, please refer to the [Environment Setup](../../README.md#install-the-raytracing-ultrasound-simulator) instructions and [Ultrasound Raytracing README](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/blob/v0.1.0ea/ultrasound-raytracing/README.md) to setup the `raysim` module correctly.
 
-### Setup
 
-Please refer to the [Environment Setup](../../README.md#install-the-raytracing-ultrasound-simulator) instructions to setup the `raysim` module correctly.
-
-### Configuration
+#### Configuration
 
 Optionally, the simulator supports customization through JSON configuration files. You need to create your configuration file following the structure below:
 
@@ -231,7 +229,7 @@ Optionally, the simulator supports customization through JSON configuration file
 }
 ```
 
-#### Probe Parameters
+##### Probe Parameters
 
 | Parameter | Description | Default Value |
 |-----------|-------------|---------------|
@@ -242,7 +240,7 @@ Optionally, the simulator supports customization through JSON configuration file
 | elevational_height | Height of the elevation plane in mm | 7.0 |
 | num_el_samples | Number of samples in the elevation direction | 10 |
 
-#### Simulation Parameters
+##### Simulation Parameters
 
 | Parameter | Description | Default Value |
 |-----------|-------------|---------------|
@@ -266,7 +264,7 @@ You only need to specify the parameters you want to change - any omitted paramet
 }
 ```
 
-### Running the Simulator
+#### Running the Simulator
 
 To run the ultrasound raytracing simulator:
 
@@ -274,7 +272,7 @@ To run the ultrasound raytracing simulator:
 python examples/ultrasound-raytracing.py
 ```
 
-### Command Line Arguments
+#### Command Line Arguments
 
 | Argument | Description | Default Value |
 |----------|-------------|---------------|

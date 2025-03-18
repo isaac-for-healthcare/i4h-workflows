@@ -52,7 +52,7 @@ conda activate robotic_ultrasound
 
 #### Install the Raytracing Ultrasound Simulator
 To use the ultrasound-raytracing simulator, you can choose one of the following options:
-- (experimental) Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/ultrasound-raytracing) and extract the folder to `workflows/robotic_ultrasound/scripts/raysim`.
+- (experimental) Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.1.0ea) and extract the folder to `workflows/robotic_ultrasound/scripts/raysim`.
 
 - (recommended) Install and build it by following the instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation).
 
@@ -69,11 +69,26 @@ bash tools/env_setup_robot_us.sh
 ### Download the I4H assets
 
 Use the following command will download the assets to the `~/.cache/i4h-assets/<sha256>` directory.
-Please refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/main/docs/catalog_helper.md) for more details.
+Please refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.1.0ea/docs/catalog_helper.md) for more details.
 
 ```sh
 i4h-asset-retrieve
 ```
+
+- **NOTE**: Downloading the assets is a blocking function, so the following warning is expected:
+
+```sh
+[108,322ms] [Warning] [omni.client.python] Detected a blocking function. This will cause hitches or hangs in the UI. Please switch to the async version:
+  File "<path>/bin/i4h-asset-retrieve", line 8, in <module>
+  File "<path>/i4h_asset_helper/cli.py", line 47, in retrieve_main
+  File "<path>/i4h_asset_helper/assets.py", line 120, in retrieve_asset
+  File "<path>/omni/extscore/omni.client/omni/client/__init__.py", line 610, in read_fil
+```
+After the assets are downloaded, you will see the following message:
+```sh
+Assets downloaded to: <user-home-directory>/.cache/i4h-assets/<SHA256>
+```
+
 
 ### Set environment variables before running the scripts
 Make sure `PYTHONPATH`, `RTI_LICENSE_FILE` and `LD_PRELOAD` is set
