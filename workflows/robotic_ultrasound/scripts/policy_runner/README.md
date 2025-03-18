@@ -2,18 +2,9 @@
 
 ## Run PI0 policy with DDS communication
 
-### Prepare Model Weights
+### Prepare Model Weights and USD Assets and Install Dependencies
 
-[FIXME: change to `asset-catalog`] Download the v0.3 model weights from [GDrive](https://drive.google.com/drive/folders/1sL4GAETSMbxxcefsTsOkX7wXkTsbDqhW?usp=sharing)
-
-### Prepare USD Assets
-
-Please check the [I4H asset catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog) for assets downloading, put the USD assets as "./assets".
-
-### Install Dependencies
-
-Follow the [Environment Setup](../../README.md#environment-setup) instructions to setup the environment and dependencies.
-
+Please refer to the [Environment Setup](../../README.md#environment-setup) instructions.
 
 ### Setup Python Path
 
