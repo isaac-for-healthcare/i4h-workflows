@@ -47,3 +47,13 @@ Here's a markdown table describing the command-line arguments:
 | `--topic_in_franka_pos` | Topic name to consume Franka position data | `topic_franka_info` |
 | `--topic_out` | Topic name to publish generated Franka actions | `topic_franka_ctrl` |
 | `--verbose` | Whether to print logs | False |
+
+## Performance Metrics
+
+### Inference
+
+| Hardware | Average Latency  | Memory Usage | Actions Predicted
+|----------|----------------|-------------------|--------------|
+| NVIDIA RTX 4090 | 100 ms | 9 GB | 50 |
+
+> **Note:** The model predicts the 50 next actions in a single 100ms inference, allowing you to choose how many of these predictions to utilize based on your specific control frequency requirements.
