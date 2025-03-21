@@ -53,10 +53,25 @@ class Assets(Enums):
         """
         if download_dir is None:
             download_dir = get_i4h_local_asset_path()
-        # Update all the paths
-        for attr in dir(self):
+        self._download_dir = download_dir
+        self._update_paths()
+
+    def _update_paths(self):
+        for attr in dir(Enums):
             if not attr.startswith("_"):
-                setattr(self, attr, os.path.join(download_dir, getattr(self, attr)))
+                value = getattr(Enums, attr)
+                setattr(self, attr, os.path.join(self._download_dir, value))
+
+    @property
+    def download_dir(self):
+        """Get the download directory."""
+        return self._download_dir
+
+    @download_dir.setter
+    def download_dir(self, value):
+        """Set the download directory and update the paths."""
+        self._download_dir = value
+        self._update_paths()
 
 
 # singleton object for the assets

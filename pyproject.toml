@@ -8,6 +8,7 @@ line_length = 120
 py_version = 310
 group_by_package = true
 known_third_party = ["openpi", "i4h_asset_helper"]
+known_first_party = ["simulation.utils.assets"]
 
 [tool.ruff]
 line-length = 120
