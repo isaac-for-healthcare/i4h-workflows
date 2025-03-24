@@ -22,6 +22,8 @@ import torch
 from omni.isaac.lab.app import AppLauncher
 from policy_runner import PI0PolicyRunner
 from simulation.environments.state_machine.utils import (
+    RobotPositions,
+    RobotQuaternions,
     capture_camera_images,
     compute_relative_action,
     get_joint_states,
@@ -57,8 +59,6 @@ reset_flag = False
 # isort: off
 from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
 from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.utils import RobotPositions, RobotQuaternions
-
 # isort: on
 
 
