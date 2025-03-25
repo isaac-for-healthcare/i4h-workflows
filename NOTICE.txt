@@ -67,7 +67,7 @@ Licensed under BSD-3-Clause (https://github.com/pybind/pybind11/blob/master/LICE
 
 pyrealsense2 (https://pypi.org/project/pyrealsense2/)
 2017 Intel Corporation
-Licensed under Apach 2.0 (https://github.com/IntelRealSense/librealsense/blob/master/LICENSE)
+Licensed under Apache 2.0 (https://github.com/IntelRealSense/librealsense/blob/master/LICENSE)
 
 rti.connext (https://pypi.org/project/rti.connext/)
 2024 Real-Time Innovations, Inc. |br|
