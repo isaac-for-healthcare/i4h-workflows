@@ -33,16 +33,14 @@ from omni.isaac.lab.managers import ObservationTermCfg as ObsTerm
 from omni.isaac.lab.managers import RewardTermCfg as RewTerm
 from omni.isaac.lab.managers import SceneEntityCfg
 from omni.isaac.lab.managers import TerminationTermCfg as DoneTerm
+from omni.isaac.lab.markers.config import FRAME_MARKER_CFG
 from omni.isaac.lab.scene import InteractiveSceneCfg
 from omni.isaac.lab.sensors import CameraCfg, FrameTransformerCfg
 from omni.isaac.lab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
 from omni.isaac.lab.utils import configclass
-#  FRANKA_PANDA_REALSENSE_CFG for camera in USD
 from robotic_us_ext.lab_assets.franka import FRANKA_PANDA_HIGH_PD_FORCE_CFG, FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG
 from robotic_us_ext.tasks.ultrasound.approach import mdp
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
-
-from omni.isaac.lab.markers.config import FRAME_MARKER_CFG  # isort: skip
 
 FRAME_MARKER_SMALL_CFG = FRAME_MARKER_CFG.copy()
 FRAME_MARKER_SMALL_CFG.markers["frame"].scale = (0.10, 0.10, 0.10)
