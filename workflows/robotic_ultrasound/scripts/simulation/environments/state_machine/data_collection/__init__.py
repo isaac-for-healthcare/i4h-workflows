@@ -13,5 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .data_collection_manager import DataCollectionManager  # noqa: F401, E402
-from .data_collector import RobomimicDataCollector  # noqa: F401, E402
+from .data_collection_manager import DataCollectionManager  # noqa: F401
+from .data_collector import RobomimicDataCollector  # noqa: F401
