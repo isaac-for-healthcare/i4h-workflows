@@ -60,7 +60,7 @@ reset_flag = False
 from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
 
 # Import extensions to set up environment tasks
-from robotic_us_ext import tasks  # noqa: F401, E402
+from robotic_us_ext import tasks  # noqa: F401
 # isort: on
 
 
