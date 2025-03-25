@@ -27,6 +27,6 @@ __version__ = ROBOTICSURGERY_ASSETS_METADATA["package"]["version"]
 # Configuration for different assets.
 ##
 
-from .ecm import *  # noqa: E402, F403
-from .psm import *  # noqa: E402, F403
-from .star import *  # noqa: E402, F403
+from .ecm import *  # noqa: F403
+from .psm import *  # noqa: F403
+from .star import *  # noqa: F403
