@@ -32,8 +32,8 @@ XVFB_TEST_CASES = [
 ]
 
 
-def get_tests(test_root):
-    path = f"{test_root}/**/test_*.py"
+def get_tests(test_root, pattern="test_*.py"):
+    path = f"{test_root}/**/{pattern}"
     return glob.glob(path, recursive=True)
 
 
@@ -79,6 +79,9 @@ def run_tests_with_coverage(workflow_name):
                 ]
             # TODO: remove this as integration tests
             elif "test_sim_with_dds" in test_path or "test_pi0" in test_path:
+                continue
+            elif "test_integration" in test_path:
+                # TODO: refractor the test file names and structure
                 continue
             else:
                 cmd = [
@@ -137,13 +140,70 @@ def run_tests_with_coverage(workflow_name):
         return 1
 
 
+def run_integration_tests(workflow_name):
+    """Run integration tests for a workflow"""
+    project_root = f"workflows/{workflow_name}"
+    default_license_file = os.path.join(os.getcwd(), project_root, "scripts", "dds", "rti_license.dat")
+    os.environ["RTI_LICENSE_FILE"] = os.environ.get("RTI_LICENSE_FILE", default_license_file)
+    all_tests_passed = True
+    tests_dir = os.path.join(project_root, "tests")
+    print(f"Looking for tests in {tests_dir}")
+    tests = get_tests(tests_dir, pattern="test_integration_*.py")
+
+    for test_path in tests:
+        # add project root to pythonpath
+        print(f"Running integration test: {test_path}")
+        env = os.environ.copy()
+        pythonpath = [os.path.join(project_root, "scripts"), tests_dir]
+
+        if "PYTHONPATH" in env:
+            env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
+        else:
+            env["PYTHONPATH"] = ":".join(pythonpath)
+        
+        cmd = [
+            sys.executable,
+            "-m",
+            "unittest",
+            test_path,
+        ]
+
+        process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = process.communicate()
+
+        # Filter out extension loading messages
+        filtered_stdout = "\n".join(
+            [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
+        )
+        filtered_stderr = "\n".join(
+            [line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)]
+        )
+
+        # Print filtered output
+        if filtered_stdout.strip():
+            print(filtered_stdout)
+        if filtered_stderr.strip():
+            print(filtered_stderr)
+
+    if all_tests_passed:
+        print("All tests passed")
+        return 0
+    else:
+        print("Some tests failed")
+        return 1
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run all tests for a workflow")
     parser.add_argument("--workflow", type=str, default="robotic_ultrasound", help="Workflow name")
+    parser.add_argument("--integration", action="store_true", help="Run integration tests")
     args = parser.parse_args()
 
     if args.workflow not in WORKFLOWS:
         raise ValueError(f"Invalid workflow name: {args.workflow}")
 
-    exit_code = run_tests_with_coverage(args.workflow)
+    if args.integration:
+        exit_code = run_integration_tests(args.workflow)
+    else:
+        exit_code = run_tests_with_coverage(args.workflow)
     sys.exit(exit_code)

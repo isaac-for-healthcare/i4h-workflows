@@ -138,6 +138,7 @@ def main():
                 obs, rew, terminated, truncated, info_ = env.step(action)
 
             env.reset()
+            print("Resetting the environment.")
             for _ in range(reset_steps):
                 reset_tensor = get_reset_action(env)
                 obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
