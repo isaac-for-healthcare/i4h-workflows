@@ -16,6 +16,7 @@
 import os
 from unittest import skipUnless
 
+
 def requires_rti(func):
     RTI_AVAILABLE = bool(os.getenv("RTI_LICENSE_FILE") and os.path.exists(os.getenv("RTI_LICENSE_FILE")))
     return skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")(func)
