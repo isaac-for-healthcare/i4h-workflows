@@ -124,7 +124,12 @@ def run_with_monitoring(command, timeout_seconds, target_line=None):
 
 SM_CASES = [
     (
-        "python -u workflows/robotic_ultrasound/scripts/simulation/environments/state_machine/pi0_policy/eval.py --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 --enable_camera     --repo_id i4h/sim_liver_scan --headless",
+        (
+            "python -u workflows/robotic_ultrasound/scripts/simulation/environments/state_machine/pi0_policy/eval.py"
+            "--task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 "
+            "--enable_camera     "
+            "--repo_id i4h/sim_liver_scan --headless"
+        ),
         120,
         "Resetting the environment.",
     ),

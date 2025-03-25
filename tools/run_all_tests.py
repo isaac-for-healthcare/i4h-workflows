@@ -160,7 +160,7 @@ def run_integration_tests(workflow_name):
             env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
         else:
             env["PYTHONPATH"] = ":".join(pythonpath)
-        
+
         cmd = [
             sys.executable,
             "-m",
