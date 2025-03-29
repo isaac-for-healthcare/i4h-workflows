@@ -22,10 +22,9 @@ from dds.publisher import Publisher
 from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import Subscriber
-from omni.isaac.core.robots import Robot
-from omni.isaac.core.utils.types import ArticulationAction
-from omni.isaac.franka import KinematicsSolver
-from omni.isaac.franka.controllers.rmpflow_controller import RMPFlowController
+from isaacsim.utils.types import ArticulationAction
+from isaacsim.franka import KinematicsSolver
+from isaacsim.franka.controllers.rmpflow_controller import RMPFlowController
 from simulation.configs.config import FrankaConfig
 
 
@@ -44,7 +43,7 @@ class FrankaPublisher(Publisher):
         domain_id: DDS domain identifier
     """
 
-    def __init__(self, franka: Robot, ik: bool, prim_path: str, topic: str, period: float, domain_id):
+    def __init__(self, franka, ik: bool, prim_path: str, topic: str, period: float, domain_id):
         """Initialize the Franka publisher."""
         super().__init__(topic, FrankaInfo, period, domain_id)
 
@@ -73,7 +72,7 @@ class FrankaPublisher(Publisher):
         return output
 
     @staticmethod
-    def new_instance(config: FrankaConfig, franka: Robot):
+    def new_instance(config: FrankaConfig, franka):
         """Create a new FrankaPublisher instance from configuration.
 
         Args:
@@ -108,7 +107,7 @@ class FrankaSubscriber(Subscriber):
         domain_id: DDS domain identifier
     """
 
-    def __init__(self, franka: Robot, ik: bool, prim_path: str, topic: str, period: float, domain_id):
+    def __init__(self, franka, ik: bool, prim_path: str, topic: str, period: float, domain_id):
         """Initialize the Franka subscriber."""
         super().__init__(topic, FrankaCtrlInput, period, domain_id)
 
@@ -163,7 +162,7 @@ class FrankaSubscriber(Subscriber):
             self.franka_articulation_controller.apply_action(actions)
 
     @staticmethod
-    def new_instance(config: FrankaConfig, franka: Robot):
+    def new_instance(config: FrankaConfig, franka):
         """Create a new FrankaSubscriber instance from configuration.
 
         Args:

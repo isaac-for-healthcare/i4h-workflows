@@ -23,7 +23,7 @@ import os
 
 from dds.publisher import Publisher
 from dds.schemas.camera_info import CameraInfo
-from omni.isaac.lab.app import AppLauncher
+from isaaclab.app import AppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script demonstrates a single-arm manipulator.")
@@ -102,7 +102,7 @@ simulation_app = app_launcher.app
 import gymnasium as gym  # noqa: F401
 import torch  # noqa: F401
 from meta_state_machine.ultrasound_state_machine import UltrasoundStateMachine  # noqa: F401
-from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: F401
+from isaaclab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: F401
 from robotic_us_ext import tasks  # noqa: F401
 from simulation.environments.state_machine.data_collection import DataCollectionManager  # noqa: F401
 from simulation.environments.state_machine.modules.force_module import ForceControlModule  # noqa: F401

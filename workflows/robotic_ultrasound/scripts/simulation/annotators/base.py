@@ -18,7 +18,7 @@ from typing import List
 import omni.usd
 from dds.publisher import Publisher
 from dds.subscriber import Subscriber
-from omni.isaac.core import World
+from isaacsim.core.api.world import World
 from simulation.utils.ratelimit import add_physx_step_callback, remove_physx_callback
 
 __all__ = ["Annotator"]

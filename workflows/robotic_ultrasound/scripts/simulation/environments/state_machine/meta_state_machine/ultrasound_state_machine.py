@@ -16,7 +16,7 @@
 from typing import Dict
 
 import torch
-from omni.isaac.core.prims import RigidPrimView
+from isaacsim.core.prims import RigidPrimView
 from simulation.environments.state_machine.modules.base_module import BaseControlModule
 from simulation.environments.state_machine.utils import SMState, compute_relative_action
 

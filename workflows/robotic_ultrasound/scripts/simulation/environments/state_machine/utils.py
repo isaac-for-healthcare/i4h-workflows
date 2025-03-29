@@ -19,10 +19,9 @@ from enum import Enum
 from typing import Sequence
 
 import numpy as np
-import omni.isaac.lab.utils.math as math_utils  # noqa: F401
+import isaaclab.utils.math as math_utils  # noqa: F401
 import onnxruntime as ort
 import torch
-from omni.isaac.lab.utils.math import compute_pose_error, quat_from_euler_xyz
 
 
 # MARK: - State Machine Enums + Dataclasses
@@ -65,7 +64,7 @@ class RobotQuaternions:
     DOWN_EULER_DEG = (180.0, 0.0, 180)
     # Convert to radians and then to quaternion
     DOWN: tuple[float, float, float, float] = tuple(
-        quat_from_euler_xyz(
+        math_utils.quat_from_euler_xyz(
             torch.tensor(math.radians(DOWN_EULER_DEG[0])),  # X rotation (rad)
             torch.tensor(math.radians(DOWN_EULER_DEG[1])),  # Y rotation (rad)
             torch.tensor(math.radians(DOWN_EULER_DEG[2])),  # Z rotation (rad)
@@ -113,7 +112,7 @@ def compute_relative_action(action: torch.Tensor, robot_obs: torch.Tensor, retur
     """Compute the relative action from the robot observation."""
     pos_sm = action[:, :3]
     rot_sm = action[:, 3:]
-    delta_pos, delta_angle = compute_pose_error(
+    delta_pos, delta_angle = math_utils.compute_pose_error(
         robot_obs[0, :, :3], robot_obs[0, :, 3:], pos_sm, rot_sm, rot_error_type="axis_angle"
     )
     rel_action = torch.cat([delta_pos, delta_angle], dim=-1)

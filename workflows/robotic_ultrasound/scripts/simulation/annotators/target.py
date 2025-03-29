@@ -19,7 +19,7 @@ from dds.publisher import Publisher
 from dds.schemas.target_ctrl import TargetCtrlInput
 from dds.schemas.target_info import TargetInfo
 from dds.subscriber import Subscriber
-from omni.isaac.core.prims import XFormPrim
+from isaacsim.core.prims import XFormPrim
 from simulation.configs.config import TargetConfig
 
 

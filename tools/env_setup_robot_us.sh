@@ -34,10 +34,10 @@ if ! nvidia-smi &> /dev/null; then
     exit 1
 fi
 
-# Check if the third_party directory exists, if yes, then exit
-if [ -d "$PROJECT_ROOT/third_party" ]; then
-    echo "Error: third_party directory already exists"
-    echo "Please remove the third_party directory before running this script"
+# Check if the third-party directory exists, if yes, then exit
+if [ -d "$PROJECT_ROOT/third-party" ]; then
+    echo "Error: third-party directory already exists"
+    echo "Please remove the third-party directory before running this script"
     exit 1
 fi
 
@@ -52,21 +52,20 @@ fi
 
 # ---- Install IsaacSim and necessary dependencies ----
 echo "Installing IsaacSim..."
-pip install isaacsim==4.2.0.2 isaacsim-extscache-physics==4.2.0.2 \
-    isaacsim-extscache-kit==4.2.0.2 isaacsim-extscache-kit-sdk==4.2.0.2 \
+pip install 'isaacsim[all,extscache]==4.5.0' \
     rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
-    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0ea \
+    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@mz/isaacsim45 \
+    setuptools==75.8.0 pydantic==2.10.6 \
     --extra-index-url https://pypi.nvidia.com
 
 
 # ---- Install IsaacLab ----
 echo "Installing IsaacLab..."
-# CLONING REPOSITORIES INTO PROJECT_ROOT/third_party
-echo "Cloning repositories into $PROJECT_ROOT/third_party..."
-mkdir $PROJECT_ROOT/third_party
-git clone -b v1.4.1 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
-pushd $PROJECT_ROOT/third_party/IsaacLab
-sed -i "s/rsl-rl/rsl-rl-lib/g" source/extensions/omni.isaac.lab_tasks/setup.py
+# CLONING REPOSITORIES INTO PROJECT_ROOT/third-party
+echo "Cloning repositories into $PROJECT_ROOT/third-party..."
+mkdir $PROJECT_ROOT/third-party
+git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third-party/IsaacLab
+pushd $PROJECT_ROOT/third-party/IsaacLab
 yes Yes | ./isaaclab.sh --install
 popd
 
@@ -77,23 +76,24 @@ pushd $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation
 pip install -e exts/robotic_us_ext
 popd
 
+# exit 0
 
 # ---- Install OpenPI with IsaacSim 4.2 ----
 echo "Installing OpenPI..."
 # Clone the openpi repository
-git clone git@github.com:Physical-Intelligence/openpi.git $PROJECT_ROOT/third_party/openpi
-pushd $PROJECT_ROOT/third_party/openpi
+git clone git@github.com:Physical-Intelligence/openpi.git $PROJECT_ROOT/third-party/openpi
+pushd $PROJECT_ROOT/third-party/openpi
 git checkout 581e07d73af36d336cef1ec9d7172553b2332193
 
 # Update python version in pyproject.toml
-pyproject_path="$PROJECT_ROOT/third_party/openpi/pyproject.toml"
+pyproject_path="$PROJECT_ROOT/third-party/openpi/pyproject.toml"
 sed -i.bak \
     -e 's/requires-python = ">=3.11"/requires-python = ">=3.10"/' \
     -e 's/"s3fs>=2024.9.0"/"s3fs==2024.9.0"/' \
     "$pyproject_path"
 
 # Apply temporary workaround for openpi/src/openpi/shared/download.py
-file_path="$PROJECT_ROOT/third_party/openpi/src/openpi/shared/download.py"
+file_path="$PROJECT_ROOT/third-party/openpi/src/openpi/shared/download.py"
 
 # Comment out specific import lines
 sed -i.bak \
@@ -109,7 +109,7 @@ sed -i.bak -e 's/)[[:space:]]*-> s3_transfer\.TransferManager[[:space:]]*:/):/' 
 sed -i.bak -e 's/datetime\.UTC/datetime.timezone.utc/' "$file_path"
 
 # Modify the type hints in training/utils.py to use Any instead of optax types
-utils_path="$PROJECT_ROOT/third_party/openpi/src/openpi/training/utils.py"
+utils_path="$PROJECT_ROOT/third-party/openpi/src/openpi/training/utils.py"
 sed -i.bak \
     -e 's/opt_state: optax\.OptState/opt_state: Any/' \
     "$utils_path"
@@ -120,19 +120,19 @@ rm "$file_path.bak"
 rm "$utils_path.bak"
 
 # Add training script to openpi module
-if [ ! -f $PROJECT_ROOT/third_party/openpi/src/openpi/train.py ]; then
-    cp $PROJECT_ROOT/third_party/openpi/scripts/train.py $PROJECT_ROOT/third_party/openpi/src/openpi/train.py
+if [ ! -f $PROJECT_ROOT/third-party/openpi/src/openpi/train.py ]; then
+    cp $PROJECT_ROOT/third-party/openpi/scripts/train.py $PROJECT_ROOT/third-party/openpi/src/openpi/train.py
 fi
 
 # Add norm stats generator script to openpi module
-if [ ! -f $PROJECT_ROOT/third_party/openpi/src/openpi/compute_norm_stats.py ]; then
-    cp $PROJECT_ROOT/third_party/openpi/scripts/compute_norm_stats.py $PROJECT_ROOT/third_party/openpi/src/openpi/compute_norm_stats.py
+if [ ! -f $PROJECT_ROOT/third-party/openpi/src/openpi/compute_norm_stats.py ]; then
+    cp $PROJECT_ROOT/third-party/openpi/scripts/compute_norm_stats.py $PROJECT_ROOT/third-party/openpi/src/openpi/compute_norm_stats.py
 fi
 
 # Install the dependencies
 pip install git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56
-pip install -e $PROJECT_ROOT/third_party/openpi/packages/openpi-client/
-pip install -e $PROJECT_ROOT/third_party/openpi/
+pip install -e $PROJECT_ROOT/third-party/openpi/packages/openpi-client/
+pip install -e $PROJECT_ROOT/third-party/openpi/
 
 # Revert the "import changes of "$file_path after installation to prevent errors
 sed -i \

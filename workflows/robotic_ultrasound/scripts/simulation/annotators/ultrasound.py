@@ -17,7 +17,7 @@ from typing import Any
 
 from dds.publisher import Publisher
 from dds.schemas.usp_info import UltraSoundProbeInfo
-from omni.isaac.core.prims import XFormPrim
+from isaacsim.core.prims import XFormPrim
 from simulation.configs.config import UltraSoundConfig
 
 

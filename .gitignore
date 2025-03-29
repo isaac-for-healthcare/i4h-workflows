@@ -209,6 +209,7 @@ wandb/
 
 # Third party
 third_party/
+third-party/
 
 # third-party files
 **/clarius_cast/include
