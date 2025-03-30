@@ -28,7 +28,7 @@ import omni.usd
 from pxr import Usd
 from simulation.annotators.base import Annotator
 
-from ..helpers import requires_rti
+from helpers import requires_rti
 
 TEST_CASES = [
     ("none_publishers_subscribers", None, None, 0, 0, None),

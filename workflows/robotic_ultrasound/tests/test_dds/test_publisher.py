@@ -20,7 +20,7 @@ import rti.connextdds as dds  # noqa: F401
 import rti.idl as idl
 from dds.publisher import Publisher
 
-from ..helpers import requires_rti
+from helpers import requires_rti
 
 
 @idl.struct

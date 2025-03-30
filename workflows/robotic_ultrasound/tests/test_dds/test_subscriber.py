@@ -21,7 +21,7 @@ import rti.connextdds as dds  # noqa: F401
 import rti.idl as idl
 from dds.subscriber import Subscriber, SubscriberWithCallback, SubscriberWithQueue
 
-from ..helpers import requires_rti
+from helpers import requires_rti
 
 
 @idl.struct

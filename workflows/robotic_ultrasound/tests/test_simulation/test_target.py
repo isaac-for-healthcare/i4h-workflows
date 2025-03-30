@@ -21,7 +21,7 @@ from dds.schemas.target_info import TargetInfo
 from isaacsim import SimulationApp
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
-from ..helpers import requires_rti
+from helpers import requires_rti
 
 simulation_app = SimulationApp({"headless": True})
 

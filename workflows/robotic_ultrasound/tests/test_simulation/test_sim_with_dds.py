@@ -21,7 +21,7 @@ from dds.schemas.camera_info import CameraInfo
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
 
-from ..helpers import requires_rti
+from helpers import requires_rti
 
 """
 Must immediately execute the `sim_with_dds.py` in another process after executing this test.

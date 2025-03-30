@@ -25,7 +25,7 @@ from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
 from PIL import Image
 
-from ..helpers import requires_rti
+from helpers import requires_rti
 
 """
 Must execute the pi0 policy runner in another process before execute this test.
