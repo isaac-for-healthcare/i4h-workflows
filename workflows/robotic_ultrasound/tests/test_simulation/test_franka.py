@@ -23,6 +23,7 @@ from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from isaacsim import SimulationApp
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from ..helpers import requires_rti
 
 simulation_app = SimulationApp({"headless": True})
 
@@ -31,16 +32,8 @@ from omni.isaac.core import World
 from omni.isaac.core.robots import Robot
 from simulation.annotators.franka import FrankaPublisher, FrankaSubscriber
 
-try:
-    RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
-    if RTI_AVAILABLE:
-        license_path = os.getenv("RTI_LICENSE_FILE")
-        RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
-except ImportError:
-    RTI_AVAILABLE = False
 
-
-@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
+@requires_rti
 class TestFrankaBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

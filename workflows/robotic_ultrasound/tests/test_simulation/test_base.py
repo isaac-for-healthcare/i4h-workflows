@@ -29,22 +29,16 @@ simulation_app = SimulationApp({"headless": True})
 import omni.usd
 from pxr import Usd
 from simulation.annotators.base import Annotator
+from ..helpers import requires_rti
+
 
 TEST_CASES = [
     ("none_publishers_subscribers", None, None, 0, 0, None),
     ("mixed_none_publishers", [None, MagicMock(spec=Publisher), None], [MagicMock(spec=Subscriber)], 1, 1, 0),
 ]
 
-try:
-    RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
-    if RTI_AVAILABLE:
-        license_path = os.getenv("RTI_LICENSE_FILE")
-        RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
-except ImportError:
-    RTI_AVAILABLE = False
 
-
-@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
+@requires_rti
 class TestAnnotator(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

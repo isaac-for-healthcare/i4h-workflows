@@ -22,22 +22,15 @@ from dds.schemas.target_ctrl import TargetCtrlInput
 from dds.schemas.target_info import TargetInfo
 from isaacsim import SimulationApp
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from ..helpers import requires_rti
 
 simulation_app = SimulationApp({"headless": True})
 
 import omni.usd
 from simulation.annotators.target import TargetPublisher, TargetSubscriber
 
-try:
-    RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
-    if RTI_AVAILABLE:
-        license_path = os.getenv("RTI_LICENSE_FILE")
-        RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
-except ImportError:
-    RTI_AVAILABLE = False
 
-
-@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
+@requires_rti
 class TestTargetBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

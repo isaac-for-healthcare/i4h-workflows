@@ -23,6 +23,7 @@ from unittest import mock, skipUnless
 
 import numpy as np
 from simulation.configs.basic import config
+from ..helpers import requires_rti
 
 # Mock sys.argv before importing the module
 original_argv = sys.argv
@@ -41,16 +42,8 @@ with mock.patch("argparse.ArgumentParser.parse_args") as mock_parse_args:
 
     from workflows.robotic_ultrasound.scripts.utils.visualization import VisualizationApp
 
-try:
-    RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
-    if RTI_AVAILABLE:
-        license_path = os.getenv("RTI_LICENSE_FILE")
-        RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
-except ImportError:
-    RTI_AVAILABLE = False
 
-
-@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
+@requires_rti
 class TestVisualizationApp(unittest.TestCase):
     def setUp(self):
         dpg.destroy_context()
