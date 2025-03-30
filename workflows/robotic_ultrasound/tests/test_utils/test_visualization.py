@@ -20,9 +20,8 @@ import unittest
 from unittest import mock
 
 import numpy as np
-from simulation.configs.basic import config
-
 from helpers import requires_rti
+from simulation.configs.basic import config
 
 # Mock sys.argv before importing the module
 original_argv = sys.argv

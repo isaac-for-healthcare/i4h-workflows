@@ -19,11 +19,10 @@ import unittest
 import numpy as np
 from dds.schemas.camera_ctrl import CameraCtrlInput
 from dds.schemas.camera_info import CameraInfo
+from helpers import requires_rti
 from isaacsim import SimulationApp
 from parameterized import parameterized
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
-
-from helpers import requires_rti
 
 simulation_app = SimulationApp({"headless": True})
 

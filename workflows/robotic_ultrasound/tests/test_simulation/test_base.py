@@ -25,10 +25,9 @@ from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 simulation_app = SimulationApp({"headless": True})
 import omni.usd
+from helpers import requires_rti
 from pxr import Usd
 from simulation.annotators.base import Annotator
-
-from helpers import requires_rti
 
 TEST_CASES = [
     ("none_publishers_subscribers", None, None, 0, 0, None),

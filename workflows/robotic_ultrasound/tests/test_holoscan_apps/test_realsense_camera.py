@@ -16,10 +16,9 @@
 import unittest
 from unittest import skipUnless
 
+from helpers import requires_rti
 from holoscan_apps.realsense.camera import RealsenseApp
 from holoscan_apps.realsense.enumerate import count_devices
-
-from helpers import requires_rti
 
 DEVICES_AVAILABLE = count_devices() > 0
 

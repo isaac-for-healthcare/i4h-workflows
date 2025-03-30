@@ -17,10 +17,9 @@ import os
 import unittest
 
 from dds.schemas.usp_info import UltraSoundProbeInfo
+from helpers import requires_rti
 from isaacsim import SimulationApp
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
-
-from helpers import requires_rti
 
 simulation_app = SimulationApp({"headless": True})
 import omni.usd
