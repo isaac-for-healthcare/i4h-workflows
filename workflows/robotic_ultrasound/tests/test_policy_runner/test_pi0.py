@@ -16,7 +16,6 @@
 import os
 import time
 import unittest
-from unittest import skipUnless
 
 import numpy as np
 from dds.publisher import Publisher
@@ -25,8 +24,8 @@ from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
 from PIL import Image
-from ..helpers import requires_rti
 
+from ..helpers import requires_rti
 
 """
 Must execute the pi0 policy runner in another process before execute this test.

@@ -13,15 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import time
 import unittest
-from unittest import skipUnless
 
 import numpy as np
 from dds.schemas.camera_info import CameraInfo
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
+
 from ..helpers import requires_rti
 
 """

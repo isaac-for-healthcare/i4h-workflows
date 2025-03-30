@@ -15,8 +15,6 @@
 
 import os
 import unittest
-from importlib.util import find_spec
-from unittest import skipUnless
 
 import numpy as np
 from dds.schemas.camera_ctrl import CameraCtrlInput
@@ -24,8 +22,8 @@ from dds.schemas.camera_info import CameraInfo
 from isaacsim import SimulationApp
 from parameterized import parameterized
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
-from ..helpers import requires_rti
 
+from ..helpers import requires_rti
 
 simulation_app = SimulationApp({"headless": True})
 

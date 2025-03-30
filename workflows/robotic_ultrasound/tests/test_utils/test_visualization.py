@@ -13,16 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import sys
 import threading
 import time
 import unittest
-from importlib.util import find_spec
-from unittest import mock, skipUnless
+from unittest import mock
 
 import numpy as np
 from simulation.configs.basic import config
+
 from ..helpers import requires_rti
 
 # Mock sys.argv before importing the module

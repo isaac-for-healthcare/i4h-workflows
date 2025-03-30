@@ -15,8 +15,6 @@
 
 import os
 import unittest
-from importlib.util import find_spec
-from unittest import skipUnless
 from unittest.mock import MagicMock
 
 from dds.publisher import Publisher
@@ -29,8 +27,8 @@ simulation_app = SimulationApp({"headless": True})
 import omni.usd
 from pxr import Usd
 from simulation.annotators.base import Annotator
-from ..helpers import requires_rti
 
+from ..helpers import requires_rti
 
 TEST_CASES = [
     ("none_publishers_subscribers", None, None, 0, 0, None),

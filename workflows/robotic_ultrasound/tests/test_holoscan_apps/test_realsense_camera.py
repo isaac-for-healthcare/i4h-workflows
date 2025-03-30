@@ -13,9 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import unittest
-from importlib.util import find_spec
 from unittest import skipUnless
 
 from holoscan_apps.realsense.camera import RealsenseApp
