@@ -36,15 +36,30 @@ class Enums:
 
 
 class Assets(Enums):
-    """
-    Assets for the robotic ultrasound workflow customized for the user download directory.
+    """Assets manager for the robotic ultrasound workflow.
 
-    This class is a singleton that will download the assets to the user's local asset directory.
-    It has the following attributes:
-    - basic: the path to the basic.usda asset
-    - panda: the path to the panda_assebly.usda asset
-    - phantom: the path to the phantom.usda asset
-    - table_with_cover: the path to the table_with cover_.usd asset
+    This singleton class manages asset paths for the simulation, automatically resolving them
+    relative to a configurable download directory.
+
+    Attributes:
+        basic (str): Path to the basic.usda asset
+        panda (str): Path to the panda_assembly.usda asset
+        phantom (str): Path to the phantom.usda asset
+        table_with_cover (str): Path to the table_with_cover.usd asset
+        policy_ckpt (str): Path to the policy checkpoint directory
+        organs (str): Path to the organs assets directory
+        download_dir (str): Base directory containing all assets
+
+    Important:
+        The download directory must be set before any simulation extensions that depend on
+        these assets are imported. This is because asset paths are resolved during
+        initialization of those extensions.
+
+    Example:
+        >>> from simulation.utils.assets import robotic_ultrasound_assets as assets
+        >>> assets.set_download_dir("/path/to/assets")
+        >>> # Only import dependent modules after setting download_dir
+        >>> from robotic_us_ext import tasks
     """
 
     _instance = None
@@ -87,6 +102,8 @@ class Assets(Enums):
         Args:
             value: New download directory path
         """
+        if not os.path.isdir(value):
+            raise ValueError(f"Download directory {value} does not exist.")
         self._download_dir = value
         self._update_paths()
 
