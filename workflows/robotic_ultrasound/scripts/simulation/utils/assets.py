@@ -19,9 +19,9 @@ from dataclasses import dataclass
 
 from i4h_asset_helper import get_i4h_local_asset_path
 
-
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
+
 
 @dataclass
 class Enums:
@@ -46,6 +46,7 @@ class Assets(Enums):
     - phantom: the path to the phantom.usda asset
     - table_with_cover: the path to the table_with cover_.usd asset
     """
+
     _instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -62,9 +63,11 @@ class Assets(Enums):
             download_dir: The directory to download the assets to
         """
         if self._initialized:
-            logger.warning("Assets already initialized. Please use the set_download_dir method to change the download directory.")
+            logger.warning(
+                "Assets already initialized. Please use the set_download_dir method to change the download directory."
+            )
             return
-            
+
         if download_dir is None:
             download_dir = get_i4h_local_asset_path()
         self._download_dir = download_dir
@@ -80,7 +83,7 @@ class Assets(Enums):
     def set_download_dir(self, value: str):
         """
         Explicitly set the download directory and update the paths.
-        
+
         Args:
             value: New download directory path
         """
@@ -91,7 +94,6 @@ class Assets(Enums):
     def download_dir(self):
         """Get the download directory."""
         return self._download_dir
-
 
 
 # singleton object for the assets
