@@ -34,7 +34,7 @@ class UltrasoundStateMachine:
         self.modules = modules
         self.device = device
         self.sm_state = SMState()
-        self.object_view = RigidPrimView(
+        self.object_view = RigidPrim(
             prim_paths_expr="/World/envs/env.*/Robot/panda_hand",
             name="robot",
             track_contact_forces=True,
