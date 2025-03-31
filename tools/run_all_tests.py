@@ -27,7 +27,6 @@ WORKFLOWS = [
 
 
 XVFB_TEST_CASES = [
-    "test_orientation",
     "test_visualization",
 ]
 
@@ -37,34 +36,60 @@ def get_tests(test_root, pattern="test_*.py"):
     return glob.glob(path, recursive=True)
 
 
+def _run_test_process(cmd, env, test_path):
+    """Helper function to run a test process and handle its output"""
+    print(f"Running test: {test_path}")
+    process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    stdout, stderr = process.communicate()
+
+    # Filter out extension loading messages
+    filtered_stdout = "\n".join(
+        [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
+    )
+    filtered_stderr = "\n".join(
+        [line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)]
+    )
+
+    # Print filtered output
+    if filtered_stdout.strip():
+        print(filtered_stdout)
+    if filtered_stderr.strip():
+        print(filtered_stderr)
+
+    return process.returncode == 0
+
+
+def _setup_test_env(project_root, tests_dir):
+    """Helper function to setup test environment"""
+    env = os.environ.copy()
+    pythonpath = [os.path.join(project_root, "scripts"), tests_dir]
+
+    if "PYTHONPATH" in env:
+        env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
+    else:
+        env["PYTHONPATH"] = ":".join(pythonpath)
+    
+    return env
+
+
 def run_tests_with_coverage(workflow_name):
     """Run all unittest cases with coverage reporting"""
     project_root = f"workflows/{workflow_name}"
 
     try:
-        # TODO: add license file to secrets
         default_license_file = os.path.join(os.getcwd(), project_root, "scripts", "dds", "rti_license.dat")
         os.environ["RTI_LICENSE_FILE"] = os.environ.get("RTI_LICENSE_FILE", default_license_file)
         all_tests_passed = True
         tests_dir = os.path.join(project_root, "tests")
         print(f"Looking for tests in {tests_dir}")
         tests = get_tests(tests_dir)
+        env = _setup_test_env(project_root, tests_dir)
 
         for test_path in tests:
             test_name = os.path.basename(test_path).replace(".py", "")
-            print(f"\nRunning test: {test_path}")
-
-            # add project root to pythonpath
-            env = os.environ.copy()
-            pythonpath = [os.path.join(project_root, "scripts"), tests_dir]
-
-            if "PYTHONPATH" in env:
-                env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
-            else:
-                env["PYTHONPATH"] = ":".join(pythonpath)
 
             # Check if this test needs a virtual display
-            if test_name in XVFB_TEST_CASES:  # virtual display for GUI tests
+            if test_name in XVFB_TEST_CASES:
                 cmd = [
                     "xvfb-run",
                     "-a",
@@ -77,11 +102,10 @@ def run_tests_with_coverage(workflow_name):
                     "unittest",
                     test_path,
                 ]
-            # TODO: remove this as integration tests
+            # TODO: move these tests to integration tests
             elif "test_sim_with_dds" in test_path or "test_pi0" in test_path:
                 continue
             elif "test_integration" in test_path:
-                # TODO: refractor the test file names and structure
                 continue
             else:
                 cmd = [
@@ -95,25 +119,7 @@ def run_tests_with_coverage(workflow_name):
                     test_path,
                 ]
 
-            process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            stdout, stderr = process.communicate()
-
-            # Filter out extension loading messages
-            filtered_stdout = "\n".join(
-                [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
-            )
-            filtered_stderr = "\n".join(
-                [line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)]
-            )
-
-            # Print filtered output
-            if filtered_stdout.strip():
-                print(filtered_stdout)
-            if filtered_stderr.strip():
-                print(filtered_stderr)
-
-            result = process
-            if result.returncode != 0:
+            if not _run_test_process(cmd, env, test_path):
                 all_tests_passed = False
 
         # combine coverage results
@@ -149,48 +155,20 @@ def run_integration_tests(workflow_name):
     tests_dir = os.path.join(project_root, "tests")
     print(f"Looking for tests in {tests_dir}")
     tests = get_tests(tests_dir, pattern="test_integration_*.py")
+    env = _setup_test_env(project_root, tests_dir)
 
     for test_path in tests:
-        # add project root to pythonpath
-        print(f"Running integration test: {test_path}")
-        env = os.environ.copy()
-        pythonpath = [os.path.join(project_root, "scripts"), tests_dir]
-
-        if "PYTHONPATH" in env:
-            env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
-        else:
-            env["PYTHONPATH"] = ":".join(pythonpath)
-
         cmd = [
             sys.executable,
             "-m",
             "unittest",
             test_path,
         ]
+        
+        if not _run_test_process(cmd, env, test_path):
+            all_tests_passed = False
 
-        process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        stdout, stderr = process.communicate()
-
-        # Filter out extension loading messages
-        filtered_stdout = "\n".join(
-            [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
-        )
-        filtered_stderr = "\n".join(
-            [line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)]
-        )
-
-        # Print filtered output
-        if filtered_stdout.strip():
-            print(filtered_stdout)
-        if filtered_stderr.strip():
-            print(filtered_stderr)
-
-    if all_tests_passed:
-        print("All tests passed")
-        return 0
-    else:
-        print("Some tests failed")
-        return 1
+    return 0 if all_tests_passed else 1
 
 
 if __name__ == "__main__":
