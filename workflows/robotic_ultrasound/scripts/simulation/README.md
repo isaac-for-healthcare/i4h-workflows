@@ -45,10 +45,7 @@ export PYTHONPATH=`pwd`
 5. Return to this folder and run the following command:
 
 ```sh
-python environments/state_machine/pi0_policy/eval.py \
-    --task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 \
-    --enable_camera \
-    --repo_id i4h/sim_liver_scan
+python environments/state_machine/pi0_policy/eval.py --enable_camera
 ```
 
 NOTE: You can also specify `--ckpt_path` to run a specific policy.

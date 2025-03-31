@@ -30,7 +30,7 @@ def monitor_output(process, found_event, target_line=None):
             for line in iter(process.stdout.readline, ""):
                 if target_line in line:
                     found_event.set()
-                    break  # todo
+                    break  # TODO: should we force the process to exit here?
     except (ValueError, IOError):
         # Handle case where stdout is closed
         pass
@@ -124,12 +124,7 @@ def run_with_monitoring(command, timeout_seconds, target_line=None):
 
 SM_CASES = [
     (
-        (
-            "python -u workflows/robotic_ultrasound/scripts/simulation/environments/state_machine/pi0_policy/eval.py"
-            "--task Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0 "
-            "--enable_camera     "
-            "--repo_id i4h/sim_liver_scan --headless"
-        ),
+        "python -u -m simulation.environments.state_machine.pi0_policy.eval --enable_camera --headless",
         120,
         "Resetting the environment.",
     ),
@@ -139,7 +134,7 @@ class TestSurgerySM(unittest.TestCase):
     @parameterized.expand(SM_CASES)
     def test_surgery_sm(self, command, timeout, target_line):
         # Run and monitor command
-        exit_code, found_target = run_with_monitoring(command, timeout, target_line)
+        _, found_target = run_with_monitoring(command, timeout, target_line)
         self.assertTrue(found_target)
 
 
