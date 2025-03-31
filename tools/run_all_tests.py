@@ -43,12 +43,8 @@ def _run_test_process(cmd, env, test_path):
     stdout, stderr = process.communicate()
 
     # Filter out extension loading messages
-    filtered_stdout = "\n".join(
-        [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
-    )
-    filtered_stderr = "\n".join(
-        [line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)]
-    )
+    filtered_stdout = "\n".join([line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)])
+    filtered_stderr = "\n".join([line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)])
 
     # Print filtered output
     if filtered_stdout.strip():
@@ -68,7 +64,7 @@ def _setup_test_env(project_root, tests_dir):
         env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
     else:
         env["PYTHONPATH"] = ":".join(pythonpath)
-    
+
     return env
 
 
@@ -164,7 +160,7 @@ def run_integration_tests(workflow_name):
             "unittest",
             test_path,
         ]
-        
+
         if not _run_test_process(cmd, env, test_path):
             all_tests_passed = False
 

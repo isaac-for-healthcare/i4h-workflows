@@ -130,6 +130,7 @@ SM_CASES = [
     ),
 ]
 
+
 class TestSurgerySM(unittest.TestCase):
     @parameterized.expand(SM_CASES)
     def test_surgery_sm(self, command, timeout, target_line):
