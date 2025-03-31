@@ -16,8 +16,8 @@
 import unittest
 from unittest.mock import MagicMock
 
-import numpy as np
 import isaaclab.utils.math as math_utils
+import numpy as np
 import torch
 from simulation.environments.state_machine.utils import compute_transform_sequence, get_probe_pos_ori
 

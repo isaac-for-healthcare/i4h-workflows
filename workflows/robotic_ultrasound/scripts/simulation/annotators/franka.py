@@ -22,9 +22,9 @@ from dds.publisher import Publisher
 from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import Subscriber
-from isaacsim.utils.types import ArticulationAction
 from isaacsim.franka import KinematicsSolver
 from isaacsim.franka.controllers.rmpflow_controller import RMPFlowController
+from isaacsim.utils.types import ArticulationAction
 from simulation.configs.config import FrankaConfig
 
 

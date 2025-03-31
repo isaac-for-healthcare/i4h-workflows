@@ -44,7 +44,9 @@ parser.add_argument(
     default=robot_us_assets.policy_ckpt,
     help="checkpoint path. Default to use policy checkpoint in the latest assets.",
 )
-parser.add_argument("--repo_id", type=str, default="i4h/sim_liver_scan", help="the LeRobot repo id for the dataset norm.")
+parser.add_argument(
+    "--repo_id", type=str, default="i4h/sim_liver_scan", help="the LeRobot repo id for the dataset norm."
+)
 
 # append AppLauncher cli argr
 AppLauncher.add_app_launcher_args(parser)

@@ -18,8 +18,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Sequence
 
-import numpy as np
 import isaaclab.utils.math as math_utils  # noqa: F401
+import numpy as np
 import onnxruntime as ort
 import torch
 
