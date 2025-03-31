@@ -13,11 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import os
 from dataclasses import dataclass
 
 from i4h_asset_helper import get_i4h_local_asset_path
 
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.StreamHandler())
 
 @dataclass
 class Enums:
@@ -41,8 +45,14 @@ class Assets(Enums):
     - panda: the path to the panda_assebly.usda asset
     - phantom: the path to the phantom.usda asset
     - table_with_cover: the path to the table_with cover_.usd asset
-
     """
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
 
     def __init__(self, download_dir: str | None = None):
         """
@@ -51,10 +61,15 @@ class Assets(Enums):
         Args:
             download_dir: The directory to download the assets to
         """
+        if self._initialized:
+            logger.warning("Assets already initialized. Please use the set_download_dir method to change the download directory.")
+            return
+            
         if download_dir is None:
             download_dir = get_i4h_local_asset_path()
         self._download_dir = download_dir
         self._update_paths()
+        self._initialized = True
 
     def _update_paths(self):
         for attr in dir(Enums):
@@ -62,16 +77,21 @@ class Assets(Enums):
                 value = getattr(Enums, attr)
                 setattr(self, attr, os.path.join(self._download_dir, value))
 
+    def set_download_dir(self, value: str):
+        """
+        Explicitly set the download directory and update the paths.
+        
+        Args:
+            value: New download directory path
+        """
+        self._download_dir = value
+        self._update_paths()
+
     @property
     def download_dir(self):
         """Get the download directory."""
         return self._download_dir
 
-    @download_dir.setter
-    def download_dir(self, value):
-        """Set the download directory and update the paths."""
-        self._download_dir = value
-        self._update_paths()
 
 
 # singleton object for the assets
