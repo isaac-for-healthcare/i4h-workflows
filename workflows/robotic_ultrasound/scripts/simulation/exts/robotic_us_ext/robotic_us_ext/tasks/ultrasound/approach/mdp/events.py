@@ -23,7 +23,7 @@
 from __future__ import annotations
 
 import torch
-from isaaclab.assets import SingleArticulation
+from isaaclab.assets import Articulation
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 
@@ -38,7 +38,7 @@ def reset_panda_joints_by_fraction_of_limits(
     Reset the robot joints with offsets sampled from a fraction of the joint limits.
     """
 
-    asset: SingleArticulation = env.scene[asset_cfg.name]
+    asset: Articulation = env.scene[asset_cfg.name]
 
     # Get default joint state
     joint_pos = asset.data.default_joint_pos[env_ids].clone()  # shape: [num_envs, num_dofs]
