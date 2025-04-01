@@ -62,7 +62,7 @@ class TestAssets(unittest.TestCase):
         # Capture warning during second initialization
         with self.assertLogs(level="WARNING") as captured:
             # Try to initialize with different path
-            assets2 = Assets("/path/two")
+            _ = Assets("/path/two")
 
             # Verify warning was logged
             self.assertTrue(any("Re-initializing will not change" in message for message in captured.output))
