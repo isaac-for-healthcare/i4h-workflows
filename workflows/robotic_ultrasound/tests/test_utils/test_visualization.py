@@ -13,15 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import sys
 import threading
 import time
 import unittest
-from importlib.util import find_spec
-from unittest import mock, skipUnless
+from unittest import mock
 
 import numpy as np
+from helpers import requires_rti
 from simulation.configs.basic import config
 
 # Mock sys.argv before importing the module
@@ -41,16 +40,8 @@ with mock.patch("argparse.ArgumentParser.parse_args") as mock_parse_args:
 
     from workflows.robotic_ultrasound.scripts.utils.visualization import VisualizationApp
 
-try:
-    RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
-    if RTI_AVAILABLE:
-        license_path = os.getenv("RTI_LICENSE_FILE")
-        RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
-except ImportError:
-    RTI_AVAILABLE = False
 
-
-@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
+@requires_rti
 class TestVisualizationApp(unittest.TestCase):
     def setUp(self):
         dpg.destroy_context()

@@ -16,7 +16,6 @@
 import os
 import time
 import unittest
-from unittest import skipUnless
 
 import numpy as np
 from dds.publisher import Publisher
@@ -24,15 +23,8 @@ from dds.schemas.camera_info import CameraInfo
 from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
+from helpers import requires_rti
 from PIL import Image
-
-try:
-    import rti.connextdds as dds  # noqa: F401
-
-    license_path = os.getenv("RTI_LICENSE_FILE")
-    RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
-except ImportError:
-    RTI_AVAILABLE = False
 
 """
 Must execute the pi0 policy runner in another process before execute this test.
@@ -80,7 +72,7 @@ class TestPosPublisher(Publisher):
         return output
 
 
-@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
+@requires_rti
 class TestRunPI0Policy(unittest.TestCase):
     def setUp(self):
         def cb(topic, data):

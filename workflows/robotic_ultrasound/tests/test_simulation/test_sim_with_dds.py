@@ -13,23 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import time
 import unittest
-from unittest import skipUnless
 
 import numpy as np
 from dds.schemas.camera_info import CameraInfo
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
-
-try:
-    import rti.connextdds as dds  # noqa: F401
-
-    license_path = os.getenv("RTI_LICENSE_FILE")
-    RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
-except ImportError:
-    RTI_AVAILABLE = False
+from helpers import requires_rti
 
 """
 Must immediately execute the `sim_with_dds.py` in another process after executing this test.
@@ -37,7 +28,7 @@ Must immediately execute the `sim_with_dds.py` in another process after executin
 """
 
 
-@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
+@requires_rti
 class TestSimWithDDS(unittest.TestCase):
     def setUp(self):
         topic1 = "topic_room_camera_data_rgb"
