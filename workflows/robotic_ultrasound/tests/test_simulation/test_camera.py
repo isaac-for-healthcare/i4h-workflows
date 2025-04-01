@@ -15,12 +15,11 @@
 
 import os
 import unittest
-from importlib.util import find_spec
-from unittest import skipUnless
 
 import numpy as np
 from dds.schemas.camera_ctrl import CameraCtrlInput
 from dds.schemas.camera_info import CameraInfo
+from helpers import requires_rti
 from isaacsim import SimulationApp
 from parameterized import parameterized
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
@@ -30,16 +29,8 @@ simulation_app = SimulationApp({"headless": True})
 import omni.usd
 from simulation.annotators.camera import CameraPublisher, CameraSubscriber
 
-try:
-    RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
-    if RTI_AVAILABLE:
-        license_path = os.getenv("RTI_LICENSE_FILE")
-        RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
-except ImportError:
-    RTI_AVAILABLE = False
 
-
-@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
+@requires_rti
 class TestCameraBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

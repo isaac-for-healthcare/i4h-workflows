@@ -13,26 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import unittest
-from importlib.util import find_spec
 from unittest import skipUnless
 
+from helpers import requires_rti
 from holoscan_apps.realsense.camera import RealsenseApp
 from holoscan_apps.realsense.enumerate import count_devices
-
-try:
-    RTI_AVAILABLE = bool(find_spec("rti.connextdds"))
-    if RTI_AVAILABLE:
-        license_path = os.getenv("RTI_LICENSE_FILE")
-        RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
-except ImportError:
-    RTI_AVAILABLE = False
 
 DEVICES_AVAILABLE = count_devices() > 0
 
 
-@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
+@requires_rti
 @skipUnless(DEVICES_AVAILABLE, "No Intel RealSense devices found")
 class TestRealSenseCamera(unittest.TestCase):
     def test_realsense_camera(self):

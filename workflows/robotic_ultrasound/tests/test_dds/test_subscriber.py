@@ -13,22 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import queue
 import time
 import unittest
-from unittest import skipUnless
 
+import rti.connextdds as dds  # noqa: F401
+import rti.idl as idl
 from dds.subscriber import Subscriber, SubscriberWithCallback, SubscriberWithQueue
-
-try:
-    import rti.connextdds as dds  # noqa: F401
-    import rti.idl as idl
-
-    license_path = os.getenv("RTI_LICENSE_FILE")
-    RTI_AVAILABLE = bool(license_path and os.path.exists(license_path))
-except ImportError:
-    RTI_AVAILABLE = False
+from helpers import requires_rti
 
 
 @idl.struct
@@ -44,7 +36,7 @@ class _TestSubscriber(Subscriber):
         return data
 
 
-@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
+@requires_rti
 class TestDDSSubscriber(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures before each test method"""
@@ -94,7 +86,7 @@ class TestDDSSubscriber(unittest.TestCase):
         self.assertIsNone(self.subscriber.stop_event)
 
 
-@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
+@requires_rti
 class TestSubscriberWithQueue(unittest.TestCase):
     def setUp(self):
         self.domain_id = 100
@@ -140,7 +132,7 @@ class TestSubscriberWithQueue(unittest.TestCase):
             self.fail("No data received after multiple retries")
 
 
-@skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")
+@requires_rti
 class TestSubscriberWithCallback(unittest.TestCase):
     def setUp(self):
         self.domain_id = 200  # Use a unique domain ID
