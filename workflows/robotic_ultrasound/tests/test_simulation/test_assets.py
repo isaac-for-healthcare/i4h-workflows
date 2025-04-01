@@ -57,12 +57,12 @@ class TestAssets(unittest.TestCase):
 
     def test_initialization_warning(self):
         # Create first instance
-        assets1 = Assets("/path/one")
+        Assets("/path/one")
 
         # Capture warning during second initialization
         with self.assertLogs(level="WARNING") as captured:
             # Try to initialize with different path
-            _ = Assets("/path/two")
+            Assets("/path/two")
 
             # Verify warning was logged
             self.assertTrue(any("Re-initializing will not change" in message for message in captured.output))
