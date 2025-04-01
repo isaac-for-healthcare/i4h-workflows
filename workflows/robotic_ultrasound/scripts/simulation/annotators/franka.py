@@ -23,9 +23,9 @@ from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import Subscriber
 from isaacsim.core.api.robots import Robot
-from isaacsim.franka import KinematicsSolver
-from isaacsim.franka.controllers.rmpflow_controller import RMPFlowController
-from isaacsim.utils.types import ArticulationAction
+from isaacsim.core.utils.types import ArticulationAction
+from isaacsim.robot.manipulators.examples.franka import KinematicsSolver
+from isaacsim.robot.manipulators.examples.franka.controllers.rmpflow_controller import RMPFlowController
 from simulation.configs.config import FrankaConfig
 
 
