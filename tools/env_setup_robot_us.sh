@@ -76,7 +76,6 @@ pushd $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation
 pip install -e exts/robotic_us_ext
 popd
 
-# exit 0
 
 # ---- Install OpenPI with IsaacSim 4.2 ----
 echo "Installing OpenPI..."

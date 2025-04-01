@@ -46,7 +46,7 @@ def object_position_in_robot_root_frame(
     return object_pos_b
 
 
-# see : https://github.com/isaac-sim/IsaacLab/blob/main/source/extensions/isaacsim.lab_tasks/omni/isaac/lab_tasks/manager_based/classic/cartpole/cartpole_camera_env_cfg.py
+# see: https://github.com/isaac-sim/IsaacLab/blob/v2.0.2/source/isaaclab_tasks/isaaclab_tasks/manager_based/classic/cartpole/cartpole_camera_env_cfg.py
 def camera_rgbd_observation(
     env: ManagerBasedRLEnv,
     robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
