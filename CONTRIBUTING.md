@@ -88,8 +88,11 @@ i4h-asset-retrieve
 # Set up your RTI license, skip if you are only running tests for robotic_surgery
 export RTI_LICENSE_FILE=<path to your RTI license file>
 
-# Run all tests
+# Run all unit tests
 python tools/run_all_tests.py --workflow <workflow_name>
+
+# Run all integration tests
+python tools/run_all_tests.py --integration
 ```
 
 ## Reporting issues
