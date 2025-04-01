@@ -36,7 +36,8 @@ class Enums:
 
 
 class Assets(Enums):
-    """Assets manager for the robotic ultrasound workflow.
+    """
+    Assets manager for the robotic ultrasound workflow.
 
     This singleton class manages asset paths for the simulation, automatically resolving them
     relative to a configurable download directory.
@@ -93,6 +94,7 @@ class Assets(Enums):
         self._initialized = True
 
     def _update_paths(self):
+        """Update all the paths."""
         for attr in dir(Enums):
             if not attr.startswith("_"):
                 value = getattr(Enums, attr)
