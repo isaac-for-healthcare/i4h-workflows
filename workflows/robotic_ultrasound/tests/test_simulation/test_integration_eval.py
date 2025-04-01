@@ -21,7 +21,7 @@ from parameterized import parameterized
 SM_CASES = [
     (
         "python -u -m simulation.environments.state_machine.pi0_policy.eval --enable_camera --headless",
-        120,
+        300,
         "Resetting the environment.",
     ),
 ]

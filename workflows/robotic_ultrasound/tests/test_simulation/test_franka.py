@@ -26,8 +26,8 @@ from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 simulation_app = SimulationApp({"headless": True})
 
 import omni.usd
+from isaacsim.core.api.robots import Robot
 from isaacsim.core.api.world import World
-from isaacsim.core.robots import Robot
 from simulation.annotators.franka import FrankaPublisher, FrankaSubscriber
 
 
