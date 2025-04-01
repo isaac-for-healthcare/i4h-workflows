@@ -38,7 +38,7 @@ class TestAssets(unittest.TestCase):
     def test_download_dir_setter(self):
         # Change the download directory using explicit setter
         with tempfile.TemporaryDirectory() as temp_dir:
-            robot_us_assets.set_download_dir(temp_dir)
+            robot_us_assets.download_dir = temp_dir
             # import Config to test that change was reflected
             from simulation.configs.basic import config
 
@@ -65,7 +65,7 @@ class TestAssets(unittest.TestCase):
             assets2 = Assets("/path/two")
 
             # Verify warning was logged
-            self.assertTrue(any("Assets already initialized" in message for message in captured.output))
+            self.assertTrue(any("Re-initializing will not change" in message for message in captured.output))
 
         # Verify the download directory wasn't changed
         self.assertEqual(assets1.download_dir, "/path/one")

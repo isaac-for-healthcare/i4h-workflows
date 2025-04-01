@@ -57,7 +57,7 @@ class Assets(Enums):
 
     Example:
         >>> from simulation.utils.assets import robotic_ultrasound_assets as assets
-        >>> assets.set_download_dir("/path/to/assets")
+        >>> assets.download_dir = "/path/to/assets"
         >>> # Only import dependent modules after setting download_dir
         >>> from robotic_us_ext import tasks
     """
@@ -79,7 +79,10 @@ class Assets(Enums):
         """
         if self._initialized:
             logger.warning(
-                "Assets already initialized. Please use the set_download_dir method to change the download directory."
+                (
+                    f"Assets {self.__class__.__name__} was previously initialized. "
+                    "Re-initializing will not change the path of the assets that have already been loaded."
+                )
             )
             return
 
@@ -95,22 +98,18 @@ class Assets(Enums):
                 value = getattr(Enums, attr)
                 setattr(self, attr, os.path.join(self._download_dir, value))
 
-    def set_download_dir(self, value: str):
-        """
-        Explicitly set the download directory and update the paths.
-
-        Args:
-            value: New download directory path
-        """
-        if not os.path.isdir(value):
-            raise ValueError(f"Download directory {value} does not exist.")
-        self._download_dir = value
-        self._update_paths()
-
     @property
     def download_dir(self):
         """Get the download directory."""
         return self._download_dir
+
+    @download_dir.setter
+    def download_dir(self, value):
+        """Set the download directory and update the paths."""
+        self._download_dir = value
+        if not os.path.isdir(value):
+            logger.warning(f"Download directory {value} does not exist.")
+        self._update_paths()
 
 
 # singleton object for the assets
