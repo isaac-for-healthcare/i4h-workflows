@@ -13,14 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import sys
-import tempfile
 import unittest
 
-from i4h_asset_helper import get_i4h_local_asset_path
 from simulation.utils.assets import Assets
-from simulation.utils.assets import robotic_surgery_assets
 
 
 class TestAssets(unittest.TestCase):

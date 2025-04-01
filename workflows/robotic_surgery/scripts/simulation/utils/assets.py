@@ -40,7 +40,7 @@ class Enums:
 class Assets(Enums):
     """
     Assets manager for the robotic surgery workflow.
-    
+
     This singleton class manages asset paths for the simulation, automatically resolving them
     relative to a configurable download directory.
 
@@ -66,7 +66,7 @@ class Assets(Enums):
         >>> # Only import dependent modules after setting download_dir
         >>> from robotic.surgery.assets.psm import PSM_HIGH_PD_CFG
     """
-    
+
     _instance = None
 
     def __new__(cls, *args, **kwargs):
@@ -103,12 +103,12 @@ class Assets(Enums):
             if not attr.startswith("_"):
                 value = getattr(Enums, attr)
                 setattr(self, attr, os.path.join(self._download_dir, value))
-    
+
     @property
     def download_dir(self):
         """Get the download directory."""
         return self._download_dir
-    
+
     @download_dir.setter
     def download_dir(self, value):
         """Set the download directory and update the paths."""
@@ -116,7 +116,7 @@ class Assets(Enums):
         if not os.path.isdir(value):
             logger.warning(f"Download directory {value} does not exist.")
         self._update_paths()
-    
+
 
 # singleton object for the assets
 robotic_surgery_assets = Assets()
