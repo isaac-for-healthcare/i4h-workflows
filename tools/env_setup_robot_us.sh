@@ -34,10 +34,10 @@ if ! nvidia-smi &> /dev/null; then
     exit 1
 fi
 
-# Check if the third-party directory exists, if yes, then exit
-if [ -d "$PROJECT_ROOT/third-party" ]; then
-    echo "Error: third-party directory already exists"
-    echo "Please remove the third-party directory before running this script"
+# Check if the third_party directory exists, if yes, then exit
+if [ -d "$PROJECT_ROOT/third_party" ]; then
+    echo "Error: third_party directory already exists"
+    echo "Please remove the third_party directory before running this script"
     exit 1
 fi
 
@@ -61,11 +61,11 @@ pip install 'isaacsim[all,extscache]==4.5.0' \
 
 # ---- Install IsaacLab ----
 echo "Installing IsaacLab..."
-# CLONING REPOSITORIES INTO PROJECT_ROOT/third-party
-echo "Cloning repositories into $PROJECT_ROOT/third-party..."
-mkdir $PROJECT_ROOT/third-party
-git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third-party/IsaacLab
-pushd $PROJECT_ROOT/third-party/IsaacLab
+# CLONING REPOSITORIES INTO PROJECT_ROOT/third_party
+echo "Cloning repositories into $PROJECT_ROOT/third_party..."
+mkdir $PROJECT_ROOT/third_party
+git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
+pushd $PROJECT_ROOT/third_party/IsaacLab
 yes Yes | ./isaaclab.sh --install
 popd
 
@@ -81,19 +81,19 @@ popd
 # ---- Install OpenPI with IsaacSim 4.2 ----
 echo "Installing OpenPI..."
 # Clone the openpi repository
-git clone git@github.com:Physical-Intelligence/openpi.git $PROJECT_ROOT/third-party/openpi
-pushd $PROJECT_ROOT/third-party/openpi
+git clone git@github.com:Physical-Intelligence/openpi.git $PROJECT_ROOT/third_party/openpi
+pushd $PROJECT_ROOT/third_party/openpi
 git checkout 581e07d73af36d336cef1ec9d7172553b2332193
 
 # Update python version in pyproject.toml
-pyproject_path="$PROJECT_ROOT/third-party/openpi/pyproject.toml"
+pyproject_path="$PROJECT_ROOT/third_party/openpi/pyproject.toml"
 sed -i.bak \
     -e 's/requires-python = ">=3.11"/requires-python = ">=3.10"/' \
     -e 's/"s3fs>=2024.9.0"/"s3fs==2024.9.0"/' \
     "$pyproject_path"
 
 # Apply temporary workaround for openpi/src/openpi/shared/download.py
-file_path="$PROJECT_ROOT/third-party/openpi/src/openpi/shared/download.py"
+file_path="$PROJECT_ROOT/third_party/openpi/src/openpi/shared/download.py"
 
 # Comment out specific import lines
 sed -i.bak \
@@ -109,7 +109,7 @@ sed -i.bak -e 's/)[[:space:]]*-> s3_transfer\.TransferManager[[:space:]]*:/):/' 
 sed -i.bak -e 's/datetime\.UTC/datetime.timezone.utc/' "$file_path"
 
 # Modify the type hints in training/utils.py to use Any instead of optax types
-utils_path="$PROJECT_ROOT/third-party/openpi/src/openpi/training/utils.py"
+utils_path="$PROJECT_ROOT/third_party/openpi/src/openpi/training/utils.py"
 sed -i.bak \
     -e 's/opt_state: optax\.OptState/opt_state: Any/' \
     "$utils_path"
@@ -120,19 +120,19 @@ rm "$file_path.bak"
 rm "$utils_path.bak"
 
 # Add training script to openpi module
-if [ ! -f $PROJECT_ROOT/third-party/openpi/src/openpi/train.py ]; then
-    cp $PROJECT_ROOT/third-party/openpi/scripts/train.py $PROJECT_ROOT/third-party/openpi/src/openpi/train.py
+if [ ! -f $PROJECT_ROOT/third_party/openpi/src/openpi/train.py ]; then
+    cp $PROJECT_ROOT/third_party/openpi/scripts/train.py $PROJECT_ROOT/third_party/openpi/src/openpi/train.py
 fi
 
 # Add norm stats generator script to openpi module
-if [ ! -f $PROJECT_ROOT/third-party/openpi/src/openpi/compute_norm_stats.py ]; then
-    cp $PROJECT_ROOT/third-party/openpi/scripts/compute_norm_stats.py $PROJECT_ROOT/third-party/openpi/src/openpi/compute_norm_stats.py
+if [ ! -f $PROJECT_ROOT/third_party/openpi/src/openpi/compute_norm_stats.py ]; then
+    cp $PROJECT_ROOT/third_party/openpi/scripts/compute_norm_stats.py $PROJECT_ROOT/third_party/openpi/src/openpi/compute_norm_stats.py
 fi
 
 # Install the dependencies
 pip install git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56
-pip install -e $PROJECT_ROOT/third-party/openpi/packages/openpi-client/
-pip install -e $PROJECT_ROOT/third-party/openpi/
+pip install -e $PROJECT_ROOT/third_party/openpi/packages/openpi-client/
+pip install -e $PROJECT_ROOT/third_party/openpi/
 
 # Revert the "import changes of "$file_path after installation to prevent errors
 sed -i \
