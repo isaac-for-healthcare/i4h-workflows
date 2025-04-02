@@ -26,6 +26,18 @@ cleanup() {
     kill_process $policy_pid
     kill_process $sim_pid
     
+    # Minus 1 from the PIDs to get the parent PIDs
+    policy_pid=$((policy_pid - 1))
+    sim_pid=$((sim_pid - 1))
+
+    # Kill the parent processes if they exist
+    if ps -p $policy_pid > /dev/null; then
+        kill -9 $policy_pid 2>/dev/null
+    fi
+    if ps -p $sim_pid > /dev/null; then
+        kill -9 $sim_pid 2>/dev/null
+    fi
+    
     exit
 }
 
@@ -134,14 +146,15 @@ fi
 # Start the policy runner in the background and capture its output
 python -m policy_runner.run_policy 2>&1 | tee policy_output.log &
 policy_pid=$!
+echo "Policy runner started with PID $policy_pid"
 
-# Wait for 5 seconds
-sleep 5
+# Wait for 10 seconds
+sleep 10
 
 # Run the simulation with cameras and capture its output
 python -m simulation.examples.sim_with_dds --enable_cameras 2>&1 | tee simulation_output.log &
 sim_pid=$!
-
+echo "Simulation started with PID $sim_pid"
 # Wait for keyboard interrupt
 echo "Press Ctrl+C to stop all processes"
 wait
