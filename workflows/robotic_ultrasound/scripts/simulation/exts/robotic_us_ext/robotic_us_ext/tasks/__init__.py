@@ -15,7 +15,7 @@
 
 """Package containing task implementations for various robotic environments."""
 
-from omni.isaac.lab_tasks.utils import import_packages
+from isaaclab_tasks.utils import import_packages
 
 ##
 # Register Gym environments.

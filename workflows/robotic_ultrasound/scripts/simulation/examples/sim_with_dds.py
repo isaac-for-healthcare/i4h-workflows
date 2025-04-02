@@ -26,7 +26,7 @@ from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from dds.schemas.usp_info import UltraSoundProbeInfo
 from dds.subscriber import SubscriberWithQueue
-from omni.isaac.lab.app import AppLauncher
+from isaaclab.app import AppLauncher
 from simulation.environments.state_machine.utils import (
     RobotPositions,
     RobotQuaternions,
@@ -115,7 +115,7 @@ simulation_app = app_launcher.app
 reset_flag = False
 
 # isort: off
-from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
+from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
 
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401

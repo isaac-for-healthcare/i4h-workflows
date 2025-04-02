@@ -19,7 +19,7 @@ import collections
 import gymnasium as gym
 import numpy as np
 import torch
-from omni.isaac.lab.app import AppLauncher
+from isaaclab.app import AppLauncher
 from policy_runner import PI0PolicyRunner
 from simulation.environments.state_machine.utils import (
     RobotPositions,
@@ -67,7 +67,7 @@ simulation_app = app_launcher.app
 reset_flag = False
 
 # isort: off
-from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
+from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
 
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401

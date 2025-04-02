@@ -16,7 +16,7 @@
 from typing import Dict
 
 import torch
-from omni.isaac.core.prims import RigidPrimView
+from isaacsim.core.prims import RigidPrim
 from simulation.environments.state_machine.modules.base_module import BaseControlModule
 from simulation.environments.state_machine.utils import SMState, compute_relative_action
 
@@ -34,7 +34,7 @@ class UltrasoundStateMachine:
         self.modules = modules
         self.device = device
         self.sm_state = SMState()
-        self.object_view = RigidPrimView(
+        self.object_view = RigidPrim(
             prim_paths_expr="/World/envs/env.*/Robot/panda_hand",
             name="robot",
             track_contact_forces=True,

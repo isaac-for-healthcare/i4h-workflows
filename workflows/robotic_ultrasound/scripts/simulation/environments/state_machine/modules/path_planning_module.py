@@ -14,7 +14,7 @@
 # limitations under the License.
 
 import torch
-from omni.isaac.lab.utils.math import quat_apply_yaw
+from isaaclab.utils.math import quat_apply_yaw
 from simulation.environments.state_machine.modules.base_module import BaseControlModule
 from simulation.environments.state_machine.utils import PhantomScanPositions, SMState, UltrasoundState
 

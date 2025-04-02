@@ -23,9 +23,9 @@
 from __future__ import annotations
 
 import torch
-from omni.isaac.lab.assets import Articulation
-from omni.isaac.lab.envs import ManagerBasedEnv
-from omni.isaac.lab.managers import SceneEntityCfg
+from isaaclab.assets import Articulation
+from isaaclab.envs import ManagerBasedEnv
+from isaaclab.managers import SceneEntityCfg
 
 
 def reset_panda_joints_by_fraction_of_limits(
