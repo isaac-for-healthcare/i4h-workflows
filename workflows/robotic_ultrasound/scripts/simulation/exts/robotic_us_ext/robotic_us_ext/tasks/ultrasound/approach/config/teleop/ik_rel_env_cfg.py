@@ -19,21 +19,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import torch
-from omni.isaac.core.utils.torch.rotations import euler_angles_to_quats
-from omni.isaac.lab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
-from omni.isaac.lab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
-from omni.isaac.lab.sensors import FrameTransformerCfg
-from omni.isaac.lab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
-from omni.isaac.lab.utils import configclass
-#  FRANKA_PANDA_REALSENSE_CFG for camera in USD
+from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
+from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
+from isaaclab.markers.config import FRAME_MARKER_CFG
+from isaaclab.sensors import FrameTransformerCfg
+from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
+from isaaclab.utils import configclass
+from isaacsim.core.utils.torch.rotations import euler_angles_to_quats
 from robotic_us_ext.lab_assets.franka import FRANKA_PANDA_HIGH_PD_FORCE_CFG, FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG
 
 from ..franka import franka_manager_rl_env_cfg
-
-##
-# Pre-defined configs
-##
-from omni.isaac.lab.markers.config import FRAME_MARKER_CFG  # isort: skip
 
 
 @configclass

@@ -52,10 +52,10 @@ fi
 
 # ---- Install IsaacSim and necessary dependencies ----
 echo "Installing IsaacSim..."
-pip install isaacsim==4.2.0.2 isaacsim-extscache-physics==4.2.0.2 \
-    isaacsim-extscache-kit==4.2.0.2 isaacsim-extscache-kit-sdk==4.2.0.2 \
+pip install 'isaacsim[all,extscache]==4.5.0' \
     rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
-    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0ea \
+    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@mz/isaacsim45 \
+    setuptools==75.8.0 pydantic==2.10.6 \
     --extra-index-url https://pypi.nvidia.com
 
 
@@ -64,9 +64,8 @@ echo "Installing IsaacLab..."
 # CLONING REPOSITORIES INTO PROJECT_ROOT/third_party
 echo "Cloning repositories into $PROJECT_ROOT/third_party..."
 mkdir $PROJECT_ROOT/third_party
-git clone -b v1.4.1 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
+git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
 pushd $PROJECT_ROOT/third_party/IsaacLab
-sed -i "s/rsl-rl/rsl-rl-lib/g" source/extensions/omni.isaac.lab_tasks/setup.py
 yes Yes | ./isaaclab.sh --install
 popd
 

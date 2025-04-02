@@ -19,9 +19,11 @@ import collections
 import gymnasium as gym
 import numpy as np
 import torch
-from omni.isaac.lab.app import AppLauncher
+from isaaclab.app import AppLauncher
 from policy_runner import PI0PolicyRunner
 from simulation.environments.state_machine.utils import (
+    RobotPositions,
+    RobotQuaternions,
     capture_camera_images,
     compute_relative_action,
     get_joint_states,
@@ -35,14 +37,24 @@ parser.add_argument(
     "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
 )
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
-parser.add_argument("--task", type=str, default=None, help="Name of the task.")
+parser.add_argument(
+    "--task",
+    type=str,
+    default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0",
+    help="Name of the task.",
+)
 parser.add_argument(
     "--ckpt_path",
     type=str,
     default=robot_us_assets.policy_ckpt,
     help="checkpoint path. Default to use policy checkpoint in the latest assets.",
 )
-parser.add_argument("--repo_id", type=str, help="the LeRobot repo id for the dataset norm.")
+parser.add_argument(
+    "--repo_id",
+    type=str,
+    default="i4h/sim_liver_scan",
+    help="the LeRobot repo id for the dataset norm.",
+)
 
 # append AppLauncher cli argr
 AppLauncher.add_app_launcher_args(parser)
@@ -54,10 +66,12 @@ app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 reset_flag = False
 
-from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
+# isort: off
+from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
+
 # Import extensions to set up environment tasks
-from robotic_us_ext import tasks  # noqa: F401, E402
-from simulation.environments.state_machine.utils import RobotPositions, RobotQuaternions
+from robotic_us_ext import tasks  # noqa: F401
+# isort: on
 
 
 def get_reset_action(env, use_rel: bool = True):
@@ -138,6 +152,7 @@ def main():
                 obs, rew, terminated, truncated, info_ = env.step(action)
 
             env.reset()
+            print("Resetting the environment.")
             for _ in range(reset_steps):
                 reset_tensor = get_reset_action(env)
                 obs, rew, terminated, truncated, info_ = env.step(reset_tensor)

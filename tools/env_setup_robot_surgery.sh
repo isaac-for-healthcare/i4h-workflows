@@ -70,4 +70,9 @@ echo "Installing robotic.surgery.assets and robotic.surgery.tasks..."
 pip install -e $PROJECT_ROOT/workflows/robotic_surgery/scripts/simulation/exts/robotic.surgery.assets
 pip install -e $PROJECT_ROOT/workflows/robotic_surgery/scripts/simulation/exts/robotic.surgery.tasks
 
+
+# ---- Install libstdcxx-ng for mesa ----
+echo "Installing libstdcxx-ng..."
+conda install -c conda-forge libstdcxx-ng=13.2.0 -y
+
 echo "Dependencies installed successfully!"

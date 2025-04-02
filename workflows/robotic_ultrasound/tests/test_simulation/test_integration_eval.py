@@ -13,16 +13,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Package containing task implementations for various robotic environments."""
+import unittest
 
-from isaaclab_tasks.utils import import_packages
+from helpers import run_with_monitoring
+from parameterized import parameterized
 
-##
-# Register Gym environments.
-##
+SM_CASES = [
+    (
+        "python -u -m simulation.environments.state_machine.pi0_policy.eval --enable_camera --headless",
+        120,
+        "Resetting the environment.",
+    ),
+]
 
 
-# The blacklist is used to prevent importing configs from sub-packages
-_BLACKLIST_PKGS = ["utils"]
-# Import all configs in this package
-import_packages(__name__, _BLACKLIST_PKGS)
+class TestPolicyEval(unittest.TestCase):
+    @parameterized.expand(SM_CASES)
+    def test_policy_eval(self, command, timeout, target_line):
+        # Run and monitor command
+        _, found_target = run_with_monitoring(command, timeout, target_line)
+        self.assertTrue(found_target)
+
+
+if __name__ == "__main__":
+    unittest.main()

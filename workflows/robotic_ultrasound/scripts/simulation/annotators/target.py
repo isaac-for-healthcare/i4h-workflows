@@ -19,7 +19,7 @@ from dds.publisher import Publisher
 from dds.schemas.target_ctrl import TargetCtrlInput
 from dds.schemas.target_info import TargetInfo
 from dds.subscriber import Subscriber
-from omni.isaac.core.prims import XFormPrim
+from isaacsim.core.prims import SingleXFormPrim
 from simulation.configs.config import TargetConfig
 
 
@@ -52,7 +52,7 @@ class TargetPublisher(Publisher):
             TargetInfo: Target state information including position and orientation,
                 refer to dds.schemas.target_info.TargetInfo.
         """
-        target = XFormPrim(prim_path=self.prim_path)
+        target = SingleXFormPrim(prim_path=self.prim_path)
         position, orientation = target.get_world_pose()
 
         output = TargetInfo()
@@ -105,7 +105,7 @@ class TargetSubscriber(Subscriber):
         """
         print(f"Target:: Set Target New Position: {input.position}")
 
-        target = XFormPrim(prim_path=self.prim_path)
+        target = SingleXFormPrim(prim_path=self.prim_path)
         target.set_world_pose(position=input.position, orientation=input.orientation)
 
     @staticmethod
