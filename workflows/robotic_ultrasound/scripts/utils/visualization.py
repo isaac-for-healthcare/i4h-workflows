@@ -19,6 +19,7 @@ import time
 import traceback
 from typing import Any, Dict, List, Optional
 
+from common import get_default_dds_qos_profile
 import dearpygui.dearpygui as dpg
 import numpy as np
 import rti.connextdds as dds
@@ -350,7 +351,16 @@ class VisualizationApp:
     def connect_to_dds_subscriber(self, topic: Topic, cls, cb) -> SubscriberWithCallback:
         """Connect to a DDS subscriber."""
         print(f"\nSubscribing to topic: {topic}")
-        s = SubscriberWithCallback(cb=cb, domain_id=topic.domain_id, topic=topic.name, cls=cls, period=topic.period)
+        s = SubscriberWithCallback(
+            cb=cb,
+            domain_id=topic.domain_id,
+            topic=topic.name,
+            cls=cls,
+            period=topic.period,
+            qos_provider_path=get_default_dds_qos_profile(),
+            transport_profile="i4h_transport::SHMEM+LAN",
+            reader_profile="RoboticUltrasoundLibrary::UspData",
+        )
         s.start()
         return s
 

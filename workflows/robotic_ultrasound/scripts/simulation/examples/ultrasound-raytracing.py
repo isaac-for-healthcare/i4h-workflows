@@ -549,10 +549,10 @@ def main():
         help="topic name to publish generated ultrasound data.",
     )
     parser.add_argument(
-        "--topic_out",
+        "--config",
         type=str,
-        default="topic_ultrasound_data",
-        help="topic name to publish generated ultrasound data",
+        default=None,
+        help="path to custom JSON configuration file with probe parameters and simulation parameters. ",
     )
     parser.add_argument(
         "--qos_provider_path",
