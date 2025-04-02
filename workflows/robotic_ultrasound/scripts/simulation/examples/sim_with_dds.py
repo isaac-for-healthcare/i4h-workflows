@@ -20,6 +20,7 @@ import os
 import gymnasium as gym
 import numpy as np
 import torch
+from common import get_default_dds_qos_profile
 from dds.publisher import Publisher
 from dds.schemas.camera_info import CameraInfo
 from dds.schemas.franka_ctrl import FrankaCtrlInput
@@ -103,7 +104,7 @@ parser.add_argument(
 parser.add_argument(
     "--qos_provider_path",
     type=str,
-    default="../dds/qos_profiles.xml",
+    default=get_default_dds_qos_profile(),
     help="qos provider path",
 )
 parser.add_argument("--log_probe_pos", action="store_true", default=False, help="Log probe position.")

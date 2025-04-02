@@ -25,6 +25,7 @@ from dds.subscriber import SubscriberWithCallback
 from PIL import Image
 from policy_runner.runners import PI0PolicyRunner
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from common import get_default_dds_qos_profile
 
 current_state = {
     "room_cam": None,
@@ -86,7 +87,7 @@ def main():
     parser.add_argument(
         "--qos_provider_path",
         type=str,
-        default="../dds/qos_profiles.xml",
+        default=get_default_dds_qos_profile(),
         help="qos provider path",
     )
     parser.add_argument("--verbose", type=bool, default=False, help="whether to print the log.")

@@ -18,7 +18,7 @@ import json
 import os
 from dataclasses import dataclass
 
-# import numpy as np
+from common import get_default_dds_qos_profile
 import numpy as np
 import rti.connextdds as dds
 from holoscan.conditions import PeriodicCondition
@@ -557,7 +557,7 @@ def main():
     parser.add_argument(
         "--qos_provider_path",
         type=str,
-        default="../dds/qos_profiles.xml",
+        default=get_default_dds_qos_profile(),
         help="path to custom qos provider path",
     )
     parser.add_argument(
