@@ -28,7 +28,7 @@ def get_scripts_dir() -> Path:
 
 def get_default_dds_qos_profile() -> Path:
     """Get the default DDS QoS profile."""
-    return get_scripts_dir() / "dds" / "qos_profiles.xml"
+    return str(get_scripts_dir() / "dds" / "qos_profiles.xml")
 
 
 if __name__ == "__main__":
