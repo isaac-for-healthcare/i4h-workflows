@@ -3,9 +3,9 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-from omni.isaac.lab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
-from omni.isaac.lab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
-from omni.isaac.lab.utils import configclass
+from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
+from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
+from isaaclab.utils import configclass
 
 from . import joint_pos_env_cfg
 

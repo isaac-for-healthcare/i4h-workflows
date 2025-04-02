@@ -32,7 +32,7 @@ The environments are then registered in the `robotic/surgery/tasks/surgical/lift
 ```python
 gym.register(
     id="Isaac-Lift-Needle-PSM-v0",
-    entry_point="omni.isaac.lab.envs:ManagerBasedRLEnv",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point": joint_pos_env_cfg.NeedleLiftEnvCfg,
     },
