@@ -86,7 +86,7 @@ for file in "${ALL_MISSING_FILES[@]}"; do
   for pattern in "${GIT_EXCLUDE_PATTERNS[@]}"; do
     # Remove leading and trailing whitespace
     pattern=$(echo "$pattern" | xargs)
-    
+
     # Check for different gitignore pattern types
     if [[ "$pattern" == *"**/"* ]]; then
       # Handle **/ pattern (matches in any directory)
@@ -130,7 +130,7 @@ for file in "${ALL_MISSING_FILES[@]}"; do
       fi
     fi
   done
-  
+
   if [ "$SKIP" = false ]; then
     FINAL_MISSING_FILES+=("$file")
   fi
