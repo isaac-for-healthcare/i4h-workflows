@@ -54,7 +54,7 @@ pushd $PROJECT_ROOT/third_party/IsaacLab
 # ---- Install IsaacSim and necessary dependencies ----
 echo "Installing IsaacSim..."
 pip install 'isaacsim[all,extscache]==4.5.0' \
-    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@mz/isaacsim45 \
+    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0rc1 \
     --extra-index-url https://pypi.nvidia.com
 
 
