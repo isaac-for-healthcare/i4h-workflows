@@ -19,7 +19,7 @@ It uses the `warp` library to run the state machine in parallel on the GPU.
 
 import argparse
 
-from omni.isaac.lab.app import AppLauncher
+from isaaclab.app import AppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Pick and lift state machine for lift environments.")
@@ -44,10 +44,10 @@ import gymnasium as gym
 import robotic.surgery.tasks  # noqa: F401
 import torch
 import warp as wp
-from omni.isaac.lab.assets import RigidObject
-from omni.isaac.lab.assets.rigid_object.rigid_object_data import RigidObjectData
-from omni.isaac.lab.utils.math import subtract_frame_transforms
-from omni.isaac.lab_tasks.utils.parse_cfg import parse_env_cfg
+from isaaclab.assets import RigidObject
+from isaaclab.assets.rigid_object.rigid_object_data import RigidObjectData
+from isaaclab.utils.math import subtract_frame_transforms
+from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
 from robotic.surgery.tasks.surgical.lift.lift_env_cfg import LiftEnvCfg
 
 # initialize warp
