@@ -54,7 +54,7 @@ fi
 echo "Installing IsaacSim..."
 pip install 'isaacsim[all,extscache]==4.5.0' \
     rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
-    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@mz/isaacsim45 \
+    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0rc1 \
     setuptools==75.8.0 pydantic==2.10.6 \
     --extra-index-url https://pypi.nvidia.com
 

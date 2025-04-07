@@ -5,19 +5,19 @@
 
 from __future__ import annotations
 
-import omni.isaac.lab.sim as sim_utils
+import isaaclab.sim as sim_utils
 import robotic.surgery.tasks.surgical.reach.mdp as mdp
-from omni.isaac.lab.assets import AssetBaseCfg
-from omni.isaac.lab.managers import EventTermCfg as EventTerm
-from omni.isaac.lab.sensors import FrameTransformerCfg
-from omni.isaac.lab.utils import configclass
+from isaaclab.assets import AssetBaseCfg
+from isaaclab.managers import EventTermCfg as EventTerm
+from isaaclab.sensors import FrameTransformerCfg
+from isaaclab.utils import configclass
 from robotic.surgery.tasks.surgical.reach.reach_env_cfg import ReachEnvCfg
 from simulation.utils.assets import robotic_surgery_assets
 
 ##
 # Pre-defined configs
 ##
-from omni.isaac.lab.markers.config import FRAME_MARKER_CFG  # isort: skip
+from isaaclab.markers.config import FRAME_MARKER_CFG  # isort: skip
 from robotic.surgery.assets.psm import PSM_CFG  # isort: skip
 
 
