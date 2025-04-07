@@ -20,4 +20,4 @@ jobs:
 
       - name: Run copyright check
         run: |
-          python tools/ensure_license.py
+          bash tools/check_missing_license.sh
