@@ -18,7 +18,7 @@ from . import ik_abs_env_cfg, ik_rel_env_cfg, joint_pos_env_cfg
 
 gym.register(
     id="Isaac-Handover-Needle-Dual-PSM-v0",
-    entry_point="omni.isaac.lab.envs:ManagerBasedRLEnv",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point": joint_pos_env_cfg.NeedleHandoverEnvCfg,
     },
@@ -27,7 +27,7 @@ gym.register(
 
 gym.register(
     id="Isaac-Handover-Needle-Dual-PSM-Play-v0",
-    entry_point="omni.isaac.lab.envs:ManagerBasedRLEnv",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point": joint_pos_env_cfg.NeedleHandoverEnvCfg_PLAY,
     },
@@ -40,7 +40,7 @@ gym.register(
 
 gym.register(
     id="Isaac-Handover-Needle-Dual-PSM-IK-Abs-v0",
-    entry_point="omni.isaac.lab.envs:ManagerBasedRLEnv",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point": ik_abs_env_cfg.NeedleHandoverEnvCfg,
     },
@@ -49,7 +49,7 @@ gym.register(
 
 gym.register(
     id="Isaac-Handover-Needle-Dual-PSM-IK-Abs-Play-v0",
-    entry_point="omni.isaac.lab.envs:ManagerBasedRLEnv",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point": ik_abs_env_cfg.NeedleHandoverEnvCfg_PLAY,
     },
@@ -62,7 +62,7 @@ gym.register(
 
 gym.register(
     id="Isaac-Handover-Needle-Dual-PSM-IK-Rel-v0",
-    entry_point="omni.isaac.lab.envs:ManagerBasedRLEnv",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point": ik_rel_env_cfg.NeedleHandoverEnvCfg,
     },
@@ -71,7 +71,7 @@ gym.register(
 
 gym.register(
     id="Isaac-Handover-Needle-Dual-PSM-IK-Rel-Play-v0",
-    entry_point="omni.isaac.lab.envs:ManagerBasedRLEnv",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point": ik_rel_env_cfg.NeedleHandoverEnvCfg_PLAY,
     },

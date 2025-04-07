@@ -13,8 +13,8 @@
 ## Environment Setup
 
 The robotic ultrasound workflow is built on the following dependencies:
-- [IsaacSim 4.2.0.2](https://docs.isaacsim.omniverse.nvidia.com/4.2.0/index.html)
-- [IsaacLab 1.4.1](https://isaac-sim.github.io/IsaacLab/v1.4.1/source/setup/installation/index.html)
+- [IsaacSim 4.5.0](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/index.html)
+- [IsaacLab 2.0.2](https://isaac-sim.github.io/IsaacLab/v2.0.2/index.html)
 - [openpi](https://github.com/Physical-Intelligence/openpi) and [lerobot](https://github.com/huggingface/lerobot)
 - [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing)
 
