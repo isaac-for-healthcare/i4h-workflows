@@ -21,6 +21,7 @@ This will open a GUI that displays multiple real-time feeds:
 ## Data Flow Architecture
 The visualization application connects to simulated or real data through DDS (Data Distribution Service), a publish-subscribe middleware that enables real-time data exchange between components.
 
+![Data Flow Architecture](../../../../docs/source/visualization_dds_domain_topics.jpg)
 
 ### Policy Running Pipeline
 
