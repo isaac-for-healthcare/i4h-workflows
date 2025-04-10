@@ -12,23 +12,6 @@ from monai.config import print_config
 from monai.bundle.scripts import create_workflow, download
 from monai.transforms import LoadImaged, SaveImage, Compose, BorderPadd, SqueezeDimd
 
-def generate_ct(root_dir, num_output_samples):
-    bundle_root = os.path.join(root_dir, "maisi_ct_generative")
-    override = {
-        "output_size_xy": 256,
-        "output_size_z": 256,
-        "spacing_xy": 1.5,
-        "spacing_z": 1.5,
-        "num_output_samples": num_output_samples,
-    }
-    workflow = create_workflow(
-        config_file=os.path.join(bundle_root, "configs/inference.json"),
-        workflow_type="inference",
-        bundle_root=bundle_root,
-        **override,
-    )
-
-    workflow.run()
 
 def nii_to_mesh(input_nii_path, output_nii_path, output_obj_path):
     """
@@ -48,10 +31,109 @@ def nii_to_mesh(input_nii_path, output_nii_path, output_obj_path):
         "Liver": 1,
         "Spleen": 3,
         "Pancreas": 4,
+        "Heart": 115,
+        "Body": 200,
         "Gallbladder": 10,
         "Stomach": 12,
         "Small_bowel": 19,
         "Colon": 62,
+        "Kidney": {"right_kidney": 5, "left_kidney": 14},
+        "Veins": {
+            "aorta": 6,
+            "inferior_vena_cava": 7,
+            "portal_vein_and_splenic_vein": 17,
+            "left_iliac_artery": 58,
+            "right_iliac_artery": 59,
+            "left_iliac_vena": 60,
+            "right_iliac_vena": 61,
+            "pulmonary_vein": 119,
+            "left_subclavian_artery": 123,
+            "right_subclavian_artery": 124,
+            "superior_vena_cava": 125,
+            "brachiocephalic_trunk": 109,
+            "left_brachiocephalic_vein": 110,
+            "right_brachiocephalic_vein": 111,
+            "left_common_carotid_artery": 112,
+            "right_common_carotid_artery": 113,
+        },
+        "Lungs": {
+            "left_lung_upper_lobe": 28,
+            "left_lung_lower_lobe": 29,
+            "right_lung_upper_lobe": 30,
+            "right_lung_middle_lobe": 31,
+            "right_lung_lower_lobe": 32,
+        },
+        "Spine": {
+            "vertebrae_L6": 131,
+            "vertebrae_L5": 33,
+            "vertebrae_L4": 34,
+            "vertebrae_L3": 35,
+            "vertebrae_L2": 36,
+            "vertebrae_L1": 37,
+            "vertebrae_T12": 38,
+            "vertebrae_T11": 39,
+            "vertebrae_T10": 40,
+            "vertebrae_T9": 41,
+            "vertebrae_T8": 42,
+            "vertebrae_T7": 43,
+            "vertebrae_T6": 44,
+            "vertebrae_T5": 45,
+            "vertebrae_T4": 46,
+            "vertebrae_T3": 47,
+            "vertebrae_T2": 48,
+            "vertebrae_T1": 49,
+            "vertebrae_C7": 50,
+            "vertebrae_C6": 51,
+            "vertebrae_C5": 52,
+            "vertebrae_C4": 53,
+            "vertebrae_C3": 54,
+            "vertebrae_C2": 55,
+            "vertebrae_C1": 56,
+            "sacrum": 97,
+            "vertebrae_S1": 127,
+        },
+        "Ribs": {
+            "left_rib_1": 63,
+            "left_rib_2": 64,
+            "left_rib_3": 65,
+            "left_rib_4": 66,
+            "left_rib_5": 67,
+            "left_rib_6": 68,
+            "left_rib_7": 69,
+            "left_rib_8": 70,
+            "left_rib_9": 71,
+            "left_rib_10": 72,
+            "left_rib_11": 73,
+            "left_rib_12": 74,
+            "right_rib_1": 75,
+            "right_rib_2": 76,
+            "right_rib_3": 77,
+            "right_rib_4": 78,
+            "right_rib_5": 79,
+            "right_rib_6": 80,
+            "right_rib_7": 81,
+            "right_rib_8": 82,
+            "right_rib_9": 83,
+            "right_rib_10": 84,
+            "right_rib_11": 85,
+            "right_rib_12": 86,
+            "costal_cartilages": 114,
+            "sternum": 122,
+        },
+        "Shoulders": {"left_scapula": 89, "right_scapula": 90, "left_clavicula": 91, "right_clavicula": 92},
+        "Hips": {"left_hip": 95, "right_hip": 96},
+        "Back_muscles": {
+            "left_gluteus_maximus": 98,
+            "right_gluteus_maximus": 99,
+            "left_gluteus_medius": 100,
+            "right_gluteus_medius": 101,
+            "left_gluteus_minimus": 102,
+            "right_gluteus_minimus": 103,
+            "left_autochthon": 104,
+            "right_autochthon": 105,
+            "left_iliopsoas": 106,
+            "right_iliopsoas": 107,
+        },
     }
 
     pre_trans = Compose(
@@ -101,15 +183,14 @@ def nii_to_mesh(input_nii_path, output_nii_path, output_obj_path):
     print(f"Saved whole segmentation {all_organ_filename}")
 
 
-def generate_mesh(root_dir, mesh_dir):
-    ct_list = os.listdir(os.path.join(root_dir, "maisi_ct_generative", "output"))
-    ct_list = [l for l in ct_list if l.endswith("_image.nii.gz")]
+def generate_mesh(seg_dir):
+    ct_list = os.listdir(os.path.join(seg_dir))
     for ct in ct_list:
         print(f"Processing {ct}")
         ct_name = ct.split(".nii.gz")[0]
-        input_nii_path = os.path.join(root_dir, "maisi_ct_generative", "output", ct)
-        output_nii_path = os.path.join(mesh_dir, ct_name, "nii")
-        output_obj_path = os.path.join(mesh_dir, ct_name, "obj")
+        input_nii_path = os.path.join(seg_dir, ct)
+        output_nii_path = os.path.join(seg_dir, ct_name, "nii")
+        output_obj_path = os.path.join(seg_dir, ct_name, "obj")
         out = nii_to_mesh(input_nii_path, output_nii_path, output_obj_path)
 
         obj_filename = f"{output_obj_path}/all_organs.gltf"
@@ -120,15 +201,7 @@ def generate_mesh(root_dir, mesh_dir):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate mesh from CT data.")
-    parser.add_argument('--root_dir', type=str, required=True)
-    parser.add_argument('--mesh_dir', type=str, default="mesh_data")
-    parser.add_argument('--ct_samples', type=int, default=10)
-    parser.add_argument('--generate_ct', type=bool, default=False)
-    parser.add_argument('--generate_mesh', type=bool, default=False)
+    parser.add_argument('--seg_dir', type=str, required=True)
     args = parser.parse_args()
 
-    if args.generate_ct:
-        generate_ct(args.root_dir, args.ct_samples)
-
-    if args.generate_mesh:
-        generate_mesh(args.root_dir, args.mesh_dir)
+    generate_mesh(args.seg_dir)
