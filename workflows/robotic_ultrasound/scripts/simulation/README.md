@@ -45,7 +45,7 @@ export PYTHONPATH=`pwd`
 5. Return to this folder and run the following command:
 
 ```sh
-python environments/state_machine/pi0_policy/eval.py --enable_camera
+python imitation_learning/pi0_policy/eval.py --enable_camera
 ```
 
 NOTE: You can also specify `--ckpt_path` to run a specific policy.
