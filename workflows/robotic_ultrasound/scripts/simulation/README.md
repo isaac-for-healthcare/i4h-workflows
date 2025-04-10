@@ -64,7 +64,7 @@ export PYTHONPATH=`pwd`
 ```
 Then move back to this folder and execute:
 ```sh
-python examples/sim_with_dds.py --enable_cameras
+python sim_with_dds.py --enable_cameras
 ```
 
 ### Liver Scan State Machine
@@ -266,7 +266,7 @@ You only need to specify the parameters you want to change - any omitted paramet
 To run the ultrasound raytracing simulator:
 
 ```sh
-python examples/ultrasound-raytracing.py
+python ultrasound-raytracing.py
 ```
 
 #### Command Line Arguments

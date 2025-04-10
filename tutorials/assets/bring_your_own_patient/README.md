@@ -25,7 +25,7 @@ For a detailed walkthrough of the conversion process, please refer to the [MONAI
 
 ### Updating the Assets in the Simulation
 
-Currently, the robotic ultrasound workflow uses the assets in [I4H Asset Catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog). To replace the assets with your own, you need to modify the [environment configuration file](../../../workflows/robotic_ultrasound/scripts/simulation/exts/robotic_us_ext/robotic_us_ext/tasks/ultrasound/approach/config/franka/franka_manager_rl_env_cfg.py) to update the `usd_path` for `organs` in `RoboticSoftCfg`, as well as the `mesh_dir` in [ultrasound-raytracing.py](../../../workflows/robotic_ultrasound/scripts/simulation/examples/ultrasound-raytracing.py).
+Currently, the robotic ultrasound workflow uses the assets in [I4H Asset Catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog). To replace the assets with your own, you need to modify the [environment configuration file](../../../workflows/robotic_ultrasound/scripts/simulation/exts/robotic_us_ext/robotic_us_ext/tasks/ultrasound/approach/config/franka/franka_manager_rl_env_cfg.py) to update the `usd_path` for `organs` in `RoboticSoftCfg`, as well as the `mesh_dir` in [ultrasound-raytracing.py](../../../workflows/robotic_ultrasound/scripts/simulation/ultrasound-raytracing.py).
 
 ### Assets from different sources
 
