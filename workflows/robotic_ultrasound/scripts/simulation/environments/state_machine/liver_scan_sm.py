@@ -113,6 +113,7 @@ from simulation.environments.state_machine.utils import (  # noqa: F401
     RobotQuaternions,
     UltrasoundState,
     capture_camera_images,
+    capture_camera_images_with_seg,
     compute_relative_action,
     get_robot_obs,
 )
@@ -163,6 +164,30 @@ def main():
         args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
     )
     assert args_cli.num_envs == 1, "Number of environments must be 1 for this script"
+
+
+    # create environment
+    env_cfg.scene.room_camera.data_types = ["rgb", "distance_to_image_plane", "semantic_segmentation"]
+    env_cfg.scene.wrist_camera.data_types = ["rgb", "distance_to_image_plane", "semantic_segmentation"]
+    # env_cfg.scene.room_camera.offset.pos = (0.55942, 1.56039, 2.36243)
+
+    env_cfg.scene.room_camera.width = 640
+    env_cfg.scene.room_camera.height = 480
+    env_cfg.scene.wrist_camera.width = 640
+    env_cfg.scene.wrist_camera.height = 480
+    env_cfg.scene.organs.spawn.semantic_tags = [("class", "organ")]
+    env_cfg.scene.table.spawn.semantic_tags = [("class", "table")]
+    env_cfg.scene.ground.spawn.semantic_tags = [("class", "ground")]
+    # Set data types for the camera (enable RGB, Depth, and Segmentation)
+    env_cfg.scene.robot.spawn.semantic_tags = [("class", "robot")]
+    # Adjust depth clipping behavior if needed
+    env_cfg.scene.room_camera.colorize_semantic_segmentation=False
+    # env_cfg.scene.room_camera.depth_clipping_behavior = "clip"  # Options: 'clip', 'none'
+    env_cfg.scene.wrist_camera.colorize_semantic_segmentation=False
+    # env_cfg.scene.wrist_camera.depth_clipping_behavior = "clip"  # Options: 'clip', 'none'
+
+
+
     # Ensure no timeout
     env_cfg.terminations.time_out = None
     # create environment
@@ -262,9 +287,10 @@ def main():
             # Record data if collecting
             if data_collector is not None:
                 # Capture camera images if data collection is happening
-                rgb_images, depth_images = capture_camera_images(env, args_cli.camera_names, device=args_cli.device)
+                rgb_images, depth_images,seg_images = capture_camera_images_with_seg(env, args_cli.camera_names, device=args_cli.device)
                 obs["rgb_images"] = rgb_images
                 obs["depth_images"] = depth_images
+                obs["seg_images"] = seg_images
 
                 data_collector.record_step(
                     env,

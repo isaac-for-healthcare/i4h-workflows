@@ -22,6 +22,7 @@ from dataclasses import MISSING
 
 import isaaclab.sim as sim_utils
 import torch
+import math
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.controllers import DifferentialIKControllerCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
@@ -159,7 +160,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     # Particularly, we used to to derive how the ultrasound probe sees the mesh objects
     mesh_to_organ_transform = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/organs",
-        debug_vis=True,
+        debug_vis=False,
         visualizer_cfg=FRAME_MARKER_TINY_CFG.replace(prim_path="/Visuals/mesh_to_organ_transform"),
         target_frames=[
             FrameTransformerCfg.FrameCfg(
@@ -187,7 +188,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     # This transform is used to track the relative displacement/rotation.
     organ_to_ee_transform = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/organs",
-        debug_vis=True,
+        debug_vis=False,
         visualizer_cfg=FRAME_MARKER_SMALL_CFG.replace(prim_path="/Visuals/organ_frame"),
         target_frames=[
             FrameTransformerCfg.FrameCfg(
@@ -205,7 +206,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     # This transform is used to compute the transformation between the two coordinate systems.
     ee_to_us_transform = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/Robot/TCP",
-        debug_vis=True,
+        debug_vis=False,
         visualizer_cfg=FRAME_MARKER_TINY_CFG.replace(prim_path="/Visuals/ee_to_us_transform"),
         target_frames=[
             FrameTransformerCfg.FrameCfg(
@@ -352,7 +353,7 @@ class EventCfg:
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
-            "pose_range": {"x": (-0.1, 0.1), "y": (-0.0, 0.0), "z": (-0, -0.0)},
+            "pose_range": {"x": (-0.2, 0.2), "y": (-0.2, 0.2), "z": (-0, -0.0), "yaw": (-math.radians(180), math.radians(180))},
             "velocity_range": {},
             "asset_cfg": SceneEntityCfg("organs"),
         },
@@ -364,6 +365,16 @@ class EventCfg:
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=["panda_joint.*"]),
+        },
+    )
+    reset_camera_position = EventTerm(
+        func=mdp.reset_camera,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("room_camera"),
+            "init_position": [0.55942, 0.56039, 0.36243], 
+            "perturb_range_lower": [-0.1, 0, -0.1],
+            "perturb_range_upper": [0.1, 0.8, 0.1],
         },
     )
 
@@ -494,7 +505,7 @@ class FrankaModRGBDIkRlEnvCfg(RoboticIkRlEnvCfg):
 
         self.scene.ee_frame = FrameTransformerCfg(
             prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
-            debug_vis=True,
+            debug_vis=False,
             visualizer_cfg=marker_cfg,
             target_frames=[
                 FrameTransformerCfg.FrameCfg(
