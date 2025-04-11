@@ -66,6 +66,17 @@ cd <path-to-i4h-workflows>
 bash tools/env_setup_robot_us.sh
 ```
 
+- **NOTE**: It is expected to see the following messages with `pytorch` version mismatch.
+```
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+isaaclab 0.34.9 requires torch==2.5.1, but you have torch 2.6.0 which is incompatible.
+isaaclab-rl 0.1.0 requires torch==2.5.1, but you have torch 2.6.0 which is incompatible.
+isaaclab-tasks 0.10.24 requires torch==2.5.1, but you have torch 2.6.0 which is incompatible.
+rl-games 1.6.1 requires wandb<0.13.0,>=0.12.11, but you have wandb 0.19.9 which is incompatible.
+```
+This is due to requirements of `isaaclab` and `openpi` used different fixed versions of `pytorch`. You can ignore these conflicts.
+
+
 ### Download the I4H assets
 
 Use the following command will download the assets to the `~/.cache/i4h-assets/<sha256>` directory.
