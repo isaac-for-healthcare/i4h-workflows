@@ -26,7 +26,7 @@ import torch
 from isaaclab.assets import Articulation
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
-
+import numpy as np
 
 def reset_panda_joints_by_fraction_of_limits(
     env: ManagerBasedEnv,
@@ -71,3 +71,30 @@ def reset_panda_joints_by_fraction_of_limits(
 
     # Write the new joint positions and velocities to the physics simulation
     asset.write_joint_state_to_sim(joint_pos, joint_vel, env_ids=env_ids)
+
+
+def reset_camera(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("room_camera"),
+    init_position: list = None,
+    perturb_range_lower: list = [-0.1, 0, -0.1],
+    perturb_range_upper: list = [0.1, 0.8, 0.1],
+):
+    """
+    Reset the robot joints with offsets sampled from a fraction of the joint limits.
+    """
+
+    asset: Articulation = env.scene[asset_cfg.name]
+    target = env.scene['organs']
+    target_pos = target.data.root_pos_w
+    if init_position is None:
+        camera_pos = asset.data.pos_w
+        camera_pos = torch.tensor(camera_pos)
+    else:
+        camera_pos = torch.tensor(init_position, device=asset.data.pos_w.device).unsqueeze(0)
+    lower_bound = camera_pos + torch.tensor(perturb_range_lower, device=camera_pos.device)
+    upper_bound = camera_pos + torch.tensor(perturb_range_upper, device=camera_pos.device)
+    sampled_tensor = lower_bound + (upper_bound - lower_bound) * torch.rand_like(camera_pos)
+    asset.set_world_poses_from_view(eyes=sampled_tensor, targets=target_pos, env_ids=env_ids)
+    # asset.set_world_poses(positions=np.array([[1,10,10]]), env_ids=env_ids)

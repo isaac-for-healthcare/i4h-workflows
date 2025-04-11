@@ -152,6 +152,41 @@ def capture_camera_images(env, cam_names, device="cuda"):
 
     return stacked_rgbs, stacked_depths
 
+def capture_camera_images_with_seg(env, cam_names, device="cuda"):
+    """
+    Captures RGB and depth images from specified cameras
+
+    Args:
+        env: The environment containing the cameras
+        cam_names (list): List of camera names to capture from
+        device (str): Device to use for tensor operations
+
+    Returns:
+        tuple: (stacked_rgbs, stacked_depths) - Tensors of shape (1, num_cams, H, W, 3) and (1, num_cams, H, W)
+    """
+    depths, rgbs, segs = [], [], []
+    for cam_name in cam_names:
+        camera_data = env.unwrapped.scene[cam_name].data
+
+        # Extract RGB and depth images
+        rgb = camera_data.output["rgb"][..., :3].squeeze(0)
+        depth = camera_data.output["distance_to_image_plane"].squeeze(0)
+        seg = camera_data.output["semantic_segmentation"].squeeze(0)
+
+        # Append to lists
+        rgbs.append(rgb)
+        depths.append(depth)
+        segs.append(seg)
+
+    # Stack results
+    stacked_rgbs = torch.stack(rgbs).unsqueeze(0)
+    stacked_depths = torch.stack(depths).unsqueeze(0)
+    stacked_segs = torch.stack(segs).unsqueeze(0)
+
+
+    return stacked_rgbs, stacked_depths, stacked_segs
+
+
 
 def get_robot_obs(env):
     """Get the robot observation from the environment."""
