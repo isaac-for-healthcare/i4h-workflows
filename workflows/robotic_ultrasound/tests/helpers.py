@@ -33,7 +33,7 @@ def monitor_output(process, found_event, target_line=None):
             for line in iter(process.stdout.readline, ""):
                 if target_line in line:
                     found_event.set()
-                    break  # TODO: should we force the process to exit here?
+                    break
     except (ValueError, IOError):
         # Handle case where stdout is closed
         pass
@@ -69,6 +69,7 @@ def run_with_monitoring(command, timeout_seconds, target_line=None):
         while time.time() - start_time < timeout_seconds:
             if target_line and found_event.is_set():
                 target_found = True
+                break
 
             # Check if process has already terminated
             if process.poll() is not None:
