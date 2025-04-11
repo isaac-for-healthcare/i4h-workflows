@@ -64,7 +64,7 @@ export PYTHONPATH=`pwd`
 ```
 Then move back to this folder and execute:
 ```sh
-python environments/dds/sim_with_dds.py --enable_cameras
+python environments/sim_with_dds.py --enable_cameras
 ```
 
 ### Liver Scan State Machine
