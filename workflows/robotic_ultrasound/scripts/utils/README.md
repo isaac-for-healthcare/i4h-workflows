@@ -61,7 +61,7 @@ When running with `teleop_se3_agent.py`:
 The ultrasound image is separately simulated and published:
 
 #### **Ultrasound Raytracing**
-   - `ultrasound-raytracing.py` runs a physics-based ultrasound simulator (using NVIDIA RaySim)
+   - `ultrasound_raytracing.py` runs a physics-based ultrasound simulator (using NVIDIA RaySim)
    - It subscribes to the probe position via `topic_ultrasound_info`
    - Computes realistic ultrasound images based on where the probe contacts the virtual anatomy
    - Publishes ultrasound image data to `topic_ultrasound_data`

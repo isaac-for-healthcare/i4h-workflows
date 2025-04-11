@@ -266,7 +266,7 @@ You only need to specify the parameters you want to change - any omitted paramet
 To run the ultrasound raytracing simulator:
 
 ```sh
-python examples/ultrasound-raytracing.py
+python examples/ultrasound_raytracing.py
 ```
 
 #### Command Line Arguments
