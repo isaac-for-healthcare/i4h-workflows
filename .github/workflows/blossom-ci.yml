@@ -37,7 +37,7 @@ jobs:
 
     # This job only runs for pull request comments
     if: |
-         github.event.comment.body == '/build' && contains(env.ALLOWED_USERS, github.actor)
+         github.event.comment.body == '/build' && (github.actor == 'wendell-hom')
 
     steps:
       - name: Check if comment is issued by authorized person
