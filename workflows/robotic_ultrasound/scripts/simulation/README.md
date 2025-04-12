@@ -45,7 +45,7 @@ export PYTHONPATH=`pwd`
 5. Return to this folder and run the following command:
 
 ```sh
-python environments/state_machine/pi0_policy/eval.py --enable_camera
+python imitation_learning/pi0_policy/eval.py --enable_camera
 ```
 
 NOTE: You can also specify `--ckpt_path` to run a specific policy.
@@ -64,7 +64,7 @@ export PYTHONPATH=`pwd`
 ```
 Then move back to this folder and execute:
 ```sh
-python examples/sim_with_dds.py --enable_cameras
+python environments/sim_with_dds.py --enable_cameras
 ```
 
 ### Liver Scan State Machine
@@ -266,7 +266,7 @@ You only need to specify the parameters you want to change - any omitted paramet
 To run the ultrasound raytracing simulator:
 
 ```sh
-python examples/ultrasound-raytracing.py
+python examples/ultrasound_raytracing.py
 ```
 
 #### Command Line Arguments

@@ -23,6 +23,7 @@ from simulation.configs.config import (
 )
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
+# FIXME: the following config is not used in the current implementation
 config = Config(
     main_usd_path=robot_us_assets.basic,
     room_camera=RoomCameraConfig(prim_path="/RoomCamera", enabled=True),

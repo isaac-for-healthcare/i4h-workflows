@@ -21,6 +21,7 @@ This will open a GUI that displays multiple real-time feeds:
 ## Data Flow Architecture
 The visualization application connects to simulated or real data through DDS (Data Distribution Service), a publish-subscribe middleware that enables real-time data exchange between components.
 
+![Data Flow Architecture](../../../../docs/source/visualization_dds_domain_topics.jpg)
 
 ### Policy Running Pipeline
 
@@ -60,7 +61,7 @@ When running with `teleop_se3_agent.py`:
 The ultrasound image is separately simulated and published:
 
 #### **Ultrasound Raytracing**
-   - `ultrasound-raytracing.py` runs a physics-based ultrasound simulator (using NVIDIA RaySim)
+   - `ultrasound_raytracing.py` runs a physics-based ultrasound simulator (using NVIDIA RaySim)
    - It subscribes to the probe position via `topic_ultrasound_info`
    - Computes realistic ultrasound images based on where the probe contacts the virtual anatomy
    - Publishes ultrasound image data to `topic_ultrasound_data`

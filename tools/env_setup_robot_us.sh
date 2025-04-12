@@ -77,7 +77,7 @@ pip install -e exts/robotic_us_ext
 popd
 
 
-# ---- Install OpenPI with IsaacSim 4.2 ----
+# ---- Install OpenPI with IsaacSim ----
 echo "Installing OpenPI..."
 # Clone the openpi repository
 git clone git@github.com:Physical-Intelligence/openpi.git $PROJECT_ROOT/third_party/openpi

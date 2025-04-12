@@ -420,7 +420,7 @@ def main():
     parser.add_argument(
         "--domain_id",
         type=int,
-        default=int(os.environ.get("OVH_DDS_DOMAIN_ID", 0)),
+        default=int(os.environ.get("OVH_DDS_DOMAIN_ID", 1)),
         help="domain id",
     )
     parser.add_argument(

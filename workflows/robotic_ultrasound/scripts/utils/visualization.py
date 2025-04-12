@@ -319,6 +319,7 @@ class VisualizationApp:
         # Franka
         if config.franka and config.franka.enabled:
             if config.franka.topic_ctrl:
+                # NOTE: the Franka topic_ctrl is not used for anything. This is reserved for future use.
                 self.connect_to_dds_publisher(config.franka.topic_ctrl, FrankaCtrlInput)
             if config.franka.topic_info:
                 self.connect_to_dds_subscriber(config.franka.topic_info, FrankaInfo, self.on_receive_franka_annotations)
@@ -326,12 +327,15 @@ class VisualizationApp:
         # Target
         if config.target and config.target.enabled:
             if config.target.topic_ctrl:
+                # NOTE: the Target topic_ctrl is not used for anything. This is reserved for future use.
                 self.connect_to_dds_publisher(config.target.topic_ctrl, TargetCtrlInput)
             if config.target.topic_info:
+                # NOTE: the Target topic_info is not used for anything. This is reserved for future use.
                 self.connect_to_dds_subscriber(config.target.topic_info, TargetInfo, self.on_receive_target_annotations)
 
-        # UltraSound
+        # Ultrasound
         if config.ultrasound and config.ultrasound.enabled:
+            # Getting the probe position
             if config.ultrasound.topic_info:
                 self.connect_to_dds_subscriber(
                     config.ultrasound.topic_info,
@@ -363,9 +367,11 @@ class VisualizationApp:
             self.sub_room_camera_depth.stop()
 
         if dpg.get_value("streaming_room_camera"):
+            # NOTE: the ROOM Camera topic_ctrl is not used for anything. This is reserved for future use.
             self.connect_to_dds_publisher(config.room_camera.topic_ctrl, CameraCtrlInput)
 
         if dpg.get_value("room_camera_mode") == "RGB":
+            # Switch to RGB mode and get the RGB image frame
             self.sub_room_camera_rgb = self.on_streaming_xyz(
                 tag="streaming_room_camera",
                 sub=self.sub_room_camera_rgb,
@@ -376,6 +382,7 @@ class VisualizationApp:
                 dv_val=self.room_camera_image_data,
             )
         else:
+            # Switch to DEPTH mode and get the DEPTH image frame
             self.sub_room_camera_depth = self.on_streaming_xyz(
                 tag="streaming_room_camera",
                 sub=self.sub_room_camera_depth,
@@ -395,6 +402,7 @@ class VisualizationApp:
             self.sub_wrist_camera_depth.stop()
 
         if dpg.get_value("wrist_camera_mode") == "RGB":
+            # Switch to RGB mode and get the RGB image frame
             self.sub_wrist_camera_rgb = self.on_streaming_xyz(
                 tag="streaming_wrist_camera",
                 sub=self.sub_wrist_camera_rgb,
@@ -405,6 +413,7 @@ class VisualizationApp:
                 dv_val=self.wrist_camera_image_data,
             )
         else:
+            # Switch to DEPTH mode and get the DEPTH image frame
             self.sub_wrist_camera_depth = self.on_streaming_xyz(
                 tag="streaming_wrist_camera",
                 sub=self.sub_wrist_camera_depth,
@@ -416,10 +425,11 @@ class VisualizationApp:
             )
 
     def on_streaming_ultrasound(self) -> None:
-        """Handle ultrasound streaming control."""
+        """Handle ultrasound streaming images and control."""
         if self.sub_ultrasound_image is not None:
             self.sub_ultrasound_image.stop()
 
+        # Get the ultrasound image
         self.sub_ultrasound_image = self.on_streaming_xyz(
             tag="streaming_ultrasound",
             sub=self.sub_ultrasound_image,
