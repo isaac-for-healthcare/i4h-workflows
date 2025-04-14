@@ -12,7 +12,7 @@ Please refer to the [Environment Setup - Set environment variables before runnin
 
 ### Run Policy
 
-Please move back to the current folder and run the following command:
+Please move to the current [`policy_runner` folder](./) and execute:
 
 ```sh
 python run_policy.py

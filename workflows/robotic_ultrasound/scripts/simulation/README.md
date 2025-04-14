@@ -43,7 +43,7 @@ Please refer to the [Environment Setup - Set environment variables before runnin
 
 ### Run the script
 
-Run the following command:
+Please move to the current [`simulation` folder](./) and execute:
 
 ```sh
 python imitation_learning/pi0_policy/eval.py --enable_camera
@@ -65,6 +65,8 @@ When `run_policy.py` is launched and idle waiting for the data,
 Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
 
 ### Run the script
+
+Please move to the current [`simulation` folder](./) and execute:
 
 ```sh
 python environments/sim_with_dds.py --enable_cameras
@@ -97,7 +99,7 @@ The state machine integrates multiple control modules:
 
 Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) to set the `PYTHONPATH`.
 
-Then execute:
+Then please move to the current [`simulation` folder](./) and execute:
 
 ```sh
 python environments/state_machine/liver_scan_sm.py --enable_cameras
@@ -105,7 +107,7 @@ python environments/state_machine/liver_scan_sm.py --enable_cameras
 
 #### Data Collection
 
-To run the state machine and collect data for a specified number of episodes:
+To run the state machine and collect data for a specified number of episodes, you need to pass the `--num_episodes` argument. Default is 0, which means no data collection.
 
 ```sh
 python environments/state_machine/liver_scan_sm.py \
@@ -155,7 +157,7 @@ The teleoperation interface allows direct control of the robotic arm using vario
 
 #### Running Teleoperation
 
-Basic teleoperation can be started with:
+Please move to the current [`simulation` folder](./) and execute the following command to start the teleoperation:
 
 ```sh
 python environments/teleoperation/teleop_se3_agent.py --enable_cameras
@@ -264,7 +266,7 @@ You only need to specify the parameters you want to change - any omitted paramet
 
 #### Running the Simulator
 
-To run the ultrasound raytracing simulator:
+Please move to the current [`simulation` folder](./) and execute the following command to run the ultrasound raytracing simulator:
 
 ```sh
 python examples/ultrasound_raytracing.py
