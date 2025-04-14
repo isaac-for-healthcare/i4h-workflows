@@ -6,12 +6,9 @@
 
 Please refer to the [Environment Setup](../../README.md#environment-setup) instructions.
 
-### Setup Python Path
+### Ensure the PYTHONPATH Is Set
 
-Please move to the [scripts](../) folder and specify python path:
-```sh
-export PYTHONPATH=`pwd`
-```
+Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
 
 ### Run Policy
 

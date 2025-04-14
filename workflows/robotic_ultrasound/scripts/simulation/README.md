@@ -37,12 +37,13 @@ Currently there are these robot configurations that can be used in various tasks
 ### PI Zero Policy Evaluation
 Set up `openpi` referring to [PI0 runner](../policy_runner/README.md).
 
-Move to the [scripts](../) folder and specify python path:
-```sh
-export PYTHONPATH=`pwd`
-```
+### Ensure the PYTHONPATH Is Set
 
-5. Return to this folder and run the following command:
+Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
+
+### Run the script
+
+Run the following command:
 
 ```sh
 python imitation_learning/pi0_policy/eval.py --enable_camera
@@ -58,11 +59,13 @@ so please ensure to launch the `run_policy.py` with `height=224`, `width=224`,
 and the same `domain id` as this example in another terminal.
 
 When `run_policy.py` is launched and idle waiting for the data,
-move to the [scripts](../) folder and specify the python path:
-```sh
-export PYTHONPATH=`pwd`
-```
-Then move back to this folder and execute:
+
+### Ensure the PYTHONPATH Is Set
+
+Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
+
+### Run the script
+
 ```sh
 python environments/sim_with_dds.py --enable_cameras
 ```
@@ -92,11 +95,9 @@ The state machine integrates multiple control modules:
 
 #### Usage
 
-move to the [scripts](../) folder and specify the python path:
-```sh
-export PYTHONPATH=`pwd`
-```
-Then move back to this folder and execute:
+Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) to set the `PYTHONPATH`.
+
+Then execute:
 
 ```sh
 python environments/state_machine/liver_scan_sm.py --enable_cameras
