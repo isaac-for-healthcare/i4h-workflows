@@ -102,7 +102,7 @@ Assets downloaded to: <user-home-directory>/.cache/i4h-assets/<SHA256>
 
 
 ### Set environment variables before running the scripts
-Make sure `PYTHONPATH` are `RTI_LICENSE_FILE` are set:
+Make sure both `PYTHONPATH` and `RTI_LICENSE_FILE` are set:
 ```sh
 export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts`
 export RTI_LICENSE_FILE=<path-to-rti-license-file>
