@@ -83,7 +83,7 @@ def process_data(file_path, output_path):
             writers["seg"][vid_idx].write(seg_mask_colored)
 
     for i in npz_savers.keys():
-        np.savez(f"{output_path}/seg_mask_video_{i}.npz", np.array(npz_savers[i]))
+        np.savez(f"{output_path}/seg_mask_video_{i}.npz", data=np.array(npz_savers[i]))
 
     # Release all video writers
     for category in writers:
@@ -93,9 +93,10 @@ def process_data(file_path, output_path):
     print("Videos saved successfully!")
 
 if __name__ == '__main__':
-    exps_name = "2025-04-11-18-50-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0/"
+    # exps_name = "2025-04-14-13-45-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0/"
+    exps_name = "2025-04-14-18-33-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0/"
     folder = "data/hdf5/" + exps_name
-    output_folder = "output/" + exps_name
+    output_folder = "data/output/" + exps_name
     files = glob.glob(folder + '*.hdf5')
     for f in tqdm.tqdm(files):
         basename = os.path.basename(f).split('.')[0]

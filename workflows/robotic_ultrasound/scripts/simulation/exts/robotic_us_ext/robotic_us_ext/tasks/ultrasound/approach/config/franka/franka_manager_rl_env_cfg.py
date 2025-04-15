@@ -55,7 +55,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     ground = AssetBaseCfg(
         prim_path="/World/defaultGroundPlane",
         init_state=AssetBaseCfg.InitialStateCfg(pos=[0, 0, -0.84]),
-        spawn=sim_utils.GroundPlaneCfg(),
+        spawn=sim_utils.GroundPlaneCfg(semantic_tags=[("class", "ground")]),
     )
 
     # lights
@@ -70,6 +70,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         ),
         spawn=sim_utils.UsdFileCfg(
             usd_path=robot_us_assets.table_with_cover,
+            semantic_tags=[("class", "table")],
         ),
     )
 
@@ -87,12 +88,14 @@ class RoboticSoftCfg(InteractiveSceneCfg):
             rigid_props=sim_utils.RigidBodyPropertiesCfg(rigid_body_enabled=True),
             mass_props=sim_utils.MassPropertiesCfg(mass=1000.0),
             collision_props=sim_utils.CollisionPropertiesCfg(),
+            semantic_tags=[("class", "organ")],
         ),
     )
 
     # articulation
     # configure alternative robots in derived environments.
     robot: ArticulationCfg = FRANKA_PANDA_HIGH_PD_FORCE_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    robot.spawn.semantic_tags = [("class", "robot")]
 
     # robot: ArticulationCfg = FRANKA_PANDA_REALSENSE_CFG.replace(
     #     prim_path="{ENV_REGEX_NS}/Robot"
@@ -107,7 +110,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         update_period=0.0,
         height=224,
         width=224,
-        data_types=["rgb", "distance_to_image_plane"],
+        data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=12.0,
             focus_distance=100.0,
@@ -119,15 +122,17 @@ class RoboticSoftCfg(InteractiveSceneCfg):
             rot=euler_angles_to_quats(torch.tensor([248.0, 0.0, 180.0]), degrees=True),
             convention="ros",
         ),
+        colorize_semantic_segmentation=False,
     )
 
     wrist_camera = CameraCfg(
-        data_types=["rgb", "distance_to_image_plane"],
+        data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
         prim_path="{ENV_REGEX_NS}/Robot/D405_rigid/D405/Camera_OmniVision_OV9782_Color",
         spawn=None,
         height=224,
         width=224,
         update_period=0.0,
+        colorize_semantic_segmentation=False,
     )
 
     # Frame definitions for the goal frame
@@ -353,7 +358,7 @@ class EventCfg:
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
-            "pose_range": {"x": (-0.2, 0.2), "y": (-0.2, 0.2), "z": (-0, -0.0), "yaw": (-math.radians(180), math.radians(180))},
+            "pose_range": {"x": (-0.1, 0.1), "y": (-0.0, 0.0), "z": (-0, -0.0)},
             "velocity_range": {},
             "asset_cfg": SceneEntityCfg("organs"),
         },
