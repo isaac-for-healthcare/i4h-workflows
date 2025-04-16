@@ -39,20 +39,25 @@ def get_tests(test_root, pattern="test_*.py"):
 def _run_test_process(cmd, env, test_path):
     """Helper function to run a test process and handle its output"""
     print(f"Running test: {test_path}")
-    process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    stdout, stderr = process.communicate()
 
-    # Filter out extension loading messages
-    filtered_stdout = "\n".join([line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)])
-    filtered_stderr = "\n".join([line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)])
+    try:
+        process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = process.communicate(timeout=180)
+        # Filter out extension loading messages
+        filtered_stdout = "\n".join([line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)])
+        filtered_stderr = "\n".join([line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)])
 
-    # Print filtered output
-    if filtered_stdout.strip():
-        print(filtered_stdout)
-    if filtered_stderr.strip():
-        print(filtered_stderr)
+        # Print filtered output
+        if filtered_stdout.strip():
+            print(filtered_stdout)
+        if filtered_stderr.strip():
+            print(filtered_stderr)
 
-    return process.returncode == 0
+        return process.returncode == 0
+
+    except subprocess.TimeoutExpired:
+        print("❌ Test run timed out! ", cmd)
+        return False
 
 
 def _setup_test_env(project_root, tests_dir):
