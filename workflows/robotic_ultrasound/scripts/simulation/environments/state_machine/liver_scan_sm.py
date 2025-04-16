@@ -91,13 +91,13 @@ parser.add_argument(
 parser.add_argument(
     "--camera_width",
     type=int,
-    default=640,
+    default=224,
     help="width of the camera",
 )
 parser.add_argument(
     "--camera_height",
     type=int,
-    default=480,
+    default=224,
     help="height of the camera",
 )
 
