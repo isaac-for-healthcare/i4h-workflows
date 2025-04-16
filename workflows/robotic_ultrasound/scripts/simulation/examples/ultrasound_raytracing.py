@@ -25,6 +25,7 @@ from holoscan.conditions import PeriodicCondition
 from holoscan.core import Application, MetadataPolicy, Operator, OperatorSpec
 from rti.types import struct
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from simulation.utils.common import get_default_dds_qos_profile
 
 try:
     import raysim.cuda as rs
@@ -557,7 +558,7 @@ def main():
     parser.add_argument(
         "--qos_provider_path",
         type=str,
-        default="../dds/qos_profiles.xml",
+        default=get_default_dds_qos_profile(),
         help="path to custom qos provider path",
     )
     parser.add_argument(

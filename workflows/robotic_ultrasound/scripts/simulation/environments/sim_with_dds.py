@@ -37,6 +37,7 @@ from simulation.environments.state_machine.utils import (
     get_probe_pos_ori,
     get_robot_obs,
 )
+from simulation.utils.common import get_default_dds_qos_profile
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Run simulation in a single-arm manipulator, communication via DDS.")
@@ -103,7 +104,7 @@ parser.add_argument(
 parser.add_argument(
     "--qos_provider_path",
     type=str,
-    default="../dds/qos_profiles.xml",
+    default=get_default_dds_qos_profile(),
     help="qos provider path",
 )
 parser.add_argument("--log_probe_pos", action="store_true", default=False, help="Log probe position.")
