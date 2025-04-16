@@ -23,16 +23,13 @@ import gymnasium as gym
 from ..teleop import ik_rel_env_cfg
 from . import agents, franka_manager_rl_env_cfg
 
-
 ##
 # Inverse Kinematics - Absolute Pose Control
 ##
 gym.register(
     id="Isaac-Reach-Torso-FrankaUsRs-IK-RL-Abs-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
-    kwargs={
-        "env_cfg_entry_point": franka_manager_rl_env_cfg.FrankaModRGBDIkRlEnvCfg
-    },
+    kwargs={"env_cfg_entry_point": franka_manager_rl_env_cfg.FrankaModRGBDIkRlEnvCfg},
     disable_env_checker=True,
 )
 
