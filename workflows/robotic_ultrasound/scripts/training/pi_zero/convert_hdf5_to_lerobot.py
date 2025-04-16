@@ -149,7 +149,7 @@ def normalize_depth_image(depth_image):
 def create_lerobot_dataset(
     output_path: str,
     robot_type: str = "panda",
-    fps: int = 10,
+    fps: int = 30,
     image_shape: tuple[int, int, int] = (224, 224, 3),
     state_shape: tuple[int, ...] = (7,),
     actions_shape: tuple[int, ...] = (6,),
@@ -387,7 +387,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--image_shape",
         type=lambda s: tuple(map(int, s.split(","))),
-        default=(480, 640, 3),
+        default=(224, 224, 3),
         help="Shape of the image data as a comma-separated string, e.g., '480,640,3'",
     )
     parser.add_argument(
