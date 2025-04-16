@@ -15,7 +15,6 @@
 
 import os
 from importlib.util import module_from_spec, spec_from_file_location
-from pathlib import Path
 
 import numpy as np
 from simulation.configs.config import Config
@@ -75,22 +74,3 @@ def get_exp_config(name: str, configs_path: str | None = None) -> Config:
 
     spec.loader.exec_module(module)
     return module.config
-
-
-def get_workflow_root() -> Path:
-    """Get the root directory of the workflow."""
-    return Path(__file__).parent.parent.parent.parent
-
-
-def get_scripts_dir() -> Path:
-    """Get the scripts directory of the workflow."""
-    return get_workflow_root() / "scripts"
-
-
-def get_default_dds_qos_profile() -> Path:
-    """Get the default DDS QoS profile."""
-    return str(get_scripts_dir() / "dds" / "qos_profiles.xml")
-
-
-if __name__ == "__main__":
-    print(get_default_dds_qos_profile())

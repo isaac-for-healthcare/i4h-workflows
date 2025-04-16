@@ -21,6 +21,7 @@ from typing import Any
 import rti.connextdds as dds  # noqa: F401
 
 from .base import DDSEntity
+from dds.utils import get_default_qos_provider_path, get_default_transport_profile, get_default_entity_profile
 
 
 class Publisher(DDSEntity, ABC):
@@ -43,10 +44,17 @@ class Publisher(DDSEntity, ABC):
         cls: Any,
         period: float,
         domain_id: int,
-        qos_provider_path: str,
-        transport_profile: str,
-        writer_profile: str,
+        qos_provider_path: str | None = None,
+        transport_profile: str | None = None,
+        writer_profile: str | None = None,
     ):
+        qos_provider_path = qos_provider_path or get_default_qos_provider_path()
+        transport_profile = transport_profile or get_default_transport_profile()
+        writer_profile = writer_profile or get_default_entity_profile(topic)
+        print(f"writer_profile: {writer_profile}")
+        print(f"transport_profile: {transport_profile}")
+        print(f"qos_provider_path: {qos_provider_path}")
+
         super().__init__(
             topic=topic,
             cls=cls,

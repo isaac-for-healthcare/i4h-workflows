@@ -25,7 +25,6 @@ from dds.subscriber import SubscriberWithCallback
 from PIL import Image
 from policy_runner.runners import PI0PolicyRunner
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
-from simulation.utils.common import get_default_dds_qos_profile
 
 current_state = {
     "room_cam": None,
@@ -84,12 +83,6 @@ def main():
         default="topic_franka_ctrl",
         help="topic name to publish generated franka actions.",
     )
-    parser.add_argument(
-        "--qos_provider_path",
-        type=str,
-        default=get_default_dds_qos_profile(),
-        help="qos provider path",
-    )
     parser.add_argument("--verbose", type=bool, default=False, help="whether to print the log.")
     args = parser.parse_args()
 
@@ -104,15 +97,7 @@ def main():
 
     class PolicyPublisher(Publisher):
         def __init__(self, topic: str, domain_id: int):
-            super().__init__(
-                topic,
-                FrankaCtrlInput,
-                1 / hz,
-                domain_id,
-                args.qos_provider_path,
-                "i4h_transport::SHMEM+LAN",
-                "RoboticUltrasoundLibrary::FrankaCtrl",
-            )
+            super().__init__(topic, FrankaCtrlInput, 1 / hz, domain_id)
 
         def produce(self, dt: float, sim_time: float):
             r_cam_buffer = np.frombuffer(current_state["room_cam"], dtype=np.uint8)
@@ -165,36 +150,9 @@ def main():
             # clean the buffer
             current_state["room_cam"] = current_state["wrist_cam"] = current_state["joint_pos"] = None
 
-    SubscriberWithCallback(
-        dds_callback,
-        args.domain_id,
-        args.topic_in_room_camera,
-        CameraInfo,
-        1 / hz,
-        args.qos_provider_path,
-        "i4h_transport::SHMEM+LAN",
-        "RoboticUltrasoundLibrary::CameraInfo",
-    ).start()
-    SubscriberWithCallback(
-        dds_callback,
-        args.domain_id,
-        args.topic_in_wrist_camera,
-        CameraInfo,
-        1 / hz,
-        args.qos_provider_path,
-        "i4h_transport::SHMEM+LAN",
-        "RoboticUltrasoundLibrary::CameraInfo",
-    ).start()
-    SubscriberWithCallback(
-        dds_callback,
-        args.domain_id,
-        args.topic_in_franka_pos,
-        FrankaInfo,
-        1 / hz,
-        args.qos_provider_path,
-        "i4h_transport::SHMEM+LAN",
-        "RoboticUltrasoundLibrary::FrankaInfo",
-    ).start()
+    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_room_camera, CameraInfo, 1 / hz).start()
+    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_wrist_camera, CameraInfo, 1 / hz).start()
+    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_franka_pos, FrankaInfo, 1 / hz).start()
 
 
 if __name__ == "__main__":

@@ -23,6 +23,7 @@ from typing import Any, Callable
 import rti.connextdds as dds  # noqa: F401
 
 from .base import DDSEntity
+from dds.utils import get_default_qos_provider_path, get_default_transport_profile, get_default_entity_profile
 
 
 class Subscriber(DDSEntity, ABC):
@@ -51,11 +52,15 @@ class Subscriber(DDSEntity, ABC):
         cls: Any,
         period: float,
         domain_id: int,
-        qos_provider_path: str,
-        transport_profile: str,
-        reader_profile: str,
+        qos_provider_path: str | None = None,
+        transport_profile: str | None = None,
+        reader_profile: str | None = None,
         add_to_queue: bool = True,
     ):
+        qos_provider_path = qos_provider_path or get_default_qos_provider_path()
+        transport_profile = transport_profile or get_default_transport_profile()
+        reader_profile = reader_profile or get_default_entity_profile(topic)
+
         super().__init__(
             topic=topic,
             cls=cls,
@@ -213,9 +218,9 @@ class SubscriberWithQueue(Subscriber):
         topic: str,
         cls: Any,
         period: float,
-        qos_provider_path: str,
-        transport_profile: str,
-        reader_profile: str,
+        qos_provider_path: str | None = None,
+        transport_profile: str | None = None,
+        reader_profile: str | None = None,
     ):
         super().__init__(
             topic,
@@ -263,9 +268,9 @@ class SubscriberWithCallback(Subscriber):
         topic: str,
         cls: Any,
         period: float,
-        qos_provider_path: str,
-        transport_profile: str,
-        reader_profile: str,
+        qos_provider_path: str | None = None,
+        transport_profile: str | None = None,
+        reader_profile: str | None = None,
     ):
         super().__init__(
             topic,

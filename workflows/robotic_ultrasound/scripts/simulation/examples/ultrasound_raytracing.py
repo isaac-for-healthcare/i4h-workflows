@@ -25,7 +25,6 @@ from holoscan.conditions import PeriodicCondition
 from holoscan.core import Application, MetadataPolicy, Operator, OperatorSpec
 from rti.types import struct
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
-from simulation.utils.common import get_default_dds_qos_profile
 
 try:
     import raysim.cuda as rs
@@ -68,7 +67,6 @@ class UltrasoundSimSubscriber(Operator):
         domain_id=0,
         topic="topic_ultrasound_info",
         data_schema: struct = UltraSoundProbeInfo,
-        qos_provider_path=None,
         **kwargs,
     ):
         self.domain_id = domain_id
@@ -79,7 +77,6 @@ class UltrasoundSimSubscriber(Operator):
         self.dp = None
         self.subscriber = None
         self.period = 1 / 30.0
-        self.qos_provider_path = qos_provider_path
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec):
@@ -95,9 +92,6 @@ class UltrasoundSimSubscriber(Operator):
             topic=self.topic,
             cls=self.data_schema,
             period=self.period,
-            qos_provider_path=self.qos_provider_path,
-            transport_profile="i4h_transport::SHMEM+LAN",
-            reader_profile="RoboticUltrasoundLibrary::UspInfo",
         )
         self.subscriber.start()
 
@@ -473,7 +467,6 @@ class StreamingSimulator(Application):
         start_pose=np.zeros((6,)),
         period=1 / 30.0,
         config_path=None,
-        qos_provider_path=None,
     ):
         super().__init__()
         self.domain_id = domain_id
@@ -484,7 +477,6 @@ class StreamingSimulator(Application):
         self.start_pose = start_pose
         self.config_path = config_path
         self.period = period
-        self.qos_provider_path = qos_provider_path
 
     def compose(self):
         """
@@ -496,7 +488,6 @@ class StreamingSimulator(Application):
             domain_id=self.domain_id,
             topic=self.input_topic,
             name="subscriber",
-            qos_provider_path=self.qos_provider_path,
         )
 
         # Create the simulator
@@ -550,16 +541,10 @@ def main():
         help="topic name to publish generated ultrasound data.",
     )
     parser.add_argument(
-        "--topic_out",
+        "--config",
         type=str,
-        default="topic_ultrasound_data",
-        help="topic name to publish generated ultrasound data",
-    )
-    parser.add_argument(
-        "--qos_provider_path",
-        type=str,
-        default=get_default_dds_qos_profile(),
-        help="path to custom qos provider path",
+        default=None,
+        help="path to custom JSON configuration file with probe parameters and simulation parameters. ",
     )
     parser.add_argument(
         "--period",
@@ -576,7 +561,6 @@ def main():
         out_height=args.height,
         period=args.period,
         config_path=args.config,
-        qos_provider_path=args.qos_provider_path,
     )
 
     app.is_metadata_enabled = True
