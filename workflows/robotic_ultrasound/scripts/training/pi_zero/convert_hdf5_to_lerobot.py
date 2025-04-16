@@ -29,11 +29,121 @@ import os
 import re
 import shutil
 import warnings
-
+import numpy as np
+from PIL import Image
 import h5py
 import tqdm
 from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME, LeRobotDataset
 from openpi_client import image_tools
+
+
+def colorize_segmentation_mask(seg_mask, color_map=None):
+    """
+    Converts a segmentation mask to a colored RGB image.
+    Handles batch dimensions and multiple views.
+    
+    Parameters:
+    -----------
+    seg_mask : numpy.ndarray or h5py.Dataset
+        Segmentation mask with integer labels, shape can be:
+        (H, W) or (H, W, 1) for single image
+        (B, H, W) or (B, H, W, 1) for batch of images
+        (B, V, H, W) or (B, V, H, W, 1) for batch with multiple views
+    color_map : dict, optional
+        Dictionary mapping label values to RGB colors.
+        If None, uses a default color map.
+        
+    Returns:
+    --------
+    numpy.ndarray
+        Colored RGB image with same batch dimensions as input but with 3 channels:
+        (H, W, 3) or (B, H, W, 3) or (B, V, H, W, 3)
+    """
+    # Convert h5py.Dataset to numpy array if needed
+    if isinstance(seg_mask, h5py.Dataset):
+        seg_mask = np.array(seg_mask)
+    
+    original_shape = seg_mask.shape
+    
+    # Default color map if none provided
+    if color_map is None:
+        color_map = {
+            0: (0, 0, 0),        # Black
+            1: (255, 0, 0),      # Red
+            2: (0, 255, 0),      # Green
+            3: (0, 0, 255),      # Blue
+            4: (255, 255, 0)     # Yellow
+        }
+    
+    # Handle different input shapes
+    if seg_mask.ndim == 2:  # (H, W)
+        # Convert to uint8 if needed
+        seg_mask = seg_mask.astype(np.uint8)
+        
+        # Create RGB image
+        H, W = seg_mask.shape
+        colored_mask = np.zeros((H, W, 3), dtype=np.uint8)
+        
+        # Apply colors based on labels
+        for label, color in color_map.items():
+            colored_mask[seg_mask == label] = np.array(color, dtype=np.uint8)
+            
+        return colored_mask
+    
+    elif seg_mask.ndim == 3:
+        if seg_mask.shape[-1] == 1:  # (H, W, 1)
+            return colorize_segmentation_mask(seg_mask[:, :, 0], color_map)
+        else:  # (B, H, W)
+            B, H, W = seg_mask.shape
+            colored_masks = np.zeros((B, H, W, 3), dtype=np.uint8)
+            for b in range(B):
+                colored_masks[b] = colorize_segmentation_mask(seg_mask[b], color_map)
+            return colored_masks
+    
+    elif seg_mask.ndim == 4:
+        if seg_mask.shape[-1] == 1:  # (B, H, W, 1)
+            return colorize_segmentation_mask(seg_mask[:, :, :, 0], color_map)
+        else:  # (B, V, H, W)
+            B, V, H, W = seg_mask.shape
+            colored_masks = np.zeros((B, V, H, W, 3), dtype=np.uint8)
+            for b in range(B):
+                for v in range(V):
+                    colored_masks[b, v] = colorize_segmentation_mask(seg_mask[b, v], color_map)
+            return colored_masks
+    
+    elif seg_mask.ndim == 5:  # (B, V, H, W, 1)
+        return colorize_segmentation_mask(seg_mask[:, :, :, :, 0], color_map)
+    
+    else:
+        raise ValueError(f"Unsupported shape: {original_shape}")
+
+
+def normalize_depth_image(depth_image):
+    """
+    Normalizes a depth image to the range [0, 255] for visualization.
+    
+    Parameters:
+    - depth_image: Input depth image
+    
+    Returns:
+    - Normalized depth image as uint8
+    """
+    # Convert to inverse depth
+    output = 1.0 / (depth_image + 1e-6)
+    
+    # Find min and max values
+    depth_min = output.min()
+    depth_max = output.max()
+    max_val = (2**8) - 1  # Maximum value for uint8
+    
+    # Normalize to [0, 255]
+    if depth_max - depth_min > np.finfo("float").eps:
+        out_array = max_val * (output - depth_min) / (depth_max - depth_min)
+    else:
+        out_array = np.zeros_like(output)
+    
+    # Convert to uint8
+    return out_array.astype("uint8")
 
 
 def create_lerobot_dataset(
@@ -45,6 +155,8 @@ def create_lerobot_dataset(
     actions_shape: tuple[int, ...] = (6,),
     image_writer_threads: int = 10,
     image_writer_processes: int = 5,
+    include_depth: bool = False,
+    include_seg: bool = False,
 ):
     """
     Creates a LeRobot dataset with specified configurations.
@@ -61,6 +173,8 @@ def create_lerobot_dataset(
     - actions_shape: Tuple defining the shape of the action data.
     - image_writer_threads: Number of threads for image writing.
     - image_writer_processes: Number of processes for image writing.
+    - include_depth: Whether to include depth images in the dataset.
+    - include_seg: Whether to include segmentation images in the dataset.
 
     Returns:
     - An instance of LeRobotDataset configured with the specified parameters.
@@ -69,32 +183,93 @@ def create_lerobot_dataset(
     if os.path.isdir(output_path):
         raise Exception(f"Output path {output_path} already exists.")
 
-    return LeRobotDataset.create(
-        repo_id=output_path,
-        robot_type=robot_type,
-        fps=fps,
-        features={
-            "image": {
+    features = {
+            "observation.images.room": {
                 "dtype": "image",
                 "shape": image_shape,
-                "names": ["height", "width", "channel"],
+                "names": ["height", "width", "channels"],
             },
-            "wrist_image": {
+            "observation.images.wrist": {
                 "dtype": "image",
                 "shape": image_shape,
-                "names": ["height", "width", "channel"],
+                "names": ["height", "width", "channels"],
             },
-            "state": {
+            
+            "observation.state": {
                 "dtype": "float32",
                 "shape": state_shape,
                 "names": ["state"],
             },
-            "actions": {
+            "action": {
                 "dtype": "float32",
                 "shape": actions_shape,
                 "names": ["actions"],
             },
-        },
+            "observation.images.room": {
+                "dtype": "video",
+                "shape": image_shape,
+                "names": ["height", "width", "channels"],
+            },
+            "observation.images.wrist": {
+                "dtype": "video",
+                "shape": image_shape,
+                "names": ["height", "width", "channels"],
+            },
+
+    }
+    if include_depth:
+        features.update({
+            "observation.depth.room": {
+                "dtype": "image",
+                "shape": image_shape,
+                "names": ["height", "width", "channels"],
+            },
+            "observation.depth.wrist": {
+                "dtype": "image",
+                "shape": image_shape,
+                "names": ["height", "width", "channels"],
+            },
+            "observation.depth.room": {
+                "dtype": "video",
+                "shape": image_shape,
+                "names": ["height", "width", "channels"],
+            },
+            "observation.depth.wrist": {
+                "dtype": "video",
+                "shape": image_shape,
+                "names": ["height", "width", "channels"],
+            },
+            
+        })
+    if include_seg:
+        features.update({
+            "observation.seg.room": {
+                "dtype": "image",
+                "shape": image_shape,
+                "names": ["height", "width", "channels"],
+            },
+            "observation.seg.wrist": {
+                "dtype": "image",
+                "shape": image_shape,
+                "names": ["height", "width", "channels"],
+            },
+                "observation.seg.room": {
+                "dtype": "video",
+                "shape": image_shape,
+                "names": ["height", "width", "channels"],
+            },
+            "observation.seg.wrist": {
+                "dtype": "video",
+                "shape": image_shape,
+                "names": ["height", "width", "channels"],
+            },
+        })
+        
+    return LeRobotDataset.create(
+        repo_id=output_path,
+        robot_type=robot_type,
+        fps=fps,
+        features=features,
         image_writer_threads=image_writer_threads,
         image_writer_processes=image_writer_processes,
     )
@@ -105,6 +280,9 @@ def main(
     repo_id: str,
     task_prompt: str,
     image_shape=(224, 224, 3),
+    include_depth: bool = False,
+    include_seg: bool = False,
+    run_compute_stats: bool = False,
     **dataset_config_kwargs,
 ):
     """
@@ -129,7 +307,7 @@ def main(
             raise Exception(f"Error removing {final_output_path}: {e}. Please ensure that you have write permissions.")
 
     # Create LeRobot dataset, define features to store
-    dataset = create_lerobot_dataset(final_output_path, image_shape=image_shape, **dataset_config_kwargs)
+    dataset = create_lerobot_dataset(final_output_path, image_shape=image_shape, include_depth=include_depth, include_seg=include_seg, **dataset_config_kwargs)
 
     # Collect all the hdf5 files in the data directory
     if not os.path.isdir(data_dir):
@@ -160,19 +338,35 @@ def main(
             num_steps = len(f[root_name]["action"])
             for step in range(num_steps):
                 rgb = f[root_name]["observations/rgb_images"][step]
-                dataset.add_frame(
-                    {
-                        "image": image_tools.resize_with_pad(rgb[0], image_shape[0], image_shape[1]),
-                        "wrist_image": image_tools.resize_with_pad(rgb[1], image_shape[0], image_shape[1]),
-                        "state": f[root_name]["abs_joint_pos"][step],
-                        "actions": f[root_name]["action"][step],
+                if include_seg:
+                    seg = f[root_name]["observations/seg_images"][step]
+                    seg_mask_colored = colorize_segmentation_mask(seg)
+
+                if include_depth:
+                    depth = f[root_name]["observations/depth_images"][step]
+                    depth_normalized = normalize_depth_image(depth)
+                
+                frame_dict = {
+                        "observation.images.room": image_tools.resize_with_pad(rgb[0], image_shape[0], image_shape[1]),
+                        "observation.images.wrist": image_tools.resize_with_pad(rgb[1], image_shape[0], image_shape[1]),
+                        "observation.state": f[root_name]["abs_joint_pos"][step],
+                        "action": f[root_name]["action"][step],
                     }
-                )
+                if include_seg:
+                    frame_dict["observation.seg.room"] = image_tools.resize_with_pad(
+                        seg_mask_colored[0], image_shape[0], image_shape[1], method=Image.NEAREST)
+                    frame_dict["observation.seg.wrist"] = image_tools.resize_with_pad(
+                        seg_mask_colored[1], image_shape[0], image_shape[1], method=Image.NEAREST)
+                if include_depth:
+                    frame_dict["observation.depth.room"] = image_tools.resize_with_pad(depth_normalized[0], image_shape[0], image_shape[1]).squeeze(2)
+                    frame_dict["observation.depth.wrist"] = image_tools.resize_with_pad(depth_normalized[1], image_shape[0], image_shape[1]).squeeze(2)
+                dataset.add_frame(frame_dict)
+
         dataset.save_episode(task=task_prompt)
 
     print(f"Saving dataset to {final_output_path}")
     # Consolidate the dataset, skip computing stats since we will do that later
-    dataset.consolidate(run_compute_stats=False)
+    dataset.consolidate(run_compute_stats=run_compute_stats)
 
 
 if __name__ == "__main__":
@@ -193,8 +387,23 @@ if __name__ == "__main__":
     parser.add_argument(
         "--image_shape",
         type=lambda s: tuple(map(int, s.split(","))),
-        default=(224, 224, 3),
-        help="Shape of the image data as a comma-separated string, e.g., '224,224,3'",
+        default=(480, 640, 3),
+        help="Shape of the image data as a comma-separated string, e.g., '480,640,3'",
+    )
+    parser.add_argument(
+        "--include_depth",
+        action="store_true",
+        help="Include depth images in the dataset",
+    )
+    parser.add_argument(
+        "--include_seg",
+        action="store_true",
+        help="Include segmentation images in the dataset",
+    )
+    parser.add_argument(
+        "--run_compute_stats",
+        default=False,
+        help="Run compute stats",
     )
     args = parser.parse_args()
-    main(args.data_dir, args.repo_id, args.task_prompt, image_shape=args.image_shape)
+    main(args.data_dir, args.repo_id, args.task_prompt, image_shape=args.image_shape, include_depth=args.include_depth, include_seg=args.include_seg, run_compute_stats=args.run_compute_stats)

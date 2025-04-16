@@ -94,7 +94,6 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     # articulation
     # configure alternative robots in derived environments.
     robot: ArticulationCfg = FRANKA_PANDA_HIGH_PD_FORCE_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
-    robot.spawn.semantic_tags = [("class", "robot")]
 
     # robot: ArticulationCfg = FRANKA_PANDA_REALSENSE_CFG.replace(
     #     prim_path="{ENV_REGEX_NS}/Robot"

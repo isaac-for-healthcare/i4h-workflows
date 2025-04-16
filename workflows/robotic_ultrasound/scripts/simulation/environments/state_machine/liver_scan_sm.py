@@ -176,21 +176,11 @@ def main():
     )
     assert args_cli.num_envs == 1, "Number of environments must be 1 for this script"
 
-
     # create environment
     env_cfg.scene.room_camera.width = args_cli.camera_width
     env_cfg.scene.room_camera.height = args_cli.camera_height
     env_cfg.scene.wrist_camera.width = args_cli.camera_width
     env_cfg.scene.wrist_camera.height = args_cli.camera_height
-    # env_cfg.scene.organs.spawn.semantic_tags = [("class", "organ")]
-    # env_cfg.scene.table.spawn.semantic_tags = [("class", "table")]
-    # env_cfg.scene.ground.spawn.semantic_tags = [("class", "ground")]
-    env_cfg.scene.robot.spawn.semantic_tags = [("class", "robot")]
-    # Adjust depth clipping behavior if needed
-    # env_cfg.scene.room_camera.depth_clipping_behavior = "clip"  # Options: 'clip', 'none'
-    # env_cfg.scene.wrist_camera.depth_clipping_behavior = "clip"  # Options: 'clip', 'none'
-
-
 
     # Ensure no timeout
     env_cfg.terminations.time_out = None
