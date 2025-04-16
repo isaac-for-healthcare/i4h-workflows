@@ -6,7 +6,7 @@
 
 This tutorial outlines the steps required to transition a policy trained in simulation to operate in the real world using a physical robot and cameras.
 
-The core script, [`workflows/robotic_ultrasound/scripts/policy_runner/run_policy.py`](../../workflows/robotic_ultrasound/scripts/policy_runner/run_policy.py), remains largely the same. Intructions for running this script can be found in the [policy_runner](../../workflows/robotic_ultrasound/scripts/policy_runner/README.md) directory. The primary task in moving from simulation to the real world involves changing the *source* of the input data (camera images and robot joint states) and the *destination* of the output actions.
+The core script, [`workflows/robotic_ultrasound/scripts/policy_runner/run_policy.py`](../../workflows/robotic_ultrasound/scripts/policy_runner/run_policy.py), remains largely the same. Instructions for running this script can be found in the [policy_runner](../../workflows/robotic_ultrasound/scripts/policy_runner/README.md) directory. The primary task in moving from simulation to the real world involves changing the *source* of the input data (camera images and robot joint states) and the *destination* of the output actions.
 
 Specifically:
 1.  **Input:** Instead of reading from a simulator, the `run_policy.py` script needs to subscribe to DDS topics publishing real camera images and real robot joint states.
