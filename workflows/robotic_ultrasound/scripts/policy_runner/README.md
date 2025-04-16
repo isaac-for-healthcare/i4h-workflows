@@ -6,16 +6,13 @@
 
 Please refer to the [Environment Setup](../../README.md#environment-setup) instructions.
 
-### Setup Python Path
+### Ensure the PYTHONPATH Is Set
 
-Please move to the [scripts](../) folder and specify python path:
-```sh
-export PYTHONPATH=`pwd`
-```
+Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
 
 ### Run Policy
 
-Please move back to the current folder and run the following command:
+Please move to the current [`policy_runner` folder](./) and execute:
 
 ```sh
 python run_policy.py
