@@ -22,7 +22,6 @@ from dataclasses import MISSING
 
 import isaaclab.sim as sim_utils
 import torch
-import math
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.controllers import DifferentialIKControllerCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
@@ -372,16 +371,16 @@ class EventCfg:
             "asset_cfg": SceneEntityCfg("robot", joint_names=["panda_joint.*"]),
         },
     )
-    reset_camera_position = EventTerm(
-        func=mdp.reset_camera,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("room_camera"),
-            "init_position": [0.55942, 0.56039, 0.36243], 
-            "perturb_range_lower": [-0.1, 0, -0.1],
-            "perturb_range_upper": [0.1, 0.8, 0.1],
-        },
-    )
+    # reset_camera_position = EventTerm(
+    #     func=mdp.reset_camera,
+    #     mode="reset",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("room_camera"),
+    #         "init_position": [0.55942, 0.56039, 0.36243], 
+    #         "perturb_range_lower": [-0.1, 0, -0.1],
+    #         "perturb_range_upper": [0.1, 0.8, 0.1],
+    #     },
+    # )
 
 
 @configclass
