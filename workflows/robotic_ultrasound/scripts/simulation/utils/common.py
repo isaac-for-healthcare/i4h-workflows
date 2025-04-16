@@ -15,6 +15,7 @@
 
 import os
 from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
 
 import numpy as np
 from simulation.configs.config import Config
@@ -74,8 +75,6 @@ def get_exp_config(name: str, configs_path: str | None = None) -> Config:
 
     spec.loader.exec_module(module)
     return module.config
-
-from pathlib import Path
 
 
 def get_workflow_root() -> Path:

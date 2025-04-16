@@ -24,8 +24,8 @@ from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
 from PIL import Image
 from policy_runner.runners import PI0PolicyRunner
-from simulation.utils.common import get_default_dds_qos_profile
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from simulation.utils.common import get_default_dds_qos_profile
 
 current_state = {
     "room_cam": None,

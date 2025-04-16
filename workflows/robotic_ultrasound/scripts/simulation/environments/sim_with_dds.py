@@ -143,13 +143,15 @@ hz = 30
 
 class RoomCamPublisher(Publisher):
     def __init__(self, topic: str, domain_id: int, rgb: bool = True):
-        super().__init__(topic, 
-                         CameraInfo, 
-                         1 / hz, 
-                         domain_id, 
-                         args_cli.qos_provider_path, 
-                         "i4h_transport::SHMEM+LAN", 
-                         "RoboticUltrasoundLibrary::CameraInfo")
+        super().__init__(
+            topic,
+            CameraInfo,
+            1 / hz,
+            domain_id,
+            args_cli.qos_provider_path,
+            "i4h_transport::SHMEM+LAN",
+            "RoboticUltrasoundLibrary::CameraInfo",
+        )
         self.rgb = rgb
 
     def produce(self, dt: float, sim_time: float):
@@ -166,13 +168,15 @@ class RoomCamPublisher(Publisher):
 
 class WristCamPublisher(Publisher):
     def __init__(self, topic: str, domain_id: int, rgb: bool = True):
-        super().__init__(topic, 
-                         CameraInfo, 
-                         1 / hz, 
-                         domain_id, 
-                         args_cli.qos_provider_path, 
-                         "i4h_transport::SHMEM+LAN", 
-                         "RoboticUltrasoundLibrary::CameraInfo")
+        super().__init__(
+            topic,
+            CameraInfo,
+            1 / hz,
+            domain_id,
+            args_cli.qos_provider_path,
+            "i4h_transport::SHMEM+LAN",
+            "RoboticUltrasoundLibrary::CameraInfo",
+        )
         self.rgb = rgb
 
     def produce(self, dt: float, sim_time: float):
