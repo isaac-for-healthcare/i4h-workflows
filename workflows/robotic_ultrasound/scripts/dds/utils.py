@@ -15,6 +15,7 @@
 
 import os
 
+
 def get_default_qos_provider_path():
     """Get the default QoS provider path."""
     return os.path.join(os.path.dirname(__file__), "qos_profiles.xml")
@@ -44,7 +45,7 @@ def get_default_entity_profile(topic: str):
         "topic_ultrasound_info": "UspInfo",
         "topic_ultrasound_data": "UspData",
     }
-    
+
     if topic not in mapping:
         raise ValueError(f"No default entity profile found for topic: {topic}")
     return f"{get_default_qos_library()}::{mapping[topic]}"

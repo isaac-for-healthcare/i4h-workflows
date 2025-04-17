@@ -21,9 +21,9 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable
 
 import rti.connextdds as dds  # noqa: F401
+from dds.utils import get_default_entity_profile, get_default_qos_provider_path, get_default_transport_profile
 
 from .base import DDSEntity
-from dds.utils import get_default_qos_provider_path, get_default_transport_profile, get_default_entity_profile
 
 
 class Subscriber(DDSEntity, ABC):
