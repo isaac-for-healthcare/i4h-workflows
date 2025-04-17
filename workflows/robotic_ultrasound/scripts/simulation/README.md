@@ -37,12 +37,13 @@ Currently there are these robot configurations that can be used in various tasks
 ### PI Zero Policy Evaluation
 Set up `openpi` referring to [PI0 runner](../policy_runner/README.md).
 
-Move to the [scripts](../) folder and specify python path:
-```sh
-export PYTHONPATH=`pwd`
-```
+### Ensure the PYTHONPATH Is Set
 
-5. Return to this folder and run the following command:
+Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
+
+### Run the script
+
+Please move to the current [`simulation` folder](./) and execute:
 
 ```sh
 python imitation_learning/pi0_policy/eval.py --enable_camera
@@ -58,11 +59,15 @@ so please ensure to launch the `run_policy.py` with `height=224`, `width=224`,
 and the same `domain id` as this example in another terminal.
 
 When `run_policy.py` is launched and idle waiting for the data,
-move to the [scripts](../) folder and specify the python path:
-```sh
-export PYTHONPATH=`pwd`
-```
-Then move back to this folder and execute:
+
+### Ensure the PYTHONPATH Is Set
+
+Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
+
+### Run the script
+
+Please move to the current [`simulation` folder](./) and execute:
+
 ```sh
 python environments/sim_with_dds.py --enable_cameras
 ```
@@ -92,11 +97,9 @@ The state machine integrates multiple control modules:
 
 #### Usage
 
-move to the [scripts](../) folder and specify the python path:
-```sh
-export PYTHONPATH=`pwd`
-```
-Then move back to this folder and execute:
+Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) to set the `PYTHONPATH`.
+
+Then please move to the current [`simulation` folder](./) and execute:
 
 ```sh
 python environments/state_machine/liver_scan_sm.py --enable_cameras
@@ -104,7 +107,7 @@ python environments/state_machine/liver_scan_sm.py --enable_cameras
 
 #### Data Collection
 
-To run the state machine and collect data for a specified number of episodes:
+To run the state machine and collect data for a specified number of episodes, you need to pass the `--num_episodes` argument. Default is 0, which means no data collection.
 
 ```sh
 python environments/state_machine/liver_scan_sm.py \
@@ -154,7 +157,7 @@ The teleoperation interface allows direct control of the robotic arm using vario
 
 #### Running Teleoperation
 
-Basic teleoperation can be started with:
+Please move to the current [`simulation` folder](./) and execute the following command to start the teleoperation:
 
 ```sh
 python environments/teleoperation/teleop_se3_agent.py --enable_cameras
@@ -263,7 +266,7 @@ You only need to specify the parameters you want to change - any omitted paramet
 
 #### Running the Simulator
 
-To run the ultrasound raytracing simulator:
+Please move to the current [`simulation` folder](./) and execute the following command to run the ultrasound raytracing simulator:
 
 ```sh
 python examples/ultrasound_raytracing.py
