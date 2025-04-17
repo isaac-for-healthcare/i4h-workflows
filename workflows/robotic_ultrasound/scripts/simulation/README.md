@@ -266,10 +266,19 @@ You only need to specify the parameters you want to change - any omitted paramet
 
 #### Running the Simulator
 
-Please move to the current [`simulation` folder](./) and execute the following command to run the ultrasound raytracing simulator:
+Please navigate to the current [`simulation` folder](./) and execute the following command to run the ultrasound raytracing simulator:
 
 ```sh
 python examples/ultrasound_raytracing.py
+```
+
+The simulator will start streaming the ultrasound images under the `topic_ultrasound_data` topic in the DDS communication. The domain ID is set to 1 in the current default settings.
+
+To visualize the ultrasound images, please check out the [Visualization Utilty](../utils/README.md), and launch another terminal to run this command:
+
+```sh
+# Stay in the simulation folder
+python ../utils/visualization.py
 ```
 
 #### Command Line Arguments
