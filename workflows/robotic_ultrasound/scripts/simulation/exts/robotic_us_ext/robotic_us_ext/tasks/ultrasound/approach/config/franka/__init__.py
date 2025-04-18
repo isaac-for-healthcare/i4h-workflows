@@ -24,27 +24,12 @@ from ..teleop import ik_rel_env_cfg
 from . import agents, franka_manager_rl_env_cfg
 
 ##
-# Register Gym environments.
-##
-
-##
-# Joint Position Control
-##
-
-
-##
 # Inverse Kinematics - Absolute Pose Control
 ##
-
-
 gym.register(
     id="Isaac-Reach-Torso-FrankaUsRs-IK-RL-Abs-v0",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
-    kwargs={
-        "env_cfg_entry_point": franka_manager_rl_env_cfg.FrankaModRGBDIkRlEnvCfg
-        # "sb3_cfg_entry_point": f"{agents.__name__}:sb3_ppo_cfg.yaml",
-        # "rl_games_cfg_entry_point": f"{agents.__name__}:rl_games_ppo_cfg.yaml",
-    },
+    kwargs={"env_cfg_entry_point": franka_manager_rl_env_cfg.FrankaModRGBDIkRlEnvCfg},
     disable_env_checker=True,
 )
 
@@ -57,7 +42,6 @@ gym.register(
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point": ik_rel_env_cfg.ModFrankaUltrasoundTeleopEnv,
-        #       "rsl_rl_cfg_entry_point": agents.rsl_rl_cfg.LiftNeedlePPORunnerCfg,
         "sb3_cfg_entry_point": f"{agents.__name__}:sb3_ppo_cfg.yaml",
         "rl_games_cfg_entry_point": f"{agents.__name__}:rl_games_ppo_cfg.yaml",
     },
