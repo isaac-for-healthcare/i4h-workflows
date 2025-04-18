@@ -6,11 +6,11 @@ The utilities in this directory support the robotic ultrasound simulation pipeli
 - Visualization: Real-time display of camera feeds, ultrasound images, and robot state
 
 ## Usage
-Running the Visualization Tool
-Launch the visualization application with:
+
+To run the visualization, please move to the current [`utils` folder](./) and execute:
 
 ```bash
-python utils/visualization.py
+python visualization.py
 ```
 
 This will open a GUI that displays multiple real-time feeds:
