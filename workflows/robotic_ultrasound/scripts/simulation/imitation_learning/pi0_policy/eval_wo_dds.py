@@ -212,7 +212,25 @@ def calc_mse_video_policy(
             plt.show()
         else:
             plt.close(fig)
-    
+        gt_position_x = np.cumsum(gt_actions_used[:, 0])
+        pred_position_x = np.cumsum(pred_actions[:, 0])
+        gt_position_y = np.cumsum(gt_actions_used[:, 1])
+        pred_position_y = np.cumsum(pred_actions[:, 1])
+        gt_position_z = np.cumsum(gt_actions_used[:, 2])
+        pred_position_z = np.cumsum(pred_actions[:, 2])
+        
+        # plot the position in 3D figure
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot(gt_position_x, gt_position_y, gt_position_z, label='gt position')
+        ax.plot(pred_position_x, pred_position_y, pred_position_z, label='pred position')
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        ax.legend()
+        plt.savefig("./mse-pi0-te-3d.png", dpi=300, bbox_inches='tight')
+        plt.show()
+        
     # Return results
     results = {
         "total_mse": action_mse,
@@ -232,13 +250,13 @@ if __name__ == "__main__":
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
-    ckpt_path = "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts/training/pi_zero/checkpoints/robotic_ultrasound_lora/liver_ultrasound/5000"
-    # ckpt_path = robot_us_assets.policy_ckpt
-    repo_id = "i4h/robotic_ultrasound-cosmos-pi-tr"
-    # repo_id = "i4h/sim_liver_scan"
-    room_video_path = "/home/yunliu/.cache/huggingface/lerobot/i4h/robotic_ultrasound-cosmos-te/videos/chunk-000/observation.images.room/episode_000000_new.mp4"
-    wrist_video_path = "/home/yunliu/.cache/huggingface/lerobot/i4h/robotic_ultrasound-cosmos-te/videos/chunk-000/observation.images.wrist/episode_000000_new.mp4"
-    parquet_path = "/home/yunliu/.cache/huggingface/lerobot/i4h/robotic_ultrasound-cosmos-te/data/chunk-000/episode_000000.parquet"
+    # ckpt_path = "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts/training/pi_zero/checkpoints/robotic_ultrasound_lora/liver_ultrasound/5000"
+    ckpt_path = robot_us_assets.policy_ckpt
+    # repo_id = "i4h/robotic_ultrasound-cosmos-pi-te"
+    repo_id = "i4h/sim_liver_scan"
+    room_video_path = "/home/yunliu/.cache/huggingface/lerobot/i4h/robotic_ultrasound-cosmos-tr/videos/chunk-000/observation.images.room/episode_000002_new.mp4"
+    wrist_video_path = "/home/yunliu/.cache/huggingface/lerobot/i4h/robotic_ultrasound-cosmos-tr/videos/chunk-000/observation.images.wrist/episode_000002_new.mp4"
+    parquet_path = "/home/yunliu/.cache/huggingface/lerobot/i4h/robotic_ultrasound-cosmos-tr/data/chunk-000/episode_000002.parquet"
     
     # Initialize policy runner
     policy_runner = PI0PolicyRunner(
@@ -256,7 +274,7 @@ if __name__ == "__main__":
         frame_end=300,
         step_stride=1,
         plot=True,
-        save_plot_path="./mse_comparison_w-pi0.png",
+        save_plot_path="./mse_comparison_wo-cosmos-pi0.png",
         verbose=True
     )
     

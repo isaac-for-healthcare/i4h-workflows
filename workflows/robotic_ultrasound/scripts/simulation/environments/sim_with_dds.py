@@ -304,7 +304,7 @@ def main():
                     while ret is None:
                         ret = infer_reader.read_data()
                     o: FrankaCtrlInput = ret
-                    action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(16, 6)
+                    action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(50, 6)
                     action_plan.extend(action_chunk[:replan_steps])
 
                 action = action_plan.popleft()
