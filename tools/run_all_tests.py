@@ -75,6 +75,7 @@ def _setup_test_env(project_root, tests_dir):
 
 def run_tests_with_coverage(workflow_name, skip_xvfb):
     """Run all unittest cases with coverage reporting"""
+    print(f"Running tests with xvfb: {skip_xvfb}")
     project_root = f"workflows/{workflow_name}"
 
     try:
@@ -90,7 +91,9 @@ def run_tests_with_coverage(workflow_name, skip_xvfb):
             test_name = os.path.basename(test_path).replace(".py", "")
 
             # Check if this test needs a virtual display
-            if test_name in XVFB_TEST_CASES and not skip_xvfb:
+            if test_name in XVFB_TEST_CASES:
+                if skip_xvfb:
+                    continue
                 cmd = [
                     "xvfb-run",
                     "-a",
