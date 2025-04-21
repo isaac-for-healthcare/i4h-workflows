@@ -122,6 +122,8 @@ def run_tests_with_coverage(workflow_name):
 
             if not _run_test_process(cmd, env, test_path):
                 all_tests_passed = False
+                print(f"Test {test_path} failed")
+                break
 
         # combine coverage results
         subprocess.run([sys.executable, "-m", "coverage", "combine"])
