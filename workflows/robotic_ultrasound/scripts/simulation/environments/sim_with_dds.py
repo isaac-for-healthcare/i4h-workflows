@@ -251,7 +251,7 @@ def main():
     infer_reader.start()
 
     # Number of steps played before replanning
-    replan_steps = 15
+    replan_steps = 5
 
     # simulate environment
     while simulation_app.is_running():
