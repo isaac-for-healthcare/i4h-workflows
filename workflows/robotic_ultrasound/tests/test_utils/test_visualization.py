@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import sys
 import threading
 import time
@@ -27,8 +26,6 @@ from simulation.configs.basic import config
 # Mock sys.argv before importing the module
 original_argv = sys.argv
 sys.argv = [sys.argv[0]]  # Keep only the script name
-
-print("DISPLAY environment variable is:", os.environ.get("DISPLAY"))
 
 # Mock argparse.ArgumentParser.parse_args
 original_parse_args = mock.MagicMock()

@@ -73,7 +73,7 @@ def _setup_test_env(project_root, tests_dir):
     return env
 
 
-def run_tests_with_coverage(workflow_name):
+def run_tests_with_coverage(workflow_name, skip_xvfb):
     """Run all unittest cases with coverage reporting"""
     project_root = f"workflows/{workflow_name}"
 
@@ -88,11 +88,9 @@ def run_tests_with_coverage(workflow_name):
 
         for test_path in tests:
             test_name = os.path.basename(test_path).replace(".py", "")
-            env["NVIDIA_DRIVER_CAPABILITIES"] = "all"
-            env["NVIDIA_VISIBLE_DEVICES"] = "all"
 
             # Check if this test needs a virtual display
-            if test_name in XVFB_TEST_CASES:
+            if test_name in XVFB_TEST_CASES and not skip_xvfb:
                 cmd = [
                     "xvfb-run",
                     "-a",
@@ -124,8 +122,6 @@ def run_tests_with_coverage(workflow_name):
 
             if not _run_test_process(cmd, env, test_path):
                 all_tests_passed = False
-                print(f"Test {test_path} failed")
-                break
 
         # combine coverage results
         subprocess.run([sys.executable, "-m", "coverage", "combine"])
@@ -180,6 +176,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run all tests for a workflow")
     parser.add_argument("--workflow", type=str, default="robotic_ultrasound", help="Workflow name")
     parser.add_argument("--integration", action="store_true", help="Run integration tests")
+    parser.add_argument("--skip-xvfb", action="store_true", help="Skip running tests with xvfb")
     args = parser.parse_args()
 
     if args.workflow not in WORKFLOWS:
@@ -188,5 +185,5 @@ if __name__ == "__main__":
     if args.integration:
         exit_code = run_integration_tests(args.workflow)
     else:
-        exit_code = run_tests_with_coverage(args.workflow)
+        exit_code = run_tests_with_coverage(args.workflow, args.skip_xvfb)
     sys.exit(exit_code)
