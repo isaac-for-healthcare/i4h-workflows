@@ -93,6 +93,7 @@ def run_tests_with_coverage(workflow_name):
             if test_name in XVFB_TEST_CASES:
                 cmd = [
                     "xvfb-run",
+                    "-s", "-screen 0 1024x768x24",
                     "-a",
                     sys.executable,
                     "-m",
