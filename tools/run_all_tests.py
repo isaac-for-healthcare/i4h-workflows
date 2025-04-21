@@ -88,12 +88,13 @@ def run_tests_with_coverage(workflow_name):
 
         for test_path in tests:
             test_name = os.path.basename(test_path).replace(".py", "")
+            env["NVIDIA_DRIVER_CAPABILITIES"] = "all"
+            env["NVIDIA_VISIBLE_DEVICES"] = "all"
 
             # Check if this test needs a virtual display
             if test_name in XVFB_TEST_CASES:
                 cmd = [
                     "xvfb-run",
-                    "-s", "-screen 0 1024x768x24",
                     "-a",
                     sys.executable,
                     "-m",
