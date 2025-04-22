@@ -79,7 +79,7 @@ def _setup_test_env(project_root, tests_dir):
 
 def run_tests_with_coverage(workflow_name, skip_xvfb):
     """Run all unittest cases with coverage reporting"""
-    print(f"Running tests with xvfb: {skip_xvfb}")
+    print(f"Running tests with xvfb skipped: {skip_xvfb}")
     project_root = f"workflows/{workflow_name}"
 
     try:
