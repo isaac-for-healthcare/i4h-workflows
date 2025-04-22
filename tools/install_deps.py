@@ -27,11 +27,16 @@ def install_dependencies(workflow_name: str = "robotic_ultrasound"):
     try:
         # Install test dependencies
         apt_cmd = [
-            "apt-get", "install", "-y",
-            "xvfb", "x11-utils", # needed to run tests that need display
+            "apt-get",
+            "install",
+            "-y",
+            "xvfb",
+            "x11-utils",  # needed to run tests that need display
             "unzip",  # handle zip files
-            "libusb-1.0-0", # needed for realsense camera test 
-            "libegl1", "libxcb-icccm4", "libxkbcommon-x11-0", # needed for clarius tests
+            "libusb-1.0-0",  # needed for realsense camera test
+            "libegl1",
+            "libxcb-icccm4",
+            "libxkbcommon-x11-0",  # needed for clarius tests
         ]
         # check if the user is root
         if os.geteuid() != 0:

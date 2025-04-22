@@ -44,8 +44,12 @@ def _run_test_process(cmd, env, test_path):
         process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         stdout, stderr = process.communicate(timeout=180)
         # Filter out extension loading messages
-        filtered_stdout = "\n".join([line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)])
-        filtered_stderr = "\n".join([line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)])
+        filtered_stdout = "\n".join(
+            [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
+        )
+        filtered_stderr = "\n".join(
+            [line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)]
+        )
 
         # Print filtered output
         if filtered_stdout.strip():
@@ -124,6 +128,7 @@ def run_tests_with_coverage(workflow_name, skip_xvfb):
                 ]
 
             if not _run_test_process(cmd, env, test_path):
+                print(f"FAILED TEST: {test_path}")
                 all_tests_passed = False
 
         # combine coverage results
