@@ -1,0 +1,77 @@
+#!/bin/bash
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Error out if a command fails or a variable is not defined
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+set -eu
+NAME=i4h-telesurgery
+IMAGE_NAME=i4h-telesurgery:latest
+WORKSPACE_DIR=/workspace/${NAME}
+
+function build() {
+    docker build -f ${SCRIPT_DIR}/deploy/Dockerfile -t ${IMAGE_NAME} --progress=plain .
+}
+
+function vscode() {
+    # Allow the docker group to access X11.
+    xhost +local:docker
+
+    # build the Docker image if it doesn't exist
+    build
+
+    if command -v devcontainer &> /dev/null; then
+        devcontainer open ${SCRIPT_DIR}
+    else
+        echo "devcontainer not found, please install it by pressing CTRL+SHIFT+P and selecting 'Dev Containers: Install devcontainer CLI'"
+    fi
+}
+
+
+function help() {
+    echo "Usage: $0 COMMAND [-h|--help][build|launch]"
+    echo ""
+    echo " -h, --help"
+    echo "  display this help message"
+    exit 1
+}
+
+COMMAND=""
+
+while (($#)); do
+case $1 in
+    -h|--help)
+    help
+    exit 1
+    ;;
+    build|vscode)
+    COMMAND=$1
+    shift
+    break
+    ;;
+    *)
+    failMsg "Unknown option '"$1"'"
+    exit 1
+    ;;
+esac
+done
+
+if [ -z "${COMMAND}" ]; then
+    help
+    exit 1
+fi
+
+${COMMAND} $@
