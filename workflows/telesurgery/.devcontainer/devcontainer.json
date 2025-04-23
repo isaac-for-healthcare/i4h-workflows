@@ -1,0 +1,64 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
+{
+    "name": "IsaacSimHSB",
+    "build": {
+        "dockerfile": "../deploy/Dockerfile",
+        "args": {
+            "BUILDKIT_INLINE_CACHE": "1" // Enable Docker BuildKit cache
+        }
+    },
+    "runArgs": [
+        "--runtime=nvidia",
+        "--net=host",
+        // IsaacSim cache folders
+        "--volume=${localEnv:HOME}/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/cache/ov:/root/.cache/ov:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/cache/pip:/root/.cache/pip:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/cache/glcache:/root/.cache/nvidia/GLCache:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/cache/computecache:/root/.nv/ComputeCache:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/data:/root/.local/share/ov/data:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/documents:/root/Documents:rw",
+        // For Nsight Systems
+        "--cap-add=SYS_PTRACE",
+        "--security-opt=seccomp=unconfined",
+        // For ConnectX devices (todo, find a better way)
+        "--privileged"
+        //"--device=/dev/infiniband/rdma_cm:/dev/infiniband/rdma_cm",
+        //"--device=/dev/infiniband/uverbs0:/dev/infiniband/uverbs0",
+        //"--device=/dev/infiniband/uverbs1:/dev/infiniband/uverbs1"
+    ],
+    "containerEnv": {
+        // X11 support
+        "DISPLAY": "${localEnv:DISPLAY}",
+        // Accept Omniverse EULA
+        "ACCEPT_EULA": "Y",
+        "PRIVACY_CONSENT": "Y"
+    },
+    "mounts": [
+        // X11 support
+        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
+    ],
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/isaac-sim-hsb,type=bind,consistency=cached",
+    "workspaceFolder": "/workspace/isaac-sim-hsb",
+    // Configure tool-specific properties.
+    "customizations": {
+        // Configure properties specific to VS Code.
+        "vscode": {
+            // Set *default* container specific settings.json values on container create.
+            "settings": {},
+            // Add the IDs of extensions you want installed when the container is created.
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.debugpy",
+                "charliermarsh.ruff",
+                "shardulm94.trailing-spaces",
+                "shd101wyy.markdown-preview-enhanced",
+                "benjamin-simmonds.pythoncpp-debug",
+                "ms-vscode.cpptools"
+            ]
+        }
+    }
+}
