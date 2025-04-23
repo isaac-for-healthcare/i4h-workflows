@@ -1,0 +1,76 @@
+diff --git a/source/extensions/isaacsim.sensors.camera/isaacsim/sensors/camera/camera.py b/source/extensions/isaacsim.sensors.camera/isaacsim/sensors/camera/camera.py
+index d2ccf8852..3ea6bdc7d 100644
+--- a/source/extensions/isaacsim.sensors.camera/isaacsim/sensors/camera/camera.py
++++ b/source/extensions/isaacsim.sensors.camera/isaacsim/sensors/camera/camera.py
+@@ -1,4 +1,4 @@
+-# Copyright (c) 2021-2024, NVIDIA CORPORATION. All rights reserved.
++# Copyright (c) 2021-2025, NVIDIA CORPORATION. All rights reserved.
+ #
+ # NVIDIA CORPORATION and its licensors retain all intellectual property
+ # and proprietary rights in and to this software, related documentation
+@@ -303,7 +303,7 @@ class Camera(BaseSensor):
+                 self.prim.CreateAttribute(property_name, Sdf.ValueTypeNames.Float)
+         self._current_frame = dict()
+         self._current_frame["rgba"] = self._backend_utils.create_zeros_tensor(
+-            shape=[resolution[0], resolution[1], 4], dtype="int32", device=self._device
++            shape=[resolution[0], resolution[1], 4], dtype="uint8", device="cuda"
+         )
+         self._pause = False
+         self._current_frame = dict()
+@@ -415,7 +415,7 @@ class Camera(BaseSensor):
+         else:
+             self._render_product = rep.create.render_product(self.prim_path, resolution=self._resolution)
+             self._render_product_path = self._render_product.path
+-        self._rgb_annotator = rep.AnnotatorRegistry.get_annotator("rgb")
++        self._rgb_annotator = rep.AnnotatorRegistry.get_annotator("rgb", device="cuda")
+         self._fabric_time_annotator = rep.AnnotatorRegistry.get_annotator("ReferenceTime")
+         self._rgb_annotator.attach([self._render_product_path])
+         self._fabric_time_annotator.attach([self._render_product_path])
+@@ -431,7 +431,7 @@ class Camera(BaseSensor):
+         )
+         width, height = self.get_resolution()
+         self._current_frame["rgba"] = self._backend_utils.create_zeros_tensor(
+-            shape=[width, height, 4], dtype="int32", device=self._device
++            shape=[width, height, 4], dtype="uint8", device="cuda"
+         )
+         self._stage_open_callback = (
+             omni.usd.get_context()
+@@ -1033,21 +1033,33 @@ class Camera(BaseSensor):
+             self._custom_annotators["pointcloud"] = None
+         self._current_frame.pop("pointcloud", None)
+ 
+-    def get_rgba(self) -> np.ndarray:
++    def get_rgba(self, device="cpu") -> np.ndarray:
+         """
++        Args:
++            device (str, optional): The device to return the data on ("cpu" or "cuda"). Defaults to "cpu".
++
+         Returns:
+             rgba (np.ndarray): (N x 4) RGBa color data for each point.
+         """
+-        return self._rgb_annotator.get_data()
++        if device == "cuda":
++            return self._current_frame["rgba"]
++        else:
++            return self._current_frame["rgba"].numpy()
+ 
+-    def get_rgb(self) -> np.ndarray:
++    def get_rgb(self, device="cpu") -> np.ndarray:
+         """
++        Args:
++            device (str, optional): The device to return the data on ("cpu" or "cuda"). Defaults to "cpu".
++
+         Returns:
+             rgb (np.ndarray): (N x 3) RGB color data for each point.
+         """
+ 
+-        data = self._rgb_annotator.get_data()
+-        return data[..., :3]
++        data = self._current_frame["rgba"][..., :3]
++        if device == "cuda":
++            return data
++        else:
++            return data.numpy()
+ 
+     def get_depth(self) -> np.ndarray:
+         """
