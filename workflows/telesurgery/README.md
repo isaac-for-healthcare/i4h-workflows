@@ -1,6 +1,5 @@
 # Telesurgery
 
-
 ## System Requirements
 
 - Ubuntu 22.04
@@ -9,11 +8,9 @@
 - NVIDIA Driver Version >= 555
 - 50GB of disk space
 
-## Getting started
+## Development
 
-The application is using Docker to run in a container.
-
-To run the application use `./run launch`.
+Use `./run vscode` to start a new VS Code window for development.
 
 Note that the first launch could take a couple of minutes while IsaacSim is compiling shaders. These
 shaders are cached and the second launch is much quicker.
