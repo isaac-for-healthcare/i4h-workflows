@@ -2,6 +2,7 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
 {
     "name": "i4h Telesurgery",
+    "postStartCommand": ".devcontainer/post-start-command.sh",
     "build": {
         "context": "../",
         "dockerfile": "../deploy/Dockerfile",
