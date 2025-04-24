@@ -2,13 +2,17 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
 {
     "name": "IsaacSimHSB",
+    "postStartCommand": ".devcontainer/post-start-command.sh",
     "build": {
         "dockerfile": "../deploy/Dockerfile",
         "args": {
             "BUILDKIT_INLINE_CACHE": "1" // Enable Docker BuildKit cache
-        }
+        },
+        "context": "../"
     },
     "runArgs": [
+        // RTI Connext DDS
+        "--volume=${localEnv:HOME}/rti_connext_dds-7.3.0:/opt/rti.com/rti_connext_dds-7.3.0/",
         "--runtime=nvidia",
         "--net=host",
         // IsaacSim cache folders
@@ -23,11 +27,6 @@
         // For Nsight Systems
         "--cap-add=SYS_PTRACE",
         "--security-opt=seccomp=unconfined",
-        // For ConnectX devices (todo, find a better way)
-        "--privileged"
-        //"--device=/dev/infiniband/rdma_cm:/dev/infiniband/rdma_cm",
-        //"--device=/dev/infiniband/uverbs0:/dev/infiniband/uverbs0",
-        //"--device=/dev/infiniband/uverbs1:/dev/infiniband/uverbs1"
     ],
     "containerEnv": {
         // X11 support
@@ -40,8 +39,8 @@
         // X11 support
         "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
     ],
-    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/isaac-sim-hsb,type=bind,consistency=cached",
-    "workspaceFolder": "/workspace/isaac-sim-hsb",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/telesurgery,type=bind,consistency=cached",
+    "workspaceFolder": "/workspace/telesurgery",
     // Configure tool-specific properties.
     "customizations": {
         // Configure properties specific to VS Code.
