@@ -56,7 +56,7 @@ parser.add_argument(
 parser.add_argument(
     "--reset_steps",
     type=int,
-    default=15,
+    default=40,
     help="Number of steps to take during environment reset.",
 )
 parser.add_argument(
@@ -199,6 +199,15 @@ def main():
     reset_tensor = torch.cat([reset_pos, reset_quat], dim=-1)
     reset_tensor = reset_tensor.repeat(env.unwrapped.num_envs, 1)
 
+    try:
+        for _ in range(args_cli.reset_steps):
+            robot_obs = get_robot_obs(env)
+            rel_commands = compute_relative_action(reset_tensor, robot_obs)
+            obs, rew, terminated, truncated, info_ = env.step(rel_commands)
+    except Exception as e:
+        print(f"Error resetting environment")
+        pass
+
     # initialize publishers
     viz_r_cam_writer = RoomCamPublisher(args_cli.viz_domain_id)
     viz_w_cam_writer = WristCamPublisher(args_cli.viz_domain_id)
@@ -226,10 +235,14 @@ def main():
                 count = 0
                 env.reset()
                 state_machine.reset()
-                for _ in range(args_cli.reset_steps):
-                    robot_obs = get_robot_obs(env)
-                    rel_commands = compute_relative_action(reset_tensor, robot_obs)
-                    obs, rew, terminated, truncated, info_ = env.step(rel_commands)
+                try:
+                    for _ in range(args_cli.reset_steps):
+                        robot_obs = get_robot_obs(env)
+                        rel_commands = compute_relative_action(reset_tensor, robot_obs)
+                        obs, rew, terminated, truncated, info_ = env.step(rel_commands)
+                except Exception as e:
+                    print(f"Error resetting environment")
+                    continue
 
             robot_obs = get_robot_obs(env)
 
