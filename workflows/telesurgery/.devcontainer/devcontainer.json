@@ -1,8 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
 {
-    "name": "IsaacSimHSB",
-    "postStartCommand": ".devcontainer/post-start-command.sh",
+    "name": "i4h Telesurgery",
     "build": {
         "dockerfile": "../deploy/Dockerfile",
         "args": {
@@ -27,6 +26,7 @@
         // For Nsight Systems
         "--cap-add=SYS_PTRACE",
         "--security-opt=seccomp=unconfined",
+        "--rm"
     ],
     "containerEnv": {
         // X11 support
