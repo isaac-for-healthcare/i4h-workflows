@@ -199,14 +199,10 @@ def main():
     reset_tensor = torch.cat([reset_pos, reset_quat], dim=-1)
     reset_tensor = reset_tensor.repeat(env.unwrapped.num_envs, 1)
 
-    try:
-        for _ in range(args_cli.reset_steps):
-            robot_obs = get_robot_obs(env)
-            rel_commands = compute_relative_action(reset_tensor, robot_obs)
-            obs, rew, terminated, truncated, info_ = env.step(rel_commands)
-    except Exception as e:
-        print(f"Error resetting environment")
-        pass
+    for _ in range(args_cli.reset_steps):
+        robot_obs = get_robot_obs(env)
+        rel_commands = compute_relative_action(reset_tensor, robot_obs)
+        obs, rew, terminated, truncated, info_ = env.step(rel_commands)
 
     # initialize publishers
     viz_r_cam_writer = RoomCamPublisher(args_cli.viz_domain_id)
@@ -235,14 +231,10 @@ def main():
                 count = 0
                 env.reset()
                 state_machine.reset()
-                try:
-                    for _ in range(args_cli.reset_steps):
-                        robot_obs = get_robot_obs(env)
-                        rel_commands = compute_relative_action(reset_tensor, robot_obs)
-                        obs, rew, terminated, truncated, info_ = env.step(rel_commands)
-                except Exception as e:
-                    print(f"Error resetting environment")
-                    continue
+                for _ in range(args_cli.reset_steps):
+                    robot_obs = get_robot_obs(env)
+                    rel_commands = compute_relative_action(reset_tensor, robot_obs)
+                    obs, rew, terminated, truncated, info_ = env.step(rel_commands)
 
             robot_obs = get_robot_obs(env)
 

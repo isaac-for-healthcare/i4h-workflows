@@ -19,7 +19,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from dataclasses import MISSING
-import math
+
 import isaaclab.sim as sim_utils
 import torch
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
