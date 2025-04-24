@@ -1,0 +1,20 @@
+struct CameraInfo {
+  double focal_len;
+  int64 robot_index;
+  int64 stream_id;
+  int64 frame_num;
+  int64 width;
+  int64 height;
+  sequence <octet> data;
+
+  sequence <string, 6> joint_names;
+  sequence <double, 6> joint_positions;
+
+  int64 hid_capture_timestamp;  // Timestamp when the HID event was captured in nanoseconds
+  int64 hid_publish_timestamp;  // Timestamp when the HID event was published by the Surgeon app in nanoseconds
+  int64 hid_receive_timestamp;  // Timestamp when the event was received by IS in nanoseconds
+  int64 camera_update_time; // Timestamp after camera is updated in IS in nanoseconds
+  int64 camera_publish_timestamp;  // Timestamp when the camera info was published in nanoseconds
+
+  uint64 message_id;
+};

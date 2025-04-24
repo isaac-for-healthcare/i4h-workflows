@@ -1,0 +1,36 @@
+{
+	"operator": {
+		"name": "dds_hid_publisher",
+		"description": "Publishes Human Interface Device (HID) events as a DDS topic",
+		"authors": [
+			{
+				"name": "Victor Chang",
+				"affiliation": "NVIDIA"
+			}
+		],
+		"version": "1.0",
+		"changelog": {
+			"1.0": "Initial Release"
+		},
+		"holoscan_sdk": {
+			"minimum_required_version": "3.1.0",
+			"tested_versions": [
+				"3.1.0"
+			]
+		},
+		"platforms": ["amd64", "arm64"],
+		"tags": ["DDS", "RTI Connext", "HID"],
+		"ranking": 2,
+		"dependencies": {
+			"packages": [
+				{
+					"name": "RTI Connext",
+					"author": "Real-Time Innovations",
+					"license": "Closed",
+					"version": "7.3.0",
+					"url": "https://www.rti.com/products"
+				}
+			]
+		}
+	}
+}

@@ -23,15 +23,26 @@ IMAGE_NAME=i4h-telesurgery:latest
 WORKSPACE_DIR=/workspace/${NAME}
 
 function build() {
+    build_path=${SCRIPT_DIR}/build
+    cmake -S . -B ${build_path}
+    cmake --build ${build_path}
+}
+
+function build_image() {
     docker build -f ${SCRIPT_DIR}/deploy/Dockerfile -t ${IMAGE_NAME} --progress=plain .
 }
 
 function vscode() {
+    if [ ! -d ~/rti_connext_dds-7.3.0 ]; then
+        echo "RTI Connext DDS not found, please install it at ~/rti_connext_dds-7.3.0"
+        exit 1
+    fi
+
     # Allow the docker group to access X11.
     xhost +local:docker
 
     # build the Docker image if it doesn't exist
-    build
+    build_image
 
     if command -v devcontainer &> /dev/null; then
         devcontainer open ${SCRIPT_DIR}
@@ -40,6 +51,27 @@ function vscode() {
     fi
 }
 
+function surgeon() {
+    # Check if we need to rebuild
+    if [[ "$1" == "--rebuild" ]]; then
+        build
+        shift
+    elif [ ! -f ${SCRIPT_DIR}/build/surgeon/surgeon ]; then
+        build
+    fi
+    pushd ${SCRIPT_DIR}/build/surgeon
+    ./surgeon
+    popd
+}
+
+function patient() {
+    if [ ! -f ${SCRIPT_DIR}/build/patient/patient ]; then
+        build
+    fi
+    pushd ${SCRIPT_DIR}/build/patient
+    ./patient
+    popd
+}
 
 function help() {
     echo "Usage: $0 COMMAND [-h|--help][build|launch]"
@@ -57,7 +89,7 @@ case $1 in
     help
     exit 1
     ;;
-    build|vscode)
+    build|build_image|vscode|surgeon|patient)
     COMMAND=$1
     shift
     break
