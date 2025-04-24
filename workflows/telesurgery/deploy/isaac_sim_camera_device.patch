@@ -38,7 +38,7 @@ index d2ccf8852..3ea6bdc7d 100644
 @@ -1033,21 +1033,33 @@ class Camera(BaseSensor):
              self._custom_annotators["pointcloud"] = None
          self._current_frame.pop("pointcloud", None)
- 
+
 -    def get_rgba(self) -> np.ndarray:
 +    def get_rgba(self, device="cpu") -> np.ndarray:
          """
@@ -53,7 +53,7 @@ index d2ccf8852..3ea6bdc7d 100644
 +            return self._current_frame["rgba"]
 +        else:
 +            return self._current_frame["rgba"].numpy()
- 
+
 -    def get_rgb(self) -> np.ndarray:
 +    def get_rgb(self, device="cpu") -> np.ndarray:
          """
@@ -63,7 +63,7 @@ index d2ccf8852..3ea6bdc7d 100644
          Returns:
              rgb (np.ndarray): (N x 3) RGB color data for each point.
          """
- 
+
 -        data = self._rgb_annotator.get_data()
 -        return data[..., :3]
 +        data = self._current_frame["rgba"][..., :3]
@@ -71,6 +71,6 @@ index d2ccf8852..3ea6bdc7d 100644
 +            return data
 +        else:
 +            return data.numpy()
- 
+
      def get_depth(self) -> np.ndarray:
          """
