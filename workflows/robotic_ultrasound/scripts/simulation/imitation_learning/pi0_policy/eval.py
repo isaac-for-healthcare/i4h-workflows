@@ -107,7 +107,7 @@ def main():
     # reset environment
     obs = env.reset()
 
-    reset_steps = 20
+    reset_steps = 40
     max_timesteps = 250
 
     # allow environment to settle
