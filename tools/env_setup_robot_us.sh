@@ -44,9 +44,9 @@ fi
 # ---- Install build tools ----
 echo "Installing build tools..."
 if [ "$EUID" -ne 0 ]; then
-    sudo apt-get install -y cmake build-essential pybind11-dev libxcb-cursor0
+    sudo apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
 else
-    apt-get install -y cmake build-essential pybind11-dev libxcb-cursor0
+    apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
 fi
 
 
