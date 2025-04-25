@@ -274,7 +274,7 @@ python examples/ultrasound_raytracing.py
 
 The simulator will start streaming the ultrasound images under the `topic_ultrasound_data` topic in the DDS communication. The domain ID is set to 1 in the current default settings.
 
-To visualize the ultrasound images, please check out the [Visualization Utilty](../utils/README.md), and launch another terminal to run this command:
+To visualize the ultrasound images, please check out the [Visualization Utility](../utils/README.md), and launch another terminal to run this command:
 
 ```sh
 # Stay in the simulation folder
