@@ -13,12 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import omni
 
 import numpy as np
+import sys
 
 from isaacsim import SimulationApp
 from typing import Callable
+
+
+from applications.controller import ControllerData, HIDController
+
 
 class Simulation:
     """A simulation environment for IsaacSim that manages a 3D scene with dynamic objects and camera.
@@ -41,79 +45,80 @@ class Simulation:
     ):
         self._headless = headless
         self._image_size = image_size
-
+        self._controller = HIDController()
         self._simulation_app = SimulationApp({"headless": self._headless})
 
         # Any Omniverse level imports must occur after the SimulationApp class is instantiated
-        from isaacsim.core.api import World
-        from isaacsim.sensors.camera import Camera
-        from isaacsim.core.api.objects import DynamicCuboid
-        import isaacsim.core.utils.numpy.rotations as rot_utils
-        from pxr import UsdShade, Sdf, UsdGeom
         import carb
+        import isaacsim.core.utils.numpy.rotations as rot_utils
+
+        from isaacsim.core.api import World
+        from isaacsim.core.api.objects import DynamicCuboid
+        from isaacsim.core.prims import Articulation
+        from isaacsim.sensors.camera import Camera
+        from isaacsim.robot.manipulators.grippers import SurfaceGripper
+        from isaacsim.robot.manipulators import SingleManipulator
+        from isaacsim.core.utils.stage import add_reference_to_stage, get_stage_units
+        from isaacsim.core.utils.types import ArticulationAction
+        from isaacsim.core.utils.viewports import set_camera_view
+        from isaacsim.storage.native import get_assets_root_path
+
+        assets_root_path = get_assets_root_path()
+        if assets_root_path is None:
+            carb.log_error("Could not find Isaac Sim assets folder")
+            self._simulation_app.close()
+            sys.exit()
 
         self._world = World(stage_units_in_meters=1.0)
+        self._world.scene.add_default_ground_plane()
 
-        self._cube_2 = self._world.scene.add(
-            DynamicCuboid(
-                prim_path="/new_cube_2",
-                name="cube_1",
-                position=np.array([5.0, 3, 1.0]),
-                scale=np.array([0.6, 0.5, 0.2]),
-                size=1.0,
-                color=np.array([255, 0, 0]),
+        asset_path = assets_root_path + "/Isaac/Robots/UniversalRobots/ur10/ur10.usd"
+        add_reference_to_stage(usd_path=asset_path, prim_path="/World/UR10")
+        gripper_usd = assets_root_path + "/Isaac/Robots/UR10/Props/short_gripper.usd"
+        add_reference_to_stage(usd_path=gripper_usd, prim_path="/World/UR10/ee_link")
+
+        gripper = SurfaceGripper(
+            end_effector_prim_path="/World/UR10/ee_link",
+            translate=0.1611,
+            direction="x",
+        )
+        self._ur10 = self._world.scene.add(
+            SingleManipulator(
+                prim_path="/World/UR10",
+                name="my_ur10",
+                end_effector_prim_path="/World/UR10/ee_link",
+                gripper=gripper,
             )
         )
 
-        self._cube_3 = self._world.scene.add(
+        self._ur10.set_joints_default_state(
+            positions=self._controller.default_joint_positions
+        )
+        cube = self._world.scene.add(
             DynamicCuboid(
-                prim_path="/new_cube_3",
-                name="cube_2",
-                position=np.array([-5, 1, 3.0]),
-                scale=np.array([0.1, 0.1, 0.1]),
+                name="cube",
+                position=np.array([0.3, 0.3, 0.3]),
+                prim_path="/World/Cube",
+                scale=np.array([0.0515, 0.0515, 0.0515]),
                 size=1.0,
-                color=np.array([0, 0, 255]),
-                linear_velocity=np.array([0, 0, 0.4]),
+                color=np.array([0, 0, 1]),
             )
         )
+        self._world.scene.add_default_ground_plane()
+        self._ur10.gripper.set_default_state(opened=True)
 
-        stage = omni.usd.get_context().get_stage()
+        # Set the initial camera view to look at the robot
+        set_camera_view(eye=[1.5, 1.5, 1.0], target=[0, 0, 0.5])
 
-        scope_name = "holoscan"
-        texture_name = "dyn_texture"
-        scope_path: str = f"{stage.GetDefaultPrim().GetPath()}/{scope_name}"
-
-        magenta = np.array([255, 0, 255, 255], np.uint8)
-        frame = np.full((1, 1, 4), magenta, dtype=np.uint8)
-        height, width, channels = frame.shape
-        self._dynamic_texture = omni.ui.DynamicTextureProvider(texture_name)
-        self._dynamic_texture.set_data_array(frame, [width, height, channels])
-
-        material_path = f"{scope_path}/{texture_name}"
-        material: UsdShade.Material = UsdShade.Material.Define(stage, material_path)
-        shader: UsdShade.Shader = UsdShade.Shader.Define(
-            stage, f"{material_path}/Shader"
-        )
-        shader.SetSourceAsset("OmniPBR.mdl", "mdl")
-        shader.SetSourceAssetSubIdentifier("OmniPBR", "mdl")
-        shader.CreateIdAttr("OmniPBR")
-        shader.CreateInput("diffuse_texture", Sdf.ValueTypeNames.Asset).Set(
-            f"dynamic://{texture_name}"
-        )
-        material.CreateSurfaceOutput().ConnectToSource(
-            shader.ConnectableAPI(), "surface"
-        )
-
-        plane_path = "/World/plane"
-        UsdGeom.Plane.Define(stage, plane_path)
-        plane = stage.GetPrimAtPath(plane_path)
-        binding_api = UsdShade.MaterialBindingAPI.Apply(plane)
-        binding_api.Bind(material)
+        self._world.reset()
 
         class CameraWithImageCallback(Camera):
-            def __init__(self, *args, **kwargs):
+            def __init__(self, controller: HIDController, image_size: tuple[int, int, int], *args, **kwargs):
                 self._image_callback = None
                 self._rendering_frame = -1
+                self._controller = controller
+                self._image_size = image_size
+                self._frame_count = 0
                 super().__init__(*args, **kwargs)
 
             def set_image_callback(self, image_callback: Callable):
@@ -132,23 +137,31 @@ class Simulation:
 
                     # TODO: the first frame has a size of 0, remove this code if that is fixed
                     if not image.shape[0] == 0:
-                        self._image_callback(image)
+                        self._image_callback(
+                            {
+                                "image": image,
+                                "joint_names": self._controller.joint_names,
+                                "joint_positions": self._controller.target_joint_positions,
+                                "size": self._image_size,
+                                "frame_count": self._frame_count,
+                            }
+                        )
+                        self._frame_count += 1
 
+        # Use the camera from the end effector
         self._camera = CameraWithImageCallback(
-            prim_path="/World/camera",
-            position=np.array([0.0, 0.0, 50.0]),
+            controller=self._controller,
+            image_size=self._image_size,
+            prim_path="/World/UR10/ee_link/Camera",
             frequency=60,
             resolution=(self._image_size[1], self._image_size[0]),
-            orientation=rot_utils.euler_angles_to_quats(
-                np.array([0, 90, 0]), degrees=True
-            ),
         )
-
-        self._world.scene.add_default_ground_plane()
 
         # Resetting the world needs to be called before querying anything related to an articulation specifically.
         # Its recommended to always do a reset after adding your assets, for physics handles to be propagated properly
         self._world.reset()
+
+        self._world.scene.add_default_ground_plane()
 
         self._camera.initialize()
 
@@ -173,6 +186,14 @@ class Simulation:
             data, [self._image_size[0], self._image_size[1], self._image_size[2]]
         )
 
+    def hid_event_callback(self, event):
+        """Callback for HID events.
+
+        Args:
+            event: The HID event to be processed
+        """
+        self._controller.handle_hid_event(event)
+
     def run(self, push_data_callback: Callable):
         """Run the simulation loop.
 
@@ -195,3 +216,14 @@ class Simulation:
 
         while self._simulation_app.is_running():
             self._world.step(render=True)
+
+            # Note: You might need SimulationContext if self._world doesn't have get_physics_dt()
+            # sim_context = self._simulation_app.get_simulation_context()
+            # dt = sim_context.get_physics_dt()
+            dt = self._world.get_physics_dt()
+
+            self._world.step(render=True)
+            next_move = self._controller.forward(dt)
+            self._ur10.set_joint_positions(next_move)
+
+            # Update the robot joint position based on the joystick values

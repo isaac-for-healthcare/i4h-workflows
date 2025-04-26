@@ -15,9 +15,10 @@
 
 import queue
 
+import warp
 from holoscan.conditions import AsynchronousCondition, AsynchronousEventState
 from holoscan.core import Operator, OperatorSpec, Tensor
-
+from idl.CameraInfo.CameraInfo import CameraInfo
 
 class AsyncDataPushOp(Operator):
     """An asynchronous operator that allows pushing data from external sources into a Holoscan pipeline.
@@ -52,7 +53,8 @@ class AsyncDataPushOp(Operator):
         Args:
             spec: The OperatorSpec object used to define the operator's interface.
         """
-        spec.output("out")
+        spec.output("image")
+        spec.output("camera_info")
 
     def compute(self, op_input, op_output, context):
         """Process and emit data when available.
@@ -67,7 +69,21 @@ class AsyncDataPushOp(Operator):
         """
         data = self._queue.get()
 
-        op_output.emit({"": Tensor.as_tensor(data)}, "out")
+        image = data["image"]
+        if isinstance(image, warp.types.array):
+            image = image.numpy()
+        image = image.tobytes()
+        camera_info = CameraInfo()
+        camera_info.joint_names = list(data["joint_names"])
+        camera_info.joint_positions = data["joint_positions"].tolist()
+        camera_info.data = image
+        camera_info.width = data["size"][1]
+        camera_info.height = data["size"][0]
+        camera_info.channels = data["size"][2]
+        camera_info.frame_num = data["frame_count"]
+
+        op_output.emit({"": Tensor.as_tensor(data["image"])}, "image")
+        op_output.emit(camera_info, "camera_info")
 
     def stop(self):
         """Stop the operator and clean up resources.

@@ -33,6 +33,15 @@ void DDSOperatorBase::setup(OperatorSpec& spec) {
 
 void DDSOperatorBase::initialize() {
   Operator::initialize();
+  // Make sure file exists
+  if (!std::filesystem::exists(qos_provider_param_.get())) {
+    HOLOSCAN_LOG_ERROR("QoS provider file {} does not exist", qos_provider_param_.get());
+    HOLOSCAN_LOG_ERROR("Current working directory: {}", std::filesystem::current_path().string());
+    throw std::runtime_error("QoS provider file does not exist");
+  }
+  else {
+    HOLOSCAN_LOG_INFO("Using QoS provider file: {}", qos_provider_param_.get());
+  }
 
   // Find (or create) the QoSProvider.
   auto qos_provider_it = qos_providers_.find(qos_provider_param_.get());

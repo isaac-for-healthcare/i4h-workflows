@@ -13,26 +13,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.24)
-project(dds_hid_publisher)
+import logging
+from typing import Callable
+from holoscan.core import Fragment, Operator, OperatorSpec
 
-find_package(holoscan 2.0 REQUIRED CONFIG
-             PATHS "/opt/nvidia/holoscan" "/workspace/holoscan-sdk/install")
 
-# Build the dds operator base
-set("BUILD_dds_operator_base" ON CACHE BOOL "Build dds_operator_base" FORCE)
 
-# Publisher Operator
-add_library(dds_hid_publisher SHARED
-  dds_hid_publisher.cpp
-  hid_device.cpp)
-add_library(holoscan::ops::dds_hid_publisher ALIAS dds_hid_publisher)
-target_link_libraries(dds_hid_publisher PUBLIC
-  dds_operator_base
-  dds_hid_command
-)
-target_include_directories(dds_hid_publisher PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-)
+class HidToSimPushOp(Operator):
+    def __init__(
+        self,
+        fragment: Fragment,
+        hid_event_callback: Callable,
+        *args,
+        **kwargs,
+    ):
+        self.logger: logging.Logger = logging.getLogger(__name__)
+        self.hid_event_callback = hid_event_callback
+        super().__init__(fragment, *args, **kwargs)
 
-add_subdirectory(python)
+    def setup(self, spec: OperatorSpec):
+        spec.input("input")
+
+    def compute(self, op_input, op_output, context):
+        input = op_input.receive("input")
+
+        self.hid_event_callback(input)

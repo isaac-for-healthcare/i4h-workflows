@@ -14,7 +14,7 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.24)
-project(dds_hid_publisher)
+project(dds_camera_info_publisher)
 
 find_package(holoscan 2.0 REQUIRED CONFIG
              PATHS "/opt/nvidia/holoscan" "/workspace/holoscan-sdk/install")
@@ -22,17 +22,21 @@ find_package(holoscan 2.0 REQUIRED CONFIG
 # Build the dds operator base
 set("BUILD_dds_operator_base" ON CACHE BOOL "Build dds_operator_base" FORCE)
 
-# Publisher Operator
-add_library(dds_hid_publisher SHARED
-  dds_hid_publisher.cpp
-  hid_device.cpp)
-add_library(holoscan::ops::dds_hid_publisher ALIAS dds_hid_publisher)
-target_link_libraries(dds_hid_publisher PUBLIC
+# publisher Operator
+add_library(dds_camera_info_publisher SHARED dds_camera_info_publisher.cpp)
+add_library(holoscan::ops::dds_camera_info_publisher ALIAS dds_camera_info_publisher)
+target_link_libraries(dds_camera_info_publisher PUBLIC
+  holoscan::core
   dds_operator_base
-  dds_hid_command
+  dds_camera_info
 )
-target_include_directories(dds_hid_publisher PUBLIC
+target_include_directories(dds_camera_info_publisher PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+)
+
+# Add third_party include directory
+target_include_directories(dds_camera_info_publisher
+    PRIVATE
 )
 
 add_subdirectory(python)

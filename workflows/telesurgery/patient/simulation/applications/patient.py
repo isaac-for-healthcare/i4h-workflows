@@ -13,16 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+import logging
+from typing import Callable
 
 from holoscan.core import Application
-from operators.AsyncDataPushOp import AsyncDataPushOp
+from holoscan.conditions import PeriodicCondition
 from holoscan.operators import HolovizOp
+from dds_hid_subscriber import DDSHIDSubscriberOp
 
-# import hololink
+from operators.data_bridge.AsyncDataPushOp import AsyncDataPushOp
+from operators.data_bridge.HidToSimPushOp import HidToSimPushOp
+from operators.dds.CameraInfoPublisherOp import CameraInfoPublisherOp
 
-
-class TransmitterApp(Application):
+class PatientApp(Application):
     """A Holoscan application for transmitting data over RoCE (RDMA over Converged Ethernet).
 
     This application sets up a data transmission pipeline that can either transmit data
@@ -40,12 +43,9 @@ class TransmitterApp(Application):
 
     def __init__(
         self,
-        ibv_name: str,
-        ibv_port: int,
-        hololink_ip: str,
-        ibv_qp: int,
         tx_queue_size: int,
         buffer_size: int,
+        hid_event_callback: Callable,
     ):
         """Initialize the TransmitterApp.
 
@@ -57,12 +57,12 @@ class TransmitterApp(Application):
             tx_queue_size (int): Size of the transmission queue.
             buffer_size (int): Size of the buffer for data transmission.
         """
-        self._ibv_name = ibv_name
-        self._ibv_port = ibv_port
-        self._hololink_ip = hololink_ip
-        self._ibv_qp = ibv_qp
         self._tx_queue_size = tx_queue_size
         self._buffer_size = buffer_size
+        self._hid_event_callback = hid_event_callback
+        self._logger = logging.getLogger(__name__)
+
+        self._async_data_push = None
         super().__init__()
 
     def compose(self):
@@ -72,20 +72,43 @@ class TransmitterApp(Application):
         If a RoCE device is available, creates a RoceTransmitterOp for network transmission.
         Otherwise, creates a HolovizOp for local visualization.
         """
+
+        source_rate_hz = 60  # messages sent per second
+        period_source_ns = int(1e9 / source_rate_hz)  # period in nanoseconds
+        self._dds_hid_subscriber = DDSHIDSubscriberOp(
+            self,
+            PeriodicCondition(self, recess_period=period_source_ns),
+            name="DDS HID Subscriber",
+            **self.kwargs("hid")
+        )
+        self._hid_to_sim_push = HidToSimPushOp(
+            self,
+            name="Hid to Sim Push",
+            hid_event_callback=self._hid_event_callback,
+        )
+        self.add_flow(self._dds_hid_subscriber, self._hid_to_sim_push, {("output", "input")})
+
         self._async_data_push = AsyncDataPushOp(
             self,
             name="Async Data Push",
         )
 
-        transmitter = HolovizOp(
-                self,
-                name="Holoviz",
-                tensors=[
-                    HolovizOp.InputSpec("", HolovizOp.InputType.COLOR),
-                ],
-            )
+        camera_info_publisher = CameraInfoPublisherOp(
+            self,
+            name="DDS Camera Info Publisher",
+            **self.kwargs("camera_info_publisher")
+        )
+        self.add_flow(self._async_data_push, camera_info_publisher, {("camera_info", "input")})
 
-        self.add_flow(self._async_data_push, transmitter, {("out", "receivers")})
+        holoviz = HolovizOp(
+            self,
+            name="Holoviz",
+            tensors=[
+                HolovizOp.InputSpec("", HolovizOp.InputType.COLOR),
+            ],
+        )
+
+        self.add_flow(self._async_data_push, holoviz, {("image", "receivers")})
 
     def push_data(self, data):
         """Push data into the transmission pipeline.
@@ -93,4 +116,8 @@ class TransmitterApp(Application):
         Args:
             data: The data to be transmitted or displayed.
         """
-        self._async_data_push.push_data(data)
+
+        if self._async_data_push is not None:
+            self._async_data_push.push_data(data)
+        else:
+            self._logger.warning("AsyncDataPushOp is not initialized")

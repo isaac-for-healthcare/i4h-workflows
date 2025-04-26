@@ -16,21 +16,19 @@
 FROM nvcr.io/nvidia/isaac-sim:4.5.0
 
 ARG DEBIAN_FRONTEND=noninteractive
-
-# Install Holoscan SDK
 ARG HOLOSCAN_VERSION=3.1.*
+ARG CUDA_TOOLKIT_VERSION=12.6
 ARG CUDA_KEYRING_NAME=cuda-keyring_1.1-1_all.deb
 
-RUN ./python.sh -m pip install holoscan==${HOLOSCAN_VERSION}
-RUN curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/${CUDA_KEYRING_NAME} \
-    && dpkg -i ${CUDA_KEYRING_NAME} \
-    && apt-get update \
-    && apt-get -y install holoscan=${HOLOSCAN_VERSION} \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm ${CUDA_KEYRING_NAME}
-
-# Install CMake
-RUN apt-get update && apt-get install -y cmake
+# Install CMake and tools
+RUN apt-get update \
+    && apt-get install -y \
+      git \
+      unzip \
+      xvfb \
+      gnupg2 \
+      patch \
+    && rm -rf /var/lib/apt/lists/*
 RUN OS_CODENAME=$(. /etc/os-release && echo "$UBUNTU_CODENAME") \
   && KW_KEYRING="/usr/share/keyrings/kitware-archive-keyring.gpg" \
   && curl -fsSL "https://apt.kitware.com/keys/kitware-archive-latest.asc" \
@@ -40,11 +38,36 @@ RUN OS_CODENAME=$(. /etc/os-release && echo "$UBUNTU_CODENAME") \
   && apt-get update \
   && rm "$KW_KEYRING" \
   && apt-get install --no-install-recommends -y \
-    kitware-archive-keyring \
-    cmake \
-    unzip \
-    xvfb \
+      cmake \
+      kitware-archive-keyring \
   && rm -rf /var/lib/apt/lists/*
+
+
+# Install Holoscan SDK
+RUN ./python.sh -m pip install holoscan==${HOLOSCAN_VERSION}
+RUN CUDA_TOOLKIT_VERSION_DASH="$(echo ${CUDA_TOOLKIT_VERSION} | tr '.' '-')" \ 
+    && curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/${CUDA_KEYRING_NAME} \
+    && dpkg -i ${CUDA_KEYRING_NAME} \
+    && apt update \
+    && apt install -y --no-install-recommends \
+        holoscan=${HOLOSCAN_VERSION} \
+        cuda-nvtx-${CUDA_TOOLKIT_VERSION_DASH} \
+        libvulkan1 \
+    && update-alternatives --install /usr/local/cuda cuda /usr/local/cuda-${CUDA_TOOLKIT_VERSION} 100 \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm ${CUDA_KEYRING_NAME}
+
+
+# For RTI Connext DDS
+RUN apt update \
+    && apt install --no-install-recommends -y \
+    openjdk-21-jre
+RUN echo 'export JREHOME=$(readlink /etc/alternatives/java | sed -e "s/\/bin\/java//")' >> /etc/bash.bashrc
+
+RUN ./python.sh -m pip install rti.connext
+
+# Install warp-lang
+RUN ./python.sh -m pip install warp-lang
 
 # workaround for https://nvbugspro.nvidia.com/bug/5180229: [Holoscan SDK v3.1] std::bad_alloc exception with IsaacSim due to loading Holoscan Python module with RTDL_GLOBAL flag
 RUN sed -i 's/sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)/#sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)/' /isaac-sim/kit/python/lib/python3.10/site-packages/holoscan/core/__init__.py
@@ -62,13 +85,10 @@ COPY deploy/isaac_sim_camera_device.patch /tmp/isaac_sim_camera_device.patch
 RUN patch -p1 /isaac-sim/exts/isaacsim.sensors.camera/isaacsim/sensors/camera/camera.py < /tmp/isaac_sim_camera_device.patch \
     && rm /tmp/isaac_sim_camera_device.patch
 
-# For RTI Connext DDS
-RUN apt update \
-    && apt install --no-install-recommends -y \
-    openjdk-21-jre
-RUN echo 'export JREHOME=$(readlink /etc/alternatives/java | sed -e "s/\/bin\/java//")' >> /etc/bash.bashrc
-
 ENV NDDSHOME=/opt/rti.com/rti_connext_dds-7.3.0
 ENV RTI_CONNEXT_DDS_DIR=$NDDSHOME
 
+# TODO: Remove this once HSDK includes the header files
+COPY deploy/hsdk/python /opt/nvidia/holoscan/include/holoscan/python/
+COPY deploy/hsdk/lib /opt/nvidia/holoscan/python/lib/
 CMD ["/bin/bash", "-c", "source $NDDSHOME/resource/scripts/rtisetenv_x64Linux4gcc7.3.0.bash && exec /bin/bash"]
