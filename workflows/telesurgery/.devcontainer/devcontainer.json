@@ -3,16 +3,36 @@
 {
     "name": "i4h Telesurgery",
     "build": {
+        "context": "../",
         "dockerfile": "../deploy/Dockerfile",
         "args": {
             "BUILDKIT_INLINE_CACHE": "1" // Enable Docker BuildKit cache
-        },
-        "context": "../"
+        }
     },
     "runArgs": [
+        // HIDs
+        // "--device=/dev/input/js0",
+        // "--device=/dev/input/event0",
+        // "--device=/dev/input/event1",
+        // "--device=/dev/input/event2",
+        // "--device=/dev/input/event3",
+        // "--device=/dev/input/event4",
+        // "--device=/dev/input/event5",
+        // "--device=/dev/input/event6",
+        // "--device=/dev/input/event7",
+        // "--device=/dev/input/event8",
+        // "--device=/dev/input/event9",
+        // "--device=/dev/input/event10",
+        // "--device=/dev/input/event11",
+        // "--device=/dev/input/event12",
+        // "--device=/dev/input/event13",
+        // "--device=/dev/input/event14",
+        // "--device=/dev/input/event15",
+        // "--device=/dev/input/mouse0",
         // RTI Connext DDS
         "--volume=${localEnv:HOME}/rti_connext_dds-7.3.0:/opt/rti.com/rti_connext_dds-7.3.0/",
         "--runtime=nvidia",
+        "-e=NVIDIA_VISIBLE_DEVICES=GPU-f4ba6a98-3afa-4370-2279-a06cd3f5e5f0",
         "--net=host",
         // IsaacSim cache folders
         "--volume=${localEnv:HOME}/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw",
@@ -31,6 +51,9 @@
     "containerEnv": {
         // X11 support
         "DISPLAY": "${localEnv:DISPLAY}",
+        "XDG_RUNTIME_DIR": "${localEnv:XDG_RUNTIME_DIR}",
+        "XDG_SESSION_TYPE": "${localEnv:XDG_SESSION_TYPE}",
+        "NVIDIA_DRIVER_CAPABILITIES": "all",
         // Accept Omniverse EULA
         "ACCEPT_EULA": "Y",
         "PRIVACY_CONSENT": "Y"
@@ -38,6 +61,8 @@
     "mounts": [
         // X11 support
         "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
+        // Wayland support
+        "source=${localEnv:XDG_RUNTIME_DIR},target=${localEnv:XDG_RUNTIME_DIR},type=bind,consistency=cached"
     ],
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/telesurgery,type=bind,consistency=cached",
     "workspaceFolder": "/workspace/telesurgery",

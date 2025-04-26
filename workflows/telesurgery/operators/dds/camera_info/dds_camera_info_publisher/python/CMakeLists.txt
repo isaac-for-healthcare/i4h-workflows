@@ -13,8 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(dds_camera_info_subscriber)
-add_subdirectory(dds_camera_info_publisher)
+include(add_pybind11_module)
 
-include(RTIConnextDDS)
-add_rti_type_library(dds_camera_info ${CMAKE_CURRENT_SOURCE_DIR}/CameraInfo.idl UNBOUNDED)
+add_pybind11_module(
+    CPP_CMAKE_TARGET dds_camera_info_publisher
+    CLASS_NAME "DDSCameraInfoPublisherOp"
+    SOURCES dds_camera_info_publisher.cpp
+)

@@ -29,6 +29,7 @@
 class SurgeonApp : public holoscan::Application {
  public:
   void compose() override {
+    HOLOSCAN_LOG_INFO("Composing SurgeonApp");
     using namespace holoscan;
 
     // Capture HID events and publish them to DDS
@@ -36,35 +37,30 @@ class SurgeonApp : public holoscan::Application {
         "hid_publisher",
         make_condition<PeriodicCondition>("periodic-condition",
                                           Arg("recess_period") = std::string("60hz")),
-        from_config("surgeon.hid"));
+        from_config("hid"));
     add_operator(hid_publisher);
 
-    auto room_cam_subscriber = make_operator<ops::DDSCameraInfoSubscriberOp>(
-        "room_cam_subscriber",
+    auto camera_subscriber = make_operator<ops::DDSCameraInfoSubscriberOp>(
+        "camera_subscriber",
         make_condition<PeriodicCondition>("periodic-condition",
                                           Arg("recess_period") = std::string("120hz")),
         Arg("allocator") = make_resource<UnboundedAllocator>("pool"),
-        from_config("surgeon.room_cam"));
-
-    // Subscribe to the recorded video stream
-    // auto video_subscriber = make_operator<ops::DDSVideoSubscriberOp>(
-    //     "video_subscriber",
-    //     from_config("surgeon.video"),
-    //     Arg("allocator") = make_resource<UnboundedAllocator>("pool"));
+        from_config("camera"));
 
     auto holoviz =
         make_operator<ops::HolovizOp>("holoviz",
                                       Arg("allocator") = make_resource<UnboundedAllocator>("pool"),
-                                      from_config("surgeon.holoviz"));
+                                      from_config("holoviz"));
 
-    add_flow(room_cam_subscriber,
+    add_flow(camera_subscriber,
              holoviz,
              {{"video", "receivers"}, {"overlay", "receivers"}, {"overlay_specs", "input_specs"}});
+    HOLOSCAN_LOG_INFO("Composed SurgeonApp");
   }
 };
 
 void usage() {
-  std::cout << "Usage: dds_video {-r | -s} [options]" << std::endl
+  std::cout << "Usage: surgeon [options]" << std::endl
             << std::endl
             << "Options" << std::endl
             << "  -c PATH,  --config=PATH    Path to the config file" << std::endl;
@@ -118,7 +114,7 @@ int main(int argc, char** argv) {
   auto app = holoscan::make_application<SurgeonApp>();
   app->config(config_path);
   app->scheduler(app->make_scheduler<holoscan::MultiThreadScheduler>(
-      "scheduler", app->from_config("surgeon.scheduler")));
+      "scheduler", app->from_config("scheduler")));
   app->run();
 
   return 0;

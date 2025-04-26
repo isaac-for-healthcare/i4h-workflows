@@ -14,6 +14,7 @@
 # limitations under the License.
 
 add_subdirectory(dds_hid_publisher)
+add_subdirectory(dds_hid_subscriber)
 
 # Build the DDS generated type library
 include(RTIConnextDDS)

@@ -13,26 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.24)
-project(dds_hid_publisher)
+include(add_pybind11_module)
 
-find_package(holoscan 2.0 REQUIRED CONFIG
-             PATHS "/opt/nvidia/holoscan" "/workspace/holoscan-sdk/install")
-
-# Build the dds operator base
-set("BUILD_dds_operator_base" ON CACHE BOOL "Build dds_operator_base" FORCE)
-
-# Publisher Operator
-add_library(dds_hid_publisher SHARED
-  dds_hid_publisher.cpp
-  hid_device.cpp)
-add_library(holoscan::ops::dds_hid_publisher ALIAS dds_hid_publisher)
-target_link_libraries(dds_hid_publisher PUBLIC
-  dds_operator_base
-  dds_hid_command
+add_pybind11_module(
+    CPP_CMAKE_TARGET dds_hid_subscriber
+    CLASS_NAME "DDSHIDSubscriberOp"
+    SOURCES dds_hid_subscriber.cpp
 )
-target_include_directories(dds_hid_publisher PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-)
-
-add_subdirectory(python)

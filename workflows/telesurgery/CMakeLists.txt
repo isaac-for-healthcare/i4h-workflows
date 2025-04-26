@@ -27,11 +27,14 @@ endif()
 # Set default build type to Release if not specified
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Setting build type to 'Release' as none was specified.")
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
+  set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the type of build." FORCE)
 endif()
 
 # Enable Testing
 include(CTest)
+
+set(PYTHON_MODULE_OUT_DIR ${CMAKE_BINARY_DIR}/python/lib)
+file(MAKE_DIRECTORY ${PYTHON_MODULE_OUT_DIR})
 
 set(CMAKE_INSTALL_RPATH
     "\$ORIGIN:\$ORIGIN/../../../lib:\$ORIGIN/../../lib:/opt/nvidia/holoscan/lib/")

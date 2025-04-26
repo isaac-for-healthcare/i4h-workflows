@@ -32,6 +32,7 @@ function(rticodegen)
   )
 
   get_filename_component(idl_basename "${_RTICODEGEN_IDL_FILE}" NAME_WE)
+
   set(sources
     "${_RTICODEGEN_OUTPUT_DIRECTORY}/${idl_basename}.cxx"
     "${_RTICODEGEN_OUTPUT_DIRECTORY}/${idl_basename}Plugin.cxx"
@@ -40,8 +41,13 @@ function(rticodegen)
     "${_RTICODEGEN_OUTPUT_DIRECTORY}/${idl_basename}.hpp"
     "${_RTICODEGEN_OUTPUT_DIRECTORY}/${idl_basename}Plugin.hpp"
   )
+  
+  set(RTICODEGEN_PYTHON_OUTPUT ${PYTHON_MODULE_OUT_DIR}/idl/${idl_basename})
+  set(py_source "${RTICODEGEN_PYTHON_OUTPUT}/${idl_basename}.py")
+
   set(${idl_basename}_SOURCES ${sources} PARENT_SCOPE)
   set(${idl_basename}_HEADERS ${headers} PARENT_SCOPE)
+  set(${idl_basename}_PYTHON ${headers} PARENT_SCOPE)
   set(_RTICODEGEN_OUTPUTS ${sources} ${headers} PARENT_SCOPE)
 
   set(extra_flags)
@@ -51,16 +57,23 @@ function(rticodegen)
 
   add_custom_command(
     OUTPUT
-      ${sources} ${headers}
+      ${sources} ${headers} ${py_source}
     COMMAND
-      ${CMAKE_COMMAND} -E rm -rf ${_RTICODEGEN_OUTPUT_DIRECTORY}
+      ${CMAKE_COMMAND} -E rm -rf ${_RTICODEGEN_OUTPUT_DIRECTORY} ${RTICODEGEN_PYTHON_OUTPUT}
     COMMAND
       ${CMAKE_COMMAND} -E make_directory ${_RTICODEGEN_OUTPUT_DIRECTORY}
     COMMAND
+      ${CMAKE_COMMAND} -E make_directory ${RTICODEGEN_PYTHON_OUTPUT}
+    COMMAND
       ${RTICODEGEN} -language c++11 -d ${_RTICODEGEN_OUTPUT_DIRECTORY} ${extra_flags} ${_RTICODEGEN_IDL_FILE}
+    COMMAND
+      ${RTICODEGEN} -language python -d ${RTICODEGEN_PYTHON_OUTPUT} ${extra_flags} ${_RTICODEGEN_IDL_FILE}
     DEPENDS
       ${_RTICODEGEN_IDL_FILE}
   )
+
+
+
 endfunction()
 
 # Adds a shared library for a DDS IDL type specification.

@@ -26,10 +26,10 @@ import logging
 # Reason is that libyaml packed with Omniverse (and probably all of Omniverse) is compiled
 # with _GLIBCXX_USE_CXX11_ABI=0 and Holoscan is compiled with _GLIBCXX_USE_CXX11_ABI=1.
 import holoscan
-from applications.TransmitterApp import TransmitterApp
+from applications.patient import PatientApp
+from applications.simulation import Simulation
 
-from Simulation import Simulation
-
+logging.basicConfig(level=logging.INFO)
 
 def main():
     """
@@ -43,8 +43,6 @@ def main():
     The function parses command line arguments to configure:
     - Logging level
     - Headless mode
-    - IBV device names and ports
-    - Hololink IP addresses
     - Queue parameters
     - Image dimensions
 
@@ -68,52 +66,16 @@ def main():
         help="Run IsaacSim in headless mode",
     )
     parser.add_argument(
-        "--ibv-name-tx",
-        type=str,
-        default="",
-        help="IBV device to use for transmitter",
-    )
-    parser.add_argument(
-        "--ibv-name-rx",
-        type=str,
-        default="",
-        help="IBV device to use for receiver",
-    )
-    parser.add_argument(
-        "--ibv-port-tx",
-        type=int,
-        default=1,
-        help="Port number of IBV device for transmitter",
-    )
-    parser.add_argument(
-        "--ibv-port-rx",
-        type=int,
-        default=1,
-        help="Port number of IBV device for receiver",
-    )
-    parser.add_argument(
-        "--hololink-ip-tx",
-        type=str,
-        default="192.168.0.2",
-        help="IP address of Hololink board for transmitter",
-    )
-    parser.add_argument(
-        "--hololink-ip-rx",
-        type=str,
-        default="192.168.0.3",
-        help="IP address of Hololink board for receiver",
-    )
-    parser.add_argument(
-        "--ibv-qp",
-        type=int,
-        default=2,
-        help="QP number for the IBV stream",
-    )
-    parser.add_argument(
         "--queue-size-tx",
         type=int,
         default=2,
         help="Transmitter queue size",
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=os.path.join(os.path.dirname(__file__), "patient.yaml"),
+        help="Path to the patient configuration file",
     )
     args = parser.parse_args()
 
@@ -123,7 +85,6 @@ def main():
     simulation = Simulation(args.headless, image_size)
 
     # set up logging
-    # hololink.logging_level(args.log_level)
     if args.log_level == logging.DEBUG:
         holoscan.logger.set_log_level(holoscan.logger.LogLevel.DEBUG)
     elif args.log_level == logging.INFO:
@@ -138,48 +99,35 @@ def main():
         holoscan.logger.set_log_level(holoscan.logger.LogLevel.OFF)
 
     # Set up the Holoscan transmitter application
-    transmitter_app = TransmitterApp(
-        ibv_name=args.ibv_name_tx,
-        ibv_port=args.ibv_port_tx,
-        hololink_ip=args.hololink_ip_tx,
-        ibv_qp=args.ibv_qp,
+    patient_app = PatientApp(
         tx_queue_size=args.queue_size_tx,
         buffer_size=image_size[0] * image_size[1] * image_size[2],
+        hid_event_callback=simulation.hid_event_callback,
     )
-    # Run the transmitter application
-    transmitter_future = transmitter_app.run_async()
 
-    def transmitter_done_callback(future):
+    if not os.path.exists(args.config):
+        raise FileNotFoundError(f"Config file {args.config} not found")
+    
+    patient_app.config(args.config)
+    # Run the transmitter application
+    patient_future = patient_app.run_async()
+
+    def patient_done_callback(future):
         if future.exception():
-            print(f"TransmitterApp failed with exception: {future.exception()}")
+            print(f"PatientApp failed with exception: {future.exception()}")
             os._exit(1)
 
-    transmitter_future.add_done_callback(transmitter_done_callback)
-
-    # # Set up the Holoscan receiver application
-    # receiver_app = ReceiverApp(
-    #     ibv_name=args.ibv_name_rx,
-    #     ibv_port=args.ibv_port_rx,
-    #     hololink_ip=args.hololink_ip_rx,
-    #     buffer_size=image_size[0] * image_size[1] * image_size[2],
-    #     data_ready_callback=simulation.data_ready_callback,
-    # )
-    # # Run the receiver application
-    # receiver_future = receiver_app.run_async()
-
-    # def receiver_done_callback(future):
-    #     if future.exception():
-    #         print(f"ReceiverApp failed with exception: {future.exception()}")
-    #         os._exit(1)
-
-    # receiver_future.add_done_callback(receiver_done_callback)
+    patient_future.add_done_callback(patient_done_callback)
 
     # Run the simulation, this will return if the simulation is finished
-    simulation.run(transmitter_app.push_data)
+    try:
+        simulation.run(patient_app.push_data)
+    except Exception as e:
+        print(f"Simulation failed with exception: {e}")
+        os._exit(1)
 
     # Wait for the transmitter and receiver applications to finish
-    transmitter_future.result()
-    # receiver_future.result()
+    patient_future.result()
 
 
 if __name__ == "__main__":
