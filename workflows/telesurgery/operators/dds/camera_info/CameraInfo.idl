@@ -1,10 +1,8 @@
 struct CameraInfo {
-  double focal_len;
-  int64 robot_index;
-  int64 stream_id;
   int64 frame_num;
   int64 width;
   int64 height;
+  int8 channels;
   sequence <octet> data;
 
   sequence <string, 6> joint_names;

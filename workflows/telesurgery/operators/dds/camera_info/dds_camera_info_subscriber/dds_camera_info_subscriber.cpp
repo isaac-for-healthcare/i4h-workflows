@@ -74,10 +74,11 @@ void DDSCameraInfoSubscriberOp::setup(OperatorSpec& spec) {
 
   spec.param(allocator_, "allocator", "Allocator", "Allocator for output buffers.");
   spec.param(reader_qos_, "reader_qos", "Reader QoS", "Data Reader QoS Profile", std::string());
-  spec.param(topic_, "topic", "Topic", "Topic name", std::string("topic_wrist_camera_data_rgb"));
+  spec.param(topic_, "topic", "Topic", "Topic name", std::string("camera_info"));
 }
 
 void DDSCameraInfoSubscriberOp::initialize() {
+  // Requires Holoscan SDK 3.1.0 or later
   register_converter<std::vector<ops::HolovizOp::InputSpec>>();
   DDSOperatorBase::initialize();
 
@@ -203,7 +204,7 @@ void DDSCameraInfoSubscriberOp::compute(InputContext& op_input, OutputContext& o
       }
 
       auto shape = nvidia::gxf::Shape{
-          static_cast<int>(frame.data().height()), static_cast<int>(frame.data().width()), 3};
+          static_cast<int>(frame.data().height()), static_cast<int>(frame.data().width()), frame.data().channels()};
 
       auto tensor = output.value().add<nvidia::gxf::Tensor>("");
       if (!tensor) { throw std::runtime_error("Failed to allocate tensor"); }
@@ -215,7 +216,7 @@ void DDSCameraInfoSubscriberOp::compute(InputContext& op_input, OutputContext& o
       // Copy the data instead of wrapping it
       auto type = nvidia::gxf::PrimitiveType::kUnsigned8;
       auto bytes_per_element = nvidia::gxf::PrimitiveTypeSize(type);
-      size_t data_size = frame.data().width() * frame.data().height() * 3 * bytes_per_element;
+      size_t data_size = frame.data().width() * frame.data().height() * frame.data().channels() * bytes_per_element;
 
       // Copy data from frame to tensor
       CUDA_TRY(cudaMemcpy(tensor.value()->pointer(),
@@ -225,18 +226,6 @@ void DDSCameraInfoSubscriberOp::compute(InputContext& op_input, OutputContext& o
 
       // generate overlay specs
       std::stringstream ss;
-      ss << "Robot Index: " << frame.data().robot_index();
-      HolovizOp::InputSpec robot_index_spec;
-      robot_index_spec.tensor_name_ = "robot_index";
-      robot_index_spec.type_ = HolovizOp::InputType::TEXT;
-      robot_index_spec.color_ = {0.0f, 1.0f, 0.0f};
-      robot_index_spec.text_.clear();
-      robot_index_spec.text_.push_back(ss.str());
-      robot_index_spec.priority_ = 1;
-      overlay_specs.push_back(robot_index_spec);
-      add_data<1, 2>(overlay_entity, "robot_index", {{{0.01f, 0.01f}}}, context);
-
-      ss.str("");
       ss.clear();
       for (auto index = 0; index < frame.data().joint_names().size(); index++) {
         ss << frame.data().joint_names()[index] << ": " << frame.data().joint_positions()[index]

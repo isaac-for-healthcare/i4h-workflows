@@ -28,6 +28,30 @@ function build() {
     cmake --build ${build_path}
 }
 
+function enter() {
+    build_image
+    docker run -it --rm \
+        --runtime=nvidia --gpus all \
+        -e "ACCEPT_EULA=Y" \
+        -e "PRIVACY_CONSENT=Y" \
+        -e DISPLAY \
+        -e XDG_RUNTIME_DIR \
+        -e XDG_SESSION_TYPE \
+        --network=host \
+        -v /tmp/.X11-unix:/tmp/.X11-unix \
+        -v ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
+        -v ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw \
+        -v ~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw \
+        -v ~/docker/isaac-sim/cache/glcache:/root/.cache/nvidia/GLCache:rw \
+        -v ~/docker/isaac-sim/cache/computecache:/root/.nv/ComputeCache:rw \
+        -v ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw \
+        -v ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw \
+        -v ~/docker/isaac-sim/documents:/root/Documents:rw \
+        # --device=/dev/input/js0 \
+        --entrypoint "" \
+        -v ${SCRIPT_DIR}:${WORKSPACE_DIR} -w ${WORKSPACE_DIR} ${IMAGE_NAME} bash
+}
+
 function build_image() {
     docker build -f ${SCRIPT_DIR}/deploy/Dockerfile -t ${IMAGE_NAME} --progress=plain .
 }
@@ -52,7 +76,7 @@ function vscode() {
 }
 
 function surgeon() {
-    # Check if we need to rebuild
+    set +u
     if [[ "$1" == "--rebuild" ]]; then
         build
         shift
@@ -62,22 +86,47 @@ function surgeon() {
     pushd ${SCRIPT_DIR}/build/surgeon
     ./surgeon
     popd
+    set -u
 }
 
 function patient() {
-    if [ ! -f ${SCRIPT_DIR}/build/patient/patient ]; then
+    set +u
+    if [[ "$1" == "--rebuild" ]]; then
+        build
+        shift
+    elif [ ! -f ${SCRIPT_DIR}/build/patient/patient ]; then
         build
     fi
-    pushd ${SCRIPT_DIR}/build/patient
-    ./patient
+
+    set +u
+    CURRENT_PYTHON_PATH=${PYTHONPATH:-}
+    export PYTHONPATH=${SCRIPT_DIR}:${SCRIPT_DIR}/build/python/lib:${PYTHONPATH}
+    pushd ${SCRIPT_DIR}/patient/simulation
+    python main.py
     popd
+    export PYTHONPATH=${CURRENT_PYTHON_PATH}
+    set -u
 }
 
 function help() {
-    echo "Usage: $0 COMMAND [-h|--help][build|launch]"
+    echo "Usage: $0 COMMAND [-h|--help][build|build_image|vscode|surgeon|patient|enter]"
     echo ""
+    echo "Commands:"
     echo " -h, --help"
     echo "  display this help message"
+    echo " build"
+    echo "  build the project"
+    echo " build_image"
+    echo "  build the Docker image"
+    echo " vscode"
+    echo "  open the project in VSCode Dev Container"
+    echo " surgeon [--rebuild]"
+    echo "  run the surgeon application"
+    echo " patient [--rebuild]"
+    echo "  run the patient application"
+    echo " enter"
+    echo "  enter the Docker container"
+    echo " "
     exit 1
 }
 
@@ -89,14 +138,14 @@ case $1 in
     help
     exit 1
     ;;
-    build|build_image|vscode|surgeon|patient)
+    build|build_image|vscode|surgeon|patient|enter)
     COMMAND=$1
     shift
     break
     ;;
     *)
-    failMsg "Unknown option '"$1"'"
-    exit 1
+    echo "Unknown option '"$1"'"
+    help
     ;;
 esac
 done

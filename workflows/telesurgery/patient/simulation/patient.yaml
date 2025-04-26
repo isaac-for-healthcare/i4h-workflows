@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ---
+extensions:
+
 application:
   title: Telesurgery with DDS
   version: 1.0
@@ -32,43 +34,23 @@ scheduler:
   stop_on_deadlock: true
   stop_on_deadlock_timeout: 500
 
-camera:
-  domain_id: 1
-  participant_qos: "TelesurgeryLibrary::TelesurgeryApplication"
-  reader_qos: "TelesurgeryLibrary::CameraInfo"
-  topic: "camera_info"
-
-format_converter:
-  in_dtype: "rgb888"
-  out_dtype: "rgb888"
-  in_tensor_name: "room_raw_image"
-  out_tensor_name: "room_converted_image"
-
-holoviz:
-  window_title: "Telesurgery - Surgeon"
-  width: 1920
-  framerate: 120
-  height: 1080
-  tensors:
-    - name: ""
-      type: color
-      opacity: 1.0
-      priority: 0
+video:
+  width: 1024
+  height: 576
+  device: /dev/video0
 
 hid:
   domain_id: 1
-  participant_qos: TelesurgeryLibrary::TelesurgeryApplication
-  writer_qos: TelesurgeryLibrary::Command
-  hid_devices:
-    - name: joystick_sim
-      path: /simulation
-      type: joystick
-    # - name: joystick1
-    #   path: /dev/input/js0
-    #   type: joystick
-    # - name: keyboard1
-    #   path: /dev/input/event4
-    #   type: keyboard
-    # - name: mouse1
-    #   path: /dev/input/event5
-    #   type: mouse
+  participant_qos: "TelesurgeryLibrary::TelesurgeryApplication"
+  reader_qos: "TelesurgeryLibrary::Command"
+  # hid_device_filters:
+  #   - joystick1
+  #   - keyboard1
+  #   - mouse1
+
+camera_info_publisher:
+  qos_provider: "qos_profiles.xml"
+  domain_id: 1
+  topic: "camera_info"
+  participant_qos: "TelesurgeryLibrary::TelesurgeryApplication"
+  writer_qos: "TelesurgeryLibrary::CameraInfo"

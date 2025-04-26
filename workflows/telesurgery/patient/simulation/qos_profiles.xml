@@ -24,7 +24,7 @@
         <qos_profile name="TelesurgeryApplication" base_name="BuiltinQosLib::Generic.Common">
             <domain_participant_qos>
                 <participant_name>
-                    <name>SurgeonParticipant</name>
+                    <name>PatientParticipant</name>
                 </participant_name>
                 <!-- Optimizations for the the SHMEM and UDPv4 transports. -->
                 <transport_builtin>
@@ -81,7 +81,6 @@
                 </subscription_name>
             </datareader_qos>
         </qos_profile>
-
         <!-- Camera Info Profile - For camera metadata -->
         <qos_profile name="CameraInfo" base_name="BuiltinQosLib::Generic.BestEffort">
             <datawriter_qos>
