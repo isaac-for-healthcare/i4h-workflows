@@ -199,11 +199,6 @@ def main():
     reset_tensor = torch.cat([reset_pos, reset_quat], dim=-1)
     reset_tensor = reset_tensor.repeat(env.unwrapped.num_envs, 1)
 
-    for _ in range(args_cli.reset_steps):
-        robot_obs = get_robot_obs(env)
-        rel_commands = compute_relative_action(reset_tensor, robot_obs)
-        obs, rew, terminated, truncated, info_ = env.step(rel_commands)
-
     # initialize publishers
     viz_r_cam_writer = RoomCamPublisher(args_cli.viz_domain_id)
     viz_w_cam_writer = WristCamPublisher(args_cli.viz_domain_id)
@@ -215,7 +210,7 @@ def main():
         with torch.inference_mode():
             # Handle reset conditions
             if str(state_machine.sm_state.state) == str(UltrasoundState.DONE) or (
-                count % args_cli.max_steps == 0 and count > 0
+                count % args_cli.max_steps == 0
             ):
                 if data_collector is not None:
                     if str(state_machine.sm_state.state) == str(UltrasoundState.DONE):
