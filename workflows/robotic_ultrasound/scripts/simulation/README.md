@@ -281,6 +281,9 @@ To visualize the ultrasound images, please check out the [Visualization Utility]
 python ../utils/visualization.py
 ```
 
+To see the ultrasound probe moving, please ensure the `topic_ultrasound_info` is published from the scripts such as [sim_with_dds.py](./environments/sim_with_dds.py) or [Tele-op](./environments/teleoperation/teleop_se3_agent.py).
+
+
 #### Command Line Arguments
 
 | Argument | Description | Default Value |
