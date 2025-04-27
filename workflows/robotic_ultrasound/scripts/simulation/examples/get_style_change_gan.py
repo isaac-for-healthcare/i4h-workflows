@@ -166,7 +166,7 @@ def initialize_transforms():
     img_transforms = transforms.Compose(
         [
             transforms.Lambda(lambda img: __pad_to_square(img)),
-            transforms.Resize((512, 512), transforms.InterpolationMode.BILINEAR),
+            transforms.Resize((256, 256), transforms.InterpolationMode.BILINEAR),
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,)),
         ],
@@ -184,6 +184,9 @@ def generate_us(test_image, generator):
         output = (output + 1) / 2.0 * 255.0
 
         output = output.cpu().float().numpy().astype(np.uint8)
+
+        # resize to 224
+        output = cv2.resize(output, (224, 224))
 
         # to rgb
         output = np.stack([output, output, output], axis=-1)
