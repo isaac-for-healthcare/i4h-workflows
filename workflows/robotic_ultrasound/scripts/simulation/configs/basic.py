@@ -20,6 +20,7 @@ from simulation.configs.config import (
     TargetConfig,
     UltraSoundConfig,
     WristCameraConfig,
+    Topic,
 )
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
@@ -30,6 +31,18 @@ config = Config(
     wrist_camera=WristCameraConfig(prim_path="/Franka/panda_hand/geometry/realsense/realsense_camera", enabled=True),
     franka=FrankaConfig(prim_path="/Franka", ik=False, auto_pos=False, enabled=True),
     target=TargetConfig(prim_path="/Target", auto_pos=False, enabled=False),
-    ultrasound=UltraSoundConfig(prim_path="/Target", enabled=True),
-    ultrasound_gan=UltraSoundConfig(prim_path="/Target", enabled=True),
+    ultrasound=UltraSoundConfig(
+        prim_path="/Target",
+        enabled=True,
+        # Explicitly define topics, overriding defaults from config.py
+        topic_data=Topic(name="topic_ultrasound_data"),
+        topic_info=Topic(name="topic_ultrasound_info")
+    ),
+    ultrasound_gan=UltraSoundConfig(
+        prim_path="/Target", # Assuming same prim path, adjust if needed
+        enabled=True,
+        # Explicitly define DIFFERENT topics for GAN, overriding defaults
+        topic_data=Topic(name="topic_ultrasound_gan_data"), # Matches GAN script default output
+        topic_info=Topic(name="topic_ultrasound_info")  # Matches GAN script default input
+    ),
 )

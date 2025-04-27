@@ -195,22 +195,6 @@ class Simulator(Operator):
                 return False, world, meshes
 
         # Add meshes one by one
-        mesh_configs = [
-            ("Tumor1.obj", "fat"),
-            ("Tumor2.obj", "water"),
-            ("Liver.obj", "liver"),
-            ("Skin.obj", "fat"),
-            ("Bone.obj", "bone"),
-            ("Vessels.obj", "water"),
-            ("Gallbladder.obj", "water"),
-            ("Spleen.obj", "liver"),
-            # ("Heart.obj", "liver"),
-            ("Stomach.obj", "water"),
-            ("Pancreas.obj", "liver"),
-            ("Small_bowel.obj", "water"),
-            ("Colon.obj", "water"),
-        ]
-
         mesh_liver_only_configs = [
             ("Liver.obj", "liver"),
         ]
@@ -359,7 +343,7 @@ class Simulator(Operator):
             data_for_gan = generate_us(data_for_gan, self.generator)
 
         else:
-            data_for_gan = np.stack([grey_data_liver, grey_data_liver, grey_data_liver], axis=-1)
+            data_for_gan = np.zeros((self.out_height, self.out_width, 3), dtype=np.uint8)
         op_output.emit({"": data_for_gan}, "output")
 
     def _add_liver_to_scan_area(self, b_mode_image_liver, main_contour):
@@ -515,7 +499,7 @@ class StreamingSimulator(Application):
         self,
         domain_id=0,
         output_topic="topic_ultrasound_gan_data",
-        input_topic="topic_ultrasound_gan_info",
+        input_topic="topic_ultrasound_info",
         out_width=224,
         out_height=224,
         start_pose=np.zeros((6,)),
@@ -585,7 +569,7 @@ def main():
     parser.add_argument(
         "--topic_in",
         type=str,
-        default="topic_ultrasound_gan_info",
+        default="topic_ultrasound_info",
         help="topic name to consume prob pos.",
     )
     parser.add_argument(
