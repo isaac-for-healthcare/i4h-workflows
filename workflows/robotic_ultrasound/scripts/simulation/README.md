@@ -126,8 +126,10 @@ This will collect data for 2 complete episodes and store it in HDF5 format.
 | `--camera_names` | list[str] | ["room_camera", "wrist_camera"] | List of camera names to capture images from |
 | `--disable_fabric` | flag | False | Disable fabric and use USD I/O operations |
 | `--num_envs` | int | 1 | Number of environments to spawn (must be 1 for this script) |
-| `--reset_steps` | int | 15 | Number of steps to take during environment reset |
+| `--reset_steps` | int | 40 | Number of steps to take during environment reset |
 | `--max_steps` | int | 350 | Maximum number of steps before forcing a reset |
+
+> **Note:** It is recommended to use at least 40 steps for `--reset_steps` to allow enough steps for the robot to properly reset to the SETUP position.
 
 #### Data Collection Details
 

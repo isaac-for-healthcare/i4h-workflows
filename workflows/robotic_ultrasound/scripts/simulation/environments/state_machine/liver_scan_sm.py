@@ -53,6 +53,7 @@ parser.add_argument(
     default=["room_camera", "wrist_camera"],
     help="List of camera names to capture from.",
 )
+# Recommended to use 40 steps to allow enough steps to reset the SETUP position of the robot
 parser.add_argument(
     "--reset_steps",
     type=int,

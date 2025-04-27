@@ -107,6 +107,7 @@ def main():
     # reset environment
     obs = env.reset()
 
+    # Recommended to use 40 steps to allow enough steps to reset the SETUP position of the robot
     reset_steps = 40
     max_timesteps = 250
 
