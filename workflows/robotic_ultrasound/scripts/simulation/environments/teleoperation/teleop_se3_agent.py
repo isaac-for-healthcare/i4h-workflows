@@ -222,6 +222,7 @@ def main():
         env_cfg.commands.object_pose.resampling_time_range = (1.0e9, 1.0e9)
         # add termination condition for reaching the goal otherwise the environment won't reset
         env_cfg.terminations.object_reached_goal = DoneTerm(func=mdp.object_reached_goal)
+    env_cfg.scene.ee_frame.debug_vis = True
     # create environment
     env = gym.make(args_cli.task, cfg=env_cfg)
 
