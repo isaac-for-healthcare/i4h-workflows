@@ -4,7 +4,7 @@ import numpy as np
 from timeit import default_timer as timer
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as F
-import torch_tensorrt
+# import torch_tensorrt
 import cv2
 import os
 import torch
@@ -135,7 +135,7 @@ def initialize_generator(use_trt=True):
         weights = "/localhome/local-vennw/code/gan_training_data/checkpoints/tcia_rt_to_us.ts"
         generator = torch.jit.load(weights)
     else:
-        weights = "/localhome/local-vennw/code/gan_training_data/checkpoints/500_net_G.pth"
+        weights = "/localhome/local-vennw/code/gan_training_data/checkpoints/200_net_G.pth"
         generator = define_generator(
             input_nc=1,
             output_nc=1,
