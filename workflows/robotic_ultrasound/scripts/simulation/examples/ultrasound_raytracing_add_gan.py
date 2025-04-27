@@ -25,6 +25,9 @@ from holoscan.conditions import PeriodicCondition
 from holoscan.core import Application, MetadataPolicy, Operator, OperatorSpec
 from rti.types import struct
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from get_style_change_gan import initialize_generator, initialize_transforms, generate_us
+import cv2
+from PIL import Image
 
 try:
     import raysim.cuda as rs
@@ -65,7 +68,7 @@ class UltrasoundSimSubscriber(Operator):
         fragment,
         *args,
         domain_id=0,
-        topic="topic_ultrasound_info",
+        topic="topic_ultrasound_gan_info",
         data_schema: struct = UltraSoundProbeInfo,
         **kwargs,
     ):
@@ -145,10 +148,10 @@ class Simulator(Operator):
         self.simulator = None
         self.sim_params = None
         self.probe = None
-        self.world = None
         self.materials = None
-        self.meshes = []  # Store mesh references
         self.last_time_probe_info = None
+        self.world_liver = None
+        self.meshes_liver = []
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec: OperatorSpec):
@@ -165,13 +168,12 @@ class Simulator(Operator):
         self.materials = rs.Materials()
 
         # Create world
-        self.world = rs.World("water")
+        self.world_liver = rs.World("water")
 
         # Add meshes
-        self.meshes = []  # Clear and rebuild mesh list
-
+        self.meshes_liver = []
         # Helper function to safely add a mesh
-        def add_mesh(filename, material_name):
+        def add_mesh(filename, material_name, world, meshes):
             """
             Adds a mesh to the world.
 
@@ -185,12 +187,12 @@ class Simulator(Operator):
             try:
                 material_idx = self.materials.get_index(material_name)
                 mesh = rs.Mesh(mesh_path, material_idx)
-                self.world.add(mesh)
-                self.meshes.append(mesh)  # Keep reference
-                return True
+                world.add(mesh)
+                meshes.append(mesh)  # Keep reference
+                return True, world, meshes
             except Exception as e:
                 print(f"Error adding mesh {mesh_path}: {e}")
-                return False
+                return False, world, meshes
 
         # Add meshes one by one
         mesh_configs = [
@@ -209,14 +211,19 @@ class Simulator(Operator):
             ("Colon.obj", "water"),
         ]
 
+        mesh_liver_only_configs = [
+            ("Liver.obj", "liver"),
+        ]
+
         # Count successful mesh additions
         success_count = 0
-        for filename, material in mesh_configs:
-            if add_mesh(filename, material):
+        for filename, material in mesh_liver_only_configs:
+            success, world, meshes = add_mesh(filename, material, self.world_liver, self.meshes_liver)
+            if success:
                 success_count += 1
 
         if success_count == 0:
-            print("WARNING: No meshes were successfully added to the world!")
+            print("WARNING: No meshes were successfully added to the liver world!")
 
         # Create probe position
         position = np.array(self.start_pose[:3], dtype=np.float32)
@@ -290,7 +297,7 @@ class Simulator(Operator):
 
         # Create simulator
         try:
-            self.simulator = rs.RaytracingUltrasoundSimulator(self.world, self.materials)
+            self.simulator = rs.RaytracingUltrasoundSimulator(self.world_liver, self.materials)
         except Exception as e:
             print(f"ERROR creating simulator: {e}")
             raise RuntimeError(f"Failed to create simulator: {e}")
@@ -302,6 +309,22 @@ class Simulator(Operator):
         self.sim_params.t_far = sim_config["t_far"]
         self.sim_params.b_mode_size = (self.out_height, self.out_width)
         self.sim_params.enable_cuda_timing = True
+
+        # produce a scan area figure
+        scan_area_liver = self.simulator.generate_scan_area(
+            self.probe,
+            self.sim_params.t_far,
+            self.sim_params.b_mode_size,
+            inside_value=float("inf"),
+            outside_value=float("-inf")
+        )
+        self.scan_area_figure = np.zeros(scan_area_liver.shape, dtype=np.uint8)
+        self.scan_area_figure[scan_area_liver == float("inf")] = 255
+
+        # add GAN
+        self.generator = initialize_generator(use_trt=False)
+        self.img_transforms = initialize_transforms()
+
 
     def compute(self, op_input, op_output, context):
         """
@@ -316,16 +339,45 @@ class Simulator(Operator):
             context: The context of the operator.
         """
         probe_info, receiving = op_input.receive("input")
-
         # Process the probe pose
         self._process_probe_pose(probe_info, receiving)
 
         # Run simulation
-        b_mode_image = self.simulator.simulate(self.probe, self.sim_params)
+        b_mode_image_liver = self.simulator.simulate(self.probe, self.sim_params)
 
         # Process the image
-        rgb_data = self._process_ultrasound_image(b_mode_image)
-        op_output.emit({"": rgb_data}, "output")
+        grey_data_liver = self._process_ultrasound_image(b_mode_image_liver, get_rgb=False)
+        # find contours of grey_data_liver
+        contours, _ = cv2.findContours(grey_data_liver, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            main_contour = max(contours, key=cv2.contourArea)
+            data_for_gan = self._add_liver_to_scan_area(grey_data_liver, main_contour)
+            # add gan
+            data_for_gan = Image.fromarray(data_for_gan)
+            data_for_gan = self.img_transforms(data_for_gan)
+            data_for_gan = data_for_gan.unsqueeze(0).cuda()
+            data_for_gan = generate_us(data_for_gan, self.generator)
+
+        else:
+            data_for_gan = np.stack([grey_data_liver, grey_data_liver, grey_data_liver], axis=-1)
+        op_output.emit({"": data_for_gan}, "output")
+
+    def _add_liver_to_scan_area(self, b_mode_image_liver, main_contour):
+        """
+        Add the liver to the scan area figure
+        """
+        rt_mask = np.zeros_like(b_mode_image_liver)
+        cv2.drawContours(rt_mask, [main_contour], -1, (255), thickness=cv2.FILLED)
+
+        # rt with scan area
+        output_image = np.zeros_like(b_mode_image_liver)
+        # for each pixel in output_image, if it is in scan area, set it to 255
+        output_image[self.scan_area_figure == 255] = 255
+        # if it's also in rt_mask, set it to b_mode_image_liver value
+        output_image[(rt_mask == 255) & (self.scan_area_figure == 255)] = b_mode_image_liver[(rt_mask == 255) & (self.scan_area_figure == 255)]
+
+        return output_image
+    
 
     def _process_probe_pose(self, probe_info, receiving=True):
         """
@@ -356,7 +408,7 @@ class Simulator(Operator):
         new_pose = rs.Pose(translation_array, rotation_array)
         self.probe.set_pose(new_pose)
 
-    def _process_ultrasound_image(self, b_mode_image):
+    def _process_ultrasound_image(self, b_mode_image, get_rgb=True):
         """
         Process the ultrasound image for display.
 
@@ -376,9 +428,11 @@ class Simulator(Operator):
             img_uint8 = (normalized_image * 255).astype(np.uint8)
 
         # Create RGB output
-        rgb_data = np.stack([img_uint8, img_uint8, img_uint8], axis=-1)
-
-        return rgb_data
+        if get_rgb:
+            rgb_data = np.stack([img_uint8, img_uint8, img_uint8], axis=-1)
+            return rgb_data
+        else:
+            return img_uint8
 
 
 class UltrasoundSimPublisher(Operator):
@@ -460,8 +514,8 @@ class StreamingSimulator(Application):
     def __init__(
         self,
         domain_id=0,
-        output_topic="topic_ultrasound_data",
-        input_topic="topic_ultrasound_info",
+        output_topic="topic_ultrasound_gan_data",
+        input_topic="topic_ultrasound_gan_info",
         out_width=224,
         out_height=224,
         start_pose=np.zeros((6,)),
@@ -531,13 +585,13 @@ def main():
     parser.add_argument(
         "--topic_in",
         type=str,
-        default="topic_ultrasound_info",
+        default="topic_ultrasound_gan_info",
         help="topic name to consume prob pos.",
     )
     parser.add_argument(
         "--topic_out",
         type=str,
-        default="topic_ultrasound_data",
+        default="topic_ultrasound_gan_data",
         help="topic name to publish generated ultrasound data.",
     )
     parser.add_argument(

@@ -31,4 +31,5 @@ config = Config(
     franka=FrankaConfig(prim_path="/Franka", ik=False, auto_pos=False, enabled=True),
     target=TargetConfig(prim_path="/Target", auto_pos=False, enabled=False),
     ultrasound=UltraSoundConfig(prim_path="/Target", enabled=True),
+    ultrasound_gan=UltraSoundConfig(prim_path="/Target", enabled=True),
 )

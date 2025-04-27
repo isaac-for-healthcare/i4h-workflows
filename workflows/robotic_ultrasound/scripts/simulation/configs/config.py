@@ -91,3 +91,4 @@ class Config(BaseModel):
     franka: FrankaConfig | None = None
     target: TargetConfig | None = None
     ultrasound: UltraSoundConfig | None = None
+    ultrasound_gan: UltraSoundConfig | None = None
