@@ -41,13 +41,13 @@ def main():
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        default="/mnt/hdd/checkpoints/robotic_ultrasound_lora/liver_ultrasound/29999",
+        default=robot_us_assets.policy_ckpt,
         help="checkpoint path. Default will use the policy model in the downloaded assets.",
     )
     parser.add_argument(
         "--repo_id",
         type=str,
-        default="i4h/sim_250_rel_axis_angle",
+        default="i4h/sim_liver_scan",
         help=(
             "LeRobot repo id for the dataset norm. "
             "Default is `i4h/sim_liver_scan`, which is included in the downloaded assets."
