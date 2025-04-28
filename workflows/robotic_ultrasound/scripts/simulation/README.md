@@ -126,8 +126,10 @@ This will collect data for 2 complete episodes and store it in HDF5 format.
 | `--camera_names` | list[str] | ["room_camera", "wrist_camera"] | List of camera names to capture images from |
 | `--disable_fabric` | flag | False | Disable fabric and use USD I/O operations |
 | `--num_envs` | int | 1 | Number of environments to spawn (must be 1 for this script) |
-| `--reset_steps` | int | 15 | Number of steps to take during environment reset |
+| `--reset_steps` | int | 40 | Number of steps to take during environment reset |
 | `--max_steps` | int | 350 | Maximum number of steps before forcing a reset |
+
+> **Note:** It is recommended to use at least 40 steps for `--reset_steps` to allow enough steps for the robot to properly reset to the SETUP position.
 
 #### Data Collection Details
 
@@ -266,11 +268,23 @@ You only need to specify the parameters you want to change - any omitted paramet
 
 #### Running the Simulator
 
-Please move to the current [`simulation` folder](./) and execute the following command to run the ultrasound raytracing simulator:
+Please navigate to the current [`simulation` folder](./) and execute the following command to run the ultrasound raytracing simulator:
 
 ```sh
 python examples/ultrasound_raytracing.py
 ```
+
+The simulator will start streaming the ultrasound images under the `topic_ultrasound_data` topic in the DDS communication. The domain ID is set to 1 in the current default settings.
+
+To visualize the ultrasound images, please check out the [Visualization Utility](../utils/README.md), and launch another terminal to run this command:
+
+```sh
+# Stay in the simulation folder
+python ../utils/visualization.py
+```
+
+To see the ultrasound probe moving, please ensure the `topic_ultrasound_info` is published from the scripts such as [sim_with_dds.py](./environments/sim_with_dds.py) or [Tele-op](./environments/teleoperation/teleop_se3_agent.py).
+
 
 #### Command Line Arguments
 

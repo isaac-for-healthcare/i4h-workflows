@@ -159,7 +159,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     # Particularly, we used to to derive how the ultrasound probe sees the mesh objects
     mesh_to_organ_transform = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/organs",
-        debug_vis=True,
+        debug_vis=False,
         visualizer_cfg=FRAME_MARKER_TINY_CFG.replace(prim_path="/Visuals/mesh_to_organ_transform"),
         target_frames=[
             FrameTransformerCfg.FrameCfg(
@@ -187,7 +187,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     # This transform is used to track the relative displacement/rotation.
     organ_to_ee_transform = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/organs",
-        debug_vis=True,
+        debug_vis=False,
         visualizer_cfg=FRAME_MARKER_SMALL_CFG.replace(prim_path="/Visuals/organ_frame"),
         target_frames=[
             FrameTransformerCfg.FrameCfg(
@@ -205,7 +205,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     # This transform is used to compute the transformation between the two coordinate systems.
     ee_to_us_transform = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/Robot/TCP",
-        debug_vis=True,
+        debug_vis=False,
         visualizer_cfg=FRAME_MARKER_TINY_CFG.replace(prim_path="/Visuals/ee_to_us_transform"),
         target_frames=[
             FrameTransformerCfg.FrameCfg(
@@ -364,6 +364,7 @@ class EventCfg:
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=["panda_joint.*"]),
+            "fraction": 0.01,
         },
     )
 
@@ -494,7 +495,7 @@ class FrankaModRGBDIkRlEnvCfg(RoboticIkRlEnvCfg):
 
         self.scene.ee_frame = FrameTransformerCfg(
             prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
-            debug_vis=True,
+            debug_vis=False,
             visualizer_cfg=marker_cfg,
             target_frames=[
                 FrameTransformerCfg.FrameCfg(
