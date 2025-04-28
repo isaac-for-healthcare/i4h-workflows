@@ -69,6 +69,7 @@ def run_with_monitoring(command, timeout_seconds, target_line=None):
         while time.time() - start_time < timeout_seconds:
             if target_line and found_event.is_set():
                 target_found = True
+                break
 
             # Check if process has already terminated
             if process.poll() is not None:
