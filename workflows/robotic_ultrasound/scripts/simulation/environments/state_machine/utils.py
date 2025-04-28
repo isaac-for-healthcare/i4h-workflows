@@ -51,9 +51,9 @@ class PhantomScanPositions:
 class RobotPositions:
     """Robot position configurations stored as torch tensors."""
 
-    SETUP: tuple[float, float, float] = (0.0178, -0.04, 0.6)
-    ORGAN_OFFSET: tuple[float, float, float] = (0.0178, -0.04, 0.0968)
-    TARGET_OFFSET: tuple[float, float, float] = (0.0476, 0.0469, 0.0850)
+    SETUP: tuple[float, float, float] = (0.3229, -0.0110, 0.3000)
+    ORGAN_OFFSET: tuple[float, float, float] = (0.0040, -0.0519 + 0.08, 0.1510)
+    TARGET_OFFSET: tuple[float, float, float] = (0.0040, -0.08, 0.00)
 
 
 @dataclass(frozen=True)

@@ -231,6 +231,7 @@ def main():
             raise ValueError("RTI license file must be an existing absolute path.")
         os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
 
+    # Recommended to use 40 steps to allow enough steps to reset the SETUP position of the robot
     reset_steps = 40
     max_timesteps = 250
 
@@ -257,7 +258,7 @@ def main():
     import time
     time.sleep(10)
     # Number of steps played before replanning
-    replan_steps = 15
+    replan_steps = 5
 
     # simulate environment
     while simulation_app.is_running():

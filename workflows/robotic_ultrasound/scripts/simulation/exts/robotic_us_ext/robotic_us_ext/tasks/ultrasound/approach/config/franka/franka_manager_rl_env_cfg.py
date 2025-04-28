@@ -368,6 +368,7 @@ class EventCfg:
         mode="reset",
         params={
             "asset_cfg": SceneEntityCfg("robot", joint_names=["panda_joint.*"]),
+            "fraction": 0.01,
         },
     )
     # reset_camera_position = EventTerm(
