@@ -115,8 +115,6 @@ def run_tests_with_coverage(workflow_name, skip_xvfb):
                 continue
             elif "test_integration" in test_path:
                 continue
-            elif "test_surgery_sm" not in test_path:
-                continue
             else:
                 cmd = [
                     sys.executable,
