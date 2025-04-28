@@ -6,11 +6,13 @@ import glob
 import pdb
 import tqdm
 import os
+import copy
 # Load HDF5 file
 
 
 def process_data(file_path, output_path):
     f = h5py.File(file_path, "r")
+    print(f.keys())
     # Extract data
     rgb_images = f['data/demo_0']['observations']['rgb_images']  # (263, 2, 224, 224, 3)
     depth_images = f['data/demo_0']['observations']['depth_images']  # (263, 2, 224, 224, 1)
@@ -64,13 +66,21 @@ def process_data(file_path, output_path):
             
             seg_mask_frame = seg_images[i, vid_idx, :, :, 0].astype(np.uint8) # Already 0 or 255
 
-            # Define a colormap (Each label gets an (R, G, B) color)
+            # work around for the bug in the seg_mask_frame
+            # if vid_idx == 0:
+            #     # print(np.unique(seg_mask_frame))
+            #     seg_mask_frame_ = copy.deepcopy(seg_mask_frame)
+            #     seg_mask_frame[seg_mask_frame_ == 3] = 2
+            #     seg_mask_frame[seg_mask_frame_ == 2] = 3
+            print("Please visually check the colored seg_mask_frame is correct in both videos")
+
+            # Define a colormap (Each label gets an (B, G, R) color)
             color_map = {
                 0: (0, 0, 0),        # Black
-                1: (255, 0, 0),      # Red
+                1: (255, 0, 0),      # Blue
                 2: (0, 255, 0),      # Green
-                3: (0, 0, 255),      # Blue
-                4: (255, 255, 0)     # Yellow
+                3: (0, 0, 255),      # Red
+                4: (255, 255, 0)     # light blue
             }
             # Create an RGB image (H, W, 3)
             H, W = seg_mask_frame.shape
@@ -84,6 +94,35 @@ def process_data(file_path, output_path):
 
     for i in npz_savers.keys():
         np.savez(f"{output_path}/seg_mask_video_{i}.npz", np.array(npz_savers[i]))
+    
+    room_camera_intrinsic_matrices = f['data/demo_0/observations/room_camera_intrinsic_matrices']  # (n_frames, 3, 3)
+    room_camera_pos = f['data/demo_0/observations/room_camera_pos']  # (n_frames, 3)
+    room_camera_quat = f['data/demo_0/observations/room_camera_quat_w_ros']  # (n_frames, 4)
+    save_dict = {
+        "room_camera_intrinsic_matrices": room_camera_intrinsic_matrices,
+        "room_camera_pos": room_camera_pos,
+        "room_camera_quat": room_camera_quat
+    }
+    np.savez(f"{output_path}/room_camera_para.npz", **save_dict)
+
+    wrist_camera_intrinsic_matrices = f['data/demo_0/observations/wrist_camera_intrinsic_matrices']  # (n_frames, 3, 3)
+    wrist_camera_pos = f['data/demo_0/observations/wrist_camera_pos']  # (n_frames, 3)
+    wrist_camera_quat = f['data/demo_0/observations/wrist_camera_quat_w_ros']  # (n_frames, 4)
+    save_dict = {
+        "wrist_camera_intrinsic_matrices": wrist_camera_intrinsic_matrices,
+        "wrist_camera_pos": wrist_camera_pos,
+        "wrist_camera_quat": wrist_camera_quat
+    }
+    
+    np.savez(f"{output_path}/wrist_camera_para.npz", **save_dict)
+
+    # save the seg_mask videos
+    save_dict = {
+        "depth_images": f['data/demo_0/observations/depth_images'],
+        "seg_images": f['data/demo_0/observations/seg_images'],
+    }
+    
+    np.savez(f"{output_path}/seg_depth_images.npz", **save_dict)
 
     # Release all video writers
     for category in writers:
@@ -93,15 +132,16 @@ def process_data(file_path, output_path):
     print("Videos saved successfully!")
 
 if __name__ == '__main__':
-    exps_name = "2025-04-11-18-50-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0/"
+    # exps_name = "2025-04-16-20-17-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0/"
+    exps_name = "2025-04-21-19-20-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0/"
     folder = "data/hdf5/" + exps_name
     output_folder = "output/" + exps_name
     files = glob.glob(folder + '*.hdf5')
     for f in tqdm.tqdm(files):
         basename = os.path.basename(f).split('.')[0]
-        output = output_folder + basename
-        if os.path.exists(output):
-            continue
+        output = output_folder #+ basename
+        # if os.path.exists(output):
+        #     continue
         os.makedirs(output, exist_ok=True)
         process_data(f, output)
 

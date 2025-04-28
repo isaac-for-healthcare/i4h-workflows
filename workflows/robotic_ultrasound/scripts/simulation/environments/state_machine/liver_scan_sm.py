@@ -43,7 +43,7 @@ parser.add_argument(
 parser.add_argument(
     "--num_episodes",
     type=int,
-    default=0,
+    default=1,
     help="Number of episodes to collect. If 0, no data collection is performed.",
 )
 parser.add_argument(
@@ -169,6 +169,7 @@ def main():
     # create environment
     env_cfg.scene.room_camera.data_types = ["rgb", "distance_to_image_plane", "semantic_segmentation"]
     env_cfg.scene.wrist_camera.data_types = ["rgb", "distance_to_image_plane", "semantic_segmentation"]
+    # env_cfg.scene.room_camera.offset.pos = (0.1, 0.1, 0.1)
     # env_cfg.scene.room_camera.offset.pos = (0.55942, 1.56039, 2.36243)
 
     env_cfg.scene.room_camera.width = 640
