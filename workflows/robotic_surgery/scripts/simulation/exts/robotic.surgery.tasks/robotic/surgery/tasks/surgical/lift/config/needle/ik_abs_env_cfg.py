@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+import isaaclab.sim as sim_utils
 from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
@@ -74,13 +75,20 @@ class NeedleLiftOREnvCfg(NeedleLiftEnvCfg):
         # simulation settings
         self.viewer.eye = (-0.32, 0.12, 0.12)
 
+        # lights
+        self.scene.light = AssetBaseCfg(
+            prim_path="/World/light",
+            init_state=AssetBaseCfg.InitialStateCfg(pos=(-0.25, 0.0, 0.1), rot=(0.7071068, 0.0, -0.7071068, 0.0)),
+            spawn=sim_utils.DiskLightCfg(radius=0.2, color=(0.75, 0.75, 0.75), intensity=3000.0),
+        )
+
         # Set table to None
         self.scene.table = None
 
         # Operating Room (OR)
         self.scene.organs = AssetBaseCfg(
             prim_path="{ENV_REGEX_NS}/Organs",
-            init_state=AssetBaseCfg.InitialStateCfg(pos=(0.25, -0.14, -0.85), rot=(0.7071068, 0, 0, 0.7071068)),
+            init_state=AssetBaseCfg.InitialStateCfg(pos=(0.25, -0.14, -0.85), rot=(0.7071068, 0.0, 0.0, 0.7071068)),
             spawn=UsdFileCfg(usd_path=robotic_surgery_assets.Organs, scale=(0.01, 0.01, 0.01)),
         )
 
