@@ -56,7 +56,7 @@ class NeedleLiftEnvCfg(LiftEnvCfg):
             prim_path="{ENV_REGEX_NS}/Object",
             init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.015), rot=(1, 0, 0, 0)),
             spawn=UsdFileCfg(
-                usd_path=robotic_surgery_assets.Needle,
+                usd_path=robotic_surgery_assets.Needle_SDF,
                 scale=(0.4, 0.4, 0.4),
                 rigid_props=RigidBodyPropertiesCfg(
                     solver_position_iteration_count=16,
