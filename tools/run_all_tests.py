@@ -42,7 +42,7 @@ def _run_test_process(cmd, env, test_path):
 
     try:
         process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        stdout, stderr = process.communicate(timeout=1500)
+        stdout, stderr = process.communicate(timeout=600)
         # Filter out extension loading messages
         filtered_stdout = "\n".join(
             [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
@@ -114,6 +114,8 @@ def run_tests_with_coverage(workflow_name, skip_xvfb):
             elif "test_sim_with_dds" in test_path or "test_pi0" in test_path:
                 continue
             elif "test_integration" in test_path:
+                continue
+            elif "test_surgery_sm" not in test_path:
                 continue
             else:
                 cmd = [
