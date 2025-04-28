@@ -22,6 +22,7 @@ from dataclasses import MISSING
 
 import isaaclab.sim as sim_utils
 import torch
+import math
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.controllers import DifferentialIKControllerCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
@@ -65,7 +66,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     table = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Table",
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=[0.4804, 0.02017, -0.83415], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, -90.0]), degrees=True)
+            pos=[0.4804, 0.02017, -0.84415], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, -90.0]), degrees=True)
         ),
         spawn=sim_utils.UsdFileCfg(
             usd_path=robot_us_assets.table_with_cover,
@@ -356,7 +357,7 @@ class EventCfg:
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
-            "pose_range": {"x": (-0.1, 0.1), "y": (-0.0, 0.0), "z": (-0, -0.0)},
+            "pose_range": {"x": (-0.15, 0.15), "y": (-0.15, 0.15), "z": (-0, -0.0), "yaw": (-math.pi/2, math.pi/2)},
             "velocity_range": {},
             "asset_cfg": SceneEntityCfg("organs"),
         },
