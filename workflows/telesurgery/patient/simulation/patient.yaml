@@ -40,6 +40,7 @@ video:
   device: /dev/video0
 
 hid:
+  qos_provider: "qos_profiles.xml"
   domain_id: 1
   participant_qos: "TelesurgeryLibrary::TelesurgeryApplication"
   reader_qos: "TelesurgeryLibrary::Command"

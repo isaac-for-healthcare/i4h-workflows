@@ -66,12 +66,4 @@ spec : holoscan.core.OperatorSpec
     The operator specification.
 )doc")
 
-PYDOC(start, R"doc(
-Operator start method.
-)doc")
-
-PYDOC(stop, R"doc(
-Operator stop method.
-)doc")
-
 }  // namespace holoscan::doc::DDSHIDPublisherOp

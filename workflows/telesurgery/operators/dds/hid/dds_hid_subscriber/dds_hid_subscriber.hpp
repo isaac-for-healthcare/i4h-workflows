@@ -24,6 +24,15 @@
 
 namespace holoscan::ops {
 
+// The RTI DDS generated InputCommand type cannot be used directly and therefore we need to define our own.
+struct InputEvent
+{
+    HIDDeviceType device_type;
+    int event_type;
+    int number;
+    int value;
+};
+
 /**
  * @brief Operator class to subscribe to a DDS hid stream.
  */

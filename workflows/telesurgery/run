@@ -108,8 +108,12 @@ function patient() {
     set -u
 }
 
+function clear_cache() {
+    rm -rf ${SCRIPT_DIR}/build
+}
+
 function help() {
-    echo "Usage: $0 COMMAND [-h|--help][build|build_image|vscode|surgeon|patient|enter]"
+    echo "Usage: $0 COMMAND [-h|--help][build|build_image|vscode|surgeon|patient|enter|clear_cache]"
     echo ""
     echo "Commands:"
     echo " -h, --help"
@@ -126,7 +130,8 @@ function help() {
     echo "  run the patient application"
     echo " enter"
     echo "  enter the Docker container"
-    echo " "
+    echo " clear_cache"
+    echo "  clear the build cache"
     exit 1
 }
 
@@ -138,7 +143,7 @@ case $1 in
     help
     exit 1
     ;;
-    build|build_image|vscode|surgeon|patient|enter)
+    build|build_image|vscode|surgeon|patient|enter|clear_cache)
     COMMAND=$1
     shift
     break
