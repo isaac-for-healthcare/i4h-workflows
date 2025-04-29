@@ -60,6 +60,17 @@ For detailed steps, refer to the [official documentation on importing URDF](http
 1. Import your ultrasound probe CAD file and convert it to USD
 2. Position it in a convenient location in the scene
 
+   **Example CAD File Provided:**
+
+   An example end-effector CAD file (`HD3C3 Endeffector.step`) is included for you to experiment with. You can find its path like this:
+
+   ```python
+   from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+   cad_file_path = robot_us_assets.download_dir/Robots/Franka/End_effector/"HD3C3 Endeffector.step"
+   ```
+
+   **Note:** Please review the NVIDIA Software and Model Evaluation License located in this directory before using the example CAD file.
+
 ### Step 3: Remove the Franka Hand
 1. In the Stage panel, locate the hand components (usually named something like `/robot/panda_hand`)
 2. Right-click and select "Delete" to remove the hand components
@@ -97,6 +108,7 @@ For detailed steps, refer to the [official documentation on importing URDF](http
 - [URDF to USD Conversion Documentation](https://docs.isaacsim.omniverse.nvidia.com/latest/robot_setup/import_urdf.html#tutorial-import-urdf)
 - [Omniverse CAD Extension Documentation](https://docs.omniverse.nvidia.com/extensions/latest/ext_cad-converter/manual.html)
 - [Omniverse Importers and Exporters Documentation](https://docs.isaacsim.omniverse.nvidia.com/latest/robot_setup/importers_exporters.html#)
+- [Video Tutorial: Training a Robot from Scratch in Simulation, from URDF to OpenUSD](https://www.youtube.com/live/_HMk7I-vSBQ)
 
 ## Support
 
