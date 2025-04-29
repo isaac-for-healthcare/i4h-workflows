@@ -14,28 +14,21 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.24)
-project(dds_hid_publisher)
+project(generic_hid_interface)
 
 find_package(holoscan 3.3 REQUIRED CONFIG
              PATHS "/opt/nvidia/holoscan" "/workspace/holoscan-sdk/install")
 
-# Build the dds operator base
-set("BUILD_dds_operator_base" ON CACHE BOOL "Build dds_operator_base" FORCE)
+add_library(generic_hid_interface SHARED
+  generic_hid_interface.cpp)
 
-# Publisher Operator
-add_library(dds_hid_publisher SHARED
-  dds_hid_publisher.cpp)
+add_library(holoscan::ops::generic_hid_interface ALIAS generic_hid_interface)
 
-add_library(holoscan::ops::dds_hid_publisher ALIAS dds_hid_publisher)
-
-target_link_libraries(dds_hid_publisher PUBLIC
-  dds_operator_base
-  dds_hid_command
-  holoscan::ops::generic_hid_interface
+target_link_libraries(generic_hid_interface PUBLIC
+  holoscan::core
 )
 
-target_include_directories(dds_hid_publisher PUBLIC
+target_include_directories(generic_hid_interface PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 
-add_subdirectory(python)

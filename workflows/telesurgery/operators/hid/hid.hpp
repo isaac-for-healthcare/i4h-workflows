@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <yaml-cpp/yaml.h>
 #include <sstream>
 #include <string>
-#include "InputCommand.hpp"
 
 #include <holoscan/holoscan.hpp>
 
 namespace holoscan::ops {
 
-struct HIDDevice {
+enum class HIDDeviceType {
+  JOYSTICK,
+  KEYBOARD,
+  MOUSE,
+};
+
+struct HumanInterfaceDevice {
   std::string name;
   std::string path;
   HIDDeviceType type;
@@ -32,76 +39,76 @@ struct HIDDevice {
   mutable int file_descriptor;
 };
 
-struct HIDevicesConfig {
-  std::vector<HIDDevice> devices;
+struct HumanInterfaceDevicesConfig {
+  std::vector<HumanInterfaceDevice> devices;
 };
 
 }  // namespace holoscan::ops
 
 template <>
-struct YAML::convert<holoscan::ops::HIDevicesConfig> {
-  static Node encode(const holoscan::ops::HIDevicesConfig& rhs) {
+struct YAML::convert<holoscan::ops::HumanInterfaceDevicesConfig> {
+  static Node encode(const holoscan::ops::HumanInterfaceDevicesConfig& rhs) {
     Node node;
     for (const auto& device : rhs.devices) {
       Node device_node;
       device_node["name"] = device.name;
       device_node["path"] = device.path;
-      device_node["type"] = encode_hid_device_type_as_string(device.type);
+      device_node["type"] = encode_human_interface_device_type_as_string(device.type);
       node.push_back(device_node);
     }
     return node;
   }
 
-  static bool decode(const Node& node, holoscan::ops::HIDevicesConfig& rhs) {
+  static bool decode(const Node& node, holoscan::ops::HumanInterfaceDevicesConfig& rhs) {
     if (!node.IsSequence()) return false;
 
     rhs.devices.clear();
     for (const auto& device_node : node) {
-      holoscan::ops::HIDDevice device;
-      if (!parse_hid_device_node(device_node, device)) { return false; }
+      holoscan::ops::HumanInterfaceDevice device;
+      if (!parse_human_interface_device_node(device_node, device)) { return false; }
       rhs.devices.push_back(device);
     }
     return true;
   }
 
-  static bool parse_hid_device_node(const Node& node, holoscan::ops::HIDDevice& device) {
+  static bool parse_human_interface_device_node(const Node& node, holoscan::ops::HumanInterfaceDevice& device) {
     try {
       device.name = node["name"].as<std::string>();
       device.path = node["path"].as<std::string>();
-      if (!parse_hid_device_type(node["type"].as<std::string>(), device.type)) {
+      if (!parse_human_interface_device_type(node["type"].as<std::string>(), device.type)) {
         return false;
       }
     } catch (const std::exception& e) {
-      HOLOSCAN_LOG_ERROR("Error parsing HIDevice node: {}", e.what());
+      HOLOSCAN_LOG_ERROR("Error parsing HumanInterfaceDevice node: {}", e.what());
       return false;
     }
     return true;
   }
 
-  static std::string encode_hid_device_type_as_string(HIDDeviceType type) {
+  static std::string encode_human_interface_device_type_as_string(holoscan::ops::HIDDeviceType type) {
     switch (type) {
-      case HIDDeviceType::JOYSTICK:
+      case holoscan::ops::HIDDeviceType::JOYSTICK:
         return "joystick";
-      case HIDDeviceType::KEYBOARD:
+      case holoscan::ops::HIDDeviceType::KEYBOARD:
         return "keyboard";
-      case HIDDeviceType::MOUSE:
+      case holoscan::ops::HIDDeviceType::MOUSE:
         return "mouse";
       default:
-        throw std::runtime_error("Unknown HIDevice type.");
+        throw std::runtime_error("Unknown HumanInterfaceDevice type.");
     }
   }
 
-  static bool parse_hid_device_type(const std::string& value, HIDDeviceType& type) {
+  static bool parse_human_interface_device_type(const std::string& value, holoscan::ops::HIDDeviceType& type) {
     if (value == "joystick") {
-      type = HIDDeviceType::JOYSTICK;
+      type = holoscan::ops::HIDDeviceType::JOYSTICK;
       return true;
     }
     if (value == "keyboard") {
-      type = HIDDeviceType::KEYBOARD;
+      type = holoscan::ops::HIDDeviceType::KEYBOARD;
       return true;
     }
     if (value == "mouse") {
-      type = HIDDeviceType::MOUSE;
+      type = holoscan::ops::HIDDeviceType::MOUSE;
       return true;
     }
     return false;

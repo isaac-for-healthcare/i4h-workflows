@@ -17,6 +17,7 @@
 
 #include "dds_hid_subscriber.hpp"
 #include "dds/topic/find.hpp"
+#include "../dds_hid_common.hpp"
 
 namespace holoscan::ops
 {
@@ -89,7 +90,7 @@ namespace holoscan::ops
       if (command.info().valid())
       {
         InputEvent input_event;
-        input_event.device_type = command.data().device_type();
+        input_event.device_type = holoscan::ops::input_command_device_type_to_holoscan_hid_device_type(command.data().device_type());
         input_event.event_type = command.data().event_type();
         input_event.number = command.data().number();
         input_event.value = command.data().value();

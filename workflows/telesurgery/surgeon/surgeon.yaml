@@ -56,10 +56,7 @@ holoviz:
       priority: 0
 
 hid:
-  domain_id: 1
-  participant_qos: TelesurgeryLibrary::TelesurgeryApplication
-  writer_qos: TelesurgeryLibrary::Command
-  hid_devices:
+  human_interface_devices:
     - name: joystick_sim
       path: /simulation
       type: joystick
@@ -72,3 +69,8 @@ hid:
     # - name: mouse1
     #   path: /dev/input/event5
     #   type: mouse
+
+hid_publisher:
+  domain_id: 1
+  participant_qos: TelesurgeryLibrary::TelesurgeryApplication
+  writer_qos: TelesurgeryLibrary::Command

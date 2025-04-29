@@ -30,6 +30,7 @@ function build() {
 
 function enter() {
     build_image
+    xhost +local:docker
     docker run -it --rm \
         --runtime=nvidia --gpus all \
         -e "ACCEPT_EULA=Y" \

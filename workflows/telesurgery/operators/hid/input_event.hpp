@@ -17,34 +17,18 @@
 
 #pragma once
 
-#include <dds/sub/ddssub.hpp>
-
-#include "dds_operator_base.hpp"
-#include "InputCommand.hpp"
-#include "input_event.hpp"
-#include "../dds_hid_common.hpp"
+#include "hid.hpp"
 
 namespace holoscan::ops {
 
-/**
- * @brief Operator class to subscribe to a DDS hid stream.
- */
-class DDSHIDSubscriberOp : public DDSOperatorBase {
- public:
-  HOLOSCAN_OPERATOR_FORWARD_ARGS_SUPER(DDSHIDSubscriberOp, DDSOperatorBase)
-
-  DDSHIDSubscriberOp() = default;
-
-  void setup(OperatorSpec& spec) override;
-  void initialize() override;
-  void compute(InputContext& op_input, OutputContext& op_output,
-               ExecutionContext& context) override;
-
- private:
-  Parameter<std::string> reader_qos_;
-  Parameter<std::vector<std::string>> hid_device_filters_;
-
-  dds::sub::DataReader<InputCommand> reader_ = dds::core::null;
+struct InputEvent
+{
+    HIDDeviceType device_type;
+    std::string device_name;
+    int event_type;
+    int number;
+    int value;
+    uint64_t hid_capture_timestamp;
 };
 
 }  // namespace holoscan::ops
