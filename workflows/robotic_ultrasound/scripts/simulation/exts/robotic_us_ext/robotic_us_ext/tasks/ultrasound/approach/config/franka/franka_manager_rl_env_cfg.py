@@ -101,38 +101,48 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     # )
     # end-effector sensor: will be populated by agent env cfg
     ee_frame: FrameTransformerCfg = MISSING
+    
+    # mapping = {
+    #     "class:table": (0, 255, 0, 255),
+    #     "class:organ": (0, 0, 255, 255),
+    #     "class:robot": (255, 255, 0, 255),
+    #     "class:ground": (255, 0, 0, 255),
+    #     "class:UNLABELLED": (0, 0, 0, 255),
+    # }
 
-    # sensors
-    # ToDo: switch to a tiled camera
-    room_camera = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/third_person_cam",
-        update_period=0.0,
-        height=224,
-        width=224,
-        data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
-        spawn=sim_utils.PinholeCameraCfg(
-            focal_length=12.0,
-            focus_distance=100.0,
-            horizontal_aperture=20.955,
-            clipping_range=(0.1, 1.0e5),
-        ),
-        offset=CameraCfg.OffsetCfg(
-            pos=(0.55942, 0.56039, 0.36243),
-            rot=euler_angles_to_quats(torch.tensor([248.0, 0.0, 180.0]), degrees=True),
-            convention="ros",
-        ),
-        colorize_semantic_segmentation=False,
-    )
+    # # sensors
+    # # ToDo: switch to a tiled camera
+    # room_camera = CameraCfg(
+    #     prim_path="{ENV_REGEX_NS}/third_person_cam",
+    #     update_period=0.0,
+    #     height=224,
+    #     width=224,
+    #     data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
+    #     spawn=sim_utils.PinholeCameraCfg(
+    #         focal_length=12.0,
+    #         focus_distance=100.0,
+    #         horizontal_aperture=20.955,
+    #         clipping_range=(0.1, 1.0e5),
+    #     ),
+    #     offset=CameraCfg.OffsetCfg(
+    #         pos=(0.55942, 0.56039, 0.36243),
+    #         rot=euler_angles_to_quats(torch.tensor([248.0, 0.0, 180.0]), degrees=True),
+    #         convention="ros",
+    #     ),
+    #     colorize_semantic_segmentation=True,
+    #     semantic_segmentation_mapping=mapping
+    # )
 
-    wrist_camera = CameraCfg(
-        data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
-        prim_path="{ENV_REGEX_NS}/Robot/D405_rigid/D405/Camera_OmniVision_OV9782_Color",
-        spawn=None,
-        height=224,
-        width=224,
-        update_period=0.0,
-        colorize_semantic_segmentation=False,
-    )
+    # wrist_camera = CameraCfg(
+    #     data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
+    #     prim_path="{ENV_REGEX_NS}/Robot/D405_rigid/D405/Camera_OmniVision_OV9782_Color",
+    #     spawn=None,
+    #     height=224,
+    #     width=224,
+    #     update_period=0.0,
+    #     colorize_semantic_segmentation=True,
+    #     semantic_segmentation_mapping=mapping
+    # )
 
     # Frame definitions for the goal frame
     goal_frame = FrameTransformerCfg(

@@ -64,7 +64,7 @@ echo "Installing IsaacLab..."
 # CLONING REPOSITORIES INTO PROJECT_ROOT/third_party
 echo "Cloning repositories into $PROJECT_ROOT/third_party..."
 mkdir $PROJECT_ROOT/third_party
-git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
+git clone -b v2.1.0 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
 pushd $PROJECT_ROOT/third_party/IsaacLab
 yes Yes | ./isaaclab.sh --install
 popd

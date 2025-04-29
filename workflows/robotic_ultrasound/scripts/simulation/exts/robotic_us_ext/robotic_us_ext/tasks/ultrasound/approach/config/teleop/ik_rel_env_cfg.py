@@ -19,10 +19,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import torch
+import isaaclab.sim as sim_utils
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
-from isaaclab.sensors import FrameTransformerCfg
+from isaaclab.sensors import FrameTransformerCfg, CameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
 from isaaclab.utils import configclass
 from isaacsim.core.utils.torch.rotations import euler_angles_to_quats
@@ -73,6 +74,43 @@ class ModFrankaUltrasoundTeleopEnv(franka_manager_rl_env_cfg.RoboticIkRlEnvCfg):
                     ),
                 ),
             ],
+        )
+        mapping = {
+            "class:table": (0, 255, 0, 255),
+            "class:organ": (0, 0, 255, 255),
+            "class:robot": (255, 255, 0, 255),
+            "class:ground": (255, 0, 0, 255),
+            "class:UNLABELLED": (0, 0, 0, 255),
+        }
+        self.scene.wrist_camera = CameraCfg(
+            data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
+            prim_path="{ENV_REGEX_NS}/Robot/D405_rigid/D405/Camera_OmniVision_OV9782_Color",
+            spawn=None,
+            height=224,
+            width=224,
+            update_period=0.0,
+            colorize_semantic_segmentation=True,
+            semantic_segmentation_mapping=mapping
+        )
+        self.scene.room_camera = CameraCfg(
+            prim_path="{ENV_REGEX_NS}/third_person_cam",
+            update_period=0.0,
+            height=224,
+            width=224,
+            data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=12.0,
+                focus_distance=100.0,
+                horizontal_aperture=20.955,
+                clipping_range=(0.1, 1.0e5),
+            ),
+            offset=CameraCfg.OffsetCfg(
+                pos=(0.55942, 0.56039, 0.36243),
+                rot=euler_angles_to_quats(torch.tensor([248.0, 0.0, 180.0]), degrees=True),
+                convention="ros",
+            ),
+            colorize_semantic_segmentation=True,
+            semantic_segmentation_mapping=mapping
         )
 
 

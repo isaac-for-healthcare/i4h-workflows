@@ -340,7 +340,6 @@ def main(
                 rgb = f[root_name]["observations/rgb_images"][step]
                 if include_seg:
                     seg = f[root_name]["observations/seg_images"][step]
-                    seg_mask_colored = colorize_segmentation_mask(seg)
 
                 if include_depth:
                     depth = f[root_name]["observations/depth_images"][step]
@@ -354,9 +353,9 @@ def main(
                     }
                 if include_seg:
                     frame_dict["observation.seg.room"] = image_tools.resize_with_pad(
-                        seg_mask_colored[0], image_shape[0], image_shape[1], method=Image.NEAREST)
+                        seg[0], image_shape[0], image_shape[1], method=Image.NEAREST)
                     frame_dict["observation.seg.wrist"] = image_tools.resize_with_pad(
-                        seg_mask_colored[1], image_shape[0], image_shape[1], method=Image.NEAREST)
+                        seg[1], image_shape[0], image_shape[1], method=Image.NEAREST)
                 if include_depth:
                     frame_dict["observation.depth.room"] = image_tools.resize_with_pad(depth_normalized[0], image_shape[0], image_shape[1]).squeeze(2)
                     frame_dict["observation.depth.wrist"] = image_tools.resize_with_pad(depth_normalized[1], image_shape[0], image_shape[1]).squeeze(2)

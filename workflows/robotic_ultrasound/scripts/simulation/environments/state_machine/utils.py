@@ -147,7 +147,7 @@ def capture_camera_images(env, cam_names, include_seg=False, device="cuda"):
         rgb = camera_data.output["rgb"][..., :3].squeeze(0)
         depth = camera_data.output["distance_to_image_plane"].squeeze(0)
         if include_seg:
-            seg = camera_data.output["semantic_segmentation"].squeeze(0)
+            seg = camera_data.output["semantic_segmentation"][..., :3].squeeze(0)
             segs.append(seg)
 
         # Append to lists
