@@ -32,7 +32,7 @@
         // RTI Connext DDS
         "--volume=${localEnv:HOME}/rti_connext_dds-7.3.0:/opt/rti.com/rti_connext_dds-7.3.0/",
         "--runtime=nvidia",
-        "-e=NVIDIA_VISIBLE_DEVICES=GPU-f4ba6a98-3afa-4370-2279-a06cd3f5e5f0",
+        //"-e=NVIDIA_VISIBLE_DEVICES=GPU-f4ba6a98-3afa-4370-2279-a06cd3f5e5f0",
         "--net=host",
         // IsaacSim cache folders
         "--volume=${localEnv:HOME}/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw",

@@ -58,13 +58,11 @@ class PyDDSHIDPublisherOp : public DDSHIDPublisherOp {
   PyDDSHIDPublisherOp(Fragment* fragment, const py::args& args,
                       const std::string& qos_provider = "", const std::string& participant_qos = "",
                       uint32_t domain_id = 0, const std::string& writer_qos = "",
-                      const HIDevicesConfig& hid_devices = {},
                       const std::string& name = "dds_hid_publisher")
       : DDSHIDPublisherOp(ArgList{Arg{"qos_provider", qos_provider},
                                   Arg{"participant_qos", participant_qos},
                                   Arg{"domain_id", domain_id},
-                                  Arg{"writer_qos", writer_qos},
-                                  Arg{"hid_devices", hid_devices}}) {
+                                  Arg{"writer_qos", writer_qos}}) {
     add_positional_condition_and_resource_args(this, args);
     name_ = name;
     fragment_ = fragment;
@@ -103,14 +101,12 @@ PYBIND11_MODULE(_dds_hid_publisher, m) {
                     const std::string&,
                     uint32_t,
                     const std::string&,
-                    const HIDevicesConfig&,
                     const std::string&>(),
            "fragment"_a,
            "qos_provider"_a = ""s,
            "participant_qos"_a = ""s,
            "domain_id"_a = 0,
            "writer_qos"_a = ""s,
-           "hid_devices"_a = HIDevicesConfig{},
            "name"_a = "dds_hid_publisher"s,
            doc::DDSHIDPublisherOp::doc_DDSHIDPublisherOp)
       .def("initialize", &DDSHIDPublisherOp::initialize, doc::DDSHIDPublisherOp::doc_initialize)

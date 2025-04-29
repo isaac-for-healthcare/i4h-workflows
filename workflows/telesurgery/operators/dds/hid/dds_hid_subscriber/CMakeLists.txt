@@ -29,6 +29,7 @@ target_link_libraries(dds_hid_subscriber PUBLIC
   holoscan::core
   dds_operator_base
   dds_hid_command
+  holoscan::ops::generic_hid_interface
 )
 target_include_directories(dds_hid_subscriber PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

@@ -12,6 +12,7 @@
 - Docker & NVIDIA Container Toolkit
 - RTI Connext DDS 7.3.0 installed in `~/rti_connext_dds-7.3.0`
 - VS Code or Cursor AI with devcontainer
+- Enable Display access inside Docker by running `xhost +SI:localuser:$USER` or `xhost +local:docker` (not required with `./run` script)
 
 ## Development
 
