@@ -63,9 +63,9 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         prim_path="/World/Light",
         spawn=sim_utils.DomeLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75)),
     )
-    table = AssetBaseCfg(
+    table = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Table",
-        init_state=AssetBaseCfg.InitialStateCfg(
+        init_state=RigidObjectCfg.InitialStateCfg(
             pos=[0.4804, 0.02017, -0.84415], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, -90.0]), degrees=True)
         ),
         spawn=sim_utils.UsdFileCfg(
