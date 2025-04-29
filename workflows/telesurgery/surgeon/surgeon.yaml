@@ -32,6 +32,10 @@ scheduler:
   stop_on_deadlock: true
   stop_on_deadlock_timeout: 500
 
+protocol:
+  hid: dds # dds or streamsdk
+  video: dds # dds or streamsdk
+
 camera:
   domain_id: 1
   participant_qos: "TelesurgeryLibrary::TelesurgeryApplication"

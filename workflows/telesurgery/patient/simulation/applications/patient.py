@@ -75,30 +75,47 @@ class PatientApp(Application):
 
         source_rate_hz = 60  # messages sent per second
         period_source_ns = int(1e9 / source_rate_hz)  # period in nanoseconds
-        self._dds_hid_subscriber = DDSHIDSubscriberOp(
-            self,
-            PeriodicCondition(self, recess_period=period_source_ns),
-            name="DDS HID Subscriber",
-            **self.kwargs("hid")
-        )
+
+        hid_protocol = str(self.from_config("protocol.hid"))
+
+        if hid_protocol == "dds":
+            self.hid_event_source = DDSHIDSubscriberOp(
+                self,
+                PeriodicCondition(self, recess_period=period_source_ns),
+                name="DDS HID Subscriber",
+                **self.kwargs("hid")
+            )
+        elif hid_protocol == "streamsdk":
+            # TODO: Implement StreamSDK HID subscriber
+            raise NotImplementedError("StreamSDK HID subscriber is not implemented")
+        else:
+            raise ValueError(f"Invalid HID protocol: '{hid_protocol}'")
+        
         self._hid_to_sim_push = HidToSimPushOp(
             self,
             name="Hid to Sim Push",
             hid_event_callback=self._hid_event_callback,
         )
-        self.add_flow(self._dds_hid_subscriber, self._hid_to_sim_push, {("output", "input")})
+        self.add_flow(self.hid_event_source, self._hid_to_sim_push, {("output", "input")})
 
         self._async_data_push = AsyncDataPushOp(
             self,
             name="Async Data Push",
         )
+        video_protocol = str(self.from_config("protocol.video"))
+        if video_protocol == "dds":
+            video_source = CameraInfoPublisherOp(
+                self,
+                name="DDS Camera Info Publisher",
+                **self.kwargs("camera_info_publisher")
+            )
+        elif video_protocol == "streamsdk":
+            # TODO: Implement StreamSDK video publisher
+            raise NotImplementedError("StreamSDK video publisher is not implemented")
+        else:
+            raise ValueError(f"Invalid video protocol: '{video_protocol}'")
 
-        camera_info_publisher = CameraInfoPublisherOp(
-            self,
-            name="DDS Camera Info Publisher",
-            **self.kwargs("camera_info_publisher")
-        )
-        self.add_flow(self._async_data_push, camera_info_publisher, {("camera_info", "input")})
+        self.add_flow(self._async_data_push, video_source, {("camera_info", "input")})
 
         holoviz = HolovizOp(
             self,

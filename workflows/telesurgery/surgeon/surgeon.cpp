@@ -37,30 +37,54 @@ public:
         from_config("hid"));
     add_operator(hid_interface);
 
-    auto hid_publisher = make_operator<ops::DDSHIDPublisherOp>(
-        "hid_publisher",
-        make_condition<PeriodicCondition>("periodic-condition",
-                                          Arg("recess_period") = std::string("60hz")),
-        from_config("hid_publisher"));
-
+    std::shared_ptr<holoscan::Operator> hid_publisher;
+    auto hid_protocol = from_config("protocol.hid").as<std::string>();
+    if (hid_protocol == "dds")
+    {
+      hid_publisher = make_operator<ops::DDSHIDPublisherOp>(
+          "hid_publisher",
+          make_condition<PeriodicCondition>("periodic-condition",
+                                            Arg("recess_period") = std::string("60hz")),
+          from_config("hid_publisher"));
+    }
+    else if (hid_protocol == "streamsdk")
+    {
+      // TODO: Implement StreamSDK HID publisher
+      throw std::runtime_error("StreamSDK HID publisher is not implemented");
+    }
+    else
+    {
+      throw std::runtime_error("Invalid HID protocol: " + hid_protocol);
+    }
     add_flow(hid_interface, hid_publisher, {{"output", "input"}});
 
-    auto camera_subscriber = make_operator<ops::DDSCameraInfoSubscriberOp>(
-        "camera_subscriber",
-        make_condition<PeriodicCondition>("periodic-condition",
-                                          Arg("recess_period") = std::string("120hz")),
-        Arg("allocator") = make_resource<UnboundedAllocator>("pool"),
-        from_config("camera"));
+    std::shared_ptr<holoscan::Operator> camera_subscriber;
+    auto video_protocol = from_config("protocol.video").as<std::string>();
+    if (video_protocol == "dds")
+    {
+      camera_subscriber = make_operator<ops::DDSCameraInfoSubscriberOp>(
+          "camera_subscriber",
+          make_condition<PeriodicCondition>("periodic-condition",
+                                            Arg("recess_period") = std::string("120hz")),
+          Arg("allocator") = make_resource<UnboundedAllocator>("pool"),
+          from_config("camera"));
+    }
+    else if (video_protocol == "streamsdk")
+    {
+      // TODO: Implement StreamSDK video subscriber
+      throw std::runtime_error("StreamSDK video subscriber is not implemented");
+    }
+    else
+    {
+      throw std::runtime_error("Invalid video protocol: " + video_protocol);
+    }
 
     auto holoviz =
         make_operator<ops::HolovizOp>("holoviz",
                                       Arg("allocator") = make_resource<UnboundedAllocator>("pool"),
                                       from_config("holoviz"));
 
-    add_flow(camera_subscriber,
-             holoviz,
-             {{"video", "receivers"}, {"overlay", "receivers"}, {"overlay_specs", "input_specs"}});
-    HOLOSCAN_LOG_INFO("Composed SurgeonApp");
+    add_flow(camera_subscriber, holoviz, {{"video", "receivers"}, {"overlay", "receivers"}, {"overlay_specs", "input_specs"}});
   }
 };
 
