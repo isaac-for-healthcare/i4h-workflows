@@ -66,7 +66,8 @@ For detailed steps, refer to the [official documentation on importing URDF](http
 
    ```python
    from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
-   cad_file_path = robot_us_assets.download_dir/Robots/Franka/End_effector/"HD3C3 Endeffector.step"
+   from pathlib import Path
+   cad_file_path = Path(robot_us_assets.download_dir) / "Robots" / "Franka" / "End_effector" / "HD3C3 Endeffector.step"
    ```
 
    **Note:** Please review the NVIDIA Software and Model Evaluation License located in this directory before using the example CAD file.
