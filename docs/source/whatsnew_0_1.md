@@ -8,7 +8,7 @@
 
 ![Robotic Ultrasound Workflow](../source/robotic_us_workflow.jpg)
 
-The Robotic Ultrasound Workflow provides a comprehensive instruction for simulating and developing robotic ultrosound workflow. Key features include:
+The Robotic Ultrasound Workflow provides a comprehensive instruction for simulating and developing robotic ultrasound workflow. Key features include:
 
 *   **Policy Evaluation & Runner:** Includes examples for running pre-trained policies within the simulation.
 *   **State Machine Examples:** Demonstrates structured task execution, like a liver scan state machine with data collection capabilities.
