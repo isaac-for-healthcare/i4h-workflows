@@ -21,6 +21,7 @@ Isaac for Healthcare enables healthcare technology developers to leverage **NVID
 ## Key Features
 
 ![Key features](./docs/source/key_features.jpg)
+Please see [What's New](./docs/source/whatsnew_0_1.md) for details on our milestone releases.
 
 **Isaac for Healthcare Workflows** will bring the combined power of digital twins and physical AI for:
 - **Digital prototyping** of next-gen healthcare robotic systems, sensors and instruments.
