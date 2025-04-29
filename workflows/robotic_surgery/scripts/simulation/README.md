@@ -34,6 +34,11 @@ python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_m
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/lift_needle_sm.py
 ```
 
+- **Organs Suture Needle Lift**: lift a suture needle from an organ to a desired pose in the operating room:
+```bash
+python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/lift_needle_organs_sm.py
+```
+
 - **Peg Block Lift**: lift a peg block to a desired pose:
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/lift_block_sm.py
