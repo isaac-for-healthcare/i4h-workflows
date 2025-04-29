@@ -18,3 +18,4 @@ project(telesurgery_operators CXX)
 
 # Add subdirectories for operators
 add_subdirectory(dds)
+add_subdirectory(hid)

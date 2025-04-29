@@ -30,6 +30,7 @@ target_link_libraries(surgeon
   holoscan::ops::holoviz
   holoscan::ops::dds_hid_publisher
   holoscan::ops::dds_camera_info_subscriber
+  holoscan::ops::generic_hid_interface
 )
 
 # Copy qos_profiles.xml to the binary directory

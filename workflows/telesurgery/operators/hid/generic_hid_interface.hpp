@@ -17,10 +17,6 @@
 
 #pragma once
 
-#include <dds/pub/ddspub.hpp>
-
-#include "dds_operator_base.hpp"
-#include "InputCommand.hpp"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -36,34 +32,36 @@
 #include <chrono>
 
 #include "hid.hpp"
-#include "input_event.hpp"
-#include "../dds_hid_common.hpp"
 
 namespace holoscan::ops {
 
 /**
- * @brief Operator class to publish a hid stream to DDS.
+ * @brief Operator class to interface with human interface devices.
  */
-class DDSHIDPublisherOp : public DDSOperatorBase {
+class GenericHIDInterface : public holoscan::Operator {
  public:
-  HOLOSCAN_OPERATOR_FORWARD_ARGS_SUPER(DDSHIDPublisherOp, DDSOperatorBase)
+  HOLOSCAN_OPERATOR_FORWARD_ARGS(GenericHIDInterface)
 
-  DDSHIDPublisherOp() = default;
+  GenericHIDInterface() = default;
 
   void setup(OperatorSpec& spec) override;
   void initialize() override;
   void compute(InputContext& op_input, OutputContext& op_output,
                ExecutionContext& context) override;
 
+  void start() override;
+  void stop() override;
+
  private:
-  Parameter<std::string> writer_qos_;
+  Parameter<HumanInterfaceDevicesConfig> human_interface_devices_;
 
-  dds::pub::DataWriter<InputCommand> writer_ = dds::core::null;
 
-  // Message tracking variables
-  std::atomic<uint64_t> total_messages_sent_ = 0;
-  std::atomic<uint64_t> next_message_id_{1};  // Atomic for thread-safe message ID generation
-
+  std::map<std::string, HumanInterfaceDevice>
+      device_file_descriptors_;  // Sanitized device paths to file descriptors
+  std::queue<std::tuple<HumanInterfaceDevice, std::variant<js_event, input_event>, uint64_t>>
+      event_buffer_;                   // Buffer for storing events
+  std::thread event_thread_;           // Thread for reading events
+  std::atomic<bool> running_;          // Flag to control the running state of the thread
 };
 
 }  // namespace holoscan::ops
