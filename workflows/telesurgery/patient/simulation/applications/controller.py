@@ -17,7 +17,7 @@ import logging
 import torch
 import numpy as np
 
-from idl.InputCommand.InputCommand import HIDDeviceType
+from dds_hid_subscriber._dds_hid_subscriber import HIDDeviceType
 
 
 class HIDController:
@@ -75,43 +75,28 @@ class HIDController:
     def reset_to_default_joint_positions(self):
         self._controller_data._target_joint_positions = self._controller_data._default_joint_positions.copy()
 
-    def handle_hid_event(self, event: str):
+    def handle_hid_event(self, events: str):
         """
         TODO: wait for HSDK 3.3 to make emitter/receiver registration header available so we can use the custom type here
         """
-        commands = event.split(":")
-        for command in commands:
-            if command == "":
-                continue
-            # self._logger.info(f"Processing command: {command}")
-            command_parts = command.split(";")
-            if len(command_parts) < 5:
-                self._logger.warning(f"Skipping malformed command: {command}")
-                continue
+        if events is None or len(events) == 0:
+            return
 
-            try:
-                device_type = int(command_parts[1])
-                event_type = int(command_parts[2])
-                number = int(command_parts[3])
-                value = int(command_parts[4])
-            except ValueError:
-                self._logger.error(f"Error parsing command parts: {command_parts}")
-                continue
-
+        for event in events:
             event_handled = False
-            match device_type:
+            match event.device_type:
                 case HIDDeviceType.JOYSTICK:
-                    match event_type:
+                    match event.event_type:
                         case 1:  # buttons
-                            match number:
+                            match event.number:
                                 case 5:  # left - controls wrist_3 (negative direction)
-                                    new_value = -1.0 if value != 0 else 0.0
+                                    new_value = -1.0 if event.value != 0 else 0.0
                                     self._controller_data.set_joystick_value(
                                         "wrist_3", new_value
                                     )
                                     event_handled = True
                                 case 6:  # right - controls wrist_3 (positive direction)
-                                    new_value = 1.0 if value != 0 else 0.0
+                                    new_value = 1.0 if event.value != 0 else 0.0
                                     self._controller_data.set_joystick_value(
                                         "wrist_3", new_value
                                     )
@@ -124,13 +109,13 @@ class HIDController:
                         case 2:  # Joysticks and D-Pad (Axes)
                             # Normalize value to [-1.0, 1.0] for axes
                             # Axis values are typically -32767 to 32767
-                            normalized_value = value / 32767.0
+                            normalized_value = event.value / 32767.0
 
                             # # Apply deadzone check
                             # if abs(normalized_value) < self.deadzone:
                             #     normalized_value = 0.0
 
-                            match number:
+                            match event.number:
                                 case 0:  # Left Joystick X - controls shoulder_pan
                                     self._controller_data.set_joystick_value(
                                         "shoulder_pan", normalized_value
@@ -173,7 +158,11 @@ class HIDController:
                                         event_handled = True
 
             if not event_handled:
-                self._logger.warning(f"Unhandled command: {command}")
+                self._logger.warning(f"Unhandled event: {event}")
+                print(f"\tdevice type: {event.device_type} - type = {type(event.device_type)}")
+                print(f"\tevent type: {event.event_type} - type = {type(event.event_type)}")
+                print(f"\tevent number: {event.number} - type = {type(event.number)}")
+                print(f"\tevent value: {event.value} - type = {type(event.value)}")
 
 
 class ControllerData:

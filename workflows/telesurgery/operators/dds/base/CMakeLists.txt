@@ -15,7 +15,7 @@
 cmake_minimum_required(VERSION 3.24)
 project(dds_operator_base)
 
-find_package(holoscan 2.0 REQUIRED CONFIG
+find_package(holoscan 3.3 REQUIRED CONFIG
              PATHS "/opt/nvidia/holoscan" "/workspace/holoscan-sdk/install")
 include(RTIConnextDDS)
 

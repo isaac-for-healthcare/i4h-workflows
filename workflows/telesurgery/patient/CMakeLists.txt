@@ -17,7 +17,7 @@ cmake_minimum_required(VERSION 3.20)
 project(telesurgery_patient CXX)
 
 # Finds the package holoscan
-find_package(holoscan REQUIRED CONFIG
+find_package(holoscan 3.3 REQUIRED CONFIG
              PATHS "/opt/nvidia/holoscan" "/workspace/holoscan-sdk/install")
 
 # add_executable(telesurgery_patient

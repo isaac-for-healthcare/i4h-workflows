@@ -30,6 +30,8 @@ from applications.patient import PatientApp
 from applications.simulation import Simulation
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 def main():
     """
@@ -107,14 +109,16 @@ def main():
 
     if not os.path.exists(args.config):
         raise FileNotFoundError(f"Config file {args.config} not found")
-    
+
+    logger.info(f"Using config file: {args.config}")
+
     patient_app.config(args.config)
     # Run the transmitter application
     patient_future = patient_app.run_async()
 
     def patient_done_callback(future):
         if future.exception():
-            print(f"PatientApp failed with exception: {future.exception()}")
+            logger.error(f"PatientApp failed with exception: {future.exception()}")
             os._exit(1)
 
     patient_future.add_done_callback(patient_done_callback)
@@ -123,9 +127,8 @@ def main():
     try:
         simulation.run(patient_app.push_data)
     except Exception as e:
-        print(f"Simulation failed with exception: {e}")
+        logger.error(f"Simulation failed with exception: {e}")
         os._exit(1)
-
     # Wait for the transmitter and receiver applications to finish
     patient_future.result()
 

@@ -92,7 +92,10 @@ PYBIND11_MODULE(_dds_hid_publisher, m) {
   m.attr("__version__") = "dev";
 #endif
 
-  py::class_<DDSHIDPublisherOp, PyDDSHIDPublisherOp, Operator, std::shared_ptr<DDSHIDPublisherOp>>(
+  py::class_<DDSHIDPublisherOp, 
+             PyDDSHIDPublisherOp, 
+             Operator,
+             std::shared_ptr<DDSHIDPublisherOp>>(
       m, "DDSHIDPublisherOp", doc::DDSHIDPublisherOp::doc_DDSHIDPublisherOp)
       .def(py::init<Fragment*,
                     const py::args&,
@@ -111,14 +114,6 @@ PYBIND11_MODULE(_dds_hid_publisher, m) {
            "name"_a = "dds_hid_publisher"s,
            doc::DDSHIDPublisherOp::doc_DDSHIDPublisherOp)
       .def("initialize", &DDSHIDPublisherOp::initialize, doc::DDSHIDPublisherOp::doc_initialize)
-      .def("setup", &DDSHIDPublisherOp::setup, "spec"_a, doc::DDSHIDPublisherOp::doc_setup)
-      .def("start",
-           &DDSHIDPublisherOp::start,
-           doc::DDSHIDPublisherOp::doc_start,
-           py::call_guard<py::gil_scoped_release>())
-      .def("stop",
-           &DDSHIDPublisherOp::stop,
-           doc::DDSHIDPublisherOp::doc_stop,
-           py::call_guard<py::gil_scoped_release>());
+      .def("setup", &DDSHIDPublisherOp::setup, "spec"_a, doc::DDSHIDPublisherOp::doc_setup);
 }  // PYBIND11_MODULE NOLINT
 }  // namespace holoscan::ops
