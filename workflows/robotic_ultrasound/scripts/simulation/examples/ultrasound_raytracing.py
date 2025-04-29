@@ -195,12 +195,12 @@ class Simulator(Operator):
         # Add meshes one by one
         mesh_configs = [
             ("Tumor1.obj", "fat"),
-            ("Tumor2.obj", "water"),
+            # ("Tumor2.obj", "water"),
             ("Liver.obj", "liver"),
             ("Skin.obj", "fat"),
-            ("Bone.obj", "bone"),
+            # ("Bone.obj", "bone"),
             ("Vessels.obj", "water"),
-            ("Gallbladder.obj", "water"),
+            # ("Gallbladder.obj", "water"),
             ("Spleen.obj", "liver"),
             # ("Heart.obj", "liver"),
             ("Stomach.obj", "water"),

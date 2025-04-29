@@ -1,15 +1,13 @@
 import torch
 from PIL import Image
 import numpy as np
-from timeit import default_timer as timer
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as F
-# import torch_tensorrt
 import cv2
-import os
 import torch
 import torch.nn as nn
 import functools
+import torch_tensorrt
 
 
 def define_generator(input_nc, output_nc, ngf, use_dropout=False):
