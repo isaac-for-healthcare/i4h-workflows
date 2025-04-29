@@ -3,9 +3,17 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+import isaaclab.sim as sim_utils
+from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
+from isaaclab.managers import EventTermCfg as EventTerm
+from isaaclab.managers import SceneEntityCfg
+from isaaclab.sim.schemas.schemas_cfg import RigidBodyPropertiesCfg
+from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
+from robotic.surgery.tasks.surgical.lift import mdp
+from simulation.utils.assets import robotic_surgery_assets
 
 from . import joint_pos_env_cfg
 
@@ -51,3 +59,63 @@ class NeedleLiftEnvCfg_PLAY(NeedleLiftEnvCfg):
         self.scene.env_spacing = 2.5
         # disable randomization for play
         self.observations.policy.enable_corruption = False
+
+
+##
+# Operating Room (OR) environment.
+##
+
+
+@configclass
+class NeedleLiftOREnvCfg(NeedleLiftEnvCfg):
+    def __post_init__(self):
+        # post init of parent
+        super().__post_init__()
+
+        # simulation settings
+        self.viewer.eye = (-0.32, 0.12, 0.12)
+
+        # lights
+        self.scene.light = AssetBaseCfg(
+            prim_path="/World/light",
+            init_state=AssetBaseCfg.InitialStateCfg(pos=(-0.25, 0.0, 0.1), rot=(0.7071068, 0.0, -0.7071068, 0.0)),
+            spawn=sim_utils.DiskLightCfg(radius=0.2, color=(0.75, 0.75, 0.75), intensity=3000.0),
+        )
+
+        # Set table to None
+        self.scene.table = None
+
+        # Operating Room (OR)
+        self.scene.organs = AssetBaseCfg(
+            prim_path="{ENV_REGEX_NS}/Organs",
+            init_state=AssetBaseCfg.InitialStateCfg(pos=(0.25, -0.14, -0.85), rot=(0.7071068, 0.0, 0.0, 0.7071068)),
+            spawn=UsdFileCfg(usd_path=robotic_surgery_assets.Organs, scale=(0.01, 0.01, 0.01)),
+        )
+
+        # Set Suture Needle as object
+        self.scene.object = RigidObjectCfg(
+            prim_path="{ENV_REGEX_NS}/Object",
+            init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.015), rot=(1, 0, 0, 0)),
+            spawn=UsdFileCfg(
+                usd_path=robotic_surgery_assets.Needle,
+                scale=(0.4, 0.4, 0.4),
+                rigid_props=RigidBodyPropertiesCfg(
+                    solver_position_iteration_count=16,
+                    solver_velocity_iteration_count=8,
+                    max_angular_velocity=200,
+                    max_linear_velocity=200,
+                    max_depenetration_velocity=1.0,
+                    disable_gravity=False,
+                ),
+            ),
+        )
+
+        self.events.reset_object_position = EventTerm(
+            func=mdp.reset_root_state_uniform,
+            mode="reset",
+            params={
+                "pose_range": {"x": (-0.03, 0.02), "y": (-0.01, 0.01), "z": (0.0, 0.0)},
+                "velocity_range": {},
+                "asset_cfg": SceneEntityCfg("object", body_names="Object"),
+            },
+        )
