@@ -152,6 +152,11 @@ SM_CASES = [
         300,
         "Resetting the state machine.",
     ),
+    (
+        "python -u simulation/scripts/environments/state_machine/lift_needle_organs_sm.py --headless",
+        300,
+        "Resetting the state machine.",
+    ),
 ]
 
 
