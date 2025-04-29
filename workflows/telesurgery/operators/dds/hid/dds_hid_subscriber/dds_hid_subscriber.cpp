@@ -38,7 +38,6 @@ namespace holoscan::ops
 
   void DDSHIDSubscriberOp::initialize()
   {
-    HOLOSCAN_LOG_INFO("Initializing DDSHIDSubscriberOp");
     DDSOperatorBase::initialize();
 
     // Create the subscriber
@@ -84,34 +83,22 @@ namespace holoscan::ops
   {
     dds::sub::LoanedSamples<InputCommand> commands = reader_.take();
 
-    std::vector<InputCommand> valid_commands;
+    std::vector<InputEvent> valid_commands;
     for (const auto &command : commands)
     {
       if (command.info().valid())
       {
-        valid_commands.push_back(command.data());
+        InputEvent input_event;
+        input_event.device_type = command.data().device_type();
+        input_event.event_type = command.data().event_type();
+        input_event.number = command.data().number();
+        input_event.value = command.data().value();
+        valid_commands.push_back(input_event);
       }
     }
-
-    // temporary convert InputCommand values to std::vector<string>
-    std::vector<std::string> output_commands;
-    for (const auto &command : valid_commands)
+    if (valid_commands.size() > 0)
     {
-      // Cast enums to int before converting to string
-      auto value = command.device_name() + std::string(";") + std::to_string(static_cast<int>(command.device_type())) + std::string(";") + std::to_string(static_cast<int>(command.event_type())) + std::string(";") + std::to_string(command.number()) + std::string(";") + std::to_string(command.value());
-      output_commands.push_back(value);
-    }
-
-    // join the vector of strings into a single string
-    std::string output_commands_string;
-    for (const auto &command : output_commands)
-    {
-      output_commands_string += command + std::string(":");
-    }
-
-    if (output_commands_string.length() > 0)
-    {
-      op_output.emit(output_commands_string, "output");
+      op_output.emit(valid_commands, "output");
     }
   }
 

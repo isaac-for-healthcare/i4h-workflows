@@ -57,6 +57,19 @@ RUN CUDA_TOOLKIT_VERSION_DASH="$(echo ${CUDA_TOOLKIT_VERSION} | tr '.' '-')" \
     && rm -rf /var/lib/apt/lists/* \
     && rm ${CUDA_KEYRING_NAME}
 
+# TODO: Remove the following once HSDK 3.3.0 is released
+RUN DEB_FILE=/tmp/holoscan_temp.deb \
+    && curl -o $DEB_FILE https://urm.nvidia.com/artifactory/sw-holoscan-cli-generic-local/internal/holoscan_20250428-51822cb12_x86_64.deb \
+    && apt remove -y holoscan \
+    && dpkg -i $DEB_FILE \
+    && rm $DEB_FILE \
+    && rm -rf /var/lib/apt/lists/*
+
+# TODO: Remove the following once HSDK 3.3.0 is released
+RUN PY_FILE=/tmp/holoscan-3.3.dev0%2B20250428.51822cb12-cp310-cp310-manylinux_2_35_x86_64.whl \
+    && curl -o $PY_FILE https://urm.nvidia.com/artifactory/sw-holoscan-cli-generic-local/holoscan-3.3.dev0%2B20250428.51822cb12-cp310-cp310-manylinux_2_35_x86_64.whl \
+    && ./python.sh -m pip install $PY_FILE \
+    && rm $PY_FILE
 
 # For RTI Connext DDS
 RUN apt update \
@@ -88,7 +101,4 @@ RUN patch -p1 /isaac-sim/exts/isaacsim.sensors.camera/isaacsim/sensors/camera/ca
 ENV NDDSHOME=/opt/rti.com/rti_connext_dds-7.3.0
 ENV RTI_CONNEXT_DDS_DIR=$NDDSHOME
 
-# TODO: Remove this once HSDK includes the header files
-COPY deploy/hsdk/python /opt/nvidia/holoscan/include/holoscan/python/
-COPY deploy/hsdk/lib /opt/nvidia/holoscan/python/lib/
 CMD ["/bin/bash", "-c", "source $NDDSHOME/resource/scripts/rtisetenv_x64Linux4gcc7.3.0.bash && exec /bin/bash"]
