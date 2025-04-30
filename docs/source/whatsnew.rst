@@ -6,4 +6,4 @@ What's New
 .. toctree::
    :maxdepth: 1
 
-   whatsnew_0_1.md
+   whatsnew_0_1_0.md

@@ -1,4 +1,4 @@
-# What's New in Isaac for Healthcare Workflows v0.1 🎉🎉
+# What's New in Isaac for Healthcare Workflows v0.1.0 🎉🎉
 
 - **Robotic Ultrasound Workflow**: Comprehensive simulation environment for robotic ultrasound procedures with teleoperation, state machines, and realistic ultrasound imaging.
 - **Robotic Surgery Workflow**: Tools and examples for simulating surgical robot tasks with state machine implementations and reinforcement learning capabilities.
