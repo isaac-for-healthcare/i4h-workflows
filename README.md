@@ -44,6 +44,7 @@ For everything you need to get started, including detailed tutorials and step-by
 - Tutorials
   - [Bring your own patient](./tutorials/assets/bring_your_own_patient/README.md)
   - [Bring your own robot](./tutorials/assets/bring_your_own_robot/README.md)
+  - [Sim2Real Transition](./tutorials/sim2real/README.md)
 
 ## Contributing to i4h-workflows
 
