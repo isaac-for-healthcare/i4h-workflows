@@ -283,6 +283,8 @@ def main(
     include_depth: bool = False,
     include_seg: bool = False,
     run_compute_stats: bool = False,
+    include_camera_info: bool = True,
+    save_seg_depth_npz: bool = True,
     **dataset_config_kwargs,
 ):
     """
@@ -361,6 +363,36 @@ def main(
                     frame_dict["observation.depth.wrist"] = image_tools.resize_with_pad(depth_normalized[1], image_shape[0], image_shape[1]).squeeze(2)
                 dataset.add_frame(frame_dict)
 
+            if include_camera_info:
+                output_path = final_output_path / "camera_info"
+                os.makedirs(output_path, exist_ok=True)
+                room_camera_intrinsic_matrices = f['data/demo_0/observations/room_camera_intrinsic_matrices']  # (n_frames, 3, 3)
+                room_camera_pos = f['data/demo_0/observations/room_camera_pos']  # (n_frames, 3)
+                room_camera_quat = f['data/demo_0/observations/room_camera_quat_w_ros']  # (n_frames, 4)
+                save_dict = {
+                    "room_camera_intrinsic_matrices": room_camera_intrinsic_matrices,
+                    "room_camera_pos": room_camera_pos,
+                    "room_camera_quat": room_camera_quat
+                }
+                np.savez(f"{output_path}/room_camera_para_{episode_idx}.npz", **save_dict)
+
+                wrist_camera_intrinsic_matrices = f['data/demo_0/observations/wrist_camera_intrinsic_matrices']  # (n_frames, 3, 3)
+                wrist_camera_pos = f['data/demo_0/observations/wrist_camera_pos']  # (n_frames, 3)
+                wrist_camera_quat = f['data/demo_0/observations/wrist_camera_quat_w_ros']  # (n_frames, 4)
+                save_dict = {
+                    "wrist_camera_intrinsic_matrices": wrist_camera_intrinsic_matrices,
+                    "wrist_camera_pos": wrist_camera_pos,
+                    "wrist_camera_quat": wrist_camera_quat
+                }
+                
+                np.savez(f"{output_path}/wrist_camera_para_{episode_idx}.npz", **save_dict)
+            if save_seg_depth_npz:
+                save_dict = {
+                    "depth_images": f['data/demo_0/observations/depth_images'],
+                    "seg_images": f['data/demo_0/observations/seg_images'],
+                }
+                
+                np.savez(f"{output_path}/seg_depth_images_{episode_idx}.npz", **save_dict)
         dataset.save_episode(task=task_prompt)
 
     print(f"Saving dataset to {final_output_path}")
@@ -404,5 +436,18 @@ if __name__ == "__main__":
         default=False,
         help="Run compute stats",
     )
+    parser.add_argument(
+        "--include_camera_info",
+        default=True,
+        help="Include camera info in the dataset",
+    )
+    parser.add_argument(
+        "--save_seg_depth_npz",
+        default=True,
+        help="Save seg and depth images as npz files",
+    )
+    
     args = parser.parse_args()
-    main(args.data_dir, args.repo_id, args.task_prompt, image_shape=args.image_shape, include_depth=args.include_depth, include_seg=args.include_seg, run_compute_stats=args.run_compute_stats)
+    main(args.data_dir, args.repo_id, args.task_prompt, image_shape=args.image_shape, include_depth=args.include_depth, include_seg=args.include_seg, run_compute_stats=args.run_compute_stats,
+         include_camera_info=args.include_camera_info,
+         save_seg_depth_npz=args.save_seg_depth_npz)
