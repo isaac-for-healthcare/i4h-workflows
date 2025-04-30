@@ -18,38 +18,44 @@ We provide examples on hand-crafted state machines for the robotic surgery envir
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_psm_sm.py
 ```
+![](./images/dVRK-PSM.png)
 
 - **Dual-arm dVRK-PSM Reach**: dual-arm dVRK-PSM to reach a desired pose:
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_dual_psm_sm.py
 ```
+![alt text](./images/Dual-arm-dVRK-PSM.png)
 
 - **STAR Reach**: STAR arm to reach a desired pose:
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_star_sm.py
 ```
+![alt text](./images/STAR-Reach.png)
 
 - **Suture Needle Lift**: lift a suture needle to a desired pose:
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/lift_needle_sm.py
 ```
+![alt text](./images/Suture-Needle-Lift.png)
+
 
 - **Organs Suture Needle Lift**: lift a suture needle from an organ to a desired pose in the operating room:
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/lift_needle_organs_sm.py
 ```
+![alt text](./images/Organs-Suture-Needle-Lift.png)
 
 - **Peg Block Lift**: lift a peg block to a desired pose:
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/lift_block_sm.py
 ```
+![alt text](./images/Peg-Block-Lift.png)
 
 ## Reinforcement Learning
 
 Train an agent with [RSL-RL](https://github.com/leggedrobotics/rsl_rl):
 
 - **dVRK-PSM Reach (`Isaac-Reach-PSM-v0`)**:
-
 ```bash
 # run script for training
 python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Reach-PSM-v0 --headless
