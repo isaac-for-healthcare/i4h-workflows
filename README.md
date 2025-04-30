@@ -22,6 +22,8 @@ Isaac for Healthcare enables healthcare technology developers to leverage **NVID
 
 ![Key features](./docs/source/key_features.jpg)
 
+Please see [What's New](./docs/source/whatsnew_0_1_0.md) for details on our milestone releases.
+
 **Isaac for Healthcare Workflows** will bring the combined power of digital twins and physical AI for:
 - **Digital prototyping** of next-gen healthcare robotic systems, sensors and instruments.
 - **Training AI models** with synthetic data generation (SDG) augmented with real data.
@@ -42,6 +44,7 @@ For everything you need to get started, including detailed tutorials and step-by
 - Tutorials
   - [Bring your own patient](./tutorials/assets/bring_your_own_patient/README.md)
   - [Bring your own robot](./tutorials/assets/bring_your_own_robot/README.md)
+  - [Sim2Real Transition](./tutorials/sim2real/README.md)
 
 ## Contributing to i4h-workflows
 
