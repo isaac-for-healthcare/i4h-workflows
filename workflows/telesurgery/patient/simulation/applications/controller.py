@@ -14,10 +14,11 @@
 # limitations under the License.
 
 import logging
-
-import numpy as np
+import threading
 import torch
-from dds_hid_subscriber._dds_hid_subscriber import HIDDeviceType
+import numpy as np
+import time
+from generic_hid_interface._generic_hid_interface import HIDDeviceType
 
 
 class HIDController:
@@ -40,7 +41,20 @@ class HIDController:
     def __init__(self):
         self._logger = logging.getLogger(__name__)
         self._controller_data = ControllerData()
+        self._hid_event_lock = threading.Lock()
+        self._last_hid_event = None
+        self._next_message_id = -1
+        self._total_messages_received = 0
+        self._total_messages_lost = 0
+        self._stop_event = threading.Event()
+        self._print_summary_thread = threading.Thread(
+            target=self.print_summary
+        )
+        self._print_summary_thread.start()
+
         self.deadzone = 0.05  # Define deadzone threshold
+
+
 
     def forward(self, dt: float):
         """Move the robot to the desired joint positions based on velocity * dt.
@@ -72,13 +86,22 @@ class HIDController:
 
         return self._controller_data._target_joint_positions
 
+    def take_last_hid_event(self):
+        with self._hid_event_lock:
+            last_hid_event = self._last_hid_event
+            self._last_hid_event = None
+        return last_hid_event
+
     def reset_to_default_joint_positions(self):
-        self._controller_data._target_joint_positions = self._controller_data._default_joint_positions.copy()
+        self._controller_data._target_joint_positions = (
+            self._controller_data._default_joint_positions.copy()
+        )
 
     def handle_hid_event(self, events: str):
         if events is None or len(events) == 0:
             return
 
+        self._total_messages_received += len(events)
         for event in events:
             event_handled = False
             match event.device_type:
@@ -86,6 +109,7 @@ class HIDController:
                     match event.event_type:
                         case 1:  # buttons
                             match event.number:
+                                # 0, 1, 2, 3 D-Pad not used
                                 case 5:  # left - controls wrist_3 (negative direction)
                                     new_value = -1.0 if event.value != 0 else 0.0
                                     self._controller_data.set_joystick_value("wrist_3", new_value)
@@ -94,11 +118,11 @@ class HIDController:
                                     new_value = 1.0 if event.value != 0 else 0.0
                                     self._controller_data.set_joystick_value("wrist_3", new_value)
                                     event_handled = True
-                                case 7 | 8 | 9:  # NV, Circle, L Triangle, R Triangle
+                                case 4 | 7 | 8 | 9:
+                                    # NV button (4), L Triangle (7), R Triangle (8) Circle (9)
                                     self.reset_to_default_joint_positions()
                                     event_handled = True
 
-                                # NV button (4), Circle (9), L Triangle (7), R Triangle (8) have no function
                         case 2:  # Joysticks and D-Pad (Axes)
                             # Normalize value to [-1.0, 1.0] for axes
                             # Axis values are typically -32767 to 32767
@@ -131,15 +155,61 @@ class HIDController:
                                     event_handled = True
                                 case 6 | 7:  # ZR/ZL - stop wrist_2 movement
                                     if normalized_value == -1.0:
-                                        self._controller_data.set_joystick_value("wrist_2", 0.0)
-                                        event_handled = True
+                                        self._controller_data.set_joystick_value(
+                                            "wrist_2", 0.0
+                                        )
+                                    event_handled = True
 
             if not event_handled:
                 self._logger.warning(f"Unhandled event: {event}")
-                print(f"\tdevice type: {event.device_type} - type = {type(event.device_type)}")
-                print(f"\tevent type: {event.event_type} - type = {type(event.event_type)}")
+                print(
+                    f"\tdevice type: {event.device_type} - type = {type(event.device_type)}"
+                )
+                print(
+                    f"\tevent type: {event.event_type} - type = {type(event.event_type)}"
+                )
                 print(f"\tevent number: {event.number} - type = {type(event.number)}")
                 print(f"\tevent value: {event.value} - type = {type(event.value)}")
+            else:
+                with self._hid_event_lock:
+                    event.hid_process_timestamp = time.monotonic_ns()
+                    self._last_hid_event = event
+
+            # if message_is smaller than next_message_id, then reset, assume Surgeon app restarted
+            if event.message_id < self._next_message_id:
+                self._next_message_id = -1
+                self._total_messages_lost = 0
+                self._total_messages_received = 0
+
+            # Skip the first message because messages could lost when the Surgeon app starts first
+            if (
+                self._next_message_id != -1
+                and event.message_id != self._next_message_id
+            ):
+                self._logger.warning(
+                    f"Message mismatch! expecting {self._next_message_id}, received: {event.message_id}"
+                )
+                self._total_messages_lost += 1
+
+            self._next_message_id = event.message_id + 1
+
+
+    def print_summary(self):
+        """Periodically prints a summary of received and lost messages."""
+        while not self._stop_event.is_set():
+            if self._total_messages_received > 0:
+                loss_rate = (
+                    self._total_messages_lost / self._total_messages_received * 100
+                )
+                self._logger.info(
+                    f"Total messages received: {self._total_messages_received}. "
+                    f"Lost: {self._total_messages_lost}. Rate: {loss_rate:.2f}%"
+                )
+            self._stop_event.wait(3)
+
+    def stop(self):
+        """Signals the summary thread to stop."""
+        self._stop_event.set()
 
 
 class ControllerData:

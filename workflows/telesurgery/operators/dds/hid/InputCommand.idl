@@ -26,6 +26,8 @@ struct InputCommand {
   int64 hid_capture_timestamp;  // Timestamp when the event was captured in nanoseconds
   int64 hid_publish_timestamp;  // Timestamp when the event was published in nanoseconds
   int64 hid_receive_timestamp;  // Timestamp when the event was received by IS in nanoseconds
+  int64 hid_to_sim_timestamp;  // Timestamp when received by the HidToSimPushOp in nanoseconds
+  int64 hid_process_timestamp;  // Timestamp when the event was processed by IS controller in nanoseconds
 
   uint64 message_id;
 };

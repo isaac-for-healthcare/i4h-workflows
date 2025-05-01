@@ -13,14 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import queue
-
+import time
 import warp
+import sys
+from holoscan.conditions import AsynchronousCondition, AsynchronousEventState
 from holoscan.core import Operator, OperatorSpec, Tensor
-from idl.CameraInfo.CameraInfo import CameraInfo
+# from idl.CameraInfo.CameraInfo import CameraInfo
+from dds_camera_info_publisher._dds_camera_info_publisher import CameraInfo
 
-
-class AsyncDataPushOp(Operator):
+class AsyncDataPushOpForStreamSDK(Operator):
     """An asynchronous operator that allows pushing data from external sources into a Holoscan pipeline.
 
     This operator implements a producer-consumer pattern where data can be pushed from outside
@@ -44,7 +47,7 @@ class AsyncDataPushOp(Operator):
             **kwargs: Additional keyword arguments passed to the parent Operator.
         """
         self._queue = queue.Queue(maxsize=max_queue_size)
-
+        self._logger = logging.getLogger(__name__)
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec: OperatorSpec):
@@ -54,7 +57,6 @@ class AsyncDataPushOp(Operator):
             spec: The OperatorSpec object used to define the operator's interface.
         """
         spec.output("image")
-        spec.output("camera_info")
 
     def compute(self, op_input, op_output, context):
         """Process and emit data when available.
@@ -67,23 +69,9 @@ class AsyncDataPushOp(Operator):
             op_output: The output port to emit data through.
             context: The execution context.
         """
+
         data = self._queue.get()
-
-        image = data["image"]
-        if isinstance(image, warp.types.array):
-            image = image.numpy()
-        image = image.tobytes()
-        camera_info = CameraInfo()
-        camera_info.joint_names = list(data["joint_names"])
-        camera_info.joint_positions = data["joint_positions"].tolist()
-        camera_info.data = image
-        camera_info.width = data["size"][1]
-        camera_info.height = data["size"][0]
-        camera_info.channels = data["size"][2]
-        camera_info.frame_num = data["frame_count"]
-
         op_output.emit({"": Tensor.as_tensor(data["image"])}, "image")
-        op_output.emit(camera_info, "camera_info")
 
     def stop(self):
         """Stop the operator and clean up resources.

@@ -60,6 +60,7 @@ holoviz:
       priority: 0
 
 hid:
+  simulation_rate_ms: 100
   human_interface_devices:
     - name: joystick_sim
       path: /simulation
@@ -76,5 +77,6 @@ hid:
 
 hid_publisher:
   domain_id: 1
+  message_cap: 0
   participant_qos: TelesurgeryLibrary::TelesurgeryApplication
   writer_qos: TelesurgeryLibrary::Command

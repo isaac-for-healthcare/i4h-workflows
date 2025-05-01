@@ -16,13 +16,13 @@
 import logging
 from typing import Callable
 
-from dds_hid_subscriber import DDSHIDSubscriberOp
-from holoscan.conditions import PeriodicCondition
 from holoscan.core import Application
+from holoscan.conditions import AsynchronousCondition, PeriodicCondition
 from holoscan.operators import HolovizOp
-from operators.data_bridge.AsyncDataPushOp import AsyncDataPushOp
+from dds_hid_subscriber import DDSHIDSubscriberOp
+from dds_camera_info_publisher import DDSCameraInfoPublisherOp
+
 from operators.data_bridge.HidToSimPushOp import HidToSimPushOp
-from operators.dds.CameraInfoPublisherOp import CameraInfoPublisherOp
 
 
 class PatientApp(Application):
@@ -98,32 +98,38 @@ class PatientApp(Application):
         )
         self.add_flow(self.hid_event_source, self._hid_to_sim_push, {("output", "input")})
 
-        self._async_data_push = AsyncDataPushOp(
-            self,
-            name="Async Data Push",
-        )
         video_protocol = str(self.from_config("protocol.video"))
         if video_protocol == "dds":
-            video_source = CameraInfoPublisherOp(
-                self, name="DDS Camera Info Publisher", **self.kwargs("camera_info_publisher")
+            from operators.data_bridge.AsyncDataPushOpForDDS import AsyncDataPushForDDS
+            self._async_data_push = AsyncDataPushForDDS(
+                self,
+                name="Async Data Push",
+                condition=AsynchronousCondition(self)
             )
+            video_source = DDSCameraInfoPublisherOp(
+                self,
+                name="DDS Camera Info Publisher",
+                **self.kwargs("camera_info_publisher")
+            )
+            self.add_flow(self._async_data_push, video_source, {("camera_info", "input")})
         elif video_protocol == "streamsdk":
             # TODO: Implement StreamSDK video publisher
+            from operators.data_bridge.AsyncDataPushOpForStreamSDK import AsyncDataPushOpForStreamSDK
+            
             raise NotImplementedError("StreamSDK video publisher is not implemented")
         else:
             raise ValueError(f"Invalid video protocol: '{video_protocol}'")
 
-        self.add_flow(self._async_data_push, video_source, {("camera_info", "input")})
 
-        holoviz = HolovizOp(
-            self,
-            name="Holoviz",
-            tensors=[
-                HolovizOp.InputSpec("", HolovizOp.InputType.COLOR),
-            ],
-        )
+        # holoviz = HolovizOp(
+        #     self,
+        #     name="Holoviz",
+        #     tensors=[
+        #         HolovizOp.InputSpec("", HolovizOp.InputType.COLOR),
+        #     ],
+        # )
 
-        self.add_flow(self._async_data_push, holoviz, {("image", "receivers")})
+        # self.add_flow(self._async_data_push, holoviz, {("image", "receivers")})
 
     def push_data(self, data):
         """Push data into the transmission pipeline.

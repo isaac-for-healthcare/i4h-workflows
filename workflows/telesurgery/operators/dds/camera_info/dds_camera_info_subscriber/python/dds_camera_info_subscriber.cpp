@@ -21,15 +21,14 @@
 #include <memory>
 #include <string>
 
+#include "../dds_camera_info_subscriber.hpp"
+#include "./dds_camera_info_subscriber_pydoc.hpp"
+#include "../../../../operator_util.hpp"
+// #include "../python/camera_info_bindings.hpp" // No longer needed
 #include "holoscan/core/fragment.hpp"
 #include "holoscan/core/operator.hpp"
 #include "holoscan/core/operator_spec.hpp"
 
-#include "../dds_camera_info_publisher.hpp"
-#include "./dds_camera_info_publisher_pydoc.hpp"
-
-#include "../../../../operator_util.hpp"
-#include "../../python/camera_info_bindings.hpp"
 using std::string_literals::operator""s;
 using pybind11::literals::operator""_a;
 
@@ -50,23 +49,23 @@ namespace holoscan::ops {
  * The sequence of events in this constructor is based on Fragment::make_operator<OperatorT>
  */
 
-class PyDDSCameraInfoPublisherOp : public DDSCameraInfoPublisherOp {
+class PyDDSCameraInfoSubscriberOp : public DDSCameraInfoSubscriberOp {
  public:
   /* Inherit the constructors */
-  using DDSCameraInfoPublisherOp::DDSCameraInfoPublisherOp;
+  using DDSCameraInfoSubscriberOp::DDSCameraInfoSubscriberOp;
 
   // Define a constructor that fully initializes the object.
-  PyDDSCameraInfoPublisherOp(Fragment* fragment, const py::args& args,
+  PyDDSCameraInfoSubscriberOp(Fragment* fragment, const py::args& args,
                         const std::string& qos_provider = "",
                         const std::string& participant_qos = "",
                         uint32_t domain_id = 0,
-                        const std::string& writer_qos = "",
+                        const std::string& reader_qos = "",
                         const std::string& topic = "camera_info",
-                        const std::string& name = "dds_camera_info_publisher")
-      : DDSCameraInfoPublisherOp(ArgList{Arg{"qos_provider", qos_provider},
+                        const std::string& name = "dds_camera_info_subscriber")
+      : DDSCameraInfoSubscriberOp(ArgList{Arg{"qos_provider", qos_provider},
                                     Arg{"participant_qos", participant_qos},
                                     Arg{"domain_id", domain_id},
-                                    Arg{"writer_qos", writer_qos},
+                                    Arg{"reader_qos", reader_qos},
                                     Arg{"topic", topic}}) {
     add_positional_condition_and_resource_args(this, args);
     name_ = name;
@@ -78,11 +77,19 @@ class PyDDSCameraInfoPublisherOp : public DDSCameraInfoPublisherOp {
 
 /* The python module */
 
-PYBIND11_MODULE(_dds_camera_info_publisher, m) {
+PYBIND11_MODULE(_dds_camera_info_subscriber, m) {
+  // Import the dedicated bindings module first
+  try {
+      py::module_::import("_camera_info_bindings"); // Import the dedicated module
+  } catch (py::error_already_set &e) {
+      if (!e.matches(PyExc_ImportError)) { throw; } // Re-throw if it's not an ImportError
+      // Otherwise, swallow the ImportError, maybe the module is already loaded.
+  }
+
   m.doc() = R"pbdoc(
         Holoscan SDK Python Bindings
         ---------------------------------------
-        .. currentmodule:: _dds_camera_info_publisher
+        .. currentmodule:: _dds_camera_info_subscriber
         .. autosummary::
            :toctree: _generate
     )pbdoc";
@@ -93,14 +100,11 @@ PYBIND11_MODULE(_dds_camera_info_publisher, m) {
   m.attr("__version__") = "dev";
 #endif
 
-  // Import the dedicated bindings module first
-  register_camera_info_bindings(m);
-
-  py::class_<DDSCameraInfoPublisherOp,
-             PyDDSCameraInfoPublisherOp,
+  py::class_<DDSCameraInfoSubscriberOp,
+             PyDDSCameraInfoSubscriberOp,
              Operator,
-             std::shared_ptr<DDSCameraInfoPublisherOp>>(
-      m, "DDSCameraInfoPublisherOp", doc::DDSCameraInfoPublisherOp::doc_DDSCameraInfoPublisherOp)
+             std::shared_ptr<DDSCameraInfoSubscriberOp>>(
+      m, "DDSCameraInfoSubscriberOp", doc::DDSCameraInfoSubscriberOp::doc_DDSCameraInfoSubscriberOp)
       .def(py::init<Fragment*,
                     const py::args&,
                     const std::string&,
@@ -113,12 +117,12 @@ PYBIND11_MODULE(_dds_camera_info_publisher, m) {
            "qos_provider"_a = ""s,
            "participant_qos"_a = ""s,
            "domain_id"_a = 0,
-           "writer_qos"_a = ""s,
+           "reader_qos"_a = ""s,
            "topic"_a = "camera_info"s,
-           "name"_a = "dds_camera_info_publisher"s,
-           doc::DDSCameraInfoPublisherOp::doc_DDSCameraInfoPublisherOp)
-      .def("initialize", &DDSCameraInfoPublisherOp::initialize, doc::DDSCameraInfoPublisherOp::doc_initialize)
-      .def("setup", &DDSCameraInfoPublisherOp::setup, "spec"_a, doc::DDSCameraInfoPublisherOp::doc_setup);
+           "name"_a = "dds_camera_info_subscriber"s,
+           doc::DDSCameraInfoSubscriberOp::doc_DDSCameraInfoSubscriberOp)
+      .def("initialize", &DDSCameraInfoSubscriberOp::initialize, doc::DDSCameraInfoSubscriberOp::doc_initialize)
+      .def("setup", &DDSCameraInfoSubscriberOp::setup, "spec"_a, doc::DDSCameraInfoSubscriberOp::doc_setup);
 
 }  // PYBIND11_MODULE NOLINT
 }  // namespace holoscan::ops

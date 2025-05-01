@@ -13,23 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.24)
-project(generic_hid_interface)
+include(add_pybind11_module)
 
-find_package(holoscan 3.3 REQUIRED CONFIG
-             PATHS "/opt/nvidia/holoscan" "/workspace/holoscan-sdk/install")
-
-add_library(generic_hid_interface SHARED
-  generic_hid_interface.cpp)
-
-add_library(holoscan::ops::generic_hid_interface ALIAS generic_hid_interface)
-
-target_link_libraries(generic_hid_interface PUBLIC
-  holoscan::core
+add_pybind11_module(
+    CPP_CMAKE_TARGET generic_hid_interface
+    CLASS_NAME "GenericHIDInterface"
+    SOURCES generic_hid_interface.cpp
 )
-
-target_include_directories(generic_hid_interface PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-)
-
-add_subdirectory(python)

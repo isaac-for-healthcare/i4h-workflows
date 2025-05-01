@@ -21,13 +21,14 @@
 #include <memory>
 #include <string>
 
+#include "holoscan/core/fragment.hpp"
+#include "holoscan/core/operator.hpp"
+#include "holoscan/core/operator_spec.hpp"
+
 #include "../dds_hid_publisher.hpp"
 #include "./dds_hid_publisher_pydoc.hpp"
 
 #include "../../../../operator_util.hpp"
-#include "holoscan/core/fragment.hpp"
-#include "holoscan/core/operator.hpp"
-#include "holoscan/core/operator_spec.hpp"
 
 using std::string_literals::operator""s;
 using pybind11::literals::operator""_a;
@@ -80,8 +81,6 @@ PYBIND11_MODULE(_dds_hid_publisher, m) {
         .. currentmodule:: _dds_hid_publisher
         .. autosummary::
            :toctree: _generate
-           add
-           subtract
     )pbdoc";
 
 #ifdef VERSION_INFO

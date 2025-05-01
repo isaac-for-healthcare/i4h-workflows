@@ -43,19 +43,6 @@ using pybind11::literals::operator""_a;
 
 namespace py = pybind11;
 
-// Automatically export enum values (see https://github.com/pybind/pybind11/issues/1759)
-template <typename E, typename... Extra>
-py::enum_<E> export_enum(const py::handle &scope, Extra &&...extra)
-{
-  py::enum_<E> enum_type(
-      scope, magic_enum::enum_type_name<E>().data(), std::forward<Extra>(extra)...);
-  for (const auto &[value, name] : magic_enum::enum_entries<E>())
-  {
-    enum_type.value(name.data(), value);
-  }
-  return enum_type;
-}
-
 namespace holoscan::ops
 {
   /* Trampoline class for handling Python kwargs
@@ -142,21 +129,5 @@ namespace holoscan::ops
         .def("setup", &DDSHIDSubscriberOp::setup, "spec"_a,
              doc::DDSHIDSubscriberOp::doc_setup);
 
-    export_enum<HIDDeviceType>(m, "HIDDeviceType");
-
-    py::class_<InputEvent> input_event(
-        m, "InputEvent");
-    input_event.def(py::init<>())
-        .def_readwrite("device_type", &InputEvent::device_type)
-        .def_readwrite("event_type", &InputEvent::event_type)
-        .def_readwrite("number", &InputEvent::number)
-        .def_readwrite("value", &InputEvent::value);
-
-    m.def("register_types", [](EmitterReceiverRegistry &registry)
-          {
-            registry.add_emitter_receiver<std::vector<InputEvent>>(
-                "std::vector<InputEvent>"s);
-            registry.add_emitter_receiver<HIDDeviceType>("HIDDeviceType"s);
-          });
   } // PYBIND11_MODULE NOLINT
 } // namespace holoscan::ops

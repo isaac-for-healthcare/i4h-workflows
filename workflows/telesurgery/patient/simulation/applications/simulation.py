@@ -15,11 +15,15 @@
 
 
 import sys
-from typing import Callable
+import time
 
 import numpy as np
-from applications.controller import HIDController
+
 from isaacsim import SimulationApp
+from typing import Callable
+
+
+from applications.controller import HIDController
 
 
 class Simulation:
@@ -110,7 +114,7 @@ class Simulation:
                 self._rendering_frame = -1
                 self._controller = controller
                 self._image_size = image_size
-                self._frame_count = 0
+                self._frame_num = 1
                 super().__init__(*args, **kwargs)
 
             def set_image_callback(self, image_callback: Callable):
@@ -126,6 +130,7 @@ class Simulation:
                 if self._current_frame["rendering_frame"] != self._rendering_frame:
                     self._rendering_frame = self._current_frame["rendering_frame"]
                     image = self._current_frame["rgba"]
+                    time_now = time.monotonic_ns()
 
                     # TODO: the first frame has a size of 0, remove this code if that is fixed
                     if not image.shape[0] == 0:
@@ -135,10 +140,12 @@ class Simulation:
                                 "joint_names": self._controller.joint_names,
                                 "joint_positions": self._controller.target_joint_positions,
                                 "size": self._image_size,
-                                "frame_count": self._frame_count,
+                                "frame_num": self._frame_num,
+                                "last_hid_event": self._controller.take_last_hid_event(),
+                                "video_acquisition_timestamp": time_now,
                             }
                         )
-                        self._frame_count += 1
+                        self._frame_num += 1
 
         # Use the camera from the end effector
         self._camera = CameraWithImageCallback(
@@ -156,6 +163,10 @@ class Simulation:
         self._world.scene.add_default_ground_plane()
 
         self._camera.initialize()
+
+    def stop(self):
+        """Signals the controller to stop its background threads."""
+        self._controller.stop()
 
     def __del__(self):
         self._simulation_app.close()

@@ -26,6 +26,7 @@ namespace holoscan::ops
     {
         spec.output<std::vector<InputEvent>>("output");
         spec.param(human_interface_devices_, "human_interface_devices", "Human Interface Devices", "Human Interface Devices", HumanInterfaceDevicesConfig());
+        spec.param(simulation_rate_ms_, "simulation_rate_ms", "Simulation Rate", "Simulation Rate", 100);
     }
 
     void GenericHIDInterface::initialize()
@@ -79,30 +80,27 @@ namespace holoscan::ops
             break;
           }
         }
-
+        auto capture_time_epoch =
+              std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
         if (device.path == "/simulation") {
           // randomly generate events for testing
           // type is always joystick
-          // for event type = 1, number can be 0, 1,2 ,3 ,5, 6, 8
-          // for event type = 2, number can be 0, 1, 2, 3, 4, 5, 6, ,7
+          // for event type = 1, number can be 0, 1, 2 ,3 ,5, 6, 8
+          // for event type = 2, number can be 0, 1, 2, 3, 4, 5, 6, 7
           // value can be between -32767 and 32767
           auto event = js_event{};
           event.type = rand() % 2 + 1;
           event.number = rand() % 8;
           event.value = rand() % 65535 - 32767;
-          auto capture_time_epoch =
-              std::chrono::high_resolution_clock::now().time_since_epoch().count();
+
           event_buffer_.push(std::make_tuple(device, event, capture_time_epoch));
-          std::this_thread::sleep_for(std::chrono::milliseconds(500));
-          HOLOSCAN_LOG_INFO("Simulated event: type={}, number={}, value={}", event.type, event.number,
-                          event.value);
+          std::this_thread::sleep_for(std::chrono::milliseconds(simulation_rate_ms_.get()));
         } else {
           while (read(device.file_descriptor, event_ptr, event_size) > 0) {
-            auto capture_time_epoch =
-                std::chrono::high_resolution_clock::now().time_since_epoch().count();
             event_buffer_.push(std::make_tuple(device, event, capture_time_epoch));
           }
         }
+        total_events_++;
       }
 
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -135,7 +133,6 @@ namespace holoscan::ops
             event.device_type = device.type;
             event.device_name = device.name;
             event.hid_capture_timestamp = capture_time_epoch;
-
             switch (device.type)
             {
             case HIDDeviceType::JOYSTICK:
@@ -167,6 +164,15 @@ namespace holoscan::ops
                 events.push_back(event);
             }
             op_output.emit(events, "output");
+            total_events_emitted_ += events.size();
+        }
+
+        // Print stats every 3 seconds
+        auto current_time = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - last_stats_time_).count();
+        if (elapsed >= 5000) {
+          HOLOSCAN_LOG_INFO("Total events emitted: {}", total_events_emitted_.load());
+          last_stats_time_ = current_time;
         }
     }
 } // namespace holoscan::ops
