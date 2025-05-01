@@ -24,7 +24,6 @@ from dds_camera_info_publisher import DDSCameraInfoPublisherOp
 
 from operators.data_bridge.HidToSimPushOp import HidToSimPushOp
 
-
 class PatientApp(Application):
     """A Holoscan application for transmitting data over RoCE (RDMA over Converged Ethernet).
 
