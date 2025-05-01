@@ -15,8 +15,8 @@
 
 import logging
 from typing import Callable
-
 from holoscan.core import Fragment, Operator, OperatorSpec
+import time
 
 
 class HidToSimPushOp(Operator):
@@ -36,5 +36,8 @@ class HidToSimPushOp(Operator):
 
     def compute(self, op_input, op_output, context):
         input = op_input.receive("input")
+
+        for event in input:
+            event.hid_to_sim_timestamp = time.monotonic_ns()
 
         self.hid_event_callback(input)

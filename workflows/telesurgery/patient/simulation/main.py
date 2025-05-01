@@ -26,8 +26,11 @@ import os
 # Reason is that libyaml packed with Omniverse (and probably all of Omniverse) is compiled
 # with _GLIBCXX_USE_CXX11_ABI=0 and Holoscan is compiled with _GLIBCXX_USE_CXX11_ABI=1.
 import holoscan
+from holoscan.schedulers import MultiThreadScheduler
+
 from applications.patient import PatientApp
 from applications.simulation import Simulation
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -106,6 +109,11 @@ def main():
         buffer_size=image_size[0] * image_size[1] * image_size[2],
         hid_event_callback=simulation.hid_event_callback,
     )
+    # patient_app.scheduler(MultiThreadScheduler(
+    #     patient_app,
+    #     name="multithread_scheduler",
+    #     **patient_app.kwargs("scheduler"),
+    # ))
 
     if not os.path.exists(args.config):
         raise FileNotFoundError(f"Config file {args.config} not found")
@@ -125,12 +133,28 @@ def main():
 
     # Run the simulation, this will return if the simulation is finished
     try:
+        logger.info("Starting simulation run...")
         simulation.run(patient_app.push_data)
+        logger.info("Simulation run finished normally.")
+    except KeyboardInterrupt:
+        logger.info("Ctrl+C detected. Stopping simulation and Holoscan app...")
+        simulation.stop()
     except Exception as e:
-        logger.error(f"Simulation failed with exception: {e}")
+        logger.error(f"Simulation failed with exception: {e}", exc_info=True)
+        simulation.stop()
         os._exit(1)
-    # Wait for the transmitter and receiver applications to finish
-    patient_future.result()
+    finally:
+        simulation.stop()
+        logger.info("Waiting for PatientApp to finish...")
+        try:
+            patient_future.result(timeout=5)
+            logger.info("PatientApp finished.")
+        except TimeoutError:
+            logger.warning("PatientApp did not finish within the timeout.")
+        except Exception as e:
+            logger.error(f"Error waiting for PatientApp: {e}", exc_info=True)
+
+    logger.info("Exiting main application.")
 
 
 if __name__ == "__main__":

@@ -123,7 +123,7 @@ function clean() {
 }
 
 function help() {
-    echo "Usage: $0 COMMAND [-h|--help][build|build_image|vscode|surgeon|patient|enter|clean]"
+    echo "Usage: $0 COMMAND [-h|--help][build|build_image|vscode|surgeon|surgeon/|patient|patient/|enter|clean]"
     echo ""
     echo "Commands:"
     echo " -h, --help"
@@ -153,14 +153,14 @@ case $1 in
     help
     exit 1
     ;;
-    build|build_image|vscode|surgeon|patient|enter|clean)
+    build|build_image|vscode|surgeon|patient|surgeon/|patient/|enter|clean)
     COMMAND=$1
     shift
     break
     ;;
     *)
     echo "Unknown option '"$1"'"
-    help
+    shift
     ;;
 esac
 done
@@ -177,4 +177,5 @@ if [ ! -f ${RTI_LICENSE_FILE} ]; then
     exit 1
 fi
 
+COMMAND=$(echo "$COMMAND" | sed 's:/*$::')
 ${COMMAND} $@

@@ -54,16 +54,24 @@ class DDSHIDPublisherOp : public DDSOperatorBase {
   void initialize() override;
   void compute(InputContext& op_input, OutputContext& op_output,
                ExecutionContext& context) override;
+  void start() override;
+  void stop() override;
 
  private:
   Parameter<std::string> writer_qos_;
-
+  Parameter<int> message_cap_;
   dds::pub::DataWriter<InputCommand> writer_ = dds::core::null;
 
   // Message tracking variables
   std::atomic<uint64_t> total_messages_sent_ = 0;
   std::atomic<uint64_t> next_message_id_{1};  // Atomic for thread-safe message ID generation
 
+  // Statistics thread members
+  std::thread stats_thread_;
+  std::atomic<bool> stop_stats_thread_{false};
+
+  // Statistics thread function
+  void stats_printer_thread();
 };
 
 }  // namespace holoscan::ops

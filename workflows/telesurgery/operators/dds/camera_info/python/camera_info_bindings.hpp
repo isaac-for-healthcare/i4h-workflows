@@ -15,25 +15,18 @@
  * limitations under the License.
  */
 
-#pragma once
+#ifndef HOLOSCAN_OPERATORS_DDS_CAMERA_INFO_PYTHON_BINDINGS_HPP
+#define HOLOSCAN_OPERATORS_DDS_CAMERA_INFO_PYTHON_BINDINGS_HPP
 
-#include "hid.hpp"
+#include <pybind11/pybind11.h>
+
+namespace py = pybind11;
 
 namespace holoscan::ops {
 
-struct InputEvent
-{
-    HIDDeviceType device_type;
-    std::string device_name;
-    int event_type;
-    int number;
-    int value;
-    uint64_t hid_capture_timestamp;
-    uint64_t hid_publish_timestamp;
-    uint64_t hid_receive_timestamp;
-    uint64_t hid_to_sim_timestamp;
-    uint64_t hid_process_timestamp;
-    uint16_t message_id;
-};
+// Declare the function defined in camera_info_bindings.cpp
+void register_camera_info_bindings(py::module_& m);
 
 }  // namespace holoscan::ops
+
+#endif /* HOLOSCAN_OPERATORS_DDS_CAMERA_INFO_PYTHON_BINDINGS_HPP */ 

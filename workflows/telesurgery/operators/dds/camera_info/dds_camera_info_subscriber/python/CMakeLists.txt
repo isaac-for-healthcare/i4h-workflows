@@ -16,7 +16,7 @@
 include(add_pybind11_module)
 
 add_pybind11_module(
-    CPP_CMAKE_TARGET dds_camera_info_publisher
-    CLASS_NAME "DDSCameraInfoPublisherOp"
-    SOURCES dds_camera_info_publisher.cpp ../../python/camera_info_bindings.cpp
+    CPP_CMAKE_TARGET dds_camera_info_subscriber
+    CLASS_NAME "DDSCameraInfoSubscriberOp"
+    SOURCES dds_camera_info_subscriber.cpp ../../python/camera_info_bindings.cpp
 )

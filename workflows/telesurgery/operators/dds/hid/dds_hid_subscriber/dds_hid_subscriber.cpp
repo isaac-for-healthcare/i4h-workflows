@@ -83,7 +83,9 @@ namespace holoscan::ops
                                    ExecutionContext &context)
   {
     dds::sub::LoanedSamples<InputCommand> commands = reader_.take();
-
+    auto received_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                             std::chrono::steady_clock::now().time_since_epoch())
+                             .count();
     std::vector<InputEvent> valid_commands;
     for (const auto &command : commands)
     {
@@ -91,9 +93,14 @@ namespace holoscan::ops
       {
         InputEvent input_event;
         input_event.device_type = holoscan::ops::input_command_device_type_to_holoscan_hid_device_type(command.data().device_type());
+        input_event.device_name = command.data().device_name();
+        input_event.message_id = command.data().message_id();
         input_event.event_type = command.data().event_type();
         input_event.number = command.data().number();
         input_event.value = command.data().value();
+        input_event.hid_capture_timestamp = command.data().hid_capture_timestamp();
+        input_event.hid_publish_timestamp = command.data().hid_publish_timestamp();
+        input_event.hid_receive_timestamp = received_time;
         valid_commands.push_back(input_event);
       }
     }

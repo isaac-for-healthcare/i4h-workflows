@@ -20,6 +20,7 @@
 #include <chrono>
 #include <dds/topic/find.hpp>
 #include <map>
+#include <thread>
 
 namespace holoscan::ops {
 
@@ -29,6 +30,7 @@ void DDSHIDPublisherOp::setup(OperatorSpec& spec) {
   spec.input<std::vector<InputEvent>>("input");
 
   spec.param(writer_qos_, "writer_qos", "Writer QoS", "Data Writer QoS Profile", std::string());
+  spec.param(message_cap_, "message_cap", "Message Cap", "Maximum number of messages to publish", -1);
 }
 
 void DDSHIDPublisherOp::initialize() {
@@ -48,9 +50,23 @@ void DDSHIDPublisherOp::initialize() {
       publisher, topic, qos_provider_.datawriter_qos(writer_qos_.get()));
 }
 
+void DDSHIDPublisherOp::start() {
+  stats_thread_ = std::thread(&DDSHIDPublisherOp::stats_printer_thread, this);
+}
+
+void DDSHIDPublisherOp::stop() {
+  stop_stats_thread_.store(true);
+  if (stats_thread_.joinable()) {
+    stats_thread_.join();
+  }
+}
 
 void DDSHIDPublisherOp::compute(InputContext& op_input, OutputContext& op_output,
                                 ExecutionContext& context) {
+  if (message_cap_.get() > 0 && total_messages_sent_.load() >= message_cap_.get()) {
+    return;
+  }
+
   auto now = std::chrono::steady_clock::now();
 
   auto input_events = op_input.receive<std::vector<InputEvent>>("input");
@@ -70,15 +86,38 @@ void DDSHIDPublisherOp::compute(InputContext& op_input, OutputContext& op_output
       input_command.number(input_event.number);
       input_command.value(input_event.value);
       input_command.message_id(next_message_id_);
-      input_command.hid_publish_timestamp(
-          std::chrono::duration_cast<std::chrono::nanoseconds>(
-              std::chrono::high_resolution_clock::now().time_since_epoch())
-              .count());
+      input_command.hid_capture_timestamp(input_event.hid_capture_timestamp);
+
+      uint64_t publish_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
+              std::chrono::steady_clock::now().time_since_epoch())
+              .count();
+      input_command.hid_publish_timestamp(publish_time);
       writer_.write(input_command);
       total_messages_sent_++;
       next_message_id_++;
     }
-    HOLOSCAN_LOG_INFO("Published {} input events", events.size());
+  }
+}
+
+void DDSHIDPublisherOp::stats_printer_thread() {
+  HOLOSCAN_LOG_INFO("Stats printer thread started.");
+  while (!stop_stats_thread_.load()) {
+    auto wake_up_time = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (std::chrono::steady_clock::now() < wake_up_time) {
+      if (stop_stats_thread_.load()) {
+        HOLOSCAN_LOG_INFO("Stats printer thread stopping.");
+        return; 
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(100)); 
+    }
+
+    // Check again after waking up, before printing
+    if (stop_stats_thread_.load()) {
+       HOLOSCAN_LOG_INFO("Stats printer thread stopping.");
+       return;
+    }
+
+    HOLOSCAN_LOG_INFO("Total HID events published: {}", total_messages_sent_.load());
   }
 }
 

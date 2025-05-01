@@ -35,7 +35,6 @@ public:
     auto hid_interface = make_operator<ops::GenericHIDInterface>(
         "hid_interface",
         from_config("hid"));
-    add_operator(hid_interface);
 
     std::shared_ptr<holoscan::Operator> hid_publisher;
     auto hid_protocol = from_config("protocol.hid").as<std::string>();
