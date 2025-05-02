@@ -31,8 +31,14 @@ function build() {
 function enter() {
     build_image
     xhost +local:docker
+
+    # add the following if needed
+        # --device=/dev/input/js0 \ to make the joystick available in the container
+        # -e=NVIDIA_VISIBLE_DEVICES=GPU-ID \ # make the specific GPU available in the container (remove --gpus all)
+        
     docker run -it --rm \
-        --runtime=nvidia --gpus all \
+        --runtime=nvidia \
+        --gpus all \
         -e "ACCEPT_EULA=Y" \
         -e "PRIVACY_CONSENT=Y" \
         -e DISPLAY \
@@ -48,7 +54,7 @@ function enter() {
         -v ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw \
         -v ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw \
         -v ~/docker/isaac-sim/documents:/root/Documents:rw \
-        # --device=/dev/input/js0 \
+        -v ~/rti_connext_dds-7.3.0:/opt/rti.com/rti_connext_dds-7.3.0/ \
         --entrypoint "" \
         -v ${SCRIPT_DIR}:${WORKSPACE_DIR} -w ${WORKSPACE_DIR} ${IMAGE_NAME} bash
 }
