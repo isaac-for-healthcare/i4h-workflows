@@ -37,8 +37,8 @@
                     <mask>UDPv4</mask>
                     <udpv4>
                         <!-- This helps not to lose packets. Run set_socket_buffer_sizes.sh first. -->
-                        <send_socket_buffer_size>5242880</send_socket_buffer_size>
-                        <recv_socket_buffer_size>5242880</recv_socket_buffer_size>
+                        <!-- <send_socket_buffer_size>5242880</send_socket_buffer_size>
+                        <recv_socket_buffer_size>5242880</recv_socket_buffer_size> -->
                         <!-- <message_size_max>1400</message_size_max> -->
                         <!-- Specify allowed interfaces or addresses for communication -->
                         <!-- Optional: Specify unicast addresses for initial peers -->
@@ -82,7 +82,7 @@
             </datareader_qos>
         </qos_profile>
         <!-- Camera Info Profile - For camera metadata -->
-        <qos_profile name="CameraInfo" base_name="BuiltinQosLib::Generic.BestEffort">
+        <qos_profile name="CameraInfo" base_name="BuiltinQosLib::Pattern.ReliableStreaming">
             <datawriter_qos>
                 <publication_name>
                     <name>CameraInfoWriter</name>

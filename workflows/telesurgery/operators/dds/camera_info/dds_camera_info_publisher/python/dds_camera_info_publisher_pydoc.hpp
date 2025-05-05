@@ -43,6 +43,8 @@ writer_qos: str, optional
     QoS profile for the data writer
 topic : str, optional
     Topic name.
+encoded_channels : int, optional
+    Number of channels in the encoded image.
 name : str, optional
     The name of the operator.
 )doc")

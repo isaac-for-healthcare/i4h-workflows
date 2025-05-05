@@ -71,20 +71,26 @@ def main():
         help="Run IsaacSim in headless mode",
     )
     parser.add_argument(
-        "--queue-size-tx",
-        type=int,
-        default=2,
-        help="Transmitter queue size",
-    )
-    parser.add_argument(
         "--config",
         type=str,
         default=os.path.join(os.path.dirname(__file__), "patient.yaml"),
         help="Path to the patient configuration file",
     )
+    parser.add_argument(
+        "--width",
+        type=int,
+        default=1920,
+        help="Width of the image",
+    )
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=1080,
+        help="Height of the image",
+    )
     args = parser.parse_args()
 
-    image_size = (1080, 1920, 4)
+    image_size = (args.height, args.width, 4)
 
     # start the simulation
     simulation = Simulation(args.headless, image_size)
@@ -105,9 +111,9 @@ def main():
 
     # Set up the Holoscan transmitter application
     patient_app = PatientApp(
-        tx_queue_size=args.queue_size_tx,
-        buffer_size=image_size[0] * image_size[1] * image_size[2],
         hid_event_callback=simulation.hid_event_callback,
+        width=args.width,
+        height=args.height,
     )
     # patient_app.scheduler(MultiThreadScheduler(
     #     patient_app,

@@ -62,12 +62,14 @@ class PyDDSCameraInfoPublisherOp : public DDSCameraInfoPublisherOp {
                         uint32_t domain_id = 0,
                         const std::string& writer_qos = "",
                         const std::string& topic = "camera_info",
+                        uint32_t encoded_channels = 3,
                         const std::string& name = "dds_camera_info_publisher")
       : DDSCameraInfoPublisherOp(ArgList{Arg{"qos_provider", qos_provider},
                                     Arg{"participant_qos", participant_qos},
                                     Arg{"domain_id", domain_id},
                                     Arg{"writer_qos", writer_qos},
-                                    Arg{"topic", topic}}) {
+                                    Arg{"topic", topic},
+                                    Arg{"encoded_channels", encoded_channels}}) {
     add_positional_condition_and_resource_args(this, args);
     name_ = name;
     fragment_ = fragment;
@@ -108,6 +110,7 @@ PYBIND11_MODULE(_dds_camera_info_publisher, m) {
                     uint32_t,
                     const std::string&,
                     const std::string&,
+                    uint32_t,
                     const std::string&>(),
            "fragment"_a,
            "qos_provider"_a = ""s,
@@ -115,6 +118,7 @@ PYBIND11_MODULE(_dds_camera_info_publisher, m) {
            "domain_id"_a = 0,
            "writer_qos"_a = ""s,
            "topic"_a = "camera_info"s,
+           "encoded_channels"_a = 3,
            "name"_a = "dds_camera_info_publisher"s,
            doc::DDSCameraInfoPublisherOp::doc_DDSCameraInfoPublisherOp)
       .def("initialize", &DDSCameraInfoPublisherOp::initialize, doc::DDSCameraInfoPublisherOp::doc_initialize)

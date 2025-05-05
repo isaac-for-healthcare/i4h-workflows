@@ -27,6 +27,7 @@ RUN apt-get update \
       xvfb \
       gnupg2 \
       patch \
+      libv4l-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN OS_CODENAME=$(. /etc/os-release && echo "$UBUNTU_CODENAME") \
   && KW_KEYRING="/usr/share/keyrings/kitware-archive-keyring.gpg" \
@@ -51,6 +52,7 @@ RUN CUDA_TOOLKIT_VERSION_DASH="$(echo ${CUDA_TOOLKIT_VERSION} | tr '.' '-')" \
     && apt install -y --no-install-recommends \
         holoscan=${HOLOSCAN_VERSION} \
         cuda-nvtx-${CUDA_TOOLKIT_VERSION_DASH} \
+        libnpp-dev-${CUDA_TOOLKIT_VERSION_DASH} \
         libvulkan1 \
     && update-alternatives --install /usr/local/cuda cuda /usr/local/cuda-${CUDA_TOOLKIT_VERSION} 100 \
     && rm -rf /var/lib/apt/lists/* \
@@ -81,6 +83,11 @@ RUN ./python.sh -m pip install rti.connext
 # Install warp-lang
 RUN ./python.sh -m pip install warp-lang
 
+# Install gxf multimedia libraries and corresponding dependencies
+COPY deploy/install_h264.sh /tmp/install_h264.sh
+RUN chmod +x /tmp/install_h264.sh \
+    && /tmp/install_h264.sh
+
 # workaround for https://nvbugspro.nvidia.com/bug/5180229: [Holoscan SDK v3.1] std::bad_alloc exception with IsaacSim due to loading Holoscan Python module with RTDL_GLOBAL flag
 RUN sed -i 's/sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)/#sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)/' /isaac-sim/kit/python/lib/python3.10/site-packages/holoscan/core/__init__.py
 
@@ -99,5 +106,11 @@ RUN patch -p1 /isaac-sim/exts/isaacsim.sensors.camera/isaacsim/sensors/camera/ca
 
 ENV NDDSHOME=/opt/rti.com/rti_connext_dds-7.3.0
 ENV RTI_CONNEXT_DDS_DIR=$NDDSHOME
-
+ENV LD_LIBRARY_PATH=/opt/nvidia/holoscan/lib/:$LD_LIBRARY_PATH
 CMD ["/bin/bash", "-c", "source $NDDSHOME/resource/scripts/rtisetenv_x64Linux4gcc7.3.0.bash && exec /bin/bash"]
+
+RUN apt-get update \
+    && apt-get install -y \
+        gdb \
+        vulkan-tools \
+    && rm -rf /var/lib/apt/lists/*

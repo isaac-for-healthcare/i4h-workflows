@@ -57,6 +57,7 @@ namespace holoscan::ops
     void print_stats();
 
     Parameter<std::shared_ptr<holoscan::Allocator>> allocator_;
+    Parameter<std::shared_ptr<holoscan::BlockMemoryPool>> pool_;
     Parameter<std::string> reader_qos_;
     Parameter<std::string> topic_;
 

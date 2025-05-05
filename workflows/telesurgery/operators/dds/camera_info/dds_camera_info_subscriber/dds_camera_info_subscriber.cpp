@@ -27,6 +27,7 @@
 #include "gxf/core/gxf.h"
 #include "gxf/multimedia/video.hpp"
 #include "holoscan/core/gxf/entity.hpp"
+#include <inttypes.h>
 
 #define CUDA_TRY(stmt)                                                                       \
   {                                                                                          \
@@ -45,6 +46,19 @@
 
 namespace holoscan::ops
 {
+  // Simple 64-bit FNV-1a hash for debugging matching publisher side.
+  static inline uint64_t fnv1a_hash(const uint8_t *data, size_t len)
+  {
+    const uint64_t kPrime = 1099511628211ULL;
+    uint64_t hash = 14695981039346656037ULL;
+    for (size_t i = 0; i < len; ++i)
+    {
+      hash ^= static_cast<uint64_t>(data[i]);
+      hash *= kPrime;
+    }
+    return hash;
+  }
+
   void DDSCameraInfoSubscriberOp::setup(OperatorSpec &spec)
   {
     DDSOperatorBase::setup(spec);
@@ -55,6 +69,7 @@ namespace holoscan::ops
     spec.output<std::vector<ops::HolovizOp::InputSpec>>("overlay_specs");
 
     spec.param(allocator_, "allocator", "Allocator", "Allocator for output buffers.");
+    spec.param(pool_, "pool", "Pool", "Pool for output buffers.");
     spec.param(reader_qos_, "reader_qos", "Reader QoS", "Data Reader QoS Profile", std::string());
     spec.param(topic_, "topic", "Topic", "Topic name", std::string("camera_info"));
   }
@@ -92,6 +107,7 @@ namespace holoscan::ops
   void DDSCameraInfoSubscriberOp::compute(InputContext &op_input, OutputContext &op_output,
                                           ExecutionContext &context)
   {
+    HOLOSCAN_LOG_INFO("Computing DDS CameraInfo Subscriber");
     dds::sub::LoanedSamples<CameraInfo> frames = reader_.take();
     auto received_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
                                 std::chrono::steady_clock::now().time_since_epoch())
@@ -101,57 +117,74 @@ namespace holoscan::ops
     CameraInfo last_valid_frame_data;
     bool has_last_valid_frame = false;
 
-    for (const auto &frame : frames)
+    HOLOSCAN_LOG_INFO("Received {} frames", frames.length());
+    try
     {
-      total_frames_received_++;
-      if (!frame.info().valid())
+      for (const auto &frame : frames)
       {
-        invalid_frames_received_++;
+        total_frames_received_++;
+        HOLOSCAN_LOG_INFO("Received frame with frame_num: {}; total frames received: {}", frame.data().frame_num(), total_frames_received_);
+        if (!frame.info().valid())
+        {
+          invalid_frames_received_++;
+          HOLOSCAN_LOG_INFO("Invalid frame received with frame_num: {}; total invalid frames received: {}", frame.data().frame_num(), invalid_frames_received_);
+        }
+        else
+        {
+          valid_frames_received_++;
+          HOLOSCAN_LOG_INFO("Valid frame received with frame_num: {}; total valid frames received: {}", frame.data().frame_num(), valid_frames_received_);
+          uint64_t message_id = frame.data().message_id();
+          uint64_t frame_num = frame.data().frame_num();
+
+          if (next_frame_id_ != 0 && frame_num != next_frame_id_)
+          {
+            loss_frame_count_ += (frame_num > next_frame_id_) ? (frame_num - next_frame_id_) : 1; // Account for jumps or single losses
+          }
+          next_frame_id_ = frame_num + 1;
+
+          if (message_id != 0)
+          {
+            total_messages_received_++;
+            if (next_message_id_ != 0 && message_id != next_message_id_)
+            {
+              loss_message_count_ += (message_id > next_message_id_) ? (message_id - next_message_id_) : 1;
+            }
+            next_message_id_ = message_id + 1;
+          }
+
+          if (!has_last_valid_frame || frame_num > last_valid_frame_data.frame_num())
+          {
+            last_valid_frame_data = frame.data();
+            has_last_valid_frame = true;
+          }
+        }
+      }
+
+      if (has_last_valid_frame)
+      {
+        HOLOSCAN_LOG_INFO("Emitting frame with frame_num: {}", last_valid_frame_data.frame_num());
+        // Pass allocator handle and op_output to emit_frame
+        auto emit_timestamp = emit_frame(last_valid_frame_data,
+                                         op_output,
+                                         context);
+
+        if (emit_timestamp > 0)
+        { // Only record stats if frame was successfully emitted
+          HOLOSCAN_LOG_INFO("Emitting frame with frame_num: {}", last_valid_frame_data.frame_num());
+          record_stats(last_valid_frame_data, received_time_ns, emit_timestamp);
+        }
       }
       else
       {
-        valid_frames_received_++;
-        uint64_t message_id = frame.data().message_id();
-        uint64_t frame_num = frame.data().frame_num();
-
-        if (next_frame_id_ != 0 && frame_num != next_frame_id_)
-        {
-          loss_frame_count_ += (frame_num > next_frame_id_) ? (frame_num - next_frame_id_) : 1; // Account for jumps or single losses
-        }
-        next_frame_id_ = frame_num + 1;
-
-        if (message_id != 0)
-        {
-          total_messages_received_++;
-          if (next_message_id_ != 0 && message_id != next_message_id_)
-          {
-            loss_message_count_ += (message_id > next_message_id_) ? (message_id - next_message_id_) : 1;
-          }
-          next_message_id_ = message_id + 1;
-        }
-
-        if (!has_last_valid_frame || frame.data().frame_num() > last_valid_frame_data.frame_num())
-        {
-          last_valid_frame_data = frame.data();
-          has_last_valid_frame = true;
-        }
+        HOLOSCAN_LOG_WARN("Not a valid frame");
       }
-    }
 
-    if (has_last_valid_frame)
+      print_stats();
+    }
+    catch (const std::exception &e)
     {
-      // Pass allocator handle and op_output to emit_frame
-      auto emit_timestamp = emit_frame(last_valid_frame_data,
-                                       op_output,
-                                       context);
-
-      if (emit_timestamp > 0)
-      { // Only record stats if frame was successfully emitted
-        record_stats(last_valid_frame_data, received_time_ns, emit_timestamp);
-      }
+      HOLOSCAN_LOG_ERROR("Error in compute: {}", e.what());
     }
-
-    print_stats();
   }
 
   uint64_t DDSCameraInfoSubscriberOp::emit_frame(
@@ -163,6 +196,9 @@ namespace holoscan::ops
     {
       auto allocator =
           nvidia::gxf::Handle<nvidia::gxf::Allocator>::Create(context.context(), allocator_->gxf_cid());
+
+      auto pool =
+          nvidia::gxf::Handle<nvidia::gxf::Allocator>::Create(context.context(), pool_->gxf_cid());
 
       auto output = nvidia::gxf::Entity::New(context.context());
       if (!output)
@@ -178,25 +214,31 @@ namespace holoscan::ops
 
       auto overlay_specs = std::vector<HolovizOp::InputSpec>();
 
-      auto shape = nvidia::gxf::Shape{
-          static_cast<int>(frame.height()), static_cast<int>(frame.width()), frame.channels()};
+      // Treat incoming CameraInfo::data() as an encoded bit-stream (1-D byte array).
 
-      auto tensor = output.value().add<nvidia::gxf::Tensor>("");
+      auto data_size = static_cast<int>(frame.data().size());
+      HOLOSCAN_LOG_INFO("Data size: {}", data_size);
+
+      auto tensor = output.value().add<nvidia::gxf::Tensor>("h264_video");
       if (!tensor)
       {
         throw std::runtime_error("Failed to allocate tensor");
       }
 
-      // Allocate memory and reshape the tensor
+      // Compute hash for integrity comparison with publisher.
+      uint64_t hash = fnv1a_hash(reinterpret_cast<const uint8_t *>(frame.data().data()), data_size);
+      HOLOSCAN_LOG_INFO("Subscriber bitstream hash (FNV-1a 64-bit): 0x{0:016x}", hash);
+
       tensor.value()->reshape<uint8_t>(
-          shape, nvidia::gxf::MemoryStorageType::kDevice, allocator.value());
-
-      // Copy the data instead of wrapping it
-      auto type = nvidia::gxf::PrimitiveType::kUnsigned8;
-      auto bytes_per_element = nvidia::gxf::PrimitiveTypeSize(type);
-      size_t data_size = frame.width() * frame.height() * frame.channels() * bytes_per_element;
-
-      // Copy data from frame to tensor
+          nvidia::gxf::Shape{{data_size}},
+          nvidia::gxf::MemoryStorageType::kDevice,
+          pool.value());
+      if (!tensor.value()->pointer())
+      {
+        throw std::runtime_error("Failed to allocate output tensor buffer.");
+      }
+      HOLOSCAN_LOG_INFO("Copying encoded bit-stream from host to device");
+      // Copy the encoded bit-stream from host to device.
       CUDA_TRY(cudaMemcpy(tensor.value()->pointer(),
                           frame.data().data(),
                           data_size,
@@ -207,10 +249,13 @@ namespace holoscan::ops
       ss.clear();
       ss << "FPS: ";
       // Calculate and display FPS based on jitter time
-      if (frame_jitter_stats_.count > 0) {
+      if (frame_jitter_stats_.count > 0)
+      {
         double fps = 1000.0 / frame_jitter_stats_.average_auto(); // Convert ms to FPS
         ss << std::fixed << std::setprecision(1) << fps;
-      } else {
+      }
+      else
+      {
         ss << "N/A";
       }
       ss << "\n";
@@ -232,16 +277,25 @@ namespace holoscan::ops
       auto timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
-      
+
+      // Add timestamps (unnamed and named) similar to VideoReadBitStream to keep
+      // decoder utilities happy.
+      {
+        auto ts_named = output.value().add<nvidia::gxf::Timestamp>("timestamp");
+        if (ts_named)
+          ts_named.value()->acqtime = static_cast<int64_t>(timestamp);
+      }
+
       // Calculate frame jitter between consecutive emit calls
-      if (last_emit_timestamp_ > 0) {
+      if (last_emit_timestamp_ > 0)
+      {
         // Calculate time difference in nanoseconds between consecutive emits
         double jitter_ns = (timestamp - last_emit_timestamp_);
         frame_jitter_stats_.update(jitter_ns);
       }
       // Store current timestamp for next jitter calculation
       last_emit_timestamp_ = timestamp;
-      
+
       auto result = gxf::Entity(std::move(output.value()));
       op_output.emit(result, "video");
       op_output.emit(overlay_entity, "overlay");
@@ -268,11 +322,11 @@ namespace holoscan::ops
           (frame.hid_publish_timestamp() - frame.hid_capture_timestamp());
 
       // 2. HID publish to receive latency (ns)
-      double hid_publish_to_hid_receive_ns = 
+      double hid_publish_to_hid_receive_ns =
           (frame.hid_receive_timestamp() - frame.hid_publish_timestamp());
 
       // 3. HID receive to HID to Sim latency (ns)
-      double hid_receive_to_hid_to_sim_ns = 
+      double hid_receive_to_hid_to_sim_ns =
           (frame.hid_to_sim_timestamp() - frame.hid_receive_timestamp());
 
       // 4. HID to Sim to HID Process latency (ns)
@@ -391,7 +445,8 @@ namespace holoscan::ops
                         frame_jitter_stats_.max_auto());
 
       // Add frame jitter statistics
-      if (frame_jitter_stats_.count > 0) {
+      if (frame_jitter_stats_.count > 0)
+      {
         // average_auto() already converts to milliseconds
         double fps = 1000.0 / frame_jitter_stats_.average_auto();
         HOLOSCAN_LOG_INFO("Calculated FPS: {:.1f}", fps);

@@ -20,6 +20,12 @@ application:
   inputFormats: []
   outputFormats: ["screen"]
 
+extensions:
+  - libgxf_videodecoder.so
+  - libgxf_videodecoderio.so
+  - libgxf_videoencoder.so
+  - libgxf_videoencoderio.so
+
 resources:
   cpu: 1
   gpu: 1
@@ -27,10 +33,13 @@ resources:
   gpuMemory: 1Gi
 
 scheduler:
-  check_recession_period_ms: 0
-  worker_thread_number: 5
+  worker_thread_number: 4
   stop_on_deadlock: true
   stop_on_deadlock_timeout: 500
+  # check_recession_period_ms: 0
+  # worker_thread_number: 10
+  # stop_on_deadlock: true
+  # stop_on_deadlock_timeout: 500
 
 protocol:
   hid: dds # dds or streamsdk
@@ -51,8 +60,8 @@ format_converter:
 holoviz:
   window_title: "Telesurgery - Surgeon"
   width: 1920
-  framerate: 120
   height: 1080
+  framerate: 120
   tensors:
     - name: ""
       type: color
@@ -80,3 +89,14 @@ hid_publisher:
   message_cap: 0
   participant_qos: TelesurgeryLibrary::TelesurgeryApplication
   writer_qos: TelesurgeryLibrary::Command
+
+
+video_decoder_request:
+  inbuf_storage_type: 1
+
+video_decoder_response:
+  outbuf_storage_type: 1
+
+decoder_output_format_converter:
+  in_dtype: "nv12"
+  out_dtype: "rgb888"

@@ -48,6 +48,7 @@ class AsyncDataPushForDDS(Operator):
         """
         self._queue = queue.Queue(maxsize=max_queue_size)
         self._logger = logging.getLogger(__name__)
+        self._printed_image_size = False
         self.condition = condition
         super().__init__(fragment, *args, **kwargs)
 
@@ -57,8 +58,8 @@ class AsyncDataPushForDDS(Operator):
         Args:
             spec: The OperatorSpec object used to define the operator's interface.
         """
-        # spec.output("image")
-        spec.output("camera_info")
+        spec.output("image")
+        spec.output("metadata")
 
     def start(self):
         self.condition.event_state = AsynchronousEventState.EVENT_WAITING
@@ -83,15 +84,15 @@ class AsyncDataPushForDDS(Operator):
         if data["video_acquisition_timestamp"] > enter_timestamp:
             self._logger.warning(f"Video acquisition timestamp is greater than enter timestamp: {data['video_acquisition_timestamp']} > {enter_timestamp}")
 
-        image = data["image"]
-        if isinstance(image, warp.types.array):
-            image = image.numpy()
-        image = image.tobytes() # tobytes() is much more performant than flatten().tolist() and tolist()
-        # self._logger.info(f"Image size: {len(image)}")
+        try:
+            self._logger.info(f"Camera frame image size: {data['image'].size}")
+        except Exception as e:
+            self._logger.error(f"Error getting camera frame image size: {e}")
+            self._logger.error(f"data type: {type(data['image'])}")
+            self._logger.error(f"data dir: {dir(data['image'])}")
         camera_info = CameraInfo()
         camera_info.joint_names = list(data["joint_names"])
         camera_info.joint_positions = data["joint_positions"].tolist()
-        camera_info.data = image
         camera_info.width = data["size"][1]
         camera_info.height = data["size"][0]
         camera_info.channels = data["size"][2]
@@ -109,8 +110,9 @@ class AsyncDataPushForDDS(Operator):
         camera_info.video_data_bridge_enter_timestamp = enter_timestamp
         camera_info.video_data_bridge_emit_timestamp = time.monotonic_ns()
 
-        # op_output.emit({"": Tensor.as_tensor(data["image"])}, "image")
-        op_output.emit(camera_info, "camera_info", "CameraInfo")
+        # print dimensions of the image
+        op_output.emit({"": Tensor.as_tensor(data["image"])}, "image")
+        op_output.emit(camera_info, "metadata", "CameraInfo")
 
         self.condition.event_state = AsynchronousEventState.EVENT_WAITING
 

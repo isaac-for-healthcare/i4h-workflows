@@ -18,11 +18,18 @@ from typing import Callable
 
 from holoscan.core import Application
 from holoscan.conditions import AsynchronousCondition, PeriodicCondition
-from holoscan.operators import HolovizOp
+from holoscan.operators import FormatConverterOp
+from holoscan.resources import (
+    BlockMemoryPool,
+    MemoryStorageType
+)
 from dds_hid_subscriber import DDSHIDSubscriberOp
 from dds_camera_info_publisher import DDSCameraInfoPublisherOp
+from tensor_to_video_buffer import TensorToVideoBufferOp
 
 from operators.data_bridge.HidToSimPushOp import HidToSimPushOp
+
+from applications.encoder_imports import VideoEncoderContext, VideoEncoderRequestOp, VideoEncoderResponseOp
 
 class PatientApp(Application):
     """A Holoscan application for transmitting data over RoCE (RDMA over Converged Ethernet).
@@ -42,25 +49,20 @@ class PatientApp(Application):
 
     def __init__(
         self,
-        tx_queue_size: int,
-        buffer_size: int,
         hid_event_callback: Callable,
+        width: int,
+        height: int,
     ):
         """Initialize the TransmitterApp.
 
         Args:
-            ibv_name (str): Name of the InfiniBand verb (IBV) device.
-            ibv_port (int): Port number for the IBV device.
-            hololink_ip (str): IP address of the Hololink receiver.
-            ibv_qp (int): Queue pair number for the IBV device.
             tx_queue_size (int): Size of the transmission queue.
             buffer_size (int): Size of the buffer for data transmission.
         """
-        self._tx_queue_size = tx_queue_size
-        self._buffer_size = buffer_size
         self._hid_event_callback = hid_event_callback
         self._logger = logging.getLogger(__name__)
-
+        self._width = width
+        self._height = height
         self._async_data_push = None
         super().__init__()
 
@@ -71,6 +73,9 @@ class PatientApp(Application):
         If a RoCE device is available, creates a RoceTransmitterOp for network transmission.
         Otherwise, creates a HolovizOp for local visualization.
         """
+
+        source_block_size = self._width * self._height * 3 * 4
+        source_num_blocks = 2
 
         source_rate_hz = 60  # messages sent per second
         period_source_ns = int(1e9 / source_rate_hz)  # period in nanoseconds
@@ -105,12 +110,71 @@ class PatientApp(Application):
                 name="Async Data Push",
                 condition=AsynchronousCondition(self)
             )
-            video_source = DDSCameraInfoPublisherOp(
+            rgba_to_rgb_format_converter = FormatConverterOp(
+                self,
+                name="rgba_to_rgb_format_converter",
+                pool=BlockMemoryPool(
+                    self,
+                    name="pool",
+                    storage_type=MemoryStorageType.DEVICE,
+                    block_size=source_block_size,
+                    num_blocks=source_num_blocks,
+                ),
+                **self.kwargs("rgba_to_rgb_format_converter"),
+            )
+            rgb_to_yuv420_format_converter = FormatConverterOp(
+                self,
+                name="rgb_to_yuv420_format_converter",
+                pool=BlockMemoryPool(
+                    self,
+                    name="pool",
+                    storage_type=MemoryStorageType.DEVICE,
+                    block_size=source_block_size,
+                    num_blocks=source_num_blocks,
+                ),
+                **self.kwargs("rgb_to_yuv420_format_converter"),
+            )
+            tensor_to_video_buffer = TensorToVideoBufferOp(
+                self, name="tensor_to_video_buffer", **self.kwargs("tensor_to_video_buffer")
+            )
+            encoder_async_condition = AsynchronousCondition(self, "encoder_async_condition")
+            video_encoder_context = VideoEncoderContext(
+                self, scheduling_term=encoder_async_condition
+            )
+            video_encoder_request = VideoEncoderRequestOp(
+                self,
+                name="video_encoder_request",
+                input_width=self._width,
+                input_height=self._height,
+                videoencoder_context=video_encoder_context,
+                **self.kwargs("video_encoder_request"),
+            )
+            video_encoder_response = VideoEncoderResponseOp(
+                self,
+                name="video_encoder_response",
+                pool=BlockMemoryPool(
+                    self,
+                    name="pool",
+                    storage_type=MemoryStorageType.DEVICE,
+                    block_size=source_block_size,
+                    num_blocks=source_num_blocks,
+                ),
+                videoencoder_context=video_encoder_context,
+                **self.kwargs("video_encoder_response"),
+            )
+
+            dds_publisher = DDSCameraInfoPublisherOp(
                 self,
                 name="DDS Camera Info Publisher",
                 **self.kwargs("camera_info_publisher")
             )
-            self.add_flow(self._async_data_push, video_source, {("camera_info", "input")})
+
+            self.add_flow(self._async_data_push, rgba_to_rgb_format_converter, {("image", "source_video")})
+            self.add_flow(rgba_to_rgb_format_converter, rgb_to_yuv420_format_converter, {("tensor", "source_video")})
+            self.add_flow(rgb_to_yuv420_format_converter, tensor_to_video_buffer, {("tensor", "in_tensor")})
+            self.add_flow(tensor_to_video_buffer, video_encoder_request, {("out_video_buffer", "input_frame")})
+            self.add_flow(video_encoder_response, dds_publisher, {("output_transmitter", "image")})
+            self.add_flow(self._async_data_push, dds_publisher, {("metadata", "metadata")})
         elif video_protocol == "streamsdk":
             # TODO: Implement StreamSDK video publisher
             from operators.data_bridge.AsyncDataPushOpForStreamSDK import AsyncDataPushOpForStreamSDK
@@ -119,16 +183,6 @@ class PatientApp(Application):
         else:
             raise ValueError(f"Invalid video protocol: '{video_protocol}'")
 
-
-        # holoviz = HolovizOp(
-        #     self,
-        #     name="Holoviz",
-        #     tensors=[
-        #         HolovizOp.InputSpec("", HolovizOp.InputType.COLOR),
-        #     ],
-        # )
-
-        # self.add_flow(self._async_data_push, holoviz, {("image", "receivers")})
 
     def push_data(self, data):
         """Push data into the transmission pipeline.
@@ -141,3 +195,69 @@ class PatientApp(Application):
             self._async_data_push.push_data(data)
         else:
             self._logger.warning("AsyncDataPushOp is not initialized")
+
+
+import os
+from argparse import ArgumentParser
+from holoscan.gxf import load_extensions
+
+def callback():
+    pass
+
+if __name__ == "__main__":
+    #initialize logger
+    logging.basicConfig(level=logging.INFO)
+    # Parse args
+    parser = ArgumentParser(description="Endoscopy tool tracking demo application.")
+
+    parser.add_argument(
+        "-c",
+        "--config",
+        default="none",
+        help=("Set config path to override the default config file location"),
+    )
+    args = parser.parse_args()
+
+    if args.config == "none":
+        config_file = os.path.join(os.path.dirname(__file__), "h264_endoscopy_tool_tracking.yaml")
+    else:
+        config_file = args.config
+
+    width, height = 1920, 1080  # Match encoder dimensions
+    app = PatientApp(callback, width, height)
+
+    context = app.executor.context_uint64
+    exts = [
+        "libgxf_videodecoder.so",
+        "libgxf_videodecoderio.so",
+        "libgxf_videoencoder.so",
+        "libgxf_videoencoderio.so",
+    ]
+    # load_extensions(context, exts)
+
+    # create a thread to call app.push_data() with a random image
+    import threading
+    import time
+    import numpy as np
+
+    def random_image_thread():
+        frame_num = 0
+        while True:
+            print("pushing data")
+            # create a random image on GPU memory using cupy
+            import cupy as cp
+            image = cp.random.randint(0, 255, (height, width, 4), dtype=np.uint8) # Use height, width
+            app.push_data({"image": image,
+                           "joint_names": ["joint1", "joint2"],
+                           "joint_positions": np.random.rand(2),
+                           "size": (height, width, 4), # Update size
+                           "frame_num": frame_num,
+                           "last_hid_event": None,
+                           "video_acquisition_timestamp": time.monotonic_ns()})
+            frame_num += 1
+            time.sleep(1)
+
+    threading.Thread(target=random_image_thread).start()
+
+    app.config(config_file)
+    app.run()
