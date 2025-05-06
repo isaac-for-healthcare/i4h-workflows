@@ -37,8 +37,8 @@ static holoscan::ops::HIDDeviceType input_command_device_type_to_holoscan_hid_de
       return key;
     }
   }
-  
+
   throw std::runtime_error("Invalid HIDDeviceType");
 }
 
-} // namespace holoscan::ops 
+} // namespace holoscan::ops

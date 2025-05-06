@@ -16,14 +16,14 @@
 import logging
 from typing import Callable
 
-from holoscan.core import Application
-from holoscan.conditions import PeriodicCondition
-from holoscan.operators import HolovizOp
 from dds_hid_subscriber import DDSHIDSubscriberOp
-
+from holoscan.conditions import PeriodicCondition
+from holoscan.core import Application
+from holoscan.operators import HolovizOp
 from operators.data_bridge.AsyncDataPushOp import AsyncDataPushOp
 from operators.data_bridge.HidToSimPushOp import HidToSimPushOp
 from operators.dds.CameraInfoPublisherOp import CameraInfoPublisherOp
+
 
 class PatientApp(Application):
     """A Holoscan application for transmitting data over RoCE (RDMA over Converged Ethernet).
@@ -83,14 +83,14 @@ class PatientApp(Application):
                 self,
                 PeriodicCondition(self, recess_period=period_source_ns),
                 name="DDS HID Subscriber",
-                **self.kwargs("hid")
+                **self.kwargs("hid"),
             )
         elif hid_protocol == "streamsdk":
             # TODO: Implement StreamSDK HID subscriber
             raise NotImplementedError("StreamSDK HID subscriber is not implemented")
         else:
             raise ValueError(f"Invalid HID protocol: '{hid_protocol}'")
-        
+
         self._hid_to_sim_push = HidToSimPushOp(
             self,
             name="Hid to Sim Push",
@@ -105,9 +105,7 @@ class PatientApp(Application):
         video_protocol = str(self.from_config("protocol.video"))
         if video_protocol == "dds":
             video_source = CameraInfoPublisherOp(
-                self,
-                name="DDS Camera Info Publisher",
-                **self.kwargs("camera_info_publisher")
+                self, name="DDS Camera Info Publisher", **self.kwargs("camera_info_publisher")
             )
         elif video_protocol == "streamsdk":
             # TODO: Implement StreamSDK video publisher

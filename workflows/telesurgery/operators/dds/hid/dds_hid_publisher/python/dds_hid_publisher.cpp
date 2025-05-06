@@ -90,8 +90,8 @@ PYBIND11_MODULE(_dds_hid_publisher, m) {
   m.attr("__version__") = "dev";
 #endif
 
-  py::class_<DDSHIDPublisherOp, 
-             PyDDSHIDPublisherOp, 
+  py::class_<DDSHIDPublisherOp,
+             PyDDSHIDPublisherOp,
              Operator,
              std::shared_ptr<DDSHIDPublisherOp>>(
       m, "DDSHIDPublisherOp", doc::DDSHIDPublisherOp::doc_DDSHIDPublisherOp)

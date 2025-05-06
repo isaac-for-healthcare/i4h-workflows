@@ -14,14 +14,12 @@
 # limitations under the License.
 
 
-import numpy as np
 import sys
-
-from isaacsim import SimulationApp
 from typing import Callable
 
-
-from applications.controller import ControllerData, HIDController
+import numpy as np
+from applications.controller import HIDController
+from isaacsim import SimulationApp
 
 
 class Simulation:
@@ -50,17 +48,13 @@ class Simulation:
 
         # Any Omniverse level imports must occur after the SimulationApp class is instantiated
         import carb
-        import isaacsim.core.utils.numpy.rotations as rot_utils
-
         from isaacsim.core.api import World
         from isaacsim.core.api.objects import DynamicCuboid
-        from isaacsim.core.prims import Articulation
-        from isaacsim.sensors.camera import Camera
-        from isaacsim.robot.manipulators.grippers import SurfaceGripper
-        from isaacsim.robot.manipulators import SingleManipulator
-        from isaacsim.core.utils.stage import add_reference_to_stage, get_stage_units
-        from isaacsim.core.utils.types import ArticulationAction
+        from isaacsim.core.utils.stage import add_reference_to_stage
         from isaacsim.core.utils.viewports import set_camera_view
+        from isaacsim.robot.manipulators import SingleManipulator
+        from isaacsim.robot.manipulators.grippers import SurfaceGripper
+        from isaacsim.sensors.camera import Camera
         from isaacsim.storage.native import get_assets_root_path
 
         assets_root_path = get_assets_root_path()
@@ -91,10 +85,8 @@ class Simulation:
             )
         )
 
-        self._ur10.set_joints_default_state(
-            positions=self._controller.default_joint_positions
-        )
-        cube = self._world.scene.add(
+        self._ur10.set_joints_default_state(positions=self._controller.default_joint_positions)
+        self._world.scene.add(
             DynamicCuboid(
                 name="cube",
                 position=np.array([0.3, 0.3, 0.3]),
