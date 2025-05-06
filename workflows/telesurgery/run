@@ -29,6 +29,10 @@ function build() {
 }
 
 function enter() {
+    if [ ! -d ~/rti_connext_dds-7.3.0 ]; then
+        echo "RTI Connext DDS not found, please install it at ~/rti_connext_dds-7.3.0"
+        exit 1
+    fi
     build_image
     xhost +local:docker
 
@@ -39,6 +43,7 @@ function enter() {
     docker run -it --rm \
         --runtime=nvidia \
         --gpus all \
+        -e "NVIDIA_DRIVER_CAPABILITIES=all" \
         -e "ACCEPT_EULA=Y" \
         -e "PRIVACY_CONSENT=Y" \
         -e DISPLAY \
