@@ -46,7 +46,7 @@ RUN OS_CODENAME=$(. /etc/os-release && echo "$UBUNTU_CODENAME") \
 
 # Install Holoscan SDK
 RUN ./python.sh -m pip install holoscan==${HOLOSCAN_VERSION}
-RUN CUDA_TOOLKIT_VERSION_DASH="$(echo ${CUDA_TOOLKIT_VERSION} | tr '.' '-')" \ 
+RUN CUDA_TOOLKIT_VERSION_DASH="$(echo ${CUDA_TOOLKIT_VERSION} | tr '.' '-')" \
     && curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/${CUDA_KEYRING_NAME} \
     && dpkg -i ${CUDA_KEYRING_NAME} \
     && apt update \

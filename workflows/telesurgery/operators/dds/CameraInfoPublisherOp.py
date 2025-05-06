@@ -16,7 +16,6 @@
 import logging
 
 import rti.connextdds as dds  # noqa: F401
-
 from holoscan.core import Operator, OperatorSpec
 from idl.CameraInfo.CameraInfo import CameraInfo
 
@@ -37,9 +36,6 @@ class CameraInfoPublisherOp(Operator):
 
     def initialize(self):
         Operator.initialize(self)
-        self._logger.info(
-            f"Initializing: qos_provider={self.qos_provider}, participant_qos={self.participant_qos}, domain_id={self.domain_id}, writer_qos={self.writer_qos}, topic={self.topic}"
-        )
         self._provider = dds.QosProvider(self.qos_provider)
         self._participant = dds.DomainParticipant(
             domain_id=self.domain_id,

@@ -15,8 +15,8 @@
 
 import logging
 from typing import Callable
-from holoscan.core import Fragment, Operator, OperatorSpec
 
+from holoscan.core import Fragment, Operator, OperatorSpec
 
 
 class HidToSimPushOp(Operator):

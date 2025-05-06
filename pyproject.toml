@@ -12,6 +12,9 @@ known_third_party = ["openpi", "i4h_asset_helper"]
 [tool.ruff]
 line-length = 120
 target-version = "py310"
+exclude = [
+  "workflows/telesurgery/cmake/pybind11"
+]
 
 [tool.ruff.lint]
 extend-select = ["E501"]
