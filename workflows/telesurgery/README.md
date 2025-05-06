@@ -28,7 +28,7 @@
 │   ├── surgeon
 │   └── Testing
 ├── cmake           # CMake helpers
-├── deploy          # Dockerfile and patches. 
+├── deploy          # Dockerfile and patches.
 │   └── hsdk        # Missing files from HSDK 3.2
 ├── operators       # Holoscan Operators
 │   ├── data_bridge

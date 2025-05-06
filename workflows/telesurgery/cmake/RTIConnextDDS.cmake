@@ -41,7 +41,7 @@ function(rticodegen)
     "${_RTICODEGEN_OUTPUT_DIRECTORY}/${idl_basename}.hpp"
     "${_RTICODEGEN_OUTPUT_DIRECTORY}/${idl_basename}Plugin.hpp"
   )
-  
+
   set(RTICODEGEN_PYTHON_OUTPUT ${PYTHON_MODULE_OUT_DIR}/idl/${idl_basename})
   set(py_source "${RTICODEGEN_PYTHON_OUTPUT}/${idl_basename}.py")
 

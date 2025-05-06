@@ -31,4 +31,3 @@ target_link_libraries(generic_hid_interface PUBLIC
 target_include_directories(generic_hid_interface PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
-

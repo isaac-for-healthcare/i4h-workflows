@@ -14,9 +14,9 @@
 # limitations under the License.
 
 import logging
-import torch
-import numpy as np
 
+import numpy as np
+import torch
 from dds_hid_subscriber._dds_hid_subscriber import HIDDeviceType
 
 
@@ -28,11 +28,11 @@ class HIDController:
     @property
     def default_joint_positions(self):
         return self._controller_data._default_joint_positions
-    
+
     @property
     def target_joint_positions(self):
         return self._controller_data._target_joint_positions
-    
+
     @property
     def joint_names(self):
         return self._controller_data.joint_name_to_index.keys()
@@ -76,9 +76,6 @@ class HIDController:
         self._controller_data._target_joint_positions = self._controller_data._default_joint_positions.copy()
 
     def handle_hid_event(self, events: str):
-        """
-        TODO: wait for HSDK 3.3 to make emitter/receiver registration header available so we can use the custom type here
-        """
         if events is None or len(events) == 0:
             return
 
@@ -91,17 +88,13 @@ class HIDController:
                             match event.number:
                                 case 5:  # left - controls wrist_3 (negative direction)
                                     new_value = -1.0 if event.value != 0 else 0.0
-                                    self._controller_data.set_joystick_value(
-                                        "wrist_3", new_value
-                                    )
+                                    self._controller_data.set_joystick_value("wrist_3", new_value)
                                     event_handled = True
                                 case 6:  # right - controls wrist_3 (positive direction)
                                     new_value = 1.0 if event.value != 0 else 0.0
-                                    self._controller_data.set_joystick_value(
-                                        "wrist_3", new_value
-                                    )
+                                    self._controller_data.set_joystick_value("wrist_3", new_value)
                                     event_handled = True
-                                case 7 | 8 | 9: # NV, Circle, L Triangle, R Triangle
+                                case 7 | 8 | 9:  # NV, Circle, L Triangle, R Triangle
                                     self.reset_to_default_joint_positions()
                                     event_handled = True
 
@@ -117,44 +110,28 @@ class HIDController:
 
                             match event.number:
                                 case 0:  # Left Joystick X - controls shoulder_pan
-                                    self._controller_data.set_joystick_value(
-                                        "shoulder_pan", normalized_value
-                                    )
+                                    self._controller_data.set_joystick_value("shoulder_pan", normalized_value)
                                     event_handled = True
                                 case 1:  # Left Joystick Y - controls shoulder_lift (Inverted)
                                     # Invert Y axis if necessary (common for flight stick style controls)
-                                    self._controller_data.set_joystick_value(
-                                        "shoulder_lift", -normalized_value
-                                    )
+                                    self._controller_data.set_joystick_value("shoulder_lift", -normalized_value)
                                     event_handled = True
                                 case 2:  # Right Joystick X - controls elbow
-                                    self._controller_data.set_joystick_value(
-                                        "elbow", normalized_value
-                                    )
+                                    self._controller_data.set_joystick_value("elbow", normalized_value)
                                     event_handled = True
-                                case (
-                                    5
-                                ):  # Right Joystick Y - controls wrist_1 (Inverted)
+                                case 5:  # Right Joystick Y - controls wrist_1 (Inverted)
                                     # Invert Y axis if necessary
-                                    self._controller_data.set_joystick_value(
-                                        "wrist_1", -normalized_value
-                                    )
+                                    self._controller_data.set_joystick_value("wrist_1", -normalized_value)
                                     event_handled = True
                                 case 3:  # ZR (Right Trigger) - typically axis 5 in SDL, might vary
-                                    self._controller_data.set_joystick_value(
-                                        "wrist_2", abs(normalized_value)
-                                    )
+                                    self._controller_data.set_joystick_value("wrist_2", abs(normalized_value))
                                     event_handled = True
                                 case 4:  # ZL (Left Trigger) - typically axis 2 in SDL, might vary
-                                    self._controller_data.set_joystick_value(
-                                        "wrist_2", -abs(normalized_value)
-                                    )
+                                    self._controller_data.set_joystick_value("wrist_2", -abs(normalized_value))
                                     event_handled = True
                                 case 6 | 7:  # ZR/ZL - stop wrist_2 movement
                                     if normalized_value == -1.0:
-                                        self._controller_data.set_joystick_value(
-                                            "wrist_2", 0.0
-                                        )
+                                        self._controller_data.set_joystick_value("wrist_2", 0.0)
                                         event_handled = True
 
             if not event_handled:
@@ -176,21 +153,15 @@ class ControllerData:
 
         # Define joint limits between -180 and +180 degrees (-π to +π radians)
         # Special case for shoulder_lift: -240 to 65 degrees (-4.18879 to 1.13446 radians)
-        self.joint_limits_lower = np.array(
-            [-3.14159, -4.18879, -3.14159, -3.14159, -3.14159, -3.14159]
-        )
-        self.joint_limits_upper = np.array(
-            [3.14159, 1.13446, 3.14159, 3.14159, 3.14159, 3.14159]
-        )
+        self.joint_limits_lower = np.array([-3.14159, -4.18879, -3.14159, -3.14159, -3.14159, -3.14159])
+        self.joint_limits_upper = np.array([3.14159, 1.13446, 3.14159, 3.14159, 3.14159, 3.14159])
 
         # Joint control
         self._default_joint_positions: torch.Tensor = np.array(
             [-np.pi / 2, -np.pi / 2, -np.pi / 2, -np.pi / 2, np.pi / 2, 0]
         )
 
-        self._target_joint_positions: torch.Tensor = (
-            self._default_joint_positions.copy()
-        )
+        self._target_joint_positions: torch.Tensor = self._default_joint_positions.copy()
 
         # Map joint names to indices
         self.joint_name_to_index = {

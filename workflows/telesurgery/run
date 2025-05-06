@@ -39,7 +39,7 @@ function enter() {
     # add the following if needed
         # --device=/dev/input/js0 \ to make the joystick available in the container
         # -e=NVIDIA_VISIBLE_DEVICES=GPU-ID \ # make the specific GPU available in the container (remove --gpus all)
-        
+
     docker run -it --rm \
         --runtime=nvidia \
         --gpus all \
