@@ -66,9 +66,9 @@ def get_hdf5_episode_data(root, action_key: str):
 
 def get_observation_episode_data(data_path: str, episode_idx: int, key: str):
     """Get episode data from HDF5 format for a given key."""
-    root = h5py.File(os.path.join(data_path, f"data_{episode_idx}.hdf5"), "r")
-    data = get_hdf5_episode_data(root, key)
-    return data
+    with h5py.File(os.path.join(data_path, f"data_{episode_idx}.hdf5"), "r") as f:
+        data = get_hdf5_episode_data(f, key)
+        return data
 
 
 def get_episode_data(data_path: str, episode_idx: int):
