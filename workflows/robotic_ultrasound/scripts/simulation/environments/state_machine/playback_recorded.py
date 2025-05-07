@@ -135,7 +135,6 @@ def main():
 
     episode_idx = 0
     action_idx = 0
-    reset_steps = 50
 
     # simulate physics
     while simulation_app.is_running():
@@ -161,9 +160,6 @@ def main():
             joint_vel = None
         reset_robot_to_position(env, robot_initial_joint_state, joint_vel=joint_vel)
 
-        reset_tensor = torch.tensor(
-            get_observation_episode_data(args_cli.data_path, episode_idx, "observations/robot_obs")[0], device="cuda:0"
-        )
         with torch.inference_mode():
             for episode_idx in range(total_episodes):
                 print(f"\nepisode_idx: {episode_idx}")
