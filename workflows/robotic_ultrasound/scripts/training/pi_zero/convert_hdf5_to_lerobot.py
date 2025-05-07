@@ -330,7 +330,8 @@ def main(
     if not episode_names:
         warnings.warn(f"No episode names found in {data_dir}")
         return
-
+    # sort episode_names
+    episode_names = sorted(episode_names, key=lambda x: int(x))
     # Loop over raw Libero datasets and write episodes to the LeRobot dataset
     # You can modify this for your own data format
     for episode_idx in tqdm.tqdm(episode_names):
@@ -391,7 +392,7 @@ def main(
                     "depth_images": f['data/demo_0/observations/depth_images'],
                     "seg_images": f['data/demo_0/observations/seg_images'],
                 }
-                
+
                 np.savez(f"{output_path}/seg_depth_images_{episode_idx}.npz", **save_dict)
         dataset.save_episode(task=task_prompt)
 
