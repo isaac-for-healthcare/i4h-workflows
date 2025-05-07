@@ -75,6 +75,7 @@ namespace holoscan::ops
     uint64_t next_message_id_ = 0;
     uint64_t loss_message_count_ = 0;
 
+    uint64_t last_emit_timestamp_ = 0;  // Store the timestamp of the last emit_frame call
     std::chrono::time_point<std::chrono::steady_clock> last_emit_time = std::chrono::steady_clock::now();
     std::chrono::time_point<std::chrono::steady_clock> last_stats_time_ = std::chrono::steady_clock::now();
     uint64_t stats_interval_ms_ = 3000; // Print stats every 3 seconds
@@ -83,16 +84,8 @@ namespace holoscan::ops
     struct LatencyStats
     {
       explicit LatencyStats(const std::string &name) : name(name) {}
-      enum class Unit
-      {
-        ns,
-        us,
-        ms,
-        s
-      };
 
       std::string name;
-      Unit unit = Unit::ns;
       double min = std::numeric_limits<double>::max();
       double max = 0.0;
       double sum = 0.0;
@@ -100,99 +93,31 @@ namespace holoscan::ops
 
       std::string unit_str() const
       {
-        switch (unit)
-        {
-        case Unit::ns:
-          return "ns";
-        case Unit::us:
-          return "us";
-        case Unit::ms:
-          return "ms";
-        case Unit::s:
-          return "s";
-        default:
-          return "unknown";
-        }
+        return "ms";
       }
 
       double sum_auto() const
       {
-        if (unit == Unit::ns)
-        {
-          return sum;
-        }
-        else if (unit == Unit::us)
-        {
-          return sum / 1000.0;
-        }
-        else if (unit == Unit::ms)
-        {
-          return sum / 1000000.0;
-        }
-        else
-        {
-          return sum / 1000000000.0;
-        }
+        // Always convert nanoseconds to milliseconds
+        return sum / 1000000.0;
       }
 
       double min_auto() const
       {
-        if (unit == Unit::ns)
-        {
-          return min;
-        }
-        else if (unit == Unit::us)
-        {
-          return min / 1000.0;
-        }
-        else if (unit == Unit::ms)
-        {
-          return min / 1000000.0;
-        }
-        else
-        {
-          return min / 1000000000.0;
-        }
+        // Always convert nanoseconds to milliseconds
+        return min / 1000000.0;
       }
 
       double max_auto() const
       {
-        if (unit == Unit::ns)
-        {
-          return max;
-        }
-        else if (unit == Unit::us)
-        {
-          return max / 1000.0;
-        }
-        else if (unit == Unit::ms)
-        {
-          return max / 1000000.0;
-        }
-        else
-        {
-          return max / 1000000000.0;
-        }
+        // Always convert nanoseconds to milliseconds
+        return max / 1000000.0;
       }
 
       double average_auto() const
       {
-        if (unit == Unit::ns)
-        {
-          return average();
-        }
-        else if (unit == Unit::us)
-        {
-          return average() / 1000.0;
-        }
-        else if (unit == Unit::ms)
-        {
-          return average() / 1000000.0;
-        }
-        else
-        {
-          return average() / 1000000000.0;
-        }
+        // Always convert nanoseconds to milliseconds
+        return average() / 1000000.0;
       }
 
       void update(double value)
@@ -206,23 +131,6 @@ namespace holoscan::ops
         max = std::max(max, value);
         sum += value;
         count++;
-
-        if (value < 1000)
-        {
-          unit = Unit::ns;
-        }
-        else if (value < 1000000)
-        {
-          unit = Unit::us;
-        }
-        else if (value < 1000000000)
-        {
-          unit = Unit::ms;
-        }
-        else
-        {
-          unit = Unit::s;
-        }
       }
 
       double average() const
@@ -251,6 +159,7 @@ namespace holoscan::ops
     LatencyStats subscriber_receive_to_subscriber_emit_stats_ = LatencyStats("subscriber_receive_to_subscriber_emit");
     LatencyStats network_latency_stats_ = LatencyStats("network_latency");
     LatencyStats end_to_end_latency_stats_ = LatencyStats("end_to_end_latency");
+    LatencyStats frame_jitter_stats_ = LatencyStats("frame_jitter");  // New stats for measuring jitter between emit calls
   };
 
 } // namespace holoscan::ops

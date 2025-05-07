@@ -45,33 +45,6 @@
 
 namespace holoscan::ops
 {
-
-  struct LatencyStats
-  {
-    double min = std::numeric_limits<double>::max();
-    double max = 0.0;
-    double sum = 0.0;
-    int count = 0;
-
-    void update(double value)
-    {
-      min = std::min(min, value);
-      max = std::max(max, value);
-      sum += value;
-      count++;
-    }
-
-    double average() const { return count > 0 ? sum / count : 0.0; }
-
-    void reset()
-    {
-      min = std::numeric_limits<double>::max();
-      max = 0.0;
-      sum = 0.0;
-      count = 0;
-    }
-  };
-
   void DDSCameraInfoSubscriberOp::setup(OperatorSpec &spec)
   {
     DDSOperatorBase::setup(spec);
@@ -232,6 +205,15 @@ namespace holoscan::ops
       // generate overlay specs
       std::stringstream ss;
       ss.clear();
+      ss << "FPS: ";
+      // Calculate and display FPS based on jitter time
+      if (frame_jitter_stats_.count > 0) {
+        double fps = 1000.0 / frame_jitter_stats_.average_auto(); // Convert ms to FPS
+        ss << std::fixed << std::setprecision(1) << fps;
+      } else {
+        ss << "N/A";
+      }
+      ss << "\n";
       for (auto index = 0; index < frame.joint_names().size(); index++)
       {
         ss << frame.joint_names()[index] << ": " << frame.joint_positions()[index]
@@ -245,11 +227,21 @@ namespace holoscan::ops
       joint_positions_spec.text_.push_back(ss.str());
       joint_positions_spec.priority_ = 1;
       overlay_specs.push_back(joint_positions_spec);
-      add_data<1, 2>(overlay_entity, "joint_positions", {{{0.01f, 0.06f}}}, context);
+      add_data<1, 2>(overlay_entity, "joint_positions", {{{0.01f, 0.01f}}}, context);
 
       auto timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
                            std::chrono::steady_clock::now().time_since_epoch())
                            .count();
+      
+      // Calculate frame jitter between consecutive emit calls
+      if (last_emit_timestamp_ > 0) {
+        // Calculate time difference in nanoseconds between consecutive emits
+        double jitter_ns = (timestamp - last_emit_timestamp_);
+        frame_jitter_stats_.update(jitter_ns);
+      }
+      // Store current timestamp for next jitter calculation
+      last_emit_timestamp_ = timestamp;
+      
       auto result = gxf::Entity(std::move(output.value()));
       op_output.emit(result, "video");
       op_output.emit(overlay_entity, "overlay");
@@ -271,75 +263,65 @@ namespace holoscan::ops
     // Calculate latencies - only for messages with non-zero message_id and valid timestamps
     if (message_id != 0)
     {
-      // 1. Capture to HID publish latency (ms)
-      double hid_capture_to_hid_publish_ms =
-          (frame.hid_publish_timestamp() - frame.hid_capture_timestamp()) /
-          1000000.0;
+      // 1. Capture to HID publish latency (ns)
+      double hid_capture_to_hid_publish_ns =
+          (frame.hid_publish_timestamp() - frame.hid_capture_timestamp());
 
-      // 2. HID publish to receive latency (ms)
-      double hid_publish_to_hid_receive_ms = // Renamed variable for clarity
-          (frame.hid_receive_timestamp() - frame.hid_publish_timestamp()) /
-          1000000.0;
+      // 2. HID publish to receive latency (ns)
+      double hid_publish_to_hid_receive_ns = 
+          (frame.hid_receive_timestamp() - frame.hid_publish_timestamp());
 
-      // 3. HID receive to HID to Sim latency (ms)
-      double hid_receive_to_hid_to_sim_ms = // Renamed variable for clarity
-          (frame.hid_to_sim_timestamp() - frame.hid_receive_timestamp()) /
-          1000000.0;
+      // 3. HID receive to HID to Sim latency (ns)
+      double hid_receive_to_hid_to_sim_ns = 
+          (frame.hid_to_sim_timestamp() - frame.hid_receive_timestamp());
 
-      // 4. HID to Sim to HID Process latency (ms)
-      double hid_to_sim_to_hid_process_ms =
-          (frame.hid_process_timestamp() - frame.hid_to_sim_timestamp()) /
-          1000000.0;
+      // 4. HID to Sim to HID Process latency (ns)
+      double hid_to_sim_to_hid_process_ns =
+          (frame.hid_process_timestamp() - frame.hid_to_sim_timestamp());
 
-      // 5. HID Process to Video Acquisition latency (ms)
-      double hid_process_to_video_acquisition_ms =
-          (frame.video_acquisition_timestamp() - frame.hid_process_timestamp()) /
-          1000000.0;
+      // 5. HID Process to Video Acquisition latency (ns)
+      double hid_process_to_video_acquisition_ns =
+          (frame.video_acquisition_timestamp() - frame.hid_process_timestamp());
 
-      // 6. Video Acquisition to Video Data Bridge Enter latency (ms)
-      double video_acquisition_to_video_data_bridge_enter_ms =
-          (frame.video_data_bridge_enter_timestamp() - frame.video_acquisition_timestamp()) /
-          1000000.0;
+      // 6. Video Acquisition to Video Data Bridge Enter latency (ns)
+      double video_acquisition_to_video_data_bridge_enter_ns =
+          (frame.video_data_bridge_enter_timestamp() - frame.video_acquisition_timestamp());
 
-      // 7. Video Data Bridge Enter to Video Data Bridge Emit latency (ms)
-      double video_data_bridge_enter_to_video_data_bridge_emit_ms =
-          (frame.video_data_bridge_emit_timestamp() - frame.video_data_bridge_enter_timestamp()) /
-          1000000.0;
+      // 7. Video Data Bridge Enter to Video Data Bridge Emit latency (ns)
+      double video_data_bridge_enter_to_video_data_bridge_emit_ns =
+          (frame.video_data_bridge_emit_timestamp() - frame.video_data_bridge_enter_timestamp());
 
-      // 8. Video Data Bridge Emit to Video Publish latency (ms)
-      double video_data_bridge_emit_to_video_publish_ms =
-          (frame.video_publisher_timestamp() - frame.video_data_bridge_emit_timestamp()) / // Corrected typo
-          1000000.0;
+      // 8. Video Data Bridge Emit to Video Publish latency (ns)
+      double video_data_bridge_emit_to_video_publish_ns =
+          (frame.video_publisher_timestamp() - frame.video_data_bridge_emit_timestamp());
 
-      // 9. Video Publish to Subscriber Receive latency (ms)
-      double video_publish_to_subscriber_receive_ms =
-          (received_time_ns - frame.video_publisher_timestamp()) /
-          1000000.0;
+      // 9. Video Publish to Subscriber Receive latency (ns)
+      double video_publish_to_subscriber_receive_ns =
+          (received_time_ns - frame.video_publisher_timestamp());
 
-      // 10. Subscriber Receive to Subscriber Emit latency (ms)
-      double subscriber_receive_to_subscriber_emit_ms =
-          (emit_timestamp - received_time_ns) /
-          1000000.0;
+      // 10. Subscriber Receive to Subscriber Emit latency (ns)
+      double subscriber_receive_to_subscriber_emit_ns =
+          (emit_timestamp - received_time_ns);
 
-      // 11. Network latency (ms) - Sum of publish-to-receive latencies
-      double network_latency_ms = hid_publish_to_hid_receive_ms + video_publish_to_subscriber_receive_ms;
+      // 11. Network latency (ns) - Sum of publish-to-receive latencies
+      double network_latency_ns = hid_publish_to_hid_receive_ns + video_publish_to_subscriber_receive_ns;
 
-      // 12. End-to-end latency (ms)
-      double end_to_end_latency_ms = (emit_timestamp - frame.hid_capture_timestamp()) / 1000000.0; // Convert ns to ms
+      // 12. End-to-end latency (ns)
+      double end_to_end_latency_ns = (emit_timestamp - frame.hid_capture_timestamp());
 
       // Update latency statistics
-      hid_capture_to_hid_publish_stats_.update(hid_capture_to_hid_publish_ms);
-      hid_publish_to_hid_receive_stats_.update(hid_publish_to_hid_receive_ms); // Corrected typo
-      hid_receive_to_hid_to_sim_stats_.update(hid_receive_to_hid_to_sim_ms);   // Corrected typo
-      hid_to_sim_to_hid_process_stats_.update(hid_to_sim_to_hid_process_ms);
-      hid_process_to_video_acquisition_stats_.update(hid_process_to_video_acquisition_ms);
-      video_acquisition_to_video_data_bridge_enter_stats_.update(video_acquisition_to_video_data_bridge_enter_ms);
-      video_data_bridge_enter_to_video_data_bridge_emit_stats_.update(video_data_bridge_enter_to_video_data_bridge_emit_ms);
-      video_data_bridge_emit_to_video_publish_stats_.update(video_data_bridge_emit_to_video_publish_ms);
-      video_publish_to_subscriber_receive_stats_.update(video_publish_to_subscriber_receive_ms);
-      subscriber_receive_to_subscriber_emit_stats_.update(subscriber_receive_to_subscriber_emit_ms);
-      network_latency_stats_.update(network_latency_ms);
-      end_to_end_latency_stats_.update(end_to_end_latency_ms);
+      hid_capture_to_hid_publish_stats_.update(hid_capture_to_hid_publish_ns);
+      hid_publish_to_hid_receive_stats_.update(hid_publish_to_hid_receive_ns);
+      hid_receive_to_hid_to_sim_stats_.update(hid_receive_to_hid_to_sim_ns);
+      hid_to_sim_to_hid_process_stats_.update(hid_to_sim_to_hid_process_ns);
+      hid_process_to_video_acquisition_stats_.update(hid_process_to_video_acquisition_ns);
+      video_acquisition_to_video_data_bridge_enter_stats_.update(video_acquisition_to_video_data_bridge_enter_ns);
+      video_data_bridge_enter_to_video_data_bridge_emit_stats_.update(video_data_bridge_enter_to_video_data_bridge_emit_ns);
+      video_data_bridge_emit_to_video_publish_stats_.update(video_data_bridge_emit_to_video_publish_ns);
+      video_publish_to_subscriber_receive_stats_.update(video_publish_to_subscriber_receive_ns);
+      subscriber_receive_to_subscriber_emit_stats_.update(subscriber_receive_to_subscriber_emit_ns);
+      network_latency_stats_.update(network_latency_ns);
+      end_to_end_latency_stats_.update(end_to_end_latency_ns);
     }
   }
 
@@ -363,10 +345,9 @@ namespace holoscan::ops
       HOLOSCAN_LOG_INFO("Total messages received: {}", total_messages_received_);
       double message_loss_rate = (total_messages_received_ > 0) ? (static_cast<double>(loss_message_count_) / (total_messages_received_ + loss_message_count_)) * 100.0 : 0.0; // Base message rate on stats count
       HOLOSCAN_LOG_INFO("Lost messages (rate): {} ({:.2f}%)", loss_message_count_, message_loss_rate);
-      HOLOSCAN_LOG_INFO("++=== Latency Statistics (ms) ===++");
+      HOLOSCAN_LOG_INFO("++=== Latency Statistics (milliseconds) ===++");
 
-      HOLOSCAN_LOG_INFO("avg ({}): {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
-                        hid_capture_to_hid_publish_stats_.unit_str(),
+      HOLOSCAN_LOG_INFO("avg: {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
                         hid_capture_to_hid_publish_stats_.average_auto(),
                         hid_publish_to_hid_receive_stats_.average_auto(),
                         hid_receive_to_hid_to_sim_stats_.average_auto(),
@@ -378,9 +359,9 @@ namespace holoscan::ops
                         video_publish_to_subscriber_receive_stats_.average_auto(),
                         subscriber_receive_to_subscriber_emit_stats_.average_auto(),
                         network_latency_stats_.average_auto(),
-                        end_to_end_latency_stats_.average_auto());
-      HOLOSCAN_LOG_INFO("min ({}): {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
-                        hid_capture_to_hid_publish_stats_.unit_str(),
+                        end_to_end_latency_stats_.average_auto(),
+                        frame_jitter_stats_.average_auto());
+      HOLOSCAN_LOG_INFO("min: {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
                         hid_capture_to_hid_publish_stats_.min_auto(),
                         hid_publish_to_hid_receive_stats_.min_auto(),
                         hid_receive_to_hid_to_sim_stats_.min_auto(),
@@ -392,9 +373,9 @@ namespace holoscan::ops
                         video_publish_to_subscriber_receive_stats_.min_auto(),
                         subscriber_receive_to_subscriber_emit_stats_.min_auto(),
                         network_latency_stats_.min_auto(),
-                        end_to_end_latency_stats_.min_auto());
-      HOLOSCAN_LOG_INFO("max ({}): {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
-                        hid_capture_to_hid_publish_stats_.unit_str(),
+                        end_to_end_latency_stats_.min_auto(),
+                        frame_jitter_stats_.min_auto());
+      HOLOSCAN_LOG_INFO("max: {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
                         hid_capture_to_hid_publish_stats_.max_auto(),
                         hid_publish_to_hid_receive_stats_.max_auto(),
                         hid_receive_to_hid_to_sim_stats_.max_auto(),
@@ -406,23 +387,17 @@ namespace holoscan::ops
                         video_publish_to_subscriber_receive_stats_.max_auto(),
                         subscriber_receive_to_subscriber_emit_stats_.max_auto(),
                         network_latency_stats_.max_auto(),
-                        end_to_end_latency_stats_.max_auto());
+                        end_to_end_latency_stats_.max_auto(),
+                        frame_jitter_stats_.max_auto());
+
+      // Add frame jitter statistics
+      if (frame_jitter_stats_.count > 0) {
+        // average_auto() already converts to milliseconds
+        double fps = 1000.0 / frame_jitter_stats_.average_auto();
+        HOLOSCAN_LOG_INFO("Calculated FPS: {:.1f}", fps);
+      }
 
       last_stats_time_ = current_time;
-
-      // Reset stats after printing
-      hid_capture_to_hid_publish_stats_.reset();
-      hid_publish_to_hid_receive_stats_.reset();
-      hid_receive_to_hid_to_sim_stats_.reset();
-      hid_to_sim_to_hid_process_stats_.reset();
-      hid_process_to_video_acquisition_stats_.reset();
-      video_acquisition_to_video_data_bridge_enter_stats_.reset();
-      video_data_bridge_enter_to_video_data_bridge_emit_stats_.reset();
-      video_data_bridge_emit_to_video_publish_stats_.reset();
-      video_publish_to_subscriber_receive_stats_.reset();
-      subscriber_receive_to_subscriber_emit_stats_.reset();
-      network_latency_stats_.reset();
-      end_to_end_latency_stats_.reset();
     }
   }
 
