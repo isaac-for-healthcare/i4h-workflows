@@ -50,7 +50,6 @@ import torch
 from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401
-from simulation.environments.state_machine.utils import compute_relative_action, get_robot_obs
 
 
 def get_hdf5_episode_data(root, action_key: str):
@@ -96,11 +95,15 @@ def reset_organ_to_position(env, object_position):
     organs.write_root_state_to_sim(root_state)
 
 
-def reset_robot_to_position(env, robot_initial_joint_state):
+def reset_robot_to_position(env, robot_initial_joint_state, joint_vel=None):
     """Reset the robot to the initial joint state."""
     robot = env.unwrapped.scene["robot"]
     joint_pos = torch.tensor(robot_initial_joint_state[0], device="cuda:0").unsqueeze(0)
-    joint_vel = torch.zeros_like(joint_pos)
+    if joint_vel is not None:
+        joint_vel = torch.tensor(joint_vel[0], device="cuda:0")
+    else:
+        print("No joint velocity provided, setting to zero")
+        joint_vel = torch.zeros_like(joint_pos)
     # set joint positions
     robot.write_joint_state_to_sim(joint_pos, joint_vel)
     robot.reset()
@@ -150,7 +153,13 @@ def main():
         # reset robot to initial joint state
         joint_state_key = "abs_joint_pos"
         robot_initial_joint_state = get_observation_episode_data(args_cli.data_path, episode_idx, joint_state_key)
-        reset_robot_to_position(env, robot_initial_joint_state)
+        try:
+            joint_vel_key = "observations/joint_vel"
+            joint_vel = get_observation_episode_data(args_cli.data_path, episode_idx, joint_vel_key)
+        except KeyError:
+            print("No joint velocity provided, setting to zero")
+            joint_vel = None
+        reset_robot_to_position(env, robot_initial_joint_state, joint_vel=joint_vel)
 
         reset_tensor = torch.tensor(
             get_observation_episode_data(args_cli.data_path, episode_idx, "observations/robot_obs")[0], device="cuda:0"
@@ -158,13 +167,9 @@ def main():
         with torch.inference_mode():
             for episode_idx in range(total_episodes):
                 print(f"\nepisode_idx: {episode_idx}")
-                # reset the ee_frame to the initial position
-                for _ in range(reset_steps):
-                    robot_obs = get_robot_obs(env)
-                    rel_commands = compute_relative_action(reset_tensor, robot_obs)
-                    obs, rew, terminated, truncated, info_ = env.step(rel_commands)
 
-                for action_step, action in enumerate(actions):
+                # get from the second action since the first joint state is not recorded
+                for action_step, action in enumerate(actions[1:]):
                     # Get next action from recorded data
                     current_action = torch.tensor(action, device=args_cli.device)
                     current_action = current_action.unsqueeze(0)
@@ -190,7 +195,12 @@ def main():
                 robot_initial_joint_state = get_observation_episode_data(
                     args_cli.data_path, episode_idx + 1, joint_state_key
                 )
-                reset_robot_to_position(env, robot_initial_joint_state)
+                try:
+                    joint_vel = get_observation_episode_data(args_cli.data_path, episode_idx + 1, joint_vel_key)
+                except KeyError:
+                    print("No joint velocity provided, setting to zero")
+                    joint_vel = None
+                reset_robot_to_position(env, robot_initial_joint_state, joint_vel=joint_vel)
 
     # close the environment and data file
     env.close()
