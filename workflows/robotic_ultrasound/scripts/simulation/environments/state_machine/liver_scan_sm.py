@@ -229,9 +229,7 @@ def main():
     ):
         with torch.inference_mode():
             # Handle reset conditions
-            if str(state_machine.sm_state.state) == str(UltrasoundState.DONE) or (
-                count % args_cli.max_steps == 0
-            ):
+            if str(state_machine.sm_state.state) == str(UltrasoundState.DONE) or (count % args_cli.max_steps == 0):
                 if data_collector is not None:
                     if str(state_machine.sm_state.state) == str(UltrasoundState.DONE):
                         data_collector.on_episode_complete()
