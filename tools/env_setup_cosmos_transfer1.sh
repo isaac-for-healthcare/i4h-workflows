@@ -68,6 +68,7 @@ ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREF
 ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/python3.10
 # Install Transformer engine.
 pip install transformer-engine[pytorch]==1.12.0
+pip install h5py
 
 # Test the environment.
 CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/test_environment.py

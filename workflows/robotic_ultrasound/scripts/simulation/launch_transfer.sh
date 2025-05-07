@@ -1,0 +1,44 @@
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+#!/bin/bash
+
+# if sigma > 2.0000e-03: # skip 1 setp
+# if sigma > 2.1618e-02: # skip 5 steps
+# if sigma > 1.8636e-01: # skip 10 steps
+# if sigma > 9.6542e-01: # skip 15 steps
+# if sigma > 1.2866e+00: # skip 16 steps x
+# if sigma > 1.6954e+00: # skip 17 steps x
+# if sigma > 2.2107e+00: # skip 18 steps x
+# if sigma > 3.6538e+00: # skip 20 steps x
+
+# Function to run a command on a specific GPU
+# For multi-GPU setup using torchrun
+sigma_max=80
+sigma_threshold=1.2866e+00
+foreground_label="3,4"
+num_input_frames=1
+seed=1
+controlnet_specs=./environments/cosmos_transfer1/config/inference_cosmos_transfer1_two_views.json
+source_data_dir=/healthcareeng_monai/I4H/2025-04-30-21-25-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0-NEWBATCH
+output_data_dir=/healthcareeng_monai/I4H/2025-04-30-21-25-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0-NEWBATCH-debug
+
+save_name_offset=400
+export CHECKPOINT_DIR="${CHECKPOINT_DIR:=/workspace/code/cosmos-transfer1/checkpoints}"
+CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) torchrun \
+    --nnodes=1 --node_rank=0 \
+    --nproc_per_node=1 \
+    environments/cosmos_transfer1/transfer.py \
+    --checkpoint_dir $CHECKPOINT_DIR \
+    --source_data_dir $source_data_dir \
+    --output_data_dir $output_data_dir \
+    --controlnet_specs $controlnet_specs \
+    --save_name_offset $save_name_offset \
+    --offload_text_encoder_model \
+    --height 224 \
+    --width 224 \
+    --fps 30 \
+    --foreground_label $foreground_label \
+    --sigma_threshold $sigma_threshold \
+    --sigma_max $sigma_max \
+    --num_gpus 1 \
+    --num_input_frames $num_input_frames \
+    --seed $seed
