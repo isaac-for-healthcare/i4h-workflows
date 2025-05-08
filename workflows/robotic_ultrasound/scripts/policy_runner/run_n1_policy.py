@@ -113,7 +113,7 @@ def main():
         def __init__(self, topic: str, domain_id: int):
             super().__init__(topic, FrankaCtrlInput, 1 / hz, domain_id)
 
-        def produce(self):
+        def produce(self, dt: float, sim_time: float):
             # Process camera images directly to numpy arrays
             def _process_camera_image(buffer, height, width):
                 img_buffer = np.frombuffer(buffer, dtype=np.uint8)
@@ -129,7 +129,6 @@ def main():
                 "video.room": np.expand_dims(room_img, axis=0),
                 "video.wrist": np.expand_dims(wrist_img, axis=0),
                 "state.panda_hand": np.expand_dims(np.array(joint_pos), axis=0),
-                "action.panda_hand": np.zeros((16, 6), dtype=np.float32),
                 "annotation.human.task_description": "Perform a liver ultrasound.",
             }
             actions = policy.get_action(data_point)
