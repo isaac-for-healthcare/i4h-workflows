@@ -19,7 +19,7 @@ docker build --ssh default -f workflows/robotic_surgery/docker/Dockerfile -t rob
 
 ## Prepare the I4H Asset Locally
 
-Please refer to the [Environment Setup](../../README.md#environment-setup) for instructions to prepare the I4H assets locally.
+Please refer to the [Environment Setup](../README.md#environment-setup) for instructions to prepare the I4H assets locally.
 
 This will create a directory `~/.cache/i4h-assets/<sha256>` containing the I4H assets, which will be mounted to the docker container.
 
