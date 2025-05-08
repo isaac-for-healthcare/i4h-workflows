@@ -53,4 +53,4 @@ Please refer to the [simulation README](../scripts/simulation/README.md) for oth
 
 ### Open the WebRTC Client
 
-Wait for the simulation to start (you should see the message "Reseting the state machine" when the simulation is ready), and open the WebRTC client to view the simulation.
+Wait for the simulation to start (you should see the message "Resetting the state machine" when the simulation is ready), and open the WebRTC client to view the simulation.
