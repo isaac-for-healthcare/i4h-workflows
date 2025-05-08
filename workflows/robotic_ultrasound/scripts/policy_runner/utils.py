@@ -272,4 +272,4 @@ class SinglePandaUSDataConfig(BaseDataConfig):
         return ComposedModalityTransform(transforms=transforms)
 
 
-DATA_CONFIG_MAP["single_panda_us"] = SinglePandaUSDataConfig
+DATA_CONFIG_MAP["single_panda_us"] = SinglePandaUSDataConfig()
