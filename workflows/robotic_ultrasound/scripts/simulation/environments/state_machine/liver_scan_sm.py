@@ -285,6 +285,7 @@ def main():
                 obs["depth_images"] = depth_images
                 obs["seg_images"] = seg_images
 
+                obs["joint_vel"] = env.unwrapped.scene["robot"].data.joint_vel
                 data_collector.record_step(
                     env,
                     obs,
