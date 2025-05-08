@@ -17,7 +17,7 @@ import logging
 import os
 from dataclasses import dataclass
 
-from i4h_asset_helper import get_i4h_local_asset_path
+from i4h_asset_helper import get_i4h_local_asset_path, get_i4h_asset_path, get_i4h_asset_hash
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler())
@@ -97,6 +97,8 @@ class Assets(Enums):
 
         if download_dir is None:
             download_dir = get_i4h_local_asset_path()
+        # TODO(mingxinz): get the remote asset path
+        # self._remote_asset_path = get_i4h_asset_path()
         self._download_dir = download_dir
         self._update_paths()
         self._initialized = True
@@ -106,7 +108,10 @@ class Assets(Enums):
         for attr in dir(Enums):
             if not attr.startswith("_"):
                 value = getattr(Enums, attr)
+                # TODO(mingxinz): update the path with _download_dir, only when the asset exists locally
                 setattr(self, attr, os.path.join(self._download_dir, value))
+                # TODO(mingxin): otherwise, update the path with _remote_asset_path
+                # setattr(self, attr, self._remote_asset_path)
 
     @property
     def download_dir(self):
@@ -119,6 +124,8 @@ class Assets(Enums):
         self._download_dir = value
         if not os.path.isdir(value):
             logger.warning(f"Download directory {value} does not exist.")
+        # TODO(mingxinz):check if the download directory has the same hash as get_i4h_asset_hash()
+        # if not, raise a warning but continue
         self._update_paths()
 
 
