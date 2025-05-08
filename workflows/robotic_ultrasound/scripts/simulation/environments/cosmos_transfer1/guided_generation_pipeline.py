@@ -40,8 +40,6 @@ from cosmos_transfer1.checkpoints import (
     VIS2WORLD_CONTROLNET_7B_CHECKPOINT_PATH,
 )
 from cosmos_transfer1.diffusion.inference.inference_utils import (
-    generate_world_from_control,
-    get_ctrl_batch,
     get_video_batch,
     load_model_by_config,
     load_network_model,
@@ -52,7 +50,9 @@ from cosmos_transfer1.diffusion.inference.inference_utils import (
     split_video_into_patches,
     resize_video
 )
-from cosmos_transfer1.diffusion.model.model_ctrl import VideoDiffusionModelWithCtrl, VideoDiffusionT2VModelWithCtrl
+from simulation.environments.cosmos_transfer1.utils.inference_utils import get_ctrl_batch, generate_world_from_control
+from simulation.environments.cosmos_transfer1.model.model_ctrl import VideoDiffusionModelWithCtrlAndGuidance
+from cosmos_transfer1.diffusion.model.model_ctrl import VideoDiffusionT2VModelWithCtrl
 from cosmos_transfer1.utils import log
 from cosmos_transfer1.utils.base_world_generation_pipeline import BaseWorldGenerationPipeline
 
@@ -69,20 +69,20 @@ MODEL_NAME_DICT = {
     LIDAR2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: "CTRL_7Bv1pt3_t2v_121frames_control_input_lidar_block3",
 }
 MODEL_CLASS_DICT = {
-    BASE_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrl,
-    EDGE2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrl,
-    VIS2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrl,
-    DEPTH2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrl,
-    SEG2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrl,
-    KEYPOINT2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrl,
-    UPSCALER_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrl,
+    BASE_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrlAndGuidance,
+    EDGE2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrlAndGuidance,
+    VIS2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrlAndGuidance,
+    DEPTH2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrlAndGuidance,
+    SEG2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrlAndGuidance,
+    KEYPOINT2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrlAndGuidance,
+    UPSCALER_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrlAndGuidance,
     BASE_7B_CHECKPOINT_AV_SAMPLE_PATH: VideoDiffusionT2VModelWithCtrl,
     HDMAP2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionT2VModelWithCtrl,
     LIDAR2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionT2VModelWithCtrl,
 }
 
 
-class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2WorldGenerationPipeline):
+class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2WorldGenerationPipeline, BaseWorldGenerationPipeline):
     def __init__(
         self,
         checkpoint_dir: str,
@@ -134,7 +134,30 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
             offload_prompt_upsampler: Whether to offload prompt upsampler after use
             process_group: Process group for distributed training
         """
-        super().__init__(
+        self.num_input_frames = num_input_frames
+        self.control_inputs = control_inputs
+        self.sigma_max = sigma_max
+        self.blur_strength = blur_strength
+        self.canny_threshold = canny_threshold
+        self.upsample_prompt = upsample_prompt
+        self.offload_prompt_upsampler = offload_prompt_upsampler
+        self.prompt_upsampler = None
+        self.upsampler_hint_key = None
+        self.hint_details = None
+        self.process_group = process_group
+
+        self.model_name = MODEL_NAME_DICT[checkpoint_name]
+        self.model_class = MODEL_CLASS_DICT[checkpoint_name]
+        self.guidance = guidance
+        self.num_steps = num_steps
+        self.height = height
+        self.width = width
+        self.fps = fps
+        self.num_video_frames = num_video_frames
+        self.seed = seed
+
+        BaseWorldGenerationPipeline.__init__(
+            self,
             checkpoint_dir=checkpoint_dir,
             checkpoint_name=checkpoint_name,
             has_text_input=has_text_input,
@@ -142,27 +165,18 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
             offload_tokenizer=offload_tokenizer,
             offload_text_encoder_model=offload_text_encoder_model,
             offload_guardrail_models=offload_guardrail_models,
-            guidance=guidance,
-            num_steps=num_steps,
-            height=height,
-            width=width,
-            fps=fps,
-            num_video_frames=num_video_frames,
-            seed=seed,
-            num_input_frames=num_input_frames,
-            control_inputs=control_inputs,
-            sigma_max=sigma_max,
-            blur_strength=blur_strength,
-            canny_threshold=canny_threshold,
-            upsample_prompt=upsample_prompt,
-            offload_prompt_upsampler=offload_prompt_upsampler,
-            process_group=process_group,
         )
+
+        # Initialize prompt upsampler if needed
+        if self.upsample_prompt:
+            if int(os.environ["RANK"]) == 0:
+                self._push_torchrun_environ_variables()
+                self._init_prompt_upsampler()
+                self._pop_torchrun_environ_variables()
         
     def _load_model(self):
         self.model = load_model_by_config(
             config_job_name=self.model_name,
-            # config_file="cosmos_transfer1/diffusion/config/transfer/config.py",
             config_file="environments/cosmos_transfer1/config/transfer/config.py",
             model_class=self.model_class,
             base_checkpoint_dir=self.checkpoint_dir,
@@ -176,11 +190,12 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
             for _, spec in self.control_inputs.items():
                 model = load_model_by_config(
                     config_job_name=self.model_name,
-                    # config_file="cosmos_transfer1/diffusion/config/transfer/config.py",
                     config_file="environments/cosmos_transfer1/config/transfer/config.py",
                     model_class=self.model_class,
                     base_checkpoint_dir=self.checkpoint_dir,
                 )
+                log.info(f"Loading model: {model}")
+                log.info(f"model_class: {self.model_class}")
                 load_network_model(model, spec["ckpt_path"])
                 hint_encoders.append(model.model.net)
                 del model
@@ -327,6 +342,43 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
         log.info(f"video mask weight_map: {weight_map.shape}")
         
         return weight_map
+
+    def _run_model_with_offload(
+        self,
+        prompt_embedding: torch.Tensor,
+        video_path: str,
+        negative_prompt_embedding: Optional[torch.Tensor] = None,
+        control_inputs: dict = None,
+        x0_spatial_condtion: dict = None,
+    ) -> np.ndarray:
+        """Generate world representation with automatic model offloading.
+
+        Wraps the core generation process with model loading/offloading logic
+        to minimize GPU memory usage during inference.
+
+        Args:
+            prompt_embedding: Text embedding tensor from T5 encoder
+            video_path: Path to input video
+            negative_prompt_embedding: Optional embedding for negative prompt guidance
+
+        Returns:
+            np.ndarray: Generated world representation as numpy array
+        """
+        if self.offload_tokenizer:
+            self._load_tokenizer()
+
+        if self.offload_network:
+            self._load_network()
+
+        sample = self._run_model(prompt_embedding, negative_prompt_embedding, video_path, control_inputs, x0_spatial_condtion)
+
+        if self.offload_network:
+            self._offload_network()
+
+        if self.offload_tokenizer:
+            self._offload_tokenizer()
+
+        return sample
 
     def _run_model(
         self,

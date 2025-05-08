@@ -22,8 +22,18 @@ source_data_dir=/healthcareeng_monai/I4H/2025-04-30-21-25-Isaac-Teleop-Torso-Fra
 output_data_dir=/healthcareeng_monai/I4H/2025-04-30-21-25-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0-NEWBATCH-debug
 
 save_name_offset=400
-export CHECKPOINT_DIR="${CHECKPOINT_DIR:=/workspace/code/cosmos-transfer1/checkpoints}"
-CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) torchrun \
+export CHECKPOINT_DIR="/workspace/code/cosmos-transfer1/checkpoints"
+export PROJECT_ROOT="/workspace/code/i4h-workflows"
+# Set PYTHONPATH with absolute paths
+export PYTHONPATH="$PROJECT_ROOT/third_party/cosmos-transfer1:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation"
+
+# Current working directory for reference
+CWD="$(pwd)"
+echo "Current directory: $CWD"
+echo "PYTHONPATH: $PYTHONPATH"
+
+# Use absolute path to transfer.py
+CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$PYTHONPATH torchrun \
     --nnodes=1 --node_rank=0 \
     --nproc_per_node=1 \
     environments/cosmos_transfer1/transfer.py \

@@ -39,8 +39,8 @@ from cosmos_transfer1.diffusion.model.model_v2w import DiffusionV2WModel, VideoD
 
 
 class DiffusionV2WModelWithGuidance(DiffusionV2WModel,DiffusionT2WModel):
-    # def __init__(self, config):
-    #     super().__init__(config)
+    def __init__(self, config):
+        super().__init__(config)
 
     # def augment_conditional_latent_frames(
     #     self,

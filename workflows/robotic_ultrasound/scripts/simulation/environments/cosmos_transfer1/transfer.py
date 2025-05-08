@@ -20,9 +20,6 @@ import random
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Workaround to suppress MP warning
 
 import sys
-# Add the parent directory to the Python path
-sys.path.append("/workspace/code/i4h-workflows/third_party/cosmos-transfer1")
-sys.path.append("/workspace/code/i4h-workflows/workflows/robotic_ultrasound/scripts")
 from io import BytesIO
 import glob
 
@@ -473,173 +470,173 @@ if __name__ == "__main__":
         offload_prompt_upsampler=args.offload_prompt_upsampler,
     )
     
-    # for i, h5_file_path in enumerate(h5_file_paths):
-    #     # skip if not the current process
-    #     if i % world_size != global_rank:
-    #         continue
-    #     # check if output videos exist
-    #     source_data_dir = args.source_data_dir
-    #     output_data_dir = args.output_data_dir
-    #     if output_data_dir is None:
-    #         output_data_dir = source_data_dir
+    for i, h5_file_path in enumerate(h5_file_paths):
+        # skip if not the current process
+        if i % world_size != global_rank:
+            continue
+        # check if output videos exist
+        source_data_dir = args.source_data_dir
+        output_data_dir = args.output_data_dir
+        if output_data_dir is None:
+            output_data_dir = source_data_dir
 
-    #     file_name_index = int(os.path.basename(h5_file_path).replace(".hdf5", "").split("_")[-1])
-    #     output_hdf5 = os.path.join(output_data_dir, f"data_{args.save_name_offset + file_name_index}.hdf5")
-    #     if os.path.exists(output_hdf5):
-    #         log.info(f"Output video already exists: {output_hdf5}, skipping generation.")
-    #         continue
+        file_name_index = int(os.path.basename(h5_file_path).replace(".hdf5", "").split("_")[-1])
+        output_hdf5 = os.path.join(output_data_dir, f"data_{args.save_name_offset + file_name_index}.hdf5")
+        if os.path.exists(output_hdf5):
+            log.info(f"Output video already exists: {output_hdf5}, skipping generation.")
+            continue
 
-    #     # preprocess h5 file to mp4 videos
-    #     mp4_save_dir = tempfile.mkdtemp(prefix="cosmos-transfer1-h5-to-mp4_")
-    #     print(f"preprocessing h5 file to mp4 videos: {mp4_save_dir}")
-    #     f = h5py.File(h5_file_path, "r")
+        # preprocess h5 file to mp4 videos
+        mp4_save_dir = tempfile.mkdtemp(prefix="cosmos-transfer1-h5-to-mp4_")
+        print(f"preprocessing h5 file to mp4 videos: {mp4_save_dir}")
+        f = h5py.File(h5_file_path, "r")
 
-    #     rgb_images = f['data/demo_0/observations/rgb_images']  # (263, 2, 224, 224, 3)
-    #     depth_images = f['data/demo_0/observations/depth_images']  # (263, 2, 224, 224, 1)
-    #     seg_images = f['data/demo_0/observations/seg_images']  # (263, 2, 224, 224, 4) - Only last channel needed
-    #     # Video parameters
-    #     num_frames, num_videos, height, width, _ = seg_images.shape
-    #     fps = 30  # Frames per second
-    #     video_code = cv2.VideoWriter_fourcc(*"mp4v")  # Codec for MP4 format
-    #     # Create video writers
-    #     writers = {
-    #         "rgb": [cv2.VideoWriter(f"{mp4_save_dir}/rgb_video_{i}.mp4", video_code, fps, (width, height)) for i in range(num_videos)],
-    #         "depth": [cv2.VideoWriter(f"{mp4_save_dir}/depth_video_{i}.mp4", video_code, fps, (width, height), isColor=False) for i in range(num_videos)],
-    #         "seg": [cv2.VideoWriter(f"{mp4_save_dir}/seg_mask_video_{i}.mp4", video_code, fps, (width, height), isColor=True) for i in range(num_videos)]
-    #     }
-    #     for i in range(num_frames):
-    #         for vid_idx in range(num_videos):
-    #             # RGB Video
-    #             rgb_frame = rgb_images[i, vid_idx].astype(np.uint8)[:,:,::-1]  # (224, 224, 3)
-    #             writers["rgb"][vid_idx].write(rgb_frame)
+        rgb_images = f['data/demo_0/observations/rgb_images']  # (263, 2, 224, 224, 3)
+        depth_images = f['data/demo_0/observations/depth_images']  # (263, 2, 224, 224, 1)
+        seg_images = f['data/demo_0/observations/seg_images']  # (263, 2, 224, 224, 4) - Only last channel needed
+        # Video parameters
+        num_frames, num_videos, height, width, _ = seg_images.shape
+        fps = 30  # Frames per second
+        video_code = cv2.VideoWriter_fourcc(*"mp4v")  # Codec for MP4 format
+        # Create video writers
+        writers = {
+            "rgb": [cv2.VideoWriter(f"{mp4_save_dir}/rgb_video_{i}.mp4", video_code, fps, (width, height)) for i in range(num_videos)],
+            "depth": [cv2.VideoWriter(f"{mp4_save_dir}/depth_video_{i}.mp4", video_code, fps, (width, height), isColor=False) for i in range(num_videos)],
+            "seg": [cv2.VideoWriter(f"{mp4_save_dir}/seg_mask_video_{i}.mp4", video_code, fps, (width, height), isColor=True) for i in range(num_videos)]
+        }
+        for i in range(num_frames):
+            for vid_idx in range(num_videos):
+                # RGB Video
+                rgb_frame = rgb_images[i, vid_idx].astype(np.uint8)[:,:,::-1]  # (224, 224, 3)
+                writers["rgb"][vid_idx].write(rgb_frame)
 
-    #             # Depth Video (Normalize and Apply Colormap)
-    #             depth_frame = depth_images[i, vid_idx, :, :, 0]  # Extract (224, 224)
-    #             output = 1.0 / (depth_frame + 1e-6)
+                # Depth Video (Normalize and Apply Colormap)
+                depth_frame = depth_images[i, vid_idx, :, :, 0]  # Extract (224, 224)
+                output = 1.0 / (depth_frame + 1e-6)
 
-    #             depth_min = output.min()
-    #             depth_max = output.max()
-    #             max_val = (2**8) - 1  # Maximum value for uint16
+                depth_min = output.min()
+                depth_max = output.max()
+                max_val = (2**8) - 1  # Maximum value for uint16
 
-    #             if depth_max - depth_min > np.finfo("float").eps:
-    #                 out_array = max_val * (output - depth_min) / (depth_max - depth_min)
-    #             else:
-    #                 out_array = np.zeros_like(output)
+                if depth_max - depth_min > np.finfo("float").eps:
+                    out_array = max_val * (output - depth_min) / (depth_max - depth_min)
+                else:
+                    out_array = np.zeros_like(output)
 
-    #             formatted = out_array.astype("uint8")
-    #             writers["depth"][vid_idx].write(formatted)
+                formatted = out_array.astype("uint8")
+                writers["depth"][vid_idx].write(formatted)
                 
-    #             seg_mask_frame = seg_images[i, vid_idx, :, :, :].astype(np.uint8) # Already 0 or 255
+                seg_mask_frame = seg_images[i, vid_idx, :, :, :].astype(np.uint8) # Already 0 or 255
 
-    #             writers["seg"][vid_idx].write(seg_mask_frame)
+                writers["seg"][vid_idx].write(seg_mask_frame)
 
-    #     # Release all video writers
-    #     for category in writers:
-    #         for writer in writers[category]:
-    #             writer.release()    
-    #     # save camera parameters
-    #     room_camera_intrinsic_matrices = f['data/demo_0/observations/room_camera_intrinsic_matrices']  # (n_frames, 3, 3)
-    #     room_camera_pos = f['data/demo_0/observations/room_camera_pos']  # (n_frames, 3)
-    #     room_camera_quat = f['data/demo_0/observations/room_camera_quat_w_ros']  # (n_frames, 4)
-    #     save_dict = {
-    #         "room_camera_intrinsic_matrices": room_camera_intrinsic_matrices,
-    #         "room_camera_pos": room_camera_pos,
-    #         "room_camera_quat": room_camera_quat
-    #     }
-    #     room_camera_para_path = f"{mp4_save_dir}/room_camera_para.npz"
-    #     np.savez(room_camera_para_path, **save_dict)
-    #     wrist_camera_intrinsic_matrices = f['data/demo_0/observations/wrist_camera_intrinsic_matrices']  # (n_frames, 3, 3)
-    #     wrist_camera_pos = f['data/demo_0/observations/wrist_camera_pos']  # (n_frames, 3)
-    #     wrist_camera_quat = f['data/demo_0/observations/wrist_camera_quat_w_ros']  # (n_frames, 4)
-    #     save_dict = {
-    #         "wrist_camera_intrinsic_matrices": wrist_camera_intrinsic_matrices,
-    #         "wrist_camera_pos": wrist_camera_pos,
-    #         "wrist_camera_quat": wrist_camera_quat
-    #     }
-    #     wrist_camera_para_path = f"{mp4_save_dir}/wrist_camera_para.npz"
-    #     np.savez(wrist_camera_para_path, **save_dict)
-    #     # save the seg_mask videos
-    #     save_dict = {
-    #         "depth_images": f['data/demo_0/observations/depth_images'],
-    #         "seg_images": f['data/demo_0/observations/seg_images']
-    #     }
-    #     seg_depth_images_npz = f"{mp4_save_dir}/seg_depth_images.npz"
-    #     np.savez(seg_depth_images_npz, **save_dict)
+        # Release all video writers
+        for category in writers:
+            for writer in writers[category]:
+                writer.release()    
+        # save camera parameters
+        room_camera_intrinsic_matrices = f['data/demo_0/observations/room_camera_intrinsic_matrices']  # (n_frames, 3, 3)
+        room_camera_pos = f['data/demo_0/observations/room_camera_pos']  # (n_frames, 3)
+        room_camera_quat = f['data/demo_0/observations/room_camera_quat_w_ros']  # (n_frames, 4)
+        save_dict = {
+            "room_camera_intrinsic_matrices": room_camera_intrinsic_matrices,
+            "room_camera_pos": room_camera_pos,
+            "room_camera_quat": room_camera_quat
+        }
+        room_camera_para_path = f"{mp4_save_dir}/room_camera_para.npz"
+        np.savez(room_camera_para_path, **save_dict)
+        wrist_camera_intrinsic_matrices = f['data/demo_0/observations/wrist_camera_intrinsic_matrices']  # (n_frames, 3, 3)
+        wrist_camera_pos = f['data/demo_0/observations/wrist_camera_pos']  # (n_frames, 3)
+        wrist_camera_quat = f['data/demo_0/observations/wrist_camera_quat_w_ros']  # (n_frames, 4)
+        save_dict = {
+            "wrist_camera_intrinsic_matrices": wrist_camera_intrinsic_matrices,
+            "wrist_camera_pos": wrist_camera_pos,
+            "wrist_camera_quat": wrist_camera_quat
+        }
+        wrist_camera_para_path = f"{mp4_save_dir}/wrist_camera_para.npz"
+        np.savez(wrist_camera_para_path, **save_dict)
+        # save the seg_mask videos
+        save_dict = {
+            "depth_images": f['data/demo_0/observations/depth_images'],
+            "seg_images": f['data/demo_0/observations/seg_images']
+        }
+        seg_depth_images_npz = f"{mp4_save_dir}/seg_depth_images.npz"
+        np.savez(seg_depth_images_npz, **save_dict)
     
-    #     data = {
-    #         "room_video_path": f"{mp4_save_dir}/rgb_video_0.mp4",
-    #         "room_depth_path": f"{mp4_save_dir}/depth_video_0.mp4",
-    #         "room_seg_path": f"{mp4_save_dir}/seg_mask_video_0.mp4",
-    #         "wrist_video_path": f"{mp4_save_dir}/rgb_video_1.mp4",
-    #         "wrist_depth_path": f"{mp4_save_dir}/depth_video_1.mp4",
-    #         "wrist_seg_path": f"{mp4_save_dir}/seg_mask_video_1.mp4",
-    #         "room_camera_para_path": room_camera_para_path,
-    #         "wrist_camera_para_path": wrist_camera_para_path,
-    #         "seg_depth_images_npz": seg_depth_images_npz,
-    #         "h5_file_path": h5_file_path
-    #     }
+        data = {
+            "room_video_path": f"{mp4_save_dir}/rgb_video_0.mp4",
+            "room_depth_path": f"{mp4_save_dir}/depth_video_0.mp4",
+            "room_seg_path": f"{mp4_save_dir}/seg_mask_video_0.mp4",
+            "wrist_video_path": f"{mp4_save_dir}/rgb_video_1.mp4",
+            "wrist_depth_path": f"{mp4_save_dir}/depth_video_1.mp4",
+            "wrist_seg_path": f"{mp4_save_dir}/seg_mask_video_1.mp4",
+            "room_camera_para_path": room_camera_para_path,
+            "wrist_camera_para_path": wrist_camera_para_path,
+            "seg_depth_images_npz": seg_depth_images_npz,
+            "h5_file_path": h5_file_path
+        }
 
-    #     log.info(f"processing data point {i+1}/{len(h5_file_paths)}: {os.path.basename(h5_file_path)}", rank0_only=False)
-    #     args.seed = random.randint(0, 1000000) + global_rank
-    #     video_room_view, video_wrist_view = inference(args, pipeline, control_inputs, data, local_rank)
+        log.info(f"processing data point {i+1}/{len(h5_file_paths)}: {os.path.basename(h5_file_path)}", rank0_only=False)
+        args.seed = random.randint(0, 1000000) + global_rank
+        video_room_view, video_wrist_view = inference(args, pipeline, control_inputs, data, local_rank)
 
-    #     # Create a new HDF5 file
-    #     with h5py.File(output_hdf5, 'w') as dst:
-    #         # Copy all groups and datasets, except the part we want to replace
-    #         def copy_attributes(name, obj):
-    #             if isinstance(obj, h5py.Group):
-    #                 if name not in dst:
-    #                     dst.create_group(name)
-    #                 # Copy group attributes
-    #                 for key, value in obj.attrs.items():
-    #                     dst[name].attrs[key] = value
+        # Create a new HDF5 file
+        with h5py.File(output_hdf5, 'w') as dst:
+            # Copy all groups and datasets, except the part we want to replace
+            def copy_attributes(name, obj):
+                if isinstance(obj, h5py.Group):
+                    if name not in dst:
+                        dst.create_group(name)
+                    # Copy group attributes
+                    for key, value in obj.attrs.items():
+                        dst[name].attrs[key] = value
                 
-    #             elif isinstance(obj, h5py.Dataset):
-    #                 if name != "data/demo_0/observations/rgb_images":
-    #                     # Copy the dataset
-    #                     dst.create_dataset(name, data=obj[:])
-    #                     # Copy dataset attributes
-    #                     for key, value in obj.attrs.items():
-    #                         dst[name].attrs[key] = value
+                elif isinstance(obj, h5py.Dataset):
+                    if name != "data/demo_0/observations/rgb_images":
+                        # Copy the dataset
+                        dst.create_dataset(name, data=obj[:])
+                        # Copy dataset attributes
+                        for key, value in obj.attrs.items():
+                            dst[name].attrs[key] = value
             
-    #         # Process all items in the source file
-    #         f.visititems(copy_attributes)
+            # Process all items in the source file
+            f.visititems(copy_attributes)
             
-    #         # Create a new RGB dataset
-    #         num_frames = video_room_view.shape[0]
+            # Create a new RGB dataset
+            num_frames = video_room_view.shape[0]
             
-    #         # Create a dataset with the same shape as the original
-    #         dst_rgb = dst.create_dataset("data/demo_0/observations/rgb_images", 
-    #                                      shape=rgb_images.shape, dtype=rgb_images.dtype)
+            # Create a dataset with the same shape as the original
+            dst_rgb = dst.create_dataset("data/demo_0/observations/rgb_images", 
+                                         shape=rgb_images.shape, dtype=rgb_images.dtype)
             
-    #         # Copy attributes
-    #         for key, value in rgb_images.attrs.items():
-    #             dst_rgb.attrs[key] = value
+            # Copy attributes
+            for key, value in rgb_images.attrs.items():
+                dst_rgb.attrs[key] = value
             
-    #         # Replace frames in the dataset
-    #         for i in tqdm(range(num_frames)):
-    #             # Process camera 0 (top view)
-    #             if i < len(video_room_view):
-    #                 # Ensure correct shape
-    #                 frame_rgb0 = video_room_view[i]
-    #                 if frame_rgb0.shape != rgb_images.shape[2:]:
-    #                     frame_rgb0 = cv2.resize(frame_rgb0, (rgb_images.shape[3], rgb_images.shape[2]))
-    #                 dst_rgb[i, 0] = frame_rgb0
+            # Replace frames in the dataset
+            for i in tqdm(range(num_frames)):
+                # Process camera 0 (top view)
+                if i < len(video_room_view):
+                    # Ensure correct shape
+                    frame_rgb0 = video_room_view[i]
+                    if frame_rgb0.shape != rgb_images.shape[2:]:
+                        frame_rgb0 = cv2.resize(frame_rgb0, (rgb_images.shape[3], rgb_images.shape[2]))
+                    dst_rgb[i, 0] = frame_rgb0
                 
-    #             # Process camera 1 (bottom view)
-    #             if i < len(video_wrist_view):
-    #                 # Ensure correct shape
-    #                 frame_rgb1 = video_wrist_view[i]
-    #                 if frame_rgb1.shape != rgb_images.shape[2:]:
-    #                     frame_rgb1 = cv2.resize(frame_rgb1, (rgb_images.shape[3], rgb_images.shape[2]))
-    #                 dst_rgb[i, 1] = frame_rgb1
+                # Process camera 1 (bottom view)
+                if i < len(video_wrist_view):
+                    # Ensure correct shape
+                    frame_rgb1 = video_wrist_view[i]
+                    if frame_rgb1.shape != rgb_images.shape[2:]:
+                        frame_rgb1 = cv2.resize(frame_rgb1, (rgb_images.shape[3], rgb_images.shape[2]))
+                    dst_rgb[i, 1] = frame_rgb1
             
-    #         # If video frame count is less than original data, copy remaining frames
-    #         if num_frames < rgb_images.shape[0]:
-    #             dst_rgb[num_frames:] = rgb_images[num_frames:]
+            # If video frame count is less than original data, copy remaining frames
+            if num_frames < rgb_images.shape[0]:
+                dst_rgb[num_frames:] = rgb_images[num_frames:]
             
-    #         print(f"Created {output_hdf5}, replaced frames from video")
+            print(f"Created {output_hdf5}, replaced frames from video")
 
-    # if world_size > 1:
-    #     dist.destroy_process_group()
+    if world_size > 1:
+        dist.destroy_process_group()
 
