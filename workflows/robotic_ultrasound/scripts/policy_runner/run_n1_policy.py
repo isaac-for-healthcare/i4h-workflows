@@ -32,9 +32,6 @@ current_state = {
     "joint_pos": None,
 }
 
-# Prevent JAX from preallocating all memory
-os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
-
 
 def main():
     parser = argparse.ArgumentParser(description="Run the openpi0 policy runner")
