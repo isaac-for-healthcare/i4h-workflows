@@ -46,7 +46,9 @@ See the [simulation README](../../simulation/README.md#liver-scan-state-machine)
 
 ## 🔄 Data Conversion
 
-PI Zero uses the LeRobot data format for training. We provide a script to convert your HDF5 data to this format:
+PI Zero uses the LeRobot data format for training. We provide a script to convert your HDF5 data to this format.
+
+Please move to the current [`pi_zero` folder](./) and execute:
 
 ```bash
 python convert_hdf5_to_lerobot.py /path/to/your/hdf5/data
@@ -75,7 +77,7 @@ The converted dataset will be saved in `~/.cache/huggingface/lerobot/<repo_id>`.
 
 ## 🚀 Running Training
 
-To start training with the default LoRA configuration:
+To start training with the default LoRA configuration, please move to the current [`pi_zero` folder](./) and execute:
 ```bash
 python train.py --config robotic_ultrasound_lora --exp_name liver_ultrasound
 ```

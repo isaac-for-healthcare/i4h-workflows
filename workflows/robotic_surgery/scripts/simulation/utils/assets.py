@@ -32,9 +32,11 @@ class Enums:
     STAR = "Robots/STAR/star.usd"
     Board = "Props/Board/board.usd"
     Block = "Props/PegBlock/block.usd"
-    Needle = "Props/SutureNeedle/needle_sdf.usd"
+    Needle = "Props/SutureNeedle/needle.usd"
+    Needle_SDF = "Props/SutureNeedle/needle_sdf.usd"
     SuturePad = "Props/SuturePad/suture_pad.usd"
     Table = "Props/Table/table.usd"
+    Organs = "Props/Organs/organs.usd"
 
 
 class Assets(Enums):
@@ -51,8 +53,10 @@ class Assets(Enums):
         Board (str): Path to the Board asset
         Block (str): Path to the Block asset
         Needle (str): Path to the Needle asset
+        Needle_SDF (str): Path to the Needle_SDF asset
         SuturePad (str): Path to the SuturePad asset
         Table (str): Path to the Table asset
+        Organs (str): Path to the Organs asset
         download_dir (str): Base directory containing all assets
 
     Important:

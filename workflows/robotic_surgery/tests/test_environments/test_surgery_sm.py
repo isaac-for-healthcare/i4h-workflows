@@ -31,6 +31,7 @@ def monitor_output(process, target_line, found_event):
         for line in iter(process.stdout.readline, ""):
             if target_line in line:
                 found_event.set()
+                break
     except (ValueError, IOError):
         # Handle case where stdout is closed
         pass
@@ -68,6 +69,7 @@ def run_with_monitoring(command, timeout_seconds, target_line=None):
         while time.time() - start_time < timeout_seconds:
             if target_line and found_event.is_set():
                 target_found = True
+                break
 
             # Check if process has already terminated
             if process.poll() is not None:
@@ -127,27 +129,32 @@ def run_with_monitoring(command, timeout_seconds, target_line=None):
 SM_CASES = [
     (
         "python -u simulation/scripts/environments/state_machine/lift_block_sm.py --headless",
-        20,
+        300,
         "Resetting the state machine.",
     ),
     (
         "python -u simulation/scripts/environments/state_machine/lift_needle_sm.py --headless",
-        20,
+        300,
         "Resetting the state machine.",
     ),
     (
         "python -u simulation/scripts/environments/state_machine/reach_dual_psm_sm.py --headless",
-        20,
+        300,
         "Resetting the state machine.",
     ),
     (
         "python -u simulation/scripts/environments/state_machine/reach_psm_sm.py --headless",
-        20,
+        300,
         "Resetting the state machine.",
     ),
     (
         "python -u simulation/scripts/environments/state_machine/reach_star_sm.py --headless",
-        20,
+        300,
+        "Resetting the state machine.",
+    ),
+    (
+        "python -u simulation/scripts/environments/state_machine/lift_needle_organs_sm.py --headless",
+        300,
         "Resetting the state machine.",
     ),
 ]

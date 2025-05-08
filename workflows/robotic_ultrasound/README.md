@@ -52,7 +52,7 @@ conda activate robotic_ultrasound
 
 #### Install the Raytracing Ultrasound Simulator
 To use the ultrasound-raytracing simulator, you can choose one of the following options:
-- (experimental) Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.1.0ea) and extract the folder to `workflows/robotic_ultrasound/scripts/raysim`.
+- (experimental) Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.1.0) and extract the folder to `workflows/robotic_ultrasound/scripts/raysim`.
 
 - (recommended) Install and build it by following the instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation).
 
@@ -80,7 +80,7 @@ This is due to requirements of `isaaclab` and `openpi` used different fixed vers
 ### Download the I4H assets
 
 Use the following command will download the assets to the `~/.cache/i4h-assets/<sha256>` directory.
-Please refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.1.0ea/docs/catalog_helper.md) for more details.
+Please refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.1.0/docs/catalog_helper.md) for more details.
 
 ```sh
 i4h-asset-retrieve
@@ -102,11 +102,13 @@ Assets downloaded to: <user-home-directory>/.cache/i4h-assets/<SHA256>
 
 
 ### Set environment variables before running the scripts
-Make sure `PYTHONPATH`, `RTI_LICENSE_FILE` and `LD_PRELOAD` is set
+Make sure both `PYTHONPATH` and `RTI_LICENSE_FILE` are set:
 ```sh
 export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts`
 export RTI_LICENSE_FILE=<path-to-rti-license-file>
 ```
+
+The `PYTHONPATH` is used to find the modules under the [`scripts`](./scripts) directory.
 
 ## Run the scripts
 

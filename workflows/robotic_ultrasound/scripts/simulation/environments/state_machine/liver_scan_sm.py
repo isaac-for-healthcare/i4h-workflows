@@ -53,10 +53,11 @@ parser.add_argument(
     default=["room_camera", "wrist_camera"],
     help="List of camera names to capture from.",
 )
+# Recommended to use 40 steps to allow enough steps to reset the SETUP position of the robot
 parser.add_argument(
     "--reset_steps",
     type=int,
-    default=15,
+    default=40,
     help="Number of steps to take during environment reset.",
 )
 parser.add_argument(
@@ -209,9 +210,7 @@ def main():
     ):
         with torch.inference_mode():
             # Handle reset conditions
-            if str(state_machine.sm_state.state) == str(UltrasoundState.DONE) or (
-                count % args_cli.max_steps == 0 and count > 0
-            ):
+            if str(state_machine.sm_state.state) == str(UltrasoundState.DONE) or (count % args_cli.max_steps == 0):
                 if data_collector is not None:
                     if str(state_machine.sm_state.state) == str(UltrasoundState.DONE):
                         data_collector.on_episode_complete()

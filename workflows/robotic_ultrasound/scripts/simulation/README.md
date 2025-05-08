@@ -37,12 +37,13 @@ Currently there are these robot configurations that can be used in various tasks
 ### PI Zero Policy Evaluation
 Set up `openpi` referring to [PI0 runner](../policy_runner/README.md).
 
-Move to the [scripts](../) folder and specify python path:
-```sh
-export PYTHONPATH=`pwd`
-```
+### Ensure the PYTHONPATH Is Set
 
-5. Return to this folder and run the following command:
+Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
+
+### Run the script
+
+Please move to the current [`simulation` folder](./) and execute:
 
 ```sh
 python imitation_learning/pi0_policy/eval.py --enable_camera
@@ -58,11 +59,15 @@ so please ensure to launch the `run_policy.py` with `height=224`, `width=224`,
 and the same `domain id` as this example in another terminal.
 
 When `run_policy.py` is launched and idle waiting for the data,
-move to the [scripts](../) folder and specify the python path:
-```sh
-export PYTHONPATH=`pwd`
-```
-Then move back to this folder and execute:
+
+### Ensure the PYTHONPATH Is Set
+
+Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
+
+### Run the script
+
+Please move to the current [`simulation` folder](./) and execute:
+
 ```sh
 python environments/sim_with_dds.py --enable_cameras
 ```
@@ -92,11 +97,9 @@ The state machine integrates multiple control modules:
 
 #### Usage
 
-move to the [scripts](../) folder and specify the python path:
-```sh
-export PYTHONPATH=`pwd`
-```
-Then move back to this folder and execute:
+Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) to set the `PYTHONPATH`.
+
+Then please move to the current [`simulation` folder](./) and execute:
 
 ```sh
 python environments/state_machine/liver_scan_sm.py --enable_cameras
@@ -104,7 +107,7 @@ python environments/state_machine/liver_scan_sm.py --enable_cameras
 
 #### Data Collection
 
-To run the state machine and collect data for a specified number of episodes:
+To run the state machine and collect data for a specified number of episodes, you need to pass the `--num_episodes` argument. Default is 0, which means no data collection.
 
 ```sh
 python environments/state_machine/liver_scan_sm.py \
@@ -123,8 +126,10 @@ This will collect data for 2 complete episodes and store it in HDF5 format.
 | `--camera_names` | list[str] | ["room_camera", "wrist_camera"] | List of camera names to capture images from |
 | `--disable_fabric` | flag | False | Disable fabric and use USD I/O operations |
 | `--num_envs` | int | 1 | Number of environments to spawn (must be 1 for this script) |
-| `--reset_steps` | int | 15 | Number of steps to take during environment reset |
+| `--reset_steps` | int | 40 | Number of steps to take during environment reset |
 | `--max_steps` | int | 350 | Maximum number of steps before forcing a reset |
+
+> **Note:** It is recommended to use at least 40 steps for `--reset_steps` to allow enough steps for the robot to properly reset to the SETUP position.
 
 #### Data Collection Details
 
@@ -154,7 +159,7 @@ The teleoperation interface allows direct control of the robotic arm using vario
 
 #### Running Teleoperation
 
-Basic teleoperation can be started with:
+Please move to the current [`simulation` folder](./) and execute the following command to start the teleoperation:
 
 ```sh
 python environments/teleoperation/teleop_se3_agent.py --enable_cameras
@@ -201,7 +206,7 @@ based on 3D meshes. The simulator uses Holoscan framework and DDS communication 
 
 #### NVIDIA OptiX Raytracing with Python Bindings
 
-For instructions on preparing and building the Python module, please refer to the [Environment Setup](../../README.md#install-the-raytracing-ultrasound-simulator) instructions and [Ultrasound Raytracing README](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/blob/v0.1.0ea/ultrasound-raytracing/README.md) to setup the `raysim` module correctly.
+For instructions on preparing and building the Python module, please refer to the [Environment Setup](../../README.md#install-the-raytracing-ultrasound-simulator) instructions and [Ultrasound Raytracing README](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/blob/v0.1.0/ultrasound-raytracing/README.md) to setup the `raysim` module correctly.
 
 
 #### Configuration
@@ -263,11 +268,23 @@ You only need to specify the parameters you want to change - any omitted paramet
 
 #### Running the Simulator
 
-To run the ultrasound raytracing simulator:
+Please navigate to the current [`simulation` folder](./) and execute the following command to run the ultrasound raytracing simulator:
 
 ```sh
 python examples/ultrasound_raytracing.py
 ```
+
+The simulator will start streaming the ultrasound images under the `topic_ultrasound_data` topic in the DDS communication. The domain ID is set to 1 in the current default settings.
+
+To visualize the ultrasound images, please check out the [Visualization Utility](../utils/README.md), and launch another terminal to run this command:
+
+```sh
+# Stay in the simulation folder
+python ../utils/visualization.py
+```
+
+To see the ultrasound probe moving, please ensure the `topic_ultrasound_info` is published from the scripts such as [sim_with_dds.py](./environments/sim_with_dds.py) or [Tele-op](./environments/teleoperation/teleop_se3_agent.py).
+
 
 #### Command Line Arguments
 

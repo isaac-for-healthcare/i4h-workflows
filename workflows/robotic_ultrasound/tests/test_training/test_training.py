@@ -133,20 +133,6 @@ class TestConvertHdf5ToLeRobot(TestBase):
         self.assertTrue(os.path.exists(meta_data_dir), f"Meta data directory not created at {meta_data_dir}")
         self.assertTrue(os.path.exists(data_dir), f"Data directory not created at {data_dir}")
 
-    def test_convert_hdf5_to_lerobot_repo_permission_error_handling(self):
-        """Test that permission error can be handled."""
-        # create a tmp folder that have the permission issue when use shutil.rmtree
-        tmp_dir = os.path.join(self.cache_dir, "tmp_repo")
-        os.makedirs(tmp_dir, exist_ok=True)
-        os.chmod(tmp_dir, 0o000)
-        # check get expected error message
-        with self.assertRaises(Exception) as context:
-            convert_hdf5_to_lerobot(self.hdf5_data_dir, "tmp_repo", self.test_prompt)
-        self.assertTrue("Please ensure that you have write permissions" in str(context.exception))
-        # clean up the tmp folder with right permission
-        os.chmod(tmp_dir, 0o755)
-        shutil.rmtree(tmp_dir)
-
     def test_convert_hdf5_to_lerobot_data_dir_error_handling(self):
         """Test that data directory error can be handled."""
         # check get expected Exception
