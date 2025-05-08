@@ -16,17 +16,15 @@
 import argparse
 import os
 
-import torch
 import numpy as np
+import torch
 from dds.publisher import Publisher
 from dds.schemas.camera_info import CameraInfo
 from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
-from PIL import Image
-
-from gr00t.experiment.data_config import DATA_CONFIG_MAP
 from gr00t.model.policy import BasePolicy, Gr00tPolicy
+from policy_runner.utils import DATA_CONFIG_MAP
 
 current_state = {
     "room_cam": None,
@@ -43,15 +41,14 @@ def main():
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        default="/home/yunliu/Workspace/Code/Isaac-GR00T/demo_data/us-checkpoints-n1-640-wo/checkpoint-2500/",
         help="checkpoint path. Default to use policy checkpoint in the latest assets.",
     )
     parser.add_argument(
         "--rti_license_file", type=str, default=os.getenv("RTI_LICENSE_FILE"), help="the path of rti_license_file."
     )
     parser.add_argument("--domain_id", type=int, default=0, help="domain id.")
-    parser.add_argument("--height", type=int, default=480, help="input image height.")
-    parser.add_argument("--width", type=int, default=640, help="input image width.")
+    parser.add_argument("--height", type=int, default=224, help="input image height.")
+    parser.add_argument("--width", type=int, default=224, help="input image width.")
     parser.add_argument(
         "--topic_in_room_camera",
         type=str,
@@ -84,7 +81,7 @@ def main():
         choices=list(DATA_CONFIG_MAP.keys()),
         help="data config name",
     )
-    parser.add_argument("--modality_keys", nargs="+", type=str, default=["panda_hand"])
+    # parser.add_argument("--modality_keys", nargs="+", type=str, default=["panda_hand"])
     parser.add_argument(
         "--embodiment_tag",
         type=str,
@@ -104,7 +101,6 @@ def main():
         embodiment_tag=args.embodiment_tag,
         device="cuda" if torch.cuda.is_available() else "cpu",
     )
-    
 
     if args.rti_license_file is not None:
         if not os.path.isabs(args.rti_license_file):
@@ -117,17 +113,17 @@ def main():
         def __init__(self, topic: str, domain_id: int):
             super().__init__(topic, FrankaCtrlInput, 1 / hz, domain_id)
 
-        def produce(self, dt: float, sim_time: float):
+        def produce(self):
             # Process camera images directly to numpy arrays
             def _process_camera_image(buffer, height, width):
                 img_buffer = np.frombuffer(buffer, dtype=np.uint8)
                 return img_buffer.reshape(height, width, 3)
-            
+
             # Get images from camera buffers
             room_img = _process_camera_image(current_state["room_cam"], args.height, args.width)
             wrist_img = _process_camera_image(current_state["wrist_cam"], args.height, args.width)
             joint_pos = current_state["joint_pos"]
-            
+
             # Prepare input data with batch dimension for model
             data_point = {
                 "video.room": np.expand_dims(room_img, axis=0),
@@ -171,7 +167,7 @@ def main():
             and current_state["wrist_cam"] is not None
             and current_state["joint_pos"] is not None
         ):
-            writer.write(0.1, 1.0)
+            writer.write()
             if args.verbose:
                 print(f"[INFO]: Published joint position to {args.topic_out}")
             # clean the buffer

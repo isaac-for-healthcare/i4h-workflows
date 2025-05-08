@@ -49,11 +49,35 @@ Here's a markdown table describing the command-line arguments:
 
 ## Run GROOT N1 policy with DDS communication
 
+### Prepare Model Weights and Dependencies
+
+For now, please refer to the official [NVIDIA Isaac GR00T Installation Guide](https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#installation-guide) for detailed instructions on setting up the necessary dependencies and acquiring model weights. This section will be updated with more specific instructions later.
+
+### Ensure the PYTHONPATH Is Set
+
+Make sure your environment variables are properly set as described in the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) section.
+
+### Run Policy
+
+From the [`policy_runner` folder](./), execute:
 ```sh
 python run_n1_policy.py
 ```
 
-Run in another terminal
-```sh
-python sim_with_dds.py
-```
+
+### Command Line Arguments
+
+| Argument                  | Type   | Default                        | Description                                                                 |
+|---------------------------|--------|--------------------------------|-----------------------------------------------------------------------------|
+| `--ckpt_path`             | str    | `None`                         | Path to the GROOT N1 policy model checkpoint file. If not provided, uses a default path based on assets. |
+| `--rti_license_file`      | str    | Environment `RTI_LICENSE_FILE` | Path to the RTI Connext DDS license file.                                   |
+| `--domain_id`             | int    | `0`                            | DDS domain ID for communication.                                            |
+| `--height`                | int    | `224`                          | Expected height of the input camera images.                                 |
+| `--width`                 | int    | `224`                          | Expected width of the input camera images.                                  |
+| `--topic_in_room_camera`  | str    | `"topic_room_camera_data_rgb"` | DDS topic name for subscribing to room camera RGB images.                   |
+| `--topic_in_wrist_camera` | str    | `"topic_wrist_camera_data_rgb"`| DDS topic name for subscribing to wrist camera RGB images.                  |
+| `--topic_in_franka_pos`   | str    | `"topic_franka_info"`          | DDS topic name for subscribing to Franka robot joint states (positions).      |
+| `--topic_out`             | str    | `"topic_franka_ctrl"`          | DDS topic name for publishing predicted Franka robot actions.               |
+| `--verbose`               | bool   | `False`                        | If set, enables verbose logging output.                                     |
+| `--data_config`           | str    | `"single_panda_us"`            | Name of the data configuration to use (e.g., for modality and transforms). Choices are from `DATA_CONFIG_MAP`. |
+| `--embodiment_tag`        | str    | `"new_embodiment"`             | The embodiment tag for the GROOT model.                                     |
