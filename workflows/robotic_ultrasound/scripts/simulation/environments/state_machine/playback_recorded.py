@@ -24,13 +24,13 @@ from isaaclab.app import AppLauncher
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script demonstrates a single-arm manipulator.")
+parser.add_argument("--hdf5_path", type=str, required=True, help="Path to either .hdf5 file containing recorded data.")
 parser.add_argument(
     "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."
 )
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 parser.add_argument("--task", type=str, default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0", help="Name of the task.")
 parser.add_argument("--use_rel", action="store_true", default=False, help="Use relative actions.")
-parser.add_argument("--data_path", type=str, required=True, help="Path to either .hdf5 file containing recorded data.")
 
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -90,7 +90,7 @@ def reset_organ_to_position(env, object_position):
     """Reset the organ position."""
     organs = env.unwrapped.scene._rigid_objects["organs"]
     root_state = organs.data.default_root_state.clone()
-    root_state[:, :7] = torch.tensor(object_position[0, :7], device="cuda:0")
+    root_state[:, :7] = torch.tensor(object_position[0, :7], device=args_cli.device)
     # write to the sim
     organs.write_root_state_to_sim(root_state)
 
@@ -98,9 +98,9 @@ def reset_organ_to_position(env, object_position):
 def reset_robot_to_position(env, robot_initial_joint_state, joint_vel=None):
     """Reset the robot to the initial joint state."""
     robot = env.unwrapped.scene["robot"]
-    joint_pos = torch.tensor(robot_initial_joint_state[0], device="cuda:0").unsqueeze(0)
+    joint_pos = torch.tensor(robot_initial_joint_state[0], device=args_cli.device).unsqueeze(0)
     if joint_vel is not None:
-        joint_vel = torch.tensor(joint_vel[0], device="cuda:0")
+        joint_vel = torch.tensor(joint_vel[0], device=args_cli.device)
     else:
         print("No joint velocity provided, setting to zero")
         joint_vel = torch.zeros_like(joint_pos)
@@ -112,8 +112,8 @@ def reset_robot_to_position(env, robot_initial_joint_state, joint_vel=None):
 def main():
     """Main function."""
     # Check for HDF5 format by inspecting files in the directory
-    if os.path.isdir(args_cli.data_path):
-        files = os.listdir(args_cli.data_path)
+    if os.path.isdir(args_cli.hdf5_path):
+        files = os.listdir(args_cli.hdf5_path)
         if not any(file.endswith(".hdf5") for file in files):
             raise AssertionError("Unsupported file format. Please use a directory containing .hdf5 files.")
     else:
@@ -139,22 +139,22 @@ def main():
     # simulate physics
     while simulation_app.is_running():
         torso_obs_key = "observations/torso_obs"
-        actions, total_episodes = get_episode_data(args_cli.data_path, episode_idx)
+        actions, total_episodes = get_episode_data(args_cli.hdf5_path, episode_idx)
 
         # Check if we've reached the end of available episodes
         if episode_idx >= total_episodes - 1 or actions is None:
             print(f"Reached the end of available episodes ({episode_idx + 1}/{total_episodes})")
             break
 
-        object_position = get_observation_episode_data(args_cli.data_path, episode_idx, torso_obs_key)
+        object_position = get_observation_episode_data(args_cli.hdf5_path, episode_idx, torso_obs_key)
         reset_organ_to_position(env, object_position)
 
         # reset robot to initial joint state
         joint_state_key = "abs_joint_pos"
-        robot_initial_joint_state = get_observation_episode_data(args_cli.data_path, episode_idx, joint_state_key)
+        robot_initial_joint_state = get_observation_episode_data(args_cli.hdf5_path, episode_idx, joint_state_key)
         try:
             joint_vel_key = "observations/joint_vel"
-            joint_vel = get_observation_episode_data(args_cli.data_path, episode_idx, joint_vel_key)
+            joint_vel = get_observation_episode_data(args_cli.hdf5_path, episode_idx, joint_vel_key)
         except KeyError:
             print("No joint velocity provided, setting to zero")
             joint_vel = None
@@ -185,14 +185,14 @@ def main():
                     print(f"Completed all episodes ({total_episodes})")
                     break
 
-                actions, _ = get_episode_data(args_cli.data_path, episode_idx + 1)
-                object_position = get_observation_episode_data(args_cli.data_path, episode_idx + 1, torso_obs_key)
+                actions, _ = get_episode_data(args_cli.hdf5_path, episode_idx + 1)
+                object_position = get_observation_episode_data(args_cli.hdf5_path, episode_idx + 1, torso_obs_key)
                 reset_organ_to_position(env, object_position)
                 robot_initial_joint_state = get_observation_episode_data(
-                    args_cli.data_path, episode_idx + 1, joint_state_key
+                    args_cli.hdf5_path, episode_idx + 1, joint_state_key
                 )
                 try:
-                    joint_vel = get_observation_episode_data(args_cli.data_path, episode_idx + 1, joint_vel_key)
+                    joint_vel = get_observation_episode_data(args_cli.hdf5_path, episode_idx + 1, joint_vel_key)
                 except KeyError:
                     print("No joint velocity provided, setting to zero")
                     joint_vel = None
