@@ -30,7 +30,6 @@ parser.add_argument(
 )
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 parser.add_argument("--task", type=str, default="Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0", help="Name of the task.")
-parser.add_argument("--use_rel", action="store_true", default=False, help="Use relative actions.")
 
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -75,7 +74,10 @@ def get_episode_data(data_path: str, episode_idx: int):
     """Get episode data from HDF5 format."""
     # Load initial episode data
     try:
-        action_key = "action" if args_cli.use_rel else "abs_action"
+        if "Rel" in args_cli.task:
+            action_key = "action"
+        else:
+            action_key = "abs_action"
         root = h5py.File(os.path.join(data_path, f"data_{episode_idx}.hdf5"), "r")
         # total_episodes are the number of files starting with data__ in the directory
         total_episodes = len([k for k in os.listdir(data_path) if k.startswith("data_")])
