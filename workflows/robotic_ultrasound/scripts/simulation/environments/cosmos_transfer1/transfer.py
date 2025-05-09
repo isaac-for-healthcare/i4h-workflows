@@ -17,31 +17,37 @@ import argparse
 import json
 import os
 import random
+
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Workaround to suppress MP warning
 
-import sys
-from io import BytesIO
 import glob
+import sys
+import tempfile
+from io import BytesIO
 
+import cv2
+import h5py
+import numpy as np
 import torch
-
+import torch.distributed as dist
 from cosmos_transfer1.checkpoints import BASE_7B_CHECKPOINT_PATH
 from cosmos_transfer1.diffusion.inference.inference_utils import load_controlnet_specs, validate_controlnet_specs
 from cosmos_transfer1.diffusion.inference.preprocessors import Preprocessors
-# from cosmos_transfer1.diffusion.inference.world_generation_pipeline import DiffusionControl2WorldGenerationPipeline
 from cosmos_transfer1.utils import log, misc
 from cosmos_transfer1.utils.io import save_video
-from simulation.environments.cosmos_transfer1.guided_generation_pipeline import DiffusionControl2WorldGenerationPipelineWithGuidance
-from simulation.environments.cosmos_transfer1.utils.warper_transfered_video_gpu import main as warper_transfered_video_main, concat_videos
-
 from megatron.core import parallel_state
-
-import torch.distributed as dist
-import tempfile
-import h5py
-import cv2
-import numpy as np
+from simulation.environments.cosmos_transfer1.guided_generation_pipeline import (
+    DiffusionControl2WorldGenerationPipelineWithGuidance,
+)
+from simulation.environments.cosmos_transfer1.utils.inference_utils import (
+    concat_videos,
+    read_video_or_image_into_frames,
+)
+from simulation.environments.cosmos_transfer1.utils.warper_transfered_video_gpu import (
+    main as warper_transfered_video_main,
+)
 from tqdm import tqdm
+
 torch.enable_grad(False)
 torch.serialization.add_safe_globals([BytesIO])
 
@@ -82,13 +88,18 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--prompt",
         type=str,
-        default="The video captures a stunning, photorealistic scene with remarkable attention to detail, giving it a lifelike appearance that is almost indistinguishable from reality. It appears to be from a high-budget 4K movie, showcasing ultra-high-definition quality with impeccable resolution.",
+        default="The video captures a stunning, photorealistic scene with remarkable attention to detail, giving it a "
+        "lifelike appearance that is almost indistinguishable from reality. It appears to be from a high-budget "
+        "4K movie, showcasing ultra-high-definition quality with impeccable resolution.",
         help="prompt which the sampled video condition on",
     )
     parser.add_argument(
         "--negative_prompt",
         type=str,
-        default="The video captures a game playing, with bad crappy graphics and cartoonish frames. It represents a recording of old outdated games. The lighting looks very fake. The textures are very raw and basic. The geometries are very primitive. The images are very pixelated and of poor CG quality. There are many subtitles in the footage. Overall, the video is unrealistic at all.",
+        default="The video captures a game playing, with bad crappy graphics and cartoonish frames. It represents "
+        "a recording of old outdated games. The lighting looks very fake. The textures are very raw and basic. "
+        "The geometries are very primitive. The images are very pixelated and of poor CG quality. "
+        "There are many subtitles in the footage. Overall, the video is unrealistic at all.",
         help="negative prompt which the sampled video condition on",
     )
     parser.add_argument(
@@ -104,7 +115,7 @@ def parse_arguments() -> argparse.Namespace:
         help="Number of conditional frames for long video generation",
         choices=[1, 9, 17],
     )
-    parser.add_argument("--sigma_max", type=float, default=70.0, help="sigma_max for partial denoising")
+    parser.add_argument("--sigma_max", type=float, default=80.0, help="sigma_max for partial denoising")
     parser.add_argument(
         "--blur_strength",
         type=str,
@@ -117,7 +128,8 @@ def parse_arguments() -> argparse.Namespace:
         type=str,
         default="medium",
         choices=["very_low", "low", "medium", "high", "very_high"],
-        help="blur strength of canny threshold applied to input. Lower means less blur or more detected edges, which means higher fidelity to input.",
+        help="blur strength of canny threshold applied to input. Lower means less blur or more detected edges, "
+        "which means higher fidelity to input.",
     )
     parser.add_argument(
         "--controlnet_specs",
@@ -160,7 +172,9 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--height", type=int, default=704, help="Height of video to sample")
     parser.add_argument("--width", type=int, default=1280, help="Width of video to sample")
     parser.add_argument("--seed", type=int, default=1, help="Random seed")
-    parser.add_argument("--num_gpus", type=int, default=1, choices=[1], help="Number of GPUs used to run inference in parallel.")
+    parser.add_argument(
+        "--num_gpus", type=int, default=1, choices=[1], help="Number of GPUs used to run inference in parallel."
+    )
     parser.add_argument(
         "--offload_diffusion_transformer",
         action="store_true",
@@ -210,7 +224,13 @@ def parse_arguments() -> argparse.Namespace:
         default="3,4",
         help="comma separated list of foreground labels to be used for the mask.",
     )
-    parser.add_argument("--sigma_threshold", type=float, default=1.2866e+00, help="This controls how many guidance steps are performed during generation. Smaller values mean more steps, larger values mean less steps.")
+    parser.add_argument(
+        "--sigma_threshold",
+        type=float,
+        default=1.2866e00,
+        help="This controls how many guidance steps are performed during generation. Smaller values mean more steps, "
+        "larger values mean less steps.",
+    )
 
     cmd_args = parser.parse_args()
 
@@ -265,7 +285,7 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
     output_data_dir = args.output_data_dir
     if output_data_dir is None:
         output_data_dir = source_data_dir
- 
+
     misc.set_random_seed(cfg.seed)
     pipeline.seed = cfg.seed
 
@@ -296,20 +316,25 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
         log.info(f"Using x0 mask path: {cfg.x0_mask_path} for guided video generation.")
         x0_spatial_condtion = {
             "x0_mask_path": cfg.x0_mask_path,
-            "foreground_label": [int(l) for l in cfg.foreground_label.split(",")],
+            "foreground_label": [int(label) for label in cfg.foreground_label.split(",")],
             "sigma_threshold": cfg.sigma_threshold,
         }
-    
+
     for _, input_dict in enumerate(prompts):
         current_prompt = input_dict.get("prompt", None)
         current_video_path = input_dict.get("visual_input", None)
 
         file_name_index = int(os.path.basename(data["h5_file_path"]).replace(".hdf5", "").split("_")[-1])
-        video_save_path = os.path.join(cfg.video_save_folder, f"data_{args.save_name_offset + file_name_index}_room_view.mp4")
-        prompt_save_path = os.path.join(cfg.video_save_folder, f"data_{args.save_name_offset + file_name_index}_room_view.txt")
+        video_save_path = os.path.join(
+            cfg.video_save_folder, f"data_{args.save_name_offset + file_name_index}_room_view.mp4"
+        )
+        prompt_save_path = os.path.join(
+            cfg.video_save_folder, f"data_{args.save_name_offset + file_name_index}_room_view.txt"
+        )
 
         if os.path.exists(video_save_path):
-            log.info(f"Video already exists: {video_save_path}, skipping generation.")
+            log.info(f"Video already exists: {video_save_path}, skipping room-view generation.")
+            video_room_view = read_video_or_image_into_frames(video_save_path, also_return_fps=False)
             continue
 
         # if control inputs are not provided, run respective preprocessor (for seg and depth)
@@ -322,7 +347,7 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
             negative_prompt=cfg.negative_prompt,
             control_inputs=control_inputs,
             save_folder=cfg.video_save_folder,
-            x0_spatial_condtion=x0_spatial_condtion
+            x0_spatial_condtion=x0_spatial_condtion,
         )
         if generated_output is None:
             log.critical("Guardrail blocked generation.")
@@ -344,32 +369,45 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
             f.write(prompt.encode("utf-8"))
         log.info(f"Saved video to {video_save_path}", rank0_only=False)
         log.info(f"Saved prompt to {prompt_save_path}", rank0_only=False)
-    
-    # Warp transfered video
+
+    # Warp transferred video
     room_camera_params_path = data["room_camera_para_path"]
     wrist_camera_params_path = data["wrist_camera_para_path"]
     transfered_video_path = video_save_path
     wrist_img_video_path = data["wrist_video_path"]
     seg_depth_images_path = data["seg_depth_images_npz"]
     concat_video_second_view = True
-  
+
     warped_video_path, roi_masks_path = warper_transfered_video_main(
-        room_camera_params_path, wrist_camera_params_path, 
-        transfered_video_path, wrist_img_video_path, seg_depth_images_path, temp_dir, 
-        device=f'gpu{device_rank}',
+        room_camera_params_path,
+        wrist_camera_params_path,
+        transfered_video_path,
+        wrist_img_video_path,
+        seg_depth_images_path,
+        temp_dir,
+        device=f"gpu{device_rank}",
         return_concat_video=concat_video_second_view,
-        fill_missing_pixels=True
+        fill_missing_pixels=True,
     )
     torch.cuda.empty_cache()
-    
+
     # generate second view
     if concat_video_second_view:
         postfix = " The bottom video is facing the same table in the top video without reflection."
-        prompts = [{"prompt": bottom_view_prompt + postfix, 
-                    "visual_input": warped_video_path}]
-        concat_videos(data["room_depth_path"], data["wrist_depth_path"], os.path.join(temp_dir, "depth_video_concatv.mp4"), "vertical")
+        prompts = [{"prompt": bottom_view_prompt + postfix, "visual_input": warped_video_path}]
+        concat_videos(
+            data["room_depth_path"],
+            data["wrist_depth_path"],
+            os.path.join(temp_dir, "depth_video_concatv.mp4"),
+            "vertical",
+        )
         control_inputs["depth"]["input_control"] = os.path.join(temp_dir, "depth_video_concatv.mp4")
-        concat_videos(data["room_seg_path"], data["wrist_seg_path"], os.path.join(temp_dir, "seg_mask_video_concatv.mp4"), "vertical")
+        concat_videos(
+            data["room_seg_path"],
+            data["wrist_seg_path"],
+            os.path.join(temp_dir, "seg_mask_video_concatv.mp4"),
+            "vertical",
+        )
         control_inputs["seg"]["input_control"] = os.path.join(temp_dir, "seg_mask_video_concatv.mp4")
     else:
         prompts = [{"prompt": bottom_view_prompt, "visual_input": warped_video_path}]
@@ -402,17 +440,23 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
             negative_prompt=cfg.negative_prompt,
             control_inputs=control_inputs,
             save_folder=cfg.video_save_folder,
-            x0_spatial_condtion=x0_spatial_condtion
+            x0_spatial_condtion=x0_spatial_condtion,
         )
         if generated_output is None:
             log.critical("Guardrail blocked generation.")
             continue
         video_wrist_view, prompt = generated_output
 
-        video_wrist_view = video_wrist_view[:,video_wrist_view.shape[1]//2:,...] if concat_video_second_view else video_wrist_view 
+        video_wrist_view = (
+            video_wrist_view[:, video_wrist_view.shape[1] // 2 :, ...] if concat_video_second_view else video_wrist_view
+        )
 
-        video_save_path = os.path.join(cfg.video_save_folder, f"data_{args.save_name_offset + file_name_index}_wrist_view.mp4")
-        prompt_save_path = os.path.join(cfg.video_save_folder, f"data_{args.save_name_offset + file_name_index}_wrist_view.txt")
+        video_save_path = os.path.join(
+            cfg.video_save_folder, f"data_{args.save_name_offset + file_name_index}_wrist_view.mp4"
+        )
+        prompt_save_path = os.path.join(
+            cfg.video_save_folder, f"data_{args.save_name_offset + file_name_index}_wrist_view.txt"
+        )
 
         # Save video
         os.makedirs(os.path.dirname(video_save_path), exist_ok=True)
@@ -431,8 +475,9 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
         log.info(f"Saved video to {video_save_path}", rank0_only=False)
         log.info(f"Saved prompt to {prompt_save_path}", rank0_only=False)
         torch.cuda.empty_cache()
-    
+
     return video_room_view, video_wrist_view
+
 
 if __name__ == "__main__":
     args, control_inputs = parse_arguments()
@@ -446,8 +491,6 @@ if __name__ == "__main__":
     source_data_dir = args.source_data_dir
 
     h5_file_paths = sorted(glob.glob(os.path.join(source_data_dir, "*.hdf5")))
-    # filter out some files index < 200
-    h5_file_paths = [h5_file_path for h5_file_path in h5_file_paths if int(os.path.basename(h5_file_path).split(".")[0].split("_")[-1]) >= 200][:1]
     log.info(f"total h5 files: {len(h5_file_paths)}")
 
     control_inputs = validate_controlnet_specs(args, control_inputs)
@@ -469,7 +512,7 @@ if __name__ == "__main__":
         upsample_prompt=args.upsample_prompt,
         offload_prompt_upsampler=args.offload_prompt_upsampler,
     )
-    
+
     for i, h5_file_path in enumerate(h5_file_paths):
         # skip if not the current process
         if i % world_size != global_rank:
@@ -491,27 +534,38 @@ if __name__ == "__main__":
         print(f"preprocessing h5 file to mp4 videos: {mp4_save_dir}")
         f = h5py.File(h5_file_path, "r")
 
-        rgb_images = f['data/demo_0/observations/rgb_images']  # (263, 2, 224, 224, 3)
-        depth_images = f['data/demo_0/observations/depth_images']  # (263, 2, 224, 224, 1)
-        seg_images = f['data/demo_0/observations/seg_images']  # (263, 2, 224, 224, 4) - Only last channel needed
+        rgb_images = f["data/demo_0/observations/rgb_images"]  # (263, 2, 224, 224, 3)
+        depth_images = f["data/demo_0/observations/depth_images"]  # (263, 2, 224, 224, 1)
+        seg_images = f["data/demo_0/observations/seg_images"]  # (263, 2, 224, 224, 4) - Only last channel needed
         # Video parameters
         num_frames, num_videos, height, width, _ = seg_images.shape
         fps = 30  # Frames per second
         video_code = cv2.VideoWriter_fourcc(*"mp4v")  # Codec for MP4 format
         # Create video writers
         writers = {
-            "rgb": [cv2.VideoWriter(f"{mp4_save_dir}/rgb_video_{i}.mp4", video_code, fps, (width, height)) for i in range(num_videos)],
-            "depth": [cv2.VideoWriter(f"{mp4_save_dir}/depth_video_{i}.mp4", video_code, fps, (width, height), isColor=False) for i in range(num_videos)],
-            "seg": [cv2.VideoWriter(f"{mp4_save_dir}/seg_mask_video_{i}.mp4", video_code, fps, (width, height), isColor=True) for i in range(num_videos)]
+            "rgb": [
+                cv2.VideoWriter(f"{mp4_save_dir}/rgb_video_{i}.mp4", video_code, fps, (width, height))
+                for i in range(num_videos)
+            ],
+            "depth": [
+                cv2.VideoWriter(f"{mp4_save_dir}/depth_video_{i}.mp4", video_code, fps, (width, height), isColor=False)
+                for i in range(num_videos)
+            ],
+            "seg": [
+                cv2.VideoWriter(
+                    f"{mp4_save_dir}/seg_mask_video_{i}.mp4", video_code, fps, (width, height), isColor=True
+                )
+                for i in range(num_videos)
+            ],
         }
         for i in range(num_frames):
             for vid_idx in range(num_videos):
                 # RGB Video
-                rgb_frame = rgb_images[i, vid_idx].astype(np.uint8)[:,:,::-1]  # (224, 224, 3)
+                rgb_frame = rgb_images[i, vid_idx].astype(np.uint8)[:, :, ::-1]
                 writers["rgb"][vid_idx].write(rgb_frame)
 
-                # Depth Video (Normalize and Apply Colormap)
-                depth_frame = depth_images[i, vid_idx, :, :, 0]  # Extract (224, 224)
+                # Depth Video
+                depth_frame = depth_images[i, vid_idx, :, :, 0]
                 output = 1.0 / (depth_frame + 1e-6)
 
                 depth_min = output.min()
@@ -525,44 +579,47 @@ if __name__ == "__main__":
 
                 formatted = out_array.astype("uint8")
                 writers["depth"][vid_idx].write(formatted)
-                
-                seg_mask_frame = seg_images[i, vid_idx, :, :, :].astype(np.uint8) # Already 0 or 255
+
+                seg_mask_frame = seg_images[i, vid_idx, :, :, :].astype(np.uint8)
 
                 writers["seg"][vid_idx].write(seg_mask_frame)
 
         # Release all video writers
         for category in writers:
             for writer in writers[category]:
-                writer.release()    
+                writer.release()
         # save camera parameters
-        room_camera_intrinsic_matrices = f['data/demo_0/observations/room_camera_intrinsic_matrices']  # (n_frames, 3, 3)
-        room_camera_pos = f['data/demo_0/observations/room_camera_pos']  # (n_frames, 3)
-        room_camera_quat = f['data/demo_0/observations/room_camera_quat_w_ros']  # (n_frames, 4)
+        room_camera_intrinsic_matrices = f[
+            "data/demo_0/observations/room_camera_intrinsic_matrices"
+        ]  # (n_frames, 3, 3)
+        room_camera_pos = f["data/demo_0/observations/room_camera_pos"]  # (n_frames, 3)
+        room_camera_quat = f["data/demo_0/observations/room_camera_quat_w_ros"]  # (n_frames, 4)
         save_dict = {
             "room_camera_intrinsic_matrices": room_camera_intrinsic_matrices,
             "room_camera_pos": room_camera_pos,
-            "room_camera_quat": room_camera_quat
+            "room_camera_quat": room_camera_quat,
         }
         room_camera_para_path = f"{mp4_save_dir}/room_camera_para.npz"
         np.savez(room_camera_para_path, **save_dict)
-        wrist_camera_intrinsic_matrices = f['data/demo_0/observations/wrist_camera_intrinsic_matrices']  # (n_frames, 3, 3)
-        wrist_camera_pos = f['data/demo_0/observations/wrist_camera_pos']  # (n_frames, 3)
-        wrist_camera_quat = f['data/demo_0/observations/wrist_camera_quat_w_ros']  # (n_frames, 4)
+        wrist_camera_intrinsic_matrices = f[
+            "data/demo_0/observations/wrist_camera_intrinsic_matrices"
+        ]  # (n_frames, 3, 3)
+        wrist_camera_pos = f["data/demo_0/observations/wrist_camera_pos"]  # (n_frames, 3)
+        wrist_camera_quat = f["data/demo_0/observations/wrist_camera_quat_w_ros"]  # (n_frames, 4)
         save_dict = {
             "wrist_camera_intrinsic_matrices": wrist_camera_intrinsic_matrices,
             "wrist_camera_pos": wrist_camera_pos,
-            "wrist_camera_quat": wrist_camera_quat
+            "wrist_camera_quat": wrist_camera_quat,
         }
         wrist_camera_para_path = f"{mp4_save_dir}/wrist_camera_para.npz"
         np.savez(wrist_camera_para_path, **save_dict)
-        # save the seg_mask videos
         save_dict = {
-            "depth_images": f['data/demo_0/observations/depth_images'],
-            "seg_images": f['data/demo_0/observations/seg_images']
+            "depth_images": f["data/demo_0/observations/depth_images"],
+            "seg_images": f["data/demo_0/observations/seg_images"],
         }
         seg_depth_images_npz = f"{mp4_save_dir}/seg_depth_images.npz"
         np.savez(seg_depth_images_npz, **save_dict)
-    
+
         data = {
             "room_video_path": f"{mp4_save_dir}/rgb_video_0.mp4",
             "room_depth_path": f"{mp4_save_dir}/depth_video_0.mp4",
@@ -573,15 +630,17 @@ if __name__ == "__main__":
             "room_camera_para_path": room_camera_para_path,
             "wrist_camera_para_path": wrist_camera_para_path,
             "seg_depth_images_npz": seg_depth_images_npz,
-            "h5_file_path": h5_file_path
+            "h5_file_path": h5_file_path,
         }
 
-        log.info(f"processing data point {i+1}/{len(h5_file_paths)}: {os.path.basename(h5_file_path)}", rank0_only=False)
+        log.info(
+            f"processing data point {i+1}/{len(h5_file_paths)}: {os.path.basename(h5_file_path)}", rank0_only=False
+        )
         args.seed = random.randint(0, 1000000) + global_rank
         video_room_view, video_wrist_view = inference(args, pipeline, control_inputs, data, local_rank)
 
         # Create a new HDF5 file
-        with h5py.File(output_hdf5, 'w') as dst:
+        with h5py.File(output_hdf5, "w") as dst:
             # Copy all groups and datasets, except the part we want to replace
             def copy_attributes(name, obj):
                 if isinstance(obj, h5py.Group):
@@ -590,7 +649,7 @@ if __name__ == "__main__":
                     # Copy group attributes
                     for key, value in obj.attrs.items():
                         dst[name].attrs[key] = value
-                
+
                 elif isinstance(obj, h5py.Dataset):
                     if name != "data/demo_0/observations/rgb_images":
                         # Copy the dataset
@@ -598,21 +657,22 @@ if __name__ == "__main__":
                         # Copy dataset attributes
                         for key, value in obj.attrs.items():
                             dst[name].attrs[key] = value
-            
+
             # Process all items in the source file
             f.visititems(copy_attributes)
-            
+
             # Create a new RGB dataset
             num_frames = video_room_view.shape[0]
-            
+
             # Create a dataset with the same shape as the original
-            dst_rgb = dst.create_dataset("data/demo_0/observations/rgb_images", 
-                                         shape=rgb_images.shape, dtype=rgb_images.dtype)
-            
+            dst_rgb = dst.create_dataset(
+                "data/demo_0/observations/rgb_images", shape=rgb_images.shape, dtype=rgb_images.dtype
+            )
+
             # Copy attributes
             for key, value in rgb_images.attrs.items():
                 dst_rgb.attrs[key] = value
-            
+
             # Replace frames in the dataset
             for i in tqdm(range(num_frames)):
                 # Process camera 0 (top view)
@@ -622,7 +682,7 @@ if __name__ == "__main__":
                     if frame_rgb0.shape != rgb_images.shape[2:]:
                         frame_rgb0 = cv2.resize(frame_rgb0, (rgb_images.shape[3], rgb_images.shape[2]))
                     dst_rgb[i, 0] = frame_rgb0
-                
+
                 # Process camera 1 (bottom view)
                 if i < len(video_wrist_view):
                     # Ensure correct shape
@@ -630,13 +690,12 @@ if __name__ == "__main__":
                     if frame_rgb1.shape != rgb_images.shape[2:]:
                         frame_rgb1 = cv2.resize(frame_rgb1, (rgb_images.shape[3], rgb_images.shape[2]))
                     dst_rgb[i, 1] = frame_rgb1
-            
+
             # If video frame count is less than original data, copy remaining frames
             if num_frames < rgb_images.shape[0]:
                 dst_rgb[num_frames:] = rgb_images[num_frames:]
-            
+
             print(f"Created {output_hdf5}, replaced frames from video")
 
     if world_size > 1:
         dist.destroy_process_group()
-

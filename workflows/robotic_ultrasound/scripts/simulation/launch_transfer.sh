@@ -21,11 +21,12 @@ controlnet_specs=./environments/cosmos_transfer1/config/inference_cosmos_transfe
 source_data_dir=/healthcareeng_monai/I4H/2025-04-30-21-25-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0-NEWBATCH
 output_data_dir=/healthcareeng_monai/I4H/2025-04-30-21-25-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0-NEWBATCH-debug
 
-save_name_offset=400
+save_name_offset=0
 export CHECKPOINT_DIR="/workspace/code/cosmos-transfer1/checkpoints"
 export PROJECT_ROOT="/workspace/code/i4h-workflows"
 # Set PYTHONPATH with absolute paths
 export PYTHONPATH="$PROJECT_ROOT/third_party/cosmos-transfer1:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation"
+export DEBUG_GENERATION=True
 
 # Current working directory for reference
 CWD="$(pwd)"

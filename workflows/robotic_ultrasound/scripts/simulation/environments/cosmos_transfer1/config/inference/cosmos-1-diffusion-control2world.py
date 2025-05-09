@@ -13,16 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from hydra.core.config_store import ConfigStore
-
 from cosmos_transfer1.checkpoints import BASE_7B_CHECKPOINT_AV_SAMPLE_PATH
 from cosmos_transfer1.diffusion.config.transfer.conditioner import CTRL_HINT_KEYS_COMB
-# from cosmos_transfer1.diffusion.model.model_ctrl import VideoDiffusionModelWithCtrl, VideoDiffusionT2VModelWithCtrl
 from cosmos_transfer1.diffusion.model.model_ctrl import VideoDiffusionT2VModelWithCtrl
-from simulation.environments.cosmos_transfer1.model.model_ctrl import VideoDiffusionModelWithCtrlAndGuidance
 from cosmos_transfer1.diffusion.networks.general_dit_video_conditioned import VideoExtendGeneralDIT
 from cosmos_transfer1.utils.lazy_config import LazyCall as L
 from cosmos_transfer1.utils.lazy_config import LazyDict
+from hydra.core.config_store import ConfigStore
+from simulation.environments.cosmos_transfer1.model.model_ctrl import VideoDiffusionModelWithCtrlAndGuidance
 
 cs = ConfigStore.instance()
 

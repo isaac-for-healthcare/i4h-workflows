@@ -15,21 +15,13 @@
 
 import os
 from typing import Optional
-import sys
-
-import numpy as np
-import torch
-from tqdm import tqdm
 
 import cv2
-
-from cosmos_transfer1.diffusion.inference.world_generation_pipeline import DiffusionControl2WorldGenerationPipeline
-
-from cosmos_transfer1.auxiliary.upsampler.model.upsampler import PixtralPromptUpsampler
+import numpy as np
+import torch
 from cosmos_transfer1.checkpoints import (
     BASE_7B_CHECKPOINT_AV_SAMPLE_PATH,
     BASE_7B_CHECKPOINT_PATH,
-    COSMOS_TOKENIZER_CHECKPOINT,
     DEPTH2WORLD_CONTROLNET_7B_CHECKPOINT_PATH,
     EDGE2WORLD_CONTROLNET_7B_CHECKPOINT_PATH,
     HDMAP2WORLD_CONTROLNET_7B_CHECKPOINT_PATH,
@@ -43,31 +35,26 @@ from cosmos_transfer1.diffusion.inference.inference_utils import (
     get_video_batch,
     load_model_by_config,
     load_network_model,
-    load_tokenizer_model,
-    merge_patches_into_video,
     non_strict_load_model,
     resize_control_weight_map,
+    resize_video,
     split_video_into_patches,
-    resize_video
 )
-from simulation.environments.cosmos_transfer1.utils.inference_utils import get_ctrl_batch, generate_world_from_control
-from simulation.environments.cosmos_transfer1.model.model_ctrl import VideoDiffusionModelWithCtrlAndGuidance
+from cosmos_transfer1.diffusion.inference.world_generation_pipeline import (
+    MODEL_NAME_DICT,
+    DiffusionControl2WorldGenerationPipeline,
+)
 from cosmos_transfer1.diffusion.model.model_ctrl import VideoDiffusionT2VModelWithCtrl
 from cosmos_transfer1.utils import log
 from cosmos_transfer1.utils.base_world_generation_pipeline import BaseWorldGenerationPipeline
+from simulation.environments.cosmos_transfer1.model.model_ctrl import VideoDiffusionModelWithCtrlAndGuidance
+from simulation.environments.cosmos_transfer1.utils.inference_utils import (
+    generate_world_from_control,
+    get_ctrl_batch,
+    rgb_to_mask,
+)
+from tqdm import tqdm
 
-MODEL_NAME_DICT = {
-    BASE_7B_CHECKPOINT_PATH: "CTRL_7Bv1pt3_lvg_tp_121frames_control_input_edge_block3",
-    EDGE2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: "CTRL_7Bv1pt3_lvg_tp_121frames_control_input_edge_block3",
-    VIS2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: "CTRL_7Bv1pt3_lvg_tp_121frames_control_input_vis_block3",
-    DEPTH2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: "CTRL_7Bv1pt3_lvg_tp_121frames_control_input_depth_block3",
-    KEYPOINT2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: "CTRL_7Bv1pt3_lvg_tp_121frames_control_input_keypoint_block3",
-    SEG2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: "CTRL_7Bv1pt3_lvg_tp_121frames_control_input_seg_block3",
-    UPSCALER_CONTROLNET_7B_CHECKPOINT_PATH: "CTRL_7Bv1pt3_lvg_tp_121frames_control_input_upscale_block3",
-    BASE_7B_CHECKPOINT_AV_SAMPLE_PATH: "CTRL_7Bv1pt3_t2v_121frames_control_input_hdmap_block3",
-    HDMAP2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: "CTRL_7Bv1pt3_t2v_121frames_control_input_hdmap_block3",
-    LIDAR2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: "CTRL_7Bv1pt3_t2v_121frames_control_input_lidar_block3",
-}
 MODEL_CLASS_DICT = {
     BASE_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrlAndGuidance,
     EDGE2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrlAndGuidance,
@@ -82,7 +69,9 @@ MODEL_CLASS_DICT = {
 }
 
 
-class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2WorldGenerationPipeline, BaseWorldGenerationPipeline):
+class DiffusionControl2WorldGenerationPipelineWithGuidance(
+    DiffusionControl2WorldGenerationPipeline, BaseWorldGenerationPipeline
+):
     def __init__(
         self,
         checkpoint_dir: str,
@@ -108,7 +97,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
         offload_prompt_upsampler: bool = False,
         process_group: torch.distributed.ProcessGroup | None = None,
     ):
-        """Initialize diffusion world generation pipeline.
+        """Initialize diffusion world generation pipeline with guided generation.
 
         Args:
             checkpoint_dir: Base directory containing model checkpoints
@@ -173,7 +162,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
                 self._push_torchrun_environ_variables()
                 self._init_prompt_upsampler()
                 self._pop_torchrun_environ_variables()
-        
+
     def _load_model(self):
         self.model = load_model_by_config(
             config_job_name=self.model_name,
@@ -194,8 +183,6 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
                     model_class=self.model_class,
                     base_checkpoint_dir=self.checkpoint_dir,
                 )
-                log.info(f"Loading model: {model}")
-                log.info(f"model_class: {self.model_class}")
                 load_network_model(model, spec["ckpt_path"])
                 hint_encoders.append(model.model.net)
                 del model
@@ -203,9 +190,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
             self.model.hint_encoders = hint_encoders
         else:
             for _, spec in self.control_inputs.items():
-                net_state_dict = torch.load(
-                    spec["ckpt_path"], map_location="cpu", weights_only=False
-                )  # , weights_only=True)
+                net_state_dict = torch.load(spec["ckpt_path"], map_location="cpu", weights_only=False)
                 non_strict_load_model(self.model.model, net_state_dict)
 
         if self.process_group is not None:
@@ -214,44 +199,26 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
             if hasattr(self.model.model, "hint_encoders"):
                 self.model.model.hint_encoders.net.enable_context_parallel(self.process_group)
 
-    def rgb_to_mask(self, image, color_map=None):
+    def read_and_resize_numpy_mask(
+        self,
+        input_path: str,
+        foreground_label: list[int] = [3, 4],
+        h: int = 704,
+        w: int = 1280,
+        interpolation: int = cv2.INTER_LINEAR,
+    ) -> torch.Tensor:
         """
-        Convert a (..., 3) image to a (...) mask using a color map.
-
-        Parameters:
-        - image: np.ndarray of shape (..., 3), dtype=np.uint8
-        - color_map: dict mapping (R, G, B) tuples to integer labels
-
+        Read the video mask and resize it to the desired height and width.
+        Args:
+            input_path: Path to the video mask
+            foreground_label: List of foreground labels
+            h: Height of the video mask
+            w: Width of the video mask
+            interpolation: Interpolation method
         Returns:
-        - mask: np.ndarray of shape (...), dtype=int
+            control_input: Resized video mask
         """
-        if color_map is None:
-            color_map = {
-                (0, 0, 0) : 0,
-                (255, 0, 0) : 1,
-                (0, 255, 0) : 2,
-                (0, 0, 255) : 3,
-                (255, 255, 0) : 4 
-            }
-        # Ensure image is uint8
-        image = image.astype(np.uint8)
-
-        # Prepare output mask
-        shape = image.shape
-        mask = np.zeros(shape[:-1], dtype=np.uint8)
-
-        # Create a view to compare colors efficiently
-        for rgb, label in color_map.items():
-            matches = (image[..., 0] == rgb[0]) & \
-                    (image[..., 1] == rgb[1]) & \
-                    (image[..., 2] == rgb[2])
-            mask[matches] = label
-
-        return mask
-    
-    def read_and_resize_numpy_mask(self, input_path, foreground_label=[3, 4], h=704, w=1280, interpolation=cv2.INTER_LINEAR):
-        # BCTHW
-        video_path = input_path 
+        video_path = input_path
         frames = np.load(video_path)
         if "arr_0" in frames:
             frames = frames["arr_0"]
@@ -261,21 +228,23 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
             frames = frames[:, 0, ...]
         else:
             raise ValueError(f"Unknown video mask format: {video_path}")
-        
+
         if frames.shape[-1] == 3:
-            frames = self.rgb_to_mask(frames)
+            frames = rgb_to_mask(frames)
 
         tmp = np.zeros_like(frames)
         for label in foreground_label:
             tmp[frames == label] = 255
         frames = tmp
         log.info(f"video mask frames: {frames.shape}")
-    
+
         if frames.ndim == 3:
             frames = np.stack([frames, frames, frames], axis=0)[None]
             log.info(f"original video mask frames: {frames.shape}")
-            control_input = resize_video(frames.astype(np.float32), h, w, interpolation=interpolation)  # BCTHW, range [0, 255]
-            control_input = (torch.from_numpy(control_input).float()/255.0) # BCTHW, range [0, 1]
+            control_input = resize_video(
+                frames.astype(np.float32), h, w, interpolation=interpolation
+            )  # BCTHW, range [0, 255]
+            control_input = torch.from_numpy(control_input).float() / 255.0  # BCTHW, range [0, 1]
             log.info(f"resized video mask frames: {control_input.shape}")
         elif frames.ndim == 4:
             log.info(f"original video mask frames: {frames.shape}")
@@ -283,29 +252,39 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
             for i in range(frames.shape[0]):
                 tmp_frames = np.stack([frames[i], frames[i], frames[i]], axis=0)[None]
                 log.info(f"original video mask frames: {tmp_frames.shape}")
-                control_input = resize_video(tmp_frames.astype(np.float32), h, w, interpolation=interpolation)  # BCTHW, range [0, 255]
-                control_input = (torch.from_numpy(control_input).float()/255.0) # BCTHW, range [0, 1]
+                control_input = resize_video(
+                    tmp_frames.astype(np.float32), h, w, interpolation=interpolation
+                )  # BCTHW, range [0, 255]
+                control_input = torch.from_numpy(control_input).float() / 255.0  # BCTHW, range [0, 1]
                 log.info(f"resized video mask frames: {control_input.shape}")
                 out.append(control_input)
             control_input = torch.cat(out, dim=1)  # 1x6xTHW
             log.info(f"resized video mask frames: {control_input.shape}")
-                
+
         return control_input
-        
-    def construct_latent_weight_map(self, control_input, h=704, w=1280) -> torch.Tensor:
-        # construct weight map in the same way as control input in latent space
+
+    def construct_latent_weight_map(self, control_input: torch.Tensor, h: int = 704, w: int = 1280) -> torch.Tensor:
+        """
+        Construct the latent weight map in the same way as the control input in latent space.
+        Args:
+            control_input: Control input in latent space
+            h: Height of the control input
+            w: Width of the control input
+        Returns:
+            weight_map: Weight map in latent space
+        """
         fh = h // 8
         fw = w // 8
         if control_input.shape[1] == 6:
             out = []
             for c in [0, 3]:
                 weight_map_i = [
-                torch.nn.functional.interpolate(
-                    control_input[:, [c], :1, :, :],
-                    size=(1, fh, fw),
-                    mode="trilinear",
-                    align_corners=False,
-                )
+                    torch.nn.functional.interpolate(
+                        control_input[:, [c], :1, :, :],
+                        size=(1, fh, fw),
+                        mode="trilinear",
+                        align_corners=False,
+                    )
                 ]
                 for wi in range(1, control_input.shape[2], 8):
                     weight_map_i += [
@@ -314,12 +293,12 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
                             size=(1, fh, fw),
                             mode="trilinear",
                             align_corners=False,
-                                        )
+                        )
                     ]
                 weight_map_ = torch.cat(weight_map_i, dim=2).repeat(1, 16, 1, 1, 1)
                 out.append(weight_map_)
             weight_map = torch.cat(out, dim=1)
-            
+
         elif control_input.shape[1] == 3:
             weight_map_i = [
                 torch.nn.functional.interpolate(
@@ -336,11 +315,11 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
                         size=(1, fh, fw),
                         mode="trilinear",
                         align_corners=False,
-                                    )
+                    )
                 ]
             weight_map = torch.cat(weight_map_i, dim=2).repeat(1, 16, 1, 1, 1)
         log.info(f"video mask weight_map: {weight_map.shape}")
-        
+
         return weight_map
 
     def _run_model_with_offload(
@@ -360,6 +339,8 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
             prompt_embedding: Text embedding tensor from T5 encoder
             video_path: Path to input video
             negative_prompt_embedding: Optional embedding for negative prompt guidance
+            control_inputs: Dictionary of control inputs for generation
+            x0_spatial_condtion: Dictionary of spatial condition for x0
 
         Returns:
             np.ndarray: Generated world representation as numpy array
@@ -370,7 +351,9 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
         if self.offload_network:
             self._load_network()
 
-        sample = self._run_model(prompt_embedding, negative_prompt_embedding, video_path, control_inputs, x0_spatial_condtion)
+        sample = self._run_model(
+            prompt_embedding, negative_prompt_embedding, video_path, control_inputs, x0_spatial_condtion
+        )
 
         if self.offload_network:
             self._offload_network()
@@ -393,6 +376,9 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
         Args:
             embedding: Text embedding tensor from T5 encoder
             negative_prompt_embedding: Optional embedding for negative prompt guidance
+            video_path: Path to input video
+            control_inputs: Dictionary of control inputs for generation
+            x0_spatial_condtion: Dictionary of spatial condition for x0
 
         Returns:
             Tensor of generated video frames
@@ -427,22 +413,26 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
         control_weight = data_batch["control_weight"]
         num_new_generated_frames = self.num_video_frames - self.num_input_frames
         B, C, T, H, W = control_input.shape
-        
+
         log.info(f"control_input shape: {B, C, T, H, W}")
         log.info(f"control_weight shape: {control_weight.shape}")
         if x0_spatial_condtion is not None:
-            video_mask = self.read_and_resize_numpy_mask(x0_spatial_condtion["x0_mask_path"], foreground_label=x0_spatial_condtion["foreground_label"],h=H, w=W)
+            video_mask = self.read_and_resize_numpy_mask(
+                x0_spatial_condtion["x0_mask_path"], foreground_label=x0_spatial_condtion["foreground_label"], h=H, w=W
+            )
             sigma_threshold = x0_spatial_condtion["sigma_threshold"]
 
-        assert T == video_mask.shape[2] == input_video.shape[2], f"T: {T} != video_mask.shape[2]: {video_mask.shape[2]} != input_video.shape[2]: {input_video.shape[2]}"
-        
+        assert (
+            T == video_mask.shape[2] == input_video.shape[2]
+        ), f"T: {T} != video_mask.shape[2]: {video_mask.shape[2]} != input_video.shape[2]: {input_video.shape[2]}"
+
         if (T - self.num_input_frames) % num_new_generated_frames != 0:  # pad duplicate frames at the end
             pad_t = num_new_generated_frames - ((T - self.num_input_frames) % num_new_generated_frames)
             pad_frames = control_input[:, :, -1:].repeat(1, 1, pad_t, 1, 1)
             control_input = torch.cat([control_input, pad_frames], dim=2)
             if input_video is not None:
                 pad_video = input_video[:, :, -1:].repeat(1, 1, pad_t, 1, 1)
-                input_video = torch.cat([input_video, pad_video], dim=2) 
+                input_video = torch.cat([input_video, pad_video], dim=2)
             if video_mask is not None:
                 # add padding to the mask
                 pad_video = video_mask[:, :, -1:].repeat(1, 1, pad_t, 1, 1)
@@ -474,11 +464,14 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
                 for b in range(B):
                     input_frames = input_video[b : b + 1, :, start_frame:end_frame].cuda()
                     x0 = self.model.encode(input_frames).contiguous()
-                    # x_sigma_max.append(self.model.get_x_from_clean(x0, self.sigma_max, seed=(self.seed + i_clip)))
                     x_sigma_max.append(self.model.get_x_from_clean(x0, self.sigma_max, seed=self.seed))
                     if video_mask is not None:
                         x0_list.append(x0)
-                        input_x_sigma_mask.append(self.construct_latent_weight_map(video_mask[b : b + 1, :, start_frame:end_frame].cuda(), h=H, w=W))
+                        input_x_sigma_mask.append(
+                            self.construct_latent_weight_map(
+                                video_mask[b : b + 1, :, start_frame:end_frame].cuda(), h=H, w=W
+                            )
+                        )
                 x_sigma_max = torch.cat(x_sigma_max)
                 if video_mask is not None:
                     x0_spatial_condtion = {
@@ -488,7 +481,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
                     }
 
                 if self.sigma_max >= 80:
-                    log.info(f"sigma_max is greater than 80, using None for x_sigma_max")
+                    log.info("sigma_max is greater than 80, using None for x_sigma_max")
                     x_sigma_max = None
 
             else:
@@ -520,20 +513,20 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
                 condition_latent = torch.zeros_like(latent_tmp)
             else:
                 num_input_frames = self.num_input_frames
-                prev_frames = split_video_into_patches(prev_frames, control_input.shape[-2], control_input.shape[-1])
+                prev_frames = split_video_into_patches(prev_frames, control_input.shape[-2], control_input.shape[-1])  # noqa: F821
                 condition_latent = []
                 for b in range(B):
                     input_frames = prev_frames[b : b + 1].cuda().bfloat16() / 255.0 * 2 - 1
                     condition_latent += [self.model.encode(input_frames).contiguous()]
                 condition_latent = torch.cat(condition_latent)
-            
+
             log.info(f"latent_hint shape: {latent_hint.shape}")
             if x_sigma_max is not None:
                 log.info(f"x_sigma_max shape: {x_sigma_max.shape}")
             if x0_spatial_condtion is not None:
                 log.info(f"x0 shape: {x0_spatial_condtion['x0'].shape}")
                 log.info(f"x_sigma_mask shape: {x0_spatial_condtion['x_sigma_mask'].shape}")
-           
+
             # Generate video frames
             latents = generate_world_from_control(
                 model=self.model,
@@ -542,8 +535,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
                 data_batch=data_batch_i,
                 guidance=self.guidance,
                 num_steps=self.num_steps,
-                # seed=(self.seed + i_clip), 
-                seed=self.seed, 
+                seed=self.seed,
                 condition_latent=condition_latent,
                 num_input_frames=num_input_frames,
                 sigma_max=self.sigma_max if x_sigma_max is not None else None,
@@ -579,7 +571,6 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
         1. Run safety checks on input prompt
         2. Convert prompt to embeddings
         3. Generate video frames using diffusion
-        4. Run safety checks and apply face blur on generated video frames
 
         Args:
             prompt: Text description of desired video
@@ -587,7 +578,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
             negative_prompt: Optional text to guide what not to generate
             control_inputs: Control inputs for guided generation
             save_folder: Folder to save intermediate files
-
+            x0_spatial_condtion: Dictionary of spatial condition for x0
         Returns:
             tuple: (
                 Generated video frames as uint8 np.ndarray [T, H, W, C],
@@ -605,13 +596,6 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(DiffusionControl2Worl
                 prompt = self._process_prompt_upsampler(prompt, video_path, save_folder)
                 self._pop_torchrun_environ_variables()
                 log.info(f"Upsampled prompt: {prompt}")
-
-        # log.info("Run guardrail on prompt")
-        is_safe = True # self._run_guardrail_on_prompt_with_offload(prompt)
-        # if not is_safe:
-        #     log.critical("Input text prompt is not safe")
-        #     return None
-        # log.info("Pass guardrail on prompt")
 
         log.info("Run text embedding on prompt")
         if negative_prompt:

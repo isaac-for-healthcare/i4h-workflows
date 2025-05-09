@@ -16,16 +16,14 @@
 from typing import Any, List
 
 import attrs
-
 from cosmos_transfer1.diffusion.config.transfer.model import CtrlModelConfig
 from cosmos_transfer1.diffusion.config.transfer.registry import register_configs
-# from cosmos_transfer1.diffusion.model.model_ctrl import VideoDiffusionModelWithCtrl
-from simulation.environments.cosmos_transfer1.model.model_ctrl import VideoDiffusionModelWithCtrlAndGuidance
 from cosmos_transfer1.utils import config
 from cosmos_transfer1.utils.config_helper import import_all_modules_from_package
 from cosmos_transfer1.utils.lazy_config import PLACEHOLDER
 from cosmos_transfer1.utils.lazy_config import LazyCall as L
 from cosmos_transfer1.utils.lazy_config import LazyDict
+from simulation.environments.cosmos_transfer1.model.model_ctrl import VideoDiffusionModelWithCtrlAndGuidance
 
 
 @attrs.define(slots=False)
@@ -54,6 +52,5 @@ def make_config():
     )
     register_configs()
 
-    # import_all_modules_from_package("cosmos_transfer1.diffusion.config.inference")
     import_all_modules_from_package("simulation.environments.cosmos_transfer1.config.inference")
     return c

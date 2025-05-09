@@ -13,59 +13,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import random
 from functools import partial
-from typing import Any, Optional
+from typing import Optional
 
 import cv2
-import matplotlib.colors as mcolors
 import numpy as np
-import pycocotools.mask
 import torch
 import torchvision.transforms.functional as transforms_F
-
-from cosmos_transfer1.diffusion.config.transfer.blurs import (
-    AnisotropicDiffusionConfig,
-    BilateralFilterConfig,
-    BlurAugmentorConfig,
-    GaussianBlurConfig,
-    GuidedFilterConfig,
-    LaplacianOfGaussianConfig,
-    MedianBlurConfig,
-)
-from cosmos_transfer1.diffusion.datasets.augmentors.guided_filter import FastGuidedFilter
-from cosmos_transfer1.diffusion.datasets.augmentors.human_keypoint_utils import (
-    coco_wholebody_133_skeleton,
-    convert_coco_to_openpose,
-    openpose134_skeleton,
-)
-from cosmos_transfer1.utils import log
-from cosmos_transfer1.diffusion.inference.inference_utils import detect_aspect_ratio
+from cosmos_transfer1.diffusion.config.transfer.blurs import BlurAugmentorConfig
 from cosmos_transfer1.diffusion.datasets.augmentors.control_input import (
-    AddControlInputUpscale,
-    AddControlInputDepth,
-    AddControlInputKeypoint,
-    AddControlInputHDMAP,
-    AddControlInputLIDAR,
-    AddControlInputBlurDownUp,
-    AddControlInputSeg,
-    AddControlInputEdge,
     IMAGE_RES_SIZE_INFO,
     VIDEO_RES_SIZE_INFO,
+    AddControlInputBlurDownUp,
+    AddControlInputDepth,
+    AddControlInputEdge,
+    AddControlInputHDMAP,
+    AddControlInputKeypoint,
+    AddControlInputLIDAR,
+    AddControlInputSeg,
+    AddControlInputUpscale,
     Augmentor,
 )
+from cosmos_transfer1.diffusion.inference.inference_utils import detect_aspect_ratio
 
-def resize_frames(frames, is_image, data_dict):
-    # Resize the frames to target size before computing control signals to save compute.
+DEBUG_GENERATION = os.environ.get("DEBUG_GENERATION", "")
+
+
+def resize_frames(frames: np.ndarray, is_image: bool, data_dict: dict) -> np.ndarray:
+    """Resize the frames to target size before computing control signals to save compute.
+
+    Args:
+        frames: frames to resize
+        is_image: whether the frames are images
+        data_dict: data dictionary
+
+    Returns:
+        frames: resized frames
+    """
     need_reshape = len(frames.shape) < 4
     if need_reshape:  # HWC -> CTHW
         frames = frames.transpose((2, 0, 1))[:, None]
     H, W = frames.shape[2], frames.shape[3]
-
-    aspect_ratio = detect_aspect_ratio((W, H))
-    RES_SIZE_INFO = IMAGE_RES_SIZE_INFO if is_image else VIDEO_RES_SIZE_INFO
-    new_W, new_H = RES_SIZE_INFO["720"][aspect_ratio]
-    # new_W, new_H = 512, 512
+    if DEBUG_GENERATION:
+        new_W, new_H = 128, 128
+    else:
+        aspect_ratio = detect_aspect_ratio((W, H))
+        RES_SIZE_INFO = IMAGE_RES_SIZE_INFO if is_image else VIDEO_RES_SIZE_INFO
+        new_W, new_H = RES_SIZE_INFO["720"][aspect_ratio]
     scaling_ratio = min((new_W / W), (new_H / H))
     if scaling_ratio < 1:
         W, H = int(scaling_ratio * W + 0.5), int(scaling_ratio * H + 0.5)
@@ -77,8 +73,8 @@ def resize_frames(frames, is_image, data_dict):
         frames = frames[:, 0].transpose((1, 2, 0))
     return frames
 
-# x
-class AddControlInputBlurDownUpI4H(AddControlInputBlurDownUp,Augmentor):
+
+class AddControlInputBlurDownUpI4H(AddControlInputBlurDownUp, Augmentor):
     """
     Main class for adding blurred input to the data dictionary.
     self.output_keys[0] indicates the types of blur added to the input.
@@ -97,7 +93,7 @@ class AddControlInputBlurDownUpI4H(AddControlInputBlurDownUp,Augmentor):
         downup_preset: str | int = "medium",  # preset strength for downup factor
         min_downup_factor: int = 4,  # minimum downup factor
         max_downup_factor: int = 16,  # maximum downup factor
-        downsize_before_blur: bool = False,  # whether to downsize before applying blur and then upsize or downup after blur
+        downsize_before_blur: bool = False,  # whether to downsize before applying blur
     ) -> None:
         super().__init__(
             input_keys,
@@ -108,14 +104,13 @@ class AddControlInputBlurDownUpI4H(AddControlInputBlurDownUp,Augmentor):
             downup_preset,
             min_downup_factor,
             max_downup_factor,
-            downsize_before_blur
+            downsize_before_blur,
         )
 
     def __call__(self, data_dict: dict) -> dict:
         if "control_input_vis" in data_dict:
             # already processed
             return data_dict
-        key_img = self.input_keys[1]
         key_out = self.output_keys[0]
         frames, is_image = self._load_frame(data_dict)
 
@@ -161,8 +156,8 @@ class AddControlInputBlurDownUpI4H(AddControlInputBlurDownUp,Augmentor):
         data_dict[key_out] = controlnet_img
         return data_dict
 
-#x
-class AddControlInputEdgeI4H(AddControlInputEdge,Augmentor):
+
+class AddControlInputEdgeI4H(AddControlInputEdge, Augmentor):
     """
     Add control input to the data dictionary. control input are expanded to 3-channels
     steps to add new items: modify this file, configs/conditioner.py, conditioner.py
@@ -177,14 +172,7 @@ class AddControlInputEdgeI4H(AddControlInputEdge,Augmentor):
         preset_canny_threshold="medium",
         **kwargs,
     ) -> None:
-        super().__init__(
-            input_keys,
-            output_keys,
-            args,
-            use_random,
-            preset_canny_threshold,
-            **kwargs
-        )
+        super().__init__(input_keys, output_keys, args, use_random, preset_canny_threshold, **kwargs)
 
     def __call__(self, data_dict: dict) -> dict:
         if "control_input_edge" in data_dict:
@@ -195,9 +183,9 @@ class AddControlInputEdgeI4H(AddControlInputEdge,Augmentor):
         frames = data_dict[key_img]
         # Get lower and upper threshold for canny edge detection.
         if self.use_random:  # always on for training, always off for inference
-            t_lower = np.random.randint(20, 100)  # Get a random lower thre within [0, 255]
+            t_lower = np.random.randint(20, 100)  # Get a random lower threshold within [0, 255]
             t_diff = np.random.randint(50, 150)  # Get a random diff between lower and upper
-            t_upper = min(255, t_lower + t_diff)  # The upper thre is lower added by the diff
+            t_upper = min(255, t_lower + t_diff)  # The upper threshold is lower added by the diff
         else:
             if self.preset_strength == "none" or self.preset_strength == "very_low":
                 t_lower, t_upper = 20, 50
@@ -228,6 +216,7 @@ class AddControlInputEdgeI4H(AddControlInputEdge,Augmentor):
             edge_maps = edge_maps[:, 0]
         data_dict[key_out] = edge_maps
         return data_dict
+
 
 class AddControlInput(Augmentor):
     """
@@ -296,15 +285,28 @@ class AddControlInputComb(Augmentor):
         data_dict[self.output_keys[0]] = all_comb
         return data_dict
 
-#x
+
 def get_augmentor_for_eval(
     input_key: str,
     output_key: str,
     blur_config: BlurAugmentorConfig = BlurAugmentorConfig(),
     preset_blur_strength: str = "medium",
     preset_canny_threshold: str = "medium",
-    blur_type: str = "gaussian,guided,bilateral,median,log,anisotropic",  # do we still need this value?
+    blur_type: str = "gaussian,guided,bilateral,median,log,anisotropic",
 ) -> AddControlInputComb:
+    """Get the augmentor for evaluation.
+
+    Args:
+        input_key: input key
+        output_key: output key
+        blur_config: blur config
+        preset_blur_strength: preset blur strength
+        preset_canny_threshold: preset canny threshold
+        blur_type: blur type
+
+    Returns:
+        augmentor: augmentor
+    """
     comb = []
     output_keys = output_key.replace("control_input_", "").split("_")
     for key in output_keys:
