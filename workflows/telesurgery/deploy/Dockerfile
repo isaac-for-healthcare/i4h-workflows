@@ -23,12 +23,10 @@ ARG CUDA_KEYRING_NAME=cuda-keyring_1.1-1_all.deb
 # Install CMake and tools
 RUN apt-get update \
     && apt-get install -y \
-      git \
       unzip \
       xvfb \
       gnupg2 \
       patch \
-      git \
     && rm -rf /var/lib/apt/lists/*
 RUN OS_CODENAME=$(. /etc/os-release && echo "$UBUNTU_CODENAME") \
   && KW_KEYRING="/usr/share/keyrings/kitware-archive-keyring.gpg" \
