@@ -9,6 +9,12 @@
             "BUILDKIT_INLINE_CACHE": "1" // Enable Docker BuildKit cache
         }
     },
+    "features": {
+        "ghcr.io/devcontainers/features/git:1": {
+            "version": "latest",
+            "ppa": "false"
+        }
+    },
     "runArgs": [
         // HIDs
         // "--device=/dev/input/js0",
@@ -81,7 +87,10 @@
                 "shardulm94.trailing-spaces",
                 "shd101wyy.markdown-preview-enhanced",
                 "benjamin-simmonds.pythoncpp-debug",
-                "ms-vscode.cpptools"
+                "ms-vscode.cpptools-extension-pack",
+                "streetsidesoftware.code-spell-checker",
+                "eamodio.gitlens",
+                "ms-iot.vscode-ros"
             ]
         }
     }
