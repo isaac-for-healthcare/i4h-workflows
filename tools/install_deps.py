@@ -24,6 +24,7 @@ WORKFLOWS = [
     "robotic_surgery",
 ]
 
+
 def install_dependencies(workflow_name: str = "robotic_ultrasound"):
     """Install project dependencies from requirements.txt"""
     if workflow_name not in WORKFLOWS:

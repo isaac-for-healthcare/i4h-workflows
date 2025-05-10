@@ -50,8 +50,8 @@ from simulation.environments.cosmos_transfer1.model.model_ctrl import VideoDiffu
 from simulation.environments.cosmos_transfer1.utils.inference_utils import (
     generate_world_from_control,
     get_ctrl_batch,
-    rgb_to_mask,
     load_network_model,
+    rgb_to_mask,
 )
 from tqdm import tqdm
 
@@ -67,6 +67,7 @@ MODEL_CLASS_DICT = {
     HDMAP2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionT2VModelWithCtrl,
     LIDAR2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionT2VModelWithCtrl,
 }
+
 
 class DiffusionControl2WorldGenerationPipelineWithGuidance(
     DiffusionControl2WorldGenerationPipeline, BaseWorldGenerationPipeline

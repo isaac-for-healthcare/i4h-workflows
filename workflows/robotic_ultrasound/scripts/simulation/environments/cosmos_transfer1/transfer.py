@@ -25,9 +25,6 @@ import sys
 import tempfile
 from io import BytesIO
 
-import cv2
-import h5py
-import numpy as np
 import torch
 import torch.distributed as dist
 from cosmos_transfer1.checkpoints import BASE_7B_CHECKPOINT_PATH
@@ -41,8 +38,8 @@ from simulation.environments.cosmos_transfer1.guided_generation_pipeline import 
 )
 from simulation.environments.cosmos_transfer1.utils.inference_utils import (
     concat_videos,
-    read_video_or_image_into_frames,
     preprocess_h5_file,
+    read_video_or_image_into_frames,
     update_h5_file,
 )
 from simulation.environments.cosmos_transfer1.utils.warper_transfered_video_gpu import (
@@ -477,7 +474,8 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
         log.info(f"Saved prompt to {prompt_save_path}", rank0_only=False)
         torch.cuda.empty_cache()
 
-    return video_room_view, video_wrist_view  
+    return video_room_view, video_wrist_view
+
 
 if __name__ == "__main__":
     args, control_inputs = parse_arguments()

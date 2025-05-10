@@ -14,9 +14,11 @@
 # limitations under the License.
 
 import os
+import tempfile
 from typing import Dict, Optional, Tuple
 
 import cv2
+import h5py
 import numpy as np
 import torch
 from cosmos_transfer1.diffusion.config.transfer.augmentors import BilateralOnlyBlurAugmentorConfig
@@ -28,22 +30,21 @@ from cosmos_transfer1.diffusion.inference.inference_utils import (
     detect_aspect_ratio,
     get_upscale_size,
     load_spatial_temporal_weights,
+    non_strict_load_model,
     read_video_or_image_into_frames_BCTHW,
     resize_video,
-    split_video_into_patches,
-    non_strict_load_model,
     skip_init_linear,
+    split_video_into_patches,
 )
-from cosmos_transfer1.diffusion.model.model_v2w import DiffusionV2WModel
 from cosmos_transfer1.diffusion.model.model_t2w import DiffusionT2WModel
+from cosmos_transfer1.diffusion.model.model_v2w import DiffusionV2WModel
 from cosmos_transfer1.utils import log
 from cosmos_transfer1.utils.io import load_from_fileobj
 from simulation.environments.cosmos_transfer1.utils.control_input import get_augmentor_for_eval
-import h5py
-import tempfile
 from tqdm import tqdm
 
 DEBUG_GENERATION = os.environ.get("DEBUG_GENERATION", "0") == "1"
+
 
 def load_network_model(model: DiffusionT2WModel, ckpt_path: str):
     """
@@ -58,6 +59,7 @@ def load_network_model(model: DiffusionT2WModel, ckpt_path: str):
         net_state_dict = torch.load(ckpt_path, map_location="cpu", weights_only=False)
         non_strict_load_model(model.model, net_state_dict)
     model.cuda()
+
 
 def preprocess_h5_file(h5_file_path):
     """
@@ -172,6 +174,7 @@ def preprocess_h5_file(h5_file_path):
         }
     return data
 
+
 def update_h5_file(source_h5_path, output_hdf5_path, video_room_view, video_wrist_view):
     """
     Update h5 file with generated videos
@@ -232,7 +235,8 @@ def update_h5_file(source_h5_path, output_hdf5_path, video_room_view, video_wris
 
             # If video frame count is less than original data, copy remaining frames
             if num_frames < rgb_images.shape[0]:
-                dst_rgb[num_frames:] = rgb_images[num_frames:]      
+                dst_rgb[num_frames:] = rgb_images[num_frames:]
+
 
 def concat_videos(video1_path: str, video2_path: str, output_path: str, direction: str = "horizontal"):
     """Concatenate two videos horizontally or vertically

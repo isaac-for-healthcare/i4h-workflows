@@ -40,7 +40,7 @@ export CHECKPOINT_DIR="/workspace/code/cosmos-transfer1/checkpoints"
 export PROJECT_ROOT="/workspace/code/i4h-workflows"
 # Set PYTHONPATH with absolute paths
 export PYTHONPATH="$PROJECT_ROOT/third_party/cosmos-transfer1:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation"
-export DEBUG_GENERATION="1"
+export DEBUG_GENERATION="0"
 
 # Current working directory for reference
 CWD="$(pwd)"
