@@ -34,7 +34,6 @@ from cosmos_transfer1.checkpoints import (
 from cosmos_transfer1.diffusion.inference.inference_utils import (
     get_video_batch,
     load_model_by_config,
-    load_network_model,
     non_strict_load_model,
     resize_control_weight_map,
     resize_video,
@@ -52,6 +51,7 @@ from simulation.environments.cosmos_transfer1.utils.inference_utils import (
     generate_world_from_control,
     get_ctrl_batch,
     rgb_to_mask,
+    load_network_model,
 )
 from tqdm import tqdm
 
@@ -67,7 +67,6 @@ MODEL_CLASS_DICT = {
     HDMAP2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionT2VModelWithCtrl,
     LIDAR2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionT2VModelWithCtrl,
 }
-
 
 class DiffusionControl2WorldGenerationPipelineWithGuidance(
     DiffusionControl2WorldGenerationPipeline, BaseWorldGenerationPipeline

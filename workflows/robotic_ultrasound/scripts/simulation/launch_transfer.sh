@@ -1,6 +1,20 @@
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
-#!/bin/bash
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
+#!/bin/bash
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 # if sigma > 2.0000e-03: # skip 1 setp
 # if sigma > 2.1618e-02: # skip 5 steps
 # if sigma > 1.8636e-01: # skip 10 steps
@@ -26,7 +40,7 @@ export CHECKPOINT_DIR="/workspace/code/cosmos-transfer1/checkpoints"
 export PROJECT_ROOT="/workspace/code/i4h-workflows"
 # Set PYTHONPATH with absolute paths
 export PYTHONPATH="$PROJECT_ROOT/third_party/cosmos-transfer1:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation"
-export DEBUG_GENERATION=True
+export DEBUG_GENERATION="1"
 
 # Current working directory for reference
 CWD="$(pwd)"

@@ -18,10 +18,15 @@ import os
 import subprocess
 import sys
 
+WORKFLOWS = [
+    "robotic_ultrasound",
+    "robotic_ultrasound/cosmos_transfer",
+    "robotic_surgery",
+]
 
 def install_dependencies(workflow_name: str = "robotic_ultrasound"):
     """Install project dependencies from requirements.txt"""
-    if workflow_name not in ["robotic_ultrasound", "robotic_surgery"]:
+    if workflow_name not in WORKFLOWS:
         raise ValueError(f"Invalid workflow name: {workflow_name}")
 
     try:
@@ -48,6 +53,8 @@ def install_dependencies(workflow_name: str = "robotic_ultrasound"):
         dir = os.path.dirname(os.path.abspath(__file__))
         if workflow_name == "robotic_ultrasound":
             subprocess.check_call(["./env_setup_robot_us.sh"], cwd=dir)
+        elif workflow_name == "robotic_ultrasound/cosmos_transfer":
+            subprocess.check_call(["./env_setup_cosmos_transfer1.sh"], cwd=dir)
         elif workflow_name == "robotic_surgery":
             subprocess.check_call(["./env_setup_robot_surgery.sh"], cwd=dir)
 

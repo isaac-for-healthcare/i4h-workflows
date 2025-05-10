@@ -38,7 +38,7 @@ from cosmos_transfer1.diffusion.datasets.augmentors.control_input import (
 )
 from cosmos_transfer1.diffusion.inference.inference_utils import detect_aspect_ratio
 
-DEBUG_GENERATION = os.environ.get("DEBUG_GENERATION", "")
+DEBUG_GENERATION = os.environ.get("DEBUG_GENERATION", "0") == "1"
 
 
 def resize_frames(frames: np.ndarray, is_image: bool, data_dict: dict) -> np.ndarray:
