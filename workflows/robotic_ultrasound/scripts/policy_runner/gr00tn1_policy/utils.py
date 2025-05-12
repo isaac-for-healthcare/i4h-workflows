@@ -25,19 +25,20 @@ from gr00t.model.transforms import GR00TTransform
 class SinglePandaUSDataConfig(BaseDataConfig):
     """
     Data configuration for the single Panda ultrasound dataset.
-    
+
     This class defines the data modalities (video, state, actions, language) used for model training
     and inference with the GR00T framework. Each modality configuration specifies which frames to load
     via delta_indices:
     - [0]: Current frame only
     - [-1, 0]: Previous and current frames
     - etc.
-    
+
     The configuration includes observation indices for input data and action indices for output predictions.
-    
+
     For more details on GR00T data handling, see the official documentation:
     https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#1-data-format--loading
     """
+
     video_keys = [
         "video.room",
         "video.wrist",

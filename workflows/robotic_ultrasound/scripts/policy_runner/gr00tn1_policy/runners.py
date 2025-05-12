@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 import numpy as np
+import torch
 from gr00t.model.policy import BasePolicy, Gr00tPolicy
 from policy_runner.gr00tn1_policy.utils import DATA_CONFIG_MAP
+
 
 class GR00TN1PolicyRunner:
     """
