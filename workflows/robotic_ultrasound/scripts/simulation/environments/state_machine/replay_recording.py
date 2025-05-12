@@ -42,7 +42,6 @@ args_cli = parser.parse_args()
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
-"""Rest everything follows."""
 import os
 
 import gymnasium as gym
@@ -51,6 +50,7 @@ import torch
 from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401
+from simulation.environments.state_machine.utils import reset_organ_to_position, reset_robot_to_position
 
 
 def validate_hdf5_path(path):
@@ -101,29 +101,6 @@ def get_episode_data(data_path: str, episode_idx: int):
     except Exception as e:
         print(f"Error loading data: {str(e)}")
         return None
-
-
-def reset_organ_to_position(env, object_position):
-    """Reset the organ position."""
-    organs = env.unwrapped.scene._rigid_objects["organs"]
-    root_state = organs.data.default_root_state.clone()
-    root_state[:, :7] = torch.tensor(object_position[0, :7], device=args_cli.device)
-    # write to the sim
-    organs.write_root_state_to_sim(root_state)
-
-
-def reset_robot_to_position(env, robot_initial_joint_state, joint_vel=None):
-    """Reset the robot to the initial joint state."""
-    robot = env.unwrapped.scene["robot"]
-    joint_pos = torch.tensor(robot_initial_joint_state[0], device=args_cli.device).unsqueeze(0)
-    if joint_vel is not None:
-        joint_vel = torch.tensor(joint_vel[0], device=args_cli.device)
-    else:
-        print("No joint velocity provided, setting to zero")
-        joint_vel = torch.zeros_like(joint_pos)
-    # set joint positions
-    robot.write_joint_state_to_sim(joint_pos, joint_vel)
-    robot.reset()
 
 
 def reset_scene_to_initial_state(env, episode_idx: int, torso_obs_key: str, joint_state_key: str, joint_vel_key: str):

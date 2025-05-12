@@ -20,11 +20,14 @@
 
 import os
 import shutil
+import sys
 import unittest
 from pathlib import Path
 
 import h5py
 import numpy as np
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from helpers import run_with_monitoring
 from parameterized import parameterized
 
@@ -78,7 +81,7 @@ class TestReplayRecording(unittest.TestCase):
             shutil.rmtree(TEST_DATA_DIR)
 
     @parameterized.expand(TEST_CASES)
-    def test_policy_eval(self, command, timeout, target_line):
+    def test_replay_recording(self, command, timeout, target_line):
         # Run and monitor command
         _, found_target = run_with_monitoring(command, timeout, target_line)
         self.assertTrue(found_target)
