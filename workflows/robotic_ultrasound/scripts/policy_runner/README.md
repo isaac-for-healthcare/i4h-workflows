@@ -4,7 +4,7 @@ This script allows running different policy models (currently PI0 and GR00TN1) u
 
 ## Supported Policies
 
-*   **PI0**: Based on the [openpi](https://github.com/openpi-team/openpi) library.
+*   **PI0**: Based on the [openpi](https://github.com/Physical-Intelligence/openpi) library.
 *   **GR00TN1**: NVIDIA's foundation model for humanoid robots. Refer to [NVIDIA Isaac GR00T](https://github.com/NVIDIA/Isaac-GR00T) for more information.
 
 ## Run PI0 Policy with DDS communication
