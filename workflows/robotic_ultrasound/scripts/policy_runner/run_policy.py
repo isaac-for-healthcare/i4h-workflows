@@ -23,7 +23,6 @@ from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
 from PIL import Image
-from policy_runner.runners import PI0PolicyRunner
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
 
 current_state = {
@@ -45,13 +44,32 @@ def main():
         help="checkpoint path. Default will use the policy model in the downloaded assets.",
     )
     parser.add_argument(
+        "--task_description",
+        type=str,
+        default="Perform a liver ultrasound.",
+        help="Task description for the policy.",
+    )
+
+    pi0_group = parser.add_argument_group("PI0 Policy Arguments")
+    pi0_group.add_argument(
         "--repo_id",
         type=str,
         default="i4h/sim_liver_scan",
-        help=(
-            "LeRobot repo id for the dataset norm. "
-            "Default is `i4h/sim_liver_scan`, which is included in the downloaded assets."
-        ),
+        help="LeRobot repo id for the dataset norm. Default is `i4h/sim_liver_scan`.",
+    )
+
+    gr00tn1_group = parser.add_argument_group("GR00TN1 Policy Arguments")
+    gr00tn1_group.add_argument(
+        "--data_config",
+        type=str,
+        default="single_panda_us",
+        help="Data config name for GR00TN1 policy.",
+    )
+    gr00tn1_group.add_argument(
+        "--embodiment_tag",
+        type=str,
+        default="new_embodiment",
+        help="The embodiment tag for the GR00TN1 model.",
     )
     parser.add_argument(
         "--rti_license_file", type=str, default=os.getenv("RTI_LICENSE_FILE"), help="the path of rti_license_file."
@@ -84,9 +102,30 @@ def main():
         help="topic name to publish generated franka actions.",
     )
     parser.add_argument("--verbose", type=bool, default=False, help="whether to print the log.")
+    parser.add_argument(
+        "--policy", type=str, default="pi0", choices=["pi0", "gr00tn1"], help="policy type to use (pi0 or gr00tn1)."
+    )
+    parser.add_argument(
+        "--chunk_length",
+        type=int,
+        default=50,
+        help="Length of the action chunk inferred by the policy.",
+    )
     args = parser.parse_args()
 
-    pi0_policy = PI0PolicyRunner(ckpt_path=args.ckpt_path, repo_id=args.repo_id)
+    if args.policy == "pi0":
+        from policy_runner.pi0_policy.runners import PI0PolicyRunner
+
+        policy = PI0PolicyRunner(ckpt_path=args.ckpt_path, repo_id=args.repo_id, task_description=args.task_description)
+    elif args.policy == "gr00tn1":
+        from policy_runner.gr00tn1_policy.runners import GR00TN1PolicyRunner
+
+        policy = GR00TN1PolicyRunner(
+            ckpt_path=args.ckpt_path,
+            data_config=args.data_config,
+            embodiment_tag=args.embodiment_tag,
+            task_description=args.task_description,
+        )
 
     if args.rti_license_file is not None:
         if not os.path.isabs(args.rti_license_file):
@@ -105,19 +144,19 @@ def main():
             w_cam_buffer = np.frombuffer(current_state["wrist_cam"], dtype=np.uint8)
             wrist_img = Image.fromarray(w_cam_buffer.reshape(args.height, args.width, 3), "RGB")
             joint_pos = current_state["joint_pos"]
-            actions = pi0_policy.infer(
+            actions = policy.infer(
                 room_img=np.array(room_img),
                 wrist_img=np.array(wrist_img),
                 current_state=np.array(joint_pos[:7]),
             )
             i = FrankaCtrlInput()
             # actions are relative positions, if run with absolute positions, need to add the current joint positions
-            # actions shape is (50, 6), must reshape to (300,)
+            # actions shape is (chunk_length, 6), must reshape to (chunk_length * 6,)
             i.joint_positions = (
                 np.array(actions)
                 .astype(np.float32)
                 .reshape(
-                    300,
+                    args.chunk_length * 6,
                 )
                 .tolist()
             )
