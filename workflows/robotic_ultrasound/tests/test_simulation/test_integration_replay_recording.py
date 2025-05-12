@@ -1,9 +1,5 @@
 import os
 import shutil
-import signal
-import subprocess
-import threading
-import time
 import unittest
 from pathlib import Path
 
@@ -29,12 +25,14 @@ ACTION_KEY_IN_HDF5 = "action"
 
 TEST_CASES = [
     (
-        f"python -u -m simulation.environments.state_machine.replay_recording {TEST_DATA_DIR} --headless --enable_camera",
+        f"python -u -m simulation.environments.state_machine.replay_recording "
+        f"{TEST_DATA_DIR} --headless --enable_camera",
         300,
         "Completed all episodes",
     ),
     (
-        f"python -u -m simulation.environments.state_machine.replay_recording {TEST_DATA_DIR}/data_0.hdf5 --headless --enable_camera",
+        f"python -u -m simulation.environments.state_machine.replay_recording "
+        f"{TEST_DATA_DIR}/data_0.hdf5 --headless --enable_camera",
         300,
         "Completed all episodes",
     ),
