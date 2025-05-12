@@ -3,6 +3,7 @@ os.environ['QT_QPA_PLATFORM'] = 'offscreen'  # Run in headless mode
 import numpy as np
 import cv2
 import torch
+import h5py
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend that doesn't require GUI
@@ -14,13 +15,14 @@ def calc_mse_video_policy(
     policy_runner: PI0PolicyRunner,
     room_video_path: str,
     wrist_video_path: str,
-    parquet_path: str = "/home/yunliu/.cache/huggingface/lerobot/i4h/robotic_ultrasound-cosmos-pi-tr/data/chunk-000/episode_000000.parquet",
+    hdf5_path: str = "/home/yunliu/.cache/huggingface/lerobot/i4h/robotic_ultrasound-test-pi0/data/chunk-000/episode_000000.parquet",
     frame_start: int = 0,
     frame_end: Optional[int] = None,
     step_stride: int = 1,
     img_size: Tuple[int, int] = (224, 224),
     plot: bool = True,
-    save_plot_path: Optional[str] = "mse_comparison.png",
+    mse_plot_path: Optional[str] = "mse_comparison.png",
+    mse_3d_plot_path: Optional[str] = "mse_comparison_3d.png",
     display_plot: bool = False,
     verbose: bool = False
 ):
@@ -31,32 +33,22 @@ def calc_mse_video_policy(
         policy_runner: PI0PolicyRunner instance
         room_video_path: Path to room camera video
         wrist_video_path: Path to wrist camera video
-        parquet_path: Path to parquet file containing ground truth actions and states
+        hdf5_path: Path to parquet file containing ground truth actions and states
         frame_start: Starting frame index
         frame_end: Ending frame index, if None process until the end of video
         step_stride: Stride for frame processing
         img_size: Input image size
         plot: Whether to plot results
-        save_plot_path: Path to save plot (if needed)
+        mse_plot_path: Path to save plot (if needed)
+        mse_3d_plot_path: Path to save 3D plot (if needed)
         display_plot: Whether to display the plot
         verbose: Whether to display detailed logs
     
     Returns:
         Dict: Dictionary containing MSE and various statistics
     """
-    # Load videos with explicit codec preference
-    def create_capture(path):
-        # Try different backend options
-        cap = cv2.VideoCapture(path)
-        return cap
-
     room_cap = cv2.VideoCapture(room_video_path)
-    print(room_cap.isOpened())
-    print(room_cap.get(cv2.CAP_PROP_FRAME_COUNT))
     wrist_cap = cv2.VideoCapture(wrist_video_path)
-    print(wrist_cap.isOpened())
-    print(wrist_cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    # Check if videos were opened successfully
     if not room_cap.isOpened() or not wrist_cap.isOpened():
         raise ValueError("Cannot open video files")
     
@@ -73,20 +65,15 @@ def calc_mse_video_policy(
     
     if verbose:
         print(f"Total video frames: {frame_count}")
+        print(f"Loading ground truth data from {hdf5_path}...")
     
-    # Load ground truth actions and states from Parquet file
-    if verbose:
-        print(f"Loading ground truth data from {parquet_path}...")
+    with h5py.File(hdf5_path, 'r') as f:
+        gt_states = f['data/demo_0']['abs_joint_pos'][:-1]
+        gt_actions = f['data/demo_0']['action'][1:]
     
-    df = pd.read_parquet(parquet_path)
-    
-    # Check dataframe structure
-    if verbose:
-        print("Parquet file columns: ", df.columns.tolist())
-    
-    # Extract state and action data
-    gt_states = df['observation.state'].values
-    gt_actions = df['action'].values
+        # Check dataframe structure
+        if verbose:
+            print("HDF5 file columns: ", f['data/demo_0'].keys())
     
     # Check if data length matches
     data_length = len(gt_states)
@@ -103,6 +90,7 @@ def calc_mse_video_policy(
     frame_indices = []
     pred_actions = []
     gt_actions_used = []
+    replan_steps = 5
     
     # Process frames in specified range
     for frame_idx in range(frame_start, frame_end, step_stride):
@@ -120,24 +108,16 @@ def calc_mse_video_policy(
             print(f"Could not read frame {frame_idx}, skipping")
             continue
         
-        # Convert to RGB
-        room_frame = cv2.cvtColor(room_frame, cv2.COLOR_BGR2RGB)
-        wrist_frame = cv2.cvtColor(wrist_frame, cv2.COLOR_BGR2RGB)
-        
-        # Resize frames
-        room_frame = cv2.resize(room_frame, img_size)
-        wrist_frame = cv2.resize(wrist_frame, img_size)
+        if room_frame.shape[0] != 224 or room_frame.shape[1] != 224:
+            room_frame = cv2.resize(room_frame, img_size)
+        if wrist_frame.shape[0] != 224 or wrist_frame.shape[1] != 224:
+            wrist_frame = cv2.resize(wrist_frame, img_size)
         
         # Get current joint position
         current_state = gt_states[frame_idx]
-        if hasattr(current_state, 'shape') and len(current_state.shape) > 0:
-            if current_state.shape[0] > 7:
-                current_state = current_state[:7]  # Assume using first 7 joints
-        else:
-            # If state is not an array, might need different handling
-            print(f"Warning: State format unexpected: {type(current_state)}")
-            continue
-        
+        if current_state.shape[0] > 7:
+            current_state = current_state[:7]  # Assume using first 7 joints
+    
         # Run policy inference
         actions = policy_runner.infer(
             room_img=room_frame,
@@ -145,30 +125,29 @@ def calc_mse_video_policy(
             current_state=current_state
         )
         # Get ground truth action
-        ground_truth = gt_actions[frame_idx]
+        ground_truth = gt_actions[frame_idx: frame_idx + step_stride]
         # Add actions to result lists
-        frame_indices.append(frame_idx)
-        pred_actions.append(actions[0])
-        gt_actions_used.append(ground_truth)
+        frame_indices.extend(range(frame_idx, frame_idx + step_stride))
+        pred_actions.extend(actions[: step_stride])
+        gt_actions_used.extend(ground_truth)
     
     # Release video resources
     room_cap.release()
     wrist_cap.release()
     
     # Convert to numpy arrays
-    frame_indices = np.array(frame_indices)
-    pred_actions = np.array(pred_actions)
-    gt_actions_used = np.array(gt_actions_used)
+    frame_indices = np.array(frame_indices)[: data_length]
+    pred_actions = np.array(pred_actions)[: data_length]
+    gt_actions_used = np.array(gt_actions_used)[: data_length]
     
     # Calculate MSE
     action_mse = np.mean((pred_actions - gt_actions_used) ** 2)
-    
-    # Calculate per-joint MSE
-    joint_mse = np.mean((pred_actions - gt_actions_used) ** 2, axis=0)
+    # Calculate per-DOF MSE
+    dof_mse = np.mean((pred_actions - gt_actions_used) ** 2, axis=0)
     
     if verbose:
         print(f"Overall action MSE: {action_mse}")
-        print(f"Per-joint MSE: {joint_mse}")
+        print(f"Per-DOF MSE: {dof_mse}")
     
     # Plot results
     if plot:
@@ -188,14 +167,14 @@ def calc_mse_video_policy(
             ax.plot(frame_indices, gt_actions_used[:, i], 'b-', label='Ground Truth')
             ax.plot(frame_indices, pred_actions[:, i], 'r-', label='Predicted')
             
-            # Mark points every 10 frames
-            marker_stride = 10
+            # Mark points every step_stride frames
+            marker_stride = step_stride
             marker_indices = list(range(0, len(frame_indices), marker_stride))
             if marker_indices:
                 ax.plot(frame_indices[marker_indices], gt_actions_used[marker_indices, i], 'bo', label='GT Markers')
                 ax.plot(frame_indices[marker_indices], pred_actions[marker_indices, i], 'ro', label='Pred Markers')
             
-            ax.set_title(f"DOF {i} - MSE: {joint_mse[i]:.6f}")
+            ax.set_title(f"DOF {i} - MSE: {dof_mse[i]:.6f}")
             ax.set_xlabel("Frame Index")
             ax.set_ylabel("Action Value")
             ax.legend()
@@ -203,21 +182,22 @@ def calc_mse_video_policy(
         
         plt.tight_layout(rect=[0, 0, 1, 0.97])  # Make room for title
         
-        if save_plot_path:
-            plt.savefig(save_plot_path, dpi=300, bbox_inches='tight')
+        if mse_plot_path:
+            plt.savefig(mse_plot_path, dpi=300, bbox_inches='tight')
             if verbose:
-                print(f"Plot saved to {save_plot_path}")
+                print(f"Plot saved to {mse_plot_path}")
         
         if display_plot:
             plt.show()
         else:
             plt.close(fig)
-        gt_position_x = np.cumsum(gt_actions_used[:, 0])
-        pred_position_x = np.cumsum(pred_actions[:, 0])
-        gt_position_y = np.cumsum(gt_actions_used[:, 1])
-        pred_position_y = np.cumsum(pred_actions[:, 1])
-        gt_position_z = np.cumsum(gt_actions_used[:, 2])
-        pred_position_z = np.cumsum(pred_actions[:, 2])
+        # If actions are already target positions or you want to plot raw action values
+        gt_position_x = gt_actions_used[:, 0]
+        pred_position_x = pred_actions[:, 0]
+        gt_position_y = gt_actions_used[:, 1]
+        pred_position_y = pred_actions[:, 1]
+        gt_position_z = gt_actions_used[:, 2]
+        pred_position_z = pred_actions[:, 2]
         
         # plot the position in 3D figure
         fig = plt.figure()
@@ -228,13 +208,13 @@ def calc_mse_video_policy(
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
         ax.legend()
-        plt.savefig("./mse-pi0-te-3d.png", dpi=300, bbox_inches='tight')
+        plt.savefig(mse_3d_plot_path, dpi=300, bbox_inches='tight')
         plt.show()
         
     # Return results
     results = {
         "total_mse": action_mse,
-        "joint_mse": joint_mse,
+        "dof_mse": dof_mse,
         "pred_actions": pred_actions,
         "gt_actions": gt_actions_used,
         "frame_indices": frame_indices
@@ -251,32 +231,41 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
     # ckpt_path = "/home/yunliu/Workspace/Code/i4h-workflows/workflows/robotic_ultrasound/scripts/training/pi_zero/checkpoints/robotic_ultrasound_lora/liver_ultrasound/5000"
-    ckpt_path = robot_us_assets.policy_ckpt
+    # ckpt_path = robot_us_assets.policy_ckpt
     # repo_id = "i4h/robotic_ultrasound-cosmos-pi-te"
-    repo_id = "i4h/sim_liver_scan"
-    room_video_path = "/home/yunliu/.cache/huggingface/lerobot/i4h/robotic_ultrasound-cosmos-tr/videos/chunk-000/observation.images.room/episode_000002_new.mp4"
-    wrist_video_path = "/home/yunliu/.cache/huggingface/lerobot/i4h/robotic_ultrasound-cosmos-tr/videos/chunk-000/observation.images.wrist/episode_000002_new.mp4"
-    parquet_path = "/home/yunliu/.cache/huggingface/lerobot/i4h/robotic_ultrasound-cosmos-tr/data/chunk-000/episode_000002.parquet"
-    
-    # Initialize policy runner
-    policy_runner = PI0PolicyRunner(
-        ckpt_path=ckpt_path,
-        repo_id=repo_id
-    )
-    
-    # Calculate MSE and plot
-    results = calc_mse_video_policy(
-        policy_runner=policy_runner,
-        room_video_path=room_video_path,
-        wrist_video_path=wrist_video_path,
-        parquet_path=parquet_path,
-        frame_start=0,
-        frame_end=300,
-        step_stride=1,
-        plot=True,
-        save_plot_path="./mse_comparison_wo-cosmos-pi0.png",
-        verbose=True
-    )
-    
-    print(f"Overall MSE: {results['total_mse']}")
-    print(f"Per-joint MSE: {results['joint_mse']}")
+    # repo_id = "i4h/sim_liver_scan"
+    mse_400_list = []
+    mse_600_list = []
+    for i in range(10):
+        ckpt_path = "/mnt/hdd/ckpt/pi0/robotic_ultrasound_lora/liver_us_600/29999/"
+        repo_id = "i4h/us-pi0-train-wcosmos-600"
+        room_video_path = f"/mnt/hdd/2025-05-08-19-53-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0-Transfer/data_{i+10}_wrist_view.mp4"
+        wrist_video_path = f"/mnt/hdd/2025-05-08-19-53-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0-Transfer/data_{i+10}_room_view.mp4"
+        hdf5_path = f"/mnt/hdd/2025-05-08-19-53-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0-Transfer/data_{i+10}.hdf5"
+        
+        # Initialize policy runner
+        policy_runner = PI0PolicyRunner(
+            ckpt_path=ckpt_path,
+            repo_id=repo_id
+        )
+        
+        # Calculate MSE and plot
+        results = calc_mse_video_policy(
+            policy_runner=policy_runner,
+            room_video_path=room_video_path,
+            wrist_video_path=wrist_video_path,
+            hdf5_path=hdf5_path,
+            frame_start=0,
+            frame_end=300,
+            step_stride=5,
+            plot=True,
+            mse_plot_path=f"./mse_pi0-600-{i}.png",
+            mse_3d_plot_path=f"./mse-pi0-3d-600-{i}.png",
+            verbose=True
+        )
+        mse_600_list.append(results['total_mse'])
+        print(f"Overall MSE: {results['total_mse']}")
+        print(f"Per-DOF MSE: {results['dof_mse']}")
+    np.save("mse_600_list_cosmos.npy", mse_600_list)
+    print(f"Average MSE: {np.mean(mse_600_list)}")
+    print(f"Std MSE: {np.std(mse_600_list)}")
