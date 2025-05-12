@@ -76,6 +76,7 @@ Here's a markdown table describing the command-line arguments:
 |-----------------|-----------------|--------------|-------------------|
 | NVIDIA RTX 4090 | 100 ms          | 9 GB         | 50                |
 
+# FIXME: Add benchmark later
 ### Inference (GR00T N1)
 
 | Hardware        | Average Latency | Memory Usage | Actions Predicted |
