@@ -13,29 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import os
 import shutil
 import tempfile
 import unittest
-import argparse
 
-
-import torch
 import h5py
 import numpy as np
-
-from cosmos_transfer1.diffusion.inference.inference_utils import validate_controlnet_specs
+import torch
 from cosmos_transfer1.checkpoints import BASE_7B_CHECKPOINT_PATH
-from simulation.environments.cosmos_transfer1.utils.inference_utils import (
-    preprocess_h5_file,
-    update_h5_file,
-)
-from simulation.environments.cosmos_transfer1.transfer import inference
+from cosmos_transfer1.diffusion.inference.inference_utils import validate_controlnet_specs
+from helpers import get_md5_checksum, requires_cosmos_transfer1
+from huggingface_hub import snapshot_download
 from simulation.environments.cosmos_transfer1.guided_generation_pipeline import (
     DiffusionControl2WorldGenerationPipelineWithGuidance,
 )
-from helpers import requires_cosmos_transfer1, get_md5_checksum
-from huggingface_hub import snapshot_download
+from simulation.environments.cosmos_transfer1.transfer import inference
+from simulation.environments.cosmos_transfer1.utils.inference_utils import preprocess_h5_file, update_h5_file
 
 MD5_CHECKSUM_LOOKUP = {
     "google-t5/t5-11b/pytorch_model.bin": "f890878d8a162e0045a25196e27089a3",
@@ -44,6 +39,7 @@ MD5_CHECKSUM_LOOKUP = {
     "nvidia/Cosmos-Tokenize1-CV8x8x8-720p/decoder.jit": "ff21a63ed817ffdbe4b6841111ec79a8",
     "nvidia/Cosmos-Tokenize1-CV8x8x8-720p/encoder.jit": "f5834d03645c379bc0f8ad14b9bc0299",
 }
+
 
 def download_checkpoint(checkpoint: str, output_dir: str) -> None:
     """Download a single checkpoint from HuggingFace Hub."""
@@ -66,6 +62,7 @@ def download_checkpoint(checkpoint: str, output_dir: str) -> None:
     except Exception as e:
         print(f"Error downloading {checkpoint}: {str(e)}")
 
+
 @requires_cosmos_transfer1
 class TestCosmosTransfer1Integration(unittest.TestCase):
     """Test cases for the test cosmos-transfer1 integration."""
@@ -77,9 +74,9 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
         # Create a temporary h5 file for test data
         self.temp_h5_path = os.path.join(self.temp_dir, "data_0.hdf5")
         self.dummy_video = np.zeros((100, 2, 224, 224, 3)).astype(np.uint8)
-        dummy_camera_intrinsic_matrices = np.array([[110.965096,   0.        , 112.      ],
-                                                    [  0.        , 176.24133 , 112.      ],
-                                                    [  0.        ,  0.        ,  1.      ]])[None].repeat(100, axis=0)
+        dummy_camera_intrinsic_matrices = np.array(
+            [[110.965096, 0.0, 112.0], [0.0, 176.24133, 112.0], [0.0, 0.0, 1.0]]
+        )[None].repeat(100, axis=0)
         dummy_camera_pos = np.array([0.4364283, -0.02340021, 0.45660958])[None].repeat(100, axis=0)
         dummy_camera_quat_w_ros = np.array([-0.11901075, -0.69067025, 0.7013921, 0.1298467])[None].repeat(100, axis=0)
         with h5py.File(self.temp_h5_path, "w") as hf:
@@ -109,7 +106,7 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
         """Test updating the h5 file."""
         output_hdf5_path = os.path.join(self.temp_dir, "test_output.hdf5")
         dummy_output_video = np.zeros((100, 224, 224, 3)).astype(np.uint8)
-        update_h5_file(self.temp_h5_path, output_hdf5_path, dummy_output_video , dummy_output_video)
+        update_h5_file(self.temp_h5_path, output_hdf5_path, dummy_output_video, dummy_output_video)
         # check if the output file exists
         self.assertEqual(os.path.exists(output_hdf5_path), True)
 
@@ -144,17 +141,9 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
         args.save_name_offset = 0
         args.prompt = "dummy_prompt"
         control_inputs = {
-            "edge": {
-                "control_weight": 0.5
-            },
-            "depth": {
-                "control_weight": 0.75,
-                "input_control": "placeholder_not_needed.mp4"
-            },
-            "seg": {
-                "control_weight": 0.75,
-                "input_control": "placeholder_not_needed.mp4"
-            }
+            "edge": {"control_weight": 0.5},
+            "depth": {"control_weight": 0.75, "input_control": "placeholder_not_needed.mp4"},
+            "seg": {"control_weight": 0.75, "input_control": "placeholder_not_needed.mp4"},
         }
         print("args validated")
         os.makedirs(args.checkpoint_dir, exist_ok=True)
@@ -168,21 +157,21 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
         with torch.cuda.device(0):
             # Initialize pipeline
             pipeline = DiffusionControl2WorldGenerationPipelineWithGuidance(
-            checkpoint_dir=args.checkpoint_dir,
-            checkpoint_name=BASE_7B_CHECKPOINT_PATH,
-            offload_network=args.offload_diffusion_transformer,
-            offload_text_encoder_model=args.offload_text_encoder_model,
-            offload_guardrail_models=args.offload_guardrail_models,
-            guidance=args.guidance,
-            num_steps=args.num_steps,
-            fps=args.fps,
-            num_input_frames=args.num_input_frames,
-            control_inputs=control_inputs,
-            sigma_max=args.sigma_max,
-            blur_strength=args.blur_strength,
-            canny_threshold=args.canny_threshold,
-            upsample_prompt=args.upsample_prompt,
-            offload_prompt_upsampler=args.offload_prompt_upsampler,
+                checkpoint_dir=args.checkpoint_dir,
+                checkpoint_name=BASE_7B_CHECKPOINT_PATH,
+                offload_network=args.offload_diffusion_transformer,
+                offload_text_encoder_model=args.offload_text_encoder_model,
+                offload_guardrail_models=args.offload_guardrail_models,
+                guidance=args.guidance,
+                num_steps=args.num_steps,
+                fps=args.fps,
+                num_input_frames=args.num_input_frames,
+                control_inputs=control_inputs,
+                sigma_max=args.sigma_max,
+                blur_strength=args.blur_strength,
+                canny_threshold=args.canny_threshold,
+                upsample_prompt=args.upsample_prompt,
+                offload_prompt_upsampler=args.offload_prompt_upsampler,
             )
             print("pipeline loaded")
             # run inference
@@ -191,7 +180,6 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
         self.assertEqual(video_room_view.shape, (100, 64, 64, 3))
         # check if the second view is half the size of the first view
         self.assertEqual(video_wrist_view.shape, (100, 32, 64, 3))
-
 
 
 if __name__ == "__main__":
