@@ -153,7 +153,7 @@ The collected data includes:
 
 During execution, you can press the 'r' key to reset the environment and state machine.
 
-### Replaying Recorded Trajectories
+### Replay Recorded Trajectories
 
 The `replay_recording.py` script allows you to visualize previously recorded HDF5 trajectories in the Isaac Sim environment. It loads recorded actions, organ positions, and robot joint states from HDF5 files for each episode and steps through them in the simulation.
 
