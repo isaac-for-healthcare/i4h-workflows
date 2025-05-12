@@ -185,7 +185,8 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--offload_guardrail_models",
-        action="store_true",
+        type=bool,
+        default=True,
         help="Offload guardrail models after inference",
     )
     parser.add_argument(
@@ -279,8 +280,8 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
     cfg.input_video_path = data["room_video_path"]
     cfg.x0_mask_path = data["seg_depth_images_npz"]
 
-    source_data_dir = args.source_data_dir
-    output_data_dir = args.output_data_dir
+    source_data_dir = cfg.source_data_dir
+    output_data_dir = cfg.output_data_dir
     if output_data_dir is None:
         output_data_dir = source_data_dir
 
@@ -302,6 +303,9 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
         if isinstance(prompt, dict):
             top_view_prompt = prompt["top_view_prompt"]
             bottom_view_prompt = prompt["bottom_view_prompt"]
+    else:
+        top_view_prompt = cfg.prompt
+        bottom_view_prompt = cfg.prompt
 
     prompts = [{"prompt": top_view_prompt, "visual_input": cfg.input_video_path}]
 
@@ -324,10 +328,10 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
 
         file_name_index = int(os.path.basename(data["h5_file_path"]).replace(".hdf5", "").split("_")[-1])
         video_save_path = os.path.join(
-            cfg.video_save_folder, f"data_{args.save_name_offset + file_name_index}_room_view.mp4"
+            cfg.video_save_folder, f"data_{cfg.save_name_offset + file_name_index}_room_view.mp4"
         )
         prompt_save_path = os.path.join(
-            cfg.video_save_folder, f"data_{args.save_name_offset + file_name_index}_room_view.txt"
+            cfg.video_save_folder, f"data_{cfg.save_name_offset + file_name_index}_room_view.txt"
         )
 
         if os.path.exists(video_save_path):
@@ -450,10 +454,10 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
         )
 
         video_save_path = os.path.join(
-            cfg.video_save_folder, f"data_{args.save_name_offset + file_name_index}_wrist_view.mp4"
+            cfg.video_save_folder, f"data_{cfg.save_name_offset + file_name_index}_wrist_view.mp4"
         )
         prompt_save_path = os.path.join(
-            cfg.video_save_folder, f"data_{args.save_name_offset + file_name_index}_wrist_view.txt"
+            cfg.video_save_folder, f"data_{cfg.save_name_offset + file_name_index}_wrist_view.txt"
         )
 
         # Save video

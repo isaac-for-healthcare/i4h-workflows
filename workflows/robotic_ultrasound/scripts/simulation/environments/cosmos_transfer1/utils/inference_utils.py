@@ -82,9 +82,9 @@ def preprocess_h5_file(h5_file_path):
     mp4_save_dir = tempfile.mkdtemp(prefix="cosmos-transfer1-h5-to-mp4_")
     print(f"preprocessing h5 file to mp4 videos: {mp4_save_dir}")
     with h5py.File(h5_file_path, "r") as f:
-        rgb_images = f["data/demo_0/observations/rgb_images"]  # (263, 2, 224, 224, 3)
-        depth_images = f["data/demo_0/observations/depth_images"]  # (263, 2, 224, 224, 1)
-        seg_images = f["data/demo_0/observations/seg_images"]  # (263, 2, 224, 224, 4) - Only last channel needed
+        rgb_images = f["data/demo_0/observations/rgb_images"]  # (n_frames, 2, 224, 224, 3)
+        depth_images = f["data/demo_0/observations/depth_images"]  # (n_frames, 2, 224, 224, 1)
+        seg_images = f["data/demo_0/observations/seg_images"]  # (n_frames, 2, 224, 224, 3)
         # Video parameters
         num_frames, num_videos, height, width, _ = seg_images.shape
         fps = 30  # Frames per second
@@ -397,7 +397,7 @@ def read_and_resize_input(
     aspect_ratio = detect_aspect_ratio((control_input.shape[-1], control_input.shape[-2]))
     w, h = VIDEO_RES_SIZE_INFO[aspect_ratio]
     if DEBUG_GENERATION:
-        w, h = (128, 128)
+        w, h = (64, 64)
         log.info(f"Running in debug mode, resizing control input to {h}x{w} and ignore aspect ratio.")
     control_input = resize_video(control_input, h, w, interpolation=interpolation)  # BCTHW, range [0, 255]
     control_input = torch.from_numpy(control_input[0])  # CTHW, range [0, 255]

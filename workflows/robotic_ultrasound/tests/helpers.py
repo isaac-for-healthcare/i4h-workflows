@@ -13,7 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
+import importlib
 import os
+import pathlib
 import signal
 import subprocess
 import threading
@@ -21,9 +24,41 @@ import time
 from unittest import skipUnless
 
 
+def get_md5_checksum(output_dir, model_name, md5_checksum_lookup):
+    print("---------------------")
+    for key, value in md5_checksum_lookup.items():
+        if key.startswith(model_name):
+            print(f"Verifying checkpoint {key}...")
+            file_path = os.path.join(output_dir, key)
+            # File must exist
+            if not pathlib.Path(file_path).exists():
+                print(f"Checkpoint {key} does not exist.")
+                return False
+            # File must match give MD5 checksum
+            with open(file_path, "rb") as f:
+                file_md5 = hashlib.md5(f.read()).hexdigest()
+            if file_md5 != value:
+                print(f"MD5 checksum of checkpoint {key} does not match.")
+                return False
+    print(f"Model checkpoints for {model_name} exist with matched MD5 checksums.")
+    return True
+
+
 def requires_rti(func):
     RTI_AVAILABLE = bool(os.getenv("RTI_LICENSE_FILE") and os.path.exists(os.getenv("RTI_LICENSE_FILE")))
     return skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")(func)
+
+
+def requires_cosmos_transfer1(func):
+    # check if cosmos-transfer1 is installed
+    spec = importlib.util.find_spec("module_name")
+    COSMOS_TRANSFER1_AVAILABLE = spec is not None
+    return skipUnless(
+        COSMOS_TRANSFER1_AVAILABLE,
+        "cosmos-transfer1 is not installed. "
+        "Please install it using "
+        "`python tools/install_deps.py --workflow robotic_ultrasound/cosmos_transfer1`",
+    )(func)
 
 
 def monitor_output(process, found_event, target_line=None):

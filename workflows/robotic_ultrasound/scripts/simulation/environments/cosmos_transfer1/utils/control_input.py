@@ -57,7 +57,7 @@ def resize_frames(frames: np.ndarray, is_image: bool, data_dict: dict) -> np.nda
         frames = frames.transpose((2, 0, 1))[:, None]
     H, W = frames.shape[2], frames.shape[3]
     if DEBUG_GENERATION:
-        new_W, new_H = 128, 128
+        new_W, new_H = 64, 64
     else:
         aspect_ratio = detect_aspect_ratio((W, H))
         RES_SIZE_INFO = IMAGE_RES_SIZE_INFO if is_image else VIDEO_RES_SIZE_INFO

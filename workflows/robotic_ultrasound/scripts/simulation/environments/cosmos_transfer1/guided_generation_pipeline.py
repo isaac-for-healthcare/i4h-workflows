@@ -68,6 +68,9 @@ MODEL_CLASS_DICT = {
     LIDAR2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionT2VModelWithCtrl,
 }
 
+RUN_TEST = os.environ.get("RUN_TEST", "0") == "1"
+TEST_CONFIG = "workflows/robotic_ultrasound/scripts/simulation/environments/cosmos_transfer1/config/transfer/config.py"
+
 
 class DiffusionControl2WorldGenerationPipelineWithGuidance(
     DiffusionControl2WorldGenerationPipeline, BaseWorldGenerationPipeline
@@ -166,7 +169,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(
     def _load_model(self):
         self.model = load_model_by_config(
             config_job_name=self.model_name,
-            config_file="environments/cosmos_transfer1/config/transfer/config.py",
+            config_file=TEST_CONFIG if RUN_TEST else "environments/cosmos_transfer1/config/transfer/config.py",
             model_class=self.model_class,
             base_checkpoint_dir=self.checkpoint_dir,
         )
@@ -179,7 +182,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(
             for _, spec in self.control_inputs.items():
                 model = load_model_by_config(
                     config_job_name=self.model_name,
-                    config_file="environments/cosmos_transfer1/config/transfer/config.py",
+                    config_file=TEST_CONFIG if RUN_TEST else "environments/cosmos_transfer1/config/transfer/config.py",
                     model_class=self.model_class,
                     base_checkpoint_dir=self.checkpoint_dir,
                 )

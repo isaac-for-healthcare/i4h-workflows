@@ -20,7 +20,7 @@ import sys
 
 WORKFLOWS = [
     "robotic_ultrasound",
-    "robotic_ultrasound/cosmos_transfer",
+    "robotic_ultrasound/cosmos_transfer1",
     "robotic_surgery",
 ]
 
@@ -54,7 +54,7 @@ def install_dependencies(workflow_name: str = "robotic_ultrasound"):
         dir = os.path.dirname(os.path.abspath(__file__))
         if workflow_name == "robotic_ultrasound":
             subprocess.check_call(["./env_setup_robot_us.sh"], cwd=dir)
-        elif workflow_name == "robotic_ultrasound/cosmos_transfer":
+        elif workflow_name == "robotic_ultrasound/cosmos_transfer1":
             subprocess.check_call(["./env_setup_cosmos_transfer1.sh"], cwd=dir)
         elif workflow_name == "robotic_surgery":
             subprocess.check_call(["./env_setup_robot_surgery.sh"], cwd=dir)
