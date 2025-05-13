@@ -38,6 +38,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import CameraCfg, FrameTransformerCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
 from isaaclab.utils import configclass
+from isaaclab.utils.assets import NVIDIA_NUCLEUS_DIR
 from isaacsim.core.utils.torch.rotations import euler_angles_to_quats
 from robotic_us_ext.lab_assets.franka import FRANKA_PANDA_HIGH_PD_FORCE_CFG, FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG
 from robotic_us_ext.tasks.ultrasound.approach import mdp
@@ -361,6 +362,24 @@ class EventCfg:
     # this needs to be executed before any other reset function, to not overwrite the reset scene to default.
     reset_scene = EventTerm(func=mdp.reset_scene_to_default, mode="reset")
 
+    table_texture_randomizer = EventTerm(
+        func=mdp.randomize_visual_texture_material,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("table"),
+            "texture_paths": [
+                f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Bamboo_Planks/Bamboo_Planks_BaseColor.png",
+                f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Cherry/Cherry_BaseColor.png",
+                f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Oak/Oak_BaseColor.png",
+                f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Timber/Timber_BaseColor.png",
+                f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Timber_Cladding/Timber_Cladding_BaseColor.png",
+                f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Walnut_Planks/Walnut_Planks_BaseColor.png",
+            ],
+            "event_name": "table_texture_randomizer",
+            "texture_rotation": (math.pi / 2, math.pi / 2),
+        },
+    )
+
     # the second reset only affects the organ body, and adds a random offset to the organ body, w.r.t to
     # the current position.
     reset_object_position = EventTerm(
@@ -435,7 +454,7 @@ class RoboticIkRlEnvCfg(ManagerBasedRLEnvCfg):
     """Base Configuration for the robotic ultrasound environment."""
 
     # Scene settings
-    scene: RoboticSoftCfg = RoboticSoftCfg(num_envs=1, env_spacing=2.5)
+    scene: RoboticSoftCfg = RoboticSoftCfg(num_envs=1, env_spacing=2.5, replicate_physics=False)
     # Basic settings
     observations: PoseObservationsCfg = PoseObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
