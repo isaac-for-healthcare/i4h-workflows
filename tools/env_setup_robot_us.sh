@@ -135,7 +135,7 @@ pushd $PROJECT_ROOT/third_party/lerobot
 git checkout 6674e368249472c91382eb54bb8501c94c7f0c56
 
 # Update pyav dependency in pyproject.toml
-sed -i 's/"pyav>=12.0.5"/"av>=12.0.5"/' pyproject.toml
+sed -i 's/pyav/av/' pyproject.toml
 
 pip install -e .
 popd
