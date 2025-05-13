@@ -19,13 +19,3 @@ project(telesurgery_patient CXX)
 # Finds the package holoscan
 find_package(holoscan 3.3 REQUIRED CONFIG
              PATHS "/opt/nvidia/holoscan" "/workspace/holoscan-sdk/install")
-
-# add_executable(telesurgery_patient
-# )
-
-# target_link_libraries(telesurgery_patient
-#   PRIVATE
-#   holoscan::core
-#   holoscan::ops::holoviz
-#   holoscan::ops::dds
-# )
