@@ -30,7 +30,9 @@ python run_policy.py --policy pi0 [other arguments...]
 
 ### Prepare Model Weights and Dependencies
 
-For now, please refer to the official [NVIDIA Isaac GR00T Installation Guide](https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#installation-guide) for detailed instructions on setting up the necessary dependencies and acquiring model weights. Ensure the environment where you run `run_policy.py` has the GR00TN1 dependencies installed.
+Please refer to the [Environment Setup](../../README.md#environment-setup) instructions, ensuring you use the `--policy gr00tn1` option when running `tools/env_setup_robot_us.sh` to install GR00TN1 dependencies.
+For acquiring model weights and further details, consult the official [NVIDIA Isaac GR00T Installation Guide](https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#installation-guide).
+Ensure the environment where you run `run_policy.py` has the GR00TN1 dependencies installed.
 
 ### Ensure the PYTHONPATH Is Set
 
