@@ -22,9 +22,9 @@ POLICY_TO_INSTALL="pi0" # Default value
 
 # --- Helper Functions ---
 usage() {
-    echo "Usage: $0 --policy [pi0|gr00t|base]"
+    echo "Usage: $0 --policy [pi0|gr00tn1|base]"
     echo "  pi0:   Install base dependencies + PI0 policy dependencies (openpi, lerobot)."
-    echo "  gr00t: Install base dependencies + GR00T N1 policy dependencies (Isaac-GR00T)."
+    echo "  gr00tn1: Install base dependencies + GR00T N1 policy dependencies (Isaac-GR00T)."
     echo "  base:  Install only base dependencies (IsaacSim, IsaacLab, Holoscan, etc.)."
     exit 1
 }
@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate policy argument
-if [[ "$POLICY_TO_INSTALL" != "pi0" && "$POLICY_TO_INSTALL" != "gr00t" && "$POLICY_TO_INSTALL" != "base" ]]; then
+if [[ "$POLICY_TO_INSTALL" != "pi0" && "$POLICY_TO_INSTALL" != "gr00tn1" && "$POLICY_TO_INSTALL" != "base" ]]; then
     echo "Error: Invalid policy specified."
     usage
 fi
@@ -73,7 +73,7 @@ if ! nvidia-smi &> /dev/null; then
 fi
 
 # Check if the third_party directory exists - MODIFIED: Only exit if we plan to clone something into it.
-if [[ "$POLICY_TO_INSTALL" == "pi0" || "$POLICY_TO_INSTALL" == "gr00t"; then
+if [[ "$POLICY_TO_INSTALL" == "pi0" || "$POLICY_TO_INSTALL" == "gr00tn1" ]]; then
     if [ -d "$PROJECT_ROOT/third_party" ]; then
         echo "Warning: 'third_party' directory already exists. Skipping cloning steps if repositories already exist within it."
         # Allow script to continue, individual clone steps should handle existing dirs if needed.
@@ -225,7 +225,7 @@ fi
 
 
 # ---- Install GR00T N1 Policy Dependencies (Conditional) ----
-if [[ "$POLICY_TO_INSTALL" == "gr00t" ]]; then
+if [[ "$POLICY_TO_INSTALL" == "gr00tn1" ]]; then
     echo "Installing GR00T N1 Policy Dependencies..."
     git clone https://github.com/NVIDIA/Isaac-GR00T $PROJECT_ROOT/third_party/Isaac-GR00T
     pushd $PROJECT_ROOT/third_party/Isaac-GR00T
