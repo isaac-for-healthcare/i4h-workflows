@@ -153,6 +153,33 @@ The collected data includes:
 
 During execution, you can press the 'r' key to reset the environment and state machine.
 
+### Replay Recorded Trajectories
+
+The `replay_recording.py` script allows you to visualize previously recorded HDF5 trajectories in the Isaac Sim environment. It loads recorded actions, organ positions, and robot joint states from HDF5 files for each episode and steps through them in the simulation.
+
+#### Usage
+
+Ensure your `PYTHONPATH` is set up as described in the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts).
+
+Navigate to the [`simulation` folder](./) and execute:
+
+```sh
+python environments/state_machine/replay_recording.py --hdf5_path /path/to/your/hdf5_data_directory --task <YourTaskName>
+```
+
+Replace `/path/to/your/hdf5_data_directory` with the actual path to the directory containing your `data_*.hdf5` files, and `<YourTaskName>` with the task name used during data collection (e.g., `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0`).
+
+#### Command Line Arguments
+
+| Argument           | Type | Default                                  | Description                                                                      |
+|--------------------|------|------------------------------------------|----------------------------------------------------------------------------------|
+| `--hdf5_path`      | str  | (Required)                               | Path to the directory containing recorded HDF5 files.                            |
+| `--task`           | str  | `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0` | Name of the task (environment) to use. Should match the task used for recording. |
+| `--num_envs`       | int  | `1`                                      | Number of environments to spawn (should typically be 1 for replay).              |
+| `--disable_fabric` | flag | `False`                                  | Disable fabric and use USD I/O operations.                                       |
+
+> **Note:** Additional common Isaac Lab arguments (like `--device`) can also be used.
+
 ### Teleoperation
 
 The teleoperation interface allows direct control of the robotic arm using various input devices. It supports keyboard, SpaceMouse, and gamepad controls for precise manipulation of the ultrasound probe.
