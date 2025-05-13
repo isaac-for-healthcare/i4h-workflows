@@ -31,3 +31,4 @@ import rti.idl as idl
 class FrankaInfo:
     joints_state_positions: Sequence[float] = field(default_factory=idl.array_factory(float))
     joints_state_velocities: Sequence[float] = field(default_factory=idl.array_factory(float))
+    joint_actions: Sequence[float] = field(default_factory=idl.array_factory(float))

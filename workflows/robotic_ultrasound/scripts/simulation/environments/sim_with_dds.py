@@ -100,6 +100,8 @@ parser.add_argument(
     default="topic_franka_ctrl",
     help="topic name to publish generated franka actions",
 )
+parser.add_argument("--width", type=int, default=224, help="width of the image")
+parser.add_argument("--height", type=int, default=224, help="height of the image")
 parser.add_argument("--log_probe_pos", action="store_true", default=False, help="Log probe position.")
 parser.add_argument(
     "--scale", type=float, default=1000.0, help="Scale factor to convert from omniverse to organ coordinate system."
@@ -142,8 +144,8 @@ class RoomCamPublisher(Publisher):
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
         output.focal_len = 12.0
-        output.height = 224
-        output.width = 224
+        output.height = args_cli.height
+        output.width = args_cli.width
         if self.rgb:
             output.data = pub_data["room_cam"].tobytes()
         else:
@@ -158,8 +160,8 @@ class WristCamPublisher(Publisher):
 
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
-        output.height = 224
-        output.width = 224
+        output.height = args_cli.height
+        output.width = args_cli.width
         if self.rgb:
             output.data = pub_data["wrist_cam"].tobytes()
         else:
@@ -211,7 +213,10 @@ def main():
 
     # modify configuration
     env_cfg.terminations.time_out = None
-
+    env_cfg.scene.room_camera.width = args_cli.width
+    env_cfg.scene.room_camera.height = args_cli.height
+    env_cfg.scene.wrist_camera.width = args_cli.width
+    env_cfg.scene.wrist_camera.height = args_cli.height
     # create environment
     env = gym.make(args_cli.task, cfg=env_cfg)
 
@@ -250,7 +255,8 @@ def main():
     viz_probe_pos_writer = ProbePosPublisher(args_cli.viz_domain_id)
     infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
     infer_reader.start()
-
+    import time
+    time.sleep(10)
     # Number of steps played before replanning
     replan_steps = 5
 

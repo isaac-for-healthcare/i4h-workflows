@@ -131,6 +131,14 @@ class DataCollectionManager:
         # Store in HDF5
         self.collector_interface.add("observations/torso_obs", torso_obs)
         self.collector_interface.add("observations/robot_obs", robot_obs_np)
+        self.collector_interface.add("observations/room_camera_pos", env.unwrapped.scene['room_camera'].data.pos_w.cpu().numpy())
+        self.collector_interface.add("observations/room_camera_quat_w_ros", env.unwrapped.scene['room_camera'].data.quat_w_ros.cpu().numpy())
+        self.collector_interface.add("observations/room_camera_intrinsic_matrices", env.unwrapped.scene['room_camera'].data.intrinsic_matrices.cpu().numpy())
+        
+        self.collector_interface.add("observations/wrist_camera_pos", env.unwrapped.scene['wrist_camera'].data.pos_w.cpu().numpy())
+        self.collector_interface.add("observations/wrist_camera_quat_w_ros", env.unwrapped.scene['wrist_camera'].data.quat_w_ros.cpu().numpy())
+        self.collector_interface.add("observations/wrist_camera_intrinsic_matrices", env.unwrapped.scene['wrist_camera'].data.intrinsic_matrices.cpu().numpy())
+        
         self.collector_interface.add("action", rel_action_np)
         self.collector_interface.add("abs_action", abs_action_np)
         self.collector_interface.add("state", state_np)

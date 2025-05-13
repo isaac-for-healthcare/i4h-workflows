@@ -89,6 +89,18 @@ parser.add_argument(
     default="topic_wrist_camera_data_rgb",
     help="topic name to consume wrist camera rgb",
 )
+parser.add_argument(
+    "--camera_width",
+    type=int,
+    default=224,
+    help="width of the camera",
+)
+parser.add_argument(
+    "--camera_height",
+    type=int,
+    default=224,
+    help="height of the camera",
+)
 
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -133,8 +145,8 @@ class RoomCamPublisher(Publisher):
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
         output.focal_len = 12.0
-        output.height = 224
-        output.width = 224
+        output.height = args_cli.camera_height
+        output.width = args_cli.camera_width
         output.data = pub_data["room_cam"].tobytes()
         return output
 
@@ -145,8 +157,8 @@ class WristCamPublisher(Publisher):
 
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
-        output.height = 224
-        output.width = 224
+        output.height = args_cli.camera_height
+        output.width = args_cli.camera_width
         output.data = pub_data["wrist_cam"].tobytes()
         return output
 
@@ -164,6 +176,13 @@ def main():
         args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
     )
     assert args_cli.num_envs == 1, "Number of environments must be 1 for this script"
+
+    # create environment
+    env_cfg.scene.room_camera.width = args_cli.camera_width
+    env_cfg.scene.room_camera.height = args_cli.camera_height
+    env_cfg.scene.wrist_camera.width = args_cli.camera_width
+    env_cfg.scene.wrist_camera.height = args_cli.camera_height
+
     # Ensure no timeout
     env_cfg.terminations.time_out = None
     # create environment
@@ -261,10 +280,12 @@ def main():
             # Record data if collecting
             if data_collector is not None:
                 # Capture camera images if data collection is happening
-                rgb_images, depth_images = capture_camera_images(env, args_cli.camera_names, device=args_cli.device)
+                rgb_images, depth_images, seg_images = capture_camera_images(env, args_cli.camera_names, include_seg=True, device=args_cli.device)
                 obs["rgb_images"] = rgb_images
                 obs["depth_images"] = depth_images
+                obs["seg_images"] = seg_images
 
+                obs["joint_vel"] = env.unwrapped.scene["robot"].data.joint_vel
                 data_collector.record_step(
                     env,
                     obs,
