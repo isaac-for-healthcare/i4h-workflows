@@ -17,6 +17,45 @@
 
 set -e
 
+# --- Configuration ---
+POLICY_TO_INSTALL="pi0" # Default value
+
+# --- Helper Functions ---
+usage() {
+    echo "Usage: $0 --policy [pi0|gr00t|both|core]"
+    echo "  pi0:   Install core dependencies + PI0 policy dependencies (openpi, lerobot)."
+    echo "  gr00t: Install core dependencies + GR00T N1 policy dependencies (Isaac-GR00T)."
+    echo "  both:  Install core dependencies + PI0 + GR00T N1 dependencies (not verified)."
+    echo "  core:  Install only core dependencies (IsaacSim, IsaacLab, Holoscan, etc.)."
+    exit 1
+}
+
+# --- Argument Parsing ---
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --policy)
+        POLICY_TO_INSTALL="$2"
+        shift # past argument
+        shift # past value
+        ;;
+        *)    # unknown option
+        usage
+        ;;
+    esac
+done
+
+# Validate policy argument
+if [[ "$POLICY_TO_INSTALL" != "pi0" && "$POLICY_TO_INSTALL" != "gr00t" && "$POLICY_TO_INSTALL" != "both" && "$POLICY_TO_INSTALL" != "core" ]]; then
+    echo "Error: Invalid policy specified."
+    usage
+fi
+
+echo "Selected policy setup: $POLICY_TO_INSTALL"
+
+
+# --- Setup Steps ---
+
 # Get the parent directory of the current script
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 
@@ -34,14 +73,20 @@ if ! nvidia-smi &> /dev/null; then
     exit 1
 fi
 
-# Check if the third_party directory exists, if yes, then exit
-if [ -d "$PROJECT_ROOT/third_party" ]; then
-    echo "Error: third_party directory already exists"
-    echo "Please remove the third_party directory before running this script"
-    exit 1
+# Check if the third_party directory exists - MODIFIED: Only exit if we plan to clone something into it.
+if [[ "$POLICY_TO_INSTALL" == "pi0" || "$POLICY_TO_INSTALL" == "gr00t" || "$POLICY_TO_INSTALL" == "both" ]]; then
+    if [ -d "$PROJECT_ROOT/third_party" ]; then
+        echo "Warning: 'third_party' directory already exists. Skipping cloning steps if repositories already exist within it."
+        # Allow script to continue, individual clone steps should handle existing dirs if needed.
+        # Consider adding checks within clone sections or advising user to clean up if needed.
+    else
+        mkdir $PROJECT_ROOT/third_party
+        echo "Created directory: $PROJECT_ROOT/third_party"
+    fi
 fi
 
-# ---- Install build tools ----
+
+# ---- Install build tools (Common) ----
 echo "Installing build tools..."
 if [ "$EUID" -ne 0 ]; then
     sudo apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
@@ -50,8 +95,8 @@ else
 fi
 
 
-# ---- Install IsaacSim and necessary dependencies ----
-echo "Installing IsaacSim..."
+# ---- Install IsaacSim and necessary dependencies (Common) ----
+echo "Installing IsaacSim and core dependencies..."
 pip install 'isaacsim[all,extscache]==4.5.0' \
     rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
     git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0 \
@@ -59,117 +104,175 @@ pip install 'isaacsim[all,extscache]==4.5.0' \
     --extra-index-url https://pypi.nvidia.com
 
 
-# ---- Install IsaacLab ----
-echo "Installing IsaacLab..."
-# CLONING REPOSITORIES INTO PROJECT_ROOT/third_party
-echo "Cloning repositories into $PROJECT_ROOT/third_party..."
-mkdir $PROJECT_ROOT/third_party
-git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
-pushd $PROJECT_ROOT/third_party/IsaacLab
-yes Yes | ./isaaclab.sh --install
-popd
+# ---- Install IsaacLab (Common) ----
+# Check if IsaacLab is already cloned
+if [ ! -d "$PROJECT_ROOT/third_party/IsaacLab" ]; then
+    echo "Installing IsaacLab..."
+    # CLONING REPOSITORIES INTO PROJECT_ROOT/third_party
+    echo "Cloning IsaacLab repository into $PROJECT_ROOT/third_party/IsaacLab..."
+    git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
+    pushd $PROJECT_ROOT/third_party/IsaacLab
+    yes Yes | ./isaaclab.sh --install
+    popd
+else
+    echo "IsaacLab directory already exists. Assuming it's installed. Skipping clone and install script."
+fi
 
 
-# ---- Install robotic ultrasound extension ----
+# ---- Install robotic ultrasound extension (Common) ----
 echo "Installing robotic ultrasound extension..."
 pushd $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation
-pip install -e exts/robotic_us_ext
+# Ensure the target directory exists before installing
+if [ -d "exts/robotic_us_ext" ]; then
+    pip install -e exts/robotic_us_ext
+else
+    echo "Error: robotic_us_ext directory not found at $PWD/exts/robotic_us_ext"
+    exit 1
+fi
+popd
+
+# ---- Install lerobot (Common) ----
+echo "Installing lerobot..."
+git clone https://github.com/huggingface/lerobot.git $PROJECT_ROOT/third_party/lerobot
+pushd $PROJECT_ROOT/third_party/lerobot
+git checkout 6674e368249472c91382eb54bb8501c94c7f0c56
+
+# Update pyav dependency in pyproject.toml
+sed -i 's/pyav/av/' pyproject.toml
+
+pip install -e .
 popd
 
 
-# ---- Install OpenPI with IsaacSim ----
-echo "Installing OpenPI..."
-# Clone the openpi repository
-git clone git@github.com:Physical-Intelligence/openpi.git $PROJECT_ROOT/third_party/openpi
-pushd $PROJECT_ROOT/third_party/openpi
-git checkout 581e07d73af36d336cef1ec9d7172553b2332193
+# ---- Install PI0 Policy Dependencies (Conditional) ----
+if [[ "$POLICY_TO_INSTALL" == "pi0" || "$POLICY_TO_INSTALL" == "both" ]]; then
+    echo "------------------------------------------"
+    echo "Installing PI0 Policy Dependencies..."
+    echo "------------------------------------------"
 
-# Update python version in pyproject.toml
-pyproject_path="$PROJECT_ROOT/third_party/openpi/pyproject.toml"
-sed -i.bak \
-    -e 's/requires-python = ">=3.11"/requires-python = ">=3.10"/' \
-    -e 's/"s3fs>=2024.9.0"/"s3fs==2024.9.0"/' \
-    "$pyproject_path"
+    # Check if openpi is already cloned
+    if [ ! -d "$PROJECT_ROOT/third_party/openpi" ]; then
+        echo "Cloning OpenPI repository..."
+        git clone git@github.com:Physical-Intelligence/openpi.git $PROJECT_ROOT/third_party/openpi
+        pushd $PROJECT_ROOT/third_party/openpi
+        git checkout 581e07d73af36d336cef1ec9d7172553b2332193
 
-# Apply temporary workaround for openpi/src/openpi/shared/download.py
-file_path="$PROJECT_ROOT/third_party/openpi/src/openpi/shared/download.py"
+        # Update python version in pyproject.toml
+        pyproject_path="$PROJECT_ROOT/third_party/openpi/pyproject.toml"
+        echo "Patching OpenPI pyproject.toml..."
+        sed -i.bak \
+            -e 's/requires-python = ">=3.11"/requires-python = ">=3.10"/' \
+            -e 's/"s3fs>=2024.9.0"/"s3fs==2024.9.0"/' \
+            "$pyproject_path"
 
-# Comment out specific import lines
-sed -i.bak \
-    -e 's/^import boto3\.s3\.transfer as s3_transfer/# import boto3.s3.transfer as s3_transfer/' \
-    -e 's/^import s3transfer\.futures as s3_transfer_futures/# import s3transfer.futures as s3_transfer_futures/' \
-    -e 's/^from types_boto3_s3\.service_resource import ObjectSummary/# from types_boto3_s3.service_resource import ObjectSummary/' \
-    "$file_path"
+        # Apply temporary workaround for openpi/src/openpi/shared/download.py
+        file_path="$PROJECT_ROOT/third_party/openpi/src/openpi/shared/download.py"
+        echo "Patching OpenPI download.py..."
+        # Comment out specific import lines
+        sed -i.bak \
+            -e 's/^import boto3\.s3\.transfer as s3_transfer/# import boto3.s3.transfer as s3_transfer/' \
+            -e 's/^import s3transfer\.futures as s3_transfer_futures/# import s3transfer.futures as s3_transfer_futures/' \
+            -e 's/^from types_boto3_s3\.service_resource import ObjectSummary/# from types_boto3_s3.service_resource import ObjectSummary/' \
+            "$file_path"
+        # Remove the type hint
+        sed -i.bak -e 's/)[[:space:]]*-> s3_transfer\.TransferManager[[:space:]]*:/):/' "$file_path"
+        # Modify the datetime line
+        sed -i.bak -e 's/datetime\.UTC/datetime.timezone.utc/' "$file_path"
 
-# Remove the type hint
-sed -i.bak -e 's/)[[:space:]]*-> s3_transfer\.TransferManager[[:space:]]*:/):/' "$file_path"
+        # Modify the type hints in training/utils.py to use Any instead of optax types
+        utils_path="$PROJECT_ROOT/third_party/openpi/src/openpi/training/utils.py"
+        echo "Patching OpenPI utils.py..."
+        sed -i.bak \
+            -e 's/opt_state: optax\.OptState/opt_state: Any/' \
+            "$utils_path"
 
-# Modify the datetime line
-sed -i.bak -e 's/datetime\.UTC/datetime.timezone.utc/' "$file_path"
+        # Remove the backup files
+        rm "$pyproject_path.bak" "$file_path.bak" "$utils_path.bak"
 
-# Modify the type hints in training/utils.py to use Any instead of optax types
-utils_path="$PROJECT_ROOT/third_party/openpi/src/openpi/training/utils.py"
-sed -i.bak \
-    -e 's/opt_state: optax\.OptState/opt_state: Any/' \
-    "$utils_path"
+        # Add training script to openpi module
+        echo "Copying OpenPI utility scripts..."
+        if [ ! -f src/openpi/train.py ]; then
+            cp scripts/train.py src/openpi/train.py
+        fi
+        if [ ! -f src/openpi/compute_norm_stats.py ]; then
+            cp scripts/compute_norm_stats.py src/openpi/compute_norm_stats.py
+        fi
 
-# Remove the backup files
-rm "$pyproject_path.bak"
-rm "$file_path.bak"
-rm "$utils_path.bak"
+        popd # Back to PROJECT_ROOT
 
-# Add training script to openpi module
-if [ ! -f $PROJECT_ROOT/third_party/openpi/src/openpi/train.py ]; then
-    cp $PROJECT_ROOT/third_party/openpi/scripts/train.py $PROJECT_ROOT/third_party/openpi/src/openpi/train.py
+    else
+        echo "OpenPI directory already exists. Assuming source is present. Skipping clone and patching."
+    fi
+
+    if [ -d "$PROJECT_ROOT/third_party/openpi" ]; then
+        echo "Installing OpenPI Client..."
+        pip install -e $PROJECT_ROOT/third_party/openpi/packages/openpi-client/
+        echo "Installing OpenPI Core..."
+        pip install -e $PROJECT_ROOT/third_party/openpi/
+
+        # Revert the "import changes of "$file_path after installation to prevent errors
+        echo "Reverting temporary patches in OpenPI download.py..."
+        file_path_revert="$PROJECT_ROOT/third_party/openpi/src/openpi/shared/download.py"
+        sed -i \
+            -e 's/^# import boto3\.s3\.transfer as s3_transfer/import boto3.s3.transfer as s3_transfer/' \
+            -e 's/^# import s3transfer\.futures as s3_transfer_futures/import s3transfer.futures as s3_transfer_futures/' \
+            -e 's/^# from types_boto3_s3\.service_resource import ObjectSummary/from types_boto3_s3.service_resource import ObjectSummary/' \
+            "$file_path_revert"
+    else
+         echo "Warning: OpenPI directory not found at $PROJECT_ROOT/third_party/openpi. Skipping OpenPI installation."
+    fi
+    echo "PI0 Dependencies installed."
 fi
 
-# Add norm stats generator script to openpi module
-if [ ! -f $PROJECT_ROOT/third_party/openpi/src/openpi/compute_norm_stats.py ]; then
-    cp $PROJECT_ROOT/third_party/openpi/scripts/compute_norm_stats.py $PROJECT_ROOT/third_party/openpi/src/openpi/compute_norm_stats.py
+
+# ---- Install GR00T N1 Policy Dependencies (Conditional - Placeholder) ----
+if [[ "$POLICY_TO_INSTALL" == "gr00t" || "$POLICY_TO_INSTALL" == "both" ]]; then
+    echo "Installing GR00T N1 Policy Dependencies..."
+    git clone https://github.com/NVIDIA/Isaac-GR00T $PROJECT_ROOT/third_party/Isaac-GR00T
+    pushd $PROJECT_ROOT/third_party/Isaac-GR00T
+    sed -i 's/pyav/av/' pyproject.toml
+    pip install -e .
+    popd
+    pip install --no-build-isolation flash-attn==2.7.1.post4
+    echo "GR00T N1 Policy Dependencies installed."
 fi
 
-# Install the dependencies
-pip install git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56
-pip install -e $PROJECT_ROOT/third_party/openpi/packages/openpi-client/
-pip install -e $PROJECT_ROOT/third_party/openpi/
 
-# Revert the "import changes of "$file_path after installation to prevent errors
-sed -i \
-    -e 's/^# import boto3\.s3\.transfer as s3_transfer/import boto3.s3.transfer as s3_transfer/' \
-    -e 's/^# import s3transfer\.futures as s3_transfer_futures/import s3transfer.futures as s3_transfer_futures/' \
-    -e 's/^# from types_boto3_s3\.service_resource import ObjectSummary/from types_boto3_s3.service_resource import ObjectSummary/' \
-    "$file_path"
-
-popd
-
-# ---- Install Holoscan ----
-# Install Holoscan
+# ---- Install Holoscan (Common) ----
+echo "------------------------------------------"
 echo "Installing Holoscan..."
+echo "------------------------------------------"
 conda install -c conda-forge gcc=13.3.0 -y
 pip install holoscan==2.9.0
 
-echo "Dependencies installed successfully!"
-
 HOLOSCAN_DIR=$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/holoscan_apps/
 
-echo "Building Holoscan Apps"
+if [ -d "$HOLOSCAN_DIR" ]; then
+    echo "Building Holoscan Apps..."
+    pushd $HOLOSCAN_DIR
 
-pushd $HOLOSCAN_DIR
+    # clean previous downloads and builds
+    rm -rf build
+    rm -rf clarius_solum/include
+    rm -rf clarius_solum/lib
+    rm -rf clarius_cast/include
+    rm -rf clarius_cast/lib
+    cmake -B build -S . && cmake --build build
 
-# clean previous downloads and builds
-rm -rf build
-rm -rf clarius_solum/include
-rm -rf clarius_solum/lib
-rm -rf clarius_cast/include
-rm -rf clarius_cast/lib
-cmake -B build -S . && cmake --build build
+    popd
+    echo "Holoscan Apps build completed!"
+else
+    echo "Warning: Holoscan apps directory not found at $HOLOSCAN_DIR. Skipping build."
+fi
 
-popd
 
-echo "Holoscan Apps build completed!"
-
-# ---- Install libstdcxx-ng for raysim ----
+# ---- Install libstdcxx-ng for raysim (Common) ----
+echo "------------------------------------------"
 echo "Installing libstdcxx-ng..."
+echo "------------------------------------------"
 conda install -c conda-forge libstdcxx-ng=13.2.0 -y
 
-echo "Dependencies installed successfully!"
+echo "=========================================="
+echo "Environment setup script finished."
+echo "Selected policy dependencies ($POLICY_TO_INSTALL) should be installed along with core components."
+echo "=========================================="
