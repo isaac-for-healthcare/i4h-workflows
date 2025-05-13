@@ -1,18 +1,17 @@
 # Telesurgery
 
-![image](./assets/sim.png)
+![image](../../docs/source/telesurgery.png)
 
 ## System Requirements
 
 - Ubuntu 22.04
 - NVIDIA GPU with compute capability 8.6 and 32GB of memory
     - GPUs without RT Cores (A100, H100) are not supported.
-- NVIDIA Driver Version >= 555
+- NVIDIA Driver Version >= 535
 - 50GB of disk space
 - Docker & NVIDIA Container Toolkit
 - RTI Connext DDS 7.3.0 installed in `~/rti_connext_dds-7.3.0`
 - VS Code or Cursor AI with devcontainer
-- Enable Display access inside Docker by running `xhost +SI:localuser:$USER` or `xhost +local:docker` (not required with `./run` script)
 
 ## Development
 
