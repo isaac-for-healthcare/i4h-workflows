@@ -128,8 +128,19 @@ if [ ! -f $PROJECT_ROOT/third_party/openpi/src/openpi/compute_norm_stats.py ]; t
     cp $PROJECT_ROOT/third_party/openpi/scripts/compute_norm_stats.py $PROJECT_ROOT/third_party/openpi/src/openpi/compute_norm_stats.py
 fi
 
+# ---- Install lerobot ----
+echo "Installing lerobot..."
+git clone https://github.com/huggingface/lerobot.git $PROJECT_ROOT/third_party/lerobot
+pushd $PROJECT_ROOT/third_party/lerobot
+git checkout 6674e368249472c91382eb54bb8501c94c7f0c56
+
+# Update pyav dependency in pyproject.toml
+sed -i 's/pyav/av/' pyproject.toml
+
+pip install -e .
+popd
+
 # Install the dependencies
-pip install git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56
 pip install -e $PROJECT_ROOT/third_party/openpi/packages/openpi-client/
 pip install -e $PROJECT_ROOT/third_party/openpi/
 
