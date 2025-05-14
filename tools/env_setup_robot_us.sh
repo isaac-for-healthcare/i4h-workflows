@@ -75,7 +75,9 @@ fi
 # Check if the third_party directory exists
 if [[ "$INSTALL_WITH_POLICY" == "pi0" || "$INSTALL_WITH_POLICY" == "gr00tn1" ]]; then
     if [ -d "$PROJECT_ROOT/third_party" ]; then
-        echo "Warning: 'third_party' directory already exists. Skipping cloning steps if repositories already exist within it."
+        echo "Error: third_party directory already exists"
+        echo "Please remove the third_party directory before running this script"
+        exit 1
     else
         mkdir $PROJECT_ROOT/third_party
         echo "Created directory: $PROJECT_ROOT/third_party"
@@ -103,16 +105,12 @@ pip install 'isaacsim[all,extscache]==4.5.0' \
 
 # ---- Install IsaacLab (Common) ----
 # Check if IsaacLab is already cloned
-if [ ! -d "$PROJECT_ROOT/third_party/IsaacLab" ]; then
-    echo "Installing IsaacLab..."
-    echo "Cloning IsaacLab repository into $PROJECT_ROOT/third_party/IsaacLab..."
-    git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
-    pushd $PROJECT_ROOT/third_party/IsaacLab
-    yes Yes | ./isaaclab.sh --install
-    popd
-else
-    echo "IsaacLab directory already exists. Assuming it's installed. Skipping clone and install script."
-fi
+echo "Installing IsaacLab..."
+echo "Cloning IsaacLab repository into $PROJECT_ROOT/third_party/IsaacLab..."
+git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
+pushd $PROJECT_ROOT/third_party/IsaacLab
+yes Yes | ./isaaclab.sh --install
+popd
 
 
 # ---- Install robotic ultrasound extension (Common) ----
@@ -146,77 +144,67 @@ if [[ "$INSTALL_WITH_POLICY" == "pi0" ]]; then
     echo "Installing PI0 Policy Dependencies..."
     echo "------------------------------------------"
 
-    # Check if openpi is already cloned
-    if [ ! -d "$PROJECT_ROOT/third_party/openpi" ]; then
-        echo "Cloning OpenPI repository..."
-        git clone git@github.com:Physical-Intelligence/openpi.git $PROJECT_ROOT/third_party/openpi
-        pushd $PROJECT_ROOT/third_party/openpi
-        git checkout 581e07d73af36d336cef1ec9d7172553b2332193
+    echo "Cloning OpenPI repository..."
+    git clone git@github.com:Physical-Intelligence/openpi.git $PROJECT_ROOT/third_party/openpi
+    pushd $PROJECT_ROOT/third_party/openpi
+    git checkout 581e07d73af36d336cef1ec9d7172553b2332193
 
-        # Update python version in pyproject.toml
-        pyproject_path="$PROJECT_ROOT/third_party/openpi/pyproject.toml"
-        echo "Patching OpenPI pyproject.toml..."
-        sed -i.bak \
-            -e 's/requires-python = ">=3.11"/requires-python = ">=3.10"/' \
-            -e 's/"s3fs>=2024.9.0"/"s3fs==2024.9.0"/' \
-            "$pyproject_path"
+    # Update python version in pyproject.toml
+    pyproject_path="$PROJECT_ROOT/third_party/openpi/pyproject.toml"
+    echo "Patching OpenPI pyproject.toml..."
+    sed -i.bak \
+        -e 's/requires-python = ">=3.11"/requires-python = ">=3.10"/' \
+        -e 's/"s3fs>=2024.9.0"/"s3fs==2024.9.0"/' \
+        "$pyproject_path"
 
-        # Apply temporary workaround for openpi/src/openpi/shared/download.py
-        file_path="$PROJECT_ROOT/third_party/openpi/src/openpi/shared/download.py"
-        echo "Patching OpenPI download.py..."
-        # Comment out specific import lines
-        sed -i.bak \
-            -e 's/^import boto3\.s3\.transfer as s3_transfer/# import boto3.s3.transfer as s3_transfer/' \
-            -e 's/^import s3transfer\.futures as s3_transfer_futures/# import s3transfer.futures as s3_transfer_futures/' \
-            -e 's/^from types_boto3_s3\.service_resource import ObjectSummary/# from types_boto3_s3.service_resource import ObjectSummary/' \
-            "$file_path"
-        # Remove the type hint
-        sed -i.bak -e 's/)[[:space:]]*-> s3_transfer\.TransferManager[[:space:]]*:/):/' "$file_path"
-        # Modify the datetime line
-        sed -i.bak -e 's/datetime\.UTC/datetime.timezone.utc/' "$file_path"
+    # Apply temporary workaround for openpi/src/openpi/shared/download.py
+    file_path="$PROJECT_ROOT/third_party/openpi/src/openpi/shared/download.py"
+    echo "Patching OpenPI download.py..."
+    # Comment out specific import lines
+    sed -i.bak \
+        -e 's/^import boto3\.s3\.transfer as s3_transfer/# import boto3.s3.transfer as s3_transfer/' \
+        -e 's/^import s3transfer\.futures as s3_transfer_futures/# import s3transfer.futures as s3_transfer_futures/' \
+        -e 's/^from types_boto3_s3\.service_resource import ObjectSummary/# from types_boto3_s3.service_resource import ObjectSummary/' \
+        "$file_path"
+    # Remove the type hint
+    sed -i.bak -e 's/)[[:space:]]*-> s3_transfer\.TransferManager[[:space:]]*:/):/' "$file_path"
+    # Modify the datetime line
+    sed -i.bak -e 's/datetime\.UTC/datetime.timezone.utc/' "$file_path"
 
-        # Modify the type hints in training/utils.py to use Any instead of optax types
-        utils_path="$PROJECT_ROOT/third_party/openpi/src/openpi/training/utils.py"
-        echo "Patching OpenPI utils.py..."
-        sed -i.bak \
-            -e 's/opt_state: optax\.OptState/opt_state: Any/' \
-            "$utils_path"
+    # Modify the type hints in training/utils.py to use Any instead of optax types
+    utils_path="$PROJECT_ROOT/third_party/openpi/src/openpi/training/utils.py"
+    echo "Patching OpenPI utils.py..."
+    sed -i.bak \
+        -e 's/opt_state: optax\.OptState/opt_state: Any/' \
+        "$utils_path"
 
-        # Remove the backup files
-        rm "$pyproject_path.bak" "$file_path.bak" "$utils_path.bak"
+    # Remove the backup files
+    rm "$pyproject_path.bak" "$file_path.bak" "$utils_path.bak"
 
-        # Add training script to openpi module
-        echo "Copying OpenPI utility scripts..."
-        if [ ! -f src/openpi/train.py ]; then
-            cp scripts/train.py src/openpi/train.py
-        fi
-        if [ ! -f src/openpi/compute_norm_stats.py ]; then
-            cp scripts/compute_norm_stats.py src/openpi/compute_norm_stats.py
-        fi
-
-        popd # Back to PROJECT_ROOT
-
-    else
-        echo "OpenPI directory already exists. Assuming source is present. Skipping clone and patching."
+    # Add training script to openpi module
+    echo "Copying OpenPI utility scripts..."
+    if [ ! -f src/openpi/train.py ]; then
+        cp scripts/train.py src/openpi/train.py
+    fi
+    if [ ! -f src/openpi/compute_norm_stats.py ]; then
+        cp scripts/compute_norm_stats.py src/openpi/compute_norm_stats.py
     fi
 
-    if [ -d "$PROJECT_ROOT/third_party/openpi" ]; then
-        echo "Installing OpenPI Client..."
-        pip install -e $PROJECT_ROOT/third_party/openpi/packages/openpi-client/
-        echo "Installing OpenPI Core..."
-        pip install -e $PROJECT_ROOT/third_party/openpi/
+    popd # Back to PROJECT_ROOT
 
-        # Revert the "import changes of "$file_path after installation to prevent errors
-        echo "Reverting temporary patches in OpenPI download.py..."
-        file_path_revert="$PROJECT_ROOT/third_party/openpi/src/openpi/shared/download.py"
-        sed -i \
-            -e 's/^# import boto3\.s3\.transfer as s3_transfer/import boto3.s3.transfer as s3_transfer/' \
-            -e 's/^# import s3transfer\.futures as s3_transfer_futures/import s3transfer.futures as s3_transfer_futures/' \
-            -e 's/^# from types_boto3_s3\.service_resource import ObjectSummary/from types_boto3_s3.service_resource import ObjectSummary/' \
-            "$file_path_revert"
-    else
-         echo "Warning: OpenPI directory not found at $PROJECT_ROOT/third_party/openpi. Skipping OpenPI installation."
-    fi
+    echo "Installing OpenPI Client..."
+    pip install -e $PROJECT_ROOT/third_party/openpi/packages/openpi-client/
+    echo "Installing OpenPI Core..."
+    pip install -e $PROJECT_ROOT/third_party/openpi/
+
+    # Revert the "import changes of "$file_path after installation to prevent errors
+    echo "Reverting temporary patches in OpenPI download.py..."
+    file_path_revert="$PROJECT_ROOT/third_party/openpi/src/openpi/shared/download.py"
+    sed -i \
+        -e 's/^# import boto3\.s3\.transfer as s3_transfer/import boto3.s3.transfer as s3_transfer/' \
+        -e 's/^# import s3transfer\.futures as s3_transfer_futures/import s3transfer.futures as s3_transfer_futures/' \
+        -e 's/^# from types_boto3_s3\.service_resource import ObjectSummary/from types_boto3_s3.service_resource import ObjectSummary/' \
+        "$file_path_revert"
     echo "PI0 Dependencies installed."
 fi
 
@@ -243,23 +231,19 @@ pip install holoscan==2.9.0
 
 HOLOSCAN_DIR=$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/holoscan_apps/
 
-if [ -d "$HOLOSCAN_DIR" ]; then
-    echo "Building Holoscan Apps..."
-    pushd $HOLOSCAN_DIR
+echo "Building Holoscan Apps..."
+pushd $HOLOSCAN_DIR
 
-    # clean previous downloads and builds
-    rm -rf build
-    rm -rf clarius_solum/include
-    rm -rf clarius_solum/lib
-    rm -rf clarius_cast/include
-    rm -rf clarius_cast/lib
-    cmake -B build -S . && cmake --build build
+# clean previous downloads and builds
+rm -rf build
+rm -rf clarius_solum/include
+rm -rf clarius_solum/lib
+rm -rf clarius_cast/include
+rm -rf clarius_cast/lib
+cmake -B build -S . && cmake --build build
 
-    popd
-    echo "Holoscan Apps build completed!"
-else
-    echo "Warning: Holoscan apps directory not found at $HOLOSCAN_DIR. Skipping build."
-fi
+popd
+echo "Holoscan Apps build completed!"
 
 
 # ---- Install libstdcxx-ng for raysim (Common) ----
