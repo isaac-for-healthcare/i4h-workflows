@@ -58,18 +58,18 @@ def main():
         help="LeRobot repo id for the dataset norm. Default is `i4h/sim_liver_scan`.",
     )
 
-    gr00tn1_group = parser.add_argument_group("GR00TN1 Policy Arguments")
+    gr00tn1_group = parser.add_argument_group("GR00T N1 Policy Arguments")
     gr00tn1_group.add_argument(
         "--data_config",
         type=str,
         default="single_panda_us",
-        help="Data config name for GR00TN1 policy.",
+        help="Data config name for GR00T N1 policy.",
     )
     gr00tn1_group.add_argument(
         "--embodiment_tag",
         type=str,
         default="new_embodiment",
-        help="The embodiment tag for the GR00TN1 model.",
+        help="The embodiment tag for the GR00T N1 model.",
     )
     parser.add_argument(
         "--rti_license_file", type=str, default=os.getenv("RTI_LICENSE_FILE"), help="the path of rti_license_file."

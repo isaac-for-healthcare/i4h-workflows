@@ -18,14 +18,14 @@
 set -e
 
 # --- Configuration ---
-POLICY_TO_INSTALL="pi0" # Default value
+INSTALL_WITH_POLICY="pi0" # Default value
 
 # --- Helper Functions ---
 usage() {
-    echo "Usage: $0 --policy [pi0|gr00tn1|base]"
+    echo "Usage: $0 --policy [pi0|gr00tn1|none]"
     echo "  pi0:   Install base dependencies + PI0 policy dependencies (openpi, lerobot)."
     echo "  gr00tn1: Install base dependencies + GR00T N1 policy dependencies (Isaac-GR00T)."
-    echo "  base:  Install only base dependencies (IsaacSim, IsaacLab, Holoscan, etc.)."
+    echo "  none:  Install only base dependencies (IsaacSim, IsaacLab, Holoscan, etc.)."
     exit 1
 }
 
@@ -34,7 +34,7 @@ while [[ $# -gt 0 ]]; do
     key="$1"
     case $key in
         --policy)
-        POLICY_TO_INSTALL="$2"
+        INSTALL_WITH_POLICY="$2"
         shift # past argument
         shift # past value
         ;;
@@ -45,12 +45,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate policy argument
-if [[ "$POLICY_TO_INSTALL" != "pi0" && "$POLICY_TO_INSTALL" != "gr00tn1" && "$POLICY_TO_INSTALL" != "base" ]]; then
+if [[ "$INSTALL_WITH_POLICY" != "pi0" && "$INSTALL_WITH_POLICY" != "gr00tn1" && "$INSTALL_WITH_POLICY" != "none" ]]; then
     echo "Error: Invalid policy specified."
     usage
 fi
 
-echo "Selected policy setup: $POLICY_TO_INSTALL"
+echo "Selected policy setup: $INSTALL_WITH_POLICY"
 
 
 # --- Setup Steps ---
@@ -73,7 +73,7 @@ if ! nvidia-smi &> /dev/null; then
 fi
 
 # Check if the third_party directory exists - MODIFIED: Only exit if we plan to clone something into it.
-if [[ "$POLICY_TO_INSTALL" == "pi0" || "$POLICY_TO_INSTALL" == "gr00tn1" ]]; then
+if [[ "$INSTALL_WITH_POLICY" == "pi0" || "$INSTALL_WITH_POLICY" == "gr00tn1" ]]; then
     if [ -d "$PROJECT_ROOT/third_party" ]; then
         echo "Warning: 'third_party' directory already exists. Skipping cloning steps if repositories already exist within it."
         # Allow script to continue, individual clone steps should handle existing dirs if needed.
@@ -144,7 +144,7 @@ popd
 
 
 # ---- Install PI0 Policy Dependencies (Conditional) ----
-if [[ "$POLICY_TO_INSTALL" == "pi0" ]]; then
+if [[ "$INSTALL_WITH_POLICY" == "pi0" ]]; then
     echo "------------------------------------------"
     echo "Installing PI0 Policy Dependencies..."
     echo "------------------------------------------"
@@ -225,7 +225,7 @@ fi
 
 
 # ---- Install GR00T N1 Policy Dependencies (Conditional) ----
-if [[ "$POLICY_TO_INSTALL" == "gr00tn1" ]]; then
+if [[ "$INSTALL_WITH_POLICY" == "gr00tn1" ]]; then
     echo "Installing GR00T N1 Policy Dependencies..."
     git clone https://github.com/NVIDIA/Isaac-GR00T $PROJECT_ROOT/third_party/Isaac-GR00T
     pushd $PROJECT_ROOT/third_party/Isaac-GR00T
@@ -273,5 +273,5 @@ conda install -c conda-forge libstdcxx-ng=13.2.0 -y
 
 echo "=========================================="
 echo "Environment setup script finished."
-echo "Selected policy dependencies ($POLICY_TO_INSTALL) should be installed along with base components."
+echo "Selected policy dependencies ($INSTALL_WITH_POLICY) should be installed along with base components."
 echo "=========================================="

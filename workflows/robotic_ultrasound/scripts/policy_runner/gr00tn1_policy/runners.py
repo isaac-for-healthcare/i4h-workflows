@@ -21,13 +21,14 @@ from policy_runner.gr00tn1_policy.utils import DATA_CONFIG_MAP
 
 class GR00TN1PolicyRunner:
     """
-    Policy runner for GR00TN1 policy, based on the openpi library.
+    Policy runner for GR00T N1 policy.
 
     Args:
         ckpt_path: Path to the checkpoint file.
         repo_id: Repository ID of the original training dataset.
         task_description: Task description. Default is "Perform a liver ultrasound."
-
+        device: Device to run the model on. Default is "cuda" if available, otherwise "cpu".
+        action_key: Key to extract from the model output. Default is "action.panda_hand".
     """
 
     def __init__(
