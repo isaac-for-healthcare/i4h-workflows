@@ -78,11 +78,14 @@ Here's a markdown table describing the command-line arguments:
 |-----------------|-----------------|--------------|-------------------|
 | NVIDIA RTX 4090 | 100 ms          | 9 GB         | 50                |
 
-# FIXME: Add benchmark later
 ### Inference (GR00T N1)
 
-| Hardware        | Average Latency | Memory Usage | Actions Predicted |
-|-----------------|-----------------|--------------|-------------------|
-| --------------- | -------         | ----         | 16                |
+| Hardware            | Average Latency | Memory Usage | Actions Predicted |
+|---------------------|-----------------|--------------|-------------------|
+| NVIDIA RTX 6000 Ada | 92 ms           | 10 GB        | 16                |
 
-> **Note:** The PI0 model predicts the 50 next actions in a single 100ms inference and GR00T N1 model predicts the 16 next actions, allowing you to choose how many of these predictions to utilize based on your specific control frequency requirements.
+> **Note:** Both models predict multiple actions in a single inference step:
+> - PI0 model: Predicts 50 actions in ~100ms
+> - GR00T N1 model: Predicts 16 actions in ~92ms
+>
+>  You can choose how many of these predictions to utilize based on your specific control frequency requirements.
