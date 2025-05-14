@@ -1,11 +1,11 @@
 # Policy runner for both the simulation and physical world
 
-This script allows running different policy models (currently PI0 and GR00TN1) using DDS for communication, suitable for both simulation and physical robot control.
+This script allows running different policy models (currently PI0 and GR00T N1) using DDS for communication, suitable for both simulation and physical robot control.
 
 ## Supported Policies
 
 *   **PI0**: Based on the [openpi](https://github.com/Physical-Intelligence/openpi) library.
-*   **GR00TN1**: NVIDIA's foundation model for humanoid robots. Refer to [NVIDIA Isaac GR00T](https://github.com/NVIDIA/Isaac-GR00T) for more information.
+*   **GR00T N1**: NVIDIA's foundation model for humanoid robots. Refer to [NVIDIA Isaac GR00T](https://github.com/NVIDIA/Isaac-GR00T) for more information.
 
 ## Run PI0 Policy with DDS communication
 
@@ -26,13 +26,13 @@ Please move to the current [`policy_runner` folder](./) and execute:
 python run_policy.py --policy pi0 [other arguments...]
 ```
 
-## Run GR00TN1 Policy with DDS communication
+## Run GR00T N1 Policy with DDS communication
 
 ### Prepare Model Weights and Dependencies
 
-Please refer to the [Environment Setup](../../README.md#environment-setup) instructions, ensuring you use the `--policy gr00tn1` option when running `tools/env_setup_robot_us.sh` to install GR00TN1 dependencies.
+Please refer to the [Environment Setup](../../README.md#environment-setup) instructions, ensuring you use the `--policy gr00tn1` option when running `tools/env_setup_robot_us.sh` to install GR00T N1 dependencies.
 For acquiring model weights and further details, consult the official [NVIDIA Isaac GR00T Installation Guide](https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#installation-guide).
-Ensure the environment where you run `run_policy.py` has the GR00TN1 dependencies installed.
+Ensure the environment where you run `run_policy.py` has the GR00 TN1 dependencies installed.
 
 ### Ensure the PYTHONPATH Is Set
 
@@ -43,7 +43,7 @@ Please refer to the [Environment Setup - Set environment variables before runnin
 Please move to the current [`policy_runner` folder](./) and execute:
 
 ```sh
-# Example for GR00TN1
+# Example for GR00T N1
 python run_policy.py --policy gr00tn1 [other arguments...]
 ```
 
@@ -58,8 +58,8 @@ Here's a markdown table describing the command-line arguments:
 | `--task_description`      | Task description text prompt for the policy.                             | `Perform a liver ultrasound.`      | Both      |
 | `--chunk_length`          | Length of the action chunk inferred by the policy per inference step.    | 50                                 | Both      |
 | `--repo_id`               | LeRobot repo ID for dataset normalization (used for PI0).                | `i4h/sim_liver_scan`               | PI0       |
-| `--data_config`           | Data config name (used for GR00TN1).                                     | `single_panda_us`                  | GR00TN1   |
-| `--embodiment_tag`        | The embodiment tag for the model (used for GR00TN1).                     | `new_embodiment`                   | GR00TN1   |
+| `--data_config`           | Data config name (used for GR00T N1).                                     | `single_panda_us`                  | GR00T N1   |
+| `--embodiment_tag`        | The embodiment tag for the model (used for GR00T N1).                     | `new_embodiment`                   | GR00T N1   |
 | `--rti_license_file`      | Path to the RTI license file.                                            | Uses env `RTI_LICENSE_FILE`      | Both (DDS)|
 | `--domain_id`             | Domain ID for DDS communication.                                         | 0                                  | Both (DDS)|
 | `--height`                | Input image height for cameras.                                          | 224                                | Both (DDS)|
