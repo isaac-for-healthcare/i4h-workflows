@@ -114,11 +114,11 @@ def main():
     args = parser.parse_args()
 
     if args.policy == "pi0":
-        from policy_runner.pi0_policy.runners import PI0PolicyRunner
+        from policy_runner.pi0.runners import PI0PolicyRunner
 
         policy = PI0PolicyRunner(ckpt_path=args.ckpt_path, repo_id=args.repo_id, task_description=args.task_description)
     elif args.policy == "gr00tn1":
-        from policy_runner.gr00tn1_policy.runners import GR00TN1PolicyRunner
+        from policy_runner.gr00tn1.runners import GR00TN1PolicyRunner
 
         policy = GR00TN1PolicyRunner(
             ckpt_path=args.ckpt_path,
