@@ -4,7 +4,7 @@
     "name": "i4h Telesurgery",
     "build": {
         "context": "../",
-        "dockerfile": "../deploy/Dockerfile",
+        "dockerfile": "../Dockerfile",
         "args": {
             "BUILDKIT_INLINE_CACHE": "1" // Enable Docker BuildKit cache
         }

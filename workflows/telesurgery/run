@@ -65,7 +65,7 @@ function enter() {
 }
 
 function build_image() {
-    docker build -f ${SCRIPT_DIR}/deploy/Dockerfile -t ${IMAGE_NAME} --progress=plain .
+    docker build -f ${SCRIPT_DIR}/Dockerfile -t ${IMAGE_NAME} --progress=plain .
 }
 
 function vscode() {
