@@ -73,15 +73,13 @@ if ! nvidia-smi &> /dev/null; then
 fi
 
 # Check if the third_party directory exists
-if [[ "$INSTALL_WITH_POLICY" == "pi0" || "$INSTALL_WITH_POLICY" == "gr00tn1" ]]; then
-    if [ -d "$PROJECT_ROOT/third_party" ]; then
-        echo "Error: third_party directory already exists"
-        echo "Please remove the third_party directory before running this script"
-        exit 1
-    else
-        mkdir $PROJECT_ROOT/third_party
-        echo "Created directory: $PROJECT_ROOT/third_party"
-    fi
+if [ -d "$PROJECT_ROOT/third_party" ]; then
+    echo "Error: third_party directory already exists"
+    echo "Please remove the third_party directory before running this script"
+    exit 1
+else
+    mkdir $PROJECT_ROOT/third_party
+    echo "Created directory: $PROJECT_ROOT/third_party"
 fi
 
 
