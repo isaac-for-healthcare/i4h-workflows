@@ -73,7 +73,13 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         # Create a temporary h5 file for test data
         self.temp_h5_path = os.path.join(self.temp_dir, "data_0.hdf5")
-        self.dummy_video = np.zeros((100, 2, 224, 224, 3)).astype(np.uint8)
+        self.dummy_video = (np.ones((100, 2, 224, 224, 3)) * 255).astype(np.uint8)
+        dummy_seg_images = (np.zeros((100, 2, 224, 224, 3))).astype(np.uint8)
+        # create a dummy seg image with 5 different classes
+        dummy_seg_images[:, :, :50, :50, :] = np.array([255, 0, 0])
+        dummy_seg_images[:, :, 50:100, 50:100, :] = np.array([0, 255, 0])
+        dummy_seg_images[:, :, 100:150, 100:150, :] = np.array([0, 0, 255])
+        dummy_seg_images[:, :, 150:200, 150:200, :] = np.array([255, 255, 0])
         dummy_camera_intrinsic_matrices = np.array(
             [[110.965096, 0.0, 112.0], [0.0, 176.24133, 112.0], [0.0, 0.0, 1.0]]
         )[None].repeat(100, axis=0)
@@ -82,8 +88,8 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
         with h5py.File(self.temp_h5_path, "w") as hf:
             grp = hf.create_group("/data/demo_0/observations/")
             grp.create_dataset("rgb_images", data=self.dummy_video)
-            grp.create_dataset("depth_images", data=np.zeros((100, 2, 224, 224, 1)).astype(np.uint8))
-            grp.create_dataset("seg_images", data=self.dummy_video)
+            grp.create_dataset("depth_images", data=np.ones((100, 2, 224, 224, 1)).astype(np.float32))
+            grp.create_dataset("seg_images", data=dummy_seg_images)
             grp.create_dataset("room_camera_intrinsic_matrices", data=dummy_camera_intrinsic_matrices)
             grp.create_dataset("room_camera_pos", data=dummy_camera_pos)
             grp.create_dataset("room_camera_quat_w_ros", data=dummy_camera_quat_w_ros)
@@ -140,6 +146,8 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
         args.video_save_folder = self.temp_dir
         args.save_name_offset = 0
         args.prompt = "dummy_prompt"
+        args.concat_video_second_view = True
+        args.fill_missing_pixels = False
         control_inputs = {
             "edge": {"control_weight": 0.5},
             "depth": {"control_weight": 0.75, "input_control": "placeholder_not_needed.mp4"},
@@ -147,7 +155,7 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
         }
         print("args validated")
         os.makedirs(args.checkpoint_dir, exist_ok=True)
-        # # download checkpoints
+        # download checkpoints
         for checkpoint in ["nvidia/Cosmos-Tokenize1-CV8x8x8-720p", "google-t5/t5-11b"]:
             download_checkpoint(checkpoint, args.checkpoint_dir)
         control_inputs = validate_controlnet_specs(args, control_inputs)

@@ -230,6 +230,18 @@ def parse_arguments() -> argparse.Namespace:
         help="This controls how many guidance steps are performed during generation. Smaller values mean more steps, "
         "larger values mean less steps.",
     )
+    parser.add_argument(
+        "--concat_video_second_view",
+        type=bool,
+        default=True,
+        help="Whether to concatenate the first and second view videos during generation.",
+    )
+    parser.add_argument(
+        "--fill_missing_pixels",
+        type=bool,
+        default=True,
+        help="Whether to fill missing pixels in the warped second view video.",
+    )
 
     cmd_args = parser.parse_args()
 
@@ -378,7 +390,6 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
     transfered_video_path = video_save_path
     wrist_img_video_path = data["wrist_video_path"]
     seg_depth_images_path = data["seg_depth_images_npz"]
-    concat_video_second_view = True
 
     warped_video_path, roi_masks_path = warper_transfered_video_main(
         room_camera_params_path,
@@ -388,13 +399,13 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
         seg_depth_images_path,
         temp_dir,
         device=f"gpu{device_rank}",
-        return_concat_video=concat_video_second_view,
-        fill_missing_pixels=True,
+        return_concat_video=cfg.concat_video_second_view,
+        fill_missing_pixels=cfg.fill_missing_pixels,
     )
     torch.cuda.empty_cache()
 
     # generate second view
-    if concat_video_second_view:
+    if cfg.concat_video_second_view:
         postfix = " The bottom video is facing the same table in the top video without reflection."
         prompts = [{"prompt": bottom_view_prompt + postfix, "visual_input": warped_video_path}]
         concat_videos(
@@ -450,7 +461,9 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
         video_wrist_view, prompt = generated_output
 
         video_wrist_view = (
-            video_wrist_view[:, video_wrist_view.shape[1] // 2 :, ...] if concat_video_second_view else video_wrist_view
+            video_wrist_view[:, video_wrist_view.shape[1] // 2 :, ...]
+            if cfg.concat_video_second_view
+            else video_wrist_view
         )
 
         video_save_path = os.path.join(

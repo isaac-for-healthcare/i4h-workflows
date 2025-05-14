@@ -51,7 +51,7 @@ def requires_rti(func):
 
 def requires_cosmos_transfer1(func):
     # check if cosmos-transfer1 is installed
-    spec = importlib.util.find_spec("module_name")
+    spec = importlib.util.find_spec("cosmos_transfer1")
     COSMOS_TRANSFER1_AVAILABLE = spec is not None
     return skipUnless(
         COSMOS_TRANSFER1_AVAILABLE,
