@@ -281,3 +281,26 @@ def load_onnx_model(model_path):
     session = ort.InferenceSession(model_path, providers=providers)
     print(f"session using: {session.get_providers()}")
     return session
+
+
+def reset_organ_to_position(env, object_position, device="cuda:0"):
+    """Reset the organ position."""
+    organs = env.unwrapped.scene._rigid_objects["organs"]
+    root_state = organs.data.default_root_state.clone()
+    root_state[:, :7] = torch.tensor(object_position[0, :7], device=device)
+    # write to the sim
+    organs.write_root_state_to_sim(root_state)
+
+
+def reset_robot_to_position(env, robot_initial_joint_state, joint_vel=None, device="cuda:0"):
+    """Reset the robot to the initial joint state."""
+    robot = env.unwrapped.scene["robot"]
+    joint_pos = torch.tensor(robot_initial_joint_state[0], device=device).unsqueeze(0)
+    if joint_vel is not None:
+        joint_vel = torch.tensor(joint_vel[0], device=device)
+    else:
+        print("No joint velocity provided, setting to zero")
+        joint_vel = torch.zeros_like(joint_pos)
+    # set joint positions
+    robot.write_joint_state_to_sim(joint_pos, joint_vel)
+    robot.reset()
