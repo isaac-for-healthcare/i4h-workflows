@@ -16,7 +16,7 @@
 import torch
 from openpi.policies import policy_config
 from openpi_client import image_tools
-from policy_runner.pi0_policy.config import get_config
+from policy_runner.pi0.config import get_config
 
 
 class PI0PolicyRunner:

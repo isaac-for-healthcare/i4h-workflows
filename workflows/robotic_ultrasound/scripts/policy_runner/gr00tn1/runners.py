@@ -16,7 +16,7 @@
 import numpy as np
 import torch
 from gr00t.model.policy import BasePolicy, Gr00tPolicy
-from policy_runner.gr00tn1_policy.utils import DATA_CONFIG_MAP
+from policy_runner.gr00tn1.utils import DATA_CONFIG_MAP
 
 
 class GR00TN1PolicyRunner:
@@ -25,7 +25,8 @@ class GR00TN1PolicyRunner:
 
     Args:
         ckpt_path: Path to the checkpoint file.
-        repo_id: Repository ID of the original training dataset.
+        data_config: Data configuration.
+        embodiment_tag: Embodiment tag.
         task_description: Task description. Default is "Perform a liver ultrasound."
         device: Device to run the model on. Default is "cuda" if available, otherwise "cpu".
         action_key: Key to extract from the model output. Default is "action.panda_hand".

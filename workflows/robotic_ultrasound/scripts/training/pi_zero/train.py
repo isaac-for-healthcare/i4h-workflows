@@ -18,8 +18,8 @@ import os
 
 from openpi import train
 from openpi.training.config import DataConfigFactory
-from policy_runner.pi0_policy.config import get_config
-from policy_runner.pi0_policy.utils import compute_normalization_stats
+from policy_runner.pi0.config import get_config
+from policy_runner.pi0.utils import compute_normalization_stats
 
 
 def ensure_norm_stats_exist(config):
