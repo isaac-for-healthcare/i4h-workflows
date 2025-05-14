@@ -61,19 +61,22 @@ To use the ultrasound-raytracing simulator, you can choose one of the following 
 
 The main script `tools/env_setup_robot_us.sh` will install all necessary dependencies. It first installs common base components and then policy-specific packages based on an argument.
 
-**Base Components Installed:**
-- IsaacSim 4.5.0 (and its core dependencies)
-- IsaacLab 2.0.2
-- The local Robotic Ultrasound extension (`robotic_us_ext`)
-- Lerobot (from Hugging Face)
-- Holoscan 2.9.0 (and builds associated Holoscan apps)
+### Base Components Installed
+
+The following base components are installed by the script:
+- **IsaacSim 4.5.0** (and its core dependencies)
+- **IsaacLab 2.0.2**
+- **Robotic Ultrasound Extension** (`robotic_us_ext`)
+- **Lerobot** (from Hugging Face)
+- **Holoscan 2.9.0** (including associated Holoscan apps)
 - Essential build tools and libraries
 
-**Policy-Specific Dependencies:**
-The script accepts a `--policy` flag to determine which additional policy-specific packages to install:
-  - `--policy pi0` (Default): Installs dependencies for the PI0 policy (e.g., OpenPI).
-  - `--policy gr00tn1`: Installs dependencies for the GR00T N1 policy (e.g., Isaac-GR00T).
-  - `--policy base`: Installs only the common base dependencies listed above, without any specific policy packages.
+### Policy-Specific Dependencies
+
+The script supports installing additional policy-specific dependencies using the `--policy` flag:
+- **`--policy pi0` (Default)**: Installs dependencies for the PI0 policy along with common dependencies (e.g., OpenPI).
+- **`--policy gr00tn1`**: Installs dependencies for the GR00T N1 policy along with common dependencies (e.g., Isaac-GR00T).
+- **`--policy base`**: Installs only the common base dependencies listed above, without any policy-specific packages.
 
 To run the script, navigate to the root of the `i4h-workflows` repository and execute:
 

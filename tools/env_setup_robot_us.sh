@@ -23,7 +23,7 @@ INSTALL_WITH_POLICY="pi0" # Default value
 # --- Helper Functions ---
 usage() {
     echo "Usage: $0 --policy [pi0|gr00tn1|none]"
-    echo "  pi0:   Install base dependencies + PI0 policy dependencies (openpi, lerobot)."
+    echo "  pi0:   Install base dependencies + PI0 policy dependencies (openpi)."
     echo "  gr00tn1: Install base dependencies + GR00T N1 policy dependencies (Isaac-GR00T)."
     echo "  none:  Install only base dependencies (IsaacSim, IsaacLab, Holoscan, etc.)."
     exit 1
@@ -72,12 +72,10 @@ if ! nvidia-smi &> /dev/null; then
     exit 1
 fi
 
-# Check if the third_party directory exists - MODIFIED: Only exit if we plan to clone something into it.
+# Check if the third_party directory exists
 if [[ "$INSTALL_WITH_POLICY" == "pi0" || "$INSTALL_WITH_POLICY" == "gr00tn1" ]]; then
     if [ -d "$PROJECT_ROOT/third_party" ]; then
         echo "Warning: 'third_party' directory already exists. Skipping cloning steps if repositories already exist within it."
-        # Allow script to continue, individual clone steps should handle existing dirs if needed.
-        # Consider adding checks within clone sections or advising user to clean up if needed.
     else
         mkdir $PROJECT_ROOT/third_party
         echo "Created directory: $PROJECT_ROOT/third_party"
@@ -107,7 +105,6 @@ pip install 'isaacsim[all,extscache]==4.5.0' \
 # Check if IsaacLab is already cloned
 if [ ! -d "$PROJECT_ROOT/third_party/IsaacLab" ]; then
     echo "Installing IsaacLab..."
-    # CLONING REPOSITORIES INTO PROJECT_ROOT/third_party
     echo "Cloning IsaacLab repository into $PROJECT_ROOT/third_party/IsaacLab..."
     git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
     pushd $PROJECT_ROOT/third_party/IsaacLab
@@ -125,7 +122,7 @@ pushd $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation
 if [ -d "exts/robotic_us_ext" ]; then
     pip install -e exts/robotic_us_ext
 else
-    echo "Error: robotic_us_ext directory not found at $PWD/exts/robotic_us_ext"
+    echo "Error: robotic_us_ext directory not found in $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation/exts/"
     exit 1
 fi
 popd
