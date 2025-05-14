@@ -20,7 +20,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 from isaaclab.app import AppLauncher
-from policy_runner import PI0PolicyRunner
+from policy_runner.pi0_policy.runners import PI0PolicyRunner
 from simulation.environments.state_machine.utils import (
     RobotPositions,
     RobotQuaternions,
