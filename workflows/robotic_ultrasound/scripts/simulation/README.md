@@ -7,6 +7,7 @@
   - [PI Zero Policy Evaluation](#pi-zero-policy-evaluation)
   - [Policy Evaluation w/ DDS](#policy-evaluation-w-dds)
   - [Liver Scan State Machine](#liver-scan-state-machine)
+  - [Cosmos-transfer1 Integration](#cosmos-transfer1-integration)
   - [Teleoperation](#teleoperation)
   - [Ultrasound Raytracing Simulation](#ultrasound-raytracing-simulation)
 
@@ -152,6 +153,51 @@ The collected data includes:
 #### Keyboard Controls
 
 During execution, you can press the 'r' key to reset the environment and state machine.
+
+### Cosmos-transfer1 Integration
+
+[Cosmos-Transfer1](https://github.com/nvidia-cosmos/cosmos-transfer1) is a world-to-world transfer model designed to bridge the perceptual divide between simulated and real-world environments.
+We inroduce a training-free guided generation method on top of Cosmos-Transfer1 to overcome unsatisfactory results on unseen healthcare simulation assets.
+Directly applying Cosmos-Transfer with various control inputs results in unsatisfactory outputs for the human phantom and robotic arm (see bottom figure). In contrast, our guided generation method preserves the appearance of the phantom and robotic arm while generating diverse backgrounds.
+<img src="../../../../docs/source/cosmos_transfer_result.png" width="512" height="600" />
+
+This training-free guided generation approach by encoding simulation videos into the latent space and applying spatial masking to guide the generation process. The trade-off between realism and faithfulness can be controlled by adjusting the number of guided denoising steps. In addition, our generation pipeline supports multi-view video generation. We first leverage the camera information to wrap the generated room view to wrist view, then use it as the guidance of wrist-view generation.
+
+#### Download Cosmos-transfer1 Checkpoints
+Please move to the third party [`cosmos-transfer1` folder](../../../../third_party/cosmos-transfer1/) and execute the following command to download checkpoints:
+```sh
+CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/download_checkpoints.py --output_dir checkpoints/
+```
+#### Running Cosmos-transfer1 + Guided Generation
+Please move to the current [`simulation` folder](./) and execute the following command to start the generation pipeline:
+```sh
+export CHECKPOINT_DIR="path to downloaded cosmos-transfer1 checkpoints"
+# Set project root path
+export PROJECT_ROOT="{your path}/i4h-workflows"
+# Set the number of GPU for inference
+export N_GPU = 1
+# Set PYTHONPATH
+export PYTHONPATH="$PROJECT_ROOT/third_party/cosmos-transfer1:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation:$PROJECT_ROOT/workflows/robotic_ultrasound/tests"
+# run bath inference for generation pipeline
+CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$PYTHONPATH torchrun \
+    --nnodes=1 --node_rank=0 \
+    --nproc_per_node=$N_GPU \
+    environments/cosmos_transfer1/transfer.py \
+    --checkpoint_dir $CHECKPOINT_DIR \
+    --source_data_dir "Path to source dir of h5 files" \
+    --output_data_dir "Path to output dir of h5 files" \
+    --offload_text_encoder_model
+```
+#### Command Line Arguments
+
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--checkpoint_dir` | str | "" | Base directory containing model checkpoints |
+| `--source_data_dir` | str | "" | Path to source data directory for batch inference. It contains h5 files generated from the state machine. |
+| `--output_data_dir` | str | "" | Path to output data directory for batch inference. |
+| `--offload_text_encoder_model` | bool | False | Offload text encoder model after inference |
+| `--sigma_threshold` | float | 1.2866 | This controls how many guidance steps are performed during generation. Smaller values mean more steps, larger values mean less steps. |
+| `--foreground_label` | str | "3,4" | Comma-separated list of labels used to define the foreground mask during guided generation. The foreground corresponds to the object whose appearance we want to keep unchanged during generation. |
 
 ### Teleoperation
 

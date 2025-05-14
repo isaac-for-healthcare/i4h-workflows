@@ -131,9 +131,9 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--controlnet_specs",
+        default="environments/cosmos_transfer1/config/inference_cosmos_transfer1_two_views.json",
         type=str,
         help="Path to JSON file specifying multicontrolnet configurations",
-        required=True,
     )
     parser.add_argument(
         "--is_av_sample", action="store_true", help="Whether the model is an driving post-training model"
@@ -166,13 +166,11 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument("--num_steps", type=int, default=35, help="Number of diffusion sampling steps")
     parser.add_argument("--guidance", type=float, default=5, help="Classifier-free guidance scale value")
-    parser.add_argument("--fps", type=int, default=24, help="FPS of the output video")
-    parser.add_argument("--height", type=int, default=704, help="Height of video to sample")
-    parser.add_argument("--width", type=int, default=1280, help="Width of video to sample")
+    parser.add_argument("--fps", type=int, default=30, help="FPS of the output video")
+    parser.add_argument("--height", type=int, default=224, help="Height of video to sample")
+    parser.add_argument("--width", type=int, default=224, help="Width of video to sample")
     parser.add_argument("--seed", type=int, default=1, help="Random seed")
-    parser.add_argument(
-        "--num_gpus", type=int, default=1, choices=[1], help="Number of GPUs used to run inference in parallel."
-    )
+    parser.add_argument("--num_gpus", type=int, default=1, help="Number of GPUs used to run inference in parallel.")
     parser.add_argument(
         "--offload_diffusion_transformer",
         action="store_true",
@@ -203,30 +201,30 @@ def parse_arguments() -> argparse.Namespace:
         "--source_data_dir",
         type=str,
         default=None,
-        help="path to source data directory for batch inference.",
+        help="Path to source data directory for batch inference.",
     )
     parser.add_argument(
         "--output_data_dir",
         type=str,
         default=None,
-        help="path to output data directory for batch inference.",
+        help="Path to output data directory for batch inference.",
     )
     parser.add_argument(
         "--save_name_offset",
         type=int,
         default=0,
-        help="offset for the video save name.",
+        help="Offset for the video save name.",
     )
     parser.add_argument(
         "--foreground_label",
         type=str,
         default="3,4",
-        help="comma separated list of foreground labels to be used for the mask.",
+        help="Comma separated list of foreground labels to be used for the mask.",
     )
     parser.add_argument(
         "--sigma_threshold",
         type=float,
-        default=1.2866e00,
+        default=1.2866,
         help="This controls how many guidance steps are performed during generation. Smaller values mean more steps, "
         "larger values mean less steps.",
     )
@@ -241,6 +239,12 @@ def parse_arguments() -> argparse.Namespace:
         type=bool,
         default=True,
         help="Whether to fill missing pixels in the warped second view video.",
+    )
+    parser.add_argument(
+        "--model_config_file",
+        type=str,
+        default="environments/cosmos_transfer1/config/transfer/config.py",
+        help="Relative path to the model config file.",
     )
 
     cmd_args = parser.parse_args()
@@ -526,6 +530,7 @@ if __name__ == "__main__":
         canny_threshold=args.canny_threshold,
         upsample_prompt=args.upsample_prompt,
         offload_prompt_upsampler=args.offload_prompt_upsampler,
+        model_config_file=args.model_config_file,
     )
 
     for i, h5_file_path in enumerate(h5_file_paths):

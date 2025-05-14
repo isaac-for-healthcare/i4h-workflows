@@ -25,7 +25,6 @@ from unittest import skipUnless
 
 
 def get_md5_checksum(output_dir, model_name, md5_checksum_lookup):
-    print("---------------------")
     for key, value in md5_checksum_lookup.items():
         if key.startswith(model_name):
             print(f"Verifying checkpoint {key}...")

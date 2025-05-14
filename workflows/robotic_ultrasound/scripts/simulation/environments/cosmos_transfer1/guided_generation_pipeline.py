@@ -20,13 +20,10 @@ import cv2
 import numpy as np
 import torch
 from cosmos_transfer1.checkpoints import (
-    BASE_7B_CHECKPOINT_AV_SAMPLE_PATH,
     BASE_7B_CHECKPOINT_PATH,
     DEPTH2WORLD_CONTROLNET_7B_CHECKPOINT_PATH,
     EDGE2WORLD_CONTROLNET_7B_CHECKPOINT_PATH,
-    HDMAP2WORLD_CONTROLNET_7B_CHECKPOINT_PATH,
     KEYPOINT2WORLD_CONTROLNET_7B_CHECKPOINT_PATH,
-    LIDAR2WORLD_CONTROLNET_7B_CHECKPOINT_PATH,
     SEG2WORLD_CONTROLNET_7B_CHECKPOINT_PATH,
     UPSCALER_CONTROLNET_7B_CHECKPOINT_PATH,
     VIS2WORLD_CONTROLNET_7B_CHECKPOINT_PATH,
@@ -43,7 +40,6 @@ from cosmos_transfer1.diffusion.inference.world_generation_pipeline import (
     MODEL_NAME_DICT,
     DiffusionControl2WorldGenerationPipeline,
 )
-from cosmos_transfer1.diffusion.model.model_ctrl import VideoDiffusionT2VModelWithCtrl
 from cosmos_transfer1.utils import log
 from cosmos_transfer1.utils.base_world_generation_pipeline import BaseWorldGenerationPipeline
 from simulation.environments.cosmos_transfer1.model.model_ctrl import VideoDiffusionModelWithCtrlAndGuidance
@@ -63,13 +59,7 @@ MODEL_CLASS_DICT = {
     SEG2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrlAndGuidance,
     KEYPOINT2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrlAndGuidance,
     UPSCALER_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionModelWithCtrlAndGuidance,
-    BASE_7B_CHECKPOINT_AV_SAMPLE_PATH: VideoDiffusionT2VModelWithCtrl,
-    HDMAP2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionT2VModelWithCtrl,
-    LIDAR2WORLD_CONTROLNET_7B_CHECKPOINT_PATH: VideoDiffusionT2VModelWithCtrl,
 }
-
-RUN_TEST = os.environ.get("RUN_TEST", "0") == "1"
-TEST_CONFIG = "workflows/robotic_ultrasound/scripts/simulation/environments/cosmos_transfer1/config/transfer/config.py"
 
 
 class DiffusionControl2WorldGenerationPipelineWithGuidance(
@@ -84,11 +74,11 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(
         offload_tokenizer: bool = False,
         offload_text_encoder_model: bool = False,
         offload_guardrail_models: bool = False,
-        guidance: float = 7.0,
+        guidance: float = 5.0,
         num_steps: int = 35,
-        height: int = 704,
-        width: int = 1280,
-        fps: int = 24,
+        height: int = 224,
+        width: int = 224,
+        fps: int = 30,
         num_video_frames: int = 121,
         seed: int = 0,
         num_input_frames: int = 1,
@@ -99,6 +89,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(
         upsample_prompt: bool = False,
         offload_prompt_upsampler: bool = False,
         process_group: torch.distributed.ProcessGroup | None = None,
+        model_config_file: str = "environments/cosmos_transfer1/config/transfer/config.py",
     ):
         """Initialize diffusion world generation pipeline with guided generation.
 
@@ -125,6 +116,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(
             upsample_prompt: Whether to upsample prompts using prompt upsampler model
             offload_prompt_upsampler: Whether to offload prompt upsampler after use
             process_group: Process group for distributed training
+            model_config_file: relative path to the model config file
         """
         self.num_input_frames = num_input_frames
         self.control_inputs = control_inputs
@@ -137,7 +129,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(
         self.upsampler_hint_key = None
         self.hint_details = None
         self.process_group = process_group
-
+        self.model_config_file = model_config_file
         self.model_name = MODEL_NAME_DICT[checkpoint_name]
         self.model_class = MODEL_CLASS_DICT[checkpoint_name]
         self.guidance = guidance
@@ -169,7 +161,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(
     def _load_model(self):
         self.model = load_model_by_config(
             config_job_name=self.model_name,
-            config_file=TEST_CONFIG if RUN_TEST else "environments/cosmos_transfer1/config/transfer/config.py",
+            config_file=self.model_config_file,
             model_class=self.model_class,
             base_checkpoint_dir=self.checkpoint_dir,
         )
@@ -182,7 +174,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(
             for _, spec in self.control_inputs.items():
                 model = load_model_by_config(
                     config_job_name=self.model_name,
-                    config_file=TEST_CONFIG if RUN_TEST else "environments/cosmos_transfer1/config/transfer/config.py",
+                    config_file=self.model_config_file,
                     model_class=self.model_class,
                     base_checkpoint_dir=self.checkpoint_dir,
                 )

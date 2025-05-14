@@ -86,7 +86,6 @@ def _setup_test_cosmos_transfer1_env(project_root, workflow_root, tests_dir):
     ]
     env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
     env["DEBUG_GENERATION"] = "1"
-    env["RUN_TEST"] = "1"
     return env
 
 

@@ -247,16 +247,16 @@ class VideoDiffusionModelWithCtrlAndGuidance(VideoDiffusionModelWithCtrl, Diffus
             n_sample (int | None): Number of samples to generate
             is_negative_prompt (bool): Whether to use negative prompt
             num_steps (int): Number of steps for the diffusion process
-            condition_latent (Optional[torch.Tensor]): latent tensor in shape B,C,T,H,W as condition to generate video.
+            condition_latent (Optional[torch.Tensor]): latent tensor in shape B,C,T,H,W as condition to generate video
             num_condition_t (Optional[int]): number of condition latent T, if None, will use the whole first half
             condition_video_augment_sigma_in_inference (Optional[float]): sigma for condition video augmentation in
-            inference sigma_max (Optional[float]): maximum sigma applied to in_clean_image for
-            image-to-image/video-to-video
+                inference
+            x_sigma_max (Optional[torch.Tensor]): latent after applying noise with maximum sigma
+            sigma_max (Optional[float]): maximum sigma applied to in_clean_image for image-to-image/video-to-video
             target_h (Optional[int]): final stitched latent height
             target_w (Optional[int]): final stitched latent width
             patch_h (Optional[int]): latent patch height for each network inference
             patch_w (Optional[int]): latent patch width for each network inference
-            x_sigma_max (Optional[torch.Tensor]): latent after applying noise with maximum sigma
             x0_spatial_condtion (Optional[dict]): Dictionary of spatial condition for x0
 
         Returns:

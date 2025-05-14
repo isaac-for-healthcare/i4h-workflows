@@ -148,6 +148,9 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
         args.prompt = "dummy_prompt"
         args.concat_video_second_view = True
         args.fill_missing_pixels = False
+        args.model_config_file = (
+            "workflows/robotic_ultrasound/scripts/simulation/environments/cosmos_transfer1/config/transfer/config.py"
+        )
         control_inputs = {
             "edge": {"control_weight": 0.5},
             "depth": {"control_weight": 0.75, "input_control": "placeholder_not_needed.mp4"},
@@ -180,6 +183,7 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
                 canny_threshold=args.canny_threshold,
                 upsample_prompt=args.upsample_prompt,
                 offload_prompt_upsampler=args.offload_prompt_upsampler,
+                model_config_file=args.model_config_file,
             )
             print("pipeline loaded")
             # run inference
