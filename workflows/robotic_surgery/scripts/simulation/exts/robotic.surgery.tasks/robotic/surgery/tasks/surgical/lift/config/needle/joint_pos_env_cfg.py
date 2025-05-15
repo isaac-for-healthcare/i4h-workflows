@@ -11,6 +11,8 @@ from isaaclab.utils import configclass
 from robotic.surgery.tasks.surgical.lift import mdp
 from robotic.surgery.tasks.surgical.lift.lift_env_cfg import LiftEnvCfg
 from simulation.utils.assets import robotic_surgery_assets
+from isaaclab.sensors.camera.camera_cfg import CameraCfg
+import isaaclab.sim as sim_utils
 
 ##
 # Pre-defined configs
@@ -67,6 +69,24 @@ class NeedleLiftEnvCfg(LiftEnvCfg):
                     disable_gravity=False,
                 ),
             ),
+        )
+
+        # Set the camera for table view
+        self.scene.static_camera = CameraCfg(
+            prim_path="{ENV_REGEX_NS}/WorldStaticCamera",
+            update_period=0.02,
+            height=480,
+            width=640,
+            data_types=["rgb"],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=36.0,
+                horizontal_aperture=20.955,
+            ),
+            offset=CameraCfg.OffsetCfg(
+                pos=(0.0, -3.5, 1.5),
+                rot=(0.707*0.66, -0.707, 0.0, 0.0),
+                convention="ros"
+            )
         )
 
         # Listens to the required transforms
