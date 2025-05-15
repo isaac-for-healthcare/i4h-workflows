@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse
 import os
 import shutil
 import tempfile
 import unittest
+from argparse import Namespace
 
 import h5py
 import numpy as np
@@ -119,7 +119,7 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
     def test_cosmos_transfer1_inference(self):
         """Test the inference of cosmos transfer1."""
         # Initialize args
-        args = argparse.Namespace()
+        args = Namespace()
         args.source_data_dir = self.temp_dir
         args.output_data_dir = self.temp_dir
         args.checkpoint_dir = "/tmp/cosmos-transfer1-checkpoints"
@@ -156,15 +156,12 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
             "depth": {"control_weight": 0.75, "input_control": "placeholder_not_needed.mp4"},
             "seg": {"control_weight": 0.75, "input_control": "placeholder_not_needed.mp4"},
         }
-        print("args validated")
         os.makedirs(args.checkpoint_dir, exist_ok=True)
         # download checkpoints
         for checkpoint in ["nvidia/Cosmos-Tokenize1-CV8x8x8-720p", "google-t5/t5-11b"]:
             download_checkpoint(checkpoint, args.checkpoint_dir)
         control_inputs = validate_controlnet_specs(args, control_inputs)
-        print("control_inputs validated")
         data = preprocess_h5_file(self.temp_h5_path)
-        print("data loaded")
         with torch.cuda.device(0):
             # Initialize pipeline
             pipeline = DiffusionControl2WorldGenerationPipelineWithGuidance(
@@ -185,7 +182,6 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
                 offload_prompt_upsampler=args.offload_prompt_upsampler,
                 model_config_file=args.model_config_file,
             )
-            print("pipeline loaded")
             # run inference
             video_room_view, video_wrist_view = inference(args, pipeline, control_inputs, data, 0)
         # check if the output video shape is correct, generated videos are 64x64 during testing

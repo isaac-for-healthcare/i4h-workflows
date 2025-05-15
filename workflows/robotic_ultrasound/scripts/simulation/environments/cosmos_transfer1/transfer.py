@@ -18,7 +18,7 @@ import json
 import os
 import random
 
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Workaround to suppress MP warning
 
 import glob
 import sys
@@ -46,7 +46,6 @@ from simulation.environments.cosmos_transfer1.utils.warper_transfered_video_gpu 
     main as warper_transfered_video_main,
 )
 
-torch.enable_grad(False)
 torch.serialization.add_safe_globals([BytesIO])
 
 
@@ -86,10 +85,8 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--prompt",
         type=str,
-        default="The video captures a stunning, photorealistic scene with remarkable attention to detail, giving it a "
-        "lifelike appearance that is almost indistinguishable from reality. It appears to be from a high-budget "
-        "4K movie, showcasing ultra-high-definition quality with impeccable resolution.",
-        help="prompt which the sampled video condition on",
+        default="",
+        help="Prompt which the sampled video condition on",
     )
     parser.add_argument(
         "--negative_prompt",
@@ -98,7 +95,7 @@ def parse_arguments() -> argparse.Namespace:
         "a recording of old outdated games. The lighting looks very fake. The textures are very raw and basic. "
         "The geometries are very primitive. The images are very pixelated and of poor CG quality. "
         "There are many subtitles in the footage. Overall, the video is unrealistic at all.",
-        help="negative prompt which the sampled video condition on",
+        help="Negative prompt which the sampled video condition on",
     )
     parser.add_argument(
         "--input_video_path",
@@ -119,14 +116,14 @@ def parse_arguments() -> argparse.Namespace:
         type=str,
         default="medium",
         choices=["very_low", "low", "medium", "high", "very_high"],
-        help="blur strength.",
+        help="Blur strength applied to input.",
     )
     parser.add_argument(
         "--canny_threshold",
         type=str,
         default="medium",
         choices=["very_low", "low", "medium", "high", "very_high"],
-        help="blur strength of canny threshold applied to input. Lower means less blur or more detected edges, "
+        help="Canny threshold applied to input. Lower means less blur or more detected edges, "
         "which means higher fidelity to input.",
     )
     parser.add_argument(
@@ -134,9 +131,6 @@ def parse_arguments() -> argparse.Namespace:
         default="environments/cosmos_transfer1/config/inference_cosmos_transfer1_two_views.json",
         type=str,
         help="Path to JSON file specifying multicontrolnet configurations",
-    )
-    parser.add_argument(
-        "--is_av_sample", action="store_true", help="Whether the model is an driving post-training model"
     )
     parser.add_argument(
         "--checkpoint_dir", type=str, default="checkpoints", help="Base directory containing model checkpoints"
@@ -148,21 +142,10 @@ def parse_arguments() -> argparse.Namespace:
         help="Tokenizer weights directory relative to checkpoint_dir",
     )
     parser.add_argument(
-        "--video_save_name",
-        type=str,
-        default="output",
-        help="Output filename for generating a single video",
-    )
-    parser.add_argument(
         "--video_save_folder",
         type=str,
         default="outputs/",
         help="Output folder for generating a batch of videos",
-    )
-    parser.add_argument(
-        "--batch_input_path",
-        type=str,
-        help="Path to a JSONL file of input prompts for generating a batch of videos",
     )
     parser.add_argument("--num_steps", type=int, default=35, help="Number of diffusion sampling steps")
     parser.add_argument("--guidance", type=float, default=5, help="Classifier-free guidance scale value")
@@ -170,7 +153,9 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--height", type=int, default=224, help="Height of video to sample")
     parser.add_argument("--width", type=int, default=224, help="Width of video to sample")
     parser.add_argument("--seed", type=int, default=1, help="Random seed")
-    parser.add_argument("--num_gpus", type=int, default=1, help="Number of GPUs used to run inference in parallel.")
+    parser.add_argument(
+        "--num_gpus", type=int, default=1, help="Number of GPUs used to run context parallel inference."
+    )
     parser.add_argument(
         "--offload_diffusion_transformer",
         action="store_true",
@@ -201,13 +186,13 @@ def parse_arguments() -> argparse.Namespace:
         "--source_data_dir",
         type=str,
         default=None,
-        help="Path to source data directory for batch inference.",
+        help="Path to source data directory for batch inference",
     )
     parser.add_argument(
         "--output_data_dir",
         type=str,
         default=None,
-        help="Path to output data directory for batch inference.",
+        help="Path to output data directory for batch inference",
     )
     parser.add_argument(
         "--save_name_offset",
@@ -219,32 +204,33 @@ def parse_arguments() -> argparse.Namespace:
         "--foreground_label",
         type=str,
         default="3,4",
-        help="Comma separated list of foreground labels to be used for the mask.",
+        help="Comma separated list of foreground labels to be used for the mask. The foreground corresponds to the "
+        "object whose appearance we want to keep unchanged during generation",
     )
     parser.add_argument(
         "--sigma_threshold",
         type=float,
         default=1.2866,
         help="This controls how many guidance steps are performed during generation. Smaller values mean more steps, "
-        "larger values mean less steps.",
+        "larger values mean less steps",
     )
     parser.add_argument(
         "--concat_video_second_view",
         type=bool,
         default=True,
-        help="Whether to concatenate the first and second view videos during generation.",
+        help="Whether to concatenate the first and second view videos during generation",
     )
     parser.add_argument(
         "--fill_missing_pixels",
         type=bool,
         default=True,
-        help="Whether to fill missing pixels in the warped second view video.",
+        help="Whether to fill missing pixels in the warped second view video",
     )
     parser.add_argument(
         "--model_config_file",
         type=str,
         default="environments/cosmos_transfer1/config/transfer/config.py",
-        help="Relative path to the model config file.",
+        help="Relative path to the model config file",
     )
 
     cmd_args = parser.parse_args()
@@ -265,6 +251,7 @@ def parse_arguments() -> argparse.Namespace:
     return cmd_args, control_inputs
 
 
+@torch.no_grad()
 def inference(cfg, pipeline, control_inputs, data, device_rank):
     """Run control-to-world generation demo.
 

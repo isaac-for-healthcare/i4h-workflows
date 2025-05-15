@@ -192,10 +192,15 @@ Directly applying Cosmos-Transfer with various control inputs results in unsatis
 This training-free guided generation approach by encoding simulation videos into the latent space and applying spatial masking to guide the generation process. The trade-off between realism and faithfulness can be controlled by adjusting the number of guided denoising steps. In addition, our generation pipeline supports multi-view video generation. We first leverage the camera information to wrap the generated room view to wrist view, then use it as the guidance of wrist-view generation.
 
 #### Download Cosmos-transfer1 Checkpoints
-Please move to the third party `cosmos-transfer1` folder and execute the following command to download checkpoints:
+Please install cosmos-transfer1 dependency and move to the third party `cosmos-transfer1` folder. The following command downloads the checkpoints:
 ```sh
+conda activate cosmos-transfer1
 CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/download_checkpoints.py --output_dir checkpoints/
 ```
+#### Video Prompt Generation
+We follow the idea in [lucidsim](https://github.com/lucidsim/lucidsim) to first generate batches of meta prompt that contains a very concise description of the potential scene, then instruct the LLM (e.g., [gemma-3-27b-it](https://build.nvidia.com/google/gemma-3-27b-it)) to upsample the meta prompt with detailed descriptions.
+We provide example prompts in [`generated_prompts_two_seperate_views.json`](./environments/cosmos_transfer1/config/generated_prompts_two_seperate_views.json).
+
 #### Running Cosmos-transfer1 + Guided Generation
 Please move to the current [`simulation` folder](./) and execute the following command to start the generation pipeline:
 ```sh
@@ -220,12 +225,38 @@ CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$PYTHONPATH torchrun \
 
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
-| `--checkpoint_dir` | str | "" | Base directory containing model checkpoints |
+| `--prompt` | str | "" | Prompt which the sampled video condition on |
+| `--negative_prompt` | str | "The video captures a game playing, ..." | Negative prompt which the sampled video condition on |
+| `--input_video_path` | str | "" | Optional input RGB video path |
+| `--num_input_frames` | int | 1 | Number of conditional frames for long video generation |
+| `--sigma_max` | float | 80 | sigma_max for partial denoising |
+| `--blur_strength` | str | "medium" | Blur strength applied to input |
+| `--canny_threshold` | str | "medium" | Canny threshold applied to input. Lower means less blur or more detected edges, which means higher fidelity to input |
+| `--controlnet_specs` | str | "inference_cosmos_transfer1_two_views.json" | Path to JSON file specifying multicontrolnet configurations |
+| `--checkpoint_dir` | str | "checkpoints" | Base directory containing model checkpoints |
+| `--tokenizer_dir` | str | "Cosmos-Tokenize1-CV8x8x8-720p" | Tokenizer weights directory relative to checkpoint_dir |
+| `--video_save_folder` | str | "outputs/" | Output folder for generating a batch of videos |
+| `--num_steps` | int | 35 | Number of diffusion sampling steps |
+| `--guidance` | float | 5.0 | Classifier-free guidance scale value |
+| `--fps` | int | 30 | FPS of the output video |
+| `--height` | int | 224 | Height of video to sample |
+| `--width` | int | 224 | Width of video to sample |
+| `--seed` | int | 1 | Random seed |
+| `--num_gpus` | int | 1 | Number of GPUs used to run context parallel inference. |
+| `--offload_diffusion_transformer` | bool | False | Offload DiT after inference |
+| `--offload_text_encoder_model` | bool | False | Offload text encoder model after inference |
+| `--offload_guardrail_models` | bool | True | Offload guardrail models after inference |
+| `--upsample_prompt` | bool | False | Upsample prompt using Pixtral upsampler model |
+| `--offload_prompt_upsampler` | bool | False | Offload prompt upsampler model after inference |
 | `--source_data_dir` | str | "" | Path to source data directory for batch inference. It contains h5 files generated from the state machine. |
 | `--output_data_dir` | str | "" | Path to output data directory for batch inference. |
-| `--offload_text_encoder_model` | bool | False | Offload text encoder model after inference |
-| `--sigma_threshold` | float | 1.2866 | This controls how many guidance steps are performed during generation. Smaller values mean more steps, larger values mean less steps. |
+| `--save_name_offset` | int | 0 | Offset for the video save name. |
 | `--foreground_label` | str | "3,4" | Comma-separated list of labels used to define the foreground mask during guided generation. The foreground corresponds to the object whose appearance we want to keep unchanged during generation. |
+| `--sigma_threshold` | float | 1.2866 | This controls how many guidance steps are performed during generation. Smaller values mean more steps, larger values mean less steps. |
+| `--concat_video_second_view` | bool | True | Whether to concatenate the first and second view videos during generation |
+| `--fill_missing_pixels` | bool | True | Whether to fill missing pixels in the warped second view video |
+| `--model_config_file` | str | "environments/cosmos_transfer1/config/transfer/config.py" | Relative path to the model config file |
+
 
 ### Teleoperation
 
