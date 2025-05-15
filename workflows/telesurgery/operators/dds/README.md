@@ -2,9 +2,6 @@
 
 This module provides DDS (Data Distribution Service) operators for the Holoscan platform, enabling communication between different parts of a distributed system using the DDS middleware.
 
-## Features
-
-
 ## Dependencies
 
 - Holoscan SDK

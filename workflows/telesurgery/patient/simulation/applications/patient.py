@@ -26,19 +26,13 @@ from operators.dds.CameraInfoPublisherOp import CameraInfoPublisherOp
 
 
 class PatientApp(Application):
-    """A Holoscan application for transmitting data over RoCE (RDMA over Converged Ethernet).
+    """The Patient application for the telesurgery simulation.
 
-    This application sets up a data transmission pipeline that can either transmit data
-    over a RoCE network interface or display the data locally using Holoviz if no RoCE
-    device is available.
-
-    Args:
-        ibv_name (str): Name of the InfiniBand verb (IBV) device to use for RoCE transmission.
-        ibv_port (int): Port number for the IBV device.
-        hololink_ip (str): IP address of the Hololink receiver.
-        ibv_qp (int): Queue pair number for the IBV device.
-        tx_queue_size (int): Size of the transmission queue.
-        buffer_size (int): Size of the buffer for data transmission.
+    This application sets up a Holoscan pipeline that receives HID events from the Surgeon application
+    over DDS and pushes them to the Simulation application.
+    The simulation application then updates the robot's joint positions and simulates the robot's motion.
+    The camera attached to the robot pushes image frames to the AsyncDataPushOp for transmission to the Surgeon application
+    and for local display in Holoviz.
     """
 
     def __init__(
@@ -50,12 +44,9 @@ class PatientApp(Application):
         """Initialize the TransmitterApp.
 
         Args:
-            ibv_name (str): Name of the InfiniBand verb (IBV) device.
-            ibv_port (int): Port number for the IBV device.
-            hololink_ip (str): IP address of the Hololink receiver.
-            ibv_qp (int): Queue pair number for the IBV device.
             tx_queue_size (int): Size of the transmission queue.
             buffer_size (int): Size of the buffer for data transmission.
+            hid_event_callback (Callable): Callback function for handling HID events.
         """
         self._tx_queue_size = tx_queue_size
         self._buffer_size = buffer_size
@@ -67,10 +58,6 @@ class PatientApp(Application):
 
     def compose(self):
         """Compose the application workflow.
-
-        Sets up the data transmission pipeline by creating and connecting the necessary operators.
-        If a RoCE device is available, creates a RoceTransmitterOp for network transmission.
-        Otherwise, creates a HolovizOp for local visualization.
         """
 
         source_rate_hz = 60  # messages sent per second
@@ -126,10 +113,10 @@ class PatientApp(Application):
         self.add_flow(self._async_data_push, holoviz, {("image", "receivers")})
 
     def push_data(self, data):
-        """Push data into the transmission pipeline.
+        """Push the camera data to the AsyncDataPushOp.
 
         Args:
-            data: The data to be transmitted or displayed.
+            data: The camera data to be transmitted or displayed.
         """
 
         if self._async_data_push is not None:

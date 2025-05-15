@@ -97,6 +97,7 @@ RUN ./python.sh -m pip install rti.connext
 # Install warp-lang
 RUN ./python.sh -m pip install warp-lang
 
+# TODO: Remove this once we upgrade to Isaac Sim 5.0.0
 # workaround for https://nvbugspro.nvidia.com/bug/5180229: [Holoscan SDK v3.1] std::bad_alloc exception with IsaacSim due to loading Holoscan Python module with RTDL_GLOBAL flag
 RUN sed -i 's/sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)/#sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)/' /isaac-sim/kit/python/lib/python3.10/site-packages/holoscan/core/__init__.py
 
