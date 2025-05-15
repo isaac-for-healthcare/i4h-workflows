@@ -243,6 +243,21 @@ cmake -B build -S . && cmake --build build
 popd
 echo "Holoscan Apps build completed!"
 
+# ---- Install dependencies for cosmos transfer (Common) ----
+echo "------------------------------------------"
+echo "Installing cosmos transfer dependencies..."
+echo "------------------------------------------"
+conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
+git clone git@github.com:nvidia-cosmos/cosmos-transfer1.git $PROJECT_ROOT/third_party/cosmos-transfer1
+pushd $PROJECT_ROOT/third_party/cosmos-transfer1
+git checkout bf54a70a8c44d615620728c493ee26b4376ccfd6
+git submodule update --init --recursive
+pip install -r requirements.txt
+ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/
+ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/python3.10
+pip install transformer-engine[pytorch]==1.12.0
+popd
+
 
 # ---- Install libstdcxx-ng for raysim (Common) ----
 echo "------------------------------------------"
