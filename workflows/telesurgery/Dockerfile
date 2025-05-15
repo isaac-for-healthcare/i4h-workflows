@@ -78,6 +78,20 @@ RUN apt update \
     openjdk-21-jre
 RUN echo 'export JREHOME=$(readlink /etc/alternatives/java | sed -e "s/\/bin\/java//")' >> /etc/bash.bashrc
 
+
+RUN export RTI_LICENSE_AGREEMENT_ACCEPTED=accepted \
+    && curl -sSL -o /usr/share/keyrings/rti-official-archive.gpg \
+        https://packages.rti.com/deb/official/repo.key \
+    && printf -- "deb [arch=%s, signed-by=%s] %s %s main\n" \
+        $(dpkg --print-architecture) \
+        /usr/share/keyrings/rti-official-archive.gpg \
+        https://packages.rti.com/deb/official \
+        $(. /etc/os-release && echo ${VERSION_CODENAME}) | \
+        tee /etc/apt/sources.list.d/rti-official.list >/dev/null \
+    && apt update \
+    && apt install --no-install-recommends -y \
+        rti-connext-dds-7.5.0
+
 RUN ./python.sh -m pip install rti.connext
 
 # Install warp-lang
@@ -99,7 +113,8 @@ COPY deploy/isaac_sim_camera_device.patch /tmp/isaac_sim_camera_device.patch
 RUN patch -p1 /isaac-sim/exts/isaacsim.sensors.camera/isaacsim/sensors/camera/camera.py < /tmp/isaac_sim_camera_device.patch \
     && rm /tmp/isaac_sim_camera_device.patch
 
-ENV NDDSHOME=/opt/rti.com/rti_connext_dds-7.3.0
+ENV NDDSHOME=/opt/rti.com/rti_connext_dds-7.5.0
+ENV RTI_LICENSE_FILE=${NDDSHOME}/rti_license.dat
 ENV RTI_CONNEXT_DDS_DIR=$NDDSHOME
 
 CMD ["/bin/bash", "-c", "source $NDDSHOME/resource/scripts/rtisetenv_x64Linux4gcc7.3.0.bash && exec /bin/bash"]
