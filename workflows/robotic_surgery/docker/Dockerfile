@@ -30,12 +30,17 @@ RUN sed -i '/--\/app\/livestream\/publicEndpointAddress=/d' /workspace/isaaclab/
 
 COPY workflows/robotic_surgery/scripts .
 
+COPY tools/env_setup/install_robotic_surgery_extensions.sh /tmp/install_robotic_surgery_extensions.sh
+
 ENV PYTHONPATH=/workspace/robotic_surgery/scripts
 
-RUN --mount=type=ssh /workspace/isaaclab/_isaac_sim/python.sh -m pip install --no-deps git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0
+ENV PYTHON_EXECUTABLE=/workspace/isaaclab/_isaac_sim/python.sh
 
-RUN /workspace/isaaclab/_isaac_sim/python.sh -m pip install toml
+RUN --mount=type=ssh $PYTHON_EXECUTABLE -m pip install --no-deps git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0
 
-RUN /workspace/isaaclab/_isaac_sim/python.sh -m pip install --no-build-isolation -e /workspace/robotic_surgery/scripts/simulation/exts/robotic.surgery.assets
+# Install the robotic surgery extensions
+# Extention installation also needs to know which python to use via the PYTHON_EXECUTABLE environment variable
+RUN /tmp/install_robotic_surgery_extensions.sh simulation/exts
 
-RUN /workspace/isaaclab/_isaac_sim/python.sh -m pip install --no-build-isolation -e /workspace/robotic_surgery/scripts/simulation/exts/robotic.surgery.tasks
+# Clean up the install script
+RUN rm /tmp/install_robotic_surgery_extensions.sh
