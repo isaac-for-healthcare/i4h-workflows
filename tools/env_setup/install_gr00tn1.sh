@@ -21,13 +21,11 @@ set -e
 # Assuming this script is in tools/env_setup/
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
-# Source utility functions
 # Assuming bash_utils.sh is in $PROJECT_ROOT/tools/env_setup/bash_utils.sh
 source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
 
-# Perform necessary checks
 check_project_root
-check_conda_env # Ensure conda environment is still active
+check_conda_env
 
 echo "--- Installing GR00T N1 Policy Dependencies ---"
 
@@ -43,8 +41,6 @@ else
 fi
 
 pushd "$GR00T_DIR"
-# Note: The original script did not specify a commit for Isaac-GR00T.
-# If a specific commit becomes necessary, add a git checkout here.
 
 # Update pyav dependency in pyproject.toml if not already done
 if grep -q "pyav" pyproject.toml; then

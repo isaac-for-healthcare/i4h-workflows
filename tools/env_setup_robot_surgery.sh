@@ -18,7 +18,7 @@
 set -e
 
 # Get the parent directory of the current script
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
 
 # Check if running in a conda environment

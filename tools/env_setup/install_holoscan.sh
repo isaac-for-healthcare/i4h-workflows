@@ -21,11 +21,9 @@ set -e
 # Assuming this script is in tools/env_setup/
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
-# Source utility functions
 # Assuming bash_utils.sh is in $PROJECT_ROOT/tools/env_setup/bash_utils.sh
 source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
 
-# Perform necessary checks if needed by this script, e.g.:
 check_project_root
 check_conda_env
 

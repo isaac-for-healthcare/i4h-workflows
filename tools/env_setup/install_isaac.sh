@@ -29,7 +29,6 @@ check_conda_env
 # Check if NVIDIA GPU is available
 check_nvidia_gpu
 
-
 # Ensure the parent third_party directory exists
 mkdir -p "$PROJECT_ROOT/third_party"
 
