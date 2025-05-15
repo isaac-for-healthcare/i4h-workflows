@@ -65,6 +65,10 @@ function build_image() {
     docker build -f ${SCRIPT_DIR}/Dockerfile -t ${IMAGE_NAME} --progress=plain .
 }
 
+function code-remote {
+  p=$(printf "%s" "$2" | xxd -p) && $1 --folder-uri "vscode-remote://dev-container+${p//[[:space:]]/}/$3"
+}
+
 function vscode() {
     # Allow the docker group to access X11.
     xhost +local:docker
@@ -72,11 +76,13 @@ function vscode() {
     # build the Docker image if it doesn't exist
     build_image
 
-    if command -v devcontainer &> /dev/null; then
-        devcontainer open ${SCRIPT_DIR}
+    if [ -z "$APPIMAGE" ]; then
+        APP=code
     else
-        echo "devcontainer not found, please install it by pressing CTRL+SHIFT+P and selecting 'Dev Containers: Install devcontainer CLI'"
+        APP=${APPIMAGE}
     fi
+
+    code-remote  "$APP" "$SCRIPT_DIR" "workspace/telesurgery"
 }
 
 function surgeon() {

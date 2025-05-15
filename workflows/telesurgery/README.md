@@ -41,15 +41,11 @@
 
 ### DevContainer
 
-To use VS Code/Cursor DevContainer, ensure the `devcontainer` CLI is installed:
-- Go to Command Palette (CTRL+SHIFT+P)
-- Select *Dev Containers: Install devcontainer CLI*
-
-Use `./run vscode` to start a new VS Code window for development.
+Use `./run vscode` to start a new VS Code or Cursor window for development.
 
 ### Running the Application
 
-To run the applications, you may either use VS Code Dev Container or use the development container.
+To run the applications, you may either use Dev Container or use the development container.
 
 Use the following command to enter the development container:
 
