@@ -20,26 +20,17 @@ set -e
 # Get the parent directory of the current script
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
+# Source utility functions
+source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
+
 # Check if running in a conda environment
-if [ -z "$CONDA_DEFAULT_ENV" ]; then
-    echo "Error: No active conda environment detected"
-    echo "Please activate a conda environment before running this script"
-    exit 1
-fi
-echo "Using conda environment: $CONDA_DEFAULT_ENV"
+check_conda_env
 
 # Check if NVIDIA GPU is available
-if ! nvidia-smi &> /dev/null; then
-    echo "Error: NVIDIA GPU not found or driver not installed"
-    exit 1
-fi
+check_nvidia_gpu
 
 # Check if the third_party directory exists, if yes, then exit
-if [ -d "$PROJECT_ROOT/third_party" ]; then
-    echo "Error: third_party directory already exists"
-    echo "Please remove the third_party directory before running this script"
-    exit 1
-fi
+ensure_fresh_third_party_dir
 
 # ---- Clone IsaacLab ----
 echo "Cloning IsaacLab..."

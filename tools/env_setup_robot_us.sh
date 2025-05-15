@@ -54,33 +54,18 @@ echo "Selected policy setup: $INSTALL_WITH_POLICY"
 
 
 # --- Setup Steps ---
-
 # Get the parent directory of the current script
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
 
 # Check if running in a conda environment
-if [ -z "$CONDA_DEFAULT_ENV" ]; then
-    echo "Error: No active conda environment detected"
-    echo "Please activate a conda environment before running this script"
-    exit 1
-fi
-echo "Using conda environment: $CONDA_DEFAULT_ENV"
+check_conda_env
 
 # Check if NVIDIA GPU is available
-if ! nvidia-smi &> /dev/null; then
-    echo "Error: NVIDIA GPU not found or driver not installed"
-    exit 1
-fi
+check_nvidia_gpu
 
 # Check if the third_party directory exists
-if [ -d "$PROJECT_ROOT/third_party" ]; then
-    echo "Error: third_party directory already exists"
-    echo "Please remove the third_party directory before running this script"
-    exit 1
-else
-    mkdir $PROJECT_ROOT/third_party
-    echo "Created directory: $PROJECT_ROOT/third_party"
-fi
+ensure_fresh_third_party_dir
 
 
 # ---- Install build tools (Common) ----
@@ -92,23 +77,18 @@ else
 fi
 
 
-# ---- Install IsaacSim and necessary dependencies (Common) ----
-echo "Installing IsaacSim and base dependencies..."
-pip install 'isaacsim[all,extscache]==4.5.0' \
-    rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
+# ---- Install necessary dependencies (Common) ----
+echo "Installing necessary dependencies..."
+pip install rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
     git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0 \
     setuptools==75.8.0 pydantic==2.10.6 \
     --extra-index-url https://pypi.nvidia.com
 
 
-# ---- Install IsaacLab (Common) ----
+# ---- Install IsaacSim and IsaacLab (Common) ----
 # Check if IsaacLab is already cloned
-echo "Installing IsaacLab..."
-echo "Cloning IsaacLab repository into $PROJECT_ROOT/third_party/IsaacLab..."
-git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
-pushd $PROJECT_ROOT/third_party/IsaacLab
-yes Yes | ./isaaclab.sh --install
-popd
+echo "Installing IsaacSim and IsaacLab..."
+bash $PROJECT_ROOT/tools/env_setup/install_isaac.sh
 
 
 # ---- Install robotic ultrasound extension (Common) ----
