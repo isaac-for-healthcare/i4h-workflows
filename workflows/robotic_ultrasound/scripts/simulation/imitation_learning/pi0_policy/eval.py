@@ -20,7 +20,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 from isaaclab.app import AppLauncher
-from policy_runner import PI0PolicyRunner
+from policy_runner.pi0.runners import PI0PolicyRunner
 from simulation.environments.state_machine.utils import (
     RobotPositions,
     RobotQuaternions,
@@ -119,7 +119,7 @@ def main():
     policy_runner = PI0PolicyRunner(
         ckpt_path=args_cli.ckpt_path,
         repo_id=args_cli.repo_id,
-        task_description="Conduct a ultrasound scan on the liver.",
+        task_description="Perform a liver ultrasound.",
     )
     # Number of steps played before replanning
     replan_steps = 5
