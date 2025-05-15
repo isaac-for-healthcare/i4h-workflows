@@ -51,7 +51,7 @@ ensure_fresh_third_party_dir() {
         echo "Please remove the third_party directory before running this script with policies that require a fresh setup (e.g., pi0, gr00tn1)."
         exit 1
     else
-        mkdir -p "$THIRDPARTY_DIR" # Use -p for safety, though in this logic path it implies parent (PROJECT_ROOT) exists.
+        mkdir "$THIRDPARTY_DIR"
         echo "Created directory: $THIRDPARTY_DIR"
     fi
-} 
+}
