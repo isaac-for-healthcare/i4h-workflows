@@ -18,7 +18,7 @@
 set -e
 
 # Get the parent directory of the current script
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
 # Check if running in a conda environment
 if [ -z "$CONDA_DEFAULT_ENV" ]; then
@@ -41,11 +41,26 @@ if [ -d "$PROJECT_ROOT/third_party" ]; then
     exit 1
 fi
 
-# Run the installation scripts
-echo "Installing IsaacSim and dependencies..."
-bash $PROJECT_ROOT/env_setup/install_isaac.sh
+# ---- Clone IsaacLab ----
+echo "Cloning IsaacLab..."
+# CLONING REPOSITORIES INTO PROJECT_ROOT/third_party
+echo "Cloning repositories into $PROJECT_ROOT/third_party..."
+mkdir $PROJECT_ROOT/third_party
+git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
+pushd $PROJECT_ROOT/third_party/IsaacLab
 
-echo "Installing extensions..."
-bash $PROJECT_ROOT/env_setup/install_robotic_surgery_extensions.sh
+# ---- Install IsaacSim and necessary dependencies ----
+echo "Installing IsaacSim..."
+pip install 'isaacsim[all,extscache]==4.5.0' \
+    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0 \
+    --extra-index-url https://pypi.nvidia.com
 
-echo "All dependencies installed successfully!"
+echo "Installing IsaacLab ..."
+yes Yes | ./isaaclab.sh --install
+popd
+
+# ---- Install libstdcxx-ng for mesa ----
+echo "Installing libstdcxx-ng..."
+conda install -c conda-forge libstdcxx-ng=13.2.0 -y
+
+echo "IsaacSim and dependencies installed successfully!"
