@@ -128,11 +128,6 @@ echo "Installing Holoscan..."
 bash "$PROJECT_ROOT/tools/env_setup/install_holoscan.sh"
 
 
-# ---- Install dependencies for cosmos transfer (Common) ----
-echo "Installing dependencies for cosmos transfer..."
-bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
-
-
 echo "=========================================="
 echo "Environment setup script finished."
 echo "Selected policy dependencies ($INSTALL_WITH_POLICY) should be installed along with base components."
