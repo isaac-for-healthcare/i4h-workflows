@@ -29,8 +29,6 @@ source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
 check_project_root
 check_conda_env
 
-echo "--- Installing Cosmos Transfer Dependencies ---"
-
 conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
 
 COSMOS_TRANSFER_DIR="$PROJECT_ROOT/third_party/cosmos-transfer1"
@@ -53,4 +51,4 @@ pip install transformer-engine[pytorch]==1.12.0
 CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/test_environment.py
 popd
 
-echo "--- Cosmos Transfer Dependencies Installation Finished ---" 
+echo "Cosmos Transfer Dependencies Installation Finished"
