@@ -39,7 +39,7 @@ ENV PYTHON_EXECUTABLE=/workspace/isaaclab/_isaac_sim/python.sh
 RUN --mount=type=ssh $PYTHON_EXECUTABLE -m pip install --no-deps git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0
 
 # Install the robotic surgery extensions
-# Extention installation also needs to know which python to use via the PYTHON_EXECUTABLE environment variable
+# Extension installation also needs to know which python to use via the PYTHON_EXECUTABLE environment variable
 RUN /tmp/install_robotic_surgery_extensions.sh simulation/exts
 
 # Clean up the install script

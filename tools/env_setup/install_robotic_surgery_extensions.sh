@@ -19,4 +19,4 @@ echo "Installing robotic.surgery.assets and robotic.surgery.tasks..."
 $PYTHON_EXECUTABLE -m pip install --no-build-isolation -e $EXTS_DIR/robotic.surgery.assets
 $PYTHON_EXECUTABLE -m pip install --no-build-isolation -e $EXTS_DIR/robotic.surgery.tasks
 
-echo "Extensions installed successfully!" 
+echo "Extensions installed successfully!"

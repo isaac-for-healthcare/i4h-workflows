@@ -51,4 +51,4 @@ popd
 echo "Installing libstdcxx-ng..."
 conda install -c conda-forge libstdcxx-ng=13.2.0 -y
 
-echo "IsaacSim and dependencies installed successfully!" 
+echo "IsaacSim and dependencies installed successfully!"
