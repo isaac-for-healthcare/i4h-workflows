@@ -104,6 +104,8 @@ parser.add_argument("--log_probe_pos", action="store_true", default=False, help=
 parser.add_argument(
     "--scale", type=float, default=1000.0, help="Scale factor to convert from omniverse to organ coordinate system."
 )
+parser.add_argument("--chunk_length", type=int, default=50, help="Length of the action chunk inferred by the policy.")
+
 # append AppLauncher cli argruments
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -299,7 +301,7 @@ def main():
                     while ret is None:
                         ret = infer_reader.read_data()
                     o: FrankaCtrlInput = ret
-                    action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(50, 6)
+                    action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(args_cli.chunk_length, 6)
                     action_plan.extend(action_chunk[:replan_steps])
 
                 action = action_plan.popleft()

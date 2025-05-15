@@ -101,7 +101,7 @@ To feed the policy runner real-world data, you need components that capture sens
 
 The [`run_policy.py`](../../workflows/robotic_ultrasound/scripts/policy_runner/run_policy.py) script, located in [`workflows/robotic_ultrasound/scripts/policy_runner/`](../../workflows/robotic_ultrasound/scripts/policy_runner/), acts as the "brain". It subscribes to the DDS topics published above (camera images, joint states) and publishes computed actions.
 
-*   **Configuration:** Ensure the `--topic_in_...` arguments of `run_policy.py` match the topics you are publishing the real sensor data to (e.g., `"topic_your_camera_rgb"`, `"topic_franka_info"`). The `--topic_out` argument defines where the computed actions will be published (e.g., `"topic_franka_ctrl"`). You may also need to adjust settings in [`config.py`](../../workflows/robotic_ultrasound/scripts/policy_runner/config.py) within the same directory.
+*   **Configuration:** Ensure the `--topic_in_...` arguments of `run_policy.py` match the topics you are publishing the real sensor data to (e.g., `"topic_your_camera_rgb"`, `"topic_franka_info"`). The `--topic_out` argument defines where the computed actions will be published (e.g., `"topic_franka_ctrl"`). You may also need to adjust settings in [`config.py`](../../workflows/robotic_ultrasound/scripts/policy_runner/pi0/config.py) within the same directory.
 
 ## Controlling the Real Robot
 

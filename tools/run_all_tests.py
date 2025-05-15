@@ -123,7 +123,7 @@ def run_tests_with_coverage(workflow_name, skip_xvfb):
                     test_path,
                 ]
             # TODO: move these tests to integration tests
-            elif "test_sim_with_dds" in test_path or "test_pi0" in test_path:
+            elif "test_sim_with_dds" in test_path or "test_policy" in test_path:
                 continue
             elif "test_integration" in test_path:
                 continue

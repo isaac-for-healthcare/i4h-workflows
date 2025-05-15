@@ -28,11 +28,12 @@ from PIL import Image
 
 """
 Must execute the pi0 policy runner in another process before execute this test.
-Ensure to set the `height=480` and `width=640` in the`run_policy.py`.
 
 """
 
 test_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "test_data"))
+# 300 is the expected chunk size for the pi0 policy runner, 96 is the expected chunk size for the GR00T policy runner
+expected_chunk_size = 300
 
 
 class TestRoomCamPublisher(Publisher):
@@ -42,8 +43,8 @@ class TestRoomCamPublisher(Publisher):
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
         output.focal_len = 20
-        output.height = 480
-        output.width = 640
+        output.height = 224
+        output.width = 224
         output.data = Image.open(os.path.join(test_dir, "room_cam.png")).tobytes()
         return output
 
@@ -55,8 +56,8 @@ class TestWristCamPublisher(Publisher):
     def produce(self, dt: float, sim_time: float):
         output = CameraInfo()
         output.focal_len = 20
-        output.height = 480
-        output.width = 640
+        output.height = 224
+        output.width = 224
         output.data = Image.open(os.path.join(test_dir, "wrist_cam.png")).tobytes()
         return output
 
@@ -80,7 +81,7 @@ class TestRunPI0Policy(unittest.TestCase):
             self.assertIsInstance(data, FrankaCtrlInput)
             o: FrankaCtrlInput = data
             action_chunk = np.array(o.joint_positions, dtype=np.float32)
-            self.assertEqual(action_chunk.shape, (300,))
+            self.assertEqual(action_chunk.shape, (expected_chunk_size,))
             self.test_pass = True
 
         """Set up test fixtures before each test method"""

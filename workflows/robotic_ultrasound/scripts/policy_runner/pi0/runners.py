@@ -16,7 +16,7 @@
 import torch
 from openpi.policies import policy_config
 from openpi_client import image_tools
-from policy_runner.config import get_config
+from policy_runner.pi0.config import get_config
 
 
 class PI0PolicyRunner:
@@ -26,7 +26,7 @@ class PI0PolicyRunner:
     Args:
         ckpt_path: Path to the checkpoint file.
         repo_id: Repository ID of the original training dataset.
-        task_description: Task description. Default is "Conduct a ultrasound scan on the liver."
+        task_description: Task description. Default is "Perform a liver ultrasound."
 
     """
 
@@ -34,7 +34,7 @@ class PI0PolicyRunner:
         self,
         ckpt_path,
         repo_id,
-        task_description="Conduct a ultrasound scan on the liver.",
+        task_description="Perform a liver ultrasound.",
     ):
         config = get_config(name="robotic_ultrasound", repo_id=repo_id)
         print(f"Loading model from {ckpt_path}...")
