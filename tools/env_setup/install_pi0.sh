@@ -24,7 +24,6 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
 
 check_project_root
-check_conda_env
 
 echo "Cloning OpenPI repository..."
 OPENPI_DIR="$PROJECT_ROOT/third_party/openpi"
