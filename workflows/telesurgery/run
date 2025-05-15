@@ -16,6 +16,7 @@
 
 # Error out if a command fails or a variable is not defined
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+RTI_LICENSE_FILE=${RTI_LICENSE_FILE:-~/rti_license.dat}
 
 set -eu
 NAME=i4h-telesurgery
@@ -29,10 +30,6 @@ function build() {
 }
 
 function enter() {
-    if [ ! -d ~/rti_connext_dds-7.3.0 ]; then
-        echo "RTI Connext DDS not found, please install it at ~/rti_connext_dds-7.3.0"
-        exit 1
-    fi
     build_image
     xhost +local:docker
 
@@ -59,7 +56,7 @@ function enter() {
         -v ~/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw \
         -v ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw \
         -v ~/docker/isaac-sim/documents:/root/Documents:rw \
-        -v ~/rti_connext_dds-7.3.0:/opt/rti.com/rti_connext_dds-7.3.0/ \
+        -v ${RTI_LICENSE_FILE}:/opt/rti.com/rti_connext_dds-7.5.0/rti_license.dat \
         --entrypoint "" \
         -v ${SCRIPT_DIR}:${WORKSPACE_DIR} -w ${WORKSPACE_DIR} ${IMAGE_NAME} bash
 }
@@ -69,11 +66,6 @@ function build_image() {
 }
 
 function vscode() {
-    if [ ! -d ~/rti_connext_dds-7.3.0 ]; then
-        echo "RTI Connext DDS not found, please install it at ~/rti_connext_dds-7.3.0"
-        exit 1
-    fi
-
     # Allow the docker group to access X11.
     xhost +local:docker
 
@@ -169,6 +161,13 @@ done
 
 if [ -z "${COMMAND}" ]; then
     help
+    exit 1
+fi
+
+
+if [ ! -f ${RTI_LICENSE_FILE} ]; then
+    echo "RTI Connext DDS license not found, please either set the RTI_LICENSE_FILE"
+    echo "environment variable or install it at ${RTI_LICENSE_FILE}"
     exit 1
 fi
 
