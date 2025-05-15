@@ -29,23 +29,26 @@ check_conda_env
 # Check if NVIDIA GPU is available
 check_nvidia_gpu
 
-# Check if the third_party directory exists, if yes, then exit
-ensure_fresh_third_party_dir
 
-# ---- Clone IsaacLab ----
-echo "Cloning IsaacLab..."
-# CLONING REPOSITORIES INTO PROJECT_ROOT/third_party
-echo "Cloning repositories into $PROJECT_ROOT/third_party..."
-mkdir $PROJECT_ROOT/third_party
-git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
-pushd $PROJECT_ROOT/third_party/IsaacLab
+# Ensure the parent third_party directory exists
+mkdir -p "$PROJECT_ROOT/third_party"
 
-# ---- Install IsaacSim and necessary dependencies ----
+# ---- Install IsaacSim ----
 echo "Installing IsaacSim..."
 pip install 'isaacsim[all,extscache]==4.5.0' \
     git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0 \
     --extra-index-url https://pypi.nvidia.com
 
+ISAACLAB_DIR="$PROJECT_ROOT/third_party/IsaacLab"
+
+if [ -d "$ISAACLAB_DIR" ]; then
+    echo "IsaacLab directory already exists at $ISAACLAB_DIR. Skipping clone. Will use existing."
+else
+    echo "Cloning IsaacLab repository into $ISAACLAB_DIR..."
+    git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git "$ISAACLAB_DIR"
+fi
+
+pushd "$ISAACLAB_DIR"
 echo "Installing IsaacLab ..."
 yes Yes | ./isaaclab.sh --install
 popd

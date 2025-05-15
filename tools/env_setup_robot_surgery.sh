@@ -33,9 +33,9 @@ ensure_fresh_third_party_dir
 
 # Run the installation scripts
 echo "Installing IsaacSim and dependencies..."
-bash $PROJECT_ROOT/env_setup/install_isaac.sh
+bash $PROJECT_ROOT/tools/env_setup/install_isaac.sh
 
 echo "Installing extensions..."
-bash $PROJECT_ROOT/env_setup/install_robotic_surgery_extensions.sh
+bash $PROJECT_ROOT/tools/env_setup/install_robotic_surgery_extensions.sh
 
 echo "All dependencies installed successfully!"
