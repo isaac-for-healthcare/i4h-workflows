@@ -78,13 +78,13 @@ class NeedleLiftEnvCfg(LiftEnvCfg):
             height=480,
             width=640,
             data_types=["rgb"],
-            spawn=sim_utils.PinholeCameraCfg(
-                focal_length=36.0,
-                horizontal_aperture=20.955,
+            spawn=sim_utils.FisheyeCameraCfg(
+                projection_type="fisheyePolynomial",
+                fisheye_max_fov=150.0,
             ),
             offset=CameraCfg.OffsetCfg(
-                pos=(0.0, -3.5, 1.5),
-                rot=(0.707*0.66, -0.707, 0.0, 0.0),
+                pos=(0.0, -0.3, 0.5),
+                rot=(0.2588, -0.9659, 0.0, 0.0),
                 convention="ros"
             )
         )
