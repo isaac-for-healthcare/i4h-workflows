@@ -31,8 +31,8 @@ class PatientApp(Application):
     This application sets up a Holoscan pipeline that receives HID events from the Surgeon application
     over DDS and pushes them to the Simulation application.
     The simulation application then updates the robot's joint positions and simulates the robot's motion.
-    The camera attached to the robot pushes image frames to the AsyncDataPushOp for transmission to the Surgeon application
-    and for local display in Holoviz.
+    The camera attached to the robot pushes image frames to the AsyncDataPushOp for transmission to the
+    Surgeon application and for local display in Holoviz.
     """
 
     def __init__(
