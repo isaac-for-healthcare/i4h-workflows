@@ -10,7 +10,9 @@
 - NVIDIA Driver Version >= 535
 - 50GB of disk space
 - Docker & NVIDIA Container Toolkit
-- RTI Connext DDS 7.3.0 installed in `~/rti_connext_dds-7.3.0`
+- RTI license file
+  - Install the license file in `~/rti_license.dat`, or
+  - set the `RTI_LICENSE_FILE` environment variable
 - VS Code or Cursor AI with devcontainer
 
 ## Development
