@@ -66,6 +66,15 @@ python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learni
 python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Lift-Needle-PSM-IK-Rel-Play-v0
 ```
 
+- **Suture Needle Lift with Organ (`Isaac-Lift-Needle-PSM-OR-IK-Abs-v0`)**:
+
+```bash
+# run script for training
+python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Lift-Needle-PSM-OR-IK-Abs-v0 --headless
+# run script for playing with 50 environments
+python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Lift-Needle-PSM-OR-IK-Abs-Play-v0 --enable_cameras
+```
+
 ### TensorBoard: TensorFlow's visualization toolkit
 
 Monitor the training progress stored in the `logs` directory on [Tensorboard](https://www.tensorflow.org/tensorboard):
