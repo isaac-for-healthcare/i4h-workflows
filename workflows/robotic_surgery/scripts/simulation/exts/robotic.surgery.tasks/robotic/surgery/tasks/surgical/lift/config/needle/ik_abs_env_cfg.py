@@ -9,12 +9,12 @@ from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import SceneEntityCfg
+from isaaclab.sensors.camera.camera_cfg import CameraCfg
 from isaaclab.sim.schemas.schemas_cfg import RigidBodyPropertiesCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
 from robotic.surgery.tasks.surgical.lift import mdp
 from simulation.utils.assets import robotic_surgery_assets
-from isaaclab.sensors.camera.camera_cfg import CameraCfg
 
 from . import joint_pos_env_cfg
 
@@ -121,6 +121,7 @@ class NeedleLiftOREnvCfg(NeedleLiftEnvCfg):
             },
         )
 
+
 @configclass
 class NeedleLiftOREnvCfg_PLAY(NeedleLiftOREnvCfg):
     def __post_init__(self):
@@ -143,9 +144,5 @@ class NeedleLiftOREnvCfg_PLAY(NeedleLiftOREnvCfg):
                 projection_type="fisheyePolynomial",
                 fisheye_max_fov=150.0,
             ),
-            offset=CameraCfg.OffsetCfg(
-                pos=(-0.03, 0.0, 0.06),
-                rot=(0.25, 0.93301, 0.0669, 0.25),
-                convention="ros"
-            )
+            offset=CameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.06), rot=(0.25, 0.93301, 0.0669, 0.25), convention="ros"),
         )
