@@ -144,8 +144,8 @@ class NeedleLiftOREnvCfg_PLAY(NeedleLiftOREnvCfg):
                 fisheye_max_fov=150.0,
             ),
             offset=CameraCfg.OffsetCfg(
-                pos=(0.0, -0.3, 0.5),
-                rot=(0.2588, -0.9659, 0.0, 0.0),
+                pos=(-0.03, 0.0, 0.06),
+                rot=(0.25, 0.93301, 0.0669, 0.25),
                 convention="ros"
             )
         )
