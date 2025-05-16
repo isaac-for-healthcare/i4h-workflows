@@ -23,8 +23,8 @@ import h5py
 import numpy as np
 import torch
 from openpi import train
-from policy_runner.config import get_config
-from policy_runner.utils import compute_normalization_stats
+from policy_runner.pi0.config import get_config
+from policy_runner.pi0.utils import compute_normalization_stats
 from training.pi_zero.convert_hdf5_to_lerobot import create_lerobot_dataset
 from training.pi_zero.convert_hdf5_to_lerobot import main as convert_hdf5_to_lerobot
 

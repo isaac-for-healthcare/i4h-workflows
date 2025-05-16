@@ -28,6 +28,7 @@ INCLUDE_PATTERNS=(
   "*.hpp"
   "*.cu"
   "*.cpp"
+  "Dockerfile*"
 )
 
 # Directories to explicitly exclude
