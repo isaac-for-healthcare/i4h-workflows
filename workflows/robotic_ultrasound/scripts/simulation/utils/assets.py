@@ -26,5 +26,6 @@ class Assets(BaseI4HAssets):
     policy_ckpt = "Policies/LiverScan"
     organs = "Props/ABDPhantom/Organs"
 
+
 # singleton object for the assets
 robotic_ultrasound_assets = Assets()

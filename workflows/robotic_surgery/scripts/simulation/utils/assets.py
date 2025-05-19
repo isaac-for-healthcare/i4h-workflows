@@ -15,9 +15,10 @@
 
 from i4h_asset_helper import BaseI4HAssets
 
+
 class Assets(BaseI4HAssets):
     """Assets manager for the robotic surgery workflow."""
-    
+
     dVRK_ECM = "Robots/dVRK/ECM/ecm.usd"
     dVRK_PSM = "Robots/dVRK/PSM/psm.usd"
     STAR = "Robots/STAR/star.usd"
