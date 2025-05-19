@@ -91,7 +91,6 @@ def main():
         while simulation_app.is_running():
             actions = reset_scene_to_initial_state(
                 env,
-                args_cli.task,
                 args_cli.hdf5_path,
                 episode_idx,
                 action_key,
@@ -126,7 +125,6 @@ def main():
 
                 actions = reset_scene_to_initial_state(
                     env,
-                    args_cli.task,
                     args_cli.hdf5_path,
                     episode_idx + 1,
                     action_key,

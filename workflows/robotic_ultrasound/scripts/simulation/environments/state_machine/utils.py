@@ -354,7 +354,6 @@ def _load_hdf5_dataset(data_path: str, episode_idx: int, key: str):
 
 def reset_scene_to_initial_state(
     env,
-    task_name: str,
     hdf5_path: str,
     episode_idx: int,
     action_key: str,

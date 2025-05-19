@@ -271,114 +271,123 @@ def main():
 
     # Number of steps played before replanning
     replan_steps = 5
+    import time
+
+    time.sleep(10)
+
+    if reset_to_recorded_data:
+        total_episodes = validate_hdf5_path(args_cli.hdf5_path)
+        print(f"total_episodes: {total_episodes}")
+    else:
+        total_episodes = 1
 
     # simulate environment
     while simulation_app.is_running():
         global reset_flag
-        if reset_to_recorded_data:
-            total_episodes = validate_hdf5_path(args_cli.hdf5_path)
-            print(f"total_episodes: {total_episodes}")
-            actions = reset_scene_to_initial_state(
-                env,
-                args_cli.task,
-                args_cli.hdf5_path,
-                episode_idx,
-                action_key,
-                torso_obs_key,
-                joint_state_key,
-                joint_vel_key,
-            )
-            first_action = torch.tensor(actions[1], device=args_cli.device)
-            first_action = first_action.unsqueeze(0)
-            env.step(first_action)
-            print(f"Reset to recorded data: {get_robot_obs(env)}")
         with torch.inference_mode():
-            action_plan = collections.deque()
-            robot_obs = []
-            for t in range(max_timesteps):
-                # get and publish the current images and joint positions
-                rgb_images, depth_images = capture_camera_images(
-                    env, ["room_camera", "wrist_camera"], device=env.unwrapped.device
-                )
-                pub_data["room_cam"], pub_data["room_cam_depth"] = (
-                    rgb_images[0, 0, ...].cpu().numpy(),
-                    depth_images[0, 0, ...].cpu().numpy(),
-                )
-                pub_data["wrist_cam"], pub_data["wrist_cam_depth"] = (
-                    rgb_images[0, 1, ...].cpu().numpy(),
-                    depth_images[0, 1, ...].cpu().numpy(),
-                )
-                pub_data["joint_pos"] = get_joint_states(env)[0]
-                robot_obs.append(get_robot_obs(env))
+            for episode_idx in range(total_episodes):
+                print(f"\nepisode_idx: {episode_idx}")
+                if reset_to_recorded_data:
+                    actions = reset_scene_to_initial_state(
+                        env,
+                        args_cli.hdf5_path,
+                        episode_idx,
+                        action_key,
+                        torso_obs_key,
+                        joint_state_key,
+                        joint_vel_key,
+                    )
+                    first_action = torch.tensor(actions[1], device=args_cli.device)
+                    first_action = first_action.unsqueeze(0)
+                    env.step(first_action)
+                    print(f"Reset to recorded data: {get_robot_obs(env)}")
+                action_plan = collections.deque()
+                robot_obs = []
+                for t in range(max_timesteps):
+                    # get and publish the current images and joint positions
+                    rgb_images, depth_images = capture_camera_images(
+                        env, ["room_camera", "wrist_camera"], device=env.unwrapped.device
+                    )
+                    pub_data["room_cam"], pub_data["room_cam_depth"] = (
+                        rgb_images[0, 0, ...].cpu().numpy(),
+                        depth_images[0, 0, ...].cpu().numpy(),
+                    )
+                    pub_data["wrist_cam"], pub_data["wrist_cam_depth"] = (
+                        rgb_images[0, 1, ...].cpu().numpy(),
+                        depth_images[0, 1, ...].cpu().numpy(),
+                    )
+                    pub_data["joint_pos"] = get_joint_states(env)[0]
+                    robot_obs.append(get_robot_obs(env))
 
-                # Get the pose of the mesh objects (mesh)
-                # The mesh objects are aligned with the organ (organ) in the US image view (us)
-                # The US is attached to the end-effector (ee), so we have the following computation logics:
-                # Each frame-to-frame transformation is available in the scene
-                # mesh -> organ -> ee -> us
-                quat_mesh_to_us, pos_mesh_to_us = compute_transform_sequence(env, ["mesh", "organ", "ee", "us"])
-                pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
-                    quat_mesh_to_us, pos_mesh_to_us, scale=args_cli.scale, log=args_cli.log_probe_pos
-                )
-                viz_r_cam_writer.write()
-                viz_w_cam_writer.write()
-                viz_r_cam_depth_writer.write()
-                viz_w_cam_depth_writer.write()
-                viz_pos_writer.write()
-                viz_probe_pos_writer.write()
-                if not action_plan:
-                    # publish the images and joint positions when run policy inference
-                    infer_r_cam_writer.write()
-                    infer_w_cam_writer.write()
-                    infer_pos_writer.write()
+                    # Get the pose of the mesh objects (mesh)
+                    # The mesh objects are aligned with the organ (organ) in the US image view (us)
+                    # The US is attached to the end-effector (ee), so we have the following computation logics:
+                    # Each frame-to-frame transformation is available in the scene
+                    # mesh -> organ -> ee -> us
+                    quat_mesh_to_us, pos_mesh_to_us = compute_transform_sequence(env, ["mesh", "organ", "ee", "us"])
+                    pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(
+                        quat_mesh_to_us, pos_mesh_to_us, scale=args_cli.scale, log=args_cli.log_probe_pos
+                    )
+                    viz_r_cam_writer.write()
+                    viz_w_cam_writer.write()
+                    viz_r_cam_depth_writer.write()
+                    viz_w_cam_depth_writer.write()
+                    viz_pos_writer.write()
+                    viz_probe_pos_writer.write()
+                    if not action_plan:
+                        # publish the images and joint positions when run policy inference
+                        infer_r_cam_writer.write()
+                        infer_w_cam_writer.write()
+                        infer_pos_writer.write()
 
-                    ret = None
-                    while ret is None:
-                        ret = infer_reader.read_data()
-                    o: FrankaCtrlInput = ret
-                    action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(args_cli.chunk_length, 6)
-                    action_plan.extend(action_chunk[:replan_steps])
+                        ret = None
+                        while ret is None:
+                            ret = infer_reader.read_data()
+                        o: FrankaCtrlInput = ret
+                        action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(args_cli.chunk_length, 6)
+                        action_plan.extend(action_chunk[:replan_steps])
 
-                action = action_plan.popleft()
+                    action = action_plan.popleft()
 
-                action = action.astype(np.float32)
+                    action = action.astype(np.float32)
 
-                # convert to torch
-                action = torch.tensor(action, device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
+                    # convert to torch
+                    action = torch.tensor(action, device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
 
-                # step the environment
-                obs, rew, terminated, truncated, info_ = env.step(action)
+                    # step the environment
+                    obs, rew, terminated, truncated, info_ = env.step(action)
 
-            env.reset()
-            if reset_to_recorded_data:
-                robot_obs = torch.stack(robot_obs, dim=0)
-                print(f"robot_obs shape: {robot_obs.shape}, saved to {args_cli.hdf5_path}/robot_obs_{episode_idx}.npz")
-                np.savez(
-                    os.path.join(args_cli.hdf5_path, f"{args_cli.policy_name}_robot_obs_{episode_idx}.npz"),
-                    robot_obs=robot_obs.cpu().numpy(),
-                )
+                env.reset()
+                if reset_to_recorded_data:
+                    robot_obs = torch.stack(robot_obs, dim=0)
+                    print(
+                        f"robot_obs shape: {robot_obs.shape}, saved to {args_cli.hdf5_path}/robot_obs_{episode_idx}.npz"
+                    )
+                    np.savez(
+                        os.path.join(args_cli.hdf5_path, f"{args_cli.npz_prefix}_robot_obs_{episode_idx}.npz"),
+                        robot_obs=robot_obs.cpu().numpy(),
+                    )
 
-                if episode_idx + 1 >= total_episodes:
-                    print(f"Completed all episodes ({total_episodes})")
-                    break
+                    if episode_idx + 1 >= total_episodes:
+                        print(f"Completed all episodes ({total_episodes})")
+                        break
 
-                actions = reset_scene_to_initial_state(
-                    env,
-                    args_cli.task,
-                    args_cli.hdf5_path,
-                    episode_idx + 1,
-                    action_key,
-                    torso_obs_key,
-                    joint_state_key,
-                    joint_vel_key,
-                )
-                first_action = torch.tensor(actions[1], device=args_cli.device)
-                first_action = first_action.unsqueeze(0)
-                obs, rew, terminated, truncated, info_ = env.step(first_action)
-            else:
-                for _ in range(reset_steps):
-                    reset_tensor = get_reset_action(env)
-                    obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
+                    actions = reset_scene_to_initial_state(
+                        env,
+                        args_cli.hdf5_path,
+                        episode_idx + 1,
+                        action_key,
+                        torso_obs_key,
+                        joint_state_key,
+                        joint_vel_key,
+                    )
+                    first_action = torch.tensor(actions[1], device=args_cli.device)
+                    first_action = first_action.unsqueeze(0)
+                    obs, rew, terminated, truncated, info_ = env.step(first_action)
+                else:
+                    for _ in range(reset_steps):
+                        reset_tensor = get_reset_action(env)
+                        obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
     infer_reader.stop()
     # close the simulator
