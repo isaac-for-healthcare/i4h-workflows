@@ -33,7 +33,7 @@ echo "Installing actual robotic ultrasound extension..."
 pushd "$EXTS_DIR"
 # Ensure the target directory exists before installing
 if [ -d "exts/robotic_us_ext" ]; then
-    $PYTHON_EXECUTABLE -m pip install -e exts/robotic_us_ext
+    $PYTHON_EXECUTABLE -m pip install --no-build-isolation -e exts/robotic_us_ext
 else
     echo "Error: robotic_us_ext directory not found in ${EXTS_DIR}/exts/"
     exit 1 # Exit if not found
