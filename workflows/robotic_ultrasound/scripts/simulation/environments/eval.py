@@ -7,9 +7,10 @@ from scipy.spatial import cKDTree
 # import scipy.stats # For more precise CI, but 1.96*SEM is common
 
 episode = 50
-holdstep=50
+# holdstep=50
 data_root = "/mnt/hdd/cosmos/heldout-test50"
 DEFAULT_RADIUS_FOR_PLOTS = 0.01 # Radius used for individual 3D trajectory plots
+saved_compare_name = "comparison_success_rate_vs_radius-400v800-1.png"
 
 # Define prediction sources and their labels/colors
 PREDICTION_SOURCES = {
@@ -93,8 +94,8 @@ def plot_success_rate_vs_radius(
     plt.grid(True)
     plt.ylim(0, 101)
     plt.tight_layout()
-    plt.savefig(f"{data_root}/comparison_success_rate_vs_radius-400v800.png")
-    print(f"Saved success rate vs. radius plot to {data_root}/comparison_success_rate_vs_radius.png")
+    plt.savefig(f"{data_root}/{saved_compare_name}")
+    print(f"Saved success rate vs. radius plot to {data_root}/{saved_compare_name}")
     # plt.show()
     # plt.close()
 
@@ -139,15 +140,22 @@ for e in range(episode):
         continue
 
     scanning_points_gt = gt_actions[scanning_mask][:, :3]
-    
-    if holdstep > 1 and scanning_points_gt.shape[0] >= holdstep:
-        scanning_gt = scanning_points_gt[:-holdstep+1]
-    elif holdstep == 1 and scanning_points_gt.shape[0] > 0:
-        scanning_gt = scanning_points_gt
-    elif holdstep == 0 and scanning_points_gt.shape[0] > 0:
-        scanning_gt = scanning_points_gt
 
-
+    # Filter points from the end if they are too close to their predecessor
+    num_points_to_keep = scanning_points_gt.shape[0]
+    # Iterate from the last point index (comparing with its predecessor) down to the second point index (comparing with the first)
+    for i in range(scanning_points_gt.shape[0] - 1, 0, -1): 
+        distance = np.linalg.norm(scanning_points_gt[i] - scanning_points_gt[i-1])
+        if distance < 1e-3:
+            # If point i is too close to point i-1, point i is effectively dropped.
+            # We will keep points up to index i-1. So, the slice length is i.
+            num_points_to_keep = i 
+        else:
+            # Point i is sufficiently far from point i-1.
+            # Point i is kept. All points before it are kept.
+            # The value of num_points_to_keep already reflects any points dropped from scanning_points_gt[i+1:].
+            break 
+    scanning_gt = scanning_points_gt[:num_points_to_keep]
     for method_name, details in PREDICTION_SOURCES.items():
         pred_file_path = f"{data_root}/{details['file_pattern'].format(e=e)}"
         pred_data = np.load(pred_file_path)
