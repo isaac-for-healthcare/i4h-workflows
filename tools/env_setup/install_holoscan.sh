@@ -18,24 +18,30 @@
 set -e
 
 # Get the parent directory of the current script
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+# Assuming this script is in tools/env_setup/
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
+
+# Assuming bash_utils.sh is in $PROJECT_ROOT/tools/env_setup/bash_utils.sh
 source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
 
-# Check if running in a conda environment
+check_project_root
 check_conda_env
 
-# Check if NVIDIA GPU is available
-check_nvidia_gpu
+conda install -c conda-forge gcc=13.3.0 -y
+pip install holoscan==2.9.0
 
-# Check if the third_party directory exists, if yes, then exit
-ensure_fresh_third_party_dir
+HOLOSCAN_DIR=$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/holoscan_apps/
 
+echo "Building Holoscan Apps..."
+pushd $HOLOSCAN_DIR
 
-# Run the installation scripts
-echo "Installing IsaacSim and dependencies..."
-bash $PROJECT_ROOT/tools/env_setup/install_isaac.sh
+# clean previous downloads and builds
+rm -rf build
+rm -rf clarius_solum/include
+rm -rf clarius_solum/lib
+rm -rf clarius_cast/include
+rm -rf clarius_cast/lib
+cmake -B build -S . && cmake --build build
 
-echo "Installing extensions..."
-bash $PROJECT_ROOT/tools/env_setup/install_robotic_surgery_extensions.sh
-
-echo "All dependencies installed successfully!"
+popd
+echo "Holoscan Apps build completed!"
