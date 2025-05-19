@@ -30,8 +30,11 @@ The license file should also be copied to the `~/docker/rti` directory, which wi
 Since we need to run multiple instances (policy runner, simulation, etc.), we need to use `-d` to run the container in detached mode.
 
 ```bash
+xhost +local:docker
 docker run --name isaac-sim --entrypoint bash -itd --runtime=nvidia --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
+    -e DISPLAY=$DISPLAY \
     -e "PRIVACY_CONSENT=Y" \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
     -v ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw \
     -v ~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw \
@@ -58,7 +61,7 @@ The policy runner will be running in an environment managed by `uv` located in `
 ### Run Simulation
 
 ```bash
-docker exec -it isaac-sim bash
+docker exec -it isaac-sim bash -c "python simulation/environments/sim_with_dds.py --enable_camera --livestream 2"
 # Inside the container, run the simulation
-python simulation/environments/sim_with_dds.py --enable_camera --livestream 2
+
 ```
