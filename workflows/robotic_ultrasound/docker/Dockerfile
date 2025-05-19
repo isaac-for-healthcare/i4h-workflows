@@ -16,6 +16,7 @@ RUN apt-get update && \
         curl \
         openssh-client \
         cmake \
+        wget \
         build-essential \
         pybind11-dev \
         lsb-release \
@@ -28,24 +29,25 @@ RUN apt-get update && \
         g++-13 && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100 && \
-    mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts && \
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+    mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
-RUN --mount=type=ssh \
-    git clone --recurse-submodules git@github.com:Physical-Intelligence/openpi.git && \
-    cd openpi && \
-    git checkout 581e07d73af36d336cef1ec9d7172553b2332193 && \
-    cp scripts/train.py src/openpi/train.py && \
-    cp scripts/compute_norm_stats.py src/openpi/compute_norm_stats.py
+# Install CUDA 12.8
 
-ENV GIT_LFS_SKIP_SMUDGE=1
+WORKDIR /tmp
 
-RUN --mount=type=ssh \
-    source /root/.local/bin/env && \
-    uv sync --directory /workspace/openpi && \
-    uv pip install -e /workspace/openpi --directory /workspace/openpi && \
-    uv pip install --no-deps git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0 --directory /workspace/openpi && \
-    uv pip install rti.connext==7.3.0 --directory /workspace/openpi
+RUN apt-get update && \
+    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i cuda-keyring_1.1-1_all.deb && \
+    apt-get update && \
+    apt-get -y install cuda-toolkit-12-8
+
+ENV PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
+ENV LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+
+COPY tools/env_setup/install_lerobot.sh /tmp/env_setup/
+COPY tools/env_setup/install_pi0.sh /tmp/env_setup/
+COPY tools/env_setup/install_holoscan.sh /tmp/env_setup/
+COPY tools/env_setup/install_robotic_us_ext.sh /tmp/env_setup/
 
 COPY workflows/robotic_ultrasound/scripts /workspace/robotic_ultrasound/scripts
 
@@ -61,12 +63,20 @@ RUN --mount=type=ssh \
         setuptools==75.8.0 \
         pydantic==2.10.6
 
-WORKDIR /workspace/robotic_ultrasound/scripts
+ENV PYTHON_EXECUTABLE=/workspace/isaaclab/_isaac_sim/python.sh
 
-RUN /workspace/isaaclab/_isaac_sim/python.sh -m pip install --no-build-isolation -e simulation/exts/robotic_us_ext
+RUN mkdir -p /workspace/third_party
+
+RUN /tmp/env_setup/install_lerobot.sh /workspace/third_party/lerobot
+
+RUN /tmp/env_setup/install_pi0.sh /workspace/third_party/openpi
+
+RUN /tmp/env_setup/install_holoscan.sh /workspace/robotic_ultrasound/scripts/holoscan_apps
+
+RUN /tmp/env_setup/install_robotic_us_ext.sh /workspace/robotic_ultrasound/scripts/simulation
+
+WORKDIR /workspace/robotic_ultrasound/scripts
 
 ENV PYTHONPATH=/workspace/robotic_ultrasound/scripts
 
 ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat
-
-

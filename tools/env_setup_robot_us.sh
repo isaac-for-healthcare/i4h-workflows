@@ -98,15 +98,7 @@ bash "$PROJECT_ROOT/tools/env_setup/install_robotic_us_ext.sh"
 
 # ---- Install lerobot (Common) ----
 echo "Installing lerobot..."
-git clone https://github.com/huggingface/lerobot.git $PROJECT_ROOT/third_party/lerobot
-pushd $PROJECT_ROOT/third_party/lerobot
-git checkout 6674e368249472c91382eb54bb8501c94c7f0c56
-
-# Update pyav dependency in pyproject.toml
-sed -i 's/pyav/av/' pyproject.toml
-
-pip install -e .
-popd
+bash "$PROJECT_ROOT/tools/env_setup/install_lerobot.sh"
 
 
 # ---- Install PI0 Policy Dependencies (Conditional) ----

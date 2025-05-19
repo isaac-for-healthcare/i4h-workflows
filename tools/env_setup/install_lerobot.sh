@@ -18,30 +18,22 @@
 set -e
 
 # Get the parent directory of the current script
-# Assuming this script is in tools/env_setup/
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
 # Allow setting the python in PYTHON_EXECUTABLE
 PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
-HOLOSCAN_DIR=${1:-$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/holoscan_apps/}
+LEROBOT_DIR=${1:-$PROJECT_ROOT/third_party/lerobot}
 
-# ---- Install Holoscan ----
-echo "Installing Holoscan..."
-$PYTHON_EXECUTABLE -m pip install holoscan==2.9.0
-echo "Holoscan installed successfully!"
+echo "Installing lerobot..."
+git clone https://github.com/huggingface/lerobot.git $LEROBOT_DIR
+pushd $LEROBOT_DIR
+git checkout 6674e368249472c91382eb54bb8501c94c7f0c56
 
-# ---- Install Holoscan Apps ----
-echo "Building Holoscan Apps..."
-pushd $HOLOSCAN_DIR
+# Update pyav dependency in pyproject.toml
+sed -i 's/pyav/av/' pyproject.toml
 
-# clean previous downloads and builds
-rm -rf build
-rm -rf clarius_solum/include
-rm -rf clarius_solum/lib
-rm -rf clarius_cast/include
-rm -rf clarius_cast/lib
-cmake -B build -S . && cmake --build build
-
+$PYTHON_EXECUTABLE -m pip install -e .
 popd
-echo "Holoscan Apps build completed!"
+
+echo "Lerobot installed successfully!"

@@ -53,7 +53,7 @@ docker run --name isaac-sim --entrypoint bash -itd --runtime=nvidia --gpus all -
 ```bash
 docker exec -it isaac-sim bash
 # Inside the container, run the policy
-CUDA_VISIBLE_DEVICES=0 /workspace/openpi/.venv/bin/python policy_runner/run_policy.py
+docker exec -it isaac-sim bash -c "python policy_runner/run_policy.py"
 ```
 
 The policy runner will be running in an environment managed by `uv` located in `/workspace/openpi/.venv`.

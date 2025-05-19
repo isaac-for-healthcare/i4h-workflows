@@ -21,16 +21,21 @@ set -e
 # Assuming this script is in tools/env_setup/
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
+# Allow setting the python in PYTHON_EXECUTABLE
+PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
+
+EXTS_DIR=${1:-$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation}
+
 echo "--- Installing Robotic Ultrasound Extensions and Dependencies ---"
 
 # ---- Install robotic ultrasound extension ----
 echo "Installing actual robotic ultrasound extension..."
-pushd "$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation"
+pushd "$EXTS_DIR"
 # Ensure the target directory exists before installing
 if [ -d "exts/robotic_us_ext" ]; then
-    pip install -e exts/robotic_us_ext
+    $PYTHON_EXECUTABLE -m pip install -e exts/robotic_us_ext
 else
-    echo "Error: robotic_us_ext directory not found in $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation/exts/"
+    echo "Error: robotic_us_ext directory not found in ${EXTS_DIR}/exts/"
     exit 1 # Exit if not found
 fi
 popd
