@@ -36,6 +36,8 @@ from simulation.environments.state_machine.utils import (
     get_joint_states,
     get_probe_pos_ori,
     get_robot_obs,
+    reset_scene_to_initial_state,
+    validate_hdf5_path,
 )
 
 # add argparse arguments
@@ -105,6 +107,8 @@ parser.add_argument(
     "--scale", type=float, default=1000.0, help="Scale factor to convert from omniverse to organ coordinate system."
 )
 parser.add_argument("--chunk_length", type=int, default=50, help="Length of the action chunk inferred by the policy.")
+parser.add_argument("--hdf5_path", type=str, default=None, help="Path to .hdf5 file containing recorded data.")
+parser.add_argument("--npz_prefix", type=str, default="", help="prefix to save the data.")
 
 # append AppLauncher cli argruments
 AppLauncher.add_app_launcher_args(parser)
@@ -228,14 +232,26 @@ def main():
             raise ValueError("RTI license file must be an existing absolute path.")
         os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
 
-    # Recommended to use 40 steps to allow enough steps to reset the SETUP position of the robot
-    reset_steps = 40
     max_timesteps = 250
+    if args_cli.hdf5_path is not None:
+        reset_to_recorded_data = True
+        episode_idx = 0
+        torso_obs_key = "observations/torso_obs"
+        joint_state_key = "abs_joint_pos"
+        joint_vel_key = "observations/joint_vel"
+        if "Rel" in args_cli.task:
+            action_key = "action"
+        else:
+            action_key = "abs_action"
+    else:
+        reset_to_recorded_data = False
+        # Recommended to use 40 steps to allow enough steps to reset the SETUP position of the robot
+        reset_steps = 40
 
-    # allow environment to settle
-    for _ in range(reset_steps):
-        reset_tensor = get_reset_action(env)
-        obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
+        # allow environment to settle
+        for _ in range(reset_steps):
+            reset_tensor = get_reset_action(env)
+            obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
     infer_r_cam_writer = RoomCamPublisher(topic=args_cli.topic_in_room_camera, domain_id=args_cli.infer_domain_id)
     infer_w_cam_writer = WristCamPublisher(topic=args_cli.topic_in_wrist_camera, domain_id=args_cli.infer_domain_id)
@@ -259,9 +275,26 @@ def main():
     # simulate environment
     while simulation_app.is_running():
         global reset_flag
+        if reset_to_recorded_data:
+            total_episodes = validate_hdf5_path(args_cli.hdf5_path)
+            print(f"total_episodes: {total_episodes}")
+            actions = reset_scene_to_initial_state(
+                env,
+                args_cli.task,
+                args_cli.hdf5_path,
+                episode_idx,
+                action_key,
+                torso_obs_key,
+                joint_state_key,
+                joint_vel_key,
+            )
+            first_action = torch.tensor(actions[1], device=args_cli.device)
+            first_action = first_action.unsqueeze(0)
+            env.step(first_action)
+            print(f"Reset to recorded data: {get_robot_obs(env)}")
         with torch.inference_mode():
             action_plan = collections.deque()
-
+            robot_obs = []
             for t in range(max_timesteps):
                 # get and publish the current images and joint positions
                 rgb_images, depth_images = capture_camera_images(
@@ -276,6 +309,8 @@ def main():
                     depth_images[0, 1, ...].cpu().numpy(),
                 )
                 pub_data["joint_pos"] = get_joint_states(env)[0]
+                robot_obs.append(get_robot_obs(env))
+
                 # Get the pose of the mesh objects (mesh)
                 # The mesh objects are aligned with the organ (organ) in the US image view (us)
                 # The US is attached to the end-effector (ee), so we have the following computation logics:
@@ -315,9 +350,35 @@ def main():
                 obs, rew, terminated, truncated, info_ = env.step(action)
 
             env.reset()
-            for _ in range(reset_steps):
-                reset_tensor = get_reset_action(env)
-                obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
+            if reset_to_recorded_data:
+                robot_obs = torch.stack(robot_obs, dim=0)
+                print(f"robot_obs shape: {robot_obs.shape}, saved to {args_cli.hdf5_path}/robot_obs_{episode_idx}.npz")
+                np.savez(
+                    os.path.join(args_cli.hdf5_path, f"{args_cli.policy_name}_robot_obs_{episode_idx}.npz"),
+                    robot_obs=robot_obs.cpu().numpy(),
+                )
+
+                if episode_idx + 1 >= total_episodes:
+                    print(f"Completed all episodes ({total_episodes})")
+                    break
+
+                actions = reset_scene_to_initial_state(
+                    env,
+                    args_cli.task,
+                    args_cli.hdf5_path,
+                    episode_idx + 1,
+                    action_key,
+                    torso_obs_key,
+                    joint_state_key,
+                    joint_vel_key,
+                )
+                first_action = torch.tensor(actions[1], device=args_cli.device)
+                first_action = first_action.unsqueeze(0)
+                obs, rew, terminated, truncated, info_ = env.step(first_action)
+            else:
+                for _ in range(reset_steps):
+                    reset_tensor = get_reset_action(env)
+                    obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
 
     infer_reader.stop()
     # close the simulator
