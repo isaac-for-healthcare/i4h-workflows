@@ -51,7 +51,7 @@ COPY tools/env_setup/install_robotic_us_ext.sh /tmp/env_setup/
 
 COPY workflows/robotic_ultrasound/scripts /workspace/robotic_ultrasound/scripts
 
-# # Set up the Simulation 
+# # Set up the Simulation
 RUN --mount=type=ssh \
     /workspace/isaaclab/_isaac_sim/python.sh -m pip install --no-deps \
         git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0 && \
