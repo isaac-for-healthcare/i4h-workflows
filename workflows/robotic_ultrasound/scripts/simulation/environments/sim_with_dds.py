@@ -20,6 +20,7 @@ import os
 import gymnasium as gym
 import numpy as np
 import torch
+from pathlib import Path
 from dds.publisher import Publisher
 from dds.schemas.camera_info import CameraInfo
 from dds.schemas.franka_ctrl import FrankaCtrlInput
@@ -363,10 +364,11 @@ def main():
                     print(
                         f"robot_obs shape: {robot_obs.shape}, saved to {args_cli.hdf5_path}/robot_obs_{episode_idx}.npz"
                     )
-                    np.savez(
-                        os.path.join(args_cli.hdf5_path, f"{args_cli.npz_prefix}_robot_obs_{episode_idx}.npz"),
-                        robot_obs=robot_obs.cpu().numpy(),
-                    )
+                    if args_cli.hdf5_path.endswith(".hdf5"):
+                        save_path = os.path.join(Path(args_cli.hdf5_path).parent, f"{args_cli.npz_prefix}_robot_obs_{episode_idx}.npz")
+                    else:
+                        save_path = os.path.join(args_cli.hdf5_path, f"{args_cli.npz_prefix}_robot_obs_{episode_idx}.npz")
+                    np.savez(save_path, robot_obs=robot_obs.cpu().numpy())
 
                     if episode_idx + 1 >= total_episodes:
                         print(f"Completed all episodes ({total_episodes})")
@@ -388,6 +390,9 @@ def main():
                     for _ in range(reset_steps):
                         reset_tensor = get_reset_action(env)
                         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
+            if episode_idx >= total_episodes - 1 or actions is None:
+                print(f"Reached the end of available episodes ({episode_idx + 1}/{total_episodes})")
+                break
 
     infer_reader.stop()
     # close the simulator
