@@ -82,7 +82,6 @@ def _setup_test_cosmos_transfer1_env(project_root, workflow_root, tests_dir):
     env = _setup_test_env(workflow_root, tests_dir)
     pythonpath = [
         os.path.join(project_root, "third_party", "cosmos-transfer1"),
-        os.path.join(workflow_root, "scripts", "simulation"),
     ]
     env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
     env["DEBUG_GENERATION"] = "1"

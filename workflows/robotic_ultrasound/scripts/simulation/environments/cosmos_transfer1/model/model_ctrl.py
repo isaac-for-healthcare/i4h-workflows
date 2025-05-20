@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Dict, Optional, Tuple, TypeVar, Union
+from typing import Callable, Dict, Optional, Tuple, Union
 
 import torch
 from cosmos_transfer1.diffusion.inference.inference_utils import merge_patches_into_video, split_video_into_patches
@@ -25,9 +25,6 @@ from einops import rearrange
 from megatron.core import parallel_state
 from simulation.environments.cosmos_transfer1.model.model_v2w import DiffusionV2WModelWithGuidance
 from torch import Tensor
-
-T = TypeVar("T")
-IS_PREPROCESSED_KEY = "is_preprocessed"
 
 
 class VideoDiffusionModelWithCtrlAndGuidance(VideoDiffusionModelWithCtrl, DiffusionV2WModelWithGuidance):

@@ -53,6 +53,14 @@ def make_ctrlnet_config_7b(
     hint_key: str = "control_input_seg",
     num_control_blocks: int = 3,
 ) -> LazyDict:
+    """
+    Make a ControlNet config for 7B model
+    Args:
+        hint_key: The key to use for the control input.
+        num_control_blocks: The number of ViT blocks to use for the ControlNet.
+    Returns:
+        A LazyDict containing the control net config.
+    """
     hint_mask = [True] * len(CTRL_HINT_KEYS_COMB[hint_key])
 
     return LazyDict(
@@ -96,6 +104,14 @@ def make_ctrlnet_config_7b_t2v(
     hint_key: str = "control_input_seg",
     num_control_blocks: int = 3,
 ) -> LazyDict:
+    """
+    Make a ControlNet config for 7B text-to-video model
+    Args:
+        hint_key: The key to use for the control input.
+        num_control_blocks: The number of ViT blocks to use for the ControlNet.
+    Returns:
+        A LazyDict containing the ControlNet config.
+    """
     hint_mask = [True] * len(CTRL_HINT_KEYS_COMB[hint_key])
 
     return LazyDict(

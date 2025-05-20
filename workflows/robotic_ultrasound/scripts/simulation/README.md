@@ -185,11 +185,11 @@ Replace `/path/to/your/hdf5_data_directory` with the actual path to the director
 ### Cosmos-transfer1 Integration
 
 [Cosmos-Transfer1](https://github.com/nvidia-cosmos/cosmos-transfer1) is a world-to-world transfer model designed to bridge the perceptual divide between simulated and real-world environments.
-We inroduce a training-free guided generation method on top of Cosmos-Transfer1 to overcome unsatisfactory results on unseen healthcare simulation assets.
+We introduce a training-free guided generation method on top of Cosmos-Transfer1 to overcome unsatisfactory results on unseen healthcare simulation assets.
 Directly applying Cosmos-Transfer with various control inputs results in unsatisfactory outputs for the human phantom and robotic arm (see bottom figure). In contrast, our guided generation method preserves the appearance of the phantom and robotic arm while generating diverse backgrounds.
 <img src="../../../../docs/source/cosmos_transfer_result.png" width="512" height="600" />
 
-This training-free guided generation approach by encoding simulation videos into the latent space and applying spatial masking to guide the generation process. The trade-off between realism and faithfulness can be controlled by adjusting the number of guided denoising steps. In addition, our generation pipeline supports multi-view video generation. We first leverage the camera information to wrap the generated room view to wrist view, then use it as the guidance of wrist-view generation.
+This training-free guided generation approach by encoding simulation videos into the latent space and applying spatial masking to guide the generation process. The trade-off between realism and faithfulness can be controlled by adjusting the number of guided denoising steps. In addition, our generation pipeline supports multi-view video generation. We first leverage the camera information to warp the generated room view to wrist view, then use it as the guidance of wrist-view generation.
 
 #### Download Cosmos-transfer1 Checkpoints
 Please install cosmos-transfer1 dependency and move to the third party `cosmos-transfer1` folder. The following command downloads the checkpoints:
@@ -207,15 +207,11 @@ Please move to the current [`simulation` folder](./) and execute the following c
 export CHECKPOINT_DIR="path to downloaded cosmos-transfer1 checkpoints"
 # Set project root path
 export PROJECT_ROOT="{your path}/i4h-workflows"
-# Set the number of GPU for inference
-export N_GPU = 1
 # Set PYTHONPATH
-export PYTHONPATH="$PROJECT_ROOT/third_party/cosmos-transfer1:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation:$PROJECT_ROOT/workflows/robotic_ultrasound/tests"
+export PYTHONPATH="$PROJECT_ROOT/third_party/cosmos-transfer1:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts"
 # run bath inference for generation pipeline
-CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$PYTHONPATH torchrun \
-    --nnodes=1 --node_rank=0 \
-    --nproc_per_node=$N_GPU \
-    environments/cosmos_transfer1/transfer.py \
+CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$PYTHONPATH python \
+    -m environments.cosmos_transfer1.transfer \
     --checkpoint_dir $CHECKPOINT_DIR \
     --source_data_dir "Path to source dir of h5 files" \
     --output_data_dir "Path to output dir of h5 files" \

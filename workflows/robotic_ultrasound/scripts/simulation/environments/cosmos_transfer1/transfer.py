@@ -21,6 +21,7 @@ import random
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Workaround to suppress MP warning
 
 import glob
+import shutil
 import sys
 import tempfile
 from io import BytesIO
@@ -344,16 +345,20 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
 
         # if control inputs are not provided, run respective preprocessor (for seg and depth)
         preprocessors(current_video_path, current_prompt, control_inputs, temp_dir)
-
-        # Generate video
-        generated_output = pipeline.generate(
-            prompt=current_prompt,
-            video_path=current_video_path,
-            negative_prompt=cfg.negative_prompt,
-            control_inputs=control_inputs,
-            save_folder=cfg.video_save_folder,
-            x0_spatial_condtion=x0_spatial_condtion,
-        )
+        try:
+            # Generate video
+            generated_output = pipeline.generate(
+                prompt=current_prompt,
+                video_path=current_video_path,
+                negative_prompt=cfg.negative_prompt,
+                control_inputs=control_inputs,
+                save_folder=cfg.video_save_folder,
+                x0_spatial_condtion=x0_spatial_condtion,
+            )
+        except RuntimeError as e:
+            log.error(f"Error generating room-view video: {e}")
+            shutil.rmtree(temp_dir)
+            raise e
         if generated_output is None:
             log.critical("Guardrail blocked generation.")
             continue
@@ -436,16 +441,20 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
 
         # if control inputs are not provided, run respective preprocessor (for seg and depth)
         preprocessors(current_video_path, current_prompt, control_inputs, temp_dir)
-
-        # Generate video
-        generated_output = pipeline.generate(
-            prompt=current_prompt,
-            video_path=current_video_path,
-            negative_prompt=cfg.negative_prompt,
-            control_inputs=control_inputs,
-            save_folder=cfg.video_save_folder,
-            x0_spatial_condtion=x0_spatial_condtion,
-        )
+        try:
+            # Generate video
+            generated_output = pipeline.generate(
+                prompt=current_prompt,
+                video_path=current_video_path,
+                negative_prompt=cfg.negative_prompt,
+                control_inputs=control_inputs,
+                save_folder=cfg.video_save_folder,
+                x0_spatial_condtion=x0_spatial_condtion,
+            )
+        except RuntimeError as e:
+            log.error(f"Error generating wrist-view video: {e}")
+            shutil.rmtree(temp_dir)
+            raise e
         if generated_output is None:
             log.critical("Guardrail blocked generation.")
             continue
@@ -480,6 +489,9 @@ def inference(cfg, pipeline, control_inputs, data, device_rank):
             f.write(prompt.encode("utf-8"))
         log.info(f"Saved video to {video_save_path}", rank0_only=False)
         log.info(f"Saved prompt to {prompt_save_path}", rank0_only=False)
+
+        # Remove temporary directory
+        shutil.rmtree(temp_dir)
         torch.cuda.empty_cache()
 
     return video_room_view, video_wrist_view
