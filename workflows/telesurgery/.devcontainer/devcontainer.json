@@ -1,0 +1,73 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
+{
+    "name": "i4h Telesurgery",
+    "build": {
+        "context": "../",
+        "dockerfile": "../Dockerfile",
+        "args": {
+            "BUILDKIT_INLINE_CACHE": "1" // Enable Docker BuildKit cache
+        }
+    },
+    "runArgs": [
+        // HIDs
+        // "--device=/dev/input/js0",
+        // "--device=/dev/input/event0",
+        // "--device=/dev/input/mouse0",
+        // RTI Connext DDS
+        "--volume=${localEnv:HOME}/rti_license.dat:/opt/rti.com/rti_connext_dds-7.5.0/rti_license.dat",
+        "--runtime=nvidia",
+        //"-e=NVIDIA_VISIBLE_DEVICES=GPU-f4ba6a98-3afa-4370-2279-a06cd3f5e5f0",
+        "--net=host",
+        // IsaacSim cache folders
+        "--volume=${localEnv:HOME}/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/cache/ov:/root/.cache/ov:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/cache/pip:/root/.cache/pip:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/cache/glcache:/root/.cache/nvidia/GLCache:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/cache/computecache:/root/.nv/ComputeCache:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/logs:/root/.nvidia-omniverse/logs:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/data:/root/.local/share/ov/data:rw",
+        "--volume=${localEnv:HOME}/docker/isaac-sim/documents:/root/Documents:rw",
+        // For Nsight Systems
+        "--cap-add=SYS_PTRACE",
+        "--security-opt=seccomp=unconfined",
+        "--rm"
+    ],
+    "containerEnv": {
+        // X11 support
+        "DISPLAY": "${localEnv:DISPLAY}",
+        "XDG_RUNTIME_DIR": "${localEnv:XDG_RUNTIME_DIR}",
+        "XDG_SESSION_TYPE": "${localEnv:XDG_SESSION_TYPE}",
+        "NVIDIA_DRIVER_CAPABILITIES": "all",
+        // Accept Omniverse EULA
+        "ACCEPT_EULA": "Y",
+        "PRIVACY_CONSENT": "Y"
+    },
+    "mounts": [
+        // X11 support
+        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
+        // Wayland support
+        "source=${localEnv:XDG_RUNTIME_DIR},target=${localEnv:XDG_RUNTIME_DIR},type=bind,consistency=cached"
+    ],
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/telesurgery,type=bind,consistency=cached",
+    "workspaceFolder": "/workspace/telesurgery",
+    // Configure tool-specific properties.
+    "customizations": {
+        // Configure properties specific to VS Code.
+        "vscode": {
+            // Set *default* container specific settings.json values on container create.
+            "settings": {},
+            // Add the IDs of extensions you want installed when the container is created.
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.debugpy",
+                "charliermarsh.ruff",
+                "shardulm94.trailing-spaces",
+                "shd101wyy.markdown-preview-enhanced",
+                "benjamin-simmonds.pythoncpp-debug",
+                "ms-vscode.cpptools"
+            ]
+        }
+    }
+}
