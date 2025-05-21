@@ -21,13 +21,6 @@ set -e
 # Assuming this script is in tools/env_setup/
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
-# Assuming bash_utils.sh is in $PROJECT_ROOT/tools/env_setup/bash_utils.sh
-source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
-
-check_project_root
-check_conda_env
-
-conda install -c conda-forge gcc=13.3.0 -y
 pip install holoscan==2.9.0
 
 HOLOSCAN_DIR=$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/holoscan_apps/

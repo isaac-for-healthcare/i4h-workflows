@@ -95,10 +95,6 @@ echo "Installing Robotic Ultrasound Extensions and Dependencies..."
 bash "$PROJECT_ROOT/tools/env_setup/install_robotic_us_ext.sh"
 
 
-# ---- Install Cosmos Transfer ----
-echo "Installing Cosmos Transfer..."
-bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
-
 # ---- Install lerobot (Common) ----
 echo "Installing lerobot..."
 git clone https://github.com/huggingface/lerobot.git $PROJECT_ROOT/third_party/lerobot
@@ -130,6 +126,11 @@ fi
 echo "Installing Holoscan..."
 bash "$PROJECT_ROOT/tools/env_setup/install_holoscan.sh"
 
+
+# ---- Install Cosmos Transfer ----
+echo "Installing Cosmos Transfer..."
+conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
+bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
 
 echo "=========================================="
 echo "Environment setup script finished."

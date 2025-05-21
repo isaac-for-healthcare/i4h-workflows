@@ -20,14 +20,7 @@ set -e
 # Get the parent directory of the current script
 # Assuming this script is in tools/env_setup/
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
-
-# Source utility functions
-source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
-
-check_project_root
-check_conda_env
-
-conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
+PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
 COSMOS_TRANSFER_DIR="$PROJECT_ROOT/third_party/cosmos-transfer1"
 
@@ -42,9 +35,15 @@ pushd "$COSMOS_TRANSFER_DIR"
 git checkout bf54a70a8c44d615620728c493ee26b4376ccfd6
 git submodule update --init --recursive
 pip install -r requirements.txt
+
 # Patch Transformer engine linking issues in conda environments.
-ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/
-ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/python3.10
+PYTHON_VERSION=$($PYTHON_EXECUTABLE -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+SITE_PACKAGES=$($PYTHON_EXECUTABLE -c "import site; print([p for p in site.getsitepackages() if 'site-packages' in p][0])")
+
+# ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/
+# ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/python3.10
+
+export CXXFLAGS="-I$SITE_PACKAGES/nvidia/*/include/"
 pip install transformer-engine[pytorch]==1.12.0
 
 CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/test_environment.py
