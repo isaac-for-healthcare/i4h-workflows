@@ -126,8 +126,8 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
         args.sigma_max = 80
         args.input_video_path = "dummy_input_video_path"
         args.seed = 0
-        args.offload_diffusion_transformer = False
-        args.offload_text_encoder_model = False
+        args.offload_diffusion_transformer = True
+        args.offload_text_encoder_model = True
         args.offload_guardrail_models = True
         args.guidance = 5
         args.num_steps = 35
