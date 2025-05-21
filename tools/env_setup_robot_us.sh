@@ -71,9 +71,9 @@ ensure_fresh_third_party_dir
 # ---- Install build tools (Common) ----
 echo "Installing build tools..."
 if [ "$EUID" -ne 0 ]; then
-    sudo apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0 libcudnn8 libcudnn8-dev
+    sudo apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0 libcudnn9-dev-cuda-12
 else
-    apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0 libcudnn8 libcudnn8-dev
+    apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0 libcudnn9-dev-cuda-12
 fi
 
 
