@@ -136,7 +136,7 @@ class TestCosmosTransfer1Integration(unittest.TestCase):
         args.blur_strength = "medium"
         args.canny_threshold = "medium"
         args.upsample_prompt = False
-        args.offload_prompt_upsampler = False
+        args.offload_prompt_upsampler = True
         args.x0_mask_path = "dummy_x0_mask_path"
         args.foreground_label = "3,4"
         args.sigma_threshold = 1.2866
