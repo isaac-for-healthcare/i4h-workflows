@@ -85,39 +85,6 @@ function vscode() {
     code-remote  "$APP" "$SCRIPT_DIR" "workspace/telesurgery"
 }
 
-function surgeon() {
-    set +u
-    if [[ "$1" == "--rebuild" ]]; then
-        build
-        shift
-    elif [ ! -f ${SCRIPT_DIR}/build/surgeon/surgeon ]; then
-        build
-    fi
-    pushd ${SCRIPT_DIR}/build/surgeon
-    ./surgeon
-    popd
-    set -u
-}
-
-function patient() {
-    set +u
-    if [[ "$1" == "--rebuild" ]]; then
-        build
-        shift
-    elif [ ! -f ${SCRIPT_DIR}/build/patient/patient ]; then
-        build
-    fi
-
-    set +u
-    CURRENT_PYTHON_PATH=${PYTHONPATH:-}
-    export PYTHONPATH=${SCRIPT_DIR}:${SCRIPT_DIR}/build/python/lib:${PYTHONPATH}
-    pushd ${SCRIPT_DIR}/patient/simulation
-    python main.py
-    popd
-    export PYTHONPATH=${CURRENT_PYTHON_PATH}
-    set -u
-}
-
 function clean() {
     rm -rf ${SCRIPT_DIR}/build
 }
