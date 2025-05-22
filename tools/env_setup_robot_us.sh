@@ -129,7 +129,8 @@ bash "$PROJECT_ROOT/tools/env_setup/install_holoscan.sh"
 # ---- Install Cosmos Transfer ----
 echo "Installing Cosmos Transfer..."
 
-export CUDNN_PATH="/usr/include/x86_64-linux-gnu"
+# export CUDNN_PATH="/usr/include/x86_64-linux-gnu"  # not working for TE 1.12.0
+export CPLUS_INCLUDE_PATH="/usr/include/x86_64-linux-gnu"
 conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
 bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
 

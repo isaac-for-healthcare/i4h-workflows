@@ -24,10 +24,10 @@ PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
 COSMOS_TRANSFER_DIR="$PROJECT_ROOT/third_party/cosmos-transfer1"
 
-if [ -d "$CUDNN_PATH" ]; then
-    echo "CUDNN_PATH is set to $CUDNN_PATH"
+if [ -d "$CPLUS_INCLUDE_PATH" ]; then
+    echo "CPLUS_INCLUDE_PATH is set to $CPLUS_INCLUDE_PATH"
 else
-    echo "CUDNN_PATH is not set"
+    echo "CPLUS_INCLUDE_PATH is not set"
 fi
 
 if [ -d "$COSMOS_TRANSFER_DIR" ]; then
