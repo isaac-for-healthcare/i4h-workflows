@@ -85,8 +85,12 @@ if command -v nvcc > /dev/null 2>&1; then
 else
     echo "nvcc not found in PATH. Proceeding to install $CUDA_TOOLKIT_PKG_NAME..."
     if [ "$EUID" -ne 0 ]; then
+        echo "Running apt-get update before attempting to install $CUDA_TOOLKIT_PKG_NAME..."
+        sudo apt-get update
         sudo apt-get install -y "$CUDA_TOOLKIT_PKG_NAME"
     else
+        echo "Running apt-get update before attempting to install $CUDA_TOOLKIT_PKG_NAME..."
+        apt-get update
         apt-get install -y "$CUDA_TOOLKIT_PKG_NAME"
     fi
 fi
