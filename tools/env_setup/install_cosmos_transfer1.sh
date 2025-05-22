@@ -41,7 +41,6 @@ pushd "$COSMOS_TRANSFER_DIR"
 git checkout bf54a70a8c44d615620728c493ee26b4376ccfd6
 git submodule update --init --recursive
 pip install -r requirements.txt
-conda install cuda -c nvidia -y
 # Patch Transformer engine linking issues in conda environments.
 ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/
 ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/python3.10

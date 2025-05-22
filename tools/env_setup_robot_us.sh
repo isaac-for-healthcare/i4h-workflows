@@ -76,6 +76,21 @@ else
     apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
 fi
 
+# Check if nvcc is available, if not, try to install nvidia-cuda-toolkit
+CUDA_TOOLKIT_PKG_NAME="nvidia-cuda-toolkit"
+echo "Checking if nvcc (CUDA Compiler) is available in PATH..."
+if command -v nvcc > /dev/null 2>&1; then
+    echo "nvcc found in PATH. Assuming CUDA Toolkit is already installed and configured."
+    echo "nvcc version: $(nvcc --version | grep "release")"
+else
+    echo "nvcc not found in PATH. Proceeding to install $CUDA_TOOLKIT_PKG_NAME..."
+    if [ "$EUID" -ne 0 ]; then
+        sudo apt-get install -y "$CUDA_TOOLKIT_PKG_NAME"
+    else
+        apt-get install -y "$CUDA_TOOLKIT_PKG_NAME"
+    fi
+fi
+
 
 # ---- Install necessary dependencies (Common) ----
 echo "Installing necessary dependencies..."
