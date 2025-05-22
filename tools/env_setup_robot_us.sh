@@ -75,11 +75,11 @@ tar -xvf /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz -C /tmp/
 if [ "$EUID" -ne 0 ]; then
     sudo apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
     sudo cp /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive/lib/libcudnn* /usr/local/cuda/lib64/
-    sudo cp /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive/include/cudnn*.h /usr/local/cuda/include/ 
+    sudo cp /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive/include/cudnn*.h /usr/local/cuda/include/
 else
     apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
     cp /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive/lib/libcudnn* /usr/local/cuda/lib64/
-    cp /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive/include/cudnn*.h /usr/local/cuda/include/ 
+    cp /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive/include/cudnn*.h /usr/local/cuda/include/
 fi
 ldconfig /usr/local/cuda/lib64 && cat /usr/local/cuda/include/cudnn_version.h | grep CUDNN_MAJOR -A 2
 rm -rf /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz
