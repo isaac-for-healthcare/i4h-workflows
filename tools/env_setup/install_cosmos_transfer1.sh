@@ -25,7 +25,6 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
 
 check_project_root
-check_conda_env
 
 conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
 
@@ -42,6 +41,7 @@ pushd "$COSMOS_TRANSFER_DIR"
 git checkout bf54a70a8c44d615620728c493ee26b4376ccfd6
 git submodule update --init --recursive
 pip install -r requirements.txt
+conda install cuda -c nvidia -y
 # Patch Transformer engine linking issues in conda environments.
 ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/
 ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/python3.10
