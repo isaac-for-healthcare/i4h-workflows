@@ -40,11 +40,9 @@ fi
 pushd "$COSMOS_TRANSFER_DIR"
 git checkout bf54a70a8c44d615620728c493ee26b4376ccfd6
 git submodule update --init --recursive
-pip install -r requirements.txt
-
-pip install transformer-engine[pytorch]==1.12.0
-
-CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/test_environment.py
+$PYTHON_EXECUTABLE -m pip install -r requirements.txt
+$PYTHON_EXECUTABLE -m pip install transformer-engine[pytorch]==1.12.0
+$PYTHON_EXECUTABLE scripts/test_environment.py
 popd
 
 echo "Cosmos Transfer Dependencies Installation Finished"
