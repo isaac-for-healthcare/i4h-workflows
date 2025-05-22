@@ -24,6 +24,12 @@ PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
 COSMOS_TRANSFER_DIR="$PROJECT_ROOT/third_party/cosmos-transfer1"
 
+if [ -d "$CUDNN_PATH" ]; then
+    echo "CUDNN_PATH is set to $CUDNN_PATH"
+else
+    echo "CUDNN_PATH is not set"
+fi
+
 if [ -d "$COSMOS_TRANSFER_DIR" ]; then
     echo "Cosmos Transfer directory already exists at $COSMOS_TRANSFER_DIR. Skipping clone."
 else

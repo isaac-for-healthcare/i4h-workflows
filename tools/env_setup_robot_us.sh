@@ -76,9 +76,6 @@ else
     apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0 libcudnn9-dev-cuda-12
 fi
 
-# Set the include and library paths for CUDNN
-export CMAKE_INCLUDE_PATH="/usr/include/x86_64-linux-gnu"
-
 # ---- Install necessary dependencies (Common) ----
 echo "Installing necessary dependencies..."
 pip install rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
@@ -131,6 +128,8 @@ bash "$PROJECT_ROOT/tools/env_setup/install_holoscan.sh"
 
 # ---- Install Cosmos Transfer ----
 echo "Installing Cosmos Transfer..."
+
+export CUDNN_PATH="/usr/include/x86_64-linux-gnu"
 conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
 bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
 
