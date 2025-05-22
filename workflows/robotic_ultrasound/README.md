@@ -76,7 +76,7 @@ The following base components are installed by the script:
 The script supports installing additional policy-specific dependencies using the `--policy` flag:
 - **`--policy pi0` (Default)**: Installs dependencies for the PI0 policy along with common dependencies (e.g., OpenPI).
 - **`--policy gr00tn1`**: Installs dependencies for the GR00T N1 policy along with common dependencies (e.g., Isaac-GR00T).
-- **`--policy base`**: Installs only the common base dependencies listed above, without any policy-specific packages.
+- **`--policy none`**: Installs only the common base dependencies listed above, without any policy-specific packages.
 
 To run the script, navigate to the root of the `i4h-workflows` repository and execute:
 
