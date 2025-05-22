@@ -20,6 +20,7 @@ from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransf
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg, UsdFileCfg
 from isaaclab.utils import configclass
 from simulation.utils.assets import robotic_surgery_assets
+from isaaclab.sim import PhysxCfg
 
 from . import mdp
 
@@ -224,3 +225,7 @@ class LiftEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.dt = 1.0 / 200.0
         self.viewer.eye = (0.2, 0.2, 0.1)
         self.viewer.lookat = (0.0, 0.0, 0.04)
+
+        # Increase PhysX GPU buffer sizes
+        self.sim.physx.gpu_max_rigid_patch_count = 1024 * 1024
+        self.sim.physx.gpu_collision_stack_size = 1024 * 1024 * 1024

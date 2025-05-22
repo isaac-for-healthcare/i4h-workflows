@@ -121,6 +121,21 @@ class NeedleLiftOREnvCfg(NeedleLiftEnvCfg):
             },
         )
 
+        # # Set the camera for table view
+        self.scene.num_envs = 1000
+        # self.scene.static_camera = CameraCfg(
+        #     prim_path="{ENV_REGEX_NS}/WorldStaticCamera",
+        #     update_period=0.02,
+        #     height=1080,
+        #     width=1920,
+        #     data_types=["rgb"],
+        #     spawn=sim_utils.FisheyeCameraCfg(
+        #         projection_type="fisheyePolynomial",
+        #         fisheye_max_fov=150.0,
+        #     ),
+        #     offset=CameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.06), rot=(0.25, 0.93301, 0.0669, 0.25), convention="ros"),
+        # )
+
 
 @configclass
 class NeedleLiftOREnvCfg_PLAY(NeedleLiftOREnvCfg):
@@ -132,17 +147,3 @@ class NeedleLiftOREnvCfg_PLAY(NeedleLiftOREnvCfg):
         self.scene.env_spacing = 2.5
         # disable randomization for play
         self.observations.policy.enable_corruption = False
-
-        # Set the camera for table view
-        self.scene.static_camera = CameraCfg(
-            prim_path="{ENV_REGEX_NS}/WorldStaticCamera",
-            update_period=0.02,
-            height=1080,
-            width=1920,
-            data_types=["rgb"],
-            spawn=sim_utils.FisheyeCameraCfg(
-                projection_type="fisheyePolynomial",
-                fisheye_max_fov=150.0,
-            ),
-            offset=CameraCfg.OffsetCfg(pos=(-0.03, 0.0, 0.06), rot=(0.25, 0.93301, 0.0669, 0.25), convention="ros"),
-        )
