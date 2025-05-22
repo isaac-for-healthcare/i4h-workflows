@@ -127,6 +127,10 @@ fi
 echo "Installing Holoscan..."
 bash "$PROJECT_ROOT/tools/env_setup/install_holoscan.sh"
 
+# ---- Install Cosmos (Common) ----
+echo "Installing Cosmos..."
+bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
+
 
 echo "=========================================="
 echo "Environment setup script finished."

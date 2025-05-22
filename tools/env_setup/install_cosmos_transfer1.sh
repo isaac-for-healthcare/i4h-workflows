@@ -46,6 +46,7 @@ pip install -r requirements.txt
 ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/
 ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/python3.10
 pip install transformer-engine[pytorch]==1.12.0
+pip install tensorstore==0.1.74
 
 CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/test_environment.py
 popd
