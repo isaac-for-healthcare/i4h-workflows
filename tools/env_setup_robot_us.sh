@@ -70,11 +70,20 @@ ensure_fresh_third_party_dir
 
 # ---- Install build tools (Common) ----
 echo "Installing build tools..."
+wget https://developer.download.nvidia.cn/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz -O /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz
+tar -xvf /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz -C /tmp/
 if [ "$EUID" -ne 0 ]; then
-    sudo apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0 libcudnn9-dev-cuda-12
+    sudo apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
+    sudo cp /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive/lib/libcudnn* /usr/local/cuda/lib64/
+    sudo cp /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive/include/cudnn*.h /usr/local/cuda/include/ 
 else
-    apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0 libcudnn9-dev-cuda-12
+    apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
+    cp /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive/lib/libcudnn* /usr/local/cuda/lib64/
+    cp /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive/include/cudnn*.h /usr/local/cuda/include/ 
 fi
+ldconfig /usr/local/cuda/lib64 && cat /usr/local/cuda/include/cudnn_version.h | grep CUDNN_MAJOR -A 2
+rm -rf /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz
+rm -rf /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive
 
 # ---- Install necessary dependencies (Common) ----
 echo "Installing necessary dependencies..."
@@ -129,8 +138,6 @@ bash "$PROJECT_ROOT/tools/env_setup/install_holoscan.sh"
 # ---- Install Cosmos Transfer ----
 echo "Installing Cosmos Transfer..."
 
-# export CUDNN_PATH="/usr/include/x86_64-linux-gnu"  # not working for TE 1.12.0
-export CPLUS_INCLUDE_PATH="/usr/include/x86_64-linux-gnu"
 conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
 bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
 

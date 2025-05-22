@@ -42,13 +42,6 @@ git checkout bf54a70a8c44d615620728c493ee26b4376ccfd6
 git submodule update --init --recursive
 pip install -r requirements.txt
 
-# Patch Transformer engine linking issues in conda environments.
-PYTHON_VERSION=$($PYTHON_EXECUTABLE -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-SITE_PACKAGES=$($PYTHON_EXECUTABLE -c "import site; print([p for p in site.getsitepackages() if 'site-packages' in p][0])")
-
-# ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/
-# ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/python3.10
-
 pip install transformer-engine[pytorch]==1.12.0
 
 CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/test_environment.py
