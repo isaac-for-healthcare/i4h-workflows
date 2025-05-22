@@ -77,8 +77,7 @@ else
 fi
 
 # Set the include and library paths for CUDNN
-export CXXFLAGS="-I/usr/include/x86_64-linux-gnu"
-export LDFLAGS="-L/usr/lib/x86_64-linux-gnu"
+export CMAKE_INCLUDE_PATH="/usr/include/x86_64-linux-gnu"
 
 # ---- Install necessary dependencies (Common) ----
 echo "Installing necessary dependencies..."
