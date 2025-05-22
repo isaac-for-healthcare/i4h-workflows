@@ -76,6 +76,9 @@ else
     apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0 libcudnn9-dev-cuda-12
 fi
 
+# Set the include and library paths for CUDNN
+export CXXFLAGS="-I/usr/include/x86_64-linux-gnu"
+export LDFLAGS="-L/usr/lib/x86_64-linux-gnu"
 
 # ---- Install necessary dependencies (Common) ----
 echo "Installing necessary dependencies..."

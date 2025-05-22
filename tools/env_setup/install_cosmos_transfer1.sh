@@ -43,7 +43,9 @@ SITE_PACKAGES=$($PYTHON_EXECUTABLE -c "import site; print([p for p in site.getsi
 # ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/
 # ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/python3.10
 
-export CXXFLAGS="-I$SITE_PACKAGES/nvidia/*/include/"
+# Append CXXFLAGS to the existing CXXFLAGS
+export CXXFLAGS="$CXXFLAGS -I$SITE_PACKAGES/nvidia/*/include/"
+
 pip install transformer-engine[pytorch]==1.12.0
 
 CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/test_environment.py
