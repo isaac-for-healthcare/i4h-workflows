@@ -1,16 +1,57 @@
+# Robotic Ultrasound Workflow
+
 ![Robotic Ultrasound Workflow](../../docs/source/robotic_us_workflow.jpg)
 
-# Robotic Ultrasound Workflow
+## Table of Contents
+- [System Requirements](#system-requirements)
+- [Quick Start](#quick-start)
+- [Environment Setup](#environment-setup)
+  - [Prerequisites](#prerequisites)
+  - [Installation Steps](#installation-steps)
+  - [Asset Setup](#asset-setup)
+  - [Environment Variables](#environment-variables)
+- [Running the Workflow](#running-the-workflow)
 
 ## System Requirements
 
+### Hardware Requirements
 - Ubuntu 22.04
 - NVIDIA GPU with compute capability 8.6 and 32GB of memory
-    - GPUs without RT Cores (A100, H100) are not supported.
-- NVIDIA Driver Version >= 555
+    - GPUs without RT Cores (A100, H100) are not supported
 - 50GB of disk space
 
+### Software Requirements
+- NVIDIA Driver Version >= 555
+- CUDA Version >= 12.6
+- Python 3.10
+- RTI DDS License
+
+## Quick Start
+
+1. Install NVIDIA driver (>= 555) and CUDA (>= 12.6)
+2. Create and activate conda environment:
+   ```bash
+   conda create -n robotic_ultrasound python=3.10 -y
+   conda activate robotic_ultrasound
+   ```
+3. Run the setup script:
+   ```bash
+   cd <path-to-i4h-workflows>
+   bash tools/env_setup_robot_us.sh --policy pi0
+   ```
+4. Download assets:
+   ```bash
+   i4h-asset-retrieve
+   ```
+5. Set environment variables:
+   ```bash
+   export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts`
+   export RTI_LICENSE_FILE=<path-to-rti-license-file>
+   ```
+
 ## Environment Setup
+
+### Prerequisites
 
 The robotic ultrasound workflow is built on the following dependencies:
 - [IsaacSim 4.5.0](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/index.html)
@@ -18,82 +59,60 @@ The robotic ultrasound workflow is built on the following dependencies:
 - [openpi](https://github.com/Physical-Intelligence/openpi) and [lerobot](https://github.com/huggingface/lerobot)
 - [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing)
 
-### Install NVIDIA Driver
+### Installation Steps
 
+#### 1. Install NVIDIA Driver
 Install or upgrade to the latest NVIDIA driver from [NVIDIA website](https://www.nvidia.com/en-us/drivers/)
 
-**NOTE**: [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing) requires driver version >= 555.
+**Note**: The Raytracing Ultrasound Simulator requires driver version >= 555.
 
-
-### Install CUDA
-
+#### 2. Install CUDA
 Install CUDA from [NVIDIA CUDA Quick Start Guide](https://docs.nvidia.com/cuda/cuda-quick-start-guide/index.html)
 
-**NOTE**: [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing) requires CUDA version >= 12.6.
+**Note**: The Raytracing Ultrasound Simulator requires CUDA version >= 12.6.
 
+#### 3. Obtain RTI DDS License
+RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
 
-### Obtain license of RTI DDS
+#### 4. Install Dependencies
 
-RTI DDS is the common communication package for all the scripts, please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file for the RTI DDS and set the `RTI_LICENSE_FILE` environment variable to the path of the license file.
-
-
-### Install Dependencies
-
-#### Create a new conda environment
-
-Conda is suggested for virtual environment setup, install `Miniconda` from [Miniconda website](https://docs.anaconda.com/miniconda/install/#quick-command-line-install) and create a new virtual environment with Python 3.10.
-
-```sh
+##### Create Conda Environment
+```bash
 # Create a new conda environment
 conda create -n robotic_ultrasound python=3.10 -y
 # Activate the environment
 conda activate robotic_ultrasound
 ```
 
-#### Install the Raytracing Ultrasound Simulator
-To use the ultrasound-raytracing simulator, you can choose one of the following options:
-- (experimental) Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.1.0) and extract the folder to `workflows/robotic_ultrasound/scripts/raysim`.
+##### Install Raytracing Ultrasound Simulator
+Choose one of the following options:
+- **(Experimental)** Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.1.0) and extract to `workflows/robotic_ultrasound/scripts/raysim`
+- **(Recommended)** Install and build following instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation)
 
-- (recommended) Install and build it by following the instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation).
+##### Install All Dependencies
+The main script `tools/env_setup_robot_us.sh` installs all necessary dependencies. It first installs common base components and then policy-specific packages based on an argument.
 
-
-#### Install All Dependencies
-
-The main script `tools/env_setup_robot_us.sh` will install all necessary dependencies. It first installs common base components and then policy-specific packages based on an argument.
-
-### Base Components Installed
-
-The following base components are installed by the script:
-- **IsaacSim 4.5.0** (and its core dependencies)
-- **IsaacLab 2.0.2**
-- **Robotic Ultrasound Extension** (`robotic_us_ext`)
-- **Lerobot** (from Hugging Face)
-- **Holoscan 2.9.0** (including associated Holoscan apps)
+###### Base Components
+- IsaacSim 4.5.0 (and core dependencies)
+- IsaacLab 2.0.2
+- Robotic Ultrasound Extension (`robotic_us_ext`)
+- Lerobot (from Hugging Face)
+- Holoscan 2.9.0 (including associated Holoscan apps)
 - Essential build tools and libraries
 
-### Policy-Specific Dependencies
-
+###### Policy-Specific Dependencies
 The script supports installing additional policy-specific dependencies using the `--policy` flag:
-- **`--policy pi0` (Default)**: Installs dependencies for the PI0 policy along with common dependencies (e.g., OpenPI).
-- **`--policy gr00tn1`**: Installs dependencies for the GR00T N1 policy along with common dependencies (e.g., Isaac-GR00T).
-- **`--policy base`**: Installs only the common base dependencies listed above, without any policy-specific packages.
+- **`--policy pi0` (Default)**: Installs PI0 policy dependencies (e.g., OpenPI)
+- **`--policy gr00tn1`**: Installs GR00T N1 policy dependencies (e.g., Isaac-GR00T)
+- **`--policy none`**: Installs only common base dependencies
 
-To run the script, navigate to the root of the `i4h-workflows` repository and execute:
-
+Run the script from the repository root:
 ```bash
 cd <path-to-i4h-workflows>
 bash tools/env_setup_robot_us.sh --policy <your_chosen_policy>
 ```
-If you omit the `--policy` flag, it will default to `--policy pi0`. For example, to install base dependencies and PI0:
-```bash
-bash tools/env_setup_robot_us.sh
-```
-Or, to install base dependencies and GR00T:
-```bash
-bash tools/env_setup_robot_us.sh --policy gr00tn1
-```
 
-- **NOTE**: It is expected to see the following messages with `pytorch` version mismatch.
+**Note**: During dependency installation, you may see PyTorch version mismatch warnings. These are expected and can be safely ignored:
 ```
 ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
 isaaclab 0.34.9 requires torch==2.5.1, but you have torch 2.6.0 which is incompatible.
@@ -101,47 +120,39 @@ isaaclab-rl 0.1.0 requires torch==2.5.1, but you have torch 2.6.0 which is incom
 isaaclab-tasks 0.10.24 requires torch==2.5.1, but you have torch 2.6.0 which is incompatible.
 rl-games 1.6.1 requires wandb<0.13.0,>=0.12.11, but you have wandb 0.19.9 which is incompatible.
 ```
-This is due to requirements of `isaaclab` and `openpi` used different fixed versions of `pytorch`. You can ignore these conflicts.
+These warnings occur because `isaaclab` and `openpi` require different fixed versions of PyTorch. The workflow will function correctly despite these warnings.
 
+### Asset Setup
 
-### Download the I4H assets
-
-Use the following command will download the assets to the `~/.cache/i4h-assets/<sha256>` directory.
-Please refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.1.0/docs/catalog_helper.md) for more details.
-
-```sh
+Download the required assets using:
+```bash
 i4h-asset-retrieve
 ```
 
-- **NOTE**: Downloading the assets is a blocking function, so the following warning is expected:
+This will download assets to `~/.cache/i4h-assets/<sha256>`. For more details, refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.1.0/docs/catalog_helper.md).
 
-```sh
-[108,322ms] [Warning] [omni.client.python] Detected a blocking function. This will cause hitches or hangs in the UI. Please switch to the async version:
-  File "<path>/bin/i4h-asset-retrieve", line 8, in <module>
-  File "<path>/i4h_asset_helper/cli.py", line 47, in retrieve_main
-  File "<path>/i4h_asset_helper/assets.py", line 120, in retrieve_asset
-  File "<path>/omni/extscore/omni.client/omni/client/__init__.py", line 610, in read_fil
-```
-After the assets are downloaded, you will see the following message:
-```sh
-Assets downloaded to: <user-home-directory>/.cache/i4h-assets/<SHA256>
-```
+**Note**: During asset download, you may see warnings about blocking functions. This is expected behavior and the download will complete successfully despite these warnings.
+
+### Environment Variables
+
+Before running any scripts, you need to set up the following environment variables:
+
+1. **PYTHONPATH**: Set this to point to the scripts directory:
+   ```bash
+   export PYTHONPATH=<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts
+   ```
+   This ensures Python can find the modules under the [`scripts`](./scripts) directory.
+
+2. **RTI_LICENSE_FILE**: Set this to point to your RTI DDS license file:
+   ```bash
+   export RTI_LICENSE_FILE=<path-to-rti-license-file>
+   ```
+   This is required for the DDS communication package to function properly.
 
 
-### Set environment variables before running the scripts
-Make sure both `PYTHONPATH` and `RTI_LICENSE_FILE` are set:
-```sh
-export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts`
-export RTI_LICENSE_FILE=<path-to-rti-license-file>
-```
+## Running the Workflow
 
-The `PYTHONPATH` is used to find the modules under the [`scripts`](./scripts) directory.
-
-## Run the scripts
-
-The robotic ultrasound workflow provides several example scripts demonstrating the ultrasound raytracing simulation, holoscan apps, policy model runner, training, and etc.
-
-Navigate to these sub-directories and run the scripts.
+The robotic ultrasound workflow provides several example scripts demonstrating different components:
 
 - [Holoscan Apps](./scripts/holoscan_apps)
 - [Policy Runner](./scripts/policy_runner)
@@ -149,4 +160,12 @@ Navigate to these sub-directories and run the scripts.
 - [Training](./scripts/training)
 - [Visualization Utilities](./scripts/utils)
 
-Please note that you may need to simultaneously run multiple scripts in different sub-directories to complete the entire workflow. For example, you need to have 4 different terminals running the visualization, policy runner, the sim_with_dds and ultrasound raytracing simulations.
+### Important Notes
+1. You may need to run multiple scripts simultaneously in different terminals
+2. A typical setup requires 4 terminals running:
+   - Visualization
+   - Policy runner
+   - Sim_with_dds
+   - Ultrasound raytracing simulations
+
+If you encounter issues not covered in the notes above, please check the documentation for each component or open a new issue on GitHub.

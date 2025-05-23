@@ -35,7 +35,7 @@ mkdir -p "$PROJECT_ROOT/third_party"
 # ---- Install IsaacSim ----
 echo "Installing IsaacSim..."
 pip install 'isaacsim[all,extscache]==4.5.0' \
-    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0 \
+    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@main \
     --extra-index-url https://pypi.nvidia.com
 
 ISAACLAB_DIR="$PROJECT_ROOT/third_party/IsaacLab"
@@ -51,9 +51,5 @@ pushd "$ISAACLAB_DIR"
 echo "Installing IsaacLab ..."
 yes Yes | ./isaaclab.sh --install
 popd
-
-# ---- Install libstdcxx-ng for mesa ----
-echo "Installing libstdcxx-ng..."
-conda install -c conda-forge libstdcxx-ng=13.2.0 -y
 
 echo "IsaacSim and dependencies installed successfully!"
