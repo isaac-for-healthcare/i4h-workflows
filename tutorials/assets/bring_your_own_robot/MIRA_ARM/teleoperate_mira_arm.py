@@ -14,7 +14,9 @@
 # limitations under the License.
 
 import argparse
+
 from isaaclab.app import AppLauncher
+
 
 def main():
     # Parse command line arguments
@@ -48,7 +50,7 @@ def main():
         f"{left_arm_base_usd_path}/ASM_L65432/ASM_L6543/LJ3/LJ3_joint",
         f"{left_arm_base_usd_path}/ASM_L65432/ASM_L6543/ASM_L654/LJ4/LJ4_joint",
         f"{left_arm_base_usd_path}/ASM_L65432/ASM_L6543/ASM_L654/ASM_L65/LJ5/LJ5_joint",
-        f"{left_arm_base_usd_path}/ASM_L65432/ASM_L6543/ASM_L654/ASM_L65/ASM_L61/LJ6/LJ6_1_joint"
+        f"{left_arm_base_usd_path}/ASM_L65432/ASM_L6543/ASM_L654/ASM_L65/ASM_L61/LJ6/LJ6_1_joint",
     ]
     RJ_PATHS = [
         f"{right_arm_base_usd_path}/RJ1/RJ1_joint",
@@ -56,7 +58,7 @@ def main():
         f"{right_arm_base_usd_path}/ASM_R65432/ASM_R6543/RJ3/RJ3_joint",
         f"{right_arm_base_usd_path}/ASM_R65432/ASM_R6543/ASM_R654/RJ4/RJ4_joint",
         f"{right_arm_base_usd_path}/ASM_R65432/ASM_R6543/ASM_R654/ASM_R65/RJ5/RJ5_joint",
-        f"{right_arm_base_usd_path}/ASM_R65432/ASM_R6543/ASM_R654/ASM_R65/ASM_R6/RJ6/RJ6_joint"
+        f"{right_arm_base_usd_path}/ASM_R65432/ASM_R6543/ASM_R654/ASM_R65/ASM_R6/RJ6/RJ6_joint",
     ]
 
     stage = omni.usd.get_context().get_stage()
@@ -69,17 +71,17 @@ def main():
 
     # --- Key mapping: use a single set of keys, switch arm with SPACE ---
     KEY_MAP = {
-        "I": (0, 0.1),   # X+
+        "I": (0, 0.1),  # X+
         "K": (0, -0.1),  # X-
-        "J": (1, 0.1),   # Y+
+        "J": (1, 0.1),  # Y+
         "L": (1, -0.1),  # Y-
-        "U": (2, 0.1),   # Z+
+        "U": (2, 0.1),  # Z+
         "O": (2, -0.1),  # Z-
-        "Z": (3, 0.1),   # elbow+
+        "Z": (3, 0.1),  # elbow+
         "X": (3, -0.1),  # elbow-
-        "C": (4, 0.1),   # roll+
+        "C": (4, 0.1),  # roll+
         "V": (4, -0.1),  # roll-
-        "B": (5, 0.1),   # gripper+
+        "B": (5, 0.1),  # gripper+
         "N": (5, -0.1),  # gripper-
     }
     SWITCH_KEY = "SPACE"  # Key to switch between left and right arm
@@ -101,7 +103,9 @@ def main():
                     left_pose[idx] += delta
                 else:
                     right_pose[idx] += delta
-                print(f"Key pressed: {key} | {current_arm[0]}_pose: {left_pose if current_arm[0]=='left' else right_pose}")
+                print(
+                    f"Key pressed: {key} | {current_arm[0]}_pose: {left_pose if current_arm[0]=='left' else right_pose}"
+                )
                 return True  # Consume the event, block Isaac Sim default
         return False  # Not our key, let Isaac Sim handle
 
@@ -109,8 +113,7 @@ def main():
     input_interface = carb.input.acquire_input_interface()
     keyboard = omni.appwindow.get_default_app_window().get_keyboard()
     keyboard_sub = input_interface.subscribe_to_keyboard_events(
-        keyboard,
-        lambda event, *args: on_keyboard_event(event, *args)
+        keyboard, lambda event, *args: on_keyboard_event(event, *args)
     )
 
     # Main Isaac Sim loop
@@ -126,6 +129,7 @@ def main():
     # Cleanup after app closes
     keyboard_sub.unsubscribe()
     simulation_app.close()
+
 
 if __name__ == "__main__":
     main()
