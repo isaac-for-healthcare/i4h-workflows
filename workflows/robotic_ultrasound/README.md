@@ -104,7 +104,7 @@ The main script `tools/env_setup_robot_us.sh` installs all necessary dependencie
 The script supports installing additional policy-specific dependencies using the `--policy` flag:
 - **`--policy pi0` (Default)**: Installs PI0 policy dependencies (e.g., OpenPI)
 - **`--policy gr00tn1`**: Installs GR00T N1 policy dependencies (e.g., Isaac-GR00T)
-- **`--policy base`**: Installs only common base dependencies
+- **`--policy none`**: Installs only common base dependencies
 
 Run the script from the repository root:
 ```bash
