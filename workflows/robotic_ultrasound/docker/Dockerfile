@@ -40,10 +40,13 @@ RUN apt-get update && \
         libopengl0 \
         libxcb-keysyms1 \
         libxcb-cursor0 \
-        gcc-13 \
-        g++-13 && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100 && \
+        ninja-build \
+        libgl1-mesa-dev \
+        ffmpeg \
+        gcc-12 \
+        g++-12 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100 && \
     mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 # Install CUDA 12.8
@@ -66,11 +69,13 @@ COPY tools/env_setup/install_robotic_us_ext.sh /tmp/env_setup/
 
 COPY workflows/robotic_ultrasound/scripts /workspace/robotic_ultrasound/scripts
 
+ENV PYTHON_EXECUTABLE=/workspace/isaaclab/_isaac_sim/python.sh
+
 # # Set up the Simulation
 RUN --mount=type=ssh \
-    /workspace/isaaclab/_isaac_sim/python.sh -m pip install --no-deps \
-        git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0 && \
-    /workspace/isaaclab/_isaac_sim/python.sh -m pip install \
+    $PYTHON_EXECUTABLE -m pip install --no-deps \
+        git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@main && \
+    $PYTHON_EXECUTABLE -m pip install \
         rti.connext==7.3.0 \
         pyrealsense2==2.55.1.6486 \
         toml==0.10.2 \
@@ -78,9 +83,9 @@ RUN --mount=type=ssh \
         setuptools==75.8.0 \
         pydantic==2.10.6
 
-ENV PYTHON_EXECUTABLE=/workspace/isaaclab/_isaac_sim/python.sh
-
 RUN mkdir -p /workspace/third_party
+
+RUN /tmp/env_setup/install_robotic_us_ext.sh /workspace/robotic_ultrasound/scripts/simulation
 
 RUN /tmp/env_setup/install_lerobot.sh /workspace/third_party/lerobot
 
@@ -88,10 +93,17 @@ RUN /tmp/env_setup/install_pi0.sh /workspace/third_party/openpi
 
 RUN /tmp/env_setup/install_holoscan.sh /workspace/robotic_ultrasound/scripts/holoscan_apps
 
-RUN /tmp/env_setup/install_robotic_us_ext.sh /workspace/robotic_ultrasound/scripts/simulation
+COPY tools/env_setup/install_cosmos_transfer1.sh /tmp/env_setup/
+
+COPY tools/env_setup/install_cudnn.sh /tmp/env_setup/
+
+RUN /tmp/env_setup/install_cudnn.sh
+
+RUN --mount=type=ssh \
+    /tmp/env_setup/install_cosmos_transfer1.sh /workspace/third_party/cosmos-transfer1
 
 WORKDIR /workspace/robotic_ultrasound/scripts
 
-ENV PYTHONPATH=/workspace/robotic_ultrasound/scripts
+ENV PYTHONPATH=/workspace/robotic_ultrasound/scripts:/workspace/third_party/cosmos-transfer1
 
 ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat
