@@ -117,7 +117,7 @@ from dds.publisher import Publisher  # noqa: F401
 from dds.schemas.camera_info import CameraInfo  # noqa: F401
 from dds.schemas.franka_info import FrankaInfo  # noqa: F401
 from dds.schemas.usp_info import UltraSoundProbeInfo  # noqa: F401
-from isaaclab.devices import Se3Keyboard, Se3SpaceMouse  # noqa: F401
+from isaaclab.devices import Se3Keyboard, Se3SpaceMouse, Se3HandTracking  # noqa: F401
 from isaaclab.managers import SceneEntityCfg  # noqa: F401
 from isaaclab.managers import TerminationTermCfg as DoneTerm  # noqa: F401
 from isaaclab_tasks.manager_based.manipulation.lift import mdp  # noqa: F401
@@ -243,6 +243,15 @@ def main():
             pos_sensitivity=0.05 * args_cli.sensitivity,
             rot_sensitivity=0.015 * args_cli.sensitivity,
         )
+    elif args_cli.teleop_device.lower() == "handtracking":
+        from isaaclab.envs import ViewerCfg
+        from isaacsim.xr.openxr import OpenXRSpec
+        from isaaclab.envs.ui import ViewportCameraController
+
+        teleop_interface = Se3HandTracking(OpenXRSpec.XrHandEXT.XR_HAND_RIGHT_EXT, False, False)
+        teleop_interface.add_callback("RESET", env.reset)
+        viewer = ViewerCfg(eye=(-0.25, -0.3, 0.5), lookat=(0.6, 0, 0), asset_name="viewer")
+        ViewportCameraController(env, viewer)
     else:
         raise ValueError(f"Invalid device interface '{args_cli.teleop_device}'. Supported: 'keyboard', 'spacemouse'.")
     # add teleoperation key for env reset
@@ -317,20 +326,24 @@ def main():
             pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us)
 
             # Get and publish camera images
-            rgb_images, depth_images, _ = capture_camera_images(
-                env, ["room_camera", "wrist_camera"], device=env.unwrapped.device
+            cameras_to_poll = ["wrist_camera","room_camera"] if not args_cli.teleop_device.lower() == "handtracking" else ["wrist_camera"]
+            rgb_images, depth_images = capture_camera_images(
+                env, cameras_to_poll, device=env.unwrapped.device
             )
-            pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
-            pub_data["room_cam_depth"] = depth_images[0, 0, ...].cpu().numpy()
-            pub_data["wrist_cam"] = rgb_images[0, 1, ...].cpu().numpy()
-            pub_data["wrist_cam_depth"] = depth_images[0, 1, ...].cpu().numpy()
+            pub_data["wrist_cam"] = rgb_images[0, cameras_to_poll.index("wrist_camera"), ...].cpu().numpy()
+            pub_data["wrist_cam_depth"] = depth_images[0, cameras_to_poll.index("wrist_camera"), ...].cpu().numpy()
+            if "room_camera" in cameras_to_poll:
+                pub_data["room_cam"] = rgb_images[0, cameras_to_poll.index("room_camera"), ...].cpu().numpy()
+                pub_data["room_cam_depth"] = depth_images[0, cameras_to_poll.index("room_camera"), ...].cpu().numpy()
             pub_data["joint_pos"] = get_joint_states(env)[0]
 
-            viz_r_cam_writer.write()
-            viz_w_cam_writer.write()
+            if "room_camera" in cameras_to_poll:
+                viz_r_cam_writer.write()
+                viz_r_cam_depth_writer.write()
+            if "wrist_camera" in cameras_to_poll:
+                viz_w_cam_writer.write()
+                viz_w_cam_depth_writer.write()
             viz_probe_pos_writer.write()
-            viz_r_cam_depth_writer.write()
-            viz_w_cam_depth_writer.write()
     env.close()
 
 
