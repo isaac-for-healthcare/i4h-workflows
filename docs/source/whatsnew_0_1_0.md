@@ -35,5 +35,5 @@ Learn more in the [Robotic Surgery Workflow README](../../workflows/robotic_surg
 Get started with customizing the simulation environment:
 
 *   [Bring Your Own Patient](../../tutorials/assets/bring_your_own_patient/README.md): Learn how to import and integrate custom CT or MRI scans into USD (Universal Scene Description) files for simulation.
-*   [Bring Your Own Robot](../../tutorials/assets/bring_your_own_robot/README.md): Guidance on importing custom robot models (CAD/URDF) and replacing components, such as swapping a gripper for an ultrasound probe.
+*   [Bring Your Own Robot](../../tutorials/assets/bring_your_own_robot/replace_franka_hand_with_ultrasound_probe.md): Guidance on importing custom robot models (CAD/URDF) and replacing components, such as swapping a gripper for an ultrasound probe.
 *   [Sim2Real Transition](../../tutorials/sim2real/README.md): Outlines steps for adapting policies trained in simulation for deployment on the physical world system using DDS for data transfer.
