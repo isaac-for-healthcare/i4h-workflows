@@ -79,6 +79,7 @@ fi
 
 # ---- Install necessary dependencies (Common) ----
 echo "Installing necessary dependencies..."
+conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
 pip install rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
     setuptools==75.8.0 pydantic==2.10.6 \
     --extra-index-url https://pypi.nvidia.com
@@ -126,6 +127,9 @@ fi
 echo "Installing Holoscan..."
 bash "$PROJECT_ROOT/tools/env_setup/install_holoscan.sh"
 
+# ---- Install Cosmos (Common) ----
+echo "Installing Cosmos..."
+bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
 
 echo "=========================================="
 echo "Environment setup script finished."
