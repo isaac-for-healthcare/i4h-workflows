@@ -27,7 +27,6 @@ PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 HOLOSCAN_DIR=${1:-$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/holoscan_apps/}
 
 # ---- Install Holoscan ----
-echo "Installing Holoscan..."
 $PYTHON_EXECUTABLE -m pip install holoscan==2.9.0
 echo "Holoscan installed successfully!"
 
