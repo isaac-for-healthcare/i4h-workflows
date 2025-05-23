@@ -18,7 +18,7 @@
 set -e
 
 function get_cudnn_version() {
-    echo 
+    echo
 }
 
 

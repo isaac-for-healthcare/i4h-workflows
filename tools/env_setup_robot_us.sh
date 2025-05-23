@@ -79,10 +79,12 @@ fi
 
 # ---- Install necessary dependencies (Common) ----
 echo "Installing necessary dependencies..."
-conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
 pip install rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
     setuptools==75.8.0 pydantic==2.10.6 \
     --extra-index-url https://pypi.nvidia.com
+
+# for holoscan and cosmos transfer1, we need to install the following conda packages:
+conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
 
 
 # ---- Install IsaacSim and IsaacLab (Common) ----
