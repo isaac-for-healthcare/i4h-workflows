@@ -70,7 +70,7 @@ ensure_fresh_third_party_dir
 
 # ---- Install build tools (Common) ----
 echo "Installing build tools..."
-wget https://developer.download.nvidia.cn/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz -O /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz
+wget https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/linux-x86_64/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz -O /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz
 tar -xvf /tmp/cudnn-linux-x86_64-8.9.7.29_cuda12-archive.tar.xz -C /tmp/
 if [ "$EUID" -ne 0 ]; then
     sudo apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
