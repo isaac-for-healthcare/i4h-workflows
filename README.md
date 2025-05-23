@@ -18,7 +18,7 @@
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
-- [Troubleshooting & Support](#troubleshooting--support)
+- [Support](#support)
 - [License](#license)
 - [Acknowledgement](#acknowledgement)
 
@@ -100,7 +100,7 @@ Please check our [contribution guidelines](./CONTRIBUTING.md) for detailed infor
 - Issue reporting
 - Documentation standards
 
-## Troubleshooting & Support
+## Support
 
 For support and troubleshooting:
 
