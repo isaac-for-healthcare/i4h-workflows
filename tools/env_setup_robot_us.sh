@@ -83,9 +83,6 @@ pip install rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui=
     setuptools==75.8.0 pydantic==2.10.6 \
     --extra-index-url https://pypi.nvidia.com
 
-# for holoscan and cosmos transfer1, we need to install the following conda packages:
-conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
-
 
 # ---- Install IsaacSim and IsaacLab (Common) ----
 # Check if IsaacLab is already cloned
@@ -123,6 +120,10 @@ if [[ "$INSTALL_WITH_POLICY" == "gr00tn1" ]]; then
     echo "Installing GR00T N1 Policy Dependencies (delegating to script)..."
     bash "$PROJECT_ROOT/tools/env_setup/install_gr00tn1.sh"
 fi
+
+
+# for holoscan and cosmos transfer1, we need to install the following conda packages:
+conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
 
 
 # ---- Install Holoscan (Common) ----
