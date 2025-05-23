@@ -17,11 +17,6 @@
 
 set -e
 
-function get_cudnn_version() {
-    echo
-}
-
-
 # Check if CUDNN_PATH and CUDNN_INCLUDE_PATH are set. If so, skip the installation.
 if [ -d "$CUDNN_PATH" ] && [ -d "$CUDNN_INCLUDE_PATH" ]; then
     echo "CUDNN_PATH and CUDNN_INCLUDE_PATH are set. Skipping CUDNN installation."
