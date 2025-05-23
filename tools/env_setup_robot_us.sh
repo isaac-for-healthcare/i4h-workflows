@@ -122,12 +122,18 @@ if [[ "$INSTALL_WITH_POLICY" == "gr00tn1" ]]; then
 fi
 
 
+# for holoscan and cosmos transfer1, we need to install the following conda packages:
+conda install -c conda-forge ninja libgl ffmpeg pybind11 gcc=12.4.0 gxx=12.4.0 libstdcxx-ng=12.4.0 -y
+
+
 # ---- Install Holoscan (Common) ----
 echo "Installing Holoscan..."
 bash "$PROJECT_ROOT/tools/env_setup/install_holoscan.sh"
 
+# ---- Install Cosmos (Common) ----
+echo "Installing Cosmos..."
+bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
 
 echo "=========================================="
 echo "Environment setup script finished."
-echo "Selected policy dependencies ($INSTALL_WITH_POLICY) should be installed along with base components."
 echo "=========================================="

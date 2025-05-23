@@ -52,8 +52,4 @@ echo "Installing IsaacLab ..."
 yes Yes | ./isaaclab.sh --install
 popd
 
-# ---- Install libstdcxx-ng for mesa ----
-echo "Installing libstdcxx-ng..."
-conda install -c conda-forge libstdcxx-ng=13.2.0 -y
-
 echo "IsaacSim and dependencies installed successfully!"
