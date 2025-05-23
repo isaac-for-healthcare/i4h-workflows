@@ -9,9 +9,6 @@
         },
         {
             "pattern": "^#%EF%B8%8F.*"
-        },
-        {
-            "pattern": "whatsnew_.*\\.md$"
         }
     ],
     "timeout": "20s",
