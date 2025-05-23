@@ -123,7 +123,7 @@ fi
 
 
 # for holoscan and cosmos transfer1, we need to install the following conda packages:
-conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
+conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 libstdcxx-ng=12.4.0 -y
 
 
 # ---- Install Holoscan (Common) ----
