@@ -27,7 +27,7 @@ PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 # Install cuDNN
 bash "$PROJECT_ROOT/tools/env_setup/install_cudnn.sh"
 
-COSMOS_TRANSFER_DIR=${1:-$$PROJECT_ROOT/third_party/cosmos-transfer1}
+COSMOS_TRANSFER_DIR=${1:-$PROJECT_ROOT/third_party/cosmos-transfer1}
 
 if [ -d "$COSMOS_TRANSFER_DIR" ]; then
     echo "Cosmos Transfer directory already exists at $COSMOS_TRANSFER_DIR. Skipping clone."

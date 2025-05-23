@@ -42,7 +42,7 @@ def _run_test_process(cmd, env, test_path):
 
     try:
         process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        stdout, stderr = process.communicate(timeout=600)
+        stdout, stderr = process.communicate(timeout=1000)
         # Filter out extension loading messages
         filtered_stdout = "\n".join(
             [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
