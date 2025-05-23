@@ -19,18 +19,21 @@ python teleoperate_mira_arm.py --usd_path <path-to-usd>/mira-bipo-size-experimen
 
 
 Teleoperation Key Mapping
-| Key | Joint/Action | Direction/Effect | Arm Controlled |
-|----------|----------------------|--------------------------|---------------------|
-| I | Shoulder X | + (Forward) | Current (see below) |
-| K | Shoulder X | – (Backward) | Current |
-| J | Shoulder Y | + (Left) | Current |
-| L | Shoulder Y | – (Right) | Current |
-| U | Shoulder Z | + (Up) | Current |
-| O | Shoulder Z | – (Down) | Current |
-| Z | Elbow | + (Bend) | Current |
-| X | Elbow | – (Straighten) | Current |
-| C | Wrist Roll | + (Roll CW) | Current |
-| V | Wrist Roll | – (Roll CCW) | Current |
-| B | Gripper | + (Open) | Current |
-| N | Gripper | – (Close) | Current |
-| SPACE | Switch Arm | Toggle Left/Right Arm | Switches control |
+
+| Key   | Joint/Action   | Direction/Effect      |
+|-------|---------------|-----------------------|
+| I     | Shoulder X    | + (Forward)           |
+| K     | Shoulder X    | – (Backward)          |
+| J     | Shoulder Y    | + (Left)              |
+| L     | Shoulder Y    | – (Right)             |
+| U     | Shoulder Z    | + (Up)                |
+| O     | Shoulder Z    | – (Down)              |
+| Z     | Elbow         | + (Bend)              |
+| X     | Elbow         | – (Straighten)        |
+| C     | Wrist Roll    | + (Roll CW)           |
+| V     | Wrist Roll    | – (Roll CCW)          |
+| B     | Gripper       | + (Open)              |
+| N     | Gripper       | – (Close)             |
+| SPACE | Switch Arm    | Toggle Left/Right Arm |
+
+*Note: The keys control either the left or right arm, depending on which is currently selected. Press `SPACE` to switch between arms.*
