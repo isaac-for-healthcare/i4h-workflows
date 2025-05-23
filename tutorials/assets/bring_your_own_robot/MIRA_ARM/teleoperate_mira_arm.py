@@ -17,6 +17,14 @@ import argparse
 
 from isaaclab.app import AppLauncher
 
+# TODO: remove this after including it into i4h-assets
+# from i4h_asset_helper import BaseI4HAssets
+
+
+# class MyAssets(BaseI4HAssets):
+#     """Assets manager for the your workflow."""
+#     MIRA_ARM = "Robots/MIRA_ARM/mira-bipo-size-experiment-smoothing.usd"
+
 
 def main():
     # Parse command line arguments
@@ -28,9 +36,15 @@ def main():
     app_launcher = AppLauncher(headless=False)
     simulation_app = app_launcher.app
 
+    # TODO: remove this after including it into i4h-assets
+    # Import the assets
+    # my_assets = MyAssets()
+    # usd_path = my_assets.MIRA_ARM
+
     # Import required modules after app is launched
     import carb
     import omni
+    import omni.appwindow
     import omni.usd
     from pxr import UsdPhysics
 
