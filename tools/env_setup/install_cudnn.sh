@@ -30,11 +30,14 @@ if [ -z "$CUDA_HOME" ]; then
 fi
 
 # Get the cuDNN version and see if it is 8.9.7. If it is, skip the installation.
-CUDNN_VERSION="$(grep -oP '#define CUDNN_MAJOR \K\d+' $CUDA_HOME/include/cudnn_version.h).$(grep -oP '#define CUDNN_MINOR \K\d+' $CUDA_HOME/include/cudnn_version.h).$(grep -oP '#define CUDNN_PATCHLEVEL \K\d+' $CUDA_HOME/include/cudnn_version.h)"
-if [ "$CUDNN_VERSION" == "8.9.7" ]; then
-    echo "cuDNN version is 8.9.7. Skipping CUDNN installation."
-    exit 0
+if [ ! -f "$CUDA_HOME/include/cudnn_version.h" ]; then
+    CUDNN_VERSION="$(grep -oP '#define CUDNN_MAJOR \K\d+' $CUDA_HOME/include/cudnn_version.h).$(grep -oP '#define CUDNN_MINOR \K\d+' $CUDA_HOME/include/cudnn_version.h).$(grep -oP '#define CUDNN_PATCHLEVEL \K\d+' $CUDA_HOME/include/cudnn_version.h)"
+    if [ "$CUDNN_VERSION" == "8.9.7" ]; then
+        echo "cuDNN version is 8.9.7. Skipping CUDNN installation."
+        exit 0
+    fi
 fi
+
 
 # Install CUDNN
 echo "Install cuDNN 8.9.7..."
