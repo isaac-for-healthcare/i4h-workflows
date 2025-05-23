@@ -24,12 +24,6 @@ PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
 COSMOS_TRANSFER_DIR="$PROJECT_ROOT/third_party/cosmos-transfer1"
 
-if [ -d "$CPLUS_INCLUDE_PATH" ]; then
-    echo "CPLUS_INCLUDE_PATH is set to $CPLUS_INCLUDE_PATH"
-else
-    echo "CPLUS_INCLUDE_PATH is not set"
-fi
-
 if [ -d "$COSMOS_TRANSFER_DIR" ]; then
     echo "Cosmos Transfer directory already exists at $COSMOS_TRANSFER_DIR. Skipping clone."
 else
@@ -41,7 +35,7 @@ pushd "$COSMOS_TRANSFER_DIR"
 git checkout bf54a70a8c44d615620728c493ee26b4376ccfd6
 git submodule update --init --recursive
 $PYTHON_EXECUTABLE -m pip install -r requirements.txt
-$PYTHON_EXECUTABLE -m pip install --no-build-isolation --use-pep517 transformer-engine[pytorch]==1.12.0
+MAX_JOBS=2 $PYTHON_EXECUTABLE -m pip install transformer-engine[pytorch]==1.12.0
 $PYTHON_EXECUTABLE scripts/test_environment.py
 popd
 
