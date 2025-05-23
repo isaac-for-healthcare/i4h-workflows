@@ -11,7 +11,7 @@
             "pattern": "^#%EF%B8%8F.*"
         },
         {
-            "pattern": "^whatsnew_.*"
+            "pattern": "^./docs/source/whatsnew_.*"
         }
     ],
     "timeout": "20s",
