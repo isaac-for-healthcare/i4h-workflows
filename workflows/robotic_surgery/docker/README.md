@@ -17,12 +17,6 @@ ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key
 docker build --ssh default -f workflows/robotic_surgery/docker/Dockerfile -t robotic_surgery:latest .
 ```
 
-## Prepare the I4H Asset Locally
-
-Please refer to the [Environment Setup](../README.md#environment-setup) for instructions to prepare the I4H assets locally.
-
-This will create a directory `~/.cache/i4h-assets/<sha256>` containing the I4H assets, which will be mounted to the docker container.
-
 ## Run the Container
 
 ```bash
@@ -45,6 +39,8 @@ docker run --name isaac-sim --entrypoint bash -it --runtime=nvidia --gpus all -e
 In the container, run the simulation with `--livestream 2` to stream the simulation to the local machine. For example, to run the `reach_psm_sm.py` script, run the following command:
 
 ```bash
+docker exec -it isaac-sim bash
+# Inside the container, run the simulation
 python simulation/scripts/environments/state_machine/reach_psm_sm.py --livestream 2
 ```
 

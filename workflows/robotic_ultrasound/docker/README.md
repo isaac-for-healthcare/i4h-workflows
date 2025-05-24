@@ -17,13 +17,11 @@ ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key
 docker build --ssh default -f workflows/robotic_ultrasound/docker/Dockerfile -t robot_us:latest .
 ```
 
-## Prepare the I4H Asset and RTI License Locally
+## Prepare the RTI License Locally
 
 Please refer to the [Environment Setup](../README.md#environment-setup) for instructions to prepare the I4H assets and RTI license locally.
 
-The environment setup will create a directory `~/.cache/i4h-assets/<sha256>` containing the I4H assets, which will be mounted to the docker container.
-
-The license file should also be copied to the `~/docker/rti` directory, which will be mounted to the docker container.
+The license file `rti_license.dat` should be saved in a directory in your host file system, (e.g. `~/docker/rti`), which can be mounted to the docker container.
 
 ## Run the Container
 
@@ -53,7 +51,7 @@ docker run --name isaac-sim --entrypoint bash -itd --runtime=nvidia --gpus all -
 ```bash
 docker exec -it isaac-sim bash
 # Inside the container, run the policy
-docker exec -it isaac-sim bash -c "python policy_runner/run_policy.py"
+python policy_runner/run_policy.py
 ```
 
 The policy runner will be running in an environment managed by `uv` located in `/workspace/openpi/.venv`.
@@ -61,7 +59,7 @@ The policy runner will be running in an environment managed by `uv` located in `
 ### Run Simulation
 
 ```bash
-docker exec -it isaac-sim bash -c "python simulation/environments/sim_with_dds.py --enable_camera --livestream 2"
+docker exec -it isaac-sim bash
 # Inside the container, run the simulation
-
+python simulation/environments/sim_with_dds.py --enable_camera --livestream 2
 ```
