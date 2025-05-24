@@ -24,9 +24,6 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 # Allow setting the python in PYTHON_EXECUTABLE
 PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
-# Install cuDNN
-bash "$PROJECT_ROOT/tools/env_setup/install_cudnn.sh"
-
 COSMOS_TRANSFER_DIR=${1:-$$PROJECT_ROOT/third_party/cosmos-transfer1}
 
 if [ -d "$COSMOS_TRANSFER_DIR" ]; then
@@ -40,7 +37,7 @@ pushd "$COSMOS_TRANSFER_DIR"
 git checkout bf54a70a8c44d615620728c493ee26b4376ccfd6
 git submodule update --init --recursive
 $PYTHON_EXECUTABLE -m pip install -r requirements.txt
-MAX_JOBS=2 $PYTHON_EXECUTABLE -m pip install transformer-engine[pytorch]==1.12.0
+MAX_JOBS=2 $PYTHON_EXECUTABLE -m pip install --no-build-isolation transformer-engine[pytorch]==1.12.0
 $PYTHON_EXECUTABLE -m pip install tensorstore==0.1.74
 
 $PYTHON_EXECUTABLE scripts/test_environment.py

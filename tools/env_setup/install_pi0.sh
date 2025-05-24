@@ -20,19 +20,17 @@ set -e
 # Assuming this script is in tools/env_setup/
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
-# Assuming bash_utils.sh is in $PROJECT_ROOT/tools/env_setup/bash_utils.sh
-source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
-
-check_project_root
+# Allow setting the python in PYTHON_EXECUTABLE
+PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
 echo "Cloning OpenPI repository..."
-OPENPI_DIR="$PROJECT_ROOT/third_party/openpi"
+OPENPI_DIR=${1:-$PROJECT_ROOT/third_party/openpi}
 
 if [ -d "$OPENPI_DIR" ]; then
     echo "OpenPI directory already exists at $OPENPI_DIR. Skipping clone."
     exit 1
 else
-    git clone git@github.com:Physical-Intelligence/openpi.git "$OPENPI_DIR"
+    git clone https://github.com/Physical-Intelligence/openpi.git "$OPENPI_DIR"
 fi
 
 pushd "$OPENPI_DIR"
@@ -82,9 +80,9 @@ fi
 popd # Back to PROJECT_ROOT
 
 echo "Installing OpenPI Client..."
-pip install -e $OPENPI_DIR/packages/openpi-client/
+$PYTHON_EXECUTABLE -m pip install -e $OPENPI_DIR/packages/openpi-client/
 echo "Installing OpenPI Core..."
-pip install -e $OPENPI_DIR/
+$PYTHON_EXECUTABLE -m pip install -e $OPENPI_DIR/
 
 # Revert the "import changes of "$file_path after installation to prevent errors
 echo "Reverting temporary patches in OpenPI download.py..."
