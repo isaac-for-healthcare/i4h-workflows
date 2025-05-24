@@ -19,3 +19,5 @@ project(telesurgery_operators CXX)
 # Add subdirectories for operators
 add_subdirectory(dds)
 add_subdirectory(hid)
+add_subdirectory(nv_video_codec)
+add_subdirectory(stats)

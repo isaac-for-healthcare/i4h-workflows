@@ -16,14 +16,11 @@
 
 import sys
 import time
-
-import numpy as np
-
-from isaacsim import SimulationApp
 from typing import Callable
 
-
+import numpy as np
 from applications.controller import HIDController
+from isaacsim import SimulationApp
 
 
 class Simulation:
@@ -38,15 +35,18 @@ class Simulation:
     Args:
         headless (bool): Whether to run the simulation in headless mode (without GUI)
         image_size (tuple[int, int, int]): The dimensions of the camera image (width, height, channels)
+        camera_frequency (int): The frequency of the camera
     """
 
     def __init__(
         self,
         headless: bool,
         image_size: tuple[int, int, int],
+        camera_frequency: int,
     ):
         self._headless = headless
         self._image_size = image_size
+        self._camera_frequency = camera_frequency
         self._controller = HIDController()
         self._simulation_app = SimulationApp({"headless": self._headless})
 
@@ -152,7 +152,7 @@ class Simulation:
             controller=self._controller,
             image_size=self._image_size,
             prim_path="/World/UR10/ee_link/Camera",
-            frequency=60,
+            frequency=self._camera_frequency,
             resolution=(self._image_size[1], self._image_size[0]),
         )
 

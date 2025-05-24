@@ -220,12 +220,27 @@ namespace holoscan::ops
             .def_property("video_data_bridge_emit_timestamp",
                           static_cast<const int64_t &(::CameraInfo::*)() const>(&::CameraInfo::video_data_bridge_emit_timestamp),
                           static_cast<void (::CameraInfo::*)(int64_t)>(&::CameraInfo::video_data_bridge_emit_timestamp))
-            .def_property("video_publisher_timestamp",
-                          static_cast<const int64_t &(::CameraInfo::*)() const>(&::CameraInfo::video_publisher_timestamp),
-                          static_cast<void (::CameraInfo::*)(int64_t)>(&::CameraInfo::video_publisher_timestamp))
+            .def_property("video_encoder_enter_timestamp",
+                          static_cast<const int64_t &(::CameraInfo::*)() const>(&::CameraInfo::video_encoder_enter_timestamp),
+                          static_cast<void (::CameraInfo::*)(int64_t)>(&::CameraInfo::video_encoder_enter_timestamp))
+            .def_property("video_encoder_emit_timestamp",
+                          static_cast<const int64_t &(::CameraInfo::*)() const>(&::CameraInfo::video_encoder_emit_timestamp),
+                          static_cast<void (::CameraInfo::*)(int64_t)>(&::CameraInfo::video_encoder_emit_timestamp))
+            .def_property("video_publisher_enter_timestamp",
+                          static_cast<const int64_t &(::CameraInfo::*)() const>(&::CameraInfo::video_publisher_enter_timestamp),
+                          static_cast<void (::CameraInfo::*)(int64_t)>(&::CameraInfo::video_publisher_enter_timestamp))
+            .def_property("video_publisher_emit_timestamp",
+                          static_cast<const int64_t &(::CameraInfo::*)() const>(&::CameraInfo::video_publisher_emit_timestamp),
+                          static_cast<void (::CameraInfo::*)(int64_t)>(&::CameraInfo::video_publisher_emit_timestamp))
             .def_property("message_id",
                           static_cast<const uint64_t &(::CameraInfo::*)() const>(&::CameraInfo::message_id),
-                          static_cast<void (::CameraInfo::*)(uint64_t)>(&::CameraInfo::message_id));
+                          static_cast<void (::CameraInfo::*)(uint64_t)>(&::CameraInfo::message_id))
+            .def_property("frame_size",
+                          static_cast<const uint64_t &(::CameraInfo::*)() const>(&::CameraInfo::frame_size),
+                          static_cast<void (::CameraInfo::*)(uint64_t)>(&::CameraInfo::frame_size))
+            .def_property("encoded_frame_size",
+                          static_cast<const uint64_t &(::CameraInfo::*)() const>(&::CameraInfo::encoded_frame_size),
+                          static_cast<void (::CameraInfo::*)(uint64_t)>(&::CameraInfo::encoded_frame_size));
 
         m.def("register_types", [](EmitterReceiverRegistry &registry)
               { registry.add_emitter_receiver<CameraInfo>("CameraInfo"s); });

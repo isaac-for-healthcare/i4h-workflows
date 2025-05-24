@@ -29,4 +29,4 @@ void register_camera_info_bindings(py::module_& m);
 
 }  // namespace holoscan::ops
 
-#endif /* HOLOSCAN_OPERATORS_DDS_CAMERA_INFO_PYTHON_BINDINGS_HPP */ 
+#endif /* HOLOSCAN_OPERATORS_DDS_CAMERA_INFO_PYTHON_BINDINGS_HPP */

@@ -16,12 +16,11 @@
 import logging
 import queue
 import time
-import warp
-import sys
+
+from dds_camera_info_publisher._dds_camera_info_publisher import CameraInfo
 from holoscan.conditions import AsynchronousCondition, AsynchronousEventState
 from holoscan.core import Operator, OperatorSpec, Tensor
 
-from dds_camera_info_publisher._dds_camera_info_publisher import CameraInfo
 
 class AsyncDataPushForDDS(Operator):
     """An asynchronous operator that allows pushing data from external sources into a Holoscan pipeline.
@@ -57,7 +56,7 @@ class AsyncDataPushForDDS(Operator):
         Args:
             spec: The OperatorSpec object used to define the operator's interface.
         """
-        # spec.output("image")
+        spec.output("image")
         spec.output("camera_info")
 
     def start(self):
@@ -80,22 +79,14 @@ class AsyncDataPushForDDS(Operator):
         data = self._queue.get()
         enter_timestamp = time.monotonic_ns()
 
-        if data["video_acquisition_timestamp"] > enter_timestamp:
-            self._logger.warning(f"Video acquisition timestamp is greater than enter timestamp: {data['video_acquisition_timestamp']} > {enter_timestamp}")
-
-        image = data["image"]
-        if isinstance(image, warp.types.array):
-            image = image.numpy()
-        image = image.tobytes() # tobytes() is much more performant than flatten().tolist() and tolist()
-        # self._logger.info(f"Image size: {len(image)}")
         camera_info = CameraInfo()
         camera_info.joint_names = list(data["joint_names"])
         camera_info.joint_positions = data["joint_positions"].tolist()
-        camera_info.data = image
         camera_info.width = data["size"][1]
         camera_info.height = data["size"][0]
         camera_info.channels = data["size"][2]
         camera_info.frame_num = data["frame_num"]
+        camera_info.frame_size = data["image"].size
 
         if data["last_hid_event"] is not None:
             camera_info.message_id = data["last_hid_event"].message_id
@@ -109,7 +100,7 @@ class AsyncDataPushForDDS(Operator):
         camera_info.video_data_bridge_enter_timestamp = enter_timestamp
         camera_info.video_data_bridge_emit_timestamp = time.monotonic_ns()
 
-        # op_output.emit({"": Tensor.as_tensor(data["image"])}, "image")
+        op_output.emit({"": Tensor.as_tensor(data["image"])}, "image")
         op_output.emit(camera_info, "camera_info", "CameraInfo")
 
         self.condition.event_state = AsynchronousEventState.EVENT_WAITING

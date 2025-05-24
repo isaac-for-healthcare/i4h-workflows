@@ -104,7 +104,7 @@ function patient() {
     if [[ "$1" == "--rebuild" ]]; then
         build
         shift
-    elif [ ! -f ${SCRIPT_DIR}/build/patient/patient ]; then
+    elif [ ! -f ${SCRIPT_DIR}/build/operators/dds/camera_info/dds_camera_info_publisher/libdds_camera_info_publisher.so ]; then
         build
     fi
 

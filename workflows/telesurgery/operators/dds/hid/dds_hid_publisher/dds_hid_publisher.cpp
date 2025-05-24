@@ -106,9 +106,9 @@ void DDSHIDPublisherOp::stats_printer_thread() {
     while (std::chrono::steady_clock::now() < wake_up_time) {
       if (stop_stats_thread_.load()) {
         HOLOSCAN_LOG_INFO("Stats printer thread stopping.");
-        return; 
+        return;
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(100)); 
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     // Check again after waking up, before printing

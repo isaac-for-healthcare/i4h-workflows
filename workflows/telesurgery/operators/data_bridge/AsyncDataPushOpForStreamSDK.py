@@ -15,13 +15,9 @@
 
 import logging
 import queue
-import time
-import warp
-import sys
-from holoscan.conditions import AsynchronousCondition, AsynchronousEventState
+
 from holoscan.core import Operator, OperatorSpec, Tensor
-# from idl.CameraInfo.CameraInfo import CameraInfo
-from dds_camera_info_publisher._dds_camera_info_publisher import CameraInfo
+
 
 class AsyncDataPushOpForStreamSDK(Operator):
     """An asynchronous operator that allows pushing data from external sources into a Holoscan pipeline.

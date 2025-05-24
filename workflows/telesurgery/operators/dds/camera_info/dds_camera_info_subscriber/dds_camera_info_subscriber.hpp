@@ -26,7 +26,8 @@
 #include <holoscan/operators/holoviz/holoviz.hpp>
 #include <unordered_set>
 #include <chrono>
-
+#include "../../../nv_video_codec/api/FFmpegDemuxer.h"
+#include "../../../nv_video_codec/api/NvDecoder/NvDecoder.h"
 namespace holoscan::ops
 {
 
@@ -50,19 +51,39 @@ namespace holoscan::ops
     void add_data(gxf::Entity &entity, const char *name,
                   const std::array<std::array<float, C>, N> &data, ExecutionContext &context);
 
-    uint64_t emit_frame(const CameraInfo &frame,
-                        OutputContext &op_output,
-                        ExecutionContext &context);
-    void record_stats(const CameraInfo &frame, uint64_t received_time_ns, uint64_t emit_timestamp);
-    void print_stats();
+    std::shared_ptr<CameraInfo> find_valid_frame(dds::sub::LoanedSamples<CameraInfo> &frames);
+
+    uint64_t emit_frame(
+      const std::shared_ptr<CameraInfo> camera_info,
+      OutputContext &op_output,
+      ExecutionContext &context,
+      uint64_t enter_timestamp,
+      bool cached);
+
+    nvidia::gxf::Entity create_video_output(
+      const std::shared_ptr<CameraInfo> camera_info,
+      ExecutionContext &context);
+
+    std::tuple<nvidia::gxf::Entity, std::vector<HolovizOp::InputSpec>> create_overlay_output(
+      const std::shared_ptr<CameraInfo> camera_info,
+      ExecutionContext &context,
+      bool cached);
+
+    std::map<std::string, uint64_t> create_stats_output(
+      const std::shared_ptr<CameraInfo> camera_info,
+      uint64_t enter_timestamp,
+      bool cached);
 
     Parameter<std::shared_ptr<holoscan::Allocator>> allocator_;
     Parameter<std::string> reader_qos_;
     Parameter<std::string> topic_;
+    Parameter<int> cuda_device_ordinal_;
 
     dds::sub::DataReader<CameraInfo> reader_ = dds::core::null;
     dds::core::cond::StatusCondition status_condition_ = dds::core::null;
     dds::core::cond::WaitSet waitset_;
+
+    std::shared_ptr<CameraInfo> last_valid_frame_data_ = nullptr;
 
     // Message tracking variables
     uint64_t total_frames_received_ = 0;
@@ -70,96 +91,11 @@ namespace holoscan::ops
     uint64_t valid_frames_received_ = 0;
     uint64_t next_frame_id_ = 0;
     uint64_t loss_frame_count_ = 0;
+    uint64_t skipped_frame_count_ = 0;
 
     uint64_t total_messages_received_ = 0;
     uint64_t next_message_id_ = 0;
     uint64_t loss_message_count_ = 0;
-
-    uint64_t last_emit_timestamp_ = 0;  // Store the timestamp of the last emit_frame call
-    std::chrono::time_point<std::chrono::steady_clock> last_emit_time = std::chrono::steady_clock::now();
-    std::chrono::time_point<std::chrono::steady_clock> last_stats_time_ = std::chrono::steady_clock::now();
-    uint64_t stats_interval_ms_ = 3000; // Print stats every 3 seconds
-
-    // Latency statistics
-    struct LatencyStats
-    {
-      explicit LatencyStats(const std::string &name) : name(name) {}
-
-      std::string name;
-      double min = std::numeric_limits<double>::max();
-      double max = 0.0;
-      double sum = 0.0;
-      int count = 0;
-
-      std::string unit_str() const
-      {
-        return "ms";
-      }
-
-      double sum_auto() const
-      {
-        // Always convert nanoseconds to milliseconds
-        return sum / 1000000.0;
-      }
-
-      double min_auto() const
-      {
-        // Always convert nanoseconds to milliseconds
-        return min / 1000000.0;
-      }
-
-      double max_auto() const
-      {
-        // Always convert nanoseconds to milliseconds
-        return max / 1000000.0;
-      }
-
-      double average_auto() const
-      {
-        // Always convert nanoseconds to milliseconds
-        return average() / 1000000.0;
-      }
-
-      void update(double value)
-      {
-        if (value < 0)
-        {
-          HOLOSCAN_LOG_ERROR("[{}] Latency value is negative: {}", name, value);
-        }
-
-        min = std::min(min, value);
-        max = std::max(max, value);
-        sum += value;
-        count++;
-      }
-
-      double average() const
-      {
-        return count > 0 ? sum / count : 0.0;
-      }
-
-      void reset()
-      {
-        min = std::numeric_limits<double>::max();
-        max = 0.0;
-        sum = 0.0;
-        count = 0;
-      }
-    };
-
-    LatencyStats hid_capture_to_hid_publish_stats_ = LatencyStats("hid_capture_to_hid_publish");
-    LatencyStats hid_publish_to_hid_receive_stats_ = LatencyStats("hid_publish_to_hid_receive");
-    LatencyStats hid_receive_to_hid_to_sim_stats_ = LatencyStats("hid_receive_to_hid_to_sim");
-    LatencyStats hid_to_sim_to_hid_process_stats_ = LatencyStats("hid_to_sim_to_hid_process");
-    LatencyStats hid_process_to_video_acquisition_stats_ = LatencyStats("hid_process_to_video_acquisition");
-    LatencyStats video_acquisition_to_video_data_bridge_enter_stats_ = LatencyStats("video_acquisition_to_video_data_bridge_enter");
-    LatencyStats video_data_bridge_enter_to_video_data_bridge_emit_stats_ = LatencyStats("video_data_bridge_enter_to_video_data_bridge_emit");
-    LatencyStats video_data_bridge_emit_to_video_publish_stats_ = LatencyStats("video_data_bridge_emit_to_video_publish");
-    LatencyStats video_publish_to_subscriber_receive_stats_ = LatencyStats("video_publish_to_subscriber_receive");
-    LatencyStats subscriber_receive_to_subscriber_emit_stats_ = LatencyStats("subscriber_receive_to_subscriber_emit");
-    LatencyStats network_latency_stats_ = LatencyStats("network_latency");
-    LatencyStats end_to_end_latency_stats_ = LatencyStats("end_to_end_latency");
-    LatencyStats frame_jitter_stats_ = LatencyStats("frame_jitter");  // New stats for measuring jitter between emit calls
   };
 
 } // namespace holoscan::ops

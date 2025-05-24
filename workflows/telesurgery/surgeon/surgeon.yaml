@@ -51,7 +51,7 @@ format_converter:
 holoviz:
   window_title: "Telesurgery - Surgeon"
   width: 1920
-  framerate: 120
+  # framerate: 120
   height: 1080
   tensors:
     - name: ""
@@ -80,3 +80,7 @@ hid_publisher:
   message_cap: 0
   participant_qos: TelesurgeryLibrary::TelesurgeryApplication
   writer_qos: TelesurgeryLibrary::Command
+
+decoder_output_format_converter:
+  in_dtype: "nv12"
+  out_dtype: "rgb888"

@@ -17,7 +17,12 @@ struct CameraInfo {
   int64 video_acquisition_timestamp; // Timestamp when the _data_acquisition_callback is called in nanoseconds
   int64 video_data_bridge_enter_timestamp; // Timestamp when the compute() is called in AsyncDataPushOp in nanoseconds
   int64 video_data_bridge_emit_timestamp; // Timestamp right before the emit call in AsyncDataPushOp in nanoseconds
-  int64 video_publisher_timestamp; // Timestamp when the camera data is received by the DDSCameraInfoPublisherOp in nanoseconds
+  int64 video_encoder_enter_timestamp; // Timestamp when the compute() is called in NvVideoEncoderOp in nanoseconds
+  int64 video_encoder_emit_timestamp; // Timestamp right before the emit call in NvVideoEncoderOp in nanoseconds
+  int64 video_publisher_enter_timestamp; // Timestamp when the camera data is received by the DDSCameraInfoPublisherOp in nanoseconds
+  int64 video_publisher_emit_timestamp; // Timestamp right before the emit call in NvVideoEnDDSCameraInfoPublisherOpcoderOp in nanoseconds
 
+  uint64 frame_size;
+  uint64 encoded_frame_size;
   uint64 message_id;
 };

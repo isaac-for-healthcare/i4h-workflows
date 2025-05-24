@@ -14,9 +14,10 @@
 # limitations under the License.
 
 import logging
-from typing import Callable
-from holoscan.core import Fragment, Operator, OperatorSpec
 import time
+from typing import Callable
+
+from holoscan.core import Fragment, Operator, OperatorSpec
 
 
 class HidToSimPushOp(Operator):

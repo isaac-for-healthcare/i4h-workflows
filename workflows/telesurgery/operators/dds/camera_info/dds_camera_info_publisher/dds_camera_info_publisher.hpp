@@ -28,7 +28,6 @@
 #include <chrono>
 
 namespace holoscan::ops {
-
 /**
  * @brief Operator class to subscribe to a DDS hid stream.
  */
@@ -46,6 +45,15 @@ class DDSCameraInfoPublisherOp : public DDSOperatorBase {
  private:
   Parameter<std::string> writer_qos_;
   Parameter<std::string> topic_;
+  Parameter<uint32_t> encoded_channels_;
+
+  uint32_t max_data_size_ = 0;
+  uint32_t min_data_size_ = std::numeric_limits<uint32_t>::max();
+  uint32_t total_data_size_ = 0;
+  uint32_t num_data_samples_ = 0;
+
+  uint64_t total_emitted_times = 0;
+  std::chrono::steady_clock::time_point last_emitted_time_ = std::chrono::steady_clock::now();
 
   dds::pub::DataWriter<CameraInfo> writer_ = dds::core::null;
 

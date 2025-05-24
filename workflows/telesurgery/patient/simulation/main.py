@@ -26,11 +26,8 @@ import os
 # Reason is that libyaml packed with Omniverse (and probably all of Omniverse) is compiled
 # with _GLIBCXX_USE_CXX11_ABI=0 and Holoscan is compiled with _GLIBCXX_USE_CXX11_ABI=1.
 import holoscan
-from holoscan.schedulers import MultiThreadScheduler
-
 from applications.patient import PatientApp
 from applications.simulation import Simulation
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -71,23 +68,35 @@ def main():
         help="Run IsaacSim in headless mode",
     )
     parser.add_argument(
-        "--queue-size-tx",
-        type=int,
-        default=2,
-        help="Transmitter queue size",
-    )
-    parser.add_argument(
         "--config",
         type=str,
         default=os.path.join(os.path.dirname(__file__), "patient.yaml"),
         help="Path to the patient configuration file",
     )
+    parser.add_argument(
+        "--width",
+        type=int,
+        default=1920,
+        help="Width of the image",
+    )
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=1080,
+        help="Height of the image",
+    )
+    parser.add_argument(
+        "--camera-frequency",
+        type=int,
+        default=60,
+        help="Frequency of the camera",
+    )
     args = parser.parse_args()
 
-    image_size = (1080, 1920, 4)
+    image_size = (args.height, args.width, 4)
 
     # start the simulation
-    simulation = Simulation(args.headless, image_size)
+    simulation = Simulation(args.headless, image_size, args.camera_frequency)
 
     # set up logging
     if args.log_level == logging.DEBUG:
@@ -105,15 +114,10 @@ def main():
 
     # Set up the Holoscan transmitter application
     patient_app = PatientApp(
-        tx_queue_size=args.queue_size_tx,
-        buffer_size=image_size[0] * image_size[1] * image_size[2],
         hid_event_callback=simulation.hid_event_callback,
+        width=args.width,
+        height=args.height,
     )
-    # patient_app.scheduler(MultiThreadScheduler(
-    #     patient_app,
-    #     name="multithread_scheduler",
-    #     **patient_app.kwargs("scheduler"),
-    # ))
 
     if not os.path.exists(args.config):
         raise FileNotFoundError(f"Config file {args.config} not found")

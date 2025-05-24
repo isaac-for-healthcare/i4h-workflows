@@ -17,10 +17,12 @@
 
 #include <holoscan/holoscan.hpp>
 #include <holoscan/operators/holoviz/holoviz.hpp>
+#include <holoscan/operators/format_converter/format_converter.hpp>
 #include <generic_hid_interface.hpp>
 #include <dds_hid_publisher.hpp>
 #include <dds_camera_info_subscriber.hpp>
-
+#include <nv_video_decoder.hpp>
+#include <stats_operator.hpp>
 #include <getopt.h>
 
 class SurgeonApp : public holoscan::Application
@@ -64,7 +66,7 @@ public:
       camera_subscriber = make_operator<ops::DDSCameraInfoSubscriberOp>(
           "camera_subscriber",
           make_condition<PeriodicCondition>("periodic-condition",
-                                            Arg("recess_period") = std::string("120hz")),
+                                            Arg("recess_period") = std::string("60hz")),
           Arg("allocator") = make_resource<UnboundedAllocator>("pool"),
           from_config("camera"));
     }
@@ -78,12 +80,28 @@ public:
       throw std::runtime_error("Invalid video protocol: " + video_protocol);
     }
 
+    uint32_t width = from_config("holoviz.width").as<uint32_t>();
+    uint32_t height = from_config("holoviz.height").as<uint32_t>();
+    int64_t source_block_size = width * height * 3 * 4;
+    int64_t source_num_blocks = 2;
+
+    auto decoder = make_operator<ops::NvVideoDecoderOp>("decoder",
+                                                        Arg("cuda_device_ordinal") = 0,
+                                                        Arg("allocator") = make_resource<BlockMemoryPool>(
+                                                            "pool", 1, source_block_size, source_num_blocks));
     auto holoviz =
         make_operator<ops::HolovizOp>("holoviz",
                                       Arg("allocator") = make_resource<UnboundedAllocator>("pool"),
                                       from_config("holoviz"));
 
-    add_flow(camera_subscriber, holoviz, {{"video", "receivers"}, {"overlay", "receivers"}, {"overlay_specs", "input_specs"}});
+    auto stats = make_operator<ops::StatsOp>("stats");
+
+    add_flow(camera_subscriber, decoder, {{"video", "in"}});
+    add_flow(camera_subscriber, holoviz, {{"overlay", "receivers"}, {"overlay_specs", "input_specs"}});
+    add_flow(camera_subscriber, stats, {{"stats", "in"}});
+
+    add_flow(decoder, holoviz, {{"out", "receivers"}});
+    add_flow(decoder, stats, {{"stats", "decoder_stats"}});
   }
 };
 

@@ -28,9 +28,12 @@ target_link_libraries(surgeon
   PRIVATE
   holoscan::core
   holoscan::ops::holoviz
+  holoscan::ops::format_converter
   holoscan::ops::dds_hid_publisher
   holoscan::ops::dds_camera_info_subscriber
   holoscan::ops::generic_hid_interface
+  holoscan::ops::nv_video_decoder
+  holoscan::ops::stats_operator
 )
 
 # Copy qos_profiles.xml to the binary directory

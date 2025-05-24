@@ -21,4 +21,4 @@ extend-select = ["E501"]
 extend-ignore = ["E402"]
 
 [tool.codespell]
-ignore-words-list = "solum"
+ignore-words-list = "solum,ptd"
