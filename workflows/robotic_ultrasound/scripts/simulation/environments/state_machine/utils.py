@@ -20,7 +20,6 @@ from typing import Sequence
 
 import isaaclab.utils.math as math_utils  # noqa: F401
 import numpy as np
-import onnxruntime as ort
 import torch
 
 
@@ -271,16 +270,6 @@ def get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us, scale: float = 1000.0, lo
 
     # Return position as numpy array and orientation as Euler angles
     return pos_np, euler_angles
-
-
-def load_onnx_model(model_path):
-    """Load the ACT ONNX model."""
-    providers = ["CUDAExecutionProvider"] if ort.get_device() == "GPU" else ["CPUExecutionProvider"]
-    print(f"Using providers: {providers}")
-    # Create an InferenceSession with GPU support
-    session = ort.InferenceSession(model_path, providers=providers)
-    print(f"session using: {session.get_providers()}")
-    return session
 
 
 def reset_organ_to_position(env, object_position, device="cuda:0"):

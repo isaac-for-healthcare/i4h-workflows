@@ -40,7 +40,7 @@ pushd "$COSMOS_TRANSFER_DIR"
 git checkout bf54a70a8c44d615620728c493ee26b4376ccfd6
 git submodule update --init --recursive
 $PYTHON_EXECUTABLE -m pip install -r requirements.txt
-MAX_JOBS=2 $PYTHON_EXECUTABLE -m pip install transformer-engine[pytorch]==1.12.0
+MAX_JOBS=2 $PYTHON_EXECUTABLE -m pip install --no-build-isolation transformer-engine[pytorch]==1.12.0
 $PYTHON_EXECUTABLE -m pip install tensorstore==0.1.74
 
 $PYTHON_EXECUTABLE scripts/test_environment.py

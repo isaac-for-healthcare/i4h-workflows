@@ -14,14 +14,25 @@ To build the docker image, you will need to set up the SSH agent and add your SS
 export DOCKER_BUILDKIT=1
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key
-docker build --ssh default -f workflows/robotic_surgery/docker/Dockerfile -t robotic_surgery:latest .
+docker build --ssh default -f workflows/robotic_ultrasound/docker/Dockerfile -t robot_us:latest .
 ```
+
+## Prepare the RTI License Locally
+
+Please refer to the [Environment Setup](../README.md#environment-setup) for instructions to prepare the I4H assets and RTI license locally.
+
+The license file `rti_license.dat` should be saved in a directory in your host file system, (e.g. `~/docker/rti`), which can be mounted to the docker container.
 
 ## Run the Container
 
+Since we need to run multiple instances (policy runner, simulation, etc.), we need to use `-d` to run the container in detached mode.
+
 ```bash
-docker run --name isaac-sim --entrypoint bash -it --runtime=nvidia --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
+xhost +local:docker
+docker run --name isaac-sim --entrypoint bash -itd --runtime=nvidia --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
+    -e DISPLAY=$DISPLAY \
     -e "PRIVACY_CONSENT=Y" \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
     -v ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw \
     -v ~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw \
@@ -31,22 +42,24 @@ docker run --name isaac-sim --entrypoint bash -it --runtime=nvidia --gpus all -e
     -v ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw \
     -v ~/docker/isaac-sim/documents:/root/Documents:rw \
     -v ~/.cache/i4h-assets:/root/.cache/i4h-assets:rw \
-    robotic_surgery:latest
+    -v ~/docker/rti:/root/rti:ro \
+    robot_us:latest
 ```
 
-### Run the Simulation
+### Run Policy
 
-In the container, run the simulation with `--livestream 2` to stream the simulation to the local machine. For example, to run the `reach_psm_sm.py` script, run the following command:
+```bash
+docker exec -it isaac-sim bash
+# Inside the container, run the policy
+python policy_runner/run_policy.py
+```
+
+The policy runner will be running in an environment managed by `uv` located in `/workspace/openpi/.venv`.
+
+### Run Simulation
 
 ```bash
 docker exec -it isaac-sim bash
 # Inside the container, run the simulation
-python simulation/scripts/environments/state_machine/reach_psm_sm.py --livestream 2
+python simulation/environments/sim_with_dds.py --enable_camera --livestream 2
 ```
-
-Please refer to the [simulation README](../scripts/simulation/README.md) for other examples.
-
-
-### Open the WebRTC Client
-
-Wait for the simulation to start (you should see the message "Resetting the state machine" when the simulation is ready), and open the WebRTC client to view the simulation.
