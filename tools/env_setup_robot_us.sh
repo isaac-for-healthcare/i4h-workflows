@@ -80,7 +80,6 @@ fi
 # ---- Install necessary dependencies (Common) ----
 echo "Installing necessary dependencies..."
 pip install rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
-    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0 \
     setuptools==75.8.0 pydantic==2.10.6 \
     --extra-index-url https://pypi.nvidia.com
 
@@ -98,15 +97,7 @@ bash "$PROJECT_ROOT/tools/env_setup/install_robotic_us_ext.sh"
 
 # ---- Install lerobot (Common) ----
 echo "Installing lerobot..."
-git clone https://github.com/huggingface/lerobot.git $PROJECT_ROOT/third_party/lerobot
-pushd $PROJECT_ROOT/third_party/lerobot
-git checkout 6674e368249472c91382eb54bb8501c94c7f0c56
-
-# Update pyav dependency in pyproject.toml
-sed -i 's/pyav/av/' pyproject.toml
-
-pip install -e .
-popd
+bash "$PROJECT_ROOT/tools/env_setup/install_lerobot.sh"
 
 
 # ---- Install PI0 Policy Dependencies (Conditional) ----
@@ -123,12 +114,19 @@ if [[ "$INSTALL_WITH_POLICY" == "gr00tn1" ]]; then
 fi
 
 
+# for holoscan and cosmos transfer1, we need to install the following conda packages:
+conda install -c conda-forge ninja libgl ffmpeg pybind11 gcc=12.4.0 gxx=12.4.0 libstdcxx-ng=12.4.0 -y
+
+
 # ---- Install Holoscan (Common) ----
 echo "Installing Holoscan..."
 bash "$PROJECT_ROOT/tools/env_setup/install_holoscan.sh"
 
+# ---- Install Cosmos (Common) ----
+echo "Installing Cosmos..."
+bash "$PROJECT_ROOT/tools/env_setup/install_cudnn.sh"
+bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
 
 echo "=========================================="
 echo "Environment setup script finished."
-echo "Selected policy dependencies ($INSTALL_WITH_POLICY) should be installed along with base components."
 echo "=========================================="

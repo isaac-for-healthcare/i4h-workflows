@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
@@ -13,23 +15,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from i4h_asset_helper import BaseI4HAssets
+set -e
 
+# Get the parent directory of the current script
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
-class Assets(BaseI4HAssets):
-    """Assets manager for the robotic surgery workflow."""
+# Allow setting the python in PYTHON_EXECUTABLE
+PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
-    dVRK_ECM = "Robots/dVRK/ECM/ecm.usd"
-    dVRK_PSM = "Robots/dVRK/PSM/psm.usd"
-    STAR = "Robots/STAR/star.usd"
-    Board = "Props/Board/board.usd"
-    Block = "Props/PegBlock/block.usd"
-    Needle = "Props/SutureNeedle/needle.usd"
-    Needle_SDF = "Props/SutureNeedle/needle_sdf.usd"
-    SuturePad = "Props/SuturePad/suture_pad.usd"
-    Table = "Props/Table/table.usd"
-    Organs = "Props/Organs/organs.usd"
+LEROBOT_DIR=${1:-$PROJECT_ROOT/third_party/lerobot}
 
+echo "Installing lerobot..."
+git clone https://github.com/huggingface/lerobot.git $LEROBOT_DIR
+pushd $LEROBOT_DIR
+git checkout 6674e368249472c91382eb54bb8501c94c7f0c56
 
-# singleton object for the assets
-robotic_surgery_assets = Assets()
+# Update pyav dependency in pyproject.toml
+sed -i 's/pyav/av/' pyproject.toml
+
+$PYTHON_EXECUTABLE -m pip install -e .
+popd
+
+echo "Lerobot installed successfully!"

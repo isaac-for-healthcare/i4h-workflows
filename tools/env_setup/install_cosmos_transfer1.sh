@@ -21,15 +21,10 @@ set -e
 # Assuming this script is in tools/env_setup/
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
-# Source utility functions
-source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
+# Allow setting the python in PYTHON_EXECUTABLE
+PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
-check_project_root
-check_conda_env
-
-conda install -c conda-forge ninja libgl ffmpeg gcc=12.4.0 gxx=12.4.0 -y
-
-COSMOS_TRANSFER_DIR="$PROJECT_ROOT/third_party/cosmos-transfer1"
+COSMOS_TRANSFER_DIR=${1:-$$PROJECT_ROOT/third_party/cosmos-transfer1}
 
 if [ -d "$COSMOS_TRANSFER_DIR" ]; then
     echo "Cosmos Transfer directory already exists at $COSMOS_TRANSFER_DIR. Skipping clone."
@@ -41,13 +36,11 @@ fi
 pushd "$COSMOS_TRANSFER_DIR"
 git checkout bf54a70a8c44d615620728c493ee26b4376ccfd6
 git submodule update --init --recursive
-pip install -r requirements.txt
-# Patch Transformer engine linking issues in conda environments.
-ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/
-ln -sf $CONDA_PREFIX/lib/python3.10/site-packages/nvidia/*/include/* $CONDA_PREFIX/include/python3.10
-pip install transformer-engine[pytorch]==1.12.0
+$PYTHON_EXECUTABLE -m pip install -r requirements.txt
+MAX_JOBS=2 $PYTHON_EXECUTABLE -m pip install --no-build-isolation transformer-engine[pytorch]==1.12.0
+$PYTHON_EXECUTABLE -m pip install tensorstore==0.1.74
 
-CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/test_environment.py
+$PYTHON_EXECUTABLE scripts/test_environment.py
 popd
 
 echo "Cosmos Transfer Dependencies Installation Finished"
