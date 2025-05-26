@@ -11,8 +11,7 @@ Please ensure these are installed.
 ## Run the scripts
 
 ```sh
-# TODO: no need to specify usd path after including it into i4h-assets
-python teleoperate_mira_arm.py --usd_path <path-to-usd>/mira-bipo-size-experiment-smoothing.usd
+python teleoperate_mira_arm.py
 ```
 
 ### Teleoperation Methods
