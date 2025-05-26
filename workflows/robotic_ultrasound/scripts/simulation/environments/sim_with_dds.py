@@ -16,11 +16,11 @@
 import argparse
 import collections
 import os
+from pathlib import Path
 
 import gymnasium as gym
 import numpy as np
 import torch
-from pathlib import Path
 from dds.publisher import Publisher
 from dds.schemas.camera_info import CameraInfo
 from dds.schemas.franka_ctrl import FrankaCtrlInput
@@ -272,9 +272,6 @@ def main():
 
     # Number of steps played before replanning
     replan_steps = 5
-    import time
-
-    time.sleep(10)
 
     if reset_to_recorded_data:
         total_episodes = validate_hdf5_path(args_cli.hdf5_path)
@@ -365,9 +362,13 @@ def main():
                         f"robot_obs shape: {robot_obs.shape}, saved to {args_cli.hdf5_path}/robot_obs_{episode_idx}.npz"
                     )
                     if args_cli.hdf5_path.endswith(".hdf5"):
-                        save_path = os.path.join(Path(args_cli.hdf5_path).parent, f"{args_cli.npz_prefix}_robot_obs_{episode_idx}.npz")
+                        save_path = os.path.join(
+                            Path(args_cli.hdf5_path).parent, f"{args_cli.npz_prefix}_robot_obs_{episode_idx}.npz"
+                        )
                     else:
-                        save_path = os.path.join(args_cli.hdf5_path, f"{args_cli.npz_prefix}_robot_obs_{episode_idx}.npz")
+                        save_path = os.path.join(
+                            args_cli.hdf5_path, f"{args_cli.npz_prefix}_robot_obs_{episode_idx}.npz"
+                        )
                     np.savez(save_path, robot_obs=robot_obs.cpu().numpy())
 
                     if episode_idx + 1 >= total_episodes:

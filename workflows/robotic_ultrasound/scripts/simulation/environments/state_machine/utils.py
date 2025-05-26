@@ -350,7 +350,17 @@ def reset_scene_to_initial_state(
     joint_state_key: str,
     joint_vel_key: str,
 ):
-    """Reset the scene to the initial state."""
+    """Reset the scene to the initial state.
+
+    Args:
+        env: The environment object.
+        hdf5_path: The path to the HDF5 file or directory.
+        episode_idx: The index of the episode.
+        action_key: The key to the action data.
+        torso_obs_key: The key to the torso observation data.
+        joint_state_key: The key to the joint state data.
+        joint_vel_key: The key to the joint velocity data.
+    """
 
     actions = _load_hdf5_dataset(hdf5_path, episode_idx, action_key)
     object_position = _load_hdf5_dataset(hdf5_path, episode_idx, torso_obs_key)
