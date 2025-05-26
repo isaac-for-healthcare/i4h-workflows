@@ -242,13 +242,17 @@ Optionally, the simulator supports customization through JSON configuration file
 
 ```json
 {
+    "probe_type": "curvilinear",  // or "linear"
     "probe_params": {
-        "num_elements": 4096,
+        "num_elements": 256,
         "opening_angle": 73.0,
         "radius": 45.0,
         "frequency": 2.5,
         "elevational_height": 7.0,
-        "num_el_samples": 10
+        "num_el_samples": 1,
+        "f_num": 1.0,
+        "speed_of_sound": 1.54,
+        "pulse_duration": 2.0
     },
     "sim_params": {
         "conv_psf": true,
@@ -262,12 +266,15 @@ Optionally, the simulator supports customization through JSON configuration file
 
 | Parameter | Description | Default Value |
 |-----------|-------------|---------------|
-| num_elements | Number of elements in the ultrasound probe | 4096 |
-| opening_angle | Beam opening angle in degrees | 73.0 |
-| radius | Radius of the ultrasound probe in mm | 45.0 |
+| num_elements | Number of elements in the ultrasound probe | 256 |
+| opening_angle | Beam opening angle in degrees | 73.0 (curvilinear) / 0.0 (linear) |
+| radius | Radius of the ultrasound probe in mm | 45.0 (curvilinear) / 0.0 (linear) |
 | frequency | Ultrasound frequency in MHz | 2.5 |
 | elevational_height | Height of the elevation plane in mm | 7.0 |
-| num_el_samples | Number of samples in the elevation direction | 10 |
+| num_el_samples | Number of samples in the elevation direction | 1 |
+| f_num | F-number (unitless) | 1.0 |
+| speed_of_sound | Speed of sound in mm/us | 1.54 |
+| pulse_duration | Pulse duration in cycles | 2.0 |
 
 ##### Simulation Parameters
 
@@ -283,6 +290,7 @@ You only need to specify the parameters you want to change - any omitted paramet
 
 ```json
 {
+    "probe_type": "linear",
     "probe_params": {
         "frequency": 3.5,
         "radius": 55.0
@@ -324,3 +332,4 @@ To see the ultrasound probe moving, please ensure the `topic_ultrasound_info` is
 | --topic_out | Topic name to publish generated ultrasound data | topic_ultrasound_data |
 | --config | Path to custom JSON configuration file with probe parameters and simulation parameters | None |
 | --period | Period of the simulation (in seconds) | 1/30.0 (30 Hz) |
+| --probe_type | Type of ultrasound probe to use ("curvilinear" or "linear") | "curvilinear" |
