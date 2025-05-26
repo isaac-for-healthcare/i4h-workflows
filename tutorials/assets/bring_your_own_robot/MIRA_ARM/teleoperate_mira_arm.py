@@ -13,33 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse
-
 from isaaclab.app import AppLauncher
-
-# TODO: remove this after including it into i4h-assets
-# from i4h_asset_helper import BaseI4HAssets
+from i4h_asset_helper import BaseI4HAssets
 
 
-# class MyAssets(BaseI4HAssets):
-#     """Assets manager for the your workflow."""
-#     MIRA_ARM = "Robots/MIRA_ARM/mira-bipo-size-experiment-smoothing.usd"
+class Assets(BaseI4HAssets):
+    """Assets manager for the your workflow."""
+    MIRA_ARM = "Robots/MIRA/mira-bipo-size-experiment-smoothing.usd"
 
 
 def main():
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Operate MIRA arm with keyboard in Isaac Sim.")
-    parser.add_argument("--usd_path", type=str, required=True, help="Absolute path to the USD scene file.")
-    args = parser.parse_args()
-
     # Launch Isaac Sim app and load the USD stage
     app_launcher = AppLauncher(headless=False)
     simulation_app = app_launcher.app
 
-    # TODO: remove this after including it into i4h-assets
-    # Import the assets
-    # my_assets = MyAssets()
-    # usd_path = my_assets.MIRA_ARM
+    my_assets = Assets()
+    usd_path = my_assets.MIRA_ARM
 
     # Import required modules after app is launched
     import carb
@@ -48,7 +37,7 @@ def main():
     import omni.usd
     from pxr import UsdPhysics
 
-    omni.usd.get_context().open_stage(args.usd_path)
+    omni.usd.get_context().open_stage(usd_path)
 
     # --- Define joint paths directly using strings ---
     # Define the common root path for the robot model in the USD stage
