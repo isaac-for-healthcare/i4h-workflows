@@ -60,6 +60,63 @@ def requires_cosmos_transfer1(func):
     )(func)
 
 
+def _get_max_gpu_memory_mib():
+    """
+    Gets the maximum total memory of any single GPU in MiB using nvidia-smi.
+    Returns 0 if nvidia-smi fails or no GPUs are found.
+    """
+    try:
+        result = subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+            encoding="utf-8",
+            stderr=subprocess.DEVNULL,
+        )
+        lines = result.splitlines()
+        gpu_memories_mib = []
+        for line in lines:
+            stripped_line = line.strip()
+            if stripped_line:
+                try:
+                    gpu_memories_mib.append(int(stripped_line))
+                except ValueError as e_inner:
+                    print(f"Warning: Could not parse line '{stripped_line}' as int. Error: {e_inner}")
+        if not gpu_memories_mib:
+            return 0
+        return max(gpu_memories_mib)
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        print(f"Warning: Could not query GPU memory using nvidia-smi: {e}. Assuming 0 MiB GPU RAM.")
+        return 0
+    except Exception as e_generic:
+        print(f"Warning: An unexpected error occurred while parsing GPU memory: {e_generic}. Assuming 0 MiB GPU RAM.")
+        return 0
+
+
+def requires_gpu_memory(min_gib: int = 25):
+    """
+    Decorator to skip a test if the maximum available GPU memory on a single GPU
+    is less than min_gib.
+
+    Args:
+        min_gib: The minimum required GPU memory in GiB.
+    """
+
+    def decorator(func):
+        min_mem_mib_required = min_gib * 1024  # Convert GiB to MiB
+        max_available_gpu_mem_mib = _get_max_gpu_memory_mib()
+        condition_to_run_test = max_available_gpu_mem_mib >= min_mem_mib_required
+
+        if not condition_to_run_test:
+            reason = (
+                f"Test requires a GPU with at least {min_gib}GiB of memory. "
+                f"Max available on a single GPU: {max_available_gpu_mem_mib}MiB."
+            )
+            return skipUnless(condition_to_run_test, reason)(func)
+
+        return func
+
+    return decorator
+
+
 def monitor_output(process, found_event, target_line=None):
     """Monitor process output for target_line and set event when found."""
     try:

@@ -24,7 +24,7 @@ import numpy as np
 import torch
 from cosmos_transfer1.checkpoints import BASE_7B_CHECKPOINT_PATH
 from cosmos_transfer1.diffusion.inference.inference_utils import validate_controlnet_specs
-from helpers import get_md5_checksum, requires_cosmos_transfer1
+from helpers import get_md5_checksum, requires_cosmos_transfer1, requires_gpu_memory
 from huggingface_hub import snapshot_download
 from simulation.environments.cosmos_transfer1.guided_generation_pipeline import (
     DiffusionControl2WorldGenerationPipelineWithGuidance,
@@ -64,6 +64,7 @@ def download_checkpoint(checkpoint: str, output_dir: str) -> None:
 
 
 @requires_cosmos_transfer1
+@requires_gpu_memory(min_gib=25)
 class TestCosmosTransfer1Integration(unittest.TestCase):
     """Test cases for the test cosmos-transfer1 integration."""
 
