@@ -108,8 +108,18 @@ parser.add_argument(
     "--scale", type=float, default=1000.0, help="Scale factor to convert from omniverse to organ coordinate system."
 )
 parser.add_argument("--chunk_length", type=int, default=50, help="Length of the action chunk inferred by the policy.")
-parser.add_argument("--hdf5_path", type=str, default=None, help="Path to .hdf5 file containing recorded data.")
-parser.add_argument("--npz_prefix", type=str, default="", help="prefix to save the data.")
+parser.add_argument(
+    "--hdf5_path",
+    type=str,
+    default=None,
+    help="Path to single .hdf5 file or directory containing recorded data for environment reset.",
+)
+parser.add_argument(
+    "--npz_prefix",
+    type=str,
+    default="",
+    help="prefix to save the end-effector trajectory data during evaluation, only used when hdf5_path is provided.",
+)
 
 # append AppLauncher cli argruments
 AppLauncher.add_app_launcher_args(parser)

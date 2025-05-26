@@ -9,6 +9,7 @@
   - [Liver Scan State Machine](#liver-scan-state-machine)
   - [Teleoperation](#teleoperation)
   - [Ultrasound Raytracing Simulation](#ultrasound-raytracing-simulation)
+  - [Trajectory Evaluation](#trajectory-evaluation)
 
 ## Installation
 
@@ -37,11 +38,11 @@ Currently there are these robot configurations that can be used in various tasks
 ### PI Zero Policy Evaluation
 Set up `openpi` referring to [PI0 runner](../policy_runner/README.md).
 
-### Ensure the PYTHONPATH Is Set
+#### Ensure the PYTHONPATH Is Set
 
 Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
 
-### Run the script
+#### Run the script
 
 Please move to the current [`simulation` folder](./) and execute:
 
@@ -60,17 +61,35 @@ and the same `domain id` as this example in another terminal.
 
 When `run_policy.py` is launched and idle waiting for the data,
 
-### Ensure the PYTHONPATH Is Set
+#### Ensure the PYTHONPATH Is Set
 
 Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
 
-### Run the script
+#### Run the script
 
 Please move to the current [`simulation` folder](./) and execute:
 
 ```sh
 python environments/sim_with_dds.py --enable_cameras
 ```
+
+#### Evaluating with Recorded Initial States and Saving Trajectories
+
+The `sim_with_dds.py` script can also be used for more controlled evaluations by resetting the environment to initial states from recorded HDF5 data. When doing so, it can save the resulting end-effector trajectories.
+
+- **`--hdf5_path /path/to/your/data.hdf5`**: Provide the path to an HDF5 file (or a directory containing HDF5 files for multiple episodes). The simulation will reset the environment to the initial state(s) found in this data for each episode.
+- **`--npz_prefix your_prefix_`**: When `--hdf5_path` is used, this argument specifies a prefix for the names of the `.npz` files where the simulated end-effector trajectories (robot observations) will be saved. Each saved file will be named like `your_prefix_robot_obs_{episode_idx}.npz` and stored in the same directory as the input HDF5 file (if `--hdf5_path` is a file) or within the `--hdf5_path` directory (if it's a directory).
+
+**Example:**
+
+```sh
+python environments/sim_with_dds.py \
+    --enable_cameras \
+    --hdf5_path /mnt/hdd/cosmos/heldout-test50/data_0.hdf5 \
+    --npz_prefix pi0-800_
+```
+
+This command will load the initial state from `data_0.hdf5`, run the simulation (presumably interacting with a policy via DDS), and save the resulting trajectory to a file like `pi0-800_robot_obs_0.npz` in the `/mnt/hdd/cosmos/heldout-test50/` directory.
 
 ### Liver Scan State Machine
 
@@ -324,3 +343,62 @@ To see the ultrasound probe moving, please ensure the `topic_ultrasound_info` is
 | --topic_out | Topic name to publish generated ultrasound data | topic_ultrasound_data |
 | --config | Path to custom JSON configuration file with probe parameters and simulation parameters | None |
 | --period | Period of the simulation (in seconds) | 1/30.0 (30 Hz) |
+
+### Trajectory Evaluation
+
+After running simulations and collecting predicted trajectories (e.g., using `sim_with_dds.py` with the `--hdf5_path` and `--npz_prefix` arguments, or from other policy rollouts), you can use the `evaluate_trajectories.py` script to compare these predictions against ground truth trajectories.
+
+This script is located at `environments/evaluate_trajectories.py`.
+
+#### Overview
+
+The script performs the following main functions:
+
+1.  **Loads Data**: Reads ground truth trajectories from HDF5 files and predicted trajectories from `.npz` files based on configured file patterns.
+2.  **Computes Metrics**: For each episode and each prediction source, it calculates:
+    *   **Success Rate**: The percentage of ground truth points that are within a specified radius of any point in the predicted trajectory.
+    *   **Average Minimum Distance**: The average distance from each ground truth point to its nearest neighbor in the predicted trajectory.
+3.  **Generates Plots**:
+    *   Individual 3D trajectory plots comparing the ground truth and a specific prediction for each episode.
+    *   A summary plot showing the mean success rate versus different radius, including 95% confidence intervals, comparing all configured prediction methods.
+
+#### Usage
+
+Ensure your `PYTHONPATH` is set up correctly.
+
+Navigate to the `scripts/simulation/` folder and execute:
+
+```sh
+python environments/evaluate_trajectories.py
+```
+
+#### Configuration
+
+The primary configuration for this script is done by modifying the global variables at the top of the `environments/evaluate_trajectories.py` file:
+
+- **`episode`**: The number of episodes to process.
+- **`data_root`**: The root directory where your HDF5 ground truth files (e.g., `data_{e}.hdf5`) and predicted `.npz` trajectory files are located or will be organized into subdirectories.
+- **`DEFAULT_RADIUS_FOR_PLOTS`**: The radius used for calculating the success rate reported in the titles of individual 3D trajectory plots.
+- **`saved_compare_name`**: The filename for the summary plot (success rate vs. radius).
+- **`PREDICTION_SOURCES`**: A dictionary defining the different prediction methods to evaluate. Each entry requires:
+    - `file_pattern`: A string pattern for the predicted trajectory `.npz` files (e.g., `"my_model_run1/pred_traj_{e}.npz"`). The `{e}` will be replaced with the episode number.
+    - `label`: A descriptive label for the legend in plots.
+    - `color`: A color for this method in the plots.
+
+**Example `PREDICTION_SOURCES` entry:**
+```python
+PREDICTION_SOURCES = {
+    "MyModelV1": {
+        "file_pattern": "model_v1_outputs/robot_obs_{e}.npz",
+        "label": "My Model Version 1",
+        "color": "blue"
+    },
+    "BaselineModel": {
+        "file_pattern": "baseline_outputs/robot_obs_{e}.npz",
+        "label": "Baseline",
+        "color": "orange"
+    }
+}
+```
+
+The script expects predicted trajectory files to be found at `data_root/file_pattern`.
