@@ -1,4 +1,4 @@
-# MIRA ARM Teleoperation Tutorial
+# [Virtual Incision MIRA](https://virtualincision.com/mira/) Teleoperation Tutorial
 
 ## Environment Setup
 
