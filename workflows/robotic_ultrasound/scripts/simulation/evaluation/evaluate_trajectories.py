@@ -150,12 +150,12 @@ if __name__ == "__main__":
 
     PREDICTION_SOURCES = {
         "WCOS": {
-            "file_pattern": "placeholder1",
+            "file_pattern": "800/pi0-800_robot_obs_{e}.npz",
             "label": "With COSMOS Prediction",
             "color": "red"
         },
         "WOCOS": {
-            "file_pattern": "placeholder2",
+            "file_pattern": "400/pi0-400_robot_obs_{e}.npz",
             "label": "Without COSMOS Prediction",
             "color": "green"
         }
