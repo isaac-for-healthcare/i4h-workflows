@@ -18,26 +18,22 @@
 set -e
 
 # Get the parent directory of the current script
-# Assuming this script is in tools/env_setup/
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
 # Allow setting the python in PYTHON_EXECUTABLE
 PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
-EXTS_DIR=${1:-$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation}
+LEROBOT_DIR=${1:-$PROJECT_ROOT/third_party/lerobot}
 
-echo "--- Installing Robotic Ultrasound Extensions and Dependencies ---"
+echo "Installing lerobot..."
+git clone https://github.com/huggingface/lerobot.git $LEROBOT_DIR
+pushd $LEROBOT_DIR
+git checkout 6674e368249472c91382eb54bb8501c94c7f0c56
 
-# ---- Install robotic ultrasound extension ----
-echo "Installing actual robotic ultrasound extension..."
-pushd "$EXTS_DIR"
-# Ensure the target directory exists before installing
-if [ -d "exts/robotic_us_ext" ]; then
-    $PYTHON_EXECUTABLE -m pip install --no-build-isolation -e exts/robotic_us_ext
-else
-    echo "Error: robotic_us_ext directory not found in ${EXTS_DIR}/exts/"
-    exit 1 # Exit if not found
-fi
+# Update pyav dependency in pyproject.toml
+sed -i 's/pyav/av/' pyproject.toml
+
+$PYTHON_EXECUTABLE -m pip install -e .
 popd
 
-echo "--- Robotic Ultrasound Extensions and Dependencies Installation Finished ---"
+echo "Lerobot installed successfully!"
