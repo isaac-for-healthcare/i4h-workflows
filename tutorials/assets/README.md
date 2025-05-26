@@ -9,7 +9,7 @@ This directory contains tutorials for integrating and teleoperating your own rob
 ### Available Tutorials
 
 - [MIRA ARM Teleoperation](./bring_your_own_robot/MIRA_ARM/README.md)
-  Learn how to teleoperate the MIRA ARM robot in Isaac Sim using keyboard controls.
+  Learn how to teleoperate the [Virtual Incision MIRA](https://virtualincision.com/mira/) robot in Isaac Sim using keyboard controls.
 
 - [Replace Franka Hand with Ultrasound Probe](./bring_your_own_robot/replace_franka_hand_with_ultrasound_probe.md)
   Step-by-step guide to replacing the Franka robot’s hand with an ultrasound probe in Isaac Sim, including CAD/URDF conversion, asset import, and joint setup for custom robotic ultrasound simulation.
