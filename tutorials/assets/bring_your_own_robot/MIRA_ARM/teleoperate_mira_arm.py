@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from isaaclab.app import AppLauncher
 from i4h_asset_helper import BaseI4HAssets
+from isaaclab.app import AppLauncher
 
 
 class Assets(BaseI4HAssets):
     """Assets manager for the your workflow."""
+
     MIRA_ARM = "Robots/MIRA/mira-bipo-size-experiment-smoothing.usd"
 
 
