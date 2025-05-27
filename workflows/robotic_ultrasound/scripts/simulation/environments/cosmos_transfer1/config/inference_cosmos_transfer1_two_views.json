@@ -1,0 +1,15 @@
+{
+    "prompt": "environments/cosmos_transfer1/config/generated_prompts_two_seperate_views.json",
+    "input_video_path" : "placeholder_not_needed.mp4",
+    "edge": {
+        "control_weight": 0.5
+    },
+    "depth": {
+        "control_weight": 0.75,
+        "input_control": "placeholder_not_needed.mp4"
+    },
+    "seg": {
+        "control_weight": 0.75,
+        "input_control": "placeholder_not_needed.mp4"
+    }
+}
