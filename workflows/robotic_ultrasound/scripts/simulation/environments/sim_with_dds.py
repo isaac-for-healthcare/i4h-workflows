@@ -264,7 +264,7 @@ def main():
 
             for t in range(max_timesteps):
                 # get and publish the current images and joint positions
-                rgb_images, depth_images = capture_camera_images(
+                rgb_images, depth_images, _ = capture_camera_images(
                     env, ["room_camera", "wrist_camera"], device=env.unwrapped.device
                 )
                 pub_data["room_cam"], pub_data["room_cam_depth"] = (
