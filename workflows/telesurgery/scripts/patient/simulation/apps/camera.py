@@ -15,15 +15,15 @@ class App(Application):
         height: int,
         dds_domain_id,
         dds_topic,
-        jpeg_compress,
-        jpeg_quality,
+        encoder,
+        encoder_params,
     ):
         self.width = width
         self.height = height
         self.dds_domain_id = dds_domain_id
         self.dds_topic = dds_topic
-        self.jpeg_compress = jpeg_compress
-        self.jpeg_quality = jpeg_quality
+        self.encoder = encoder
+        self.encoder_params = encoder_params
 
         self.source: IsaacSimCameraSourceOp | None = None
 
@@ -46,8 +46,8 @@ class App(Application):
         jpeg = NVJpegEncoderOp(
             self,
             name="nvjpeg_encoder",
-            skip=not self.jpeg_compress,
-            quality=self.jpeg_quality,
+            skip=self.encoder != "nvjpeg",
+            quality=self.encoder_params.get("quality", 90),
         )
 
         dds = DDSPublisherOp(

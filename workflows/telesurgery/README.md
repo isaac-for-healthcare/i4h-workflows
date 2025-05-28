@@ -45,9 +45,13 @@
    ```
 5. Set environment variables:
    ```bash
-   export PYTHONPATH=`<path-to-i4h-workflows>/workflows/telesurgery/scripts`
+   export I4H_WORKFLOWS_DIR=<path-to-i4h-workflows>
    export RTI_LICENSE_FILE=<path-to-rti-license-file>
-   ```
+
+   export I4H_TELESURGERY_DIR=$I4H_WORKFLOWS_DIR/workflows/telesurgery
+   export PYTHONPATH=$I4H_TELESURGERY_DIR/scripts
+   export NDDS_QOS_PROFILES=$I4H_TELESURGERY_DIR/scripts/dds/qos_profile.xml
+    ```
 
 ## Environment Setup
 
@@ -68,12 +72,29 @@ Install CUDA from [NVIDIA CUDA Quick Start Guide](https://docs.nvidia.com/cuda/c
 #### 3. Obtain RTI DDS License
 RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
 
-#### 4. Install Dependencies
+#### 4. Optional - NTP Server
+```bash
+# run your own NTP server in background
+docker run -d --name ntp-server --restart=always -p 123:123/udp cturra/ntp
+
+# check if it's running
+docker logs ntp-server
+
+# fix server ip in env.sh for NTP Server
+export NTP_SERVER_HOST=10.111.66.170
+
+# stop
+# docker stop ntp-server && docker rm ntp-server
+```
+
+
+
 
 ##### Create Conda Environment
 ```bash
 # Create a new conda environment
 conda create -n telesurgery python=3.10 -y
+
 # Activate the environment
 conda activate telesurgery
 ```
@@ -86,12 +107,13 @@ The main script `tools/env_setup_telesurgery.sh` installs all necessary dependen
 - IsaacLab 2.0.2
 - Holoscan 3.2.0
 - Essential build tools and libraries
-- NVJpeg
+- NvJpeg
 
 ### Asset Setup
 
 Download the required assets using:
 ```bash
+export ISAAC_ASSET_SHA256_HASH=8e80faed126c533243f50bb01dca3dcf035e86b5bf567d622878866a8ef7f12d
 i4h-asset-retrieve
 ```
 
@@ -103,7 +125,7 @@ This will download assets to `~/.cache/i4h-assets/<sha256>`. For more details, r
 
 Before running any scripts, you need to set up the following environment variables:
 
-1. **PYTHONPATH**: Set this to point to the scripts directory:
+1. **PYTHONPATH**: Set this to point to the **scripts** directory:
    ```bash
    export PYTHONPATH=<path-to-i4h-workflows>/workflows/telesurgery/scripts
    ```
@@ -118,12 +140,27 @@ Before running any scripts, you need to set up the following environment variabl
 More recommended variables can be found in [env.sh](./scripts/env.sh)
 
 ## Running the Workflow
+```bash
+cd <path-to-i4h-workflows>/workflows/telesurgery/scripts
+source env.sh
+```
+### [Option-1] Patient in Physical World:
+```bash
+# stream camera out
+python patient/physical/camera.py
+```
 
-The robotic ultrasound workflow provides several example scripts demonstrating different components:
+### [Option-2] Patient in Simulation World:
+```bash
+python patient/simulation/mira.py
+```
 
-- [Patient in simulation world](./scripts/holoscan_apps)
-- [Patient in physical world](./scripts/policy_runner)
-- [Surgeon](./scripts/simulation)
+### Surgeon connecting to Patient
+```bash
+# capture camera stream
+python python surgeon/camera.py
+```
+
 
 ### Important Notes
 1. You may need to run multiple scripts simultaneously in different terminals

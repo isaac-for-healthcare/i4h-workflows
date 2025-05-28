@@ -42,8 +42,12 @@ fi
 
 # ---- Install IsaacSim and IsaacLab (Common) ----
 # Check if IsaacLab is already cloned
-echo "Installing IsaacSim and IsaacLab..."
-bash $PROJECT_ROOT/tools/env_setup/install_isaac.sh
+if [[ "$(uname -m)" == x86_64 ]]; then
+    echo "Installing IsaacSim and IsaacLab... (only for x86)"
+    bash $PROJECT_ROOT/tools/env_setup/install_isaac.sh
+else
+    echo "Platform is not x86_64; Skip IsaacSim/IsaacLab"
+fi
 
 # ---- Install necessary dependencies (Common) ----
 echo "Installing necessary dependencies..."
