@@ -1,0 +1,24 @@
+{
+	"operator": {
+		"name": "RealsenseCameraDDSOp",
+		"authors": [
+			{
+				"name": "Holoscan Team",
+				"affiliation": "NVIDIA"
+			}
+		],
+		"language": ["Python"],
+		"version": "0.1.0",
+		"changelog": {
+			"0.1.0": "Initial Release"
+		},
+		"holoscan_sdk": {
+			"minimum_required_version": "2.1.0",
+			"tested_versions": ["2.1.0"]
+		},
+		"platforms": ["x86_64", "aarch64"],
+		"tags": ["Robotics", "DDS"],
+		"ranking": 0,
+		"dependencies": {}
+	}
+}

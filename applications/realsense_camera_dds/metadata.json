@@ -1,0 +1,32 @@
+{
+	"application": {
+		"name": "realsense_camera_dds",
+		"authors": [
+			{
+				"name": "Holoscan Team",
+				"affiliation": "NVIDIA"
+			}
+		],
+		"dockerfile": "applications/realsense_camera_dds/Dockerfile",
+		"language": "Python",
+		"version": "1.0",
+		"changelog": {
+			"1.0": "Initial Release"
+		},
+		"holoscan_sdk": {
+			"minimum_required_version": "3.2.0",
+			"tested_versions": [
+				"3.2.0"
+			]
+		},
+		"platforms": ["x86_64", "aarch64"],
+		"tags": ["Computer Vision and Perception", "Video"],
+		"ranking": 0,
+		"dependencies": {
+		},
+		"run": {
+			"command": "python3 camera.py",
+			"workdir": "holohub_app_source"
+		}
+	}
+}
