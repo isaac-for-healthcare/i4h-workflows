@@ -57,7 +57,4 @@ You can now control the orientation of the camera group using the arrow keys. Th
 
 You can save an image from the endoscopic camera by pressing the `F12` key during simulation. The captured image will be saved as a PNG file in the current working directory (e.g., `camera_snapshot_YYYYMMDD_HHMMSS.png`).
 
-> **Note:**
-> - The first time you press `F12` after starting or resuming the simulation, the snapshot may fail with a message like `No image data available. Make sure simulation is running and camera is active.`
-> - This is normal: the camera pipeline needs one frame to warm up. Simply press `F12` again after a short delay to capture the image successfully.
-> - Camera snapshot is independent of arm or camera group control and always uses the endoscopic camera's current view.
+> **Note:** The first time you press F12 after starting or resuming the simulation, the snapshot may fail with a message like `No image data available. Make sure the simulation is running and the camera is active`. This is normal, as the camera pipeline needs one frame to warm up. Simply press `F12` again after a short delay to capture the image successfully.
