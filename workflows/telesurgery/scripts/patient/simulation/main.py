@@ -36,8 +36,8 @@ def main():
     parser.add_argument("--encoder_params", type=str, default=json.dumps({"quality": 90}), help="encoder params")
     parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
-    parser.add_argument("--hid_domain_id", type=int, default=779, help="dds domain id to recv hid")
-    parser.add_argument("--hid_topic", type=str, default="telesurgery/hid/gamepad", help="dds topic name to recv hid")
+    parser.add_argument("--api_host", type=str, default="0.0.0.0", help="local api server host")
+    parser.add_argument("--api_port", type=int, default=8081, help="local api server port")
     args = parser.parse_args()
 
     app_launcher = AppLauncher(headless=False)
@@ -99,15 +99,15 @@ def main():
 
         print(f"Update ({message['method']}):: Left: {left_pose}; Right: {right_pose}")
 
-    from patient.simulation.annotators.camera import CameraEx
+    from patient.simulation.camera.sensor import CameraEx
 
     camera = CameraEx(prim_path=camera_prim_path, frequency=args.framerate, resolution=(args.width, args.height))
     camera.initialize()
 
     # holoscan app in async mode to consume camera source
-    from patient.simulation.apps.camera import App
+    from patient.simulation.camera.app import App as CameraApp
 
-    camera_app = App(
+    camera_app = CameraApp(
         width=args.width,
         height=args.height,
         encoder=args.encoder,
@@ -118,12 +118,9 @@ def main():
     f1 = camera_app.run_async()
     camera.set_callback(camera_app.on_new_frame_rcvd)
 
-    from patient.simulation.apps.gamepad import App as GamePadApp
-    gamepad_app = GamePadApp(
-        dds_domain_id=args.hid_domain_id,
-        dds_topic=args.hid_topic,
-        callback=on_gamepad_event
-    )
+    from patient.simulation.mira.app import App as MiraApp
+
+    gamepad_app = MiraApp(api_host=args.api_host, api_port=args.api_port, callback=on_gamepad_event)
     f2 = gamepad_app.run_async()
 
     while simulation_app.is_running():

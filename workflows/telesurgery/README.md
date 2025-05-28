@@ -121,25 +121,20 @@ cd <path-to-i4h-workflows>/workflows/telesurgery/scripts
 source env.sh  # Make sure all env variables are correctly set in env.sh
 
 export PATIENT_IP=10.137.145.163
-export MIRA_API_IP=${PATIENT_IP}
 export SURGEON_IP=10.111.66.170
 ```
+> Make sure MIRA API Server is up and running (port: 8081) in case of Physical World.
 
 ### [Option-1] Patient in Physical World:
 ```bash
 # stream camera out
 python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720
 python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080
-
-# accept/subscribe controller commands for gamepad and connect to mira api server
-NDDS_DISCOVERY_PEERS=${SURGEON_IP} python patient/physical/gamepad.py --api_host ${MIRA_API_IP} --api_port 8081
-
-
 ```
 
 ### [Option-2] Patient in Simulation World:
 ```bash
-python patient/simulation/mira.py --domain_id 780
+python patient/simulation/main.py --api_host ${PATIENT_IP} --api_port 8081
 ```
 
 ### Surgeon connecting to Patient
@@ -148,8 +143,8 @@ python patient/simulation/mira.py --domain_id 780
 NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name room --width 1280 --height 720
 NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name robot --width 1280 --height 720
 
-# connect to gamepad controller and publish commands
-python surgeon/gamepad.py
+# connect to gamepad controller and send commands to API Server
+python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
 ```
 
 

@@ -42,7 +42,7 @@ class NVJpegEncoderOp(Operator):
             stream.data = stream.data.tobytes() if isinstance(stream.data, np.ndarray) else stream.data
             stream.compress_ratio = 1
         else:
-            original_len = np.prod(stream.data.shape) if isinstance(stream.data, np.ndarray)  else len(stream.data)
+            original_len = np.prod(stream.data.shape) if isinstance(stream.data, np.ndarray) else len(stream.data)
             stream.data = self.nvjpeg.encode(stream.data, self.quality)
             stream.compress_ratio = original_len / len(stream.data)
         stream.encode_latency = (time.time() - start) * 1000

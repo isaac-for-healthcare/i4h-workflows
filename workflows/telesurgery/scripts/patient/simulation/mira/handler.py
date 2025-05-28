@@ -6,7 +6,7 @@ from holoscan.core import Operator
 from holoscan.core._core import OperatorSpec
 
 
-class ApiControllerOp(Operator):
+class ApiHandlerOp(Operator):
     def __init__(self, fragment, callback, *args, **kwargs):
         self.callback = callback
         super().__init__(fragment, *args, **kwargs)
@@ -40,7 +40,7 @@ class ApiControllerOp(Operator):
     def pos_to_joints_ik(self, delta_x, delta_y, delta_sweep_deg, delta_elbow_deg, L1=400, L2=300):
         delta_j1 = delta_sweep_deg
 
-        delta_r = np.sqrt(delta_x ** 2 + delta_y ** 2)
+        delta_r = np.sqrt(delta_x**2 + delta_y**2)
         direction = np.arctan2(delta_y, delta_x)
 
         # Assume small motion approximation: distribute delta_r into j2 and j3

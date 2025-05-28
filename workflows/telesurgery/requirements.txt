@@ -9,6 +9,7 @@ ntplib
 pygame
 websockets
 websocket-client
+websocket-server
 setuptools
 requests
 
