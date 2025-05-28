@@ -1,6 +1,6 @@
 # [Virtual Incision MIRA](https://virtualincision.com/mira/) Teleoperation Tutorial
 
-This tutorial shows how to teleoperate the [Virtual Incision MIRA](https://virtualincision.com/mira/) robot in Isaac Sim using keyboard controls.
+This tutorial shows how to teleoperate the [Virtual Incision MIRA](https://virtualincision.com/mira/) robot in [Isaac Sim](../../../../docs/source/surgery.png) using keyboard controls.
 
 ## Environment Setup
 
