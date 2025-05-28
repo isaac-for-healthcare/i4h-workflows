@@ -17,7 +17,7 @@ Please ensure these are installed.
 ## Run the scripts
 
 ```sh
-python teleoperate_mira_arm.py
+python teleoperate_virtual_incision_mira.py
 ```
 
 ### Teleoperation Methods

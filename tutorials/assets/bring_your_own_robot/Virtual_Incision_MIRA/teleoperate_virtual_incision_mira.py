@@ -23,14 +23,14 @@ from PIL import Image
 class Assets(BaseI4HAssets):
     """Assets manager for the your workflow."""
 
-    MIRA_ARM = "Robots/MIRA/mira-bipo-size-experiment-smoothing.usd"
+    MIRA = "Robots/MIRA/mira-bipo-size-experiment-smoothing.usd"
 
 
 def main():
     app_launcher = AppLauncher(headless=False)
     simulation_app = app_launcher.app
     my_assets = Assets()
-    usd_path = my_assets.MIRA_ARM
+    usd_path = my_assets.MIRA
 
     # Import Isaac/Omni modules after app launch
     import datetime
