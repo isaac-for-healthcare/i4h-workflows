@@ -145,7 +145,8 @@ python patient/simulation/mira.py
 ### Surgeon connecting to Patient
 ```bash
 # capture camera stream
-NDDS_DISCOVERY_PEERS=${PATIENT_IP} python python surgeon/camera.py --width 1280 --height 720
+NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name room --width 1280 --height 720
+NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name robot --width 1280 --height 720
 
 # connect to gamepad controller and publish commands
 python surgeon/gamepad.py
