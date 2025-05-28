@@ -20,10 +20,13 @@ import ntplib
 
 
 def get_ntp_offset(
-    ntp_server=os.environ.get("NTP_SERVER_HOST", "pool.ntp.org"),
+    ntp_server=os.environ.get("NTP_SERVER_HOST"),
     ntp_port=int(os.environ.get("NTP_SERVER_PORT", "123")),
     version=3,
 ):
+    if not ntp_server:
+        return 0
+
     client = ntplib.NTPClient()
     try:
         response = client.request(ntp_server, port=ntp_port, version=version)

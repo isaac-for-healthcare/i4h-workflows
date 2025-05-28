@@ -32,8 +32,8 @@ fi
 export PYTHONPATH=$SCRIPT_DIR
 
 # Optional: NTP Server to capture time diff between 2 nodes
-export NTP_SERVER_HOST=pool.ntp.org
-export NTP_SERVER_PORT=123
+#export NTP_SERVER_HOST=pool.ntp.org
+#export NTP_SERVER_PORT=123
 
 # Host IP for Patient/Surgeon
 export PATIENT_IP=10.137.145.163

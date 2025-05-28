@@ -22,16 +22,13 @@ import numpy as np
 import websockets  # Required for device communication
 from scipy.spatial.transform import Rotation
 
-websocket = None
 
-
-async def connect(host: str, port: int) -> None:
+async def connect(host: str, port: int):
     """Connect to the api's websocket server."""
-    global websocket
     uri = f"ws://{host}:{port}"
 
     try:
-        websocket = await asyncio.wait_for(
+        return await asyncio.wait_for(
             websockets.connect(uri, ping_interval=None, ping_timeout=None),  # Disable heartbeat  # Disable ping timeout
             timeout=1.0,
         )
@@ -43,8 +40,7 @@ async def connect(host: str, port: int) -> None:
         raise ConnectionError(f"Failed to connect to api: {e}")
 
 
-async def move_to(dx, dy, dz, da, r, left_arm):
-    global websocket
+async def move_to(websocket, dx, dy, dz, da, r, left_arm):
     scale = 700 * r
 
     # The x and y axis should be swapped
@@ -65,8 +61,7 @@ async def move_to(dx, dy, dz, da, r, left_arm):
     await asyncio.sleep(0.01)  # 10ms delay
 
 
-async def move_angle(droll, left_arm):
-    global websocket
+async def move_angle(websocket, droll, left_arm):
     scale = 1
 
     # The x and y axis should be swapped
@@ -89,7 +84,7 @@ async def move_angle(droll, left_arm):
     await asyncio.sleep(0.01)  # 10ms delay
 
 
-async def move_gripper(left_arm, left_grip, right_grip):
+async def move_gripper(websocket, left_arm, left_grip, right_grip):
     if left_arm:
         request = {"jsonrpc": "2.0", "method": "set_left_gripper", "params": 1.0 * left_grip, "id": 1}
     else:
@@ -126,7 +121,6 @@ async def main(uri, api_host, api_port):
     right_grip = 1
 
     # make connection to MIRA server
-    global websocket
     websocket = await connect(api_host, api_port)
     # websocket = await connect("10.137.144.206", "8081")
 
@@ -224,7 +218,7 @@ async def main(uri, api_host, api_port):
                     left_grip = not left_grip
                 else:
                     right_grip = not right_grip
-                await move_gripper(left_arm, left_grip, right_grip)
+                await move_gripper(websocket, left_arm, left_grip, right_grip)
                 last_toggled = current_time
 
             if buttons.get("c"):
@@ -232,14 +226,14 @@ async def main(uri, api_host, api_port):
                 if abs(droll) > 1:
                     da = -1 if droll > 0 else 1
                 if abs(droll) > 0.5:
-                    await move_to(dx, dy, dz, da, scale, left_arm)
+                    await move_to(websocket, dx, dy, dz, da, scale, left_arm)
 
             else:
                 if np.linalg.norm([dx, dy, dz]) > 0.0001 or abs(droll) > 0.5:
-                    await move_to(dx, dy, dz, da, scale, left_arm)
+                    await move_to(websocket, dx, dy, dz, da, scale, left_arm)
 
                 if abs(dyaw) > 0.5:
-                    await move_angle(dyaw, left_arm)
+                    await move_angle(websocket, dyaw, left_arm)
 
             previous_position = position
             previous_angles = angles
