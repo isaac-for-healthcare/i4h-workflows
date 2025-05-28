@@ -21,14 +21,13 @@ from pathlib import Path
 
 import torch
 import tyro
-from transformers import TrainingArguments
-
 from gr00t.data.dataset import LeRobotSingleDataset
 from gr00t.data.schema import EmbodimentTag
 from gr00t.experiment.runner import TrainRunner
 from gr00t.model.gr00t_n1 import GR00T_N1
 from gr00t.utils.peft import get_lora_model
 from policy_runner.gr00tn1.utils import DATA_CONFIG_MAP
+from transformers import TrainingArguments
 
 
 @dataclass
