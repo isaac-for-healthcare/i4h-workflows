@@ -118,7 +118,7 @@ More recommended variables can be found in [env.sh](./scripts/env.sh)
 ## Running the Workflow
 ```bash
 cd <path-to-i4h-workflows>/workflows/telesurgery/scripts
-source env.sh
+source env.sh  # Make sure all env variables are correctly set in env.sh
 
 export PATIENT_IP=10.137.145.163
 export MIRA_API_IP=${PATIENT_IP}
