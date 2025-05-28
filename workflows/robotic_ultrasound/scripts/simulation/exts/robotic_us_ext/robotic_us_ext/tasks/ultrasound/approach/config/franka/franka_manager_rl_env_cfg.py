@@ -18,6 +18,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+import math
 from dataclasses import MISSING
 
 import isaaclab.sim as sim_utils
@@ -34,7 +35,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sensors import CameraCfg, FrameTransformerCfg
+from isaaclab.sensors import FrameTransformerCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
 from isaaclab.utils import configclass
 from isaacsim.core.utils.torch.rotations import euler_angles_to_quats
@@ -54,7 +55,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     ground = AssetBaseCfg(
         prim_path="/World/defaultGroundPlane",
         init_state=AssetBaseCfg.InitialStateCfg(pos=[0, 0, -0.84]),
-        spawn=sim_utils.GroundPlaneCfg(),
+        spawn=sim_utils.GroundPlaneCfg(semantic_tags=[("class", "ground")]),
     )
 
     # lights
@@ -69,6 +70,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         ),
         spawn=sim_utils.UsdFileCfg(
             usd_path=robot_us_assets.table_with_cover,
+            semantic_tags=[("class", "table")],
         ),
     )
 
@@ -86,6 +88,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
             rigid_props=sim_utils.RigidBodyPropertiesCfg(rigid_body_enabled=True),
             mass_props=sim_utils.MassPropertiesCfg(mass=1000.0),
             collision_props=sim_utils.CollisionPropertiesCfg(),
+            semantic_tags=[("class", "organ")],
         ),
     )
 
@@ -98,36 +101,6 @@ class RoboticSoftCfg(InteractiveSceneCfg):
     # )
     # end-effector sensor: will be populated by agent env cfg
     ee_frame: FrameTransformerCfg = MISSING
-
-    # sensors
-    # ToDo: switch to a tiled camera
-    room_camera = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/third_person_cam",
-        update_period=0.0,
-        height=224,
-        width=224,
-        data_types=["rgb", "distance_to_image_plane"],
-        spawn=sim_utils.PinholeCameraCfg(
-            focal_length=12.0,
-            focus_distance=100.0,
-            horizontal_aperture=20.955,
-            clipping_range=(0.1, 1.0e5),
-        ),
-        offset=CameraCfg.OffsetCfg(
-            pos=(0.55942, 0.56039, 0.36243),
-            rot=euler_angles_to_quats(torch.tensor([248.0, 0.0, 180.0]), degrees=True),
-            convention="ros",
-        ),
-    )
-
-    wrist_camera = CameraCfg(
-        data_types=["rgb", "distance_to_image_plane"],
-        prim_path="{ENV_REGEX_NS}/Robot/D405_rigid/D405/Camera_OmniVision_OV9782_Color",
-        spawn=None,
-        height=224,
-        width=224,
-        update_period=0.0,
-    )
 
     # Frame definitions for the goal frame
     goal_frame = FrameTransformerCfg(
@@ -346,13 +319,31 @@ class EventCfg:
     # this needs to be executed before any other reset function, to not overwrite the reset scene to default.
     reset_scene = EventTerm(func=mdp.reset_scene_to_default, mode="reset")
 
+    # table_texture_randomizer = EventTerm(
+    #     func=mdp.randomize_visual_texture_material,
+    #     mode="reset",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("table"),
+    #         "texture_paths": [
+    #             f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Bamboo_Planks/Bamboo_Planks_BaseColor.png",
+    #             f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Cherry/Cherry_BaseColor.png",
+    #             f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Oak/Oak_BaseColor.png",
+    #             f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Timber/Timber_BaseColor.png",
+    #             f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Timber_Cladding/Timber_Cladding_BaseColor.png",
+    #             f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Walnut_Planks/Walnut_Planks_BaseColor.png",
+    #         ],
+    #         "event_name": "table_texture_randomizer",
+    #         "texture_rotation": (math.pi / 2, math.pi / 2),
+    #     },
+    # )
+
     # the second reset only affects the organ body, and adds a random offset to the organ body, w.r.t to
     # the current position.
     reset_object_position = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
-            "pose_range": {"x": (-0.1, 0.1), "y": (-0.0, 0.0), "z": (-0, -0.0)},
+            "pose_range": {"x": (-0.15, 0.15), "y": (-0.15, 0.15), "z": (-0, -0.0), "yaw": (-math.pi / 2, math.pi / 2)},
             "velocity_range": {},
             "asset_cfg": SceneEntityCfg("organs"),
         },

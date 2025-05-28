@@ -2,7 +2,7 @@
 +++ b/source/isaaclab/isaaclab/envs/mdp/events.py	2025-05-28 13:31:29.282275674 +0800
 @@ -1188,8 +1188,25 @@
              body_names_regex = ".*"
- 
+
          # create the affected prim path
 -        # TODO: Remove the hard-coded "/visuals" part.
 -        prim_path = f"{asset.cfg.prim_path}/{body_names_regex}/visuals"
@@ -25,7 +25,7 @@
 +                f"Pattern '{pattern_with_visuals}' found no prims. Falling back to '{prim_path}' for texture"
 +                " randomization."
 +            )
- 
+
          # Create the omni-graph node for the randomization term
          def rep_texture_randomization():
 @@ -1199,7 +1216,6 @@
@@ -34,5 +34,5 @@
                  )
 -
              return prims_group.node
- 
+
          # Register the event to the replicator
