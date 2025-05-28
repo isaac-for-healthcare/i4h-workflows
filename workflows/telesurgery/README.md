@@ -5,11 +5,6 @@
 ## Table of Contents
 - [System Requirements](#system-requirements)
 - [Quick Start](#quick-start)
-- [Environment Setup](#environment-setup)
-  - [Prerequisites](#prerequisites)
-  - [Installation Steps](#installation-steps)
-  - [Asset Setup](#asset-setup)
-  - [Environment Variables](#environment-variables)
 - [Running the Workflow](#running-the-workflow)
 
 ## System Requirements
