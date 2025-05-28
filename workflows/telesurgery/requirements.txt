@@ -1,0 +1,22 @@
+rti.connext
+numpy<2.0.0
+pydantic
+pillow
+opencv-python-headless
+pyrealsense2
+holoscan==3.2.0
+ntplib
+dearpygui
+pygame
+websockets
+websocket-client
+setuptools
+requests
+
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch
+
+--extra-index-url https://pypi.nvidia.com
+isaacsim[allextscache]==4.5.0
+
+pynvjpeg

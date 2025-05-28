@@ -185,6 +185,7 @@ cython_debug/
 
 # VSCode
 .vscode/
+.idea/
 
 # Wandb
 wandb/

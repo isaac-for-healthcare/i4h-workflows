@@ -1,0 +1,59 @@
+import queue
+import time
+
+from common.utils import get_ntp_offset
+from holoscan.core import Operator
+from holoscan.core._core import OperatorSpec
+from schemas.camera_stream import CameraStream
+
+
+class IsaacSimCameraSourceOp(Operator):
+    """
+    Operator to capture video using OpenCV.
+    Process RGB frames from Isaac SIM.
+    """
+
+    def __init__(self, fragment, width: int, height: int, *args, **kwargs):
+        """
+        Initialize the RealSense operator.
+
+        Parameters:
+        - width (int): Width of the camera stream.
+        - height (int): Height of the camera stream.
+        - stream_type (str): Stream Type (color|depth).
+        - stream_format (str): Stream format [pyrealsense2.format].
+        """
+        self.width = width
+        self.height = height
+        self.stream_type = 2  # color
+        self.stream_format = 5  # rgb
+        self.ntp_offset_time = get_ntp_offset()
+
+        self.q: queue.Queue = queue.Queue()
+        super().__init__(fragment, *args, **kwargs)
+
+    def setup(self, spec: OperatorSpec):
+        spec.output("output")
+
+    def start(self):
+        pass
+
+    def stop(self):
+        self.q.empty()
+
+    def on_new_frame(self, data, frame_num):
+        self.q.put(data)
+
+    def compute(self, op_input, op_output, context):
+        data = self.q.get()
+
+        ts = int((time.time() + self.ntp_offset_time) * 1000)
+        stream = CameraStream(
+            ts=ts,
+            type=self.stream_type,
+            format=self.stream_format,
+            width=self.width,
+            height=self.height,
+            data=data,
+        )
+        op_output.emit(stream, "output")
