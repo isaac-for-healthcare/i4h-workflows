@@ -1,0 +1,14 @@
+{
+  "Sterile lab, gleaming metal, focused robotic precision.": {
+    "top_view_prompt": "A meticulously organized laboratory environment. Gleaming stainless steel instruments rest on polished surfaces, reflecting the cool, static overhead lighting. A robotic arm, brushed aluminum and articulated with precision, methodically scans over a non-reflective, light-grey laminate tabletop. The scene is sterile and clinical, evoking a sense of advanced medical research or quality control. Cables are neatly managed, and background equipment \u2013 monitors displaying complex waveforms, and sealed containers \u2013 remain static and out of focus, suggesting a continuous, automated process. The overall atmosphere is one of quiet, focused efficiency.",
+    "bottom_view_prompt": "The close-up perspective that is focused directly on the clean surface of light-grey laminate table with uniform texture."
+  },
+  "Bright office, scattered papers, automated scanning process.": {
+    "top_view_prompt": "A brightly lit, modern office space transitions into a laboratory setting. Papers are casually scattered across a large, non-reflective laminate tabletop, suggesting a busy workflow. A robotic arm, sleek and white, methodically scans an unseen object positioned centrally on the table. The scene is static, with consistent, even illumination. Focus is on the robotic arm's precise movements and the organized chaos of the workspace, hinting at automated data collection or analysis. The overall impression is one of efficient, clinical precision within a functional, lived-in environment.",
+    "bottom_view_prompt": "The close-up perspective that is focused directly on the clean surface of the laminate table with uniform texture."
+  },
+  "Clinical white room, equipment hums, methodical search.": {
+    "top_view_prompt": "A sterile, clinical laboratory environment. A robotic arm, precise and deliberate in its movements, systematically scans across a non-reflective, matte grey table. The room is filled with the subtle hum of unseen machinery \u2013 diagnostic equipment, ventilation systems, and power supplies. Cables are neatly managed, running along the ceiling and walls. The overall aesthetic is minimalist and functional, emphasizing cleanliness and precision. The scene is static, with a consistent, diffused overhead lighting creating soft shadows. The focus is on the methodical nature of the robotic scan, suggesting a detailed analysis or quality control process.",
+    "bottom_view_prompt": "The close-up perspective that is focused directly on the clean surface of the matte grey table with uniform texture."
+  }
+}

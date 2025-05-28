@@ -42,7 +42,7 @@ def _run_test_process(cmd, env, test_path):
 
     try:
         process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        stdout, stderr = process.communicate(timeout=600)
+        stdout, stderr = process.communicate(timeout=1200)
         # Filter out extension loading messages
         filtered_stdout = "\n".join(
             [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
@@ -74,6 +74,17 @@ def _setup_test_env(project_root, tests_dir):
     else:
         env["PYTHONPATH"] = ":".join(pythonpath)
 
+    return env
+
+
+def _setup_test_cosmos_transfer1_env(project_root, workflow_root, tests_dir):
+    """Helper function to setup test environment for cosmos-transfer1"""
+    env = _setup_test_env(workflow_root, tests_dir)
+    pythonpath = [
+        os.path.join(project_root, "third_party", "cosmos-transfer1"),
+    ]
+    env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
+    env["DEBUG_GENERATION"] = "1"
     return env
 
 
@@ -173,6 +184,8 @@ def run_integration_tests(workflow_name):
             "unittest",
             test_path,
         ]
+        if "cosmos_transfer1" in test_path:
+            env = _setup_test_cosmos_transfer1_env(os.getcwd(), project_root, tests_dir)
 
         if not _run_test_process(cmd, env, test_path):
             all_tests_passed = False
