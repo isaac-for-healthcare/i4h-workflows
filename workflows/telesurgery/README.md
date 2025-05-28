@@ -55,13 +55,9 @@ workflows/telesurgery/docker/setup.sh init
    ```
 4. Set environment variables:
    ```bash
-   export I4H_WORKFLOWS_DIR=<path-to-i4h-workflows>
    export RTI_LICENSE_FILE=<path-to-rti-license-file>
-
-   export I4H_TELESURGERY_DIR=${I4H_WORKFLOWS_DIR}/workflows/telesurgery
-   export PYTHONPATH=${I4H_TELESURGERY_DIR}/scripts
-   export NDDS_QOS_PROFILES=${I4H_TELESURGERY_DIR}/scripts/dds/qos_profile.xml
     ```
+> More recommended variables can be found in [env.sh](./scripts/env.sh).  Make sure all they are valid.
 
 ### Obtain RTI DDS License
 RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
@@ -104,8 +100,7 @@ More recommended variables can be found in [env.sh](./scripts/env.sh)
 cd <path-to-i4h-workflows>/workflows/telesurgery/scripts
 source env.sh  # Make sure all env variables are correctly set in env.sh
 
-#export PATIENT_IP=10.137.145.163
-export PATIENT_IP=10.111.66.170
+export PATIENT_IP=10.137.145.163
 export SURGEON_IP=10.111.66.170
 ```
 > Make sure MIRA API Server is up and running (port: 8081) in case of Physical World.
