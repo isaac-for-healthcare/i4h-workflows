@@ -34,9 +34,9 @@ python teleoperate_mira_arm.py
 | V     | Wrist Roll    | – (Roll CCW)          |
 | B     | Gripper       | + (Open)              |
 | N     | Gripper       | – (Close)             |
-| SPACE | Switch Arm    | Toggle Left/Right Arm |
+| Y | Switch Arm    | Toggle Left/Right Arm |
 
-> **Note:** The keys control either the left or right arm, depending on which is currently selected. Press `SPACE` to switch between arms.
+> **Note:** The keys control either the left or right arm, depending on which is currently selected. Press `Y` to switch between arms.
 
 ---
 

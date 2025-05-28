@@ -107,7 +107,7 @@ def main():
         "LEFT": (0, -1.0),  # X (Tilt) - (Tilt Down)
         "RIGHT": (0, 1.0),  # X (Tilt) + (Tilt Up)
     }
-    SWITCH_KEY = "SPACE"
+    SWITCH_KEY = "Y"
     SNAPSHOT_KEY = "F12"
     current_arm = ["left"]
 
