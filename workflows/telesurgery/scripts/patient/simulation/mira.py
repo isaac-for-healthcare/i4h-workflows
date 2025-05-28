@@ -15,15 +15,12 @@
 
 import argparse
 import json
-import math
 
 from i4h_asset_helper import BaseI4HAssets
 from isaaclab.app import AppLauncher
 
 
 class Assets(BaseI4HAssets):
-    """Assets manager for the your workflow."""
-
     MIRA_ARM = "Robots/MIRA/mira-bipo-size-experiment-smoothing.usd"
 
 
@@ -39,6 +36,8 @@ def main():
     parser.add_argument("--encoder_params", type=str, default=json.dumps({"quality": 90}), help="encoder params")
     parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
+    parser.add_argument("--hid_domain_id", type=int, default=779, help="dds domain id to recv hid")
+    parser.add_argument("--hid_topic", type=str, default="telesurgery/hid/gamepad", help="dds topic name to recv hid")
     args = parser.parse_args()
 
     app_launcher = AppLauncher(headless=False)
@@ -47,11 +46,7 @@ def main():
     usd_path = my_assets.MIRA_ARM
 
     # Import Isaac/Omni modules after app launch
-    import carb
-    import omni
     import omni.usd
-    from isaacsim.core.prims import SingleXFormPrim
-    from isaacsim.core.utils.rotations import euler_angles_to_quat
     from pxr import UsdPhysics
 
     omni.usd.get_context().open_stage(usd_path)
@@ -77,66 +72,14 @@ def main():
         f"{right_arm_base}/ASM_R65432/ASM_R6543/ASM_R654/ASM_R65/ASM_R6/RJ6/RJ6_joint",
     ]
     camera_base = f"{robot_usd_root}/C_ASM_6543210"
-    CAMERA_PATHS = [
-        f"{camera_base}/C_ASM_654321",
-        f"{camera_base}/C_ASM_654321/C_ASM_65432",
-        f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543",
-        f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543/C_ASM_654",
-        f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543/C_ASM_654/C_ASM_65",
-        f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543/C_ASM_654/C_ASM_65/C_ASM_6",
-    ]
     camera_prim_path = f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543/C_ASM_654/C_ASM_65/C_ASM_6/Camera_Tip/Camera"
-    MAX_CAMERA_ANGLE = 70
 
     stage = omni.usd.get_context().get_stage()
     left_arm_joint_apis = [UsdPhysics.DriveAPI.Get(stage.GetPrimAtPath(p), "angular") for p in LJ_PATHS]
     right_arm_joint_apis = [UsdPhysics.DriveAPI.Get(stage.GetPrimAtPath(p), "angular") for p in RJ_PATHS]
-    camera_prims = [SingleXFormPrim(p) for p in CAMERA_PATHS]
 
-    left_pose = [0.0] * 6
-    right_pose = [0.0] * 6
-    camera_pose = [0.0, 0.0]  # [north, east]
-
-    KEY_MAP = {
-        "I": (0, 0.1),
-        "K": (0, -0.1),
-        "J": (1, 0.1),
-        "L": (1, -0.1),
-        "U": (2, 0.1),
-        "O": (2, -0.1),
-        "Z": (3, 0.1),
-        "X": (3, -0.1),
-        "C": (4, 0.1),
-        "V": (4, -0.1),
-        "B": (5, 0.1),
-        "N": (5, -0.1),
-    }
-    CAMERA_KEY_MAP = {
-        "UP": (1, 1.0),  # Y (Pan) + (Pan Right)
-        "DOWN": (1, -1.0),  # Y (Pan) - (Pan Left)
-        "LEFT": (0, -1.0),  # X (Tilt) - (Tilt Down)
-        "RIGHT": (0, 1.0),  # X (Tilt) + (Tilt Up)
-    }
-    SWITCH_KEY = "Y"
-    current_arm = ["left"]
-
-
-    def on_keyboard_event(event, *args):
-        if event.type == carb.input.KeyboardEventType.KEY_PRESS:
-            key = event.input.name
-            if key == SWITCH_KEY:
-                current_arm[0] = "right" if current_arm[0] == "left" else "left"
-                print(f"Switched to {current_arm[0]} arm control!")
-                return True
-            if key in KEY_MAP:
-                idx, delta = KEY_MAP[key]
-                (left_pose if current_arm[0] == "left" else right_pose)[idx] += delta
-                return True
-            if key in CAMERA_KEY_MAP:
-                idx, delta = CAMERA_KEY_MAP[key]
-                camera_pose[idx] += delta
-                return True
-        return False
+    left_pose = [15.7, 80.6, 45.0, 98.9, 0.0, 0.0]
+    right_pose = [15.7, 80.6, 45.0, 98.9, 0.0, 0.0]
 
     def update_arm_joints():
         for i, api in enumerate(left_arm_joint_apis):
@@ -144,27 +87,17 @@ def main():
         for i, api in enumerate(right_arm_joint_apis):
             api.GetTargetPositionAttr().Set(right_pose[i])
 
-    def update_camera_pose():
-        north = max(-MAX_CAMERA_ANGLE, min(MAX_CAMERA_ANGLE, camera_pose[0]))
-        east = max(-MAX_CAMERA_ANGLE, min(MAX_CAMERA_ANGLE, camera_pose[1]))
-        for i in [0]:
-            pos, _ = camera_prims[i].get_local_pose()
-            quat = euler_angles_to_quat([math.pi / 2, 0, -north * math.pi / 180 / 3])
-            camera_prims[i].set_local_pose(translation=pos, orientation=quat)
-        for i in [2, 4]:
-            pos, _ = camera_prims[i].get_local_pose()
-            quat = euler_angles_to_quat([0, -math.pi / 2, -north * math.pi / 180 / 3])
-            camera_prims[i].set_local_pose(translation=pos, orientation=quat)
-        for i in [1, 3, 5]:
-            pos, _ = camera_prims[i].get_local_pose()
-            quat = euler_angles_to_quat([0, math.pi / 2, east * math.pi / 180 / 3])
-            camera_prims[i].set_local_pose(translation=pos, orientation=quat)
+    def on_gamepad_event(message):
+        if message["method"] == "set_mira_polar_delta":
+            for i in range(6):
+                left_pose[i] += message["pose_delta"]["left"][i]
+                right_pose[i] += message["pose_delta"]["right"][i]
+        elif message["method"] == "set_mira_pose":
+            for i in range(6):
+                left_pose[i] = message["params"]["left"][i]
+                right_pose[i] = message["params"]["right"][i]
 
-    input_interface = carb.input.acquire_input_interface()
-    keyboard = omni.appwindow.get_default_app_window().get_keyboard()
-    input_interface.subscribe_to_keyboard_events(
-        keyboard, lambda event, *args: on_keyboard_event(event, *args)
-    )
+        print(f"Update ({message['method']}):: Left: {left_pose}; Right: {right_pose}")
 
     from patient.simulation.annotators.camera import CameraEx
 
@@ -182,16 +115,24 @@ def main():
         dds_domain_id=args.domain_id,
         dds_topic=args.topic if args.topic else f"telesurgery/{args.name}_camera/rgb",
     )
-    f = camera_app.run_async()
-    camera.set_callback(camera_app.on_new_frame)
+    f1 = camera_app.run_async()
+    camera.set_callback(camera_app.on_new_frame_rcvd)
+
+    from patient.simulation.apps.gamepad import App as GamePadApp
+    gamepad_app = GamePadApp(
+        dds_domain_id=args.hid_domain_id,
+        dds_topic=args.hid_topic,
+        callback=on_gamepad_event
+    )
+    f2 = gamepad_app.run_async()
 
     while simulation_app.is_running():
         update_arm_joints()
-        update_camera_pose()
         simulation_app.update()
 
     # keyboard_sub.unsubscribe()
-    f.cancel()
+    f1.cancel()
+    f2.cancel()
     simulation_app.close()
 
 

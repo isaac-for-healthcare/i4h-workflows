@@ -29,9 +29,9 @@ class App(Application):
 
         super().__init__()
 
-    def on_new_frame(self, data, frame_num):
+    def on_new_frame_rcvd(self, data, frame_num):
         if self.source is not None:
-            self.source.on_new_frame(data, frame_num)
+            self.source.on_new_frame_rcvd(data, frame_num)
         else:
             print(f"Discarding an incoming frame: {frame_num}!")
 

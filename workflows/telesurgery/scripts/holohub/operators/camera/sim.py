@@ -41,7 +41,7 @@ class IsaacSimCameraSourceOp(Operator):
     def stop(self):
         self.q.empty()
 
-    def on_new_frame(self, data, frame_num):
+    def on_new_frame_rcvd(self, data, frame_num):
         self.q.put(data)
 
     def compute(self, op_input, op_output, context):

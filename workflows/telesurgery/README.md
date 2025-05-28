@@ -139,7 +139,7 @@ NDDS_DISCOVERY_PEERS=${SURGEON_IP} python patient/physical/gamepad.py --api_host
 
 ### [Option-2] Patient in Simulation World:
 ```bash
-python patient/simulation/mira.py
+python patient/simulation/mira.py --domain_id 780
 ```
 
 ### Surgeon connecting to Patient
