@@ -105,7 +105,7 @@ class StatsOp : public Operator {
       }
     };
 
-    std::chrono::time_point<std::chrono::steady_clock> last_stats_time_ = std::chrono::steady_clock::now();
+    std::chrono::time_point<std::chrono::system_clock> last_stats_time_ = std::chrono::system_clock::now();
     uint64_t stats_interval_ms_ = 1000; // Print stats every 1 second
 
     LatencyStats hid_capture_to_hid_publish_stats_ = LatencyStats("hid_capture_to_hid_publish"); // 1

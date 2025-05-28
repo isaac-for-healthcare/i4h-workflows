@@ -149,7 +149,7 @@ void StatsOp::record_stats(const std::map<std::string, uint64_t> &stats, const s
 
 void StatsOp::print_stats(const std::map<std::string, uint64_t> &stats) {
     // Check if it's time to print stats
-    auto current_time = std::chrono::steady_clock::now();
+    auto current_time = std::chrono::system_clock::now();
     auto elapsed =
         std::chrono::duration_cast<std::chrono::milliseconds>(current_time - last_stats_time_)
             .count();
@@ -241,7 +241,7 @@ void StatsOp::print_stats(const std::map<std::string, uint64_t> &stats) {
                         encoded_frame_size_stats_.max,
                         fps_stats_.max);
 
-        last_stats_time_ = std::chrono::steady_clock::now();
+        last_stats_time_ = std::chrono::system_clock::now();
     }
 }
 }  // namespace holoscan::ops

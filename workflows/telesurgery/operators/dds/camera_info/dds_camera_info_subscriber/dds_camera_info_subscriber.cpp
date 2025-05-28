@@ -115,7 +115,7 @@ namespace holoscan::ops
                                           ExecutionContext &context)
   {
     auto enter_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                std::chrono::steady_clock::now().time_since_epoch())
+                                std::chrono::system_clock::now().time_since_epoch())
                                 .count();
 
     dds::sub::LoanedSamples<CameraInfo> frames = reader_.take();
@@ -275,7 +275,7 @@ namespace holoscan::ops
 
 
       auto timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                           std::chrono::steady_clock::now().time_since_epoch())
+                           std::chrono::system_clock::now().time_since_epoch())
                            .count();
 
       stats["video_subscriber_emit_timestamp"] = timestamp;

@@ -77,7 +77,7 @@ namespace holoscan::ops
                                  ExecutionContext &context)
   {
     auto enter_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                               std::chrono::steady_clock::now().time_since_epoch())
+                               std::chrono::system_clock::now().time_since_epoch())
                                .count();
 
     // Get input tensor
@@ -282,7 +282,7 @@ namespace holoscan::ops
     if (nFrame > 0)
     {
       auto emit_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                std::chrono::steady_clock::now().time_since_epoch())
+                                std::chrono::system_clock::now().time_since_epoch())
                                 .count();
 
       std::map<std::string, uint64_t> stats = {

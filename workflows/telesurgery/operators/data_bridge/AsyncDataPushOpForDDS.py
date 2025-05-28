@@ -77,7 +77,7 @@ class AsyncDataPushForDDS(Operator):
             context: The execution context.
         """
         data = self._queue.get()
-        enter_timestamp = time.monotonic_ns()
+        enter_timestamp = time.time_ns()
 
         camera_info = CameraInfo()
         camera_info.joint_names = list(data["joint_names"])
@@ -98,7 +98,7 @@ class AsyncDataPushForDDS(Operator):
 
         camera_info.video_acquisition_timestamp = data["video_acquisition_timestamp"]
         camera_info.video_data_bridge_enter_timestamp = enter_timestamp
-        camera_info.video_data_bridge_emit_timestamp = time.monotonic_ns()
+        camera_info.video_data_bridge_emit_timestamp = time.time_ns()
 
         op_output.emit({"": Tensor.as_tensor(data["image"])}, "image")
         op_output.emit(camera_info, "camera_info", "CameraInfo")

@@ -58,7 +58,7 @@ class GenericHIDInterface : public holoscan::Operator {
 
   std::atomic<uint64_t> total_events_{0};
   std::atomic<uint64_t> total_events_emitted_{0};
-  std::chrono::time_point<std::chrono::steady_clock> last_stats_time_ = std::chrono::steady_clock::now();
+  std::chrono::time_point<std::chrono::system_clock> last_stats_time_ = std::chrono::system_clock::now();
   std::map<std::string, HumanInterfaceDevice>
       device_file_descriptors_;  // Sanitized device paths to file descriptors
   std::queue<std::tuple<HumanInterfaceDevice, std::variant<js_event, input_event>, uint64_t>>

@@ -130,7 +130,7 @@ class Simulation:
                 if self._current_frame["rendering_frame"] != self._rendering_frame:
                     self._rendering_frame = self._current_frame["rendering_frame"]
                     image = self._current_frame["rgba"]
-                    time_now = time.monotonic_ns()
+                    time_now = time.time_ns()
 
                     # TODO: the first frame has a size of 0, remove this code if that is fixed
                     if not image.shape[0] == 0:

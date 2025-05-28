@@ -67,7 +67,7 @@ void DDSHIDPublisherOp::compute(InputContext& op_input, OutputContext& op_output
     return;
   }
 
-  auto now = std::chrono::steady_clock::now();
+  auto now = std::chrono::system_clock::now();
 
   auto input_events = op_input.receive<std::vector<InputEvent>>("input");
 
@@ -89,7 +89,7 @@ void DDSHIDPublisherOp::compute(InputContext& op_input, OutputContext& op_output
       input_command.hid_capture_timestamp(input_event.hid_capture_timestamp);
 
       uint64_t publish_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-              std::chrono::steady_clock::now().time_since_epoch())
+              std::chrono::system_clock::now().time_since_epoch())
               .count();
       input_command.hid_publish_timestamp(publish_time);
       writer_.write(input_command);
@@ -102,8 +102,8 @@ void DDSHIDPublisherOp::compute(InputContext& op_input, OutputContext& op_output
 void DDSHIDPublisherOp::stats_printer_thread() {
   HOLOSCAN_LOG_INFO("Stats printer thread started.");
   while (!stop_stats_thread_.load()) {
-    auto wake_up_time = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-    while (std::chrono::steady_clock::now() < wake_up_time) {
+    auto wake_up_time = std::chrono::system_clock::now() + std::chrono::seconds(3);
+    while (std::chrono::system_clock::now() < wake_up_time) {
       if (stop_stats_thread_.load()) {
         HOLOSCAN_LOG_INFO("Stats printer thread stopping.");
         return;

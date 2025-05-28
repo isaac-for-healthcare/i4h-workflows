@@ -31,6 +31,7 @@ RUN apt-get update \
       build-essential \
       ccache \
       gdb \
+      git \
     && rm -rf /var/lib/apt/lists/*
 RUN OS_CODENAME=$(. /etc/os-release && echo "$UBUNTU_CODENAME") \
   && KW_KEYRING="/usr/share/keyrings/kitware-archive-keyring.gpg" \

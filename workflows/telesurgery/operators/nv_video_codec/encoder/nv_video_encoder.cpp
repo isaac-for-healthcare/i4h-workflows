@@ -182,7 +182,7 @@ namespace holoscan::ops
                                  ExecutionContext &context)
   {
     auto enter_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                               std::chrono::steady_clock::now().time_since_epoch())
+                               std::chrono::system_clock::now().time_since_epoch())
                                .count();
     // Get input tensor
     auto maybe_entity = op_input.receive<holoscan::gxf::Entity>("in");
@@ -286,7 +286,7 @@ namespace holoscan::ops
     }
 
     auto emit_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                              std::chrono::steady_clock::now().time_since_epoch())
+                              std::chrono::system_clock::now().time_since_epoch())
                               .count();
 
     auto meta = metadata();

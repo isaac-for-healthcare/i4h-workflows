@@ -84,7 +84,7 @@ namespace holoscan::ops
   {
     dds::sub::LoanedSamples<InputCommand> commands = reader_.take();
     auto received_time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                             std::chrono::steady_clock::now().time_since_epoch())
+                             std::chrono::system_clock::now().time_since_epoch())
                              .count();
     std::vector<InputEvent> valid_commands;
     for (const auto &command : commands)

@@ -53,12 +53,12 @@ class DDSCameraInfoPublisherOp : public DDSOperatorBase {
   uint32_t num_data_samples_ = 0;
 
   uint64_t total_emitted_times = 0;
-  std::chrono::steady_clock::time_point last_emitted_time_ = std::chrono::steady_clock::now();
+  std::chrono::system_clock::time_point last_emitted_time_ = std::chrono::system_clock::now();
 
   dds::pub::DataWriter<CameraInfo> writer_ = dds::core::null;
 
   uint32_t total_frames_published_ = 0;
-  std::chrono::steady_clock::time_point last_stats_time_ = std::chrono::steady_clock::now();
+  std::chrono::system_clock::time_point last_stats_time_ = std::chrono::system_clock::now();
 };
 
 }  // namespace holoscan::ops

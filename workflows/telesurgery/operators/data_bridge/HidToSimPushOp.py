@@ -39,6 +39,6 @@ class HidToSimPushOp(Operator):
         input = op_input.receive("input")
 
         for event in input:
-            event.hid_to_sim_timestamp = time.monotonic_ns()
+            event.hid_to_sim_timestamp = time.time_ns()
 
         self.hid_event_callback(input)

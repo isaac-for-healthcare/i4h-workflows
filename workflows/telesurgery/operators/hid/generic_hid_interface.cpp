@@ -81,7 +81,7 @@ namespace holoscan::ops
           }
         }
         auto capture_time_epoch =
-              std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+              std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
         if (device.path == "/simulation") {
           // randomly generate events for testing
           // type is always joystick
@@ -168,7 +168,7 @@ namespace holoscan::ops
         }
 
         // Print stats every 3 seconds
-        auto current_time = std::chrono::steady_clock::now();
+        auto current_time = std::chrono::system_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - last_stats_time_).count();
         if (elapsed >= 5000) {
           HOLOSCAN_LOG_INFO("Total events emitted: {}", total_events_emitted_.load());

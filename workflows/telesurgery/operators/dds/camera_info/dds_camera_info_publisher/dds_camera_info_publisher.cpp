@@ -79,7 +79,7 @@ namespace holoscan::ops
   {
     // Get current timestamp
     auto enter_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        std::chrono::steady_clock::now().time_since_epoch())
+                        std::chrono::system_clock::now().time_since_epoch())
                         .count();
 
     auto maybe_image = op_input.receive<nvidia::gxf::Entity>("image");
@@ -130,11 +130,11 @@ namespace holoscan::ops
     camera_info.video_encoder_emit_timestamp(meta->get<int64_t>("video_encoder_emit_timestamp"));
     camera_info.video_publisher_enter_timestamp(enter_timestamp);
     camera_info.video_publisher_emit_timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                std::chrono::steady_clock::now().time_since_epoch())
+                                std::chrono::system_clock::now().time_since_epoch())
                                 .count());
     camera_info.encoded_frame_size(frame_size);
     writer_.write(camera_info);
-    auto time_emitted = std::chrono::steady_clock::now();
+    auto time_emitted = std::chrono::system_clock::now();
     auto time_diff = std::chrono::duration_cast<std::chrono::nanoseconds>(time_emitted - last_emitted_time_).count();
     last_emitted_time_ = time_emitted;
     total_emitted_times += time_diff;
@@ -154,7 +154,7 @@ namespace holoscan::ops
     num_data_samples_++;
 
     // print stats every 3 seconds
-    if (std::chrono::steady_clock::now() - last_stats_time_ > std::chrono::seconds(3))
+    if (std::chrono::system_clock::now() - last_stats_time_ > std::chrono::seconds(3))
     {
       HOLOSCAN_LOG_INFO("Published {} frames", total_frames_published_);
       HOLOSCAN_LOG_INFO("Max data size: {} bytes", max_data_size_);
@@ -162,7 +162,7 @@ namespace holoscan::ops
       HOLOSCAN_LOG_INFO("Average data size: {} bytes", total_data_size_ / num_data_samples_);
       HOLOSCAN_LOG_INFO("Average emit time between frames: {} ms", total_emitted_times / total_frames_published_ / 1e6);
       HOLOSCAN_LOG_INFO("Average FPS: {}", total_frames_published_ / (total_emitted_times / 1e9));
-      last_stats_time_ = std::chrono::steady_clock::now();
+      last_stats_time_ = std::chrono::system_clock::now();
     }
   }
 

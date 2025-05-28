@@ -161,7 +161,7 @@ class HIDController:
                 print(f"\tevent value: {event.value} - type = {type(event.value)}")
             else:
                 with self._hid_event_lock:
-                    event.hid_process_timestamp = time.monotonic_ns()
+                    event.hid_process_timestamp = time.time_ns()
                     self._last_hid_event = event
 
             # if message_is smaller than next_message_id, then reset, assume Surgeon app restarted
