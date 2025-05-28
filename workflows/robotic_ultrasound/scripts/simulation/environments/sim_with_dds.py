@@ -244,6 +244,10 @@ def main():
         os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
 
     max_timesteps = 250
+    if "Rel" in args_cli.task:
+        action_dim = 6
+    else:
+        action_dim = 7
     if args_cli.hdf5_path is not None:
         reset_to_recorded_data = True
         episode_idx = 0
@@ -352,7 +356,9 @@ def main():
                         while ret is None:
                             ret = infer_reader.read_data()
                         o: FrankaCtrlInput = ret
-                        action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(args_cli.chunk_length, 6)
+                        action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(
+                            args_cli.chunk_length, action_dim
+                        )
                         action_plan.extend(action_chunk[:replan_steps])
 
                     action = action_plan.popleft()
