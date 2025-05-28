@@ -35,7 +35,7 @@ def main():
     """Parse command-line arguments and run the application."""
     parser = argparse.ArgumentParser(description="Run the hid application")
     parser.add_argument("--uri", type=str, default="ws://localhost:10001", help="haply inverse local uri")
-    parser.add_argument("--api_host", type=str, default="10.137.145.1", help="api server host")
+    parser.add_argument("--api_host", type=str, default="10.137.145.163", help="api server host")
     parser.add_argument("--api_port", type=int, default=8081, help="api server port")
 
     args = parser.parse_args()

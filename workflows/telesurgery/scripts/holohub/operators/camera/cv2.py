@@ -7,7 +7,6 @@ from holoscan.core._core import OperatorSpec
 from schemas.camera_stream import CameraStream
 
 
-# TODO:: Use Existing Holoscan V4L2 Operator and use it's output to emit CameraStream
 class CV2VideoCaptureOp(Operator):
     """
     Operator to capture video using OpenCV.

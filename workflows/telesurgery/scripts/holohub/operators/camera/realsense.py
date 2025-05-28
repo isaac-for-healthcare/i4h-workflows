@@ -8,7 +8,6 @@ from holoscan.core._core import OperatorSpec
 from schemas.camera_stream import CameraStream
 
 
-# TODO:: Use Existing Holoscan Realsense Operator and use it's output to emit CameraStream
 class RealsenseOp(Operator):
     """
     Operator to interface with an Intel RealSense camera.
