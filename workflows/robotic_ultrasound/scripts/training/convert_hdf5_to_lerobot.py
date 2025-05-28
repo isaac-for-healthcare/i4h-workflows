@@ -414,7 +414,7 @@ def main(
     print(f"Saving dataset to {final_output_path}")
     if isinstance(feature_builder, GR00TN1FeatureDict):
         shutil.copy(
-            os.path.join(os.path.dirname(__file__), "..", "gr00t_n1", "modality.json"),
+            os.path.join(os.path.dirname(__file__), "gr00t_n1", "modality.json"),
             final_output_path / "meta" / "modality.json",
         )
     # Consolidate the dataset, skip computing stats since we will do that later
@@ -435,6 +435,13 @@ if __name__ == "__main__":
         type=str,
         default="Perform a liver ultrasound.",
         help="Prompt description of the task",
+    )
+    parser.add_argument(
+        "--feature_builder_type",
+        type=str,
+        default="pi0",
+        choices=["pi0", "gr00tn1"],
+        help="Type of feature builder to use (pi0 or gr00t_n1).",
     )
     parser.add_argument(
         "--image_shape",
@@ -466,12 +473,21 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    feature_builder = Pi0FeatureDict(
-        image_shape=args.image_shape,
-        include_depth=args.include_depth,
-        include_seg=args.include_seg,
-        include_video=args.include_video,
-    )
+    # Instantiate the feature builder based on args
+    if args.feature_builder_type == "gr00tn1":
+        feature_builder = GR00TN1FeatureDict(
+            image_shape=args.image_shape,
+            include_depth=args.include_depth,
+            include_seg=args.include_seg,
+            include_video=args.include_video,
+        )
+    else:
+        feature_builder = Pi0FeatureDict(
+            image_shape=args.image_shape,
+            include_depth=args.include_depth,
+            include_seg=args.include_seg,
+            include_video=args.include_video,
+        )
 
     main(
         args.data_dir,
