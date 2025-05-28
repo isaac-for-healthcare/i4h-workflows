@@ -32,7 +32,7 @@ class ApiHandlerOp(Operator):
         message = op_input.receive("input")
         lj = [0] * 6
         rj = [0] * 6
-        if message["method"] == "set_mira_polar_delta":
+        if message["method"] == "set_mira_polar_delta" or message["method"] == "set_mira_cartesian_delta":
             lp = message["params"]["left"]
             rp = message["params"]["right"]
             if not np.all(lp == 0):

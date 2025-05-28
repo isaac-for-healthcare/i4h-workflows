@@ -15,8 +15,8 @@
 
 import argparse
 
-from holohub.operators.mira.api_client import ApiClientOp
 from holohub.operators.mira.haply.controller import HaplyControllerOp
+from holohub.operators.sink import NoOp
 from holoscan.core import Application
 
 
@@ -35,15 +35,12 @@ class App(Application):
             self,
             name="haply_controller",
             uri=self.uri,
+            api_host=self.api_host,
+            api_port=self.api_port,
         )
-        client = ApiClientOp(
-            self,
-            name="api_client",
-            host=self.api_host,
-            port=self.api_port,
-        )
+        sink = NoOp(self)
 
-        self.add_flow(haply, client, {("output", "input")})
+        self.add_flow(haply, sink, {("output", "input")})
 
 
 def main():

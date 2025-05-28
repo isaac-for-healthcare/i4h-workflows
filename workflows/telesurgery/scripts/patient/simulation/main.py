@@ -88,7 +88,7 @@ def main():
             api.GetTargetPositionAttr().Set(right_pose[i])
 
     def on_gamepad_event(message):
-        if message["method"] == "set_mira_polar_delta":
+        if message["method"] == "set_mira_polar_delta" or message["method"] == "set_mira_cartesian_delta":
             for i in range(6):
                 left_pose[i] += message["pose_delta"]["left"][i]
                 right_pose[i] += message["pose_delta"]["right"][i]
