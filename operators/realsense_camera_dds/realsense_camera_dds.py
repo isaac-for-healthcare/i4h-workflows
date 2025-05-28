@@ -18,10 +18,9 @@ import numpy as np
 import pyrealsense2 as rs
 import rti.connextdds as dds
 from dds.schemas.camera_info import CameraInfo
-from holoscan.conditions import CountCondition
 from holoscan.core import Operator
-from holoscan.resources import UnboundedAllocator
 from holoscan.core._core import OperatorSpec
+
 
 class RealsenseCameraDDSOp(Operator):
     """

@@ -16,14 +16,14 @@
 import argparse
 import os
 
-import holoscan
-import numpy as np
+from holoscan.conditions import CountCondition
 from holoscan.core import Application, Operator
 from holoscan.core._core import OperatorSpec
 from holoscan.operators.holoviz import HolovizOp
 from holoscan.resources import UnboundedAllocator
-from holoscan.conditions import CountCondition
+
 from operators.realsense_camera_dds.realsense_camera_dds import RealsenseCameraDDSOp
+
 
 class NoOp(Operator):
     """A sink operator that takes input and discards them."""
