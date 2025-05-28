@@ -38,6 +38,7 @@ class SinglePandaUSDataConfig(BaseDataConfig):
     For more details on GR00T data handling, see the official documentation:
     https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#1-data-format--loading
     """
+
     video_keys = [
         "video.room",
         "video.wrist",
@@ -106,7 +107,7 @@ class SinglePandaUSDataConfig(BaseDataConfig):
                 apply_to=self.action_keys,
                 normalization_modes={
                     "action.panda_hand": "mean_std",
-                }
+                },
             ),
             ConcatTransform(
                 video_concat_order=self.video_keys,

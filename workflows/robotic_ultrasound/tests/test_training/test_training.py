@@ -25,7 +25,7 @@ import torch
 from openpi import train
 from policy_runner.pi0.config import get_config
 from policy_runner.pi0.utils import compute_normalization_stats
-from training.pi_zero.convert_hdf5_to_lerobot import create_lerobot_dataset
+from training.pi_zero.convert_hdf5_to_lerobot import GR00TN1FeatureDict, Pi0FeatureDict, create_lerobot_dataset
 from training.pi_zero.convert_hdf5_to_lerobot import main as convert_hdf5_to_lerobot
 
 
@@ -95,6 +95,7 @@ class TestConvertHdf5ToLeRobot(TestBase):
 
         # Create a dummy HDF5 file with the expected structure
         self._create_dummy_hdf5_file()
+        self.feature_builder = Pi0FeatureDict()
 
     def _create_dummy_hdf5_file(self):
         """Create a dummy HDF5 file with 25 steps for testing."""
@@ -124,14 +125,40 @@ class TestConvertHdf5ToLeRobot(TestBase):
             # Using small 32x32 images to keep the file size small
             rgb_data = np.random.randint(0, 256, size=(num_steps, 2, 32, 32, 3), dtype=np.uint8)
             obs_group.create_dataset("rgb_images", data=rgb_data)
+            obs_group.create_dataset("depth_images", data=rgb_data)
+            obs_group.create_dataset("seg_images", data=rgb_data)
 
     def test_convert_hdf5_to_lerobot(self):
         """Test that HDF5 data can be converted to LeRobot format successfully."""
-        convert_hdf5_to_lerobot(self.hdf5_data_dir, self.TEST_REPO_ID, self.test_prompt)
+        convert_hdf5_to_lerobot(self.hdf5_data_dir, self.TEST_REPO_ID, self.test_prompt, self.feature_builder)
         meta_data_dir = os.path.join(self.test_data_dir, "meta")
         data_dir = os.path.join(self.test_data_dir, "data")
         self.assertTrue(os.path.exists(meta_data_dir), f"Meta data directory not created at {meta_data_dir}")
         self.assertTrue(os.path.exists(data_dir), f"Data directory not created at {data_dir}")
+
+    def test_convert_hdf5_to_lerobot_with_seg(self):
+        """Test that HDF5 data can be converted to LeRobot format successfully."""
+        convert_hdf5_to_lerobot(
+            self.hdf5_data_dir, self.TEST_REPO_ID, self.test_prompt, self.feature_builder, include_seg=True
+        )
+        meta_data_dir = os.path.join(self.test_data_dir, "meta")
+        data_dir = os.path.join(self.test_data_dir, "data")
+
+        self.assertTrue(os.path.exists(meta_data_dir), f"Meta data directory not created at {meta_data_dir}")
+        self.assertTrue(os.path.exists(data_dir), f"Data directory not created at {data_dir}")
+
+    def test_convert_hdf5_to_lerobot_gr00t_n1(self):
+        """Test that HDF5 data can be converted to LeRobot format successfully."""
+        convert_hdf5_to_lerobot(
+            self.hdf5_data_dir, self.TEST_REPO_ID, self.test_prompt, feature_builder=GR00TN1FeatureDict()
+        )
+        meta_data_dir = os.path.join(self.test_data_dir, "meta")
+        data_dir = os.path.join(self.test_data_dir, "data")
+        video_dir = os.path.join(self.test_data_dir, "videos")
+
+        self.assertTrue(os.path.exists(meta_data_dir), f"Meta data directory not created at {meta_data_dir}")
+        self.assertTrue(os.path.exists(data_dir), f"Data directory not created at {data_dir}")
+        self.assertTrue(os.path.exists(video_dir), f"Video directory not created at {video_dir}")
 
     def test_convert_hdf5_to_lerobot_data_dir_error_handling(self):
         """Test that data directory error can be handled."""
@@ -139,14 +166,14 @@ class TestConvertHdf5ToLeRobot(TestBase):
         fake_data_dir = os.path.join(self.current_dir, "fake_data_dir")
         error_test_repo_id = "i4h/error_test_data"
         with self.assertRaises(Exception) as context:
-            convert_hdf5_to_lerobot(fake_data_dir, error_test_repo_id, self.test_prompt)
+            convert_hdf5_to_lerobot(fake_data_dir, error_test_repo_id, self.test_prompt, self.feature_builder)
         self.assertTrue(f"Data directory {fake_data_dir} does not exist." == str(context.exception))
 
         # check get expected no hdf5 files warning message
         fake_empty_data_dir = os.path.join(self.current_dir, "fake_empty_data_dir")
         os.makedirs(fake_empty_data_dir, exist_ok=True)
         with self.assertWarns(Warning) as context:
-            convert_hdf5_to_lerobot(fake_empty_data_dir, error_test_repo_id, self.test_prompt)
+            convert_hdf5_to_lerobot(fake_empty_data_dir, error_test_repo_id, self.test_prompt, self.feature_builder)
         self.assertTrue(f"No HDF5 files found in {fake_empty_data_dir}" == str(context.warning))
 
         # check get expected repo_id warning message
@@ -154,7 +181,7 @@ class TestConvertHdf5ToLeRobot(TestBase):
         wrong_name_hdf5_path = os.path.join(fake_empty_data_dir, "wrong_name_0.hdf5")
         shutil.copy(hdf5_path, wrong_name_hdf5_path)
         with self.assertWarns(Warning) as context:
-            convert_hdf5_to_lerobot(fake_empty_data_dir, error_test_repo_id, self.test_prompt)
+            convert_hdf5_to_lerobot(fake_empty_data_dir, error_test_repo_id, self.test_prompt, self.feature_builder)
         self.assertTrue(f"File {wrong_name_hdf5_path} does not match the expected pattern." == str(context.warning))
 
         # clean up
@@ -169,22 +196,21 @@ class TestConvertHdf5ToLeRobot(TestBase):
         with self.assertRaises(Exception) as context:
             create_lerobot_dataset(
                 output_path=output_path,
+                features=self.feature_builder.features,
             )
         self.assertTrue(f"Output path {output_path} already exists." == str(context.exception))
         # clean up
         shutil.rmtree(output_path)
 
         # check normal creation
-        fps = 5
-        image_shape = (128, 128, 3)
+        fps = 30
+        image_shape = (224, 224, 3)
         state_shape = (7,)
         actions_shape = (6,)
         test_dataset = create_lerobot_dataset(
             output_path=output_path,
+            features=self.feature_builder.features,
             fps=fps,
-            image_shape=image_shape,
-            state_shape=state_shape,
-            actions_shape=actions_shape,
         )
 
         self.assertEqual(test_dataset.fps, fps)
