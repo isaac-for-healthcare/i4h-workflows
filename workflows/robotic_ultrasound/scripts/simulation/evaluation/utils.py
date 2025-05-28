@@ -57,7 +57,6 @@ def filter_scanning_points(
     scanning_mask = gt_states == 3
     if not np.any(scanning_mask):
         return None
-
     scanning_points_gt = gt_actions[scanning_mask][:, :3]
 
     if scanning_points_gt.shape[0] == 0:
@@ -80,10 +79,21 @@ def load_predicted_trajectory(pred_file_path: str, pred_data_key: str = "robot_o
 
     Args:
         pred_file_path: The path to the .npz file.
-        pred_data_key: The key to the predicted data.
+        pred_data_key: The key to the predicted data, default is "robot_obs".
     """
     try:
         pred_data = np.load(pred_file_path)
+        if pred_data_key not in pred_data:
+            raise ValueError(f"Key '{pred_data_key}' not found in the .npz file.")
+        if (
+            pred_data[pred_data_key].ndim != 4
+            or pred_data[pred_data_key].shape[1:3] != (1, 1)
+            or pred_data[pred_data_key].shape[3] < 3
+        ):
+            raise ValueError(
+                f"Invalid shape for '{pred_data_key}'. Expected shape (N, 1, 1, >=3), "
+                f"but got {pred_data[pred_data_key].shape}."
+            )
         pred_traj = pred_data[pred_data_key][:, 0, 0, :3]
         return pred_traj
     except Exception as e:
