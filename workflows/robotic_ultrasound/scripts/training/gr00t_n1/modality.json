@@ -1,0 +1,27 @@
+{
+    "state": {
+        "panda_hand": {
+            "start": 0,
+            "end": 7
+        }
+    },
+    "action": {
+        "panda_hand": {
+            "start": 0,
+            "end": 6
+        }
+    },
+    "video": {
+        "room": {
+            "original_key": "observation.images.room"
+        },
+        "wrist": {
+            "original_key": "observation.images.wrist"
+        }
+    },
+    "annotation": {
+        "human.task_description": {
+            "original_key": "task_index"
+        }
+    }
+}
