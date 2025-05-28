@@ -2,9 +2,6 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/" >/dev/null 2>&1 && pwd)"
 
-# RTI Home
-export NDDSHOME=/opt/rti.com/`ls /opt/rti.com/ | tail -n1`
-
 # RTI QOS Profile
 export NDDS_QOS_PROFILES=$SCRIPT_DIR/dds/qos_profile.xml
 

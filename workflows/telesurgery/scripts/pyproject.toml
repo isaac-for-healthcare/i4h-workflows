@@ -1,0 +1,48 @@
+[project]
+name = "ih4-workflows-telesurgery"
+version = "0.1.0"
+requires-python = "==3.10.16"
+dependencies = [
+    "rti.connext",
+    "numpy<2.0.0",
+    "pydantic",
+    "pillow",
+    "opencv-python-headless",
+    "pyrealsense2",
+    "holoscan==3.2.0",
+    "ntplib",
+    "pygame",
+    "websockets",
+    "websocket-client",
+    "setuptools",
+    "requests",
+    "torch; platform_machine == 'x86_64'",
+    "isaacsim[all,extscache]==4.5.0; platform_machine == 'x86_64'",
+    "isaaclab_tasks; platform_machine == 'x86_64'",
+    "isaaclab_rl[all]; platform_machine == 'x86_64'",
+    "isaaclab_mimic[all]; platform_machine == 'x86_64'",
+    "isaaclab_assets; platform_machine == 'x86_64'",
+    "isaaclab; platform_machine == 'x86_64'",
+    #"pynvjpeg",
+]
+
+[tool.uv.sources]
+isaaclab_tasks = { path = "./third_party/IsaacLab/source/isaaclab_tasks", editable = true }
+isaaclab_rl = { path = "./third_party/IsaacLab/source/isaaclab_rl", editable = true }
+isaaclab_mimic = { path = "./third_party/IsaacLab/source/isaaclab_mimic", editable = true }
+isaaclab_assets = { path = "./third_party/IsaacLab/source/isaaclab_assets", editable = true }
+isaaclab = { path = "./third_party/IsaacLab/source/isaaclab", editable = true }
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu124"
+
+[[tool.uv.index]]
+name = "nvidia"
+url = "https://pypi.nvidia.com"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.3.4",
+    "pre-commit"
+]

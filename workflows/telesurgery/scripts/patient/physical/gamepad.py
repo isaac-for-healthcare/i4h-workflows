@@ -54,7 +54,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run the hid application")
     parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
     parser.add_argument("--topic", type=str, default="telesurgery/hid/gamepad", help="dds topic name")
-    parser.add_argument("--api_host", type=str, default="10.137.145.1", help="api server host")
+    parser.add_argument("--api_host", type=str, default="10.137.145.163", help="api server host")
     parser.add_argument("--api_port", type=int, default=8081, help="api server port")
 
     args = parser.parse_args()

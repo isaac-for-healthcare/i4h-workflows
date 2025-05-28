@@ -28,9 +28,23 @@
 
 ## Quick Start
 
+### X86
 1. Install NVIDIA driver (>= 555) and CUDA (>= 12.6)
-2. Create and activate [conda](https://www.anaconda.com/docs/getting-started/miniconda/install) environment:
+
+### AARCH64 (IGX)
+1. Run the following to setup a docker env with CUDA enabled
+```bash
+cd <path-to-i4h-workflows>
+workflows/telesurgery/docker/setup.sh run
+
+# Inside docker
+workflows/telesurgery/docker/setup.sh init
+```
+
+
+2. Create and activate [conda](https://www.anaconda.com/docs/getting-started/miniconda/install#quickstart-install-instructions) environment:
    ```bash
+   source ~/miniconda3/bin/activate
    conda create -n telesurgery python=3.10 -y
    conda activate telesurgery
    ```
@@ -53,26 +67,10 @@
    export NDDS_QOS_PROFILES=$I4H_TELESURGERY_DIR/scripts/dds/qos_profile.xml
     ```
 
-## Environment Setup
-
-### Prerequisites
-
-The telesurgery workflow is built on the following dependencies:
-- [IsaacSim 4.5.0](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/index.html)
-- [IsaacLab 2.0.2](https://isaac-sim.github.io/IsaacLab/v2.0.2/index.html)
-
-### Installation Steps
-
-#### 1. Install NVIDIA Driver
-Install or upgrade to the latest NVIDIA driver from [NVIDIA website](https://www.nvidia.com/en-us/drivers/)
-
-#### 2. Install CUDA
-Install CUDA from [NVIDIA CUDA Quick Start Guide](https://docs.nvidia.com/cuda/cuda-quick-start-guide/index.html)
-
-#### 3. Obtain RTI DDS License
+### Obtain RTI DDS License
 RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
 
-#### 4. Optional - NTP Server
+### NTP Server (Optional)
 ```bash
 # run your own NTP server in background
 docker run -d --name ntp-server --restart=always -p 123:123/udp cturra/ntp
@@ -86,28 +84,6 @@ export NTP_SERVER_HOST=10.111.66.170
 # stop
 # docker stop ntp-server && docker rm ntp-server
 ```
-
-
-
-
-##### Create Conda Environment
-```bash
-# Create a new conda environment
-conda create -n telesurgery python=3.10 -y
-
-# Activate the environment
-conda activate telesurgery
-```
-
-##### Install All Dependencies
-The main script `tools/env_setup_telesurgery.sh` installs all necessary dependencies. It first installs common base components and then policy-specific packages based on an argument.
-
-###### Base Components
-- IsaacSim 4.5.0 (and core dependencies)
-- IsaacLab 2.0.2
-- Holoscan 3.2.0
-- Essential build tools and libraries
-- NvJpeg
 
 ### Asset Setup
 
@@ -143,11 +119,22 @@ More recommended variables can be found in [env.sh](./scripts/env.sh)
 ```bash
 cd <path-to-i4h-workflows>/workflows/telesurgery/scripts
 source env.sh
+
+export PATIENT_IP=10.137.145.163
+export MIRA_API_IP=${PATIENT_IP}
+export SURGEON_IP=10.111.66.170
 ```
+
 ### [Option-1] Patient in Physical World:
 ```bash
 # stream camera out
-python patient/physical/camera.py
+python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720
+python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080
+
+# accept controller commands for gamepad
+NDDS_DISCOVERY_PEERS=${SURGEON_IP} python patient/physical/gamepad.py --api_host ${MIRA_API_IP} --api_port 8081
+
+
 ```
 
 ### [Option-2] Patient in Simulation World:
@@ -158,12 +145,15 @@ python patient/simulation/mira.py
 ### Surgeon connecting to Patient
 ```bash
 # capture camera stream
-python python surgeon/camera.py
+NDDS_DISCOVERY_PEERS=${PATIENT_IP} python python surgeon/camera.py --width 1280 --height 720
+
+# connect to gamepad controller
+python surgeon/gamepad.py
 ```
 
 
 ### Important Notes
-1. You may need to run multiple scripts simultaneously in different terminals
+1. You may need to run multiple scripts simultaneously in different terminals or run in background
 2. A typical setup requires 4 terminals running:
    - Patient Camera, Controller etc..
    - Surgen Camera, Controller etc..

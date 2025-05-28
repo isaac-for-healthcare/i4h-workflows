@@ -51,10 +51,8 @@ fi
 
 # ---- Install necessary dependencies (Common) ----
 echo "Installing necessary dependencies..."
-pip install -r $PROJECT_ROOT/workflows/telesurgery/requirements.txt
-
-# for holoscan and cosmos transfer1, we need to install the following conda packages:
-conda install -c conda-forge ninja libgl ffmpeg pybind11 gcc=12.4.0 gxx=12.4.0 libstdcxx-ng -y
+pip install numpy
+conda install -c conda-forge libstdcxx-ng -y
 
 # ---- Install necessary dependencies (Telesurgery) ----
 echo "Installing necessary dependencies..."

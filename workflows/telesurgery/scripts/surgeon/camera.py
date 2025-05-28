@@ -49,8 +49,8 @@ class App(Application):
             allocator=UnboundedAllocator(self, name="pool"),
             name="holoviz",
             window_title="Camera",
-            width=640,
-            height=480,
+            width=self.width,
+            height=self.height,
         )
 
         self.add_flow(dds, jpeg, {("output", "input")})
