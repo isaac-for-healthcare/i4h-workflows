@@ -53,11 +53,7 @@ workflows/telesurgery/docker/setup.sh init
    cd <path-to-i4h-workflows>
    bash tools/env_setup_telesurgery.sh
    ```
-4. Download assets:
-   ```bash
-   i4h-asset-retrieve
-   ```
-5. Set environment variables:
+4. Set environment variables:
    ```bash
    export I4H_WORKFLOWS_DIR=<path-to-i4h-workflows>
    export RTI_LICENSE_FILE=<path-to-rti-license-file>
@@ -85,18 +81,6 @@ export NTP_SERVER_HOST=10.111.66.170
 # docker stop ntp-server && docker rm ntp-server
 ```
 
-### Asset Setup
-
-Download the required assets using:
-```bash
-export ISAAC_ASSET_SHA256_HASH=8e80faed126c533243f50bb01dca3dcf035e86b5bf567d622878866a8ef7f12d
-i4h-asset-retrieve
-```
-
-This will download assets to `~/.cache/i4h-assets/<sha256>`. For more details, refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.1.0/docs/catalog_helper.md).
-
-**Note**: During asset download, you may see warnings about blocking functions. This is expected behavior and the download will complete successfully despite these warnings.
-
 ### Environment Variables
 
 Before running any scripts, you need to set up the following environment variables:
@@ -120,28 +104,35 @@ More recommended variables can be found in [env.sh](./scripts/env.sh)
 cd <path-to-i4h-workflows>/workflows/telesurgery/scripts
 source env.sh  # Make sure all env variables are correctly set in env.sh
 
-export PATIENT_IP=10.137.145.163
+#export PATIENT_IP=10.137.145.163
+export PATIENT_IP=10.111.66.170
 export SURGEON_IP=10.111.66.170
 ```
 > Make sure MIRA API Server is up and running (port: 8081) in case of Physical World.
 
-### [Option-1] Patient in Physical World:
+### [Option-1] Patient in Physical World _(x86 / aarch64)_
 ```bash
 # stream camera out
 python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720
 python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080
 ```
 
-### [Option-2] Patient in Simulation World:
+### [Option-2] Patient in Simulation World _(x86)_
 ```bash
-python patient/simulation/main.py --api_host ${PATIENT_IP} --api_port 8081
+# download the assets
+export ISAAC_ASSET_SHA256_HASH=8e80faed126c533243f50bb01dca3dcf035e86b5bf567d622878866a8ef7f12d
+i4h-asset-retrieve
+
+python patient/simulation/main.py
 ```
 
-### Surgeon connecting to Patient
+### Surgeon connecting to Patient _(x86 / aarch64)_
 ```bash
-# capture camera stream
-NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name room --width 1280 --height 720
+# capture robot camera stream
 NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name robot --width 1280 --height 720
+
+# capture room camera stream (optional)
+NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name room --width 1280 --height 720
 
 # connect to gamepad controller and send commands to API Server
 python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
