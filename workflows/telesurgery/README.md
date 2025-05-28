@@ -62,9 +62,9 @@ workflows/telesurgery/docker/setup.sh init
    export I4H_WORKFLOWS_DIR=<path-to-i4h-workflows>
    export RTI_LICENSE_FILE=<path-to-rti-license-file>
 
-   export I4H_TELESURGERY_DIR=$I4H_WORKFLOWS_DIR/workflows/telesurgery
-   export PYTHONPATH=$I4H_TELESURGERY_DIR/scripts
-   export NDDS_QOS_PROFILES=$I4H_TELESURGERY_DIR/scripts/dds/qos_profile.xml
+   export I4H_TELESURGERY_DIR=${I4H_WORKFLOWS_DIR}/workflows/telesurgery
+   export PYTHONPATH=${I4H_TELESURGERY_DIR}/scripts
+   export NDDS_QOS_PROFILES=${I4H_TELESURGERY_DIR}/scripts/dds/qos_profile.xml
     ```
 
 ### Obtain RTI DDS License
@@ -131,7 +131,7 @@ export SURGEON_IP=10.111.66.170
 python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720
 python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080
 
-# accept controller commands for gamepad
+# accept/subscribe controller commands for gamepad and connect to mira api server
 NDDS_DISCOVERY_PEERS=${SURGEON_IP} python patient/physical/gamepad.py --api_host ${MIRA_API_IP} --api_port 8081
 
 
@@ -147,15 +147,15 @@ python patient/simulation/mira.py
 # capture camera stream
 NDDS_DISCOVERY_PEERS=${PATIENT_IP} python python surgeon/camera.py --width 1280 --height 720
 
-# connect to gamepad controller
+# connect to gamepad controller and publish commands
 python surgeon/gamepad.py
 ```
 
 
 ### Important Notes
-1. You may need to run multiple scripts simultaneously in different terminals or run in background
-2. A typical setup requires 4 terminals running:
-   - Patient Camera, Controller etc..
-   - Surgen Camera, Controller etc..
+1. You may need to run multiple scripts simultaneously in different terminals or run in background (in case of docker)
+2. A typical setup requires multiple terminals running:
+   - Patient: Camera1, Camera2, Controller etc...
+   - Surgeon: Camera1, Camera2, Controller etc...
 
 If you encounter issues not covered in the notes above, please check the documentation for each component or open a new issue on GitHub.
