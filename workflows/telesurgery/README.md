@@ -28,15 +28,14 @@
 
 ### AARCH64 (IGX)
 1. Run the following to setup a docker env with CUDA enabled
-```bash
-cd <path-to-i4h-workflows>
-workflows/telesurgery/docker/setup.sh run
+   ```bash
+   cd <path-to-i4h-workflows>
+   xhost +
+   workflows/telesurgery/docker/setup.sh run
 
-# Inside docker
-workflows/telesurgery/docker/setup.sh init
-```
-
-
+   # Inside docker
+   workflows/telesurgery/docker/setup.sh init
+   ```
 2. Create and activate [conda](https://www.anaconda.com/docs/getting-started/miniconda/install#quickstart-install-instructions) environment:
    ```bash
    source ~/miniconda3/bin/activate
@@ -48,16 +47,12 @@ workflows/telesurgery/docker/setup.sh init
    cd <path-to-i4h-workflows>
    bash tools/env_setup_telesurgery.sh
    ```
-4. Set environment variables:
-   ```bash
-   export RTI_LICENSE_FILE=<path-to-rti-license-file>
-    ```
-> More recommended variables can be found in [env.sh](./scripts/env.sh).  Make sure all they are valid.
 
 ### Obtain RTI DDS License
 RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
 
 ### NTP Server (Optional)
+An NTP (Network Time Protocol) server is a server that uses the Network Time Protocol to provide accurate time information to clients over a computer network. NTP is a protocol designed to synchronize the clocks of computers to a reference time source, ensuring that all devices on the network maintain the same time.
 ```bash
 # run your own NTP server in background
 docker run -d --name ntp-server --restart=always -p 123:123/udp cturra/ntp
