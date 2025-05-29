@@ -19,9 +19,13 @@ import json
 from holohub.operators.camera.cv2 import CV2VideoCaptureOp
 from holohub.operators.camera.realsense import RealsenseOp
 from holohub.operators.dds.publisher import DDSPublisherOp
+from holohub.operators.nvidia_video_codec.utils.camera_stream_merge import CameraStreamMergeOp
+from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.encoder import NVJpegEncoderOp
 from holohub.operators.sink import NoOp
 from holoscan.core import Application
+from holoscan.resources import BlockMemoryPool, MemoryStorageType
+from nv_video_encoder import NvVideoEncoderOp
 from schemas.camera_stream import CameraStream
 
 
@@ -81,12 +85,41 @@ class App(Application):
             )
         )
 
-        jpeg = NVJpegEncoderOp(
-            self,
-            name="nvjpeg_encoder",
-            skip=self.encoder != "nvjpeg",
-            quality=self.encoder_params.get("quality", 90),
-        )
+        if self.encoder == "nvc":
+            try:
+                encoder_op = NvVideoEncoderOp(
+                    self,
+                    name="nvc_encoder",
+                    cuda_device_ordinal=0,
+                    copy_to_host=False,
+                    width=self.width,
+                    height=self.height,
+                    codec="H264",
+                    preset="P3",
+                    bitrate=10000000,
+                    frame_rate=60,
+                    rate_control_mode=1,
+                    multi_pass_encoding=0,
+                    allocator=BlockMemoryPool(
+                        self,
+                        name="pool",
+                        storage_type=MemoryStorageType.DEVICE,
+                        block_size=self.width * self.height * 3 * 4,
+                        num_blocks=2,
+                    ),
+                )
+            except Exception as e:
+                print(f"Error creating NVC encoder: {e}")
+                raise e
+            split_op = CameraStreamSplitOp(self, name="split_op")
+            merge_op = CameraStreamMergeOp(self, name="merge_op")
+        else:
+            encoder_op = NVJpegEncoderOp(
+                self,
+                name="nvjpeg_encoder",
+                skip=self.encoder != "nvjpeg",
+                quality=self.encoder_params.get("quality", 90),
+            )
 
         dds = DDSPublisherOp(
             self,
@@ -98,9 +131,18 @@ class App(Application):
 
         sink = NoOp(self)
 
-        self.add_flow(source, jpeg, {("output", "input")})
-        self.add_flow(jpeg, dds, {("output", "input")})
-        self.add_flow(dds, sink, {("output", "input")})
+        if self.encoder == "nvc":
+            print("Using NVC encoder with split and merge")
+            self.add_flow(self.source, split_op, {("output", "input")})
+            self.add_flow(split_op, encoder_op, {("camera", "input")})
+            self.add_flow(split_op, merge_op, {("metadata", "metadata")})
+            self.add_flow(encoder_op, merge_op, {("output", "camera")})
+            self.add_flow(merge_op, dds, {("output", "input")})
+            self.add_flow(dds, sink, {("output", "input")})
+        else:
+            self.add_flow(source, encoder_op, {("output", "input")})
+            self.add_flow(encoder_op, dds, {("output", "input")})
+            self.add_flow(dds, sink, {("output", "input")})
 
 
 def main():
@@ -114,7 +156,7 @@ def main():
     parser.add_argument("--framerate", type=int, default=30, help="frame rate")
     parser.add_argument("--stream_type", type=str, default="color", choices=["color", "depth"])
     parser.add_argument("--stream_format", type=str, default="")
-    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "none"], default="nvjpeg")
+    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvjpeg")
     parser.add_argument("--encoder_params", type=str, default=json.dumps({"quality": 90}), help="encoder params")
     parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")

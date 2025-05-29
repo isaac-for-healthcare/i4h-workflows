@@ -63,7 +63,6 @@ class App(Application):
         )
 
         if self.encoder == "nvc":
-            print(f"Using NVC encoder width: {self.width} height: {self.height}")
             try:
                 encoder_op = NvVideoEncoderOp(
                     self,
@@ -110,7 +109,6 @@ class App(Application):
         sink = NoOp(self)
 
         if self.encoder == "nvc":
-            print("Using NVC encoder with split and merge")
             self.add_flow(self.source, split_op, {("output", "input")})
             self.add_flow(split_op, encoder_op, {("camera", "input")})
             self.add_flow(split_op, merge_op, {("metadata", "metadata")})
@@ -118,7 +116,6 @@ class App(Application):
             self.add_flow(merge_op, dds, {("output", "input")})
             self.add_flow(dds, sink, {("output", "input")})
         else:
-            print("Using NVJPEG encoder")
             self.add_flow(self.source, encoder_op, {("output", "input")})
             self.add_flow(encoder_op, dds, {("output", "input")})
             self.add_flow(dds, sink, {("output", "input")})
