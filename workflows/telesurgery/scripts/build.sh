@@ -17,24 +17,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/" >/dev/null 2>&1 && pwd)"
 
-# RTI QOS Profile
-export NDDS_QOS_PROFILES=$SCRIPT_DIR/dds/qos_profile.xml
-
-# RTI Discovery Address
-export NDDS_DISCOVERY_PEERS="surgeon IP address"
-
-# RTI License
-if [ -z "${RTI_LICENSE_FILE}" ]; then
-  export RTI_LICENSE_FILE=$SCRIPT_DIR/dds/rti_license.dat
-fi
-
-# Python Path
-export PYTHONPATH=$SCRIPT_DIR:$SCRIPT_DIR/../build/python/lib
-
-# Optional: NTP Server to capture time diff between 2 nodes
-# export NTP_SERVER_HOST="surgeon IP address"
-# export NTP_SERVER_PORT=123
-
-# Host IP for Patient/Surgeon
-export PATIENT_IP="patient IP address"
-export SURGEON_IP="surgeon IP address"
+pushd ..
+cmake -S . -B build/
+cmake --build build/
+popd

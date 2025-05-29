@@ -13,41 +13,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
-
+import cupy as cp
 from holoscan.core import Operator
-from holoscan.core._core import OperatorSpec
-from nvjpeg import NvJpeg
 from schemas.camera_stream import CameraStream
 
 
-class NVJpegDecoderOp(Operator):
-    """
-    Operator to decode RGB data to JPEG using NVJpeg.
-    """
+class CameraStreamMergeOp(Operator):
+    """Operator to merge a camera stream into a single stream."""
 
-    def __init__(self, fragment, skip, *args, **kwargs):
-        self.skip = skip
-        self.nvjpeg = None
-
-        super().__init__(fragment, *args, **kwargs)
-
-    def setup(self, spec: OperatorSpec):
-        spec.input("input")
+    def setup(self, spec):
+        spec.input("metadata")
+        spec.input("camera")
         spec.output("output")
-        spec.output("camera")
-
-    def start(self):
-        self.nvjpeg = NvJpeg()
 
     def compute(self, op_input, op_output, context):
-        stream = op_input.receive("input")
+        stream = op_input.receive("metadata")
+        camera = op_input.receive("camera")
         assert isinstance(stream, CameraStream)
 
-        start = time.time()
-        if not self.skip:
-            stream.data = self.nvjpeg.decode(stream.data)
-        stream.decode_latency = (time.time() - start) * 1000
+        camera_tensor = camera[""]
 
+        stream.data = cp.asarray(camera_tensor).get().tobytes()
+        stream.encode_latency = self.metadata.get("video_encoder_encode_latency_ms", 0)
+        stream.compress_ratio = self.metadata.get("video_encoder_compress_ratio", 0)
         op_output.emit(stream, "output")
-        op_output.emit({"image": stream.data}, "camera")

@@ -18,9 +18,10 @@ from isaacsim.sensors.camera import Camera
 
 
 class CameraEx(Camera):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, channels=3, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.channels = channels
         self.prev_rendering_frame = -1
         self.frame_counter = 0
         self.callback = None
@@ -36,6 +37,6 @@ class CameraEx(Camera):
             rgba = self._current_frame["rgba"]
 
             if not rgba.shape[0] == 0 and self.callback is not None:
-                rgb = rgba[:, :, :3]
+                rgb = rgba[:, :, : self.channels]
                 self.callback(rgb, self.frame_counter)
             self.frame_counter += 1

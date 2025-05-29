@@ -32,7 +32,7 @@ def main():
     parser.add_argument("--width", type=int, default=1920, help="width")
     parser.add_argument("--height", type=int, default=1080, help="height")
     parser.add_argument("--framerate", type=int, default=30, help="frame rate")
-    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "none"], default="nvjpeg")
+    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvjpeg")
     parser.add_argument("--encoder_params", type=str, default=json.dumps({"quality": 90}), help="encoder params")
     parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
@@ -101,7 +101,12 @@ def main():
 
     from patient.simulation.camera.sensor import CameraEx
 
-    camera = CameraEx(prim_path=camera_prim_path, frequency=args.framerate, resolution=(args.width, args.height))
+    camera = CameraEx(
+        channels=4 if args.encoder == "nvc" else 3,
+        prim_path=camera_prim_path,
+        frequency=args.framerate,
+        resolution=(args.width, args.height),
+    )
     camera.initialize()
 
     # holoscan app in async mode to consume camera source
