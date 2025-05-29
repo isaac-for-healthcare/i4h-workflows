@@ -44,6 +44,7 @@
    cd <path-to-i4h-workflows>
    bash tools/env_setup_telesurgery.sh
    ```
+> Make sure your public key is added to the github account if the git authentication fails.
 
 ### Obtain RTI DDS License
 RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
