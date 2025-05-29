@@ -21,7 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/" >/dev/null 2>&1 && pwd)"
 export NDDS_QOS_PROFILES=$SCRIPT_DIR/dds/qos_profile.xml
 
 # RTI Discovery Address
-export NDDS_DISCOVERY_PEERS=10.111.66.170
+export NDDS_DISCOVERY_PEERS="surgeon IP address"
 
 # RTI License
 if [ -z "${RTI_LICENSE_FILE}" ]; then
@@ -32,9 +32,9 @@ fi
 export PYTHONPATH=$SCRIPT_DIR
 
 # Optional: NTP Server to capture time diff between 2 nodes
-#export NTP_SERVER_HOST=pool.ntp.org
-#export NTP_SERVER_PORT=123
+# export NTP_SERVER_HOST="surgeon IP address"
+# export NTP_SERVER_PORT=123
 
 # Host IP for Patient/Surgeon
-export PATIENT_IP=10.137.145.163
-export SURGEON_IP=10.111.66.170
+export PATIENT_IP="patient IP address"
+export SURGEON_IP="surgeon IP address"

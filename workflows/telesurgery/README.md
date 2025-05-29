@@ -23,20 +23,16 @@
 
 ## Quick Start
 
-### X86
-1. Install NVIDIA driver (>= 555) and CUDA (>= 12.6)
-
-### AARCH64 (IGX)
+### x86 && AARCH64 (IGX) Setup
 1. Run the following to setup a docker env with CUDA enabled
-```bash
-cd <path-to-i4h-workflows>
-workflows/telesurgery/docker/setup.sh run
+   ```bash
+   cd <path-to-i4h-workflows>
+   xhost +
+   workflows/telesurgery/docker/setup.sh run
 
-# Inside docker
-workflows/telesurgery/docker/setup.sh init
-```
-
-
+   # Inside docker
+   workflows/telesurgery/docker/setup.sh init
+   ```
 2. Create and activate [conda](https://www.anaconda.com/docs/getting-started/miniconda/install#quickstart-install-instructions) environment:
    ```bash
    source ~/miniconda3/bin/activate
@@ -48,16 +44,13 @@ workflows/telesurgery/docker/setup.sh init
    cd <path-to-i4h-workflows>
    bash tools/env_setup_telesurgery.sh
    ```
-4. Set environment variables:
-   ```bash
-   export RTI_LICENSE_FILE=<path-to-rti-license-file>
-    ```
-> More recommended variables can be found in [env.sh](./scripts/env.sh).  Make sure all they are valid.
+> Make sure your public key is added to the github account if the git authentication fails.
 
 ### Obtain RTI DDS License
 RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
 
 ### NTP Server (Optional)
+An NTP (Network Time Protocol) server is a server that uses the Network Time Protocol to provide accurate time information to clients over a computer network. NTP is a protocol designed to synchronize the clocks of computers to a reference time source, ensuring that all devices on the network maintain the same time.
 ```bash
 # run your own NTP server in background
 docker run -d --name ntp-server --restart=always -p 123:123/udp cturra/ntp
@@ -66,7 +59,7 @@ docker run -d --name ntp-server --restart=always -p 123:123/udp cturra/ntp
 docker logs ntp-server
 
 # fix server ip in env.sh for NTP Server
-export NTP_SERVER_HOST=10.111.66.170
+export NTP_SERVER_HOST=<NTP server address>
 
 # stop
 # docker stop ntp-server && docker rm ntp-server
@@ -88,6 +81,10 @@ Before running any scripts, you need to set up the following environment variabl
    ```
    This is required for the DDS communication package to function properly.
 
+3. **NDDS_DISCOVERY_PEERS**: Set this to point to the IP address receiving camera data:
+   ```bash
+   export NDDS_DISCOVERY_PEERS="surgeon IP address"
+   ```
 More recommended variables can be found in [env.sh](./scripts/env.sh)
 
 ## Running the Workflow
@@ -95,8 +92,8 @@ More recommended variables can be found in [env.sh](./scripts/env.sh)
 cd <path-to-i4h-workflows>/workflows/telesurgery/scripts
 source env.sh  # Make sure all env variables are correctly set in env.sh
 
-export PATIENT_IP=10.137.145.163
-export SURGEON_IP=10.111.66.170
+export PATIENT_IP=<patient IP address>
+export SURGEON_IP=<surgeon IP address>
 ```
 > Make sure MIRA API Server is up and running (port: 8081) in case of Physical World.
 
