@@ -41,7 +41,7 @@ class Config:
     output_dir: str = "/tmp/gr00t"
     """Directory to save model checkpoints."""
 
-    data_config: str = "gr1_arms_only"
+    data_config: str = "single_panda_us"
     """Data configuration name from DATA_CONFIG_MAP."""
 
     # Training parameters
@@ -105,7 +105,7 @@ class Config:
     embodiment_tag: str = "new_embodiment"
     """Embodiment tag to use for training. e.g. 'new_embodiment', 'gr1'"""
 
-    video_backend: str = "decord"
+    video_backend: str = "torchvision_av"
     """Video backend to use for training. [decord, torchvision_av]"""
 
 

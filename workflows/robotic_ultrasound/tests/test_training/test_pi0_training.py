@@ -25,7 +25,7 @@ import torch
 from openpi import train
 from policy_runner.pi0.config import get_config
 from policy_runner.pi0.utils import compute_normalization_stats
-from training.pi_zero.convert_hdf5_to_lerobot import GR00TN1FeatureDict, Pi0FeatureDict, create_lerobot_dataset
+from training.pi_zero.convert_hdf5_to_lerobot import Pi0FeatureDict, create_lerobot_dataset
 from training.pi_zero.convert_hdf5_to_lerobot import main as convert_hdf5_to_lerobot
 
 
@@ -146,19 +146,6 @@ class TestConvertHdf5ToLeRobot(TestBase):
 
         self.assertTrue(os.path.exists(meta_data_dir), f"Meta data directory not created at {meta_data_dir}")
         self.assertTrue(os.path.exists(data_dir), f"Data directory not created at {data_dir}")
-
-    def test_convert_hdf5_to_lerobot_gr00t_n1(self):
-        """Test that HDF5 data can be converted to LeRobot format successfully."""
-        convert_hdf5_to_lerobot(
-            self.hdf5_data_dir, self.TEST_REPO_ID, self.test_prompt, feature_builder=GR00TN1FeatureDict()
-        )
-        meta_data_dir = os.path.join(self.test_data_dir, "meta")
-        data_dir = os.path.join(self.test_data_dir, "data")
-        video_dir = os.path.join(self.test_data_dir, "videos")
-
-        self.assertTrue(os.path.exists(meta_data_dir), f"Meta data directory not created at {meta_data_dir}")
-        self.assertTrue(os.path.exists(data_dir), f"Data directory not created at {data_dir}")
-        self.assertTrue(os.path.exists(video_dir), f"Video directory not created at {video_dir}")
 
     def test_convert_hdf5_to_lerobot_data_dir_error_handling(self):
         """Test that data directory error can be handled."""

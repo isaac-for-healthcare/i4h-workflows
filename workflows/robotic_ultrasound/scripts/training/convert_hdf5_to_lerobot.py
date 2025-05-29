@@ -34,7 +34,6 @@ import h5py
 import numpy as np
 import tqdm
 from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME, LeRobotDataset
-from openpi_client import image_tools
 from PIL import Image
 
 
@@ -170,20 +169,20 @@ class BaseFeatureDict:
         current_features = self.features  # Access property to ensure it's evaluated
 
         # Assign mandatory fields (assuming they are always in features_dict from the property)
-        frame_data[self.room_image_key] = image_tools.resize_with_pad(rgb[0], img_h, img_w)
-        frame_data[self.wrist_image_key] = image_tools.resize_with_pad(rgb[1], img_h, img_w)
+        frame_data[self.room_image_key] = resize_with_pad(rgb[0], img_h, img_w)
+        frame_data[self.wrist_image_key] = resize_with_pad(rgb[1], img_h, img_w)
         frame_data[self.state_key] = state
         frame_data[self.action_key] = action  # Use subclass-defined action_key
 
         if seg is not None and self.seg_room_key in current_features:
-            frame_data[self.seg_room_key] = image_tools.resize_with_pad(seg[0], img_h, img_w, method=Image.NEAREST)
+            frame_data[self.seg_room_key] = resize_with_pad(seg[0], img_h, img_w, method=Image.NEAREST)
         if seg is not None and self.seg_wrist_key in current_features:
-            frame_data[self.seg_wrist_key] = image_tools.resize_with_pad(seg[1], img_h, img_w, method=Image.NEAREST)
+            frame_data[self.seg_wrist_key] = resize_with_pad(seg[1], img_h, img_w, method=Image.NEAREST)
 
         if depth_room is not None and self.depth_room_key in current_features:
-            frame_data[self.depth_room_key] = image_tools.resize_with_pad(depth_room, img_h, img_w).squeeze(2)
+            frame_data[self.depth_room_key] = resize_with_pad(depth_room, img_h, img_w).squeeze(2)
         if depth_wrist is not None and self.depth_wrist_key in current_features:
-            frame_data[self.depth_wrist_key] = image_tools.resize_with_pad(depth_wrist, img_h, img_w).squeeze(2)
+            frame_data[self.depth_wrist_key] = resize_with_pad(depth_wrist, img_h, img_w).squeeze(2)
 
         return frame_data
 
@@ -258,6 +257,52 @@ def normalize_depth_image(depth_image):
 
     # Convert to uint8
     return out_array.astype("uint8")
+
+
+def resize_with_pad(images: np.ndarray, height: int, width: int, method=Image.BILINEAR) -> np.ndarray:
+    """Replicates tf.image.resize_with_pad for multiple images using PIL. Resizes a batch of images to a target height.
+
+    Args:
+        images: A batch of images in [..., height, width, channel] format.
+        height: The target height of the image.
+        width: The target width of the image.
+        method: The interpolation method to use. Default is bilinear.
+
+    Returns:
+        The resized images in [..., height, width, channel].
+    """
+    # If the images are already the correct size, return them as is.
+    if images.shape[-3:-1] == (height, width):
+        return images
+
+    original_shape = images.shape
+
+    images = images.reshape(-1, *original_shape[-3:])
+    resized = np.stack([_resize_with_pad_pil(Image.fromarray(im), height, width, method=method) for im in images])
+    return resized.reshape(*original_shape[:-3], *resized.shape[-3:])
+
+
+def _resize_with_pad_pil(image: Image.Image, height: int, width: int, method: int) -> Image.Image:
+    """Replicates tf.image.resize_with_pad for one image using PIL. Resizes an image to a target height and
+    width without distortion by padding with zeros.
+
+    Unlike the jax version, note that PIL uses [width, height, channel] ordering instead of [batch, h, w, c].
+    """
+    cur_width, cur_height = image.size
+    if cur_width == width and cur_height == height:
+        return image  # No need to resize if the image is already the correct size.
+
+    ratio = max(cur_width / width, cur_height / height)
+    resized_height = int(cur_height / ratio)
+    resized_width = int(cur_width / ratio)
+    resized_image = image.resize((resized_width, resized_height), resample=method)
+
+    zero_image = Image.new(resized_image.mode, (width, height), 0)
+    pad_height = max(0, int((height - resized_height) / 2))
+    pad_width = max(0, int((width - resized_width) / 2))
+    zero_image.paste(resized_image, (pad_width, pad_height))
+    assert zero_image.size == (width, height)
+    return zero_image
 
 
 def create_lerobot_dataset(
@@ -441,7 +486,7 @@ if __name__ == "__main__":
         type=str,
         default="pi0",
         choices=["pi0", "gr00tn1"],
-        help="Type of feature builder to use (pi0 or gr00t_n1).",
+        help="Type of feature builder to use (pi0 or gr00tn1).",
     )
     parser.add_argument(
         "--image_shape",
