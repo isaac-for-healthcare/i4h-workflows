@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM nvcr.io/nvidia/isaac-lab:2.0.2
+FROM nvcr.io/nvidia/isaac-lab:2.1.0
 
 # This line enables SSH access for the following RUN command
 RUN apt-get update && apt-get install -y git openssh-client

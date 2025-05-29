@@ -47,13 +47,13 @@ else
     git clone -b v2.1.0 git@github.com:isaac-sim/IsaacLab.git "$ISAACLAB_DIR"
 fi
 
-# ---- Apply events_random_texture.diff patch to IsaacLab ----
+# ---- Apply events_random_texture.patch patch to IsaacLab ----
 # https://github.com/isaac-sim/IsaacLab/pull/2476
-EVENTS_PATCH_SRC_FILE="$PROJECT_ROOT/tools/env_setup/events_random_texture.diff"
+EVENTS_PATCH_SRC_FILE="$PROJECT_ROOT/tools/env_setup/patches/events_random_texture.patch"
 
 if [ -f "$EVENTS_PATCH_SRC_FILE" ]; then
     echo "Applying events_random_texture patch ($EVENTS_PATCH_SRC_FILE) to IsaacLab at $ISAACLAB_DIR..."
-    # -p1 strips the first component (e.g., a/ or b/) from paths in the diff file.
+    # -p1 strips the first component (e.g., a/ or b/) from paths in the patch file.
     (cd "$ISAACLAB_DIR" && patch -p1 < "$EVENTS_PATCH_SRC_FILE")
     if [ $? -eq 0 ]; then
         echo "Events random_texture patch applied successfully."
@@ -66,7 +66,7 @@ fi
 
 # ---- Apply semantic tags patch to IsaacLab ----
 # https://github.com/isaac-sim/IsaacLab/pull/2410
-FROM_FILES_PATCH_SRC_FILE="$PROJECT_ROOT/tools/env_setup/from_files_semantic_tags.diff"
+FROM_FILES_PATCH_SRC_FILE="$PROJECT_ROOT/tools/env_setup/patches/from_files_semantic_tags.patch"
 
 if [ -f "$FROM_FILES_PATCH_SRC_FILE" ]; then
     echo "Applying semantic tags patch ($FROM_FILES_PATCH_SRC_FILE) to IsaacLab at $ISAACLAB_DIR..."
