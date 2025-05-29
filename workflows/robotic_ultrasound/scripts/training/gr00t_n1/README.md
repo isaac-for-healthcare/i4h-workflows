@@ -16,7 +16,7 @@ This repository provides a complete workflow for training GR00T-N1 models for ro
 
 This workflow enables you to:
 
-1. Collect robotic ultrasound data using a state machine in Isaac Sim
+1. Collect the robot trajectories and camera image data while the robot is perfoming a ultrasound scan
 2. Convert the collected HDF5 data to LeRobot format
 3. Fine-tune a GR00T-N1 model
 4. Deploy the trained model for inference

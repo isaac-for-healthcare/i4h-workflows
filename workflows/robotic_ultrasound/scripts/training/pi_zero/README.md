@@ -19,7 +19,7 @@ This repository provides a complete workflow for training [PI Zero](https://www.
 
 This workflow enables you to:
 
-1. Collect robotic ultrasound data using a state machine in Isaac Sim
+1. Collect the robot trajectories and camera image data while the robot is perfoming a ultrasound scan
 2. Convert the collected HDF5 data to LeRobot format (required by PI Zero)
 3. Fine-tune a PI Zero model using either full supervised fine-tuning or LoRA (Low-Rank Adaptation)
 4. Deploy the trained model for inference

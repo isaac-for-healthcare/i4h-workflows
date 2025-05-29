@@ -59,6 +59,13 @@ class TestBase(unittest.TestCase):
     def tearDown(self):
         """Clean up after each test method."""
         if self.should_cleanup:
+            # safely kill the training thread
+            if hasattr(self, "training_thread") and self.training_thread.is_alive():
+                self.training_thread.join(timeout=10)
+                if self.training_thread.is_alive():
+                    self.training_thread.terminate()
+                    self.training_thread.join()
+
             # Remove test data directory
             if os.path.exists(self.test_data_dir):
                 shutil.rmtree(self.test_data_dir)
@@ -169,6 +176,7 @@ class TestTraining(TestBase):
                 output_dir=self.tmp_checkpoints_dir,
                 batch_size=1,
                 num_gpus=1,
+                dataloader_num_workers=1
             )
             gr00t_n1_train.main(train_config)
         except Exception as e:

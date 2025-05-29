@@ -90,3 +90,6 @@ xvfb (https://launchpad.net/ubuntu/jammy/+package/xvfb)
 2011 Gaetan Nadon; 1994-2003 The XFree86 Project, Inc. All Rights Reserved.; 1993
 The Regents of the University of California. All rights reserved.; 2003 The NetBSD Foundation, Inc.; 2001-2002 Damien Miller. All rights reserved.; 1998 Todd C. Miller &lt;Todd.Miller@courtesan.com&gt;; 2001-2004 Thomas Winischhofer; 1991-2000 Silicon Graphics, Inc. All Rights Reserved.; 2001 by Bigelow &amp; Holmes Inc. Luxi font; 2001 by URW++ GmbH. All Rights
 Licensed under MIT (https://www.x.org/releases/current/doc/xorg-docs/License.html)
+
+tyro (https://pypi.org/project/tyro/)
+Licensed under MIT (https://github.com/brentyi/tyro/blob/main/LICENSE)
