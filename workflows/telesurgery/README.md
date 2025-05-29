@@ -23,10 +23,7 @@
 
 ## Quick Start
 
-### X86
-1. Install NVIDIA driver (>= 555) and CUDA (>= 12.6)
-
-### AARCH64 (IGX)
+### x86 && AARCH64 (IGX) Setup
 1. Run the following to setup a docker env with CUDA enabled
    ```bash
    cd <path-to-i4h-workflows>
@@ -61,7 +58,7 @@ docker run -d --name ntp-server --restart=always -p 123:123/udp cturra/ntp
 docker logs ntp-server
 
 # fix server ip in env.sh for NTP Server
-export NTP_SERVER_HOST=10.111.66.170
+export NTP_SERVER_HOST=<NTP server address>
 
 # stop
 # docker stop ntp-server && docker rm ntp-server
@@ -83,6 +80,10 @@ Before running any scripts, you need to set up the following environment variabl
    ```
    This is required for the DDS communication package to function properly.
 
+3. **NDDS_DISCOVERY_PEERS**: Set this to point to the IP address receiving camera data:
+   ```bash
+   export NDDS_DISCOVERY_PEERS="surgeon IP address"
+   ```
 More recommended variables can be found in [env.sh](./scripts/env.sh)
 
 ## Running the Workflow
@@ -90,8 +91,8 @@ More recommended variables can be found in [env.sh](./scripts/env.sh)
 cd <path-to-i4h-workflows>/workflows/telesurgery/scripts
 source env.sh  # Make sure all env variables are correctly set in env.sh
 
-export PATIENT_IP=10.137.145.163
-export SURGEON_IP=10.111.66.170
+export PATIENT_IP=<patient IP address>
+export SURGEON_IP=<surgeon IP address>
 ```
 > Make sure MIRA API Server is up and running (port: 8081) in case of Physical World.
 
