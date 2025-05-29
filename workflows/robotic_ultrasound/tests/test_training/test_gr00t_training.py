@@ -176,7 +176,7 @@ class TestTraining(TestBase):
                 output_dir=self.tmp_checkpoints_dir,
                 batch_size=1,
                 num_gpus=1,
-                dataloader_num_workers=1
+                dataloader_num_workers=1,
             )
             gr00t_n1_train.main(train_config)
         except Exception as e:
