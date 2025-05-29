@@ -420,82 +420,12 @@ To see the ultrasound probe moving, please ensure the `topic_ultrasound_info` is
 
 ### Trajectory Evaluation
 
-After running simulations and collecting predicted trajectories (e.g., using `sim_with_dds.py` with the `--hdf5_path` and `--npz_prefix` arguments, or from other policy rollouts), you can use the `evaluate_trajectories.py` script to compare these predictions against ground truth trajectories.
+This script (`evaluation/evaluate_trajectories.py`) compares predicted trajectories against ground truth data, computing metrics like success rate and average minimum distance. It also generates visual plots for analysis.
 
-This script is located at `environments/evaluate_trajectories.py`.
+For detailed information on usage, configuration, and compare results between pi0 and GR00T-N1 (including example plots and tables), please refer to the [Trajectory Evaluation README](./evaluation/README.md).
 
-#### Overview
-
-The script performs the following main functions:
-
-1.  **Loads Data**: Reads ground truth trajectories from HDF5 files and predicted trajectories from `.npz` files based on configured file patterns.
-2.  **Computes Metrics**: For each episode and each prediction source, it calculates:
-    *   **Success Rate**: The percentage of ground truth points that are within a specified radius of any point in the predicted trajectory.
-    *   **Average Minimum Distance**: The average distance from each ground truth point to its nearest neighbor in the predicted trajectory.
-3.  **Generates Plots**:
-    *   Individual 3D trajectory plots comparing the ground truth and a specific prediction for each episode.
-    *   A summary plot showing the mean success rate versus different radius, including 95% confidence intervals, comparing all configured prediction methods.
-
-#### Usage
-
-Navigate to the `scripts/simulation/` folder and execute:
+**Quick Usage Example:**
 
 ```sh
-python evaluation/evaluate_trajectories.py \
-    --data_root /path/to/your/data_and_predictions \
-    --method-name WCOS --ps-file-pattern "800/pi0_robot_obs_{e}.npz" --ps-label "With COSMOS" --ps-color "red" \
-    --method-name WOCOS --ps-file-pattern "400/pi0_robot_obs_{e}.npz" --ps-label "Without COSMOS" --ps-color "green" \
-    --episode 50 \
-    --radius_for_plots 0.01 \
-    --radius_to_test "0.001,0.05,20" \
-    --saved_compare_name "my_comparison.png"
+python evaluation/evaluate_trajectories.py --data_root /path/to/data --method-name MyModel --ps-file-pattern "model_output/preds_{e}.npz" ...
 ```
-
-#### Configuration
-
-The script is primarily configured via command-line arguments. If prediction sources are not specified via the command line, it falls back to a default set defined within the script.
-
-Key Command-Line Arguments:
-
-| Argument             | Type      | Default                                  | Description                                                                                                                               |
-|----------------------|-----------|------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| `--episode`          | int       | None                                     | Number of episodes to process. If None, it processes all episodes found in `data_root` (based on `.hdf5` files).                           |
-| `--data_root`        | str       | `/mnt/hdd/cosmos/heldout-test50`         | Root directory for HDF5 ground truth files (e.g., `data_{e}.hdf5`) and predicted `.npz` trajectory files.                               |
-| `--radius_for_plots` | float     | `0.01`                                   | Radius (in meters) used for calculating success rate in individual 3D trajectory plot titles.                                             |
-| `--radius_to_test`   | str       | `"(0.001,0.05,20)"`                      | Comma-separated string `"(start,end,num_points)"` for the success rate vs. radius plot (e.g., `"0.001,0.05,20"`).                         |
-| `--saved_compare_name`| str       | `comparison_success_rate_vs_radius.png`| Filename for the summary plot (success rate vs. radius).                                                                                  |
-| `--method-name`      | str       | (appendable)                             | Name/key for a prediction source (e.g., `WCOS`). Specify once for each source you want to evaluate.                                         |
-| `--ps-file-pattern`  | str       | (appendable)                             | File pattern for a prediction source's `.npz` files (e.g., `"my_model/pred_{e}.npz"`). `{e}` is replaced by episode number. Must match order of `--method-name`. |
-| `--ps-label`         | str       | (appendable)                             | Label for a prediction source (for plots). Must match order of `--method-name`.                                                             |
-| `--ps-color`         | str       | (appendable)                             | Color for a prediction source (for plots). Must match order of `--method-name`.                                                             |
-
-**Defining Prediction Sources via CLI (Recommended):**
-
-To evaluate one or more prediction methods, provide their details using the `--method-name`, `--ps-file-pattern`, `--ps-label`, and `--ps-color` arguments. Each of these arguments should be used once for each method you want to compare. For example, to compare two methods "MethodA" and "MethodB":
-
-```sh
-python environments/evaluate_trajectories.py \\
-    --method-name MethodA --ps-file-pattern "path/to/methodA/results_{e}.npz" --ps-label "Method A Results" --ps-color "blue" \\
-    --method-name MethodB --ps-file-pattern "path/to/methodB/results_{e}.npz" --ps-label "Method B Results" --ps-color "green" \\
-    # ... other arguments like --data_root, --episode etc.
-```
-
-**Default Prediction Sources (Fallback):**
-
-If no prediction source arguments (`--method-name`, etc.) are provided via the command line, the script will use a predefined default set of prediction sources hardcoded in the `evaluate_trajectories.py` file. This typically includes "WCOS" and "WOCOS" methods with their respective file patterns.
-**Example `PREDICTION_SOURCES`:**
-```python
-PREDICTION_SOURCES = {
-    "WCOS": PredictionSourceConfig(
-        file_pattern="800/pi0_robot_obs_{e}.npz",
-        label="With COSMOS Prediction",
-        color="red"
-    ),
-    "WOCOS": PredictionSourceConfig(
-        file_pattern="400/pi0_robot_obs_{e}.npz",
-        label="Without COSMOS Prediction",
-        color="green"
-    ),
-}
-```
-The script expects predicted trajectory files to be found at `data_root/file_pattern`.
