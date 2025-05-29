@@ -79,7 +79,7 @@ python environments/sim_with_dds.py --enable_cameras
 The `sim_with_dds.py` script can also be used for more controlled evaluations by resetting the environment to initial states from recorded HDF5 data. When doing so, it can save the resulting end-effector trajectories.
 
 - **`--hdf5_path /path/to/your/data.hdf5`**: Provide the path to an HDF5 file (or a directory containing HDF5 files for multiple episodes). The simulation will reset the environment to the initial state(s) found in this data for each episode.
-- **`--npz_prefix your_prefix_`**: When `--hdf5_path` is used, this argument specifies a prefix for the names of the `.npz` files where the simulated end-effector trajectories (robot observations) will be saved. Each saved file will be named like `your_prefix_robot_obs_{episode_idx}.npz` and stored in the same directory as the input HDF5 file (if `--hdf5_path` is a file) or within the `--hdf5_path` directory (if it's a directory).
+- **`--npz_prefix your_prefix_`**: When `--hdf5_path` is used, this argument specifies a prefix for the names of the `.npz` files where the simulated end-effector trajectories will be saved. Each saved file will be named like `your_prefix_robot_obs_{episode_idx}.npz` and stored in the same directory as the input HDF5 file (if `--hdf5_path` is a file) or within the `--hdf5_path` directory (if it's a directory).
 
 **Example:**
 
@@ -187,13 +187,13 @@ Navigate to the [`simulation` folder](./) and execute:
 python environments/state_machine/replay_recording.py --hdf5_path /path/to/your/hdf5_data_directory --task <YourTaskName>
 ```
 
-Replace `/path/to/your/hdf5_data_directory` with the actual path to the directory containing your `data_*.hdf5` files, and `<YourTaskName>` with the task name used during data collection (e.g., `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0`).
+Replace `/path/to/your/hdf5_data_directory` with the actual path to the directory containing your `data_*.hdf5` files or single HDF5 file, and `<YourTaskName>` with the task name used during data collection (e.g., `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0`).
 
 #### Command Line Arguments
 
 | Argument           | Type | Default                                  | Description                                                                      |
 |--------------------|------|------------------------------------------|----------------------------------------------------------------------------------|
-| `--hdf5_path`      | str  | (Required)                               | Path to the directory containing recorded HDF5 files.                            |
+| `--hdf5_path`      | str  | (Required)                               | Provide the path to an HDF5 file (or a directory containing HDF5 files for multiple episodes).                            |
 | `--task`           | str  | `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0` | Name of the task (environment) to use. Should match the task used for recording. |
 | `--num_envs`       | int  | `1`                                      | Number of environments to spawn (should typically be 1 for replay).              |
 | `--disable_fabric` | flag | `False`                                  | Disable fabric and use USD I/O operations.                                       |
@@ -438,41 +438,64 @@ The script performs the following main functions:
 
 #### Usage
 
-Ensure your `PYTHONPATH` is set up correctly.
-
 Navigate to the `scripts/simulation/` folder and execute:
 
 ```sh
-python environments/evaluate_trajectories.py
+python environments/evaluate_trajectories.py \\
+    --data_root /path/to/your/data_and_predictions \\
+    --method-name WCOS --ps-file-pattern "800/pi0_robot_obs_{e}.npz" --ps-label "With COSMOS" --ps-color "red" \\
+    --method-name WOCOS --ps-file-pattern "400/pi0_robot_obs_{e}.npz" --ps-label "Without COSMOS" --ps-color "green" \\
+    --episode 50 \\
+    --radius_for_plots 0.01 \\
+    --radius_to_test "0.001,0.05,20" \\
+    --saved_compare_name "my_comparison.png"
 ```
 
 #### Configuration
 
-The primary configuration for this script is done by modifying the global variables at the top of the `environments/evaluate_trajectories.py` file:
+The script is primarily configured via command-line arguments. If prediction sources are not specified via the command line, it falls back to a default set defined within the script.
 
-- **`episode`**: The number of episodes to process.
-- **`data_root`**: The root directory where your HDF5 ground truth files (e.g., `data_{e}.hdf5`) and predicted `.npz` trajectory files are located or will be organized into subdirectories.
-- **`DEFAULT_RADIUS_FOR_PLOTS`**: The radius used for calculating the success rate reported in the titles of individual 3D trajectory plots.
-- **`saved_compare_name`**: The filename for the summary plot (success rate vs. radius).
-- **`PREDICTION_SOURCES`**: A dictionary defining the different prediction methods to evaluate. Each entry requires:
-    - `file_pattern`: A string pattern for the predicted trajectory `.npz` files (e.g., `"my_model_run1/pred_traj_{e}.npz"`). The `{e}` will be replaced with the episode number.
-    - `label`: A descriptive label for the legend in plots.
-    - `color`: A color for this method in the plots.
+Key Command-Line Arguments:
 
-**Example `PREDICTION_SOURCES` entry:**
-```python
-PREDICTION_SOURCES = {
-    "MyModelV1": {
-        "file_pattern": "model_v1_outputs/robot_obs_{e}.npz",
-        "label": "My Model Version 1",
-        "color": "blue"
-    },
-    "BaselineModel": {
-        "file_pattern": "baseline_outputs/robot_obs_{e}.npz",
-        "label": "Baseline",
-        "color": "orange"
-    }
-}
+| Argument             | Type      | Default                                  | Description                                                                                                                               |
+|----------------------|-----------|------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `--episode`          | int       | None                                     | Number of episodes to process. If None, it processes all episodes found in `data_root` (based on `.hdf5` files).                           |
+| `--data_root`        | str       | `/mnt/hdd/cosmos/heldout-test50`         | Root directory for HDF5 ground truth files (e.g., `data_{e}.hdf5`) and predicted `.npz` trajectory files.                               |
+| `--radius_for_plots` | float     | `0.01`                                   | Radius (in meters) used for calculating success rate in individual 3D trajectory plot titles.                                             |
+| `--radius_to_test`   | str       | `"(0.001,0.05,20)"`                      | Comma-separated string `"(start,end,num_points)"` for the success rate vs. radius plot (e.g., `"0.001,0.05,20"`).                         |
+| `--saved_compare_name`| str       | `comparison_success_rate_vs_radius.png`| Filename for the summary plot (success rate vs. radius).                                                                                  |
+| `--method-name`      | str       | (appendable)                             | Name/key for a prediction source (e.g., `WCOS`). Specify once for each source you want to evaluate.                                         |
+| `--ps-file-pattern`  | str       | (appendable)                             | File pattern for a prediction source's `.npz` files (e.g., `"my_model/pred_{e}.npz"`). `{e}` is replaced by episode number. Must match order of `--method-name`. |
+| `--ps-label`         | str       | (appendable)                             | Label for a prediction source (for plots). Must match order of `--method-name`.                                                             |
+| `--ps-color`         | str       | (appendable)                             | Color for a prediction source (for plots). Must match order of `--method-name`.                                                             |
+
+**Defining Prediction Sources via CLI (Recommended):**
+
+To evaluate one or more prediction methods, provide their details using the `--method-name`, `--ps-file-pattern`, `--ps-label`, and `--ps-color` arguments. Each of these arguments should be used once for each method you want to compare. For example, to compare two methods "MethodA" and "MethodB":
+
+```sh
+python environments/evaluate_trajectories.py \\
+    --method-name MethodA --ps-file-pattern "path/to/methodA/results_{e}.npz" --ps-label "Method A Results" --ps-color "blue" \\
+    --method-name MethodB --ps-file-pattern "path/to/methodB/results_{e}.npz" --ps-label "Method B Results" --ps-color "green" \\
+    # ... other arguments like --data_root, --episode etc.
 ```
 
+**Default Prediction Sources (Fallback):**
+
+If no prediction source arguments (`--method-name`, etc.) are provided via the command line, the script will use a predefined default set of prediction sources hardcoded in the `evaluate_trajectories.py` file. This typically includes "WCOS" and "WOCOS" methods with their respective file patterns.
+**Example `PREDICTION_SOURCES`:**
+```python
+PREDICTION_SOURCES = {
+    "WCOS": PredictionSourceConfig(
+        file_pattern="800/pi0_robot_obs_{e}.npz",
+        label="With COSMOS Prediction",
+        color="red"
+    ),
+    "WOCOS": PredictionSourceConfig(
+        file_pattern="400/pi0_robot_obs_{e}.npz",
+        label="Without COSMOS Prediction",
+        color="green"
+    ),
+}
+```
 The script expects predicted trajectory files to be found at `data_root/file_pattern`.

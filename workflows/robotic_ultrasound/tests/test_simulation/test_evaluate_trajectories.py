@@ -16,10 +16,10 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
 
 import h5py
 import numpy as np
+from simulation.evaluation.evaluate_trajectories import PredictionSourceConfig
 from simulation.evaluation.evaluate_trajectories import main as evaluate_trajectories_main
 
 
@@ -27,8 +27,11 @@ class TestEvaluateTrajectories(unittest.TestCase):
     def setUp(self):
         self.tmpdir = tempfile.TemporaryDirectory()
         self.data_root = self.tmpdir.name
-        self.PREDICTION_SOURCES = {"dummy_method": {"file_pattern": "pred_ep{e}.npz", "label": "Dummy", "color": "red"}}
-        self.DEFAULT_RADIUS = 0.01
+        self.prediction_sources = {
+            "dummy_method": PredictionSourceConfig(file_pattern="pred_ep{e}.npz", label="Dummy", color="red")
+        }
+        self.radius_for_plots = 0.01
+        self.radius_to_test = (0.001, 0.05, 20)
         self.saved_compare_name = "summary.png"
         self.num_episodes = 1
 
@@ -52,20 +55,18 @@ class TestEvaluateTrajectories(unittest.TestCase):
         pred_traj = np.array([[[0, 1, 2]], [[3, 4, 0]], [[1, 2, 3]]], dtype=np.float32).reshape(3, 1, 1, 3)
         np.savez(file_path, robot_obs=pred_traj)
 
-    @patch("simulation.evaluation.evaluate_trajectories.plot_3d_trajectories")
-    @patch("simulation.evaluation.evaluate_trajectories.plot_success_rate_vs_radius")
-    @patch("builtins.print")
-    def test_main_runs_with_dummy_data(self, mock_print, mock_plot_summary, mock_plot_3d):
+    def test_main_runs_with_dummy_data(self):
         # Should run without error and call plotting functions
         evaluate_trajectories_main(
             episode=self.num_episodes,
             data_root=self.data_root,
-            DEFAULT_RADIUS_FOR_PLOTS=self.DEFAULT_RADIUS,
+            radius_to_test=self.radius_to_test,
+            radius_for_plots=self.radius_for_plots,
             saved_compare_name=self.saved_compare_name,
-            PREDICTION_SOURCES=self.PREDICTION_SOURCES,
+            prediction_sources=self.prediction_sources,
         )
-        self.assertTrue(mock_plot_3d.called)
-        self.assertTrue(mock_plot_summary.called)
+        self.assertTrue(os.path.exists(os.path.join(self.data_root, "dummy_method", "3d_trajectories-0.png")))
+        self.assertTrue(os.path.exists(os.path.join(self.data_root, self.saved_compare_name)))
 
 
 if __name__ == "__main__":

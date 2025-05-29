@@ -56,11 +56,11 @@ def filter_scanning_points(
     """
     scanning_mask = gt_states == 3
     if not np.any(scanning_mask):
-        return None
+        raise ValueError("No scanning points found in the ground truth data.")
     scanning_points_gt = gt_actions[scanning_mask][:, :3]
 
     if scanning_points_gt.shape[0] == 0:
-        return np.array([]).reshape(0, 3)
+        raise ValueError("No scanning points found in the ground truth data.")
 
     # Filter points from the end if they are too close to their predecessor
     num_points_to_keep = scanning_points_gt.shape[0]
@@ -168,14 +168,14 @@ def plot_success_rate_vs_radius(
     plt.figure(figsize=(12, 8))
     for method_name, mean_rates in all_methods_mean_rates.items():
         details = method_details[method_name]
-        plt.plot(radius, mean_rates, "o-", label=details["label"], color=details["color"])
+        plt.plot(radius, mean_rates, "o-", label=details.label, color=details.color)
         plt.fill_between(
             radius,
             all_methods_ci_lower[method_name],
             all_methods_ci_upper[method_name],
-            color=details["color"],
+            color=details.color,
             alpha=0.2,
-            label=f"{details['label']} 95% CI",
+            label=f"{details.label} 95% CI",
         )
 
     plt.xlabel("Radius (m)")
