@@ -48,11 +48,12 @@ See the [simulation README](../../simulation/README.md#liver-scan-state-machine)
 
 PI Zero uses the LeRobot data format for training. We provide a script to convert your HDF5 data to this format.
 
-Please move to the [`training` folder](./) and execute:
+Please move to the [`training` folder](../) and execute:
 
 ```bash
 python convert_hdf5_to_lerobot.py /path/to/your/hdf5/data
 ```
+Replace `/path/to/your/hdf5/data` with the actual path to your dataset.
 
 **Arguments:**
 - `data_dir`: Path to the directory containing HDF5 files. (default: "<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts/simulation/data/hdf5/<date-task-name>")

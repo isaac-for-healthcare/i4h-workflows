@@ -41,13 +41,19 @@ See the [simulation README](../../simulation/README.md#liver-scan-state-machine)
 
 ## 🔄 Data Conversion
 
-GR00T-N1 uses the LeRobot data format for training. We provide a script to convert your HDF5 data to this format, now located at `workflows/robotic_ultrasound/scripts/training/convert_hdf5_to_lerobot.py`.
+GR00T-N1 uses the **LeRobot** data format for training. To facilitate this, we provide a script that converts your HDF5 data into the required format. The script is located at:
 
-Please move to the [`training` folder](../) (one level up from this GR00T-N1 specific README) and execute:
+```
+workflows/robotic_ultrasound/scripts/training/convert_hdf5_to_lerobot.py
+```
+
+To run the conversion, navigate to the [`training` folder](../) (located one level above this GR00T-N1-specific README), and execute the following command:
 
 ```bash
 python convert_hdf5_to_lerobot.py /path/to/your/hdf5/data --feature_builder_type gr00tn1
 ```
+
+Replace `/path/to/your/hdf5/data` with the actual path to your dataset.
 
 **Key Arguments & Differences for GR00T-N1:**
 - `data_dir`: Path to the directory containing HDF5 files. (default: "<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts/simulation/data/hdf5/<date-task-name>")

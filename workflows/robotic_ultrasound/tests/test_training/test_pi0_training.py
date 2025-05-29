@@ -25,8 +25,8 @@ import torch
 from openpi import train
 from policy_runner.pi0.config import get_config
 from policy_runner.pi0.utils import compute_normalization_stats
-from training.pi_zero.convert_hdf5_to_lerobot import Pi0FeatureDict, create_lerobot_dataset
-from training.pi_zero.convert_hdf5_to_lerobot import main as convert_hdf5_to_lerobot
+from training.convert_hdf5_to_lerobot import Pi0FeatureDict, create_lerobot_dataset
+from training.convert_hdf5_to_lerobot import main as convert_hdf5_to_lerobot
 
 
 class TestBase(unittest.TestCase):
