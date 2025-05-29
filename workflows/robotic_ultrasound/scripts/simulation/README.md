@@ -441,13 +441,13 @@ The script performs the following main functions:
 Navigate to the `scripts/simulation/` folder and execute:
 
 ```sh
-python environments/evaluate_trajectories.py \\
-    --data_root /path/to/your/data_and_predictions \\
-    --method-name WCOS --ps-file-pattern "800/pi0_robot_obs_{e}.npz" --ps-label "With COSMOS" --ps-color "red" \\
-    --method-name WOCOS --ps-file-pattern "400/pi0_robot_obs_{e}.npz" --ps-label "Without COSMOS" --ps-color "green" \\
-    --episode 50 \\
-    --radius_for_plots 0.01 \\
-    --radius_to_test "0.001,0.05,20" \\
+python evaluation/evaluate_trajectories.py \
+    --data_root /path/to/your/data_and_predictions \
+    --method-name WCOS --ps-file-pattern "800/pi0_robot_obs_{e}.npz" --ps-label "With COSMOS" --ps-color "red" \
+    --method-name WOCOS --ps-file-pattern "400/pi0_robot_obs_{e}.npz" --ps-label "Without COSMOS" --ps-color "green" \
+    --episode 50 \
+    --radius_for_plots 0.01 \
+    --radius_to_test "0.001,0.05,20" \
     --saved_compare_name "my_comparison.png"
 ```
 

@@ -29,6 +29,18 @@ from simulation.evaluation.utils import (
 )
 
 
+def parse_radius_to_test(value):
+    try:
+        parts = value.strip("()").split(",")
+        if len(parts) != 3:
+            raise argparse.ArgumentTypeError(
+                "radius_to_test must be a tuple of three numbers: (start, end, num_points)"
+            )
+        return (float(parts[0]), float(parts[1]), int(parts[2]))
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"Invalid format for radius_to_test: {value}. Error: {e}")
+
+
 @dataclass
 class PredictionSourceConfig:
     file_pattern: str
@@ -228,7 +240,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--radius_to_test",
-        type=lambda s: tuple(map(float, s.split(","))),
+        type=parse_radius_to_test,
         default=(0.001, 0.05, 20),
         help="The radius range to test for success rate plot. Format: '(start,end,num_points)'",
     )

@@ -382,6 +382,8 @@ def main():
                         save_path = os.path.join(
                             args_cli.hdf5_path, f"{args_cli.npz_prefix}_robot_obs_{episode_idx}.npz"
                         )
+                    save_dir = os.path.dirname(save_path)
+                    os.makedirs(save_dir, exist_ok=True)
                     np.savez(save_path, robot_obs=robot_obs.cpu().numpy())
 
                     if episode_idx + 1 >= total_episodes:
