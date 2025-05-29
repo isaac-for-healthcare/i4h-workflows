@@ -16,13 +16,13 @@
 import argparse
 
 from holohub.operators.dds.subscriber import DDSSubscriberOp
+from holohub.operators.nvidia_video_codec.nv_video_decoder import NvVideoDecoderOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.decoder import NVJpegDecoderOp
 from holohub.operators.stats import CameraStreamStats
 from holoscan.core import Application
 from holoscan.operators.holoviz import HolovizOp
 from holoscan.resources import RMMAllocator, UnboundedAllocator
-from nv_video_decoder import NvVideoDecoderOp
 from schemas.camera_stream import CameraStream
 
 

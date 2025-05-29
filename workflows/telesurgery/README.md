@@ -44,11 +44,7 @@
    cd <path-to-i4h-workflows>
    bash tools/env_setup_telesurgery.sh
    ```
-4. Build Holohub Operators:
-   ```bash
-   cd <path-to-i4h-workflows>
-   ./workflows/telesurgery/scripts/build.sh
-   ```
+
 
 > Make sure your public key is added to the github account if the git authentication fails.
 

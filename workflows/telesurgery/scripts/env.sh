@@ -29,8 +29,8 @@ if [ -z "${RTI_LICENSE_FILE}" ]; then
 fi
 
 # Python Path
-export PYTHONPATH=$SCRIPT_DIR:$SCRIPT_DIR/../build/python/lib
-
+export PYTHONPATH=$SCRIPT_DIR
+export LD_LIBRARY_PATH=$SCRIPT_DIR/holohub/operators/nvidia_video_codec/lib:$LD_LIBRARY_PATH
 # Optional: NTP Server to capture time diff between 2 nodes
 # export NTP_SERVER_HOST="surgeon IP address"
 # export NTP_SERVER_PORT=123
@@ -38,3 +38,13 @@ export PYTHONPATH=$SCRIPT_DIR:$SCRIPT_DIR/../build/python/lib
 # Host IP for Patient/Surgeon
 export PATIENT_IP="patient IP address"
 export SURGEON_IP="surgeon IP address"
+
+
+VIDEO_CODEC_FILE=/tmp/nv_video_codec.zip
+
+if [ ! -d "$SCRIPT_DIR/holohub/operators/nvidia_video_codec/lib" ]; then
+  echo "Downloading NVIDIA Video Codec Operators"
+  curl -L -o $VIDEO_CODEC_FILE 'https://edge.urm.nvidia.com:443/artifactory/sw-holoscan-cli-generic/holohub/operators/nv_video_codec_0.2.zip'
+  unzip -o $VIDEO_CODEC_FILE -d $SCRIPT_DIR/holohub/operators/nvidia_video_codec
+  rm $VIDEO_CODEC_FILE
+fi

@@ -19,13 +19,13 @@ import json
 from holohub.operators.camera.cv2 import CV2VideoCaptureOp
 from holohub.operators.camera.realsense import RealsenseOp
 from holohub.operators.dds.publisher import DDSPublisherOp
+from holohub.operators.nv_video_encoder import NvVideoEncoderOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_merge import CameraStreamMergeOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.encoder import NVJpegEncoderOp
 from holohub.operators.sink import NoOp
 from holoscan.core import Application
 from holoscan.resources import BlockMemoryPool, MemoryStorageType
-from nv_video_encoder import NvVideoEncoderOp
 from schemas.camera_stream import CameraStream
 
 
