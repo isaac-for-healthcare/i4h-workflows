@@ -112,16 +112,16 @@ python patient/physical/camera.py --camera cv2 --name robot --width 1920 --heigh
 export ISAAC_ASSET_SHA256_HASH=8e80faed126c533243f50bb01dca3dcf035e86b5bf567d622878866a8ef7f12d
 i4h-asset-retrieve
 
-python patient/simulation/main.py
+python patient/simulation/main.py [--encoder nvc]
 ```
 
 ### Surgeon connecting to Patient _(x86 / aarch64)_
 ```bash
 # capture robot camera stream
-NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name robot --width 1280 --height 720
+NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name robot --width 1280 --height 720 [--decoder nvc]
 
 # capture room camera stream (optional)
-NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name room --width 1280 --height 720
+NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name room --width 1280 --height 720 [--decoder nvc]
 
 # connect to gamepad controller and send commands to API Server
 python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
