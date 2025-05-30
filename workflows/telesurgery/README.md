@@ -6,6 +6,7 @@
 - [System Requirements](#system-requirements)
 - [Quick Start](#quick-start)
 - [Running the Workflow](#running-the-workflow)
+- [Licensing](#licensing)
 
 ## System Requirements
 
@@ -135,3 +136,7 @@ python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
    - Surgeon: Camera1, Camera2, Controller etc...
 
 If you encounter issues not covered in the notes above, please check the documentation for each component or open a new issue on GitHub.
+
+## Licensing
+
+By using the Telesurgery workflow and NVIDIA Video Codec, you are implicitly agreeing to the [NVIDIA Software License Agreement](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-software-license-agreement/) and [NVIDIA Software Developer License Agreement](https://developer.download.nvidia.com/designworks/DesignWorks_SDKs_Samples_Tools_License_distrib_use_rights_2017_06_13.pdf?t=eyJscyI6InJlZiIsImxzZCI6IlJFRi1zZWFyY2guYnJhdmUuY29tLyJ9). If you do not agree to the EULA, do not run this container.
