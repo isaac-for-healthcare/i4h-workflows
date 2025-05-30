@@ -24,8 +24,6 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 # Allow setting the python in PYTHON_EXECUTABLE
 PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
-# Install cuDNN
-bash "$PROJECT_ROOT/tools/env_setup/install_cudnn.sh"
 
 COSMOS_TRANSFER_DIR=${1:-$PROJECT_ROOT/third_party/cosmos-transfer1}
 
