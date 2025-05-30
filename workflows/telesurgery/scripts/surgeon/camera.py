@@ -16,12 +16,13 @@
 import argparse
 
 from holohub.operators.dds.subscriber import DDSSubscriberOp
+from holohub.operators.nvidia_video_codec.nv_video_decoder import NvVideoDecoderOp
+from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.decoder import NVJpegDecoderOp
 from holohub.operators.stats import CameraStreamStats
-from holohub.operators.to_viz import CameraStreamToViz
 from holoscan.core import Application
 from holoscan.operators.holoviz import HolovizOp
-from holoscan.resources import UnboundedAllocator
+from holoscan.resources import RMMAllocator, UnboundedAllocator
 from schemas.camera_stream import CameraStream
 
 
@@ -52,13 +53,23 @@ class App(Application):
             dds_topic=self.dds_topic,
             dds_topic_class=CameraStream,
         )
-        jpeg = NVJpegDecoderOp(
-            self,
-            name="nvjpeg_decoder",
-            skip=self.decoder != "nvjpeg",
-        )
-        stats = CameraStreamStats(self, interval_ms=1000)
-        stream_to_viz = CameraStreamToViz(self)
+
+        if self.decoder == "nvc":
+            decoder_op = NvVideoDecoderOp(
+                self,
+                name="nvc_decoder",
+                cuda_device_ordinal=0,
+                allocator=RMMAllocator(self, name="video_decoder_allocator"),
+            )
+            split_op = CameraStreamSplitOp(self, name="split_op")
+        else:
+            decoder_op = NVJpegDecoderOp(
+                self,
+                name="nvjpeg_decoder",
+                skip=self.decoder != "nvjpeg",
+            )
+
+        stats = CameraStreamStats(self, name="stats", interval_ms=1000)
         viz = HolovizOp(
             self,
             allocator=UnboundedAllocator(self, name="pool"),
@@ -68,10 +79,16 @@ class App(Application):
             height=self.height,
         )
 
-        self.add_flow(dds, jpeg, {("output", "input")})
-        self.add_flow(jpeg, stats, {("output", "input")})
-        self.add_flow(stats, stream_to_viz, {("output", "input")})
-        self.add_flow(stream_to_viz, viz, {("output", "receivers")})
+        if self.decoder == "nvc":
+            self.add_flow(dds, split_op, {("output", "input")})
+            self.add_flow(split_op, decoder_op, {("camera", "input")})
+            self.add_flow(split_op, stats, {("metadata", "input")})
+            self.add_flow(decoder_op, stats, {("output", "camera")})
+            self.add_flow(decoder_op, viz, {("output", "receivers")})
+        else:
+            self.add_flow(dds, decoder_op, {("output", "input")})
+            self.add_flow(decoder_op, stats, {("output", "input")})
+            self.add_flow(decoder_op, viz, {("camera", "receivers")})
 
 
 def main():
@@ -80,7 +97,7 @@ def main():
     parser.add_argument("--name", type=str, default="robot", help="camera name")
     parser.add_argument("--width", type=int, default=1920, help="width")
     parser.add_argument("--height", type=int, default=1080, help="height")
-    parser.add_argument("--decoder", type=str, choices=["nvjpeg", "none"], default="nvjpeg")
+    parser.add_argument("--decoder", type=str, choices=["nvjpeg", "none", "nvc"], default="nvjpeg")
     parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
 

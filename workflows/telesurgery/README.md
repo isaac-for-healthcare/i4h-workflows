@@ -6,6 +6,7 @@
 - [System Requirements](#system-requirements)
 - [Quick Start](#quick-start)
 - [Running the Workflow](#running-the-workflow)
+- [Licensing](#licensing)
 
 ## System Requirements
 
@@ -44,6 +45,8 @@
    cd <path-to-i4h-workflows>
    bash tools/env_setup_telesurgery.sh
    ```
+
+
 > Make sure your public key is added to the github account if the git authentication fails.
 
 ### Obtain RTI DDS License
@@ -110,21 +113,48 @@ python patient/physical/camera.py --camera cv2 --name robot --width 1920 --heigh
 export ISAAC_ASSET_SHA256_HASH=8e80faed126c533243f50bb01dca3dcf035e86b5bf567d622878866a8ef7f12d
 i4h-asset-retrieve
 
-python patient/simulation/main.py
+python patient/simulation/main.py [--encoder nvc]
 ```
 
 ### Surgeon connecting to Patient _(x86 / aarch64)_
 ```bash
 # capture robot camera stream
-NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name robot --width 1280 --height 720
+NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name robot --width 1280 --height 720 [--decoder nvc]
 
 # capture room camera stream (optional)
-NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name room --width 1280 --height 720
+NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name room --width 1280 --height 720 [--decoder nvc]
 
 # connect to gamepad controller and send commands to API Server
 python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
 ```
 
+### Using H.264/HEVC Encoder/Decoder from NVIDIA Video Codec
+
+Camera data can be streamed using either the H.264 or HEVC (H.265) codecs. To enable this for the Patient and Surgeon applications, use the `--encoder nvc` or `--decoder nvc` argument, respectively.
+
+Encoding parameters can be customized in the Patient application using the `--encoder_params` argument, as shown below:
+
+```bash
+python patient/simulation/main.py --encoder nvc --encoder_params patient/nvc_encoder_params.json
+```
+
+#### Sample Encoding Parameters for the NVIDIA Video Codec
+
+Here’s an example of encoding parameters in JSON format:
+
+```json
+{
+    "codec": "H264", // Possible values: H264 or HEVC
+    "preset": "P3", // Options include P3, P4, P5, P6, P7
+    "bitrate": 10000000,
+    "frame_rate": 60,
+    "rate_control_mode": 1, // Options: 0 for Constant QP, 1 for Variable bitrate, 2 for Constant bitrate
+    "multi_pass_encoding": 0 // Options: 0 to disable, 1 for Quarter resolution, 2 for Full resolution
+}
+```
+
+> [!NOTE]
+> H.264 or HEVC (H.265) codecs are available on x86 platform only.
 
 ### Important Notes
 1. You may need to run multiple scripts simultaneously in different terminals or run in background (in case of docker)
@@ -133,3 +163,7 @@ python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
    - Surgeon: Camera1, Camera2, Controller etc...
 
 If you encounter issues not covered in the notes above, please check the documentation for each component or open a new issue on GitHub.
+
+## Licensing
+
+By using the Telesurgery workflow and NVIDIA Video Codec, you are implicitly agreeing to the [NVIDIA Software License Agreement](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-software-license-agreement/) and [NVIDIA Software Developer License Agreement](https://developer.download.nvidia.com/designworks/DesignWorks_SDKs_Samples_Tools_License_distrib_use_rights_2017_06_13.pdf?t=eyJscyI6InJlZiIsImxzZCI6IlJFRi1zZWFyY2guYnJhdmUuY29tLyJ9). If you do not agree to the EULA, do not run this container.
