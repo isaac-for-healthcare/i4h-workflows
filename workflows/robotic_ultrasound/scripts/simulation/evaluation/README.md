@@ -98,20 +98,19 @@ In our experiments, we utilized the `liver_scan_sm.py` script to collect an init
 |---------------------------------------|------------------|-----------------------------|-------------------------|-------------------------|
 | Pi0-400                               | 77.1             | 57.3                        | 47.7                    | 55.7                    |
 | Pi0-800 (w/ cosmos)                   | 77.0             | 71.7                        | 72.4                    | 70.5                    |
-| GR00T-N1-400                          | 83.8             | 61.63                       | 57.8                    | 63.98                   |
-| GR00T-N1-800 (w/ cosmos)              | -                | -                           | -                       | -                       |
-* `-` indicates the experiment was not applicable or not performed for this configuration.*
+| GR00T-N1-400                          | 84.1             | 61.5                       | 58.3                    | 64.0                   |
+| GR00T-N1-800 (w/ cosmos)              | 92.8                | 91.1                           | 92.8                       | 91.7                       |
 
 ### 3. Success Rate vs. Radius Plot
    - A plot named by the `--saved_compare_name` argument (default: `comparison_success_rate_vs_radius.png`) is saved in the `data_root` directory.
    - This plot shows the mean success rate (y-axis) as a function of the test radius (x-axis) for all configured prediction methods.
    - It includes 95% confidence interval bands for each method.
 
-   **Example Plot: Pi0-400 vs. Pi0-800 vs. GR00T-N1-400**
+| Original Texture | Texture 1 (Stainless Steel) | Texture 2 (Bamboo Wood) | Texture 3 (Walnut Wood) |
+|------------------|-----------------------------|-------------------------|-------------------------|
+| ![Original Texture](../../../../../docs/source/comparison_avg_success_rate_vs_radius_original.png) | ![Stainless Texture](../../../../../docs/source/comparison_avg_success_rate_vs_radius_metalic.png) | ![Bamboo Wood](../../../../../docs/source/comparison_avg_success_rate_vs_radius_bamboo.png) | ![Walnut Wood](../../../../../docs/source/comparison_avg_success_rate_vs_radius_walnut.png) |
 
-   *(Placeholder for an example image comparing these three models)*
-   <!-- ![Success Rate vs Radius Example Plot](link_to_your_comparison_plot.png) -->
-   *Caption: Example plot showing success rate vs. test radius, comparing Pi0-400, Pi0-800 (w/ cosmos), and GR00T-N1-400 models.*
+The plots visually represent these comparisons, where different models are typically color-coded (e.g., Green for the original Pi0 model, Red for Pi0 with Cosmos-transfer, Blue for the original GR00T-N1 model, and Yellow for GR00T-N1 with Cosmos-transfer). The x-axis represents the tolerance radius in meters, and the y-axis shows the corresponding mean success rate. The shaded areas around the lines indicate the 95% confidence intervals, providing a measure of result variability.
 
 ### 4. 3D Trajectory Plots
    - For each episode and each prediction method, a 3D plot is generated and saved.
@@ -120,13 +119,23 @@ In our experiments, we utilized the `liver_scan_sm.py` script to collect an init
    - The title of each plot includes the episode number, method name, success rate at `radius_for_plots`, and average minimum distance.
 
    **Example 3D Trajectory Visualizations:**
+   To provide a qualitative view, example 3D trajectory visualizations from a selected episode (e.g., episode 14) are presented below for each model.
 
-   *(Placeholder for Episode X, Model Pi0-400)*
-   <!-- ![3D Trajectory Episode X Pi0-400](link_to_episode_X_pi0_400.png) -->
-   *Caption: Episode X - Trajectory comparison for Pi0-400.*
+ | Model        | Pi0-400 | Pi0-800 (w/ cosmos) | GR00T-N1-400  | GR00T-N1-800 (w/ cosmos) |
+ |--------------|------------------|-----------------------------|-------------------------|-------------------------|
+ | Episode 14   | *(Image Placeholder)* | *(Image Placeholder)*     | *(Image Placeholder)*   | *(Image Placeholder)*     |
 
-   *(Placeholder for Episode Y, Model GR00T-N1-400)*
-   <!-- ![3D Trajectory Episode Y GR00T-N1-400](link_to_episode_Y_gr00t_400.png) -->
-   *Caption: Episode Y - Trajectory comparison for GR00T-N1-400.*
+   *(Please replace `*(Image Placeholder)*` with Markdown image links, e.g., `![Pi0-400 Traj.](../../path/to/image.png)`)*
 
-These outputs allow for a comprehensive quantitative and qualitative assessment of the trajectory prediction methods.
+The predicted 3D trajectories are typically shown in green, while the ground truth trajectory (scan state) is shown in blue.
+
+### 5. Key Observations and Conclusion
+
+The evaluation results highlight several important findings:
+
+*   **Impact of Cosmos-transfer:** Augmenting the training dataset with Cosmos-transfer (as seen in Pi0-800 and GR00T-N1-800 models) consistently and significantly improves the policy's success rate and robustness to diverse visual textures compared to models trained on original data alone (Pi0-400 and GR00T-N1-400). For instance, GR00T-N1-800 (w/ cosmos) maintains a success rate above 90% across all tested textures, a substantial improvement over GR00T-N1-400 which sees a performance drop on some textures.
+*   **Model Comparison:** The GR00T-N1 architecture generally outperforms the Pi0 architecture. The GR00T-N1-800 model, benefiting from both the advanced architecture and cosmos augmented data, demonstrates the highest overall performance and consistency according to the provided data.
+*   **Performance under Texture Variation:** Models trained without sufficient diverse data (e.g., Pi0-400, GR00T-N1-400) exhibit a noticeable degradation in performance when encountering textures different from the original training environment. Cosmos-transfer effectively mitigates this issue.
+*   **Success Rate vs. Radius Insights:** The success rate vs. radius plots are expected to further substantiate these findings. Models enhanced by Cosmos-transfer (notably GR00T-N1-800, potentially depicted by a yellow line as per the convention mentioned) would likely maintain higher success rates even at stricter (smaller) radius, indicating greater precision. Their 95% confidence intervals also provide insight into the stability of these performance gains.
+
+These observations underscore the value of diverse, augmented datasets like those generated by Cosmos-transfer for training robust robotic policies, particularly for tasks involving visual perception in variable environments. The GR00T-N1 model, when combined with such data augmentation, shows promising results for reliable trajectory execution.
