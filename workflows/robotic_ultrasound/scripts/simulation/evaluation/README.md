@@ -121,9 +121,9 @@ The plots visually represent these comparisons, where different models are typic
    **Example 3D Trajectory Visualizations:**
    To provide a qualitative view, example 3D trajectory visualizations from a selected episode (e.g., episode 14) are presented below for each model.
 
- | Model        | Pi0-400 | Pi0-800 (w/ cosmos) | GR00T-N1-400  | GR00T-N1-800 (w/ cosmos) |
- |--------------|------------------|-----------------------------|-------------------------|-------------------------|
- | Episode 14   | ![Pi0-400](../../../../../docs/source/3d_trajectories-5_Texture2-Pi0-wo.png) | ![Pi0-800](../../../../../docs/source/3d_trajectories-5_Texture2-Pi0-w.png)     | ![GR00T-400](../../../../../docs/source/3d_trajectories-5_Texture2-GR00T-wo.png)   | ![GR00T-800](../../../../../docs/source/3d_trajectories-5_Texture2-GR00T-w.png)     |
+ | Pi0-400 | Pi0-800 (w/ cosmos) | GR00T-N1-400  | GR00T-N1-800 (w/ cosmos) |
+ |------------------|-----------------------------|-------------------------|-------------------------|
+ | ![Pi0-400](../../../../../docs/source/3d_trajectories-5_Texture2-Pi0-wo.png) | ![Pi0-800](../../../../../docs/source/3d_trajectories-5_Texture2-Pi0-w.png)     | ![GR00T-400](../../../../../docs/source/3d_trajectories-5_Texture2-GR00T-wo.png)   | ![GR00T-800](../../../../../docs/source/3d_trajectories-5_Texture2-GR00T-w.png)     |
 
 In these visualizations, the ground truth trajectory (derived from the 'scan' state) is depicted in black, while the colored line represents the predicted trajectory from the model.
 
