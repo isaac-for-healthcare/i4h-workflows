@@ -30,7 +30,7 @@ class CV2VideoCaptureOp(Operator):
 
     def __init__(self, fragment, width: int, height: int, device_idx: int, framerate: int, *args, **kwargs):
         """
-        Initialize the RealSense operator.
+        Initialize the Capture operator.
 
         Parameters:
         - width (int): Width of the camera stream.

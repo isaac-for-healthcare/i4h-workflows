@@ -77,7 +77,7 @@ new_wmem_max=5242880
 if [[ $current_rmem_default -lt $new_rmem_default || $current_wmem_default -lt $new_wmem_default || $current_rmem_max -lt $new_rmem_max || $current_wmem_max -lt $new_wmem_max ]]; then
 
     # Prompt for buffer size increase
-    echo -e "\nConnext recommends larger values for these settings to improve performance.\nWould you like to increase your send/receive socket buffer sizes? Default will be increased to 212992, and Maximum to 4194304. (y/n)"
+    echo -e "\nConnext recommends larger values for these settings to improve performance.\nWould you like to increase your send/receive socket buffer sizes? Default will be increased to 5242880, and Maximum to 5242880. (y/n)"
     read answer
 
     if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
