@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import argparse
+import os
 
 from holohub.operators.mira.api_server import ApiServerOp
 from holoscan.core import Application
@@ -49,7 +50,7 @@ class App(Application):
 def main():
     """Parse command-line arguments and run the application."""
     parser = argparse.ArgumentParser(description="Run MIRA API server (Simulation)")
-    parser.add_argument("--api_host", type=str, default="0.0.0.0", help="api server host")
+    parser.add_argument("--api_host", type=str, default=os.environ.get("PATIENT_IP"), help="api server host")
     parser.add_argument("--api_port", type=int, default=8081, help="api server port")
 
     args = parser.parse_args()

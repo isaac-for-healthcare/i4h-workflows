@@ -74,6 +74,8 @@ RUN --mount=type=ssh \
 
 RUN mkdir -p /workspace/third_party
 
+RUN $PYTHON_EXECUTABLE -m pip install numpy
+
 RUN $PYTHON_EXECUTABLE -m pip install -r /workspace/telesurgery/scripts/requirements.txt
 
 ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat

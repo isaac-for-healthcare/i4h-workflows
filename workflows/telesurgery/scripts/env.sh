@@ -17,11 +17,15 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/" >/dev/null 2>&1 && pwd)"
 
+# Host IP for Patient/Surgeon
+export PATIENT_IP="patient IP address"
+export SURGEON_IP="surgeon IP address"
+
 # RTI QOS Profile
 export NDDS_QOS_PROFILES=$SCRIPT_DIR/dds/qos_profile.xml
 
 # RTI Discovery Address
-export NDDS_DISCOVERY_PEERS="surgeon IP address"
+export NDDS_DISCOVERY_PEERS=$PATIENT_IP
 
 # RTI License
 if [ -z "${RTI_LICENSE_FILE}" ]; then
@@ -32,13 +36,8 @@ fi
 export PYTHONPATH=$SCRIPT_DIR
 export LD_LIBRARY_PATH=$SCRIPT_DIR/holohub/operators/nvidia_video_codec/lib:$LD_LIBRARY_PATH
 # Optional: NTP Server to capture time diff between 2 nodes
-# export NTP_SERVER_HOST="surgeon IP address"
+# export NTP_SERVER_HOST="ntp server address"
 # export NTP_SERVER_PORT=123
-
-# Host IP for Patient/Surgeon
-export PATIENT_IP="patient IP address"
-export SURGEON_IP="surgeon IP address"
-
 
 VIDEO_CODEC_FILE=/tmp/nv_video_codec.zip
 
