@@ -335,7 +335,7 @@ Optionally, the simulator supports customization through JSON configuration file
 
 ```json
 {
-    "probe_type": "curvilinear", 
+    "probe_type": "curvilinear",
     "probe_params": {
         "num_elements": 256,
         "opening_angle": 73.0,
