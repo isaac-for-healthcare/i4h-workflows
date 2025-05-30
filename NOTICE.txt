@@ -46,6 +46,10 @@ Licensed under GPL-3.0 (https://gcc.gnu.org/onlinedocs/libstdc++/manual/license.
 libxcb-cursor0 (https://launchpad.net/ubuntu/mantic/amd64/libxcb-cursor0)
 Licensed under MIT (https://gitlab.freedesktop.org/xorg/lib/libxcb-cursor/-/blob/master/COPYING)
 
+opencv-python (https://github.com/opencv/opencv-python)
+Copyright (c) Olli-Pekka Heinisuo
+License under MIT (https://github.com/opencv/opencv-python/blob/4.x/LICENSE.txt)
+
 openpi (https://github.com/Physical-Intelligence/openpi)
 Licensed under Apache 2.0 (https://github.com/Physical-Intelligence/openpi/blob/main/LICENSE)
 
@@ -80,6 +84,10 @@ Licensed under MIT (https://github.com/uiri/toml/blob/master/LICENSE)
 torch (https://pypi.org/project/torch/)
 2016- Facebook, Inc (Adam Paszke); 2014- Facebook, Inc (Soumith Chintala); 2011-2014 Idiap Research Institute (Ronan Collobert); 2012-2014 Deepmind Technologies (Koray Kavukcuoglu); 2011-2012 NEC Laboratories America (Koray Kavukcuoglu); 2011-2013 NYU (Clement Farabet); 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston); 2006 Idiap Research Institute (Samy Bengio); 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz); 2016 Facebook Inc.; 2015 Google Inc.; 2015 Yangqing Jia; 2019-2020 Kakao Brain; 2022 Cruise LLC.; 2024 Tri Dao.
 Licensed under BSD-3-Clause (https://github.com/pytorch/pytorch/blob/main/LICENSE)
+
+v4l-utils (https://github.com/gjasny/v4l-utils)
+Copyright (C) 1989, 1991 Free Software Foundation, Inc.
+Licensed under GPL-2.0 (https://github.com/gjasny/v4l-utils/blob/master/COPYING)
 
 x11-utils (https://launchpad.net/ubuntu/+source/x11-utils)
 2011 Gaetan Nadon; 1994-2003 The XFree86 Project, Inc. All Rights Reserved.; 1993

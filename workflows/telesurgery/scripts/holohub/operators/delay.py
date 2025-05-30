@@ -22,8 +22,8 @@ from holoscan.core._core import OperatorSpec
 class DelayOp(Operator):
     """A delay operator that takes input and waits for few milliseconds."""
 
-    def __init__(self, fragment, deplay_ms, *args, **kwargs):
-        self.deplay_ms = deplay_ms
+    def __init__(self, fragment, delay_ms, *args, **kwargs):
+        self.delay_ms = delay_ms
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec: OperatorSpec):
@@ -32,5 +32,5 @@ class DelayOp(Operator):
 
     def compute(self, op_input, op_output, context):
         input = op_input.receive("input")
-        time.sleep(self.deplay_ms / 1000.0)
+        time.sleep(self.delay_ms / 1000.0)
         op_output.emit(input, "output")

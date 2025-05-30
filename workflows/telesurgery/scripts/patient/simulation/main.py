@@ -139,7 +139,6 @@ def main():
         update_arm_joints()
         simulation_app.update()
 
-    # keyboard_sub.unsubscribe()
     f1.cancel()
     f2.cancel()
     simulation_app.close()
