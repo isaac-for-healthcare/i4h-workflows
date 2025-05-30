@@ -3,7 +3,7 @@
 This tutorial shows how to teleoperate the [Virtual Incision MIRA](https://virtualincision.com/mira/) robot in Isaac Sim using keyboard controls.
 
 <p align="center" style="display: flex; justify-content: center; gap: 10px;">
-  <img src="../../../../docs/source/mira.png" alt="Virtual Incision MIRA Example" style="width: 45%; height: auto; aspect-ratio: 16/9; object-fit: cover;" />
+  <img src="../../../../docs/source/mira.png" alt="Virtual Incision MIRA Example" style="width: 70%; height: auto; aspect-ratio: 16/9; object-fit: cover;" />
 </p>
 
 ## Environment Setup
