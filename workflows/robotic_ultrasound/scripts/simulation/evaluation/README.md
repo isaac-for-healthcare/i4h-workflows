@@ -71,7 +71,7 @@ The script expects predicted trajectory files to be found at `data_root/file_pat
 
 The `evaluate_trajectories.py` script generates several outputs to help you assess the performance of trajectory prediction methods. Below is a description of these outputs, along with an example showcasing a comparison between Pi0 and GR00T-N1 models.
 
-### 1. Console Output
+### Console Output
    - **Progress**: Prints status messages indicating the current episode being processed for each method.
    - **Individual Episode Metrics**: For each episode and each prediction method, it prints the calculated Success Rate (SR) at the `radius_for_plots` and the Average Minimum Distance (AvgMinDist).
      ```
@@ -88,7 +88,7 @@ The `evaluate_trajectories.py` script generates several outputs to help you asse
        Avg Min Distance: 0.0092m
      ```
 
-### 2. Example Evaluation Table
+### Example Evaluation Table
 
 In our experiments, we utilized the `liver_scan_sm.py` script to collect an initial dataset of 400 raw trajectories. This dataset was then augmented using the Cosmos-transfer1 model to generate an additional 400 trajectories with diverse visual appearances (1:1 ratio with raw data), effectively creating a combined dataset for training and evaluation. The following table presents a comparison of success rates (at a 0.01m radius) for different policy models (Pi0 and GR00T-N1 variants) evaluated under various texture conditions in the simulated environment.
 
@@ -101,7 +101,7 @@ In our experiments, we utilized the `liver_scan_sm.py` script to collect an init
 | GR00T-N1-400                          | 84.1             | 61.5                       | 58.3                    | 64.0                   |
 | GR00T-N1-800 (w/ cosmos)              | 92.8                | 91.1                           | 92.8                       | 91.7                       |
 
-### 3. Success Rate vs. Radius Plot
+### Success Rate vs. Radius Plot
    - A plot named by the `--saved_compare_name` argument (default: `comparison_success_rate_vs_radius.png`) is saved in the `data_root` directory.
    - This plot shows the mean success rate (y-axis) as a function of the test radius (x-axis) for all configured prediction methods.
    - It includes 95% confidence interval bands for each method.
@@ -112,7 +112,7 @@ In our experiments, we utilized the `liver_scan_sm.py` script to collect an init
 
 The plots visually represent these comparisons, where different models are typically color-coded (e.g., Green for the original Pi0 model, Red for Pi0 with Cosmos-transfer, Blue for the original GR00T-N1 model, and Yellow for GR00T-N1 with Cosmos-transfer). The x-axis represents the tolerance radius in meters, and the y-axis shows the corresponding mean success rate. The shaded areas around the lines indicate the 95% confidence intervals, providing a measure of result variability.
 
-### 4. 3D Trajectory Plots
+### 3D Trajectory Plots
    - For each episode and each prediction method, a 3D plot is generated and saved.
    - The path for these plots is typically `data_root/METHOD_NAME/3d_trajectories-{episode_number}.png`.
    - These plots visually compare the ground truth trajectory against the predicted trajectory.
@@ -125,11 +125,9 @@ The plots visually represent these comparisons, where different models are typic
  |--------------|------------------|-----------------------------|-------------------------|-------------------------|
  | Episode 14   | *(Image Placeholder)* | *(Image Placeholder)*     | *(Image Placeholder)*   | *(Image Placeholder)*     |
 
-   *(Please replace `*(Image Placeholder)*` with Markdown image links, e.g., `![Pi0-400 Traj.](../../path/to/image.png)`)*
-
 The predicted 3D trajectories are typically shown in green, while the ground truth trajectory (scan state) is shown in blue.
 
-### 5. Key Observations and Conclusion
+### Key Observations and Conclusion
 
 The evaluation results highlight several important findings:
 
