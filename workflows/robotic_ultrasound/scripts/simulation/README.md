@@ -7,8 +7,10 @@
   - [PI Zero Policy Evaluation](#pi-zero-policy-evaluation)
   - [Policy Evaluation w/ DDS](#policy-evaluation-w-dds)
   - [Liver Scan State Machine](#liver-scan-state-machine)
+  - [Cosmos-transfer1 Integration](#cosmos-transfer1-integration)
   - [Teleoperation](#teleoperation)
   - [Ultrasound Raytracing Simulation](#ultrasound-raytracing-simulation)
+  - [Trajectory Evaluation](#trajectory-evaluation)
 
 ## Installation
 
@@ -37,11 +39,11 @@ Currently there are these robot configurations that can be used in various tasks
 ### PI Zero Policy Evaluation
 Set up `openpi` referring to [PI0 runner](../policy_runner/README.md).
 
-### Ensure the PYTHONPATH Is Set
+#### Ensure the PYTHONPATH Is Set
 
 Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
 
-### Run the script
+#### Run the script
 
 Please move to the current [`simulation` folder](./) and execute:
 
@@ -60,17 +62,35 @@ and the same `domain id` as this example in another terminal.
 
 When `run_policy.py` is launched and idle waiting for the data,
 
-### Ensure the PYTHONPATH Is Set
+#### Ensure the PYTHONPATH Is Set
 
 Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
 
-### Run the script
+#### Run the script
 
 Please move to the current [`simulation` folder](./) and execute:
 
 ```sh
 python environments/sim_with_dds.py --enable_cameras
 ```
+
+#### Evaluating with Recorded Initial States and Saving Trajectories
+
+The `sim_with_dds.py` script can also be used for more controlled evaluations by resetting the environment to initial states from recorded HDF5 data. When doing so, it can save the resulting end-effector trajectories.
+
+- **`--hdf5_path /path/to/your/data.hdf5`**: Provide the path to an HDF5 file (or a directory containing HDF5 files for multiple episodes). The simulation will reset the environment to the initial state(s) found in this data for each episode.
+- **`--npz_prefix your_prefix_`**: When `--hdf5_path` is used, this argument specifies a prefix for the names of the `.npz` files where the simulated end-effector trajectories will be saved. Each saved file will be named like `your_prefix_robot_obs_{episode_idx}.npz` and stored in the same directory as the input HDF5 file (if `--hdf5_path` is a file) or within the `--hdf5_path` directory (if it's a directory).
+
+**Example:**
+
+```sh
+python environments/sim_with_dds.py \
+    --enable_cameras \
+    --hdf5_path /mnt/hdd/cosmos/heldout-test50/data_0.hdf5 \
+    --npz_prefix pi0-800_
+```
+
+This command will load the initial state from `data_0.hdf5`, run the simulation (presumably interacting with a policy via DDS), and save the resulting trajectory to a file like `pi0-800_robot_obs_0.npz` in the `/mnt/hdd/cosmos/heldout-test50/` directory.
 
 ### Liver Scan State Machine
 
@@ -167,18 +187,91 @@ Navigate to the [`simulation` folder](./) and execute:
 python environments/state_machine/replay_recording.py --hdf5_path /path/to/your/hdf5_data_directory --task <YourTaskName>
 ```
 
-Replace `/path/to/your/hdf5_data_directory` with the actual path to the directory containing your `data_*.hdf5` files, and `<YourTaskName>` with the task name used during data collection (e.g., `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0`).
+Replace `/path/to/your/hdf5_data_directory` with the actual path to the directory containing your `data_*.hdf5` files or single HDF5 file, and `<YourTaskName>` with the task name used during data collection (e.g., `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0`).
 
 #### Command Line Arguments
 
 | Argument           | Type | Default                                  | Description                                                                      |
 |--------------------|------|------------------------------------------|----------------------------------------------------------------------------------|
-| `--hdf5_path`      | str  | (Required)                               | Path to the directory containing recorded HDF5 files.                            |
+| `--hdf5_path`      | str  | (Required)                               | Provide the path to an HDF5 file (or a directory containing HDF5 files for multiple episodes).                            |
 | `--task`           | str  | `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0` | Name of the task (environment) to use. Should match the task used for recording. |
 | `--num_envs`       | int  | `1`                                      | Number of environments to spawn (should typically be 1 for replay).              |
 | `--disable_fabric` | flag | `False`                                  | Disable fabric and use USD I/O operations.                                       |
 
 > **Note:** Additional common Isaac Lab arguments (like `--device`) can also be used.
+
+
+### Cosmos-transfer1 Integration
+
+[Cosmos-Transfer1](https://github.com/nvidia-cosmos/cosmos-transfer1) is a world-to-world transfer model designed to bridge the perceptual divide between simulated and real-world environments.
+We introduce a training-free guided generation method on top of Cosmos-Transfer1 to overcome unsatisfactory results on unseen healthcare simulation assets.
+Directly applying Cosmos-Transfer with various control inputs results in unsatisfactory outputs for the human phantom and robotic arm (see bottom figure). In contrast, our guided generation method preserves the appearance of the phantom and robotic arm while generating diverse backgrounds.
+<img src="../../../../docs/source/cosmos_transfer_result.png" width="512" height="600" />
+
+This training-free guided generation approach by encoding simulation videos into the latent space and applying spatial masking to guide the generation process. The trade-off between realism and faithfulness can be controlled by adjusting the number of guided denoising steps. In addition, our generation pipeline supports multi-view video generation. We first leverage the camera information to warp the generated room view to wrist view, then use it as the guidance of wrist-view generation.
+
+#### Download Cosmos-transfer1 Checkpoints
+Please install cosmos-transfer1 dependency and move to the third party `cosmos-transfer1` folder. The following command downloads the checkpoints:
+```sh
+conda activate cosmos-transfer1
+CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/download_checkpoints.py --output_dir checkpoints/
+```
+#### Video Prompt Generation
+We follow the idea in [lucidsim](https://github.com/lucidsim/lucidsim) to first generate batches of meta prompt that contains a very concise description of the potential scene, then instruct the LLM (e.g., [gemma-3-27b-it](https://build.nvidia.com/google/gemma-3-27b-it)) to upsample the meta prompt with detailed descriptions.
+We provide example prompts in [`generated_prompts_two_seperate_views.json`](./environments/cosmos_transfer1/config/generated_prompts_two_seperate_views.json).
+
+#### Running Cosmos-transfer1 + Guided Generation
+Please move to the current [`simulation` folder](./) and execute the following command to start the generation pipeline:
+```sh
+export CHECKPOINT_DIR="path to downloaded cosmos-transfer1 checkpoints"
+# Set project root path
+export PROJECT_ROOT="{your path}/i4h-workflows"
+# Set PYTHONPATH
+export PYTHONPATH="$PROJECT_ROOT/third_party/cosmos-transfer1:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts"
+# run bath inference for generation pipeline
+CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$PYTHONPATH python \
+    -m environments.cosmos_transfer1.transfer \
+    --checkpoint_dir $CHECKPOINT_DIR \
+    --source_data_dir "Path to source dir of h5 files" \
+    --output_data_dir "Path to output dir of h5 files" \
+    --offload_text_encoder_model
+```
+#### Command Line Arguments
+
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--prompt` | str | "" | Prompt which the sampled video condition on |
+| `--negative_prompt` | str | "The video captures a game playing, ..." | Negative prompt which the sampled video condition on |
+| `--input_video_path` | str | "" | Optional input RGB video path |
+| `--num_input_frames` | int | 1 | Number of conditional frames for long video generation |
+| `--sigma_max` | float | 80 | sigma_max for partial denoising |
+| `--blur_strength` | str | "medium" | Blur strength applied to input |
+| `--canny_threshold` | str | "medium" | Canny threshold applied to input. Lower means less blur or more detected edges, which means higher fidelity to input |
+| `--controlnet_specs` | str | "inference_cosmos_transfer1_two_views.json" | Path to JSON file specifying multicontrolnet configurations |
+| `--checkpoint_dir` | str | "checkpoints" | Base directory containing model checkpoints |
+| `--tokenizer_dir` | str | "Cosmos-Tokenize1-CV8x8x8-720p" | Tokenizer weights directory relative to checkpoint_dir |
+| `--video_save_folder` | str | "outputs/" | Output folder for generating a batch of videos |
+| `--num_steps` | int | 35 | Number of diffusion sampling steps |
+| `--guidance` | float | 5.0 | Classifier-free guidance scale value |
+| `--fps` | int | 30 | FPS of the output video |
+| `--height` | int | 224 | Height of video to sample |
+| `--width` | int | 224 | Width of video to sample |
+| `--seed` | int | 1 | Random seed |
+| `--num_gpus` | int | 1 | Number of GPUs used to run context parallel inference. |
+| `--offload_diffusion_transformer` | bool | False | Offload DiT after inference |
+| `--offload_text_encoder_model` | bool | False | Offload text encoder model after inference |
+| `--offload_guardrail_models` | bool | True | Offload guardrail models after inference |
+| `--upsample_prompt` | bool | False | Upsample prompt using Pixtral upsampler model |
+| `--offload_prompt_upsampler` | bool | False | Offload prompt upsampler model after inference |
+| `--source_data_dir` | str | "" | Path to source data directory for batch inference. It contains h5 files generated from the state machine. |
+| `--output_data_dir` | str | "" | Path to output data directory for batch inference. |
+| `--save_name_offset` | int | 0 | Offset for the video save name. |
+| `--foreground_label` | str | "3,4" | Comma-separated list of labels used to define the foreground mask during guided generation. The foreground corresponds to the object whose appearance we want to keep unchanged during generation. |
+| `--sigma_threshold` | float | 1.2866 | This controls how many guidance steps are performed during generation. Smaller values mean more steps, larger values mean less steps. |
+| `--concat_video_second_view` | bool | True | Whether to concatenate the first and second view videos during generation |
+| `--fill_missing_pixels` | bool | True | Whether to fill missing pixels in the warped second view video |
+| `--model_config_file` | str | "environments/cosmos_transfer1/config/transfer/config.py" | Relative path to the model config file |
+
 
 ### Teleoperation
 
@@ -333,3 +426,15 @@ To see the ultrasound probe moving, please ensure the `topic_ultrasound_info` is
 | --config | Path to custom JSON configuration file with probe parameters and simulation parameters | None |
 | --period | Period of the simulation (in seconds) | 1/30.0 (30 Hz) |
 | --probe_type | Type of ultrasound probe to use ("curvilinear" or "linear") | "curvilinear" |
+
+### Trajectory Evaluation
+
+This script (`evaluation/evaluate_trajectories.py`) compares predicted trajectories against ground truth data, computing metrics like success rate and average minimum distance. It also generates visual plots for analysis.
+
+For detailed information on usage, configuration, and compare results between pi0 and GR00T-N1 (including example plots and tables), please refer to the [Trajectory Evaluation README](./evaluation/README.md).
+
+**Quick Usage Example:**
+
+```sh
+python evaluation/evaluate_trajectories.py --data_root /path/to/data --method-name MyModel --ps-file-pattern "model_output/preds_{e}.npz" ...
+```

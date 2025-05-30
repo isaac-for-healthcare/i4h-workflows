@@ -24,7 +24,8 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 # Allow setting the python in PYTHON_EXECUTABLE
 PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
-COSMOS_TRANSFER_DIR=${1:-$$PROJECT_ROOT/third_party/cosmos-transfer1}
+
+COSMOS_TRANSFER_DIR=${1:-$PROJECT_ROOT/third_party/cosmos-transfer1}
 
 if [ -d "$COSMOS_TRANSFER_DIR" ]; then
     echo "Cosmos Transfer directory already exists at $COSMOS_TRANSFER_DIR. Skipping clone."
