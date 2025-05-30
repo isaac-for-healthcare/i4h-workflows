@@ -42,80 +42,13 @@ args_cli = parser.parse_args()
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
-import os
 
 import gymnasium as gym
-import h5py
 import torch
 from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401
-from simulation.environments.state_machine.utils import reset_organ_to_position, reset_robot_to_position
-
-
-def validate_hdf5_path(path):
-    """Validate that the path contains HDF5 files and return the number of episodes."""
-    if os.path.isdir(path):
-        # Check if directory contains HDF5 files that start with "data_"
-        hdf5_files = [file for file in os.listdir(path) if file.startswith("data_") and file.endswith(".hdf5")]
-        return len(hdf5_files)
-    elif os.path.isfile(path) and path.endswith(".hdf5"):
-        return 1
-    return 0
-
-
-def get_hdf5_episode_data(root, action_key: str):
-    """Get episode data from HDF5 format."""
-    base_path = "data/demo_0"
-    try:
-        actions = root[f"{base_path}/{action_key}"][()]
-    except KeyError as e:
-        print(f"Error loading data using key: {base_path}/{action_key}")
-        print(f"Available keys: {list(root[base_path].keys())}")
-        raise e
-    return actions
-
-
-def get_observation_episode_data(data_path: str, episode_idx: int, key: str):
-    """Get episode data from HDF5 format for a given key."""
-    if not data_path.endswith(".hdf5"):
-        data_path = os.path.join(data_path, f"data_{episode_idx}.hdf5")
-    with h5py.File(data_path, "r") as f:
-        data = get_hdf5_episode_data(f, key)
-        return data
-
-
-def get_episode_data(data_path: str, episode_idx: int):
-    """Get episode data from HDF5 format."""
-    # Load initial episode data
-    try:
-        if "Rel" in args_cli.task:
-            action_key = "action"
-        else:
-            action_key = "abs_action"
-        if not data_path.endswith(".hdf5"):
-            data_path = os.path.join(data_path, f"data_{episode_idx}.hdf5")
-        root = h5py.File(data_path, "r")
-        actions = get_hdf5_episode_data(root, action_key)
-        return actions
-    except Exception as e:
-        print(f"Error loading data: {str(e)}")
-        return None
-
-
-def reset_scene_to_initial_state(env, episode_idx: int, torso_obs_key: str, joint_state_key: str, joint_vel_key: str):
-    """Reset the scene to the initial state."""
-    actions = get_episode_data(args_cli.hdf5_path, episode_idx)
-    object_position = get_observation_episode_data(args_cli.hdf5_path, episode_idx, torso_obs_key)
-    reset_organ_to_position(env, object_position)
-    robot_initial_joint_state = get_observation_episode_data(args_cli.hdf5_path, episode_idx, joint_state_key)
-    try:
-        joint_vel = get_observation_episode_data(args_cli.hdf5_path, episode_idx, joint_vel_key)
-    except KeyError:
-        print("No joint velocity provided, setting to zero")
-        joint_vel = None
-    reset_robot_to_position(env, robot_initial_joint_state, joint_vel=joint_vel)
-    return actions
+from simulation.environments.state_machine.utils import reset_scene_to_initial_state, validate_hdf5_path
 
 
 def main():
@@ -149,10 +82,22 @@ def main():
         torso_obs_key = "observations/torso_obs"
         joint_state_key = "abs_joint_pos"
         joint_vel_key = "observations/joint_vel"
+        if "Rel" in args_cli.task:
+            action_key = "action"
+        else:
+            action_key = "abs_action"
 
         # simulate physics
         while simulation_app.is_running():
-            actions = reset_scene_to_initial_state(env, episode_idx, torso_obs_key, joint_state_key, joint_vel_key)
+            actions = reset_scene_to_initial_state(
+                env,
+                args_cli.hdf5_path,
+                episode_idx,
+                action_key,
+                torso_obs_key,
+                joint_state_key,
+                joint_vel_key,
+            )
 
             for episode_idx in range(total_episodes):
                 print(f"\nepisode_idx: {episode_idx}")
@@ -179,7 +124,13 @@ def main():
                     break
 
                 actions = reset_scene_to_initial_state(
-                    env, episode_idx + 1, torso_obs_key, joint_state_key, joint_vel_key
+                    env,
+                    args_cli.hdf5_path,
+                    episode_idx + 1,
+                    action_key,
+                    torso_obs_key,
+                    joint_state_key,
+                    joint_vel_key,
                 )
 
             # Check if we've reached the end of available episodes
