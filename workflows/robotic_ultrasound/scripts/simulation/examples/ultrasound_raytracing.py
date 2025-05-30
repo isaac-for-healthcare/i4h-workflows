@@ -325,7 +325,7 @@ class Simulator(Operator):
             self.probe = rs.LinearArrayProbe(
                 initial_pose,
                 num_elements_x=probe_params["num_elements"],
-                width=60.0,  # Default width for linear array
+                width=probe_params.get("width", 60.0),  # Default width for linear array
                 frequency=probe_params["frequency"],
                 elevational_height=probe_params["elevational_height"],
                 num_el_samples=probe_params["num_el_samples"],
