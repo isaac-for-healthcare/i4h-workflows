@@ -10,6 +10,7 @@
   - [Cosmos-transfer1 Integration](#cosmos-transfer1-integration)
   - [Teleoperation](#teleoperation)
   - [Ultrasound Raytracing Simulation](#ultrasound-raytracing-simulation)
+  - [Trajectory Evaluation](#trajectory-evaluation)
 
 ## Installation
 
@@ -38,11 +39,11 @@ Currently there are these robot configurations that can be used in various tasks
 ### PI Zero Policy Evaluation
 Set up `openpi` referring to [PI0 runner](../policy_runner/README.md).
 
-### Ensure the PYTHONPATH Is Set
+#### Ensure the PYTHONPATH Is Set
 
 Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
 
-### Run the script
+#### Run the script
 
 Please move to the current [`simulation` folder](./) and execute:
 
@@ -61,17 +62,35 @@ and the same `domain id` as this example in another terminal.
 
 When `run_policy.py` is launched and idle waiting for the data,
 
-### Ensure the PYTHONPATH Is Set
+#### Ensure the PYTHONPATH Is Set
 
 Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
 
-### Run the script
+#### Run the script
 
 Please move to the current [`simulation` folder](./) and execute:
 
 ```sh
 python environments/sim_with_dds.py --enable_cameras
 ```
+
+#### Evaluating with Recorded Initial States and Saving Trajectories
+
+The `sim_with_dds.py` script can also be used for more controlled evaluations by resetting the environment to initial states from recorded HDF5 data. When doing so, it can save the resulting end-effector trajectories.
+
+- **`--hdf5_path /path/to/your/data.hdf5`**: Provide the path to an HDF5 file (or a directory containing HDF5 files for multiple episodes). The simulation will reset the environment to the initial state(s) found in this data for each episode.
+- **`--npz_prefix your_prefix_`**: When `--hdf5_path` is used, this argument specifies a prefix for the names of the `.npz` files where the simulated end-effector trajectories will be saved. Each saved file will be named like `your_prefix_robot_obs_{episode_idx}.npz` and stored in the same directory as the input HDF5 file (if `--hdf5_path` is a file) or within the `--hdf5_path` directory (if it's a directory).
+
+**Example:**
+
+```sh
+python environments/sim_with_dds.py \
+    --enable_cameras \
+    --hdf5_path /mnt/hdd/cosmos/heldout-test50/data_0.hdf5 \
+    --npz_prefix pi0-800_
+```
+
+This command will load the initial state from `data_0.hdf5`, run the simulation (presumably interacting with a policy via DDS), and save the resulting trajectory to a file like `pi0-800_robot_obs_0.npz` in the `/mnt/hdd/cosmos/heldout-test50/` directory.
 
 ### Liver Scan State Machine
 
@@ -169,13 +188,13 @@ Navigate to the [`simulation` folder](./) and execute:
 python environments/state_machine/replay_recording.py --hdf5_path /path/to/your/hdf5_data_directory --task <YourTaskName>
 ```
 
-Replace `/path/to/your/hdf5_data_directory` with the actual path to the directory containing your `data_*.hdf5` files, and `<YourTaskName>` with the task name used during data collection (e.g., `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0`).
+Replace `/path/to/your/hdf5_data_directory` with the actual path to the directory containing your `data_*.hdf5` files or single HDF5 file, and `<YourTaskName>` with the task name used during data collection (e.g., `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0`).
 
 #### Command Line Arguments
 
 | Argument           | Type | Default                                  | Description                                                                      |
 |--------------------|------|------------------------------------------|----------------------------------------------------------------------------------|
-| `--hdf5_path`      | str  | (Required)                               | Path to the directory containing recorded HDF5 files.                            |
+| `--hdf5_path`      | str  | (Required)                               | Provide the path to an HDF5 file (or a directory containing HDF5 files for multiple episodes).                            |
 | `--task`           | str  | `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0` | Name of the task (environment) to use. Should match the task used for recording. |
 | `--num_envs`       | int  | `1`                                      | Number of environments to spawn (should typically be 1 for replay).              |
 | `--disable_fabric` | flag | `False`                                  | Disable fabric and use USD I/O operations.                                       |
@@ -399,3 +418,15 @@ To see the ultrasound probe moving, please ensure the `topic_ultrasound_info` is
 | --topic_out | Topic name to publish generated ultrasound data | topic_ultrasound_data |
 | --config | Path to custom JSON configuration file with probe parameters and simulation parameters | None |
 | --period | Period of the simulation (in seconds) | 1/30.0 (30 Hz) |
+
+### Trajectory Evaluation
+
+This script (`evaluation/evaluate_trajectories.py`) compares predicted trajectories against ground truth data, computing metrics like success rate and average minimum distance. It also generates visual plots for analysis.
+
+For detailed information on usage, configuration, and compare results between pi0 and GR00T-N1 (including example plots and tables), please refer to the [Trajectory Evaluation README](./evaluation/README.md).
+
+**Quick Usage Example:**
+
+```sh
+python evaluation/evaluate_trajectories.py --data_root /path/to/data --method-name MyModel --ps-file-pattern "model_output/preds_{e}.npz" ...
+```
