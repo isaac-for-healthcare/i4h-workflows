@@ -15,6 +15,7 @@
 
 import argparse
 import json
+import os
 
 from i4h_asset_helper import BaseI4HAssets
 from isaaclab.app import AppLauncher
@@ -112,11 +113,17 @@ def main():
     # holoscan app in async mode to consume camera source
     from patient.simulation.camera.app import App as CameraApp
 
+    if os.path.isfile(args.encoder_params):
+        with open(args.encoder_params, "r") as f:
+            encoder_params = json.load(f)
+    else:
+        encoder_params = json.loads(args.encoder_params) if args.encoder_params else {}
+
     camera_app = CameraApp(
         width=args.width,
         height=args.height,
         encoder=args.encoder,
-        encoder_params=json.loads(args.encoder_params) if args.encoder_params else {},
+        encoder_params=encoder_params,
         dds_domain_id=args.domain_id,
         dds_topic=args.topic if args.topic else f"telesurgery/{args.name}_camera/rgb",
     )
