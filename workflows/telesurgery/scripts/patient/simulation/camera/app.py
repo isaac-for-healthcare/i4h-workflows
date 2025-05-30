@@ -15,7 +15,6 @@
 
 from holohub.operators.camera.sim import IsaacSimCameraSourceOp
 from holohub.operators.dds.publisher import DDSPublisherOp
-from holohub.operators.nvidia_video_codec.nv_video_encoder import NvVideoEncoderOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_merge import CameraStreamMergeOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.encoder import NVJpegEncoderOp
@@ -63,6 +62,8 @@ class App(Application):
 
         if self.encoder == "nvc":
             try:
+                from holohub.operators.nvidia_video_codec.nv_video_encoder import NvVideoEncoderOp
+
                 encoder_op = NvVideoEncoderOp(
                     self,
                     name="nvc_encoder",

@@ -19,7 +19,6 @@ import json
 from holohub.operators.camera.cv2 import CV2VideoCaptureOp
 from holohub.operators.camera.realsense import RealsenseOp
 from holohub.operators.dds.publisher import DDSPublisherOp
-from holohub.operators.nv_video_encoder import NvVideoEncoderOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_merge import CameraStreamMergeOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.encoder import NVJpegEncoderOp
@@ -35,7 +34,7 @@ class App(Application):
     def __init__(
         self,
         camera: str,
-        name: str,
+        camera_name: str,
         width: int,
         height: int,
         device_idx: int,
@@ -48,7 +47,7 @@ class App(Application):
         encoder_params,
     ):
         self.camera = camera
-        self.name = name
+        self.camera_name = camera_name
         self.width = width
         self.height = height
         self.device_idx = device_idx
@@ -66,7 +65,7 @@ class App(Application):
         source = (
             RealsenseOp(
                 self,
-                name=self.name,
+                name=self.camera_name,
                 width=self.width,
                 height=self.height,
                 device_idx=self.device_idx,
@@ -77,7 +76,7 @@ class App(Application):
             if self.camera == "realsense"
             else CV2VideoCaptureOp(
                 self,
-                name=self.name,
+                name=self.camera_name,
                 width=self.width,
                 height=self.height,
                 device_idx=self.device_idx,
@@ -87,6 +86,8 @@ class App(Application):
 
         if self.encoder == "nvc":
             try:
+                from holohub.operators.nvidia_video_codec.nv_video_encoder import NvVideoEncoderOp
+
                 encoder_op = NvVideoEncoderOp(
                     self,
                     name="nvc_encoder",
@@ -133,7 +134,7 @@ class App(Application):
 
         if self.encoder == "nvc":
             print("Using NVC encoder with split and merge")
-            self.add_flow(self.source, split_op, {("output", "input")})
+            self.add_flow(source, split_op, {("output", "input")})
             self.add_flow(split_op, encoder_op, {("camera", "input")})
             self.add_flow(split_op, merge_op, {("metadata", "metadata")})
             self.add_flow(encoder_op, merge_op, {("output", "camera")})
@@ -164,7 +165,7 @@ def main():
     args = parser.parse_args()
     app = App(
         camera=args.camera,
-        name=args.name,
+        camera_name=args.name,
         width=args.width,
         height=args.height,
         device_idx=args.device_idx,

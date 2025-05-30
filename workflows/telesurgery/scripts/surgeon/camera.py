@@ -16,7 +16,6 @@
 import argparse
 
 from holohub.operators.dds.subscriber import DDSSubscriberOp
-from holohub.operators.nvidia_video_codec.nv_video_decoder import NvVideoDecoderOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.decoder import NVJpegDecoderOp
 from holohub.operators.stats import CameraStreamStats
@@ -55,6 +54,8 @@ class App(Application):
         )
 
         if self.decoder == "nvc":
+            from holohub.operators.nvidia_video_codec.nv_video_decoder import NvVideoDecoderOp
+
             decoder_op = NvVideoDecoderOp(
                 self,
                 name="nvc_decoder",
