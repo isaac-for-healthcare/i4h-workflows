@@ -21,36 +21,41 @@
 - CUDA Version >= 12.6
 - Python 3.10
 - RTI DDS License
+- Docker 28.0.4+
+- NVIDIA Container Toolkit CLI version 1.17.5+
 
 ## Quick Start
 
 ### x86 && AARCH64 (IGX) Setup
-1. Run the following to setup a docker env with CUDA enabled
+1. Obtain RTI DDS Licenss
+
+   ```
+   export RTI_LICENSE_FILE=<full-path-to-rti-license-file>
+   # for example
+   export RTI_LICENSE_FILE=/home/username/rti/rti_license.dat
+   ```
+   > [!Note]
+   > RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
+
+2. Configure Your Environment
+   When running the Patient and the Surgeon applications on separate systems, export the following environment variables:
+
+   ```bash
+   export PATIENT_IP="<IP Address of the system running the Patient application>"
+   export SURGEON_IP="<IP Address of the system running the Surgeon application>"
+   export NDDS_DISCOVERY_PEERS="${SURGEON_IP}"
+   ```
+
+3. Run the following to build and run a docker environment
    ```bash
    cd <path-to-i4h-workflows>
-   xhost +
-   workflows/telesurgery/docker/setup.sh run
+
+   # Build Docker container
+   workflows/telesurgery/docker/setup.sh build
 
    # Inside docker
-   workflows/telesurgery/docker/setup.sh init
+   workflows/telesurgery/docker/setup.sh run
    ```
-2. Create and activate [conda](https://www.anaconda.com/docs/getting-started/miniconda/install#quickstart-install-instructions) environment:
-   ```bash
-   source ~/miniconda3/bin/activate
-   conda create -n telesurgery python=3.10 -y
-   conda activate telesurgery
-   ```
-3. Run the setup script:
-   ```bash
-   cd <path-to-i4h-workflows>
-   bash tools/env_setup_telesurgery.sh
-   ```
-
-
-> Make sure your public key is added to the github account if the git authentication fails.
-
-### Obtain RTI DDS License
-RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
 
 ### NTP Server (Optional)
 An NTP (Network Time Protocol) server is a server that uses the Network Time Protocol to provide accurate time information to clients over a computer network. NTP is a protocol designed to synchronize the clocks of computers to a reference time source, ensuring that all devices on the network maintain the same time.
@@ -68,49 +73,20 @@ export NTP_SERVER_HOST=<NTP server address>
 # docker stop ntp-server && docker rm ntp-server
 ```
 
-### Environment Variables
-
-Before running any scripts, you need to set up the following environment variables:
-
-1. **PYTHONPATH**: Set this to point to the **scripts** directory:
-   ```bash
-   export PYTHONPATH=<path-to-i4h-workflows>/workflows/telesurgery/scripts
-   ```
-   This ensures Python can find the modules under the [`scripts`](./scripts) directory.
-
-2. **RTI_LICENSE_FILE**: Set this to point to your RTI DDS license file:
-   ```bash
-   export RTI_LICENSE_FILE=<path-to-rti-license-file>
-   ```
-   This is required for the DDS communication package to function properly.
-
-3. **NDDS_DISCOVERY_PEERS**: Set this to point to the IP address receiving camera data:
-   ```bash
-   export NDDS_DISCOVERY_PEERS="surgeon IP address"
-   ```
-More recommended variables can be found in [env.sh](./scripts/env.sh)
-
 ## Running the Workflow
-```bash
-cd <path-to-i4h-workflows>/workflows/telesurgery/scripts
-source env.sh  # Make sure all env variables are correctly set in env.sh
-
-export PATIENT_IP=<patient IP address>
-export SURGEON_IP=<surgeon IP address>
-```
-> Make sure MIRA API Server is up and running (port: 8081) in case of Physical World.
 
 ### [Option-1] Patient in Physical World _(x86 / aarch64)_
+
 ```bash
 # stream camera out
 python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720
 python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080
 ```
+> Make sure MIRA API Server is up and running (port: 8081) in case of Physical World.
 
 ### [Option-2] Patient in Simulation World _(x86)_
 ```bash
 # download the assets
-export ISAAC_ASSET_SHA256_HASH=8e80faed126c533243f50bb01dca3dcf035e86b5bf567d622878866a8ef7f12d
 i4h-asset-retrieve
 
 python patient/simulation/main.py [--encoder nvc]
