@@ -117,7 +117,9 @@ from dds.publisher import Publisher  # noqa: F401
 from dds.schemas.camera_info import CameraInfo  # noqa: F401
 from dds.schemas.franka_info import FrankaInfo  # noqa: F401
 from dds.schemas.usp_info import UltraSoundProbeInfo  # noqa: F401
-from isaaclab.devices import Se3Keyboard, Se3SpaceMouse, Se3HandTracking  # noqa: F401
+from isaaclab.devices import Se3Keyboard, Se3SpaceMouse, OpenXRDevice  # noqa: F401
+from isaaclab.devices.openxr import XrCfg
+from isaaclab.devices.openxr.retargeters.manipulator import Se3AbsRetargeter, Se3RelRetargeter, GripperRetargeter  # noqa: F401
 from isaaclab.managers import SceneEntityCfg  # noqa: F401
 from isaaclab.managers import TerminationTermCfg as DoneTerm  # noqa: F401
 from isaaclab_tasks.manager_based.manipulation.lift import mdp  # noqa: F401
@@ -232,6 +234,37 @@ def main():
             f"The environment '{args_cli.task}' does not support gripper control. The device command will be ignored."
         )
 
+    # Teleoperation may be disabled if hand tracking is selected but not yet started
+    teleoperation_active = True
+
+    def start_teleoperation():
+        """Activate teleoperation control of the robot.
+
+        This callback enables active control of the robot through the input device.
+        It's typically triggered by a specific gesture or button press and is used when:
+        - Beginning a new teleoperation session
+        - Resuming control after temporarily pausing
+        - Switching from observation mode to control mode
+
+        While active, all commands from the device will be applied to the robot.
+        """
+        nonlocal teleoperation_active
+        teleoperation_active = True
+
+    def stop_teleoperation():
+        """Deactivate teleoperation control of the robot.
+
+        This callback temporarily suspends control of the robot through the input device.
+        It's typically triggered by a specific gesture or button press and is used when:
+        - Taking a break from controlling the robot
+        - Repositioning the input device without moving the robot
+        - Pausing to observe the scene without interference
+
+        While inactive, the simulation continues to render but device commands are ignored.
+        """
+        nonlocal teleoperation_active
+        teleoperation_active = False
+
     # create controller
     if args_cli.teleop_device.lower() == "keyboard":
         teleop_interface = Se3Keyboard(
@@ -244,14 +277,25 @@ def main():
             rot_sensitivity=0.015 * args_cli.sensitivity,
         )
     elif args_cli.teleop_device.lower() == "handtracking":
-        from isaaclab.envs import ViewerCfg
-        from isaacsim.xr.openxr import OpenXRSpec
-        from isaaclab.envs.ui import ViewportCameraController
+        retargeter_device = Se3RelRetargeter(
+            bound_hand=OpenXRDevice.TrackingTarget.HAND_RIGHT, zero_out_xy_rotation=True
+        )
+        grip_retargeter = GripperRetargeter(bound_hand=OpenXRDevice.TrackingTarget.HAND_RIGHT)
 
-        teleop_interface = Se3HandTracking(OpenXRSpec.XrHandEXT.XR_HAND_RIGHT_EXT, False, False)
+        XR_INITIAL_POS = [0.2, 0, -0.2]
+        XR_INITIAL_ROT = (0.7, 0.0, 0, -0.7)
+        env_cfg.xr = XrCfg(anchor_pos=XR_INITIAL_POS, anchor_rot=XR_INITIAL_ROT)
+        # Create hand tracking device with retargeter (in a list)
+        teleop_interface = OpenXRDevice(
+            env_cfg.xr,
+            retargeters=[retargeter_device, grip_retargeter],
+        )
         teleop_interface.add_callback("RESET", env.reset)
-        viewer = ViewerCfg(eye=(-0.25, -0.3, 0.5), lookat=(0.6, 0, 0), asset_name="viewer")
-        ViewportCameraController(env, viewer)
+        teleop_interface.add_callback("START", start_teleoperation)
+        teleop_interface.add_callback("STOP", stop_teleoperation)
+
+        # Hand tracking needs explicit start gesture to activate
+        teleoperation_active = False
     else:
         raise ValueError(f"Invalid device interface '{args_cli.teleop_device}'. Supported: 'keyboard', 'spacemouse'.")
     # add teleoperation key for env reset
@@ -286,6 +330,10 @@ def main():
             continue
         last_step_time = current_time
 
+        if not teleoperation_active:
+            env.sim.render()
+            continue
+
         with torch.inference_mode():
             delta_pose, gripper_command = teleop_interface.advance()
             delta_pose = torch.tensor(delta_pose.astype("float32"), device=env.unwrapped.device).repeat(
@@ -294,6 +342,20 @@ def main():
 
             delta_pos = delta_pose[:, :3]
             delta_rot = math_utils.quat_from_euler_xyz(delta_pose[:, 3], delta_pose[:, 4], delta_pose[:, 5])
+            if args_cli.teleop_device.lower() == "handtracking":
+                # Translate hand tracking pose to device frame
+                delta_pos_4d = torch.cat(
+                    [delta_pos[:, :3], torch.ones((delta_pos.shape[0], 1), device=env.unwrapped.device)], dim=1
+                )
+                delta_pos_4d = torch.matmul(
+                    delta_pos_4d,
+                    torch.tensor(
+                        [[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1]],
+                        dtype=torch.float32,
+                        device=env.unwrapped.device,
+                    ),
+                )
+                delta_pos = delta_pos_4d[:, :3]
 
             # get the robot's TCP pose
             robot_entity_cfg = SceneEntityCfg("robot", joint_names=["panda_joint.*"], body_names=["panda_hand"])
@@ -326,24 +388,21 @@ def main():
             pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us)
 
             # Get and publish camera images
-            cameras_to_poll = ["wrist_camera","room_camera"] if not args_cli.teleop_device.lower() == "handtracking" else ["wrist_camera"]
-            rgb_images, depth_images = capture_camera_images(
-                env, cameras_to_poll, device=env.unwrapped.device
-            )
-            pub_data["wrist_cam"] = rgb_images[0, cameras_to_poll.index("wrist_camera"), ...].cpu().numpy()
-            pub_data["wrist_cam_depth"] = depth_images[0, cameras_to_poll.index("wrist_camera"), ...].cpu().numpy()
-            if "room_camera" in cameras_to_poll:
-                pub_data["room_cam"] = rgb_images[0, cameras_to_poll.index("room_camera"), ...].cpu().numpy()
-                pub_data["room_cam_depth"] = depth_images[0, cameras_to_poll.index("room_camera"), ...].cpu().numpy()
-            pub_data["joint_pos"] = get_joint_states(env)[0]
+            if not args_cli.teleop_device.lower() == "handtracking":
+                rgb_images, depth_images, _ = capture_camera_images(
+                    env, ["room_camera", "wrist_camera"], device=env.unwrapped.device
+                )
+                pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
+                pub_data["room_cam_depth"] = depth_images[0, 0, ...].cpu().numpy()
+                pub_data["wrist_cam"] = rgb_images[0, 1, ...].cpu().numpy()
+                pub_data["wrist_cam_depth"] = depth_images[0, 1, ...].cpu().numpy()
+                pub_data["joint_pos"] = get_joint_states(env)[0]
 
-            if "room_camera" in cameras_to_poll:
                 viz_r_cam_writer.write()
-                viz_r_cam_depth_writer.write()
-            if "wrist_camera" in cameras_to_poll:
                 viz_w_cam_writer.write()
+                viz_probe_pos_writer.write()
+                viz_r_cam_depth_writer.write()
                 viz_w_cam_depth_writer.write()
-            viz_probe_pos_writer.write()
     env.close()
 
 

@@ -6,8 +6,8 @@ This guide helps you use your own OpenXR-enabled mixed reality device for simula
 
 # Background
 
-The [Robotic Ultrasound workflow](/workflows/robotic_ultrasound/) provides an example of robotic teleoperation in an Isaac Lab simulation.
-Teleoperation serves as an alternative to pre-defined [state machine](/workflows/robotic_ultrasound/scripts/simulation/environments/state_machine/)
+The [Robotic Ultrasound workflow](../../../workflows/robotic_ultrasound/README.md) provides an example of robotic teleoperation in an Isaac Lab simulation.
+Teleoperation serves as an alternative to manually defined [state machine](../../../workflows/robotic_ultrasound/scripts/simulation/environments/state_machine/)
 inputs, allowing a human operator to directly guide the robot in a task to collect policy training data. Isaac Lab supports multiple
 types of teleoperation inputs, ranging from traditional keyboard input to hand tracking from a mixed reality device such as the
 Apple Vision Pro headset.
@@ -32,7 +32,7 @@ In this tutorial we will focus on the NVIDIA CloudXR OpenXR runtime with support
 
 ## Robotic Ultrasound in Isaac Lab
 
-Please review the [Robotic Ultrasound workflow setup instructions](/workflows/robotic_ultrasound/README.md) for minimum system requirements.
+Please review the [Robotic Ultrasound workflow setup instructions](../../../workflows/robotic_ultrasound/README.md) for minimum system requirements.
 
 Mixed reality rendering can be GPU intensive. An NVIDIA RTX A6000 discrete GPU or greater is recommended. Performance may suffer on lower versions.
 
@@ -64,7 +64,7 @@ Review the latest CloudXR Runtime End User License Agreement on [NGC](https://ca
 
 ## Robotic Ultrasound Workflow
 
-Please follow the [Robotic Ultrasound workflow setup instructions](/workflows/robotic_ultrasound/README.md) to install dependencies, download assets, and set environment variables.
+Please follow the [Robotic Ultrasound workflow setup instructions](../../../workflows/robotic_ultrasound/README.md) to install dependencies, download assets, and set environment variables.
 
 ## NVIDIA CloudXR Teleop Sample Client for Apple Vision Pro
 
@@ -132,18 +132,36 @@ You will see a message in the terminal when the runtime is ready:
 
 5. Back in your Robotic Ultrasound workflow terminal, define the following environment variables:
 ```bash
-export XDG_RUNTIME_DIR=<path/to/i4h-workflows>/openxr/run
-export XR_RUNTIME_JSON=<path/to/i4h-workflows>/openxr/share/openxr/1/openxr_cloudxr.json
+I4H_PATH=<path/to/i4h-workflows>
+export XDG_RUNTIME_DIR=${I4H_PATH}/openxr/run
+export XR_RUNTIME_JSON=${I4H_PATH}/openxr/share/openxr/1/openxr_cloudxr.json
 ```
 
 # Running XR Hand Tracking Teleoperation
+
+## App Settings (first run only)
+
+After following the Robotic Ultrasound setup instructions, run the following to amend the local Isaac Lab XR configuration
+to enable cameras by default:
+```bash
+I4H_PATH=<path/to/i4h-workflows>
+ISAAC_LAB_XR_KIT_CONFIG=$(find ${I4H_PATH}/third_party/IsaacLab/apps -name isaaclab.python.xr.openxr.kit)
+I4H_XR_KIT_CONFIG=${I4H_PATH}/third_party/IsaacLab/apps/i4h.python.xr.openxr.kit
+cp ${ISAAC_LAB_XR_KIT_CONFIG} ${I4H_XR_KIT_CONFIG}
+echo "
+[settings.isaaclab]
+# This is used to check that this experience file is loaded when using cameras
+cameras_enabled = true
+" >> ${I4H_XR_KIT_CONFIG}
+```
 
 ## Launch Isaac Lab (Host System)
 
 Run the following command to launch the teleoperation sample with XR support:
 
 ```bash
-python environments/teleoperation/teleop_se3_agent.py --enable_cameras --teleop_device=handtracking --experience isaaclab.python.xr.openxr.kit
+cd ${I4H_PATH}/workflows/robotic_ultrasound/scripts
+python environments/teleoperation/teleop_se3_agent.py --enable_cameras --teleop_device=handtracking --experience ${I4H_XR_KIT_CONFIG}
 ```
 
 The sample application will launch as normal with an extra tab titled "AR". Navigate to the "AR" tab and verify that "OpenXR" is selected as the output plugin.
@@ -156,7 +174,14 @@ Click the "Start AR" button to launch the scene into stereo rendering mode with 
 
 **Note**: You can enter and exit the XR scene at any time before or after connecting the Apple Vision Pro device. The CloudXR OpenXR Runtime will receive frames but not transmit
 to any device if no device is connected. Click "Stop AR" to exit the OpenXR session and return to the standard mono viewing mode.
-**Note**: The robot may appear behind the initial XR position.
+
+**Note**: XR teleoperation updates are currently applied relative to the probe head. The coordinate system from
+the user's tracked right hand is applied along the local probe axes as pictured below:
+- **Hand Tracking Left/Right** -> Green axis
+- **Hand Tracking Up/Down** -> Red axis
+- **Hand Tracking Towards/Away** -> Blue axis
+
+![Coordinate frame as viewed along the robotic ultrasound probe](resources/probe_frame.png)
 
 ## Apple Vision Pro
 
@@ -185,48 +210,49 @@ Use the CloudXR sample client UI in the Apple Vision Pro display to toggle among
 - **Apple Vision Pro will not connect to Macbook or Linux workstation**
 
 Please ensure that all participating machines are available on the same non-enterprise local network and review your firewall settings. Verify that you have enabled
-[Developer Mode](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device) on your Apple Vision Pro device. 
+[Developer Mode](https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device) on your Apple Vision Pro device.
 
 - **Mixed reality device framerate performance suffers**
 
 Please ensure that your machine meets the [recommended specifications](#mixed-reality-device) for mixed reality teleoperation.
 
-- **Why is Room Camera output not published over DDS?**
+- **Why is camera output not available over DDS during XR teleoperation?**
 
-There is a known issue where the sample application encounters a blocking error if the room camera is polled during XR teleoperation with the following error:
+There is a known issue where the sample application encounters a blocking error if cameras are polled during XR teleoperation with an error such as follows:
 ```
-  File ".../i4h-workflows/workflows/robotic_ultrasound/scripts/simulation/environments/teleoperation/teleop_se3_agent.py", line 349, in <module>
-    main()
-  File ".../i4h-workflows/workflows/robotic_ultrasound/scripts/simulation/environments/teleoperation/teleop_se3_agent.py", line 329, in main
-    rgb_images, depth_images = capture_camera_images(
-  File ".../i4h-workflows/workflows/robotic_ultrasound/scripts/simulation/environments/state_machine/utils.py", line 140, in capture_camera_images
-    camera_data = env.unwrapped.scene[cam_name].data
-  File ".../i4h-workflows/third_party/IsaacLab/source/isaaclab/isaaclab/sensors/camera/camera.py", line 179, in data
-    self._update_outdated_buffers()
-  File ".../i4h-workflows/third_party/IsaacLab/source/isaaclab/isaaclab/sensors/sensor_base.py", line 289, in _update_outdated_buffers
-    self._update_buffers_impl(outdated_env_ids)
-  File ".../i4h-workflows/third_party/IsaacLab/source/isaaclab/isaaclab/sensors/camera/camera.py", line 509, in _update_buffers_impl
-    self._data.output[name][index] = data
 RuntimeError: The expanded size of the tensor (3) must match the existing size (0) at non-singleton dimension 2.  Target sizes: [224, 224, 3].  Tensor sizes: [0]
 ```
 
-The room camera is disabled pending further investigation. Wrist camera and joint position output are available over DDS.
+Camera polling with XR teleop is disabled pending further investigation. Joint position output is available over DDS.
 
-- **The hand tracking sample API does not match the [Isaac Lab XR teleoperation tutorial](https://isaac-sim.github.io/IsaacLab/main/source/how-to/cloudxr_teleoperation.html#run-isaac-lab-with-the-cloudxr-runtime).**
+- **The robotic ultrasound arm is too sensitive or too limited in movement.**
 
-At the time of writing, Isaac for Healthcare and the Robotic Ultrasound sample are based on an earlier version of Isaac Lab (v2.0.2). The XR teleoperation tutorial
-leverages an updated XR teleoperation API available in Isaac Lab in versions v2.1.0 and later. We will update this tutorial at a future date to make use of the
-latest API.
+Developers may consider reviewing available hand tracking [retargeters](https://isaac-sim.github.io/IsaacLab/main/source/how-to/cloudxr_teleoperation.html#retargeting-architecture)
+tailored for different use cases.
 
-- **The robotic ultrasound arm is difficult to control.**
+- **The teleoperated device does not rotate as far as I would like.**
 
-Mitigation is under review. A future update will leverage Isaac Lab Hand Tracking [Retargeters](https://isaac-sim.github.io/IsaacLab/main/source/how-to/cloudxr_teleoperation.html#retargeting-architecture) for greater parity between hand inputs and device position. Hand tracking retargeting is currently available in Isaac Lab v2.1.0 and later.
+You may update the sample retargeter setting `zero_out_xy_rotation=False` to increase
+the range of rotation.
 
 ## Known Issues
 
-- **I see a repeating console error when running XR teleoperation**
+- **Spawning cameras fails at app startup**
 
-The following error has been observed from the wrist camera and is under investigation. Wrist camera data can be consumed via sample DDS topics during XR teleoperation.
+The error below may appear if cameras have not been enabled in your app configurations:
+```bash
+RuntimeError: A camera was spawned without the --enable_cameras flag. Please use --enable_cameras to enable rendering.
+```
+
+Please review the [first time app settings step](#app-settings-first-run-only) to verify that cameras are enabled. Also ensure that the amended app configuration path is properly passed as a launch argument with the `--experience` flag.
+
+- **The "AR" tab is not visible when the application starts.**
+
+Please review the [first time app settings step](#app-settings-first-run-only) to ensure that the XR extension is enabled in the project.
+
+- **I see a repeating `omni.syntheticdata.plugin` error when running XR teleoperation**
+
+The following error is observed at runtime with Isaac Lab v2.1.0 teleoperation and is under investigation. XR teleoperation may continue despite the console error.
 ```
 2025-05-23 02:43:01 [29,668ms] [Error] [omni.syntheticdata.plugin] SdPostRenderVarTextureToBuffer : corrupted input renderVar LdrColorSD
 2025-05-23 02:43:01 [29,668ms] [Error] [omni.syntheticdata.plugin] SdPostRenderVarTextureToBuffer : corrupted input renderVar DistanceToImagePlaneSD
