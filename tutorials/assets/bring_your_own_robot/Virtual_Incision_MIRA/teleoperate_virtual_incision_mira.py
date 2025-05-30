@@ -47,7 +47,7 @@ from pxr import UsdPhysics
 
 
 class Assets(BaseI4HAssets):
-    """Assets manager for the your workflow."""
+    """Assets manager for your workflow."""
 
     MIRA = "Robots/MIRA/mira-bipo-size-experiment-smoothing.usd"
 
