@@ -13,41 +13,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
-
-from holoscan.core import Operator
-from holoscan.core._core import OperatorSpec
-from nvjpeg import NvJpeg
+import cupy as cp
+import numpy as np
+import rti.connextdds
+from holoscan.core import Operator, Tensor
 from schemas.camera_stream import CameraStream
 
 
-class NVJpegDecoderOp(Operator):
-    """
-    Operator to decode RGB data to JPEG using NVJpeg.
-    """
+class CameraStreamSplitOp(Operator):
+    """Operator to split a camera stream into two streams."""
 
-    def __init__(self, fragment, skip, *args, **kwargs):
-        self.skip = skip
-        self.nvjpeg = None
-
-        super().__init__(fragment, *args, **kwargs)
-
-    def setup(self, spec: OperatorSpec):
+    def setup(self, spec):
         spec.input("input")
-        spec.output("output")
+        spec.output("metadata")
         spec.output("camera")
-
-    def start(self):
-        self.nvjpeg = NvJpeg()
 
     def compute(self, op_input, op_output, context):
         stream = op_input.receive("input")
         assert isinstance(stream, CameraStream)
 
-        start = time.time()
-        if not self.skip:
-            stream.data = self.nvjpeg.decode(stream.data)
-        stream.decode_latency = (time.time() - start) * 1000
+        if isinstance(stream.data, np.ndarray):
+            # For NVC encoder: move data to GPU
+            camera_data = cp.asarray(stream.data)
+        elif isinstance(stream.data, rti.connextdds.Uint8Seq):
+            # For NVC decoder: convert DDS sequence to numpy array
+            camera_data = np.reshape(stream.data, (len(stream.data),))
+        else:
+            camera_data = stream.data
 
-        op_output.emit(stream, "output")
-        op_output.emit({"image": stream.data}, "camera")
+        op_output.emit(stream, "metadata")
+        op_output.emit({"": Tensor.as_tensor(camera_data)}, "camera")

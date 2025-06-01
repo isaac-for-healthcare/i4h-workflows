@@ -15,6 +15,7 @@
 
 import argparse
 import json
+import os
 
 from i4h_asset_helper import BaseI4HAssets
 from isaaclab.app import AppLauncher
@@ -32,7 +33,7 @@ def main():
     parser.add_argument("--width", type=int, default=1920, help="width")
     parser.add_argument("--height", type=int, default=1080, help="height")
     parser.add_argument("--framerate", type=int, default=30, help="frame rate")
-    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "none"], default="nvjpeg")
+    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvjpeg")
     parser.add_argument("--encoder_params", type=str, default=json.dumps({"quality": 90}), help="encoder params")
     parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
@@ -101,17 +102,28 @@ def main():
 
     from patient.simulation.camera.sensor import CameraEx
 
-    camera = CameraEx(prim_path=camera_prim_path, frequency=args.framerate, resolution=(args.width, args.height))
+    camera = CameraEx(
+        channels=4 if args.encoder == "nvc" else 3,
+        prim_path=camera_prim_path,
+        frequency=args.framerate,
+        resolution=(args.width, args.height),
+    )
     camera.initialize()
 
     # holoscan app in async mode to consume camera source
     from patient.simulation.camera.app import App as CameraApp
 
+    if os.path.isfile(args.encoder_params):
+        with open(args.encoder_params, "r") as f:
+            encoder_params = json.load(f)
+    else:
+        encoder_params = json.loads(args.encoder_params) if args.encoder_params else {}
+
     camera_app = CameraApp(
         width=args.width,
         height=args.height,
         encoder=args.encoder,
-        encoder_params=json.loads(args.encoder_params) if args.encoder_params else {},
+        encoder_params=encoder_params,
         dds_domain_id=args.domain_id,
         dds_topic=args.topic if args.topic else f"telesurgery/{args.name}_camera/rgb",
     )
@@ -127,7 +139,6 @@ def main():
         update_arm_joints()
         simulation_app.update()
 
-    # keyboard_sub.unsubscribe()
     f1.cancel()
     f2.cancel()
     simulation_app.close()

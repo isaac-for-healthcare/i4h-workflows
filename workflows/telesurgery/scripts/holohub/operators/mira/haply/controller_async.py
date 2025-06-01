@@ -16,6 +16,7 @@
 import asyncio  # To run async loops
 import json
 import logging
+import os
 import time
 
 import numpy as np
@@ -242,4 +243,4 @@ async def main(uri, api_host, api_port):
 
 # Run the asynchronous main function
 if __name__ == "__main__":
-    asyncio.run(main("ws://localhost:10001", "10.137.145.163", 8081))
+    asyncio.run(main("ws://localhost:10001", os.environ.get("PATIENT_IP"), 8081))

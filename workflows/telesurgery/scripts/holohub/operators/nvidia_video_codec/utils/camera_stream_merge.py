@@ -13,24 +13,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
-
+import cupy as cp
 from holoscan.core import Operator
-from holoscan.core._core import OperatorSpec
+from schemas.camera_stream import CameraStream
 
 
-class DelayOp(Operator):
-    """A delay operator that takes input and waits for few milliseconds."""
+class CameraStreamMergeOp(Operator):
+    """Operator to merge a camera stream into a single stream."""
 
-    def __init__(self, fragment, delay_ms, *args, **kwargs):
-        self.delay_ms = delay_ms
-        super().__init__(fragment, *args, **kwargs)
-
-    def setup(self, spec: OperatorSpec):
-        spec.input("input")
+    def setup(self, spec):
+        spec.input("metadata")
+        spec.input("camera")
         spec.output("output")
 
     def compute(self, op_input, op_output, context):
-        input = op_input.receive("input")
-        time.sleep(self.delay_ms / 1000.0)
-        op_output.emit(input, "output")
+        stream = op_input.receive("metadata")
+        camera = op_input.receive("camera")
+        assert isinstance(stream, CameraStream)
+
+        camera_tensor = camera[""]
+
+        stream.data = cp.asarray(camera_tensor).get().tobytes()
+        stream.encode_latency = self.metadata.get("video_encoder_encode_latency_ms", 0)
+        stream.compress_ratio = self.metadata.get("video_encoder_compress_ratio", 0)
+        op_output.emit(stream, "output")

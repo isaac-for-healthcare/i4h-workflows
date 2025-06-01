@@ -17,8 +17,7 @@ import time
 
 import numpy as np
 from common.utils import get_ntp_offset
-from holoscan.core import Operator
-from holoscan.core._core import OperatorSpec
+from holoscan.core import ConditionType, Operator, OperatorSpec
 from schemas.camera_stream import CameraStream
 
 
@@ -35,16 +34,18 @@ class CameraStreamStats(Operator):
         self.time_encode = []
         self.time_decode = []
         self.compress_ratio = []
-
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec: OperatorSpec):
         spec.input("input")
-        spec.output("output")
+        spec.input("camera").condition(ConditionType.NONE)
 
     def compute(self, op_input, op_output, context):
         stream = op_input.receive("input")
         assert isinstance(stream, CameraStream)
+        camera = op_input.receive("camera")
+        if camera is not None:
+            stream.decode_latency = self.metadata.get("video_decoder_decode_latency_ms", 0)
 
         ts = int((time.time() + self.sync_offset_time) * 1000)
         self.time_diff.append(ts - stream.ts)
@@ -76,5 +77,3 @@ class CameraStreamStats(Operator):
             self.time_decode.clear()
             self.compress_ratio.clear()
             self.prev_ts = ts
-
-        op_output.emit(stream, "output")

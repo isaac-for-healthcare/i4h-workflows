@@ -54,6 +54,15 @@ echo "Installing necessary dependencies..."
 pip install numpy
 conda install -c conda-forge libstdcxx-ng -y
 
+# ---- Install Haply Inverse Service (Telesurgery) ----
+if [[ "$(uname -m)" == x86_64 ]]; then
+    echo "Installing Haply Inverse Service... (only for x86)"
+    bash $PROJECT_ROOT/tools/env_setup/install_haply.sh
+else
+    echo "Platform is not x86_64; Skip Haply Inverse Service Installation"
+fi
+
+
 # ---- Install necessary dependencies (Telesurgery) ----
 echo "Installing necessary dependencies..."
 pip install -r $PROJECT_ROOT/workflows/telesurgery/requirements.txt

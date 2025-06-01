@@ -41,7 +41,6 @@ class DDSPublisherOp(Operator):
 
     def setup(self, spec: OperatorSpec):
         spec.input("input")
-        spec.output("output")
 
     def start(self):
         dp = dds.DomainParticipant(domain_id=self.dds_domain_id)
@@ -53,4 +52,3 @@ class DDSPublisherOp(Operator):
         assert isinstance(stream, self.dds_topic_class)
 
         self.dds_writer.write(stream)
-        op_output.emit(stream, "output")

@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import argparse
+import os
 
 from holohub.operators.hid.gamepad import GamepadOp
 from holohub.operators.mira.api_client import ApiClientOp
@@ -56,7 +57,7 @@ def main():
     """Parse command-line arguments and run the application."""
     parser = argparse.ArgumentParser(description="Run the hid application")
     parser.add_argument("--device_idx", type=int, default=0, help="device index case of multiple joysticks")
-    parser.add_argument("--api_host", type=str, default="10.137.145.163", help="api server host")
+    parser.add_argument("--api_host", type=str, default=os.environ.get("PATIENT_IP"), help="api server host")
     parser.add_argument("--api_port", type=int, default=8081, help="api server port")
 
     args = parser.parse_args()
