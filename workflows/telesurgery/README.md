@@ -145,6 +145,16 @@ NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name room --width 
 python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
 ```
 
+### Using H.264/HEVC Encoder/Decoder from NVIDIA Video Codec
+
+Camera data can be streamed using either the H.264 or HEVC (H.265) codecs. To enable this for the Patient and Surgeon applications, use the `--encoder nvc` or `--decoder nvc` argument, respectively.
+
+Encoding parameters can be customized in the Patient application using the `--encoder_params` argument, as shown below:
+
+```bash
+python patient/simulation/main.py --encoder nvc --encoder_params patient/nvc_encoder_params.json
+```
+
 #### Sample Encoding Parameters for the NVIDIA Video Codec
 
 Here’s an example of encoding parameters in JSON format:
