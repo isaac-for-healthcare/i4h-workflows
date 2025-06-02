@@ -100,4 +100,4 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
             os.remove(self.patient_log)
 
 if __name__ == "__main__":
-    unittest.main() 
+    unittest.main()
