@@ -22,6 +22,7 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
         self.env["PATIENT_IP"] = "127.0.0.1"
         self.env["SURGEON_IP"] = "127.0.0.1"
         self.env["NDDS_DISCOVERY_PEER"] = "127.0.0.1"
+        self.env["PYTHONUNBUFFERED"] = "1"
 
     def start_process(self, cmd, log_file=None, env=None):
         stdout = open(log_file, "w") if log_file else subprocess.PIPE
@@ -53,7 +54,7 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
         surgeon_proc = self.start_process(surgeon_camera_cmd, env=self.env, log_file=self.surgeon_camera_log)
 
         # Give time for data to flow
-        time.sleep(60)
+        time.sleep(20)
 
         # Check surgeon process log for evidence of received frames
         with open(self.surgeon_camera_log, "r") as f:
@@ -74,7 +75,7 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
         gamepad_proc = self.start_process(surgeon_gamepad_cmd)
 
         # Give time for control command to be sent and processed
-        time.sleep(60)
+        time.sleep(10)
 
         # Check patient log for evidence of robot control command received
         with open(self.patient_log, "r") as f:

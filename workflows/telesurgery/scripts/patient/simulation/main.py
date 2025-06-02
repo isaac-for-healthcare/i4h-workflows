@@ -48,6 +48,7 @@ def main():
 
     # Import Isaac/Omni modules after app launch
     import omni.usd
+    from omni.timeline import get_timeline_interface
     from pxr import UsdPhysics
 
     omni.usd.get_context().open_stage(usd_path)
@@ -134,7 +135,9 @@ def main():
 
     gamepad_app = MiraApp(api_host=args.api_host, api_port=args.api_port, callback=on_gamepad_event)
     f2 = gamepad_app.run_async()
-
+    timeline = get_timeline_interface()
+    if not timeline.is_playing():
+        timeline.play()
     while simulation_app.is_running():
         update_arm_joints()
         simulation_app.update()
