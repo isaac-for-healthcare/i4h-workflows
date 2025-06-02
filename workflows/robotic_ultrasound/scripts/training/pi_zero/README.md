@@ -19,7 +19,7 @@ This repository provides a complete workflow for training [PI Zero](https://www.
 
 This workflow enables you to:
 
-1. Collect robotic ultrasound data using a state machine in Isaac Sim
+1. Collect the robot trajectories and camera image data while the robot is performing a ultrasound scan
 2. Convert the collected HDF5 data to LeRobot format (required by PI Zero)
 3. Fine-tune a PI Zero model using either full supervised fine-tuning or LoRA (Low-Rank Adaptation)
 4. Deploy the trained model for inference
@@ -48,11 +48,12 @@ See the [simulation README](../../simulation/README.md#liver-scan-state-machine)
 
 PI Zero uses the LeRobot data format for training. We provide a script to convert your HDF5 data to this format.
 
-Please move to the current [`pi_zero` folder](./) and execute:
+Please move to the [`training` folder](../) and execute:
 
 ```bash
 python convert_hdf5_to_lerobot.py /path/to/your/hdf5/data
 ```
+Replace `/path/to/your/hdf5/data` with the actual path to your dataset.
 
 **Arguments:**
 - `data_dir`: Path to the directory containing HDF5 files. (default: "<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts/simulation/data/hdf5/<date-task-name>")

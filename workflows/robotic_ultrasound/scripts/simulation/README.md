@@ -148,6 +148,7 @@ This will collect data for 2 complete episodes and store it in HDF5 format.
 | `--num_envs` | int | 1 | Number of environments to spawn (must be 1 for this script) |
 | `--reset_steps` | int | 40 | Number of steps to take during environment reset |
 | `--max_steps` | int | 350 | Maximum number of steps before forcing a reset |
+| `--include_seg` | bool | True | Whether to include semantic segmentation in the data collection |
 
 > **Note:** It is recommended to use at least 40 steps for `--reset_steps` to allow enough steps for the robot to properly reset to the SETUP position.
 
@@ -166,7 +167,7 @@ The collected data includes:
 - Relative and absolute actions
 - State machine state
 - Joint positions
-- Camera images
+- Camera images (RGB, depth, segmentation if `--include_seg` is enabled)
 
 
 #### Keyboard Controls

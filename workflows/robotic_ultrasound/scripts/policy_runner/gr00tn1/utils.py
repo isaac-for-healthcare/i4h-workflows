@@ -98,7 +98,7 @@ class SinglePandaUSDataConfig(BaseDataConfig):
             StateActionTransform(
                 apply_to=self.state_keys,
                 normalization_modes={
-                    "state.panda_hand": "min_max",
+                    "state.panda_hand": "mean_std",
                 },
             ),
             # action transforms
@@ -106,10 +106,9 @@ class SinglePandaUSDataConfig(BaseDataConfig):
             StateActionTransform(
                 apply_to=self.action_keys,
                 normalization_modes={
-                    "action.panda_hand": "min_max",
+                    "action.panda_hand": "mean_std",
                 },
             ),
-            # concat transforms
             ConcatTransform(
                 video_concat_order=self.video_keys,
                 state_concat_order=self.state_keys,

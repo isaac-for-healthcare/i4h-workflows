@@ -317,7 +317,7 @@ def main():
             pub_data["probe_pos"], pub_data["probe_ori"] = get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us)
 
             # Get and publish camera images
-            rgb_images, depth_images = capture_camera_images(
+            rgb_images, depth_images, _ = capture_camera_images(
                 env, ["room_camera", "wrist_camera"], device=env.unwrapped.device
             )
             pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
