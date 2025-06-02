@@ -37,7 +37,7 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
             "--domain_id", self.dds_domain_id,
             "--topic", self.camera_topic,
             "--api_port", self.api_port,
-            "--width", "320", "--height", "240"
+            "--width", "320", "--height", "240", "--timeline_play", "True"
         ]
         patient_proc = self.start_process(patient_cmd, env=self.env, log_file=self.patient_log)
 
