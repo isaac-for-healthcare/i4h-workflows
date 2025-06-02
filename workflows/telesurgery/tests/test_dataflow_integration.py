@@ -26,9 +26,14 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
         self.env["SURGEON_IP"] = "127.0.0.1"
         self.env["NDDS_DISCOVERY_PEER"] = "127.0.0.1"
         self.env["PYTHONUNBUFFERED"] = "1"
+        self.log_files = []
 
     def start_process(self, cmd, log_file=None, env=None):
-        stdout = open(log_file, "w") if log_file else subprocess.PIPE
+        if log_file:
+            stdout = open(log_file, "w")
+            self.log_files.append(stdout)
+        else:
+            stdout = subprocess.PIPE
         proc = subprocess.Popen(cmd, env=env, stdout=stdout, stderr=subprocess.STDOUT)
         self.processes.append(proc)
         return proc
@@ -118,6 +123,11 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
             os.remove(self.surgeon_camera_log)
         if os.path.exists(self.patient_log):
             os.remove(self.patient_log)
+        for f in self.log_files:
+            try:
+                f.close()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
