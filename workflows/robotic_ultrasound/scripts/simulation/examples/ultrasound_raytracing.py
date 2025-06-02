@@ -125,7 +125,6 @@ class Simulator(Operator):
         out_width: The width of the output image.
         start_pose: The initial pose of the probe, default is [0, 0, 0, 0, 0, 0].
         config_path: Path to a JSON configuration file with probe parameters.
-        probe_type: Type of ultrasound probe to use ("curvilinear" or "linear").
     """
 
     def __init__(
@@ -136,7 +135,6 @@ class Simulator(Operator):
         out_width=500,
         start_pose=np.zeros((6,)),
         config_path=None,
-        probe_type="curvilinear",
         **kwargs,
     ):
         # Initialize all critical variables first
@@ -144,7 +142,6 @@ class Simulator(Operator):
         self.out_width = out_width
         self.start_pose = start_pose
         self.config_path = config_path
-        self.probe_type = probe_type
         self.simulator = None
         self.sim_params = None
         self.probe = None
@@ -244,18 +241,6 @@ class Simulator(Operator):
             "pulse_duration": 2.0   # cycles
         }
 
-        default_linear_probe_params = {
-            "num_elements": 256,
-            "opening_angle": 0.0,   # degrees (linear array)
-            "radius": 0.0,          # mm (linear array)
-            "frequency": 2.5,       # MHz
-            "elevational_height": 7.0,  # mm
-            "num_el_samples": 1,
-            "f_num": 1.0,          # unitless
-            "speed_of_sound": 1.54, # mm/us
-            "pulse_duration": 2.0   # cycles
-        }
-
         default_sim_params = {
             "conv_psf": True,
             "buffer_size": 4096,
@@ -270,17 +255,6 @@ class Simulator(Operator):
             try:
                 with open(self.config_path, "r") as f:
                     config_data = json.load(f)
-
-                    # Load probe type
-                    if "probe_type" in config_data:
-                        self.probe_type = config_data["probe_type"]
-                        if self.probe_type == "curvilinear":
-                            probe_params = default_curvilinear_probe_params
-                        elif self.probe_type == "linear":
-                            probe_params = default_linear_probe_params
-                        else:
-                            print(f"Warning: Unknown probe type '{self.probe_type}'. Using curvilinear probe.")
-                            probe_params = default_curvilinear_probe_params
 
                     # Load probe parameters
                     if "probe_params" in config_data:
@@ -308,31 +282,18 @@ class Simulator(Operator):
             print("No config file specified. Using default parameters.")
 
         # Create ultrasound probe with configured parameters
-        if self.probe_type == "curvilinear":
-            self.probe = rs.CurvilinearProbe(
-                initial_pose,
-                num_elements_x=probe_params["num_elements"],
-                sector_angle=probe_params["opening_angle"],
-                radius=probe_params["radius"],
-                frequency=probe_params["frequency"],
-                elevational_height=probe_params["elevational_height"],
-                num_el_samples=probe_params["num_el_samples"],
-                f_num=probe_params["f_num"],
-                speed_of_sound=probe_params["speed_of_sound"],
-                pulse_duration=probe_params["pulse_duration"]
-            )
-        else:  # linear
-            self.probe = rs.LinearArrayProbe(
-                initial_pose,
-                num_elements_x=probe_params["num_elements"],
-                width=probe_params.get("width", 60.0),  # Default width for linear array
-                frequency=probe_params["frequency"],
-                elevational_height=probe_params["elevational_height"],
-                num_el_samples=probe_params["num_el_samples"],
-                f_num=probe_params["f_num"],
-                speed_of_sound=probe_params["speed_of_sound"],
-                pulse_duration=probe_params["pulse_duration"]
-            )
+        self.probe = rs.CurvilinearProbe(
+            initial_pose,
+            num_elements_x=probe_params["num_elements"],
+            sector_angle=probe_params["opening_angle"],
+            radius=probe_params["radius"],
+            frequency=probe_params["frequency"],
+            elevational_height=probe_params["elevational_height"],
+            num_el_samples=probe_params["num_el_samples"],
+            f_num=probe_params["f_num"],
+            speed_of_sound=probe_params["speed_of_sound"],
+            pulse_duration=probe_params["pulse_duration"]
+        )
 
         # Create simulator
         try:
@@ -501,7 +462,7 @@ class StreamingSimulator(Application):
         out_height: The height of the output image.
         start_pose: The initial pose of the probe.
         config_path: Path to a JSON configuration file with probe parameters.
-        probe_type: Type of ultrasound probe to use ("curvilinear" or "linear").
+        period: The period at which to check for new data (in seconds).
     """
 
     def __init__(
@@ -514,7 +475,6 @@ class StreamingSimulator(Application):
         start_pose=np.zeros((6,)),
         period=1 / 30.0,
         config_path=None,
-        probe_type="curvilinear",
     ):
         super().__init__()
         self.domain_id = domain_id
@@ -525,7 +485,6 @@ class StreamingSimulator(Application):
         self.start_pose = start_pose
         self.config_path = config_path
         self.period = period
-        self.probe_type = probe_type
 
     def compose(self):
         """
@@ -547,7 +506,6 @@ class StreamingSimulator(Application):
             out_width=self.out_width,
             start_pose=self.start_pose,
             config_path=self.config_path,
-            probe_type=self.probe_type,
             name="simulator",
         )
         simulator.metadata_policy = MetadataPolicy.RAISE
@@ -602,13 +560,6 @@ def main():
         default=1 / 30.0,
         help="period of the simulation each cycle (1/frequency). Unit is second.",
     )
-    parser.add_argument(
-        "--probe_type",
-        type=str,
-        choices=["curvilinear", "linear"],
-        default="curvilinear",
-        help="type of ultrasound probe to use (curvilinear or linear)",
-    )
     args = parser.parse_args()
     app = StreamingSimulator(
         domain_id=args.domain_id,
@@ -618,7 +569,6 @@ def main():
         out_height=args.height,
         period=args.period,
         config_path=args.config,
-        probe_type=args.probe_type,
     )
 
     app.is_metadata_enabled = True

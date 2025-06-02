@@ -360,8 +360,8 @@ Optionally, the simulator supports customization through JSON configuration file
 | Parameter | Description | Default Value |
 |-----------|-------------|---------------|
 | num_elements | Number of elements in the ultrasound probe | 256 |
-| opening_angle | Beam opening angle in degrees | 73.0 (curvilinear) / 0.0 (linear) |
-| radius | Radius of the ultrasound probe in mm | 45.0 (curvilinear) / 0.0 (linear) |
+| opening_angle | Beam opening angle in degrees | 73.0 |
+| radius | Radius of the ultrasound probe in mm | 45.0 |
 | frequency | Ultrasound frequency in MHz | 2.5 |
 | elevational_height | Height of the elevation plane in mm | 7.0 |
 | num_el_samples | Number of samples in the elevation direction | 1 |
@@ -383,7 +383,7 @@ You only need to specify the parameters you want to change - any omitted paramet
 
 ```json
 {
-    "probe_type": "linear",
+    "probe_type": "curvilinear",
     "probe_params": {
         "frequency": 3.5,
         "radius": 55.0
@@ -425,7 +425,7 @@ To see the ultrasound probe moving, please ensure the `topic_ultrasound_info` is
 | --topic_out | Topic name to publish generated ultrasound data | topic_ultrasound_data |
 | --config | Path to custom JSON configuration file with probe parameters and simulation parameters | None |
 | --period | Period of the simulation (in seconds) | 1/30.0 (30 Hz) |
-| --probe_type | Type of ultrasound probe to use ("curvilinear" or "linear") | "curvilinear" |
+| --probe_type | Type of ultrasound probe to use ("curvilinear") | "curvilinear" |
 
 ### Trajectory Evaluation
 
