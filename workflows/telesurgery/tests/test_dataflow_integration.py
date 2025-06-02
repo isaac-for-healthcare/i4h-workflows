@@ -51,7 +51,7 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
             "--timeline_play",
             "True",
         ]
-        patient_proc = self.start_process(patient_cmd, env=self.env, log_file=self.patient_log)
+        self.start_process(patient_cmd, env=self.env, log_file=self.patient_log)
 
         # Give patient simulation time to start
         time.sleep(60)
@@ -69,7 +69,7 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
             "--height",
             "240",
         ]
-        surgeon_proc = self.start_process(surgeon_camera_cmd, env=self.env, log_file=self.surgeon_camera_log)
+        self.start_process(surgeon_camera_cmd, env=self.env, log_file=self.surgeon_camera_log)
 
         # Give time for data to flow
         time.sleep(20)
@@ -93,7 +93,7 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
             "--api_port",
             self.api_port,
         ]
-        gamepad_proc = self.start_process(surgeon_gamepad_cmd)
+        self.start_process(surgeon_gamepad_cmd)
 
         # Give time for control command to be sent and processed
         time.sleep(10)
