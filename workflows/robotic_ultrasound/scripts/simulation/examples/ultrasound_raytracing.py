@@ -231,7 +231,7 @@ class Simulator(Operator):
         # Load probe configuration from JSON file if provided
         default_curvilinear_probe_params = {
             "num_elements": 256,
-            "opening_angle": 73.0,  # degrees
+            "sector_angle": 73.0,  # degrees
             "radius": 45.0,         # mm
             "frequency": 2.5,       # MHz
             "elevational_height": 7.0,  # mm
@@ -285,7 +285,7 @@ class Simulator(Operator):
         self.probe = rs.CurvilinearProbe(
             initial_pose,
             num_elements_x=probe_params["num_elements"],
-            sector_angle=probe_params["opening_angle"],
+            sector_angle=probe_params["sector_angle"],
             radius=probe_params["radius"],
             frequency=probe_params["frequency"],
             elevational_height=probe_params["elevational_height"],

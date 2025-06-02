@@ -338,7 +338,7 @@ Optionally, the simulator supports customization through JSON configuration file
     "probe_type": "curvilinear",
     "probe_params": {
         "num_elements": 256,
-        "opening_angle": 73.0,
+        "sector_angle": 73.0,
         "radius": 45.0,
         "frequency": 2.5,
         "elevational_height": 7.0,
@@ -360,7 +360,7 @@ Optionally, the simulator supports customization through JSON configuration file
 | Parameter | Description | Default Value |
 |-----------|-------------|---------------|
 | num_elements | Number of elements in the ultrasound probe | 256 |
-| opening_angle | Beam opening angle in degrees | 73.0 |
+| sector_angle | Beam sector angle in degrees | 73.0 |
 | radius | Radius of the ultrasound probe in mm | 45.0 |
 | frequency | Ultrasound frequency in MHz | 2.5 |
 | elevational_height | Height of the elevation plane in mm | 7.0 |
