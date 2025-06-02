@@ -1,14 +1,17 @@
-import unittest
+import os
 import subprocess
 import sys
 import time
-import os
+import unittest
+
 import vgamepad as vg
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
 
 class TestTelesurgeryDataLoop(unittest.TestCase):
     """Test the dataloop of the telesurgery workflow"""
+
     def setUp(self):
         # Use unique DDS topics and API port for testing
         self.dds_domain_id = "999"  # Use a test domain
@@ -33,11 +36,20 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
     def test_data_loop_with_gamepad(self):
         """Test the dataflow with a surgeon a simulation of a patient and a gamepad"""
         patient_cmd = [
-            sys.executable, os.path.join(BASE_DIR, "scripts/patient/simulation/main.py"),
-            "--domain_id", self.dds_domain_id,
-            "--topic", self.camera_topic,
-            "--api_port", self.api_port,
-            "--width", "320", "--height", "240", "--timeline_play", "True"
+            sys.executable,
+            os.path.join(BASE_DIR, "scripts/patient/simulation/main.py"),
+            "--domain_id",
+            self.dds_domain_id,
+            "--topic",
+            self.camera_topic,
+            "--api_port",
+            self.api_port,
+            "--width",
+            "320",
+            "--height",
+            "240",
+            "--timeline_play",
+            "True",
         ]
         patient_proc = self.start_process(patient_cmd, env=self.env, log_file=self.patient_log)
 
@@ -46,10 +58,16 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
 
         # Start surgeon camera receiver
         surgeon_camera_cmd = [
-            sys.executable, os.path.join(BASE_DIR, "scripts/surgeon/camera.py"),
-            "--domain_id", self.dds_domain_id,
-            "--topic", self.camera_topic,
-            "--width", "320", "--height", "240"
+            sys.executable,
+            os.path.join(BASE_DIR, "scripts/surgeon/camera.py"),
+            "--domain_id",
+            self.dds_domain_id,
+            "--topic",
+            self.camera_topic,
+            "--width",
+            "320",
+            "--height",
+            "240",
         ]
         surgeon_proc = self.start_process(surgeon_camera_cmd, env=self.env, log_file=self.surgeon_camera_log)
 
@@ -68,9 +86,12 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
         gamepad.update()
 
         surgeon_gamepad_cmd = [
-            sys.executable, os.path.join(BASE_DIR, "scripts/surgeon/gamepad.py"),
-            "--api_host", self.api_host,
-            "--api_port", self.api_port
+            sys.executable,
+            os.path.join(BASE_DIR, "scripts/surgeon/gamepad.py"),
+            "--api_host",
+            self.api_host,
+            "--api_port",
+            self.api_port,
         ]
         gamepad_proc = self.start_process(surgeon_gamepad_cmd)
 
@@ -81,8 +102,7 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
         with open(self.patient_log, "r") as f:
             patient_log = f.read()
         self.assertTrue(
-            "Update (" in patient_log or "set_mira" in patient_log,
-            "Robot control command not received on patient side"
+            "Update (" in patient_log or "set_mira" in patient_log, "Robot control command not received on patient side"
         )
 
     def tearDown(self):
@@ -98,6 +118,7 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
             os.remove(self.surgeon_camera_log)
         if os.path.exists(self.patient_log):
             os.remove(self.patient_log)
+
 
 if __name__ == "__main__":
     unittest.main()
