@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import sys
 import time
@@ -109,6 +110,23 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
         self.assertTrue(
             "Update (" in patient_log or "set_mira" in patient_log, "Robot control command not received on patient side"
         )
+
+        # Check DDS topic and domain ID consistency
+        surgeon_dds_match = re.search(r"Reading data from DDS: ([\w/_]+):(\d+)", camera_log)
+        self.assertIsNotNone(surgeon_dds_match, "DDS read info not found in surgeon log")
+        surgeon_topic, surgeon_domain_id = surgeon_dds_match.groups()
+
+        patient_dds_match = re.search(r"Writing data to DDS: ([\w/_]+):(\d+)", patient_log)
+        self.assertIsNotNone(patient_dds_match, "DDS write info not found in patient log")
+        patient_topic, patient_domain_id = patient_dds_match.groups()
+
+        self.assertEqual(surgeon_topic, self.camera_topic, "Surgeon topic mismatch")
+        self.assertEqual(patient_topic, self.camera_topic, "Patient topic mismatch")
+        self.assertEqual(surgeon_topic, patient_topic, "Surgeon and Patient topics do not match")
+
+        self.assertEqual(surgeon_domain_id, self.dds_domain_id, "Surgeon domain ID mismatch")
+        self.assertEqual(patient_domain_id, self.dds_domain_id, "Patient domain ID mismatch")
+        self.assertEqual(surgeon_domain_id, patient_domain_id, "Surgeon and Patient domain IDs do not match")
 
     def tearDown(self):
         # Terminate all started processes
