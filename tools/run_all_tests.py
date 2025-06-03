@@ -19,6 +19,9 @@ import os
 import subprocess
 import sys
 import traceback
+import time
+import threading
+from datetime import datetime
 
 WORKFLOWS = [
     "robotic_ultrasound",
@@ -36,31 +39,141 @@ def get_tests(test_root, pattern="test_*.py"):
     return glob.glob(path, recursive=True)
 
 
-def _run_test_process(cmd, env, test_path):
-    """Helper function to run a test process and handle its output"""
-    print(f"Running test: {test_path}")
-
+def _stream_output(pipe, output_list, prefix=""):
+    """Helper function to stream output from subprocess in real-time"""
     try:
-        process = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        stdout, stderr = process.communicate(timeout=1200)
-        # Filter out extension loading messages
-        filtered_stdout = "\n".join(
-            [line for line in stdout.split("\n") if not ("[ext:" in line and "startup" in line)]
+        for line in iter(pipe.readline, ''):
+            if line:
+                timestamped_line = f"[{datetime.now().strftime('%H:%M:%S')}] {prefix}{line.rstrip()}"
+                print(timestamped_line)
+                output_list.append(line)
+                sys.stdout.flush()
+    except Exception as e:
+        print(f"Error streaming output: {e}")
+
+
+def _run_test_process(cmd, env, test_path, timeout=1200):
+    """Enhanced test process runner with better debugging and real-time output"""
+    print(f"\n{'='*80}")
+    print(f"Running test: {test_path}")
+    print(f"Command: {' '.join(cmd)}")
+    print(f"Timeout: {timeout} seconds ({timeout//60} minutes)")
+    print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'='*80}")
+
+    stdout_lines = []
+    stderr_lines = []
+    timeout_occurred = False
+    
+    try:
+        # Start the process
+        process = subprocess.Popen(
+            cmd, 
+            env=env, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE, 
+            text=True,
+            bufsize=1,  # Line buffered
+            universal_newlines=True
         )
-        filtered_stderr = "\n".join(
-            [line for line in stderr.split("\n") if not ("[ext:" in line and "startup" in line)]
+        
+        # Create threads to stream output in real-time
+        stdout_thread = threading.Thread(
+            target=_stream_output, 
+            args=(process.stdout, stdout_lines, "STDOUT: ")
         )
+        stderr_thread = threading.Thread(
+            target=_stream_output, 
+            args=(process.stderr, stderr_lines, "STDERR: ")
+        )
+        
+        stdout_thread.daemon = True
+        stderr_thread.daemon = True
+        stdout_thread.start()
+        stderr_thread.start()
+        
+        # Wait for process with timeout
+        start_time = time.time()
+        return_code = None
+        
+        while time.time() - start_time < timeout:
+            return_code = process.poll()
+            if return_code is not None:
+                break
+            time.sleep(1)
+            
+            # Print progress every 60 seconds
+            elapsed = int(time.time() - start_time)
+            if elapsed > 0 and elapsed % 60 == 0:
+                print(f"Test still running... {elapsed//60} minutes elapsed")
+        
+        # Handle timeout
+        if return_code is None:
+            timeout_occurred = True
+            print(f"\nTEST TIMEOUT AFTER {timeout} SECONDS!")
+            print(f"Test ran for: {int(time.time() - start_time)} seconds")
+            print(f"Attempting to terminate process...")
+            
+            try:
+                process.terminate()
+                time.sleep(5)
+                if process.poll() is None:
+                    print("Force killing process...")
+                    process.kill()
+                    time.sleep(2)
+            except Exception as e:
+                print(f"Error terminating process: {e}")
+            
+            # Wait for output threads to finish
+            stdout_thread.join(timeout=5)
+            stderr_thread.join(timeout=5)
+            
+            print(f"\nPARTIAL OUTPUT BEFORE TIMEOUT:")
+            print(f"STDOUT ({len(stdout_lines)} lines):")
+            if stdout_lines:
+                for line in stdout_lines:  # Show last 50 lines
+                    print(f"  {line.rstrip()}")
+            else:
+                print("  (No stdout output)")
+                
+            print(f"STDERR ({len(stderr_lines)} lines):")
+            if stderr_lines:
+                for line in stderr_lines:  # Show last 50 lines
+                    print(f"  {line.rstrip()}")
+            else:
+                print("  (No stderr output)")
+            
+            return False
+        
+        # Wait for output threads to complete
+        stdout_thread.join(timeout=10)
+        stderr_thread.join(timeout=10)
+        
+        elapsed_time = int(time.time() - start_time)
+        
+        if return_code == 0:
+            print(f"\nTEST PASSED in {elapsed_time} seconds")
+            return True
+        else:
+            print(f"\nTEST FAILED with return code {return_code} after {elapsed_time} seconds")
+            
+            # Show error output
+            print(f"\nERROR OUTPUT:")
+            print(f"STDERR ({len(stderr_lines)} lines):")
+            if stderr_lines:
+                for line in stderr_lines:
+                    print(f"  {line.rstrip()}")
+            
+            print(f"STDOUT ({len(stdout_lines)} lines):")
+            if stdout_lines:
+                for line in stdout_lines:
+                    print(f"  {line.rstrip()}")
 
-        # Print filtered output
-        if filtered_stdout.strip():
-            print(filtered_stdout)
-        if filtered_stderr.strip():
-            print(filtered_stderr)
+            return False
 
-        return process.returncode == 0
-
-    except subprocess.TimeoutExpired:
-        print("❌ Test run timed out! ", cmd)
+    except Exception as e:
+        print(f"\nEXCEPTION while running test: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
         return False
 
 
@@ -88,9 +201,13 @@ def _setup_test_cosmos_transfer1_env(project_root, workflow_root, tests_dir):
     return env
 
 
-def run_tests_with_coverage(workflow_name, skip_xvfb):
+def run_tests_with_coverage(workflow_name, skip_xvfb, timeout=1200):
     """Run all unittest cases with coverage reporting"""
-    print(f"Running tests with xvfb skipped: {skip_xvfb}")
+    print(f"Starting test run for workflow: {workflow_name}")
+    print(f"XVFB tests skipped: {skip_xvfb}")
+    print(f"Test timeout: {timeout} seconds ({timeout//60} minutes)")
+    print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
     project_root = f"workflows/{workflow_name}"
 
     try:
@@ -141,7 +258,6 @@ def run_tests_with_coverage(workflow_name, skip_xvfb):
             if not _run_test_process(cmd, env, test_path):
                 print(f"FAILED TEST: {test_path}")
                 all_tests_passed = False
-
         # combine coverage results
         subprocess.run([sys.executable, "-m", "coverage", "combine"])
 
@@ -166,8 +282,11 @@ def run_tests_with_coverage(workflow_name, skip_xvfb):
         return 1
 
 
-def run_integration_tests(workflow_name):
+def run_integration_tests(workflow_name, timeout=1200):
     """Run integration tests for a workflow"""
+    print(f"Starting integration tests for workflow: {workflow_name}")
+    print(f"Test timeout: {timeout} seconds ({timeout//60} minutes)")
+    
     project_root = f"workflows/{workflow_name}"
     default_license_file = os.path.join(os.getcwd(), project_root, "scripts", "dds", "rti_license.dat")
     os.environ["RTI_LICENSE_FILE"] = os.environ.get("RTI_LICENSE_FILE", default_license_file)
@@ -198,13 +317,14 @@ if __name__ == "__main__":
     parser.add_argument("--workflow", type=str, default="robotic_ultrasound", help="Workflow name")
     parser.add_argument("--integration", action="store_true", help="Run integration tests")
     parser.add_argument("--skip-xvfb", action="store_true", help="Skip running tests with xvfb")
+    parser.add_argument("--timeout", type=int, default=1200, help="Test timeout in seconds (default: 1200 = 20 minutes)")
     args = parser.parse_args()
 
     if args.workflow not in WORKFLOWS:
         raise ValueError(f"Invalid workflow name: {args.workflow}")
 
     if args.integration:
-        exit_code = run_integration_tests(args.workflow)
+        exit_code = run_integration_tests(args.workflow, args.timeout)
     else:
-        exit_code = run_tests_with_coverage(args.workflow, args.skip_xvfb)
+        exit_code = run_tests_with_coverage(args.workflow, args.skip_xvfb, args.timeout)
     sys.exit(exit_code)
