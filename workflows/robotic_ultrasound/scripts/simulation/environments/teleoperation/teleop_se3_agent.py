@@ -278,7 +278,11 @@ def main():
         )
     elif args_cli.teleop_device.lower() == "handtracking":
         retargeter_device = Se3RelRetargeter(
-            bound_hand=OpenXRDevice.TrackingTarget.HAND_RIGHT, zero_out_xy_rotation=True
+            bound_hand=OpenXRDevice.TrackingTarget.HAND_RIGHT,
+            zero_out_xy_rotation=False,
+            use_wrist_position=True,
+            use_wrist_rotation=True,
+            delta_rot_scale_factor=3.0,
         )
         grip_retargeter = GripperRetargeter(bound_hand=OpenXRDevice.TrackingTarget.HAND_RIGHT)
 
@@ -293,6 +297,31 @@ def main():
         teleop_interface.add_callback("RESET", env.reset)
         teleop_interface.add_callback("START", start_teleoperation)
         teleop_interface.add_callback("STOP", stop_teleoperation)
+
+        def process_hand_tracking_pose(delta_pose: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            # Define the transformation matrix (preprocessing step for wrist frame to world frame)
+            transform_matrix = torch.tensor(
+                [[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1]],
+                dtype=torch.float32,
+                device=env.unwrapped.device,
+            )
+
+            # Process hand tracking position (wrist -> world)
+            delta_pos_4d = torch.cat(
+                [delta_pose[:, :3], torch.ones((delta_pose.shape[0], 1), device=env.unwrapped.device)], dim=1
+            )
+            delta_pos_4d = torch.matmul(delta_pos_4d, transform_matrix)
+            delta_pos = delta_pos_4d[:, :3]
+
+            # Process hand tracking rotation (wrist -> world)
+            delta_rot = math_utils.quat_from_euler_xyz(-delta_pose[:, 3], delta_pose[:, 4], -delta_pose[:, 5])
+            delta_rot_matrix = math_utils.matrix_from_quat(delta_rot)
+            delta_rot_matrix = torch.matmul(
+                transform_matrix[:3, :3], torch.matmul(delta_rot_matrix, transform_matrix[:3, :3].T)
+            )
+            delta_rot = math_utils.quat_from_matrix(delta_rot_matrix)
+
+            return delta_pos, delta_rot
 
         # Hand tracking needs explicit start gesture to activate
         teleoperation_active = False
@@ -343,19 +372,7 @@ def main():
             delta_pos = delta_pose[:, :3]
             delta_rot = math_utils.quat_from_euler_xyz(delta_pose[:, 3], delta_pose[:, 4], delta_pose[:, 5])
             if args_cli.teleop_device.lower() == "handtracking":
-                # Translate hand tracking pose to device frame
-                delta_pos_4d = torch.cat(
-                    [delta_pos[:, :3], torch.ones((delta_pos.shape[0], 1), device=env.unwrapped.device)], dim=1
-                )
-                delta_pos_4d = torch.matmul(
-                    delta_pos_4d,
-                    torch.tensor(
-                        [[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1]],
-                        dtype=torch.float32,
-                        device=env.unwrapped.device,
-                    ),
-                )
-                delta_pos = delta_pos_4d[:, :3]
+                delta_pos, delta_rot = process_hand_tracking_pose(delta_pose)
 
             # get the robot's TCP pose
             robot_entity_cfg = SceneEntityCfg("robot", joint_names=["panda_joint.*"], body_names=["panda_hand"])

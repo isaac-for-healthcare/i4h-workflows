@@ -160,7 +160,7 @@ cameras_enabled = true
 Run the following command to launch the teleoperation sample with XR support:
 
 ```bash
-cd ${I4H_PATH}/workflows/robotic_ultrasound/scripts
+cd ${I4H_PATH}/workflows/robotic_ultrasound/scripts/simulation
 python environments/teleoperation/teleop_se3_agent.py --enable_cameras --teleop_device=handtracking --experience ${I4H_XR_KIT_CONFIG}
 ```
 
@@ -234,6 +234,10 @@ tailored for different use cases.
 
 You may update the sample retargeter setting `zero_out_xy_rotation=False` to increase
 the range of rotation.
+
+- **The Isaac Lab scene fails to launch with the error `ModuleNotFoundError: No module named 'dds'**
+
+Please verify that `PYTHONPATH` is set as specified in the `robotic_ultrasound` [README](../../../workflows/robotic_ultrasound/README.md#environment-variables).
 
 ## Known Issues
 
