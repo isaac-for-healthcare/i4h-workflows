@@ -17,6 +17,15 @@
 
 FROM nvcr.io/nvidia/isaac-lab:2.1.0
 
+# Apply patches to IsaacLab
+COPY tools/env_setup/patches/events_random_texture.patch /tmp/
+COPY tools/env_setup/patches/from_files_semantic_tags.patch /tmp/
+
+RUN cd /workspace/isaaclab && \
+    patch -p1 < /tmp/events_random_texture.patch && \
+    patch -p1 < /tmp/from_files_semantic_tags.patch && \
+    rm /tmp/events_random_texture.patch /tmp/from_files_semantic_tags.patch
+
 WORKDIR /workspace
 
 # Fix livestream public endpoint address issue in 2.0.2/2.1.0
