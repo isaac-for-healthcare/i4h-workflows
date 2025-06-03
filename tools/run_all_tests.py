@@ -123,14 +123,14 @@ def _run_test_process(cmd, env, test_path, timeout=1200):
             print("\nPARTIAL OUTPUT BEFORE TIMEOUT:")
             print(f"STDOUT ({len(stdout_lines)} lines):")
             if stdout_lines:
-                for line in stdout_lines:  # Show last 50 lines
+                for line in stdout_lines:
                     print(f"  {line.rstrip()}")
             else:
                 print("  (No stdout output)")
 
             print(f"STDERR ({len(stderr_lines)} lines):")
             if stderr_lines:
-                for line in stderr_lines:  # Show last 50 lines
+                for line in stderr_lines:
                     print(f"  {line.rstrip()}")
             else:
                 print("  (No stderr output)")
