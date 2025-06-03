@@ -17,8 +17,6 @@
 
 FROM nvcr.io/nvidia/isaac-lab:2.0.2
 
-WORKDIR /workspace
-
 # Fix livestream public endpoint address issue in 2.0.2/2.1.0
 RUN sed -i '/--\/app\/livestream\/publicEndpointAddress=/d' /workspace/isaaclab/source/isaaclab/isaaclab/app/app_launcher.py
 
@@ -50,32 +48,41 @@ RUN apt-get update && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100 && \
     mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
-# Install CUDA 12.8
-
+# Install Holoscan SDK
 WORKDIR /tmp
 
 RUN apt-get update && \
     wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
     dpkg -i cuda-keyring_1.1-1_all.deb && \
     apt-get update && \
-    apt-get -y install cuda-toolkit-12-8
+    apt-get -y install holoscan=3.2.0.2-1 libnvjpeg-dev-12-6
 
-ENV PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
-ENV LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
-
-COPY workflows/telesurgery/scripts /workspace/telesurgery/scripts
+# Install Miniconda
+RUN mkdir -p ~/miniconda3 \
+ && wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-`uname -m`.sh -O ~/miniconda3/miniconda.sh \
+ && bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3 \
+ && rm ~/miniconda3/miniconda.sh
 
 ENV PYTHON_EXECUTABLE=/workspace/isaaclab/_isaac_sim/python.sh
+
+RUN update-alternatives --install /usr/bin/python python $PYTHON_EXECUTABLE 100 \
+    && update-alternatives --install /usr/bin/python3 python3 $PYTHON_EXECUTABLE 100
 
 # # Set up the Simulation
 RUN --mount=type=ssh \
     $PYTHON_EXECUTABLE -m pip install --no-deps \
         git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@main
 
-RUN mkdir -p /workspace/third_party
+# Install Python dependencies
+COPY workflows/telesurgery/requirements.txt /tmp/requirements.txt
+RUN $PYTHON_EXECUTABLE -m pip install "numpy<2.0.0" \
+    && $PYTHON_EXECUTABLE -m pip install --no-build-isolation pynvjpeg \
+    && $PYTHON_EXECUTABLE -m pip install -r /tmp/requirements.txt
 
-RUN $PYTHON_EXECUTABLE -m pip install numpy
-
-RUN $PYTHON_EXECUTABLE -m pip install -r /workspace/telesurgery/scripts/requirements.txt
-
+RUN mkdir -p /root/rti
+ENV PATH=/isaac-sim/kit/python/bin/:/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
+ENV LD_LIBRARY_PATH=/opt/nvidia/holoscan/lib/:/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat
+ENV ISAAC_ASSET_SHA256_HASH=8e80faed126c533243f50bb01dca3dcf035e86b5bf567d622878866a8ef7f12d
+
+WORKDIR /workspace/i4h-workflows/workflows/telesurgery/scripts
