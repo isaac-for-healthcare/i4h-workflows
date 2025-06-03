@@ -37,7 +37,7 @@
    > [!Note]
    > RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
 
-2. Configure Your Environment
+2. Configure Your Environment (Optional)
    When running the Patient and the Surgeon applications on separate systems, export the following environment variables:
 
    ```bash
@@ -53,25 +53,9 @@
    # Build Docker container
    workflows/telesurgery/docker/setup.sh build
 
-   # Inside docker
+   # Start the Docker Container
    workflows/telesurgery/docker/setup.sh run
    ```
-
-### NTP Server (Optional)
-An NTP (Network Time Protocol) server is a server that uses the Network Time Protocol to provide accurate time information to clients over a computer network. NTP is a protocol designed to synchronize the clocks of computers to a reference time source, ensuring that all devices on the network maintain the same time.
-```bash
-# run your own NTP server in background
-docker run -d --name ntp-server --restart=always -p 123:123/udp cturra/ntp
-
-# check if it's running
-docker logs ntp-server
-
-# fix server ip in env.sh for NTP Server
-export NTP_SERVER_HOST=<NTP server address>
-
-# stop
-# docker stop ntp-server && docker rm ntp-server
-```
 
 ## Running the Workflow
 
@@ -139,6 +123,23 @@ Here’s an example of encoding parameters in JSON format:
    - Surgeon: Camera1, Camera2, Controller etc...
 
 If you encounter issues not covered in the notes above, please check the documentation for each component or open a new issue on GitHub.
+
+### NTP Server (Optional)
+An NTP (Network Time Protocol) server is a server that uses the Network Time Protocol to provide accurate time information to clients over a computer network. NTP is a protocol designed to synchronize the clocks of computers to a reference time source, ensuring that all devices on the network maintain the same time.
+```bash
+# run your own NTP server in background
+docker run -d --name ntp-server --restart=always -p 123:123/udp cturra/ntp
+
+# check if it's running
+docker logs ntp-server
+
+# fix server ip in env.sh for NTP Server
+export NTP_SERVER_HOST=<NTP server address>
+
+# stop
+# docker stop ntp-server && docker rm ntp-server
+```
+
 
 ## Licensing
 
