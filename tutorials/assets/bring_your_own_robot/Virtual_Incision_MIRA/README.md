@@ -3,14 +3,14 @@
 This tutorial shows how to teleoperate the [Virtual Incision MIRA](https://virtualincision.com/mira/) robot in Isaac Sim using keyboard controls.
 
 <p align="center" style="display: flex; justify-content: center; gap: 10px;">
-  <img src="../../../../docs/source/mira.png" alt="Virtual Incision MIRA Example" style="width: 45%; height: auto; aspect-ratio: 16/9; object-fit: cover;" />
+  <img src="../../../../docs/source/mira.png" alt="Virtual Incision MIRA Example" style="width: 70%; height: auto; aspect-ratio: 16/9; object-fit: cover;" />
 </p>
 
 ## Environment Setup
 
 This tutorial requires the following dependencies:
 - [IsaacSim 4.5.0](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/index.html)
-- [IsaacLab 2.0.2](https://isaac-sim.github.io/IsaacLab/v2.0.2/index.html)
+- [IsaacLab 2.1.0](https://isaac-sim.github.io/IsaacLab/v2.1.0/index.html)
 - [i4h_asset_helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/main/docs/catalog_helper.md)
 
 Please ensure these are installed.

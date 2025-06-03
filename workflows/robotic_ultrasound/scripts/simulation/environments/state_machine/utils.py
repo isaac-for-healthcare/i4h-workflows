@@ -123,25 +123,34 @@ def compute_relative_action(action: torch.Tensor, robot_obs: torch.Tensor, retur
         return rel_action
 
 
-def capture_camera_images(env, cam_names, device="cuda"):
+def capture_camera_images(env, cam_names, include_seg=False, device="cuda"):
     """
     Captures RGB and depth images from specified cameras
 
     Args:
         env: The environment containing the cameras
         cam_names (list): List of camera names to capture from
+        include_seg (bool): Whether to include semantic segmentation images
         device (str): Device to use for tensor operations
 
     Returns:
-        tuple: (stacked_rgbs, stacked_depths) - Tensors of shape (1, num_cams, H, W, 3) and (1, num_cams, H, W)
+        tuple: If include_seg is False:
+            (stacked_rgbs, stacked_depths, None) - Tensors of shape (1, num_cams, H, W, 3),
+            (1, num_cams, H, W), and None
+        If include_seg is True:
+            (stacked_rgbs, stacked_depths, stacked_segs) - Tensors of shape (1, num_cams, H, W, 3),
+            (1, num_cams, H, W), and (1, num_cams, H, W)
     """
-    depths, rgbs = [], []
+    depths, rgbs, segs = [], [], []
     for cam_name in cam_names:
         camera_data = env.unwrapped.scene[cam_name].data
 
         # Extract RGB and depth images
         rgb = camera_data.output["rgb"][..., :3].squeeze(0)
         depth = camera_data.output["distance_to_image_plane"].squeeze(0)
+        if include_seg:
+            seg = camera_data.output["semantic_segmentation"][..., :3].squeeze(0)
+            segs.append(seg)
 
         # Append to lists
         rgbs.append(rgb)
@@ -150,8 +159,10 @@ def capture_camera_images(env, cam_names, device="cuda"):
     # Stack results
     stacked_rgbs = torch.stack(rgbs).unsqueeze(0)
     stacked_depths = torch.stack(depths).unsqueeze(0)
-
-    return stacked_rgbs, stacked_depths
+    if include_seg:
+        stacked_segs = torch.stack(segs).unsqueeze(0)
+        return stacked_rgbs, stacked_depths, stacked_segs
+    return stacked_rgbs, stacked_depths, None
 
 
 def get_robot_obs(env):

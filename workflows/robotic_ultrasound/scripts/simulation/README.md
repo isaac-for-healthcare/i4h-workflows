@@ -148,6 +148,7 @@ This will collect data for 2 complete episodes and store it in HDF5 format.
 | `--num_envs` | int | 1 | Number of environments to spawn (must be 1 for this script) |
 | `--reset_steps` | int | 40 | Number of steps to take during environment reset |
 | `--max_steps` | int | 350 | Maximum number of steps before forcing a reset |
+| `--include_seg` | bool | True | Whether to include semantic segmentation in the data collection |
 
 > **Note:** It is recommended to use at least 40 steps for `--reset_steps` to allow enough steps for the robot to properly reset to the SETUP position.
 
@@ -166,7 +167,7 @@ The collected data includes:
 - Relative and absolute actions
 - State machine state
 - Joint positions
-- Camera images
+- Camera images (RGB, depth, segmentation if `--include_seg` is enabled)
 
 
 #### Keyboard Controls
@@ -289,7 +290,7 @@ python environments/teleoperation/teleop_se3_agent.py --enable_cameras
 
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
-| `--teleop_device` | str | "keyboard" | Device for control ("keyboard", "spacemouse", or "gamepad") |
+| `--teleop_device` | str | "keyboard" | Device for control ("keyboard", "spacemouse", "gamepad", or "handtracking") |
 | `--sensitivity` | float | 1.0 | Control sensitivity multiplier |
 | `--disable_fabric` | bool | False | Disable fabric and use USD I/O operations |
 | `--num_envs` | int | 1 | Number of environments to simulate |
@@ -300,6 +301,11 @@ python environments/teleoperation/teleop_se3_agent.py --enable_cameras
 
 #### Keyboard Controls
 - Please check the [Se3Keyboard documentation](https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.devices.html#isaaclab.devices.Se3Keyboard)
+
+#### Hand Tracking Controls
+
+Please review the [Hand Tracking Teleoperation Tutorial](../../../../tutorials/assets/bring_your_own_xr/README.md) for
+details on Isaac Lab XR hand tracking support and setup instructions.
 
 #### Camera Visualization
 
@@ -318,7 +324,6 @@ The teleoperation script also supports real-time ultrasound image visualization 
 Please refer to the [Ultrasound Raytracing Simulation](#ultrasound-raytracing-simulation) section for more details on how to visualize the ultrasound image.
 
 
-
 ### Ultrasound Raytracing Simulation
 
 This example implements a standalone ultrasound raytracing simulator that generates realistic ultrasound images
@@ -335,13 +340,17 @@ Optionally, the simulator supports customization through JSON configuration file
 
 ```json
 {
+    "probe_type": "curvilinear",
     "probe_params": {
-        "num_elements": 4096,
-        "opening_angle": 73.0,
+        "num_elements": 256,
+        "sector_angle": 73.0,
         "radius": 45.0,
         "frequency": 2.5,
         "elevational_height": 7.0,
-        "num_el_samples": 10
+        "num_el_samples": 1,
+        "f_num": 1.0,
+        "speed_of_sound": 1.54,
+        "pulse_duration": 2.0
     },
     "sim_params": {
         "conv_psf": true,
@@ -355,12 +364,15 @@ Optionally, the simulator supports customization through JSON configuration file
 
 | Parameter | Description | Default Value |
 |-----------|-------------|---------------|
-| num_elements | Number of elements in the ultrasound probe | 4096 |
-| opening_angle | Beam opening angle in degrees | 73.0 |
+| num_elements | Number of elements in the ultrasound probe | 256 |
+| sector_angle | Beam sector angle in degrees | 73.0 |
 | radius | Radius of the ultrasound probe in mm | 45.0 |
 | frequency | Ultrasound frequency in MHz | 2.5 |
 | elevational_height | Height of the elevation plane in mm | 7.0 |
-| num_el_samples | Number of samples in the elevation direction | 10 |
+| num_el_samples | Number of samples in the elevation direction | 1 |
+| f_num | F-number (unitless) | 1.0 |
+| speed_of_sound | Speed of sound in mm/us | 1.54 |
+| pulse_duration | Pulse duration in cycles | 2.0 |
 
 ##### Simulation Parameters
 
@@ -376,6 +388,7 @@ You only need to specify the parameters you want to change - any omitted paramet
 
 ```json
 {
+    "probe_type": "curvilinear",
     "probe_params": {
         "frequency": 3.5,
         "radius": 55.0
@@ -417,6 +430,7 @@ To see the ultrasound probe moving, please ensure the `topic_ultrasound_info` is
 | --topic_out | Topic name to publish generated ultrasound data | topic_ultrasound_data |
 | --config | Path to custom JSON configuration file with probe parameters and simulation parameters | None |
 | --period | Period of the simulation (in seconds) | 1/30.0 (30 Hz) |
+| --probe_type | Type of ultrasound probe to use ("curvilinear") | "curvilinear" |
 
 ### Trajectory Evaluation
 

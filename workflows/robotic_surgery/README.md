@@ -54,7 +54,7 @@
 
 The robotic surgery workflow is built on the following dependencies:
 - [IsaacSim 4.5.0](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/index.html)
-- [IsaacLab 2.0.2](https://isaac-sim.github.io/IsaacLab/v2.0.2/index.html)
+- [IsaacLab 2.1.0](https://isaac-sim.github.io/IsaacLab/v2.1.0/index.html)
 
 ### Installation Steps
 
@@ -78,7 +78,7 @@ The main script `tools/env_setup_robot_surgery.sh` installs all necessary depend
 
 ###### Base Components
 - IsaacSim 4.5.0 (and core dependencies)
-- IsaacLab 2.0.2
+- IsaacLab 2.1.0
 - Essential build tools and libraries
 
 Run the script from the repository root:
