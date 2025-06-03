@@ -229,13 +229,16 @@ class Simulator(Operator):
         initial_pose = rs.Pose(position, rotation)
 
         # Load probe configuration from JSON file if provided
-        default_probe_params = {
-            "num_elements": 4096,
-            "opening_angle": 73.0,
-            "radius": 45.0,
-            "frequency": 2.5,
-            "elevational_height": 7.0,
-            "num_el_samples": 10,
+        default_curvilinear_probe_params = {
+            "num_elements": 256,
+            "sector_angle": 73.0,  # degrees
+            "radius": 45.0,         # mm
+            "frequency": 2.5,       # MHz
+            "elevational_height": 7.0,  # mm
+            "num_el_samples": 1,
+            "f_num": 1.0,          # unitless
+            "speed_of_sound": 1.54, # mm/us
+            "pulse_duration": 2.0   # cycles
         }
 
         default_sim_params = {
@@ -244,7 +247,8 @@ class Simulator(Operator):
             "t_far": 180.0,
         }
 
-        probe_params = default_probe_params
+        # Default to curvilinear probe
+        probe_params = default_curvilinear_probe_params
         sim_config = default_sim_params
 
         if self.config_path:
@@ -255,7 +259,7 @@ class Simulator(Operator):
                     # Load probe parameters
                     if "probe_params" in config_data:
                         # Use values from JSON, falling back to defaults for any missing parameters
-                        for key in default_probe_params:
+                        for key in probe_params:
                             if key in config_data["probe_params"]:
                                 probe_params[key] = config_data["probe_params"][key]
                         print(f"Loaded probe configuration from {self.config_path}")
@@ -278,14 +282,17 @@ class Simulator(Operator):
             print("No config file specified. Using default parameters.")
 
         # Create ultrasound probe with configured parameters
-        self.probe = rs.UltrasoundProbe(
+        self.probe = rs.CurvilinearProbe(
             initial_pose,
-            num_elements=probe_params["num_elements"],
-            opening_angle=probe_params["opening_angle"],
+            num_elements_x=probe_params["num_elements"],
+            sector_angle=probe_params["sector_angle"],
             radius=probe_params["radius"],
             frequency=probe_params["frequency"],
             elevational_height=probe_params["elevational_height"],
             num_el_samples=probe_params["num_el_samples"],
+            f_num=probe_params["f_num"],
+            speed_of_sound=probe_params["speed_of_sound"],
+            pulse_duration=probe_params["pulse_duration"]
         )
 
         # Create simulator
@@ -455,6 +462,7 @@ class StreamingSimulator(Application):
         out_height: The height of the output image.
         start_pose: The initial pose of the probe.
         config_path: Path to a JSON configuration file with probe parameters.
+        period: The period at which to check for new data (in seconds).
     """
 
     def __init__(
