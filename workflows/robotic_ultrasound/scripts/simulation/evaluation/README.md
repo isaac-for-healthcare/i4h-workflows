@@ -81,11 +81,13 @@ class Assets(BaseI4HAssets):
     Pi0_800 = "Policies/LiverScan/Pi0_Cosmos"
     GR00TN1_400 = "Policies/LiverScan/GR00TN1"
     GR00TN1_800 = "Policies/LiverScan/GR00TN1_Cosmos"
+
+my_assets = Assets()
 ```
 
 You can then use these definitions in your scripts to get the local path to the downloaded model files, for example:
-`pi0_400_model = Assets.Pi0_400`
-`gr00t_800_model = Assets.GR00TN1_800`
+`pi0_400_model = my_assets.Pi0_400`
+`gr00t_800_model = my_assets.GR00TN1_800`
 
 ## Understanding the Outputs & Experiment Results Comparison
 
