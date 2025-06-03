@@ -290,7 +290,7 @@ python environments/teleoperation/teleop_se3_agent.py --enable_cameras
 
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
-| `--teleop_device` | str | "keyboard" | Device for control ("keyboard", "spacemouse", or "gamepad") |
+| `--teleop_device` | str | "keyboard" | Device for control ("keyboard", "spacemouse", "gamepad", or "handtracking") |
 | `--sensitivity` | float | 1.0 | Control sensitivity multiplier |
 | `--disable_fabric` | bool | False | Disable fabric and use USD I/O operations |
 | `--num_envs` | int | 1 | Number of environments to simulate |
@@ -301,6 +301,11 @@ python environments/teleoperation/teleop_se3_agent.py --enable_cameras
 
 #### Keyboard Controls
 - Please check the [Se3Keyboard documentation](https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.devices.html#isaaclab.devices.Se3Keyboard)
+
+#### Hand Tracking Controls
+
+Please review the [Hand Tracking Teleoperation Tutorial](../../../../tutorials/assets/bring_your_own_xr/README.md) for
+details on Isaac Lab XR hand tracking support and setup instructions.
 
 #### Camera Visualization
 
@@ -317,7 +322,6 @@ Both cameras output 224x224 RGB images that can be visualized using compatible D
 The teleoperation script also supports real-time ultrasound image visualization through DDS communication. It publishes the ultrasound image at 30Hz.
 
 Please refer to the [Ultrasound Raytracing Simulation](#ultrasound-raytracing-simulation) section for more details on how to visualize the ultrasound image.
-
 
 
 ### Ultrasound Raytracing Simulation
