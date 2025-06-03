@@ -35,9 +35,9 @@ ensure_fresh_third_party_dir
 # ---- Install build tools (Common) ----
 echo "Installing build tools..."
 if [ "$EUID" -ne 0 ]; then
-    sudo apt-get install -y git cmake build-essential pybind11-dev v4l-utils
+    sudo apt-get install -y git cmake build-essential pybind11-dev v4l-utils lsb-release
 else
-    apt-get install -y git cmake build-essential pybind11-dev v4l-utils
+    apt-get install -y git cmake build-essential pybind11-dev v4l-utils lsb-release
 fi
 
 # ---- Install IsaacSim and IsaacLab (Common) ----
