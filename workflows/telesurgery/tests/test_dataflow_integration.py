@@ -4,12 +4,19 @@ import subprocess
 import sys
 import time
 import unittest
+from unittest import skipUnless
 
 import vgamepad as vg
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
+def requires_rti(func):
+    RTI_AVAILABLE = bool(os.getenv("RTI_LICENSE_FILE") and os.path.exists(os.getenv("RTI_LICENSE_FILE")))
+    return skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")(func)
+
+
+@requires_rti
 class TestTelesurgeryDataLoop(unittest.TestCase):
     """Test the dataloop of the telesurgery workflow"""
 
