@@ -13,103 +13,49 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+from isaaclab.app import AppLauncher
+
+app_launcher = AppLauncher()
+simulation_app = app_launcher.app
+
+import datetime
 import math
 
+import carb
+import omni
+import omni.appwindow
+import omni.replicator.core as rep
+import omni.usd
 from i4h_asset_helper import BaseI4HAssets
 from isaaclab.app import AppLauncher
+from isaacsim.core.prims import SingleXFormPrim
+from isaacsim.core.utils.rotations import euler_angles_to_quat
+from mira_configs import (
+    camera_key_map,
+    camera_paths,
+    camera_prim_path,
+    key_map,
+    lj_paths,
+    max_camera_angle,
+    rj_paths,
+    snapshot_key,
+    switch_key,
+)
 from PIL import Image
+from pxr import UsdPhysics
 
 
 class Assets(BaseI4HAssets):
-    """Assets manager for the your workflow."""
+    """Assets manager for your workflow."""
 
     MIRA = "Robots/MIRA/mira-bipo-size-experiment-smoothing.usd"
 
 
 def main():
-    app_launcher = AppLauncher(headless=False)
-    simulation_app = app_launcher.app
     my_assets = Assets()
     usd_path = my_assets.MIRA
-
-    # Import Isaac/Omni modules after app launch
-    import datetime
-
-    import carb
-    import omni
-    import omni.appwindow
-    import omni.replicator.core as rep
-    import omni.usd
-    from isaacsim.core.prims import SingleXFormPrim
-    from isaacsim.core.utils.rotations import euler_angles_to_quat
-    from pxr import UsdPhysics
-
     omni.usd.get_context().open_stage(usd_path)
-
-    # Paths and configuration
-    robot_usd_root = "/World/A5_GUI_MODEL/A5_GUI_MODEL_001"
-    left_arm_base = f"{robot_usd_root}/ASM_L654321"
-    right_arm_base = f"{robot_usd_root}/ASM_R654321"
-    LJ_PATHS = [
-        f"{left_arm_base}/LJ1/LJ1_joint",
-        f"{left_arm_base}/ASM_L65432/LJ2/LJ2_joint",
-        f"{left_arm_base}/ASM_L65432/ASM_L6543/LJ3/LJ3_joint",
-        f"{left_arm_base}/ASM_L65432/ASM_L6543/ASM_L654/LJ4/LJ4_joint",
-        f"{left_arm_base}/ASM_L65432/ASM_L6543/ASM_L654/ASM_L65/LJ5/LJ5_joint",
-        f"{left_arm_base}/ASM_L65432/ASM_L6543/ASM_L654/ASM_L65/ASM_L61/LJ6/LJ6_1_joint",
-    ]
-    RJ_PATHS = [
-        f"{right_arm_base}/RJ1/RJ1_joint",
-        f"{right_arm_base}/ASM_R65432/RJ2/RJ2_joint",
-        f"{right_arm_base}/ASM_R65432/ASM_R6543/RJ3/RJ3_joint",
-        f"{right_arm_base}/ASM_R65432/ASM_R6543/ASM_R654/RJ4/RJ4_joint",
-        f"{right_arm_base}/ASM_R65432/ASM_R6543/ASM_R654/ASM_R65/RJ5/RJ5_joint",
-        f"{right_arm_base}/ASM_R65432/ASM_R6543/ASM_R654/ASM_R65/ASM_R6/RJ6/RJ6_joint",
-    ]
-    camera_base = f"{robot_usd_root}/C_ASM_6543210"
-    CAMERA_PATHS = [
-        f"{camera_base}/C_ASM_654321",
-        f"{camera_base}/C_ASM_654321/C_ASM_65432",
-        f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543",
-        f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543/C_ASM_654",
-        f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543/C_ASM_654/C_ASM_65",
-        f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543/C_ASM_654/C_ASM_65/C_ASM_6",
-    ]
-    camera_prim_path = f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543/C_ASM_654/C_ASM_65/C_ASM_6/Camera_Tip/Camera"
-    MAX_CAMERA_ANGLE = 70
-
-    stage = omni.usd.get_context().get_stage()
-    left_arm_joint_apis = [UsdPhysics.DriveAPI.Get(stage.GetPrimAtPath(p), "angular") for p in LJ_PATHS]
-    right_arm_joint_apis = [UsdPhysics.DriveAPI.Get(stage.GetPrimAtPath(p), "angular") for p in RJ_PATHS]
-    camera_prims = [SingleXFormPrim(p) for p in CAMERA_PATHS]
-
-    left_pose = [0.0] * 6
-    right_pose = [0.0] * 6
-    camera_pose = [0.0, 0.0]  # [north, east]
-
-    KEY_MAP = {
-        "I": (0, 0.1),
-        "K": (0, -0.1),
-        "J": (1, 0.1),
-        "L": (1, -0.1),
-        "U": (2, 0.1),
-        "O": (2, -0.1),
-        "Z": (3, 0.1),
-        "X": (3, -0.1),
-        "C": (4, 0.1),
-        "V": (4, -0.1),
-        "B": (5, 0.1),
-        "N": (5, -0.1),
-    }
-    CAMERA_KEY_MAP = {
-        "UP": (1, 1.0),  # Y (Pan) + (Pan Right)
-        "DOWN": (1, -1.0),  # Y (Pan) - (Pan Left)
-        "LEFT": (0, -1.0),  # X (Tilt) - (Tilt Down)
-        "RIGHT": (0, 1.0),  # X (Tilt) + (Tilt Up)
-    }
-    SWITCH_KEY = "Y"
-    SNAPSHOT_KEY = "F12"
-    current_arm = ["left"]
 
     def save_camera_image(camera_prim_path):
         if not hasattr(save_camera_image, "render_product"):
@@ -133,32 +79,54 @@ def main():
     def on_keyboard_event(event, *args):
         if event.type == carb.input.KeyboardEventType.KEY_PRESS:
             key = event.input.name
-            if key == SWITCH_KEY:
+            if key == switch_key:
                 current_arm[0] = "right" if current_arm[0] == "left" else "left"
                 print(f"Switched to {current_arm[0]} arm control!")
                 return True
-            if key in KEY_MAP:
-                idx, delta = KEY_MAP[key]
-                (left_pose if current_arm[0] == "left" else right_pose)[idx] += delta
+            if key in key_map:
+                idx, delta = key_map[key]
+                if idx == "rotation":
+                    if current_arm[0] == "left":
+                        rotations[0] += delta
+                    else:
+                        rotations[1] += delta
+                elif idx == "grasp":
+                    if current_arm[0] == "left":
+                        grasps[0] = max(0.0, min(1350.0, grasps[0] + delta))  # Clamp to [0, 1350]
+                    else:
+                        grasps[1] = max(0.0, min(1350.0, grasps[1] + delta))
+                else:
+                    (left_pose if current_arm[0] == "left" else right_pose)[idx] += delta
                 return True
-            if key in CAMERA_KEY_MAP:
-                idx, delta = CAMERA_KEY_MAP[key]
+            if key in camera_key_map:
+                idx, delta = camera_key_map[key]
                 camera_pose[idx] += delta
                 return True
-            if key == SNAPSHOT_KEY:
+            if key == snapshot_key:
                 save_camera_image(camera_prim_path)
                 return True
         return False
 
     def update_arm_joints():
         for i, api in enumerate(left_arm_joint_apis):
-            api.GetTargetPositionAttr().Set(left_pose[i])
+            if i == 4:  # rotation
+                api.GetTargetPositionAttr().Set(rotations[0])
+            elif i == 5:  # gripper
+                api.GetTargetPositionAttr().Set(grasps[0] * (20 / 1350))
+            else:
+                api.GetTargetPositionAttr().Set(left_pose[i])
+        # Right arm
         for i, api in enumerate(right_arm_joint_apis):
-            api.GetTargetPositionAttr().Set(right_pose[i])
+            if i == 4:  # rotation
+                api.GetTargetPositionAttr().Set(rotations[1])
+            elif i == 5:  # gripper
+                api.GetTargetPositionAttr().Set(-grasps[1] * (40 / 1350))
+            else:
+                api.GetTargetPositionAttr().Set(right_pose[i])
 
     def update_camera_pose():
-        north = max(-MAX_CAMERA_ANGLE, min(MAX_CAMERA_ANGLE, camera_pose[0]))
-        east = max(-MAX_CAMERA_ANGLE, min(MAX_CAMERA_ANGLE, camera_pose[1]))
+        north = max(-max_camera_angle, min(max_camera_angle, camera_pose[0]))
+        east = max(-max_camera_angle, min(max_camera_angle, camera_pose[1]))
         for i in [0]:
             pos, _ = camera_prims[i].get_local_pose()
             quat = euler_angles_to_quat([math.pi / 2, 0, -north * math.pi / 180 / 3])
@@ -172,6 +140,23 @@ def main():
             quat = euler_angles_to_quat([0, math.pi / 2, east * math.pi / 180 / 3])
             camera_prims[i].set_local_pose(translation=pos, orientation=quat)
 
+    stage = omni.usd.get_context().get_stage()
+    left_arm_joint_apis = [UsdPhysics.DriveAPI.Get(stage.GetPrimAtPath(p), "angular") for p in lj_paths]
+    right_arm_joint_apis = [UsdPhysics.DriveAPI.Get(stage.GetPrimAtPath(p), "angular") for p in rj_paths]
+    camera_prims = [SingleXFormPrim(p) for p in camera_paths]
+
+    left_pose = [api.GetTargetPositionAttr().Get() for api in left_arm_joint_apis[:4]]
+    right_pose = [api.GetTargetPositionAttr().Get() for api in right_arm_joint_apis[:4]]
+    left_rotation = left_arm_joint_apis[4].GetTargetPositionAttr().Get()
+    right_rotation = right_arm_joint_apis[4].GetTargetPositionAttr().Get()
+    rotations = [left_rotation, right_rotation]
+    left_grasp = left_arm_joint_apis[5].GetTargetPositionAttr().Get() * (1350 / 20)
+    right_grasp = -right_arm_joint_apis[5].GetTargetPositionAttr().Get() * (1350 / 40)
+    grasps = [left_grasp, right_grasp]
+    camera_pose = [0.0, 0.0]
+
+    current_arm = ["left"]
+
     input_interface = carb.input.acquire_input_interface()
     keyboard = omni.appwindow.get_default_app_window().get_keyboard()
     keyboard_sub = input_interface.subscribe_to_keyboard_events(
@@ -184,8 +169,8 @@ def main():
         simulation_app.update()
 
     keyboard_sub.unsubscribe()
-    simulation_app.close()
 
 
 if __name__ == "__main__":
     main()
+    simulation_app.close()
