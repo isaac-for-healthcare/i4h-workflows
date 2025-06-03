@@ -118,6 +118,12 @@ class DataCollectionManager:
         rel_action_np = rel_action.cpu().numpy()
         abs_action_np = abs_action.cpu().numpy()
         robot_obs_np = robot_obs.cpu().numpy()
+        room_camera_pos = env.unwrapped.scene["room_camera"].data.pos_w.cpu().numpy()
+        room_camera_quat_w_ros = env.unwrapped.scene["room_camera"].data.quat_w_ros.cpu().numpy()
+        room_camera_intrinsic_matrices = env.unwrapped.scene["room_camera"].data.intrinsic_matrices.cpu().numpy()
+        wrist_camera_pos = env.unwrapped.scene["wrist_camera"].data.pos_w.cpu().numpy()
+        wrist_camera_quat_w_ros = env.unwrapped.scene["wrist_camera"].data.quat_w_ros.cpu().numpy()
+        wrist_camera_intrinsic_matrices = env.unwrapped.scene["wrist_camera"].data.intrinsic_matrices.cpu().numpy()
 
         # Get real or dummy data based on testing flag
         if self.is_testing:
@@ -131,6 +137,13 @@ class DataCollectionManager:
         # Store in HDF5
         self.collector_interface.add("observations/torso_obs", torso_obs)
         self.collector_interface.add("observations/robot_obs", robot_obs_np)
+        self.collector_interface.add("observations/room_camera_pos", room_camera_pos)
+        self.collector_interface.add("observations/room_camera_quat_w_ros", room_camera_quat_w_ros)
+        self.collector_interface.add("observations/room_camera_intrinsic_matrices", room_camera_intrinsic_matrices)
+
+        self.collector_interface.add("observations/wrist_camera_pos", wrist_camera_pos)
+        self.collector_interface.add("observations/wrist_camera_quat_w_ros", wrist_camera_quat_w_ros)
+        self.collector_interface.add("observations/wrist_camera_intrinsic_matrices", wrist_camera_intrinsic_matrices)
         self.collector_interface.add("action", rel_action_np)
         self.collector_interface.add("abs_action", abs_action_np)
         self.collector_interface.add("state", state_np)

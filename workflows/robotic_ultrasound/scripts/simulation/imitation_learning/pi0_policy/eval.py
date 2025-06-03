@@ -133,7 +133,7 @@ def main():
             for t in range(max_timesteps):
                 if not action_plan:
                     # get images
-                    rgb_images, _ = capture_camera_images(
+                    rgb_images, _, _ = capture_camera_images(
                         env, ["room_camera", "wrist_camera"], device=env.unwrapped.device
                     )
                     room_img, wrist_img = rgb_images[0, 0, ...].cpu().numpy(), rgb_images[0, 1, ...].cpu().numpy()

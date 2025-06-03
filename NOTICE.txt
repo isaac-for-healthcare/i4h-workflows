@@ -91,6 +91,9 @@ xvfb (https://launchpad.net/ubuntu/jammy/+package/xvfb)
 The Regents of the University of California. All rights reserved.; 2003 The NetBSD Foundation, Inc.; 2001-2002 Damien Miller. All rights reserved.; 1998 Todd C. Miller &lt;Todd.Miller@courtesan.com&gt;; 2001-2004 Thomas Winischhofer; 1991-2000 Silicon Graphics, Inc. All Rights Reserved.; 2001 by Bigelow &amp; Holmes Inc. Luxi font; 2001 by URW++ GmbH. All Rights
 Licensed under MIT (https://www.x.org/releases/current/doc/xorg-docs/License.html)
 
+tyro (https://pypi.org/project/tyro/)
+Licensed under MIT (https://github.com/brentyi/tyro/blob/main/LICENSE)
+
 scipy (https://pypi.org/project/scipy/)
 2001-2002 Enthought, Inc.;  2003-2019 SciPy Developers
 Licensed under BSD-3-Clause (https://github.com/scipy/scipy/blob/main/LICENSE.txt)
