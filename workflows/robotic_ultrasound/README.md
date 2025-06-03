@@ -55,7 +55,7 @@
 
 The robotic ultrasound workflow is built on the following dependencies:
 - [IsaacSim 4.5.0](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/index.html)
-- [IsaacLab 2.0.2](https://isaac-sim.github.io/IsaacLab/v2.0.2/index.html)
+- [IsaacLab 2.1.0](https://isaac-sim.github.io/IsaacLab/v2.1.0/index.html)
 - [openpi](https://github.com/Physical-Intelligence/openpi) and [lerobot](https://github.com/huggingface/lerobot)
 - [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing)
 
@@ -94,7 +94,7 @@ The main script `tools/env_setup_robot_us.sh` installs all necessary dependencie
 
 ###### Base Components
 - IsaacSim 4.5.0 (and core dependencies)
-- IsaacLab 2.0.2
+- IsaacLab 2.1.0
 - Robotic Ultrasound Extension (`robotic_us_ext`)
 - Lerobot (from Hugging Face)
 - Holoscan 2.9.0 (including associated Holoscan apps)

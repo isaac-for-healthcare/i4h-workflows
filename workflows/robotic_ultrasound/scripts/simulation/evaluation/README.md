@@ -91,6 +91,7 @@ The `evaluate_trajectories.py` script generates several outputs to help you asse
 ### Example Evaluation Table
 
 In our experiments, we utilized the `liver_scan_sm.py` script to collect an initial dataset of 400 raw trajectories. This dataset was then augmented using the Cosmos-transfer1 model to generate an additional 400 trajectories with diverse visual appearances (1:1 ratio with raw data), effectively creating a combined dataset for training and evaluation. The following table presents a comparison of success rates (at a 0.01m radius) for different policy models (Pi0 and GR00T-N1 variants) evaluated under various texture conditions in the simulated environment.
+Our model was tested on both the original texture and several unseen textures. To enable these additional textures for testing, uncomment the `table_texture_randomizer` setting within the [environment configuration file](../exts/robotic_us_ext/robotic_us_ext/tasks/ultrasound/approach/config/franka/franka_manager_rl_env_cfg.py).
 
 **Evaluation Table: Success Rates (%) (@0.01m)**
 
