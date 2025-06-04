@@ -406,7 +406,7 @@ def main():
                     for _ in range(reset_steps):
                         reset_tensor = get_reset_action(env)
                         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
-            if episode_idx >= total_episodes - 1 or actions is None:
+            if (episode_idx >= total_episodes - 1 or actions is None) and reset_to_recorded_data:
                 print(f"Reached the end of available episodes ({episode_idx + 1}/{total_episodes})")
                 break
 
