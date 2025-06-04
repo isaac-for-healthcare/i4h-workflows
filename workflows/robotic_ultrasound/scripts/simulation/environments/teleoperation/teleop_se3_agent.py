@@ -315,7 +315,7 @@ def main():
             delta_pos = delta_pos_4d[:, :3]
 
             # Process hand tracking rotation (wrist -> world)
-            delta_rot = math_utils.quat_from_euler_xyz(-delta_pose[:, 3], delta_pose[:, 4], -delta_pose[:, 5])
+            delta_rot = math_utils.quat_from_euler_xyz(delta_pose[:, 3], delta_pose[:, 4], delta_pose[:, 5])
             delta_rot_matrix = math_utils.matrix_from_quat(delta_rot)
             delta_rot_matrix = torch.matmul(
                 transform_matrix[:3, :3], torch.matmul(delta_rot_matrix, transform_matrix[:3, :3].T)
