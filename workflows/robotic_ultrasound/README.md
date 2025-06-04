@@ -86,7 +86,7 @@ conda activate robotic_ultrasound
 
 ##### Install Raytracing Ultrasound Simulator
 Choose one of the following options:
-- **(Experimental)** Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.1.0) and extract to `workflows/robotic_ultrasound/scripts/raysim`
+- **(Experimental)** Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.2.0rc1) and extract to `workflows/robotic_ultrasound/scripts/raysim`
 - **(Recommended)** Install and build following instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation)
 
 ##### Install All Dependencies
@@ -129,7 +129,7 @@ Download the required assets using:
 i4h-asset-retrieve
 ```
 
-This will download assets to `~/.cache/i4h-assets/<sha256>`. For more details, refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.1.0/docs/catalog_helper.md).
+This will download assets to `~/.cache/i4h-assets/<sha256>`. For more details, refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.2.0rc1/docs/catalog_helper.md).
 
 **Note**: During asset download, you may see warnings about blocking functions. This is expected behavior and the download will complete successfully despite these warnings.
 

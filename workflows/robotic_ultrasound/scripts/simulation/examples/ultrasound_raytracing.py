@@ -232,13 +232,13 @@ class Simulator(Operator):
         default_curvilinear_probe_params = {
             "num_elements": 256,
             "sector_angle": 73.0,  # degrees
-            "radius": 45.0,         # mm
-            "frequency": 2.5,       # MHz
+            "radius": 45.0,  # mm
+            "frequency": 2.5,  # MHz
             "elevational_height": 7.0,  # mm
             "num_el_samples": 1,
-            "f_num": 1.0,          # unitless
-            "speed_of_sound": 1.54, # mm/us
-            "pulse_duration": 2.0   # cycles
+            "f_num": 1.0,  # unitless
+            "speed_of_sound": 1.54,  # mm/us
+            "pulse_duration": 2.0,  # cycles
         }
 
         default_sim_params = {
@@ -292,7 +292,7 @@ class Simulator(Operator):
             num_el_samples=probe_params["num_el_samples"],
             f_num=probe_params["f_num"],
             speed_of_sound=probe_params["speed_of_sound"],
-            pulse_duration=probe_params["pulse_duration"]
+            pulse_duration=probe_params["pulse_duration"],
         )
 
         # Create simulator
