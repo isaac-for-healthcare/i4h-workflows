@@ -178,8 +178,8 @@ to any device if no device is connected. Click "Stop AR" to exit the OpenXR sess
 **Note**: XR teleoperation updates are currently applied relative to the probe head. The coordinate system from
 the user's tracked right hand is applied along the local probe axes as pictured below:
 - **Hand Tracking Left/Right** -> Green axis
-- **Hand Tracking Up/Down** -> Red axis
-- **Hand Tracking Towards/Away** -> Blue axis
+- **Hand Tracking Up/Down** -> Blue axis
+- **Hand Tracking Towards/Away** -> Red axis
 
 ![Coordinate frame as viewed along the robotic ultrasound probe](resources/probe_frame.png)
 
