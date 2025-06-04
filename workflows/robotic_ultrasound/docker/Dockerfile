@@ -83,7 +83,7 @@ ENV PYTHON_EXECUTABLE=/workspace/isaaclab/_isaac_sim/python.sh
 # # Set up the Simulation
 RUN --mount=type=ssh \
     $PYTHON_EXECUTABLE -m pip install --no-deps \
-        git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@main && \
+        git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0rc1 && \
     $PYTHON_EXECUTABLE -m pip install \
         rti.connext==7.3.0 \
         pyrealsense2==2.55.1.6486 \
