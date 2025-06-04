@@ -130,8 +130,6 @@ class App(Application):
             dds_topic_class=CameraStream,
         )
 
-        sink = NoOp(self)
-
         if self.encoder == "nvc":
             print("Using NVC encoder with split and merge")
             self.add_flow(source, split_op, {("output", "input")})
@@ -139,11 +137,9 @@ class App(Application):
             self.add_flow(split_op, merge_op, {("metadata", "metadata")})
             self.add_flow(encoder_op, merge_op, {("output", "camera")})
             self.add_flow(merge_op, dds, {("output", "input")})
-            self.add_flow(dds, sink, {("output", "input")})
         else:
             self.add_flow(source, encoder_op, {("output", "input")})
             self.add_flow(encoder_op, dds, {("output", "input")})
-            self.add_flow(dds, sink, {("output", "input")})
 
 
 def main():

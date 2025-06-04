@@ -2,11 +2,24 @@
 
 ![Telesurgery Workflow](../../docs/source/telesurgery_workflow.jpg)
 
-## Table of Contents
-- [System Requirements](#system-requirements)
-- [Quick Start](#quick-start)
-- [Running the Workflow](#running-the-workflow)
-- [Licensing](#licensing)
+<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=3 orderedList=false} -->
+
+<!-- code_chunk_output -->
+
+- [Telesurgery Workflow](#telesurgery-workflow)
+  - [System Requirements](#system-requirements)
+    - [Hardware Requirements](#hardware-requirements)
+    - [Software Requirements](#software-requirements)
+  - [Quick Start](#quick-start)
+    - [Real World](#real-world)
+    - [Simulation World](#simulation-world)
+    - [NTP Server (Optional)](#ntp-server-optional)
+    - [Using H.264/HEVC Encoder/Decoder from NVIDIA Video Codec](#using-h264hevc-encoderdecoder-from-nvidia-video-codec)
+    - [Troubleshooting & Known Issues](#troubleshooting--known-issues)
+  - [Licensing](#licensing)
+
+<!-- /code_chunk_output -->
+
 
 ## System Requirements
 
@@ -21,46 +34,152 @@
 - CUDA Version >= 12.6
 - Python 3.10
 - RTI DDS License
+- Docker 28.0.4+
+- NVIDIA Container Toolkit 1.17.5+
 
 ## Quick Start
 
-### x86 & AARCH64 (IGX) Setup
+### Real World
 
-1. **Set up a Docker environment with CUDA enabled (IGX only):**
+1. Obtain RTI DDS License
+
+   ```
+   export RTI_LICENSE_FILE=<full-path-to-rti-license-file>
+   # for example
+   export RTI_LICENSE_FILE=/home/username/rti/rti_license.dat
+   ```
+   > [!Note]
+   > RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
+
+2. Configure Your Environment (Optional)
+   When running the Patient and the Surgeon applications on separate systems, export the following environment variables:
+
+   ```bash
+   export PATIENT_IP="<IP Address of the system running the Patient application>"
+   export SURGEON_IP="<IP Address of the system running the Surgeon application>"
+   export NDDS_DISCOVERY_PEERS="${PATIENT_IP}"
+
+   # Export the following for NTP Server
+   export NTP_SERVER_HOST="<IP Address of the NTP Server>"
+   export NTP_SERVER_PORT="123"
+   ```
+
+3. Run the following to build and run a docker environment
    ```bash
    cd <path-to-i4h-workflows>
-   xhost +
-   workflows/telesurgery/docker/setup.sh run
 
-   # Inside Docker
-   workflows/telesurgery/docker/setup.sh init
+   # Build Docker container
+   workflows/telesurgery/docker/real.sh build
    ```
 
-2. **Set up the x86 environment with CUDA enabled:**
+4. Run the Patient Application
+   ```bash
+   # Start the Docker Container
+   workflows/telesurgery/docker/real.sh run
+
+   # Start the Patient Application with NVJPEG Encoder
+
+   # Using RealSense Camera
+   python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720
+
+   # Using CV2 Camera
+   python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080
+
+   # Using RealSense Camera with NVIDIA H.264 Encoder
+   python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720 --encoder nvc
+
+   # Using CV2 Camera with NVIDIA H.264 Encoder
+   python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080 --encoder nvc
+   ```
+
+5. Run the Surgeon Application
+   ```bash
+   # Start the Docker Container
+   workflows/telesurgery/docker/real.sh run
+
+   $ Run the Surgeon Application with NVJPEG Encoder
+   python surgeon/camera.py --name [robot|room] --width 1280 --height 720
+
+   # Start the Surgeon Application with NVIDIA H.264 Encoder
+   python surgeon/camera.py --name [robot|room] --width 1280 --height 720 --decoder nvc
+   ```
+
+6. Run the Gamepad Controller Application
+   ```bash
+   # Start the Docker Container
+   workflows/telesurgery/docker/real.sh run
+
+   # Run the Gamepad Controller Application
+   python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
+   ```
+
+### Simulation World
+
+1. Obtain RTI DDS Licenss
+
+   ```bash
+   export RTI_LICENSE_FILE=<full-path-to-rti-license-file>
+   # for example
+   export RTI_LICENSE_FILE=/home/username/rti/rti_license.dat
+   ```
+   > [!Note]
+   > RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
+
+2. Configure Your Environment (Optional)
+   When running the Patient and the Surgeon applications on separate systems, export the following environment variables:
+
+   ```bash
+   export PATIENT_IP="<IP Address of the system running the Patient application>"
+   export SURGEON_IP="<IP Address of the system running the Surgeon application>"
+   export NDDS_DISCOVERY_PEERS="${PATIENT_IP}"
+
+   # Export the following for NTP Server
+   export NTP_SERVER_HOST="<IP Address of the NTP Server>"
+   export NTP_SERVER_PORT="123"
+   ```
+
+3. Run the following to build and run a docker environment
+
    ```bash
    cd <path-to-i4h-workflows>
-   xhost +
-   workflows/telesurgery/docker/setup.sh init
+
+   # Build Docker container
+   workflows/telesurgery/docker/sim.sh build
    ```
 
-3. **Create and activate a [conda](https://www.anaconda.com/docs/getting-started/miniconda/install#quickstart-install-instructions) environment:**
+4. Run the Patient Application in Simulation World
+
    ```bash
-   source ~/miniconda3/bin/activate
-   conda create -n telesurgery python=3.10 -y
-   conda activate telesurgery
-   ```
+   # Start the Docker Container
+   workflows/telesurgery/docker/sim.sh run
 
-4. **Run the setup script:**
+   # Start the Patient Application with NVJPEG Encoder
+   python patient/simulation/main.py
+
+   # Start the Patient Application with NVIDIA H.264 Encoder
+   python patient/simulation/main.py --encoder nvc
+   ```
+5. Run the Surgeon Application
+
    ```bash
-   cd <path-to-i4h-workflows>
-   bash tools/env_setup_telesurgery.sh
+   # Start the Docker Container
+   workflows/telesurgery/docker/sim.sh run
+
+   $ Run the Surgeon Application with NVJPEG Encoder
+   python surgeon/camera.py --name robot --width 1280 --height 720
+
+   # Start the Surgeon Application with NVIDIA H.264 Encoder
+   python surgeon/camera.py --name robot --width 1280 --height 720 --decoder nvc
    ```
+6. Run the Gamepad Controller Application
 
-> Make sure your public key is added to the github account if the git authentication fails.
+   ```bash
+   # Start the Docker Container
+   workflows/telesurgery/docker/sim.sh run
 
-### Obtain RTI DDS License
-
-RTI DDS is the communication package used by all scripts. Please refer to the [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
+   # Run the Gamepad Controller Application
+   python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
+   ```
 
 ### NTP Server (Optional)
 
@@ -77,71 +196,7 @@ docker logs ntp-server
 export NTP_SERVER_HOST=<NTP server address>
 
 # To stop the server
-# docker stop ntp-server && docker rm ntp-server
-```
-
-### Environment Variables
-
-Before running any scripts, set up the following environment variables:
-
-1. **PYTHONPATH**: Set this to point to the **scripts** directory:
-   ```bash
-   export PYTHONPATH=<path-to-i4h-workflows>/workflows/telesurgery/scripts
-   ```
-   This ensures Python can find the modules under the [`scripts`](./scripts) directory.
-
-2. **RTI_LICENSE_FILE**: Set this to point to your RTI DDS license file:
-   ```bash
-   export RTI_LICENSE_FILE=<path-to-rti-license-file>
-   ```
-   This is required for the DDS communication package to function properly.
-
-3. **NDDS_DISCOVERY_PEERS**: Set this to the IP address receiving camera data:
-   ```bash
-   export NDDS_DISCOVERY_PEERS="surgeon IP address"
-   ```
-More recommended variables can be found in [env.sh](./scripts/env.sh).
-
-## Running the Workflow
-
-```bash
-cd <path-to-i4h-workflows>/workflows/telesurgery/scripts
-source env.sh  # Make sure all env variables are correctly set in env.sh
-
-export PATIENT_IP=<patient IP address>
-export SURGEON_IP=<surgeon IP address>
-```
-> Make sure the MIRA API Server is up and running (port: 8081) in the case of a physical world setup.
-
-### [Option 1] Patient in Physical World _(x86 / aarch64)_
-
-When running on IGX (aarch64), ensure you are in the Docker environment set up previously.
-
-```bash
-# Stream camera output
-python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720
-python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080
-```
-
-### [Option 2] Patient in Simulation World _(x86)_
-
-```bash
-# Download the assets
-i4h-asset-retrieve
-
-python patient/simulation/main.py [--encoder nvc]
-```
-
-### Surgeon Connecting to Patient _(x86 / aarch64)_
-
-# capture robot camera stream
-NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name robot --width 1280 --height 720 [--decoder nvc]
-
-# capture room camera stream (optional)
-NDDS_DISCOVERY_PEERS=${PATIENT_IP} python surgeon/camera.py --name room --width 1280 --height 720 [--decoder nvc]
-
-# Connect to gamepad controller and send commands to API Server
-python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
+docker stop ntp-server && docker rm ntp-server
 ```
 
 ### Using H.264/HEVC Encoder/Decoder from NVIDIA Video Codec
@@ -172,13 +227,19 @@ Here’s an example of encoding parameters in JSON format:
 > [!NOTE]
 > H.264 or HEVC (H.265) codecs are available on x86 platform only.
 
-### Important Notes
-1. You may need to run multiple scripts simultaneously in different terminals or run in background (in case of docker)
-2. A typical setup requires multiple terminals running:
-   - Patient: Camera1, Camera2, Controller, etc.
-   - Surgeon: Camera1, Camera2, Controller, etc.
+### Troubleshooting & Known Issues
 
-If you encounter issues not covered in the notes above, please check the documentation for each component or open a new issue on GitHub.
+Q: I get the following error when building the Docker image:
+
+```bash
+ERROR: invalid empty ssh agent socket: make sure SSH_AUTH_SOCK is set
+```
+
+A: Start the ssh-agent
+
+```bash
+eval "$(ssh-agent -s)" && ssh-add
+```
 
 ## Licensing
 
