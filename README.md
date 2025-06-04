@@ -62,6 +62,7 @@ For everything you need to get started, including detailed tutorials and step-by
 ### Workflows
 - [Robotic ultrasound](./workflows/robotic_ultrasound/README.md)
 - [Robotic surgery](./workflows/robotic_surgery/README.md)
+- [Telesurgery](./workflows/telesurgery/README.md)
 
 ### Tutorials
 - [Bring your own patient](./tutorials/assets/bring_your_own_patient/README.md)

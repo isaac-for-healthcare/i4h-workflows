@@ -1,0 +1,14 @@
+struct CameraStream {
+  int64 ts;
+  int64 type;
+  int64 format;
+  double focal_len;
+  int64 stream_id;
+  int64 frame_num;
+  int64 width;
+  int64 height;
+  double compress_ratio;
+  double encode_latency;
+  double decode_latency;
+  sequence <octet> data;
+};
