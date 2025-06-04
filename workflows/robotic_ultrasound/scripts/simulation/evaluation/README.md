@@ -67,6 +67,28 @@ If no prediction source arguments (`--method-name`, etc.) are provided via the c
 
 The script expects predicted trajectory files to be found at `data_root/file_pattern`.
 
+## Downloading Model Weights
+
+The four policy models discussed in the evaluation (Pi0-400, Pi0-800 w/ cosmos, GR00T-N1-400, and GR00T-N1-800 w/ cosmos) can be obtained using the `i4h_asset_helper` utility. This utility helps manage and download versioned assets.
+
+To integrate these models into your workflow, you would typically define an `Assets` class that inherits from `BaseI4HAssets`, specifying the asset identifiers. Below is an example demonstrating how these might be structured.
+
+```python
+from i4h_asset_helper import BaseI4HAssets
+
+class Assets(BaseI4HAssets):
+    Pi0_400 = "Policies/LiverScan/Pi0"
+    Pi0_800 = "Policies/LiverScan/Pi0_Cosmos"
+    GR00TN1_400 = "Policies/LiverScan/GR00TN1"
+    GR00TN1_800 = "Policies/LiverScan/GR00TN1_Cosmos"
+
+my_assets = Assets()
+```
+
+You can then use these definitions in your scripts to get the local path to the downloaded model files, for example:
+`pi0_400_model = my_assets.Pi0_400`
+`gr00t_800_model = my_assets.GR00TN1_800`
+
 ## Understanding the Outputs & Experiment Results Comparison
 
 The `evaluate_trajectories.py` script generates several outputs to help you assess the performance of trajectory prediction methods. Below is a description of these outputs, along with an example showcasing a comparison between Pi0 and GR00T-N1 models.

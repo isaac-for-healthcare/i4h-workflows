@@ -316,7 +316,7 @@ def main():
                 robot_obs = []
                 for t in range(max_timesteps):
                     # get and publish the current images and joint positions
-                    rgb_images, depth_images = capture_camera_images(
+                    rgb_images, depth_images, _ = capture_camera_images(
                         env, ["room_camera", "wrist_camera"], device=env.unwrapped.device
                     )
                     pub_data["room_cam"], pub_data["room_cam_depth"] = (
@@ -406,7 +406,7 @@ def main():
                     for _ in range(reset_steps):
                         reset_tensor = get_reset_action(env)
                         obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
-            if episode_idx >= total_episodes - 1 or actions is None:
+            if (episode_idx >= total_episodes - 1 or actions is None) and reset_to_recorded_data:
                 print(f"Reached the end of available episodes ({episode_idx + 1}/{total_episodes})")
                 break
 
