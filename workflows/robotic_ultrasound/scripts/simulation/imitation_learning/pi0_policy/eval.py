@@ -20,7 +20,6 @@ import gymnasium as gym
 import numpy as np
 import torch
 from isaaclab.app import AppLauncher
-from policy_runner import PI0PolicyRunner
 from simulation.environments.state_machine.utils import (
     RobotPositions,
     RobotQuaternions,
@@ -63,6 +62,8 @@ args_cli = parser.parse_args()
 
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
+from policy_runner.pi0.runners import PI0PolicyRunner  # noqa: F401
+
 simulation_app = app_launcher.app
 reset_flag = False
 
@@ -119,7 +120,7 @@ def main():
     policy_runner = PI0PolicyRunner(
         ckpt_path=args_cli.ckpt_path,
         repo_id=args_cli.repo_id,
-        task_description="Conduct a ultrasound scan on the liver.",
+        task_description="Perform a liver ultrasound.",
     )
     # Number of steps played before replanning
     replan_steps = 5
@@ -133,7 +134,7 @@ def main():
             for t in range(max_timesteps):
                 if not action_plan:
                     # get images
-                    rgb_images, _ = capture_camera_images(
+                    rgb_images, _, _ = capture_camera_images(
                         env, ["room_camera", "wrist_camera"], device=env.unwrapped.device
                     )
                     room_img, wrist_img = rgb_images[0, 0, ...].cpu().numpy(), rgb_images[0, 1, ...].cpu().numpy()

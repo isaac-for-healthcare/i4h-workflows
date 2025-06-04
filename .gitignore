@@ -185,6 +185,7 @@ cython_debug/
 
 # VSCode
 .vscode/
+.idea/
 
 # Wandb
 wandb/
@@ -216,3 +217,6 @@ third_party/
 
 # Raytracing Ultrasound Simulator
 workflows/robotic_ultrasound/scripts/raysim
+
+# Bring Your Own XR
+openxr/

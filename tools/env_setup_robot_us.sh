@@ -17,31 +17,58 @@
 
 set -e
 
+# --- Configuration ---
+INSTALL_WITH_POLICY="pi0" # Default value
+
+# --- Helper Functions ---
+usage() {
+    echo "Usage: $0 --policy [pi0|gr00tn1|none]"
+    echo "  pi0:   Install base dependencies + PI0 policy dependencies (openpi)."
+    echo "  gr00tn1: Install base dependencies + GR00T N1 policy dependencies (Isaac-GR00T)."
+    echo "  none:  Install only base dependencies (IsaacSim, IsaacLab, Holoscan, etc.)."
+    exit 1
+}
+
+# --- Argument Parsing ---
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        --policy)
+        INSTALL_WITH_POLICY="$2"
+        shift # past argument
+        shift # past value
+        ;;
+        *)    # unknown option
+        usage
+        ;;
+    esac
+done
+
+# Validate policy argument
+if [[ "$INSTALL_WITH_POLICY" != "pi0" && "$INSTALL_WITH_POLICY" != "gr00tn1" && "$INSTALL_WITH_POLICY" != "none" ]]; then
+    echo "Error: Invalid policy specified."
+    usage
+fi
+
+echo "Selected policy setup: $INSTALL_WITH_POLICY"
+
+
+# --- Setup Steps ---
 # Get the parent directory of the current script
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
+source "$PROJECT_ROOT/tools/env_setup/bash_utils.sh"
 
 # Check if running in a conda environment
-if [ -z "$CONDA_DEFAULT_ENV" ]; then
-    echo "Error: No active conda environment detected"
-    echo "Please activate a conda environment before running this script"
-    exit 1
-fi
-echo "Using conda environment: $CONDA_DEFAULT_ENV"
+check_conda_env
 
 # Check if NVIDIA GPU is available
-if ! nvidia-smi &> /dev/null; then
-    echo "Error: NVIDIA GPU not found or driver not installed"
-    exit 1
-fi
+check_nvidia_gpu
 
-# Check if the third_party directory exists, if yes, then exit
-if [ -d "$PROJECT_ROOT/third_party" ]; then
-    echo "Error: third_party directory already exists"
-    echo "Please remove the third_party directory before running this script"
-    exit 1
-fi
+# Check if the third_party directory exists
+ensure_fresh_third_party_dir
 
-# ---- Install build tools ----
+
+# ---- Install build tools (Common) ----
 echo "Installing build tools..."
 if [ "$EUID" -ne 0 ]; then
     sudo apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
@@ -50,126 +77,56 @@ else
 fi
 
 
-# ---- Install IsaacSim and necessary dependencies ----
-echo "Installing IsaacSim..."
-pip install 'isaacsim[all,extscache]==4.5.0' \
-    rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
-    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.1.0 \
-    setuptools==75.8.0 pydantic==2.10.6 \
+# ---- Install necessary dependencies (Common) ----
+echo "Installing necessary dependencies..."
+pip install rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
+    setuptools==75.8.0 pydantic==2.10.6 matplotlib scipy\
     --extra-index-url https://pypi.nvidia.com
 
 
-# ---- Install IsaacLab ----
-echo "Installing IsaacLab..."
-# CLONING REPOSITORIES INTO PROJECT_ROOT/third_party
-echo "Cloning repositories into $PROJECT_ROOT/third_party..."
-mkdir $PROJECT_ROOT/third_party
-git clone -b v2.0.2 git@github.com:isaac-sim/IsaacLab.git $PROJECT_ROOT/third_party/IsaacLab
-pushd $PROJECT_ROOT/third_party/IsaacLab
-yes Yes | ./isaaclab.sh --install
-popd
+# ---- Install IsaacSim and IsaacLab (Common) ----
+# Check if IsaacLab is already cloned
+echo "Installing IsaacSim and IsaacLab..."
+bash $PROJECT_ROOT/tools/env_setup/install_isaac.sh
 
 
-# ---- Install robotic ultrasound extension ----
-echo "Installing robotic ultrasound extension..."
-pushd $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/simulation
-pip install -e exts/robotic_us_ext
-popd
+# ---- Install Robotic Ultrasound Extensions and Dependencies ----
+echo "Installing Robotic Ultrasound Extensions and Dependencies..."
+bash "$PROJECT_ROOT/tools/env_setup/install_robotic_us_ext.sh"
 
 
-# ---- Install OpenPI with IsaacSim ----
-echo "Installing OpenPI..."
-# Clone the openpi repository
-git clone git@github.com:Physical-Intelligence/openpi.git $PROJECT_ROOT/third_party/openpi
-pushd $PROJECT_ROOT/third_party/openpi
-git checkout 581e07d73af36d336cef1ec9d7172553b2332193
+# ---- Install lerobot (Common) ----
+echo "Installing lerobot..."
+bash "$PROJECT_ROOT/tools/env_setup/install_lerobot.sh"
 
-# Update python version in pyproject.toml
-pyproject_path="$PROJECT_ROOT/third_party/openpi/pyproject.toml"
-sed -i.bak \
-    -e 's/requires-python = ">=3.11"/requires-python = ">=3.10"/' \
-    -e 's/"s3fs>=2024.9.0"/"s3fs==2024.9.0"/' \
-    "$pyproject_path"
 
-# Apply temporary workaround for openpi/src/openpi/shared/download.py
-file_path="$PROJECT_ROOT/third_party/openpi/src/openpi/shared/download.py"
-
-# Comment out specific import lines
-sed -i.bak \
-    -e 's/^import boto3\.s3\.transfer as s3_transfer/# import boto3.s3.transfer as s3_transfer/' \
-    -e 's/^import s3transfer\.futures as s3_transfer_futures/# import s3transfer.futures as s3_transfer_futures/' \
-    -e 's/^from types_boto3_s3\.service_resource import ObjectSummary/# from types_boto3_s3.service_resource import ObjectSummary/' \
-    "$file_path"
-
-# Remove the type hint
-sed -i.bak -e 's/)[[:space:]]*-> s3_transfer\.TransferManager[[:space:]]*:/):/' "$file_path"
-
-# Modify the datetime line
-sed -i.bak -e 's/datetime\.UTC/datetime.timezone.utc/' "$file_path"
-
-# Modify the type hints in training/utils.py to use Any instead of optax types
-utils_path="$PROJECT_ROOT/third_party/openpi/src/openpi/training/utils.py"
-sed -i.bak \
-    -e 's/opt_state: optax\.OptState/opt_state: Any/' \
-    "$utils_path"
-
-# Remove the backup files
-rm "$pyproject_path.bak"
-rm "$file_path.bak"
-rm "$utils_path.bak"
-
-# Add training script to openpi module
-if [ ! -f $PROJECT_ROOT/third_party/openpi/src/openpi/train.py ]; then
-    cp $PROJECT_ROOT/third_party/openpi/scripts/train.py $PROJECT_ROOT/third_party/openpi/src/openpi/train.py
+# ---- Install PI0 Policy Dependencies (Conditional) ----
+if [[ "$INSTALL_WITH_POLICY" == "pi0" ]]; then
+    echo "Installing PI0 Policy Dependencies..."
+    bash "$PROJECT_ROOT/tools/env_setup/install_pi0.sh"
 fi
 
-# Add norm stats generator script to openpi module
-if [ ! -f $PROJECT_ROOT/third_party/openpi/src/openpi/compute_norm_stats.py ]; then
-    cp $PROJECT_ROOT/third_party/openpi/scripts/compute_norm_stats.py $PROJECT_ROOT/third_party/openpi/src/openpi/compute_norm_stats.py
+
+# ---- Install GR00T N1 Policy Dependencies (Conditional) ----
+if [[ "$INSTALL_WITH_POLICY" == "gr00tn1" ]]; then
+    echo "Installing GR00T N1 Policy Dependencies (delegating to script)..."
+    bash "$PROJECT_ROOT/tools/env_setup/install_gr00tn1.sh"
 fi
 
-# Install the dependencies
-pip install git+https://github.com/huggingface/lerobot@6674e368249472c91382eb54bb8501c94c7f0c56
-pip install -e $PROJECT_ROOT/third_party/openpi/packages/openpi-client/
-pip install -e $PROJECT_ROOT/third_party/openpi/
 
-# Revert the "import changes of "$file_path after installation to prevent errors
-sed -i \
-    -e 's/^# import boto3\.s3\.transfer as s3_transfer/import boto3.s3.transfer as s3_transfer/' \
-    -e 's/^# import s3transfer\.futures as s3_transfer_futures/import s3transfer.futures as s3_transfer_futures/' \
-    -e 's/^# from types_boto3_s3\.service_resource import ObjectSummary/from types_boto3_s3.service_resource import ObjectSummary/' \
-    "$file_path"
+# for holoscan and cosmos transfer1, we need to install the following conda packages:
+conda install -c conda-forge ninja libgl ffmpeg pybind11 gcc=12.4.0 gxx=12.4.0 libstdcxx-ng=12.4.0 -y
 
-popd
 
-# ---- Install Holoscan ----
-# Install Holoscan
+# ---- Install Holoscan (Common) ----
 echo "Installing Holoscan..."
-conda install -c conda-forge gcc=13.3.0 -y
-pip install holoscan==2.9.0
+bash "$PROJECT_ROOT/tools/env_setup/install_holoscan.sh"
 
-echo "Dependencies installed successfully!"
+# ---- Install Cosmos (Common) ----
+echo "Installing Cosmos..."
+bash "$PROJECT_ROOT/tools/env_setup/install_cudnn.sh"
+bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
 
-HOLOSCAN_DIR=$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/holoscan_apps/
-
-echo "Building Holoscan Apps"
-
-pushd $HOLOSCAN_DIR
-
-# clean previous downloads and builds
-rm -rf build
-rm -rf clarius_solum/include
-rm -rf clarius_solum/lib
-rm -rf clarius_cast/include
-rm -rf clarius_cast/lib
-cmake -B build -S . && cmake --build build
-
-popd
-
-echo "Holoscan Apps build completed!"
-
-# ---- Install libstdcxx-ng for raysim ----
-echo "Installing libstdcxx-ng..."
-conda install -c conda-forge libstdcxx-ng=13.2.0 -y
-
-echo "Dependencies installed successfully!"
+echo "=========================================="
+echo "Environment setup script finished."
+echo "=========================================="

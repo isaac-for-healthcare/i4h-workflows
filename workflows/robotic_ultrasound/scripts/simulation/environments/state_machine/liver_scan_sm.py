@@ -89,6 +89,12 @@ parser.add_argument(
     default="topic_wrist_camera_data_rgb",
     help="topic name to consume wrist camera rgb",
 )
+parser.add_argument(
+    "--include_seg",
+    type=bool,
+    default=True,
+    help="Include semantic segmentation images in the data collection.",
+)
 
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -241,7 +247,7 @@ def main():
             obs, rew, terminated, truncated, info_ = env.step(rel_commands)
 
             # Capture camera images if data collection is happening
-            rgb_images, depth_images = capture_camera_images(env, args_cli.camera_names, device=args_cli.device)
+            rgb_images, depth_images, _ = capture_camera_images(env, args_cli.camera_names, device=args_cli.device)
             if args_cli.debug:
                 print(f"RGB images: {rgb_images.shape}")
                 print(f"Depth images: {depth_images.shape}")
@@ -261,10 +267,15 @@ def main():
             # Record data if collecting
             if data_collector is not None:
                 # Capture camera images if data collection is happening
-                rgb_images, depth_images = capture_camera_images(env, args_cli.camera_names, device=args_cli.device)
+                rgb_images, depth_images, seg_images = capture_camera_images(
+                    env, args_cli.camera_names, include_seg=args_cli.include_seg, device=args_cli.device
+                )
                 obs["rgb_images"] = rgb_images
                 obs["depth_images"] = depth_images
+                if seg_images is not None:
+                    obs["seg_images"] = seg_images
 
+                obs["joint_vel"] = env.unwrapped.scene["robot"].data.joint_vel
                 data_collector.record_step(
                     env,
                     obs,

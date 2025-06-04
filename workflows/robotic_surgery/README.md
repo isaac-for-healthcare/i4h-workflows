@@ -1,63 +1,117 @@
+# Robotic Surgery Workflow
+
 ![Robotic Surgery Workflow](../../docs/source/robotic_surgery_workflow.jpg)
 
-# Robotic Surgery Workflow
+## Table of Contents
+- [System Requirements](#system-requirements)
+- [Quick Start](#quick-start)
+- [Environment Setup](#environment-setup)
+  - [Prerequisites](#prerequisites)
+  - [Installation Steps](#installation-steps)
+  - [Asset Setup](#asset-setup)
+  - [Environment Variables](#environment-variables)
+- [Running the Workflow](#running-the-workflow)
 
 ## System Requirements
 
+### Hardware Requirements
 - Ubuntu 22.04
 - NVIDIA GPU with ray tracing capability
-    - GPUs without RT Cores (A100, H100) are not supported.
-- NVIDIA Driver Version >= 555
+    - GPUs without RT Cores (A100, H100) are not supported
+    - Minimum 8GB VRAM recommended
 - 50GB of disk space
+- 16GB RAM minimum
+
+### Software Requirements
+- NVIDIA Driver Version >= 555
+- Python 3.10
+
+## Quick Start
+
+1. Install NVIDIA driver (>= 555)
+2. Create and activate conda environment:
+   ```bash
+   conda create -n robotic_surgery python=3.10 -y
+   conda activate robotic_surgery
+   ```
+3. Run the setup script:
+   ```bash
+   cd <path-to-i4h-workflows>
+   bash tools/env_setup_robot_surgery.sh
+   ```
+4. Download assets:
+   ```bash
+   i4h-asset-retrieve
+   ```
+5. Set environment variables:
+   ```bash
+   export PYTHONPATH=<path-to-i4h-workflows>/workflows/robotic_surgery/scripts
+   ```
 
 ## Environment Setup
 
+### Prerequisites
+
 The robotic surgery workflow is built on the following dependencies:
 - [IsaacSim 4.5.0](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/index.html)
-- [IsaacLab 2.0.2](https://isaac-sim.github.io/IsaacLab/v2.0.2/index.html)
+- [IsaacLab 2.1.0](https://isaac-sim.github.io/IsaacLab/v2.1.0/index.html)
 
+### Installation Steps
 
-### Install NVIDIA Driver
-
+#### 1. Install NVIDIA Driver
 Install or upgrade to the latest NVIDIA driver from [NVIDIA website](https://www.nvidia.com/en-us/drivers/)
 
+**Note**: The workflow requires driver version >= 555 for ray tracing capabilities.
 
-### Install Dependencies
+#### 2. Install Dependencies
 
-Conda is suggested for virtual environment setup, install `Miniconda` from [Miniconda website](https://docs.anaconda.com/miniconda/install/#quick-command-line-install) and create a new virtual environment with Python 3.10.
-
-```sh
+##### Create Conda Environment
+```bash
 # Create a new conda environment
 conda create -n robotic_surgery python=3.10 -y
 # Activate the environment
 conda activate robotic_surgery
 ```
 
-The following command line will install all dependencies:
+##### Install All Dependencies
+The main script `tools/env_setup_robot_surgery.sh` installs all necessary dependencies:
+
+###### Base Components
+- IsaacSim 4.5.0 (and core dependencies)
+- IsaacLab 2.1.0
+- Essential build tools and libraries
+
+Run the script from the repository root:
 ```bash
 cd <path-to-i4h-workflows>
 bash tools/env_setup_robot_surgery.sh
 ```
 
-### Download the I4H assets
+### Asset Setup
 
-Use the following command will download the assets to the `~/.cache/i4h-assets/<sha256>` directory.
-Please refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.1.0/docs/catalog_helper.md) for more details.
-
-```sh
+Download the required assets using:
+```bash
 i4h-asset-retrieve
 ```
 
-### Set environment variables before running the scripts
-Make sure `PYTHONPATH` is set:
-```sh
-export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_surgery/scripts`
-```
+This will download assets to `~/.cache/i4h-assets/<sha256>`. For more details, refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.2.0rc1/docs/catalog_helper.md).
 
-## Run the scripts
+### Environment Variables
 
-The robotic surgery workflow provides several example scripts demonstrating surgical robot simulations, state machine implementations, and reinforcement learning capabilities. These examples include dVRK and STAR robot arm control, suture needle manipulation, and peg block tasks.
+Before running any scripts, you need to set up the following environment variables:
 
-Navigate to these sub-directories and run the scripts.
+1. **PYTHONPATH**: Set this to point to the scripts directory:
+   ```bash
+   export PYTHONPATH=<path-to-i4h-workflows>/workflows/robotic_surgery/scripts
+   ```
+   This ensures Python can find the modules under the [`scripts`](./scripts) directory.
+
+## Running the Workflow
+
+The robotic surgery workflow provides several example scripts demonstrating different components:
 
 - [Simulation](./scripts/simulation)
+  - Basic robot control
+  - Surgical task simulation
+  - State machine demonstrations
+  - Reinforcement learning examples

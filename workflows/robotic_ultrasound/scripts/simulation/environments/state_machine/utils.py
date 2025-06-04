@@ -14,13 +14,14 @@
 # limitations under the License.
 
 import math
+import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Sequence
 
+import h5py
 import isaaclab.utils.math as math_utils  # noqa: F401
 import numpy as np
-import onnxruntime as ort
 import torch
 
 
@@ -122,25 +123,34 @@ def compute_relative_action(action: torch.Tensor, robot_obs: torch.Tensor, retur
         return rel_action
 
 
-def capture_camera_images(env, cam_names, device="cuda"):
+def capture_camera_images(env, cam_names, include_seg=False, device="cuda"):
     """
     Captures RGB and depth images from specified cameras
 
     Args:
         env: The environment containing the cameras
         cam_names (list): List of camera names to capture from
+        include_seg (bool): Whether to include semantic segmentation images
         device (str): Device to use for tensor operations
 
     Returns:
-        tuple: (stacked_rgbs, stacked_depths) - Tensors of shape (1, num_cams, H, W, 3) and (1, num_cams, H, W)
+        tuple: If include_seg is False:
+            (stacked_rgbs, stacked_depths, None) - Tensors of shape (1, num_cams, H, W, 3),
+            (1, num_cams, H, W), and None
+        If include_seg is True:
+            (stacked_rgbs, stacked_depths, stacked_segs) - Tensors of shape (1, num_cams, H, W, 3),
+            (1, num_cams, H, W), and (1, num_cams, H, W)
     """
-    depths, rgbs = [], []
+    depths, rgbs, segs = [], [], []
     for cam_name in cam_names:
         camera_data = env.unwrapped.scene[cam_name].data
 
         # Extract RGB and depth images
         rgb = camera_data.output["rgb"][..., :3].squeeze(0)
         depth = camera_data.output["distance_to_image_plane"].squeeze(0)
+        if include_seg:
+            seg = camera_data.output["semantic_segmentation"][..., :3].squeeze(0)
+            segs.append(seg)
 
         # Append to lists
         rgbs.append(rgb)
@@ -149,8 +159,10 @@ def capture_camera_images(env, cam_names, device="cuda"):
     # Stack results
     stacked_rgbs = torch.stack(rgbs).unsqueeze(0)
     stacked_depths = torch.stack(depths).unsqueeze(0)
-
-    return stacked_rgbs, stacked_depths
+    if include_seg:
+        stacked_segs = torch.stack(segs).unsqueeze(0)
+        return stacked_rgbs, stacked_depths, stacked_segs
+    return stacked_rgbs, stacked_depths, None
 
 
 def get_robot_obs(env):
@@ -273,11 +285,102 @@ def get_probe_pos_ori(quat_mesh_to_us, pos_mesh_to_us, scale: float = 1000.0, lo
     return pos_np, euler_angles
 
 
-def load_onnx_model(model_path):
-    """Load the ACT ONNX model."""
-    providers = ["CUDAExecutionProvider"] if ort.get_device() == "GPU" else ["CPUExecutionProvider"]
-    print(f"Using providers: {providers}")
-    # Create an InferenceSession with GPU support
-    session = ort.InferenceSession(model_path, providers=providers)
-    print(f"session using: {session.get_providers()}")
-    return session
+def reset_organ_to_position(env, object_position, device="cuda:0"):
+    """Reset the organ position."""
+    organs = env.unwrapped.scene._rigid_objects["organs"]
+    root_state = organs.data.default_root_state.clone()
+    root_state[:, :7] = torch.tensor(object_position[0, :7], device=device)
+    # write to the sim
+    organs.write_root_state_to_sim(root_state)
+
+
+def reset_robot_to_position(env, robot_initial_joint_state, joint_vel=None, device="cuda:0"):
+    """Reset the robot to the initial joint state."""
+    robot = env.unwrapped.scene["robot"]
+    joint_pos = torch.tensor(robot_initial_joint_state[0], device=device).unsqueeze(0)
+    if joint_vel is not None:
+        joint_vel = torch.tensor(joint_vel[0], device=device)
+    else:
+        print("No joint velocity provided, setting to zero")
+        joint_vel = torch.zeros_like(joint_pos)
+    # set joint positions
+    robot.write_joint_state_to_sim(joint_pos, joint_vel)
+    robot.reset()
+
+
+def validate_hdf5_path(path):
+    """Validate that the path contains HDF5 files and return the number of episodes."""
+    if os.path.isdir(path):
+        # Check if directory contains HDF5 files that start with "data_"
+        hdf5_files = [file for file in os.listdir(path) if file.startswith("data_") and file.endswith(".hdf5")]
+        return len(hdf5_files)
+    elif os.path.isfile(path) and path.endswith(".hdf5"):
+        return 1
+    return 0
+
+
+def get_hdf5_episode_data(data_root, data_key: str):
+    """Get episode data from an open HDF5 file object."""
+    base_path = "data/demo_0"
+    try:
+        dataset = data_root[f"{base_path}/{data_key}"][()]
+    except KeyError as e:
+        print(f"Error loading data using key: {base_path}/{data_key}")
+        print(f"Available keys: {list(data_root[base_path].keys())}")
+        raise e
+    return dataset
+
+
+def _load_hdf5_dataset(data_path: str, episode_idx: int, key: str):
+    """Helper function to open HDF5 file and retrieve data for a specific key."""
+    if not data_path.endswith(".hdf5"):
+        file_path = os.path.join(data_path, f"data_{episode_idx}.hdf5")
+    else:
+        # If data_path is a direct file path, episode_idx might not be relevant unless used for logging/consistency.
+        # Assuming if a direct file path is given, it's the specific file we need.
+        file_path = data_path
+
+    try:
+        with h5py.File(file_path, "r") as root:
+            data = get_hdf5_episode_data(root, key)
+            return data
+    except FileNotFoundError:
+        print(f"Error: HDF5 file not found at {file_path}")
+        return None
+    except Exception as e:
+        print(f"Error loading data from {file_path} with key '{key}': {str(e)}")
+        return None
+
+
+def reset_scene_to_initial_state(
+    env,
+    hdf5_path: str,
+    episode_idx: int,
+    action_key: str,
+    torso_obs_key: str,
+    joint_state_key: str,
+    joint_vel_key: str,
+):
+    """Reset the scene to the initial state.
+
+    Args:
+        env: The environment object.
+        hdf5_path: The path to the HDF5 file or directory.
+        episode_idx: The index of the episode.
+        action_key: The key to the action data.
+        torso_obs_key: The key to the torso observation data.
+        joint_state_key: The key to the joint state data.
+        joint_vel_key: The key to the joint velocity data.
+    """
+
+    actions = _load_hdf5_dataset(hdf5_path, episode_idx, action_key)
+    object_position = _load_hdf5_dataset(hdf5_path, episode_idx, torso_obs_key)
+    reset_organ_to_position(env, object_position)
+    robot_initial_joint_state = _load_hdf5_dataset(hdf5_path, episode_idx, joint_state_key)
+    try:
+        joint_vel = _load_hdf5_dataset(hdf5_path, episode_idx, joint_vel_key)
+    except KeyError:
+        print("No joint velocity provided, setting to zero")
+        joint_vel = None
+    reset_robot_to_position(env, robot_initial_joint_state, joint_vel=joint_vel)
+    return actions

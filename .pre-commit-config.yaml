@@ -17,6 +17,10 @@ repos:
     hooks:
       - id: ruff
         entry: ruff check
+        exclude: |
+            (?x)^(
+                workflows/telesurgery/cmake/pybind11/__init__.py
+            )$
   - repo: https://github.com/pycqa/isort
     rev: 6.0.0
     hooks:

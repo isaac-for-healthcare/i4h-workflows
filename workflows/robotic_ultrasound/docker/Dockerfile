@@ -1,0 +1,118 @@
+# syntax=docker/dockerfile:1.4
+
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+FROM nvcr.io/nvidia/isaac-lab:2.1.0
+
+# Apply patches to IsaacLab
+COPY tools/env_setup/patches/events_random_texture.patch /tmp/
+COPY tools/env_setup/patches/from_files_semantic_tags.patch /tmp/
+
+RUN cd /workspace/isaaclab && \
+    patch -p1 < /tmp/events_random_texture.patch && \
+    patch -p1 < /tmp/from_files_semantic_tags.patch && \
+    rm /tmp/events_random_texture.patch /tmp/from_files_semantic_tags.patch
+
+WORKDIR /workspace
+
+# Fix livestream public endpoint address issue in 2.0.2/2.1.0
+RUN sed -i '/--\/app\/livestream\/publicEndpointAddress=/d' /workspace/isaaclab/source/isaaclab/isaaclab/app/app_launcher.py
+
+# Install uv using curl for openpi
+RUN apt-get update && \
+    apt-get install -y software-properties-common && \
+    add-apt-repository ppa:ubuntu-toolchain-r/test && \
+    apt-get update && \
+    apt-get install -y \
+        curl \
+        openssh-client \
+        cmake \
+        wget \
+        build-essential \
+        pybind11-dev \
+        lsb-release \
+        libglib2.0-0 \
+        libdbus-1-3 \
+        libopengl0 \
+        libxcb-keysyms1 \
+        libxcb-cursor0 \
+        ninja-build \
+        libgl1-mesa-dev \
+        ffmpeg \
+        gcc-12 \
+        g++-12 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100 && \
+    mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+# Install CUDA 12.8
+
+WORKDIR /tmp
+
+RUN apt-get update && \
+    wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb && \
+    dpkg -i cuda-keyring_1.1-1_all.deb && \
+    apt-get update && \
+    apt-get -y install cuda-toolkit-12-8
+
+ENV PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
+ENV LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+
+COPY tools/env_setup/install_lerobot.sh /tmp/env_setup/
+COPY tools/env_setup/install_pi0.sh /tmp/env_setup/
+COPY tools/env_setup/install_holoscan.sh /tmp/env_setup/
+COPY tools/env_setup/install_robotic_us_ext.sh /tmp/env_setup/
+
+COPY workflows/robotic_ultrasound/scripts /workspace/robotic_ultrasound/scripts
+
+ENV PYTHON_EXECUTABLE=/workspace/isaaclab/_isaac_sim/python.sh
+
+# # Set up the Simulation
+RUN --mount=type=ssh \
+    $PYTHON_EXECUTABLE -m pip install --no-deps \
+        git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0rc1 && \
+    $PYTHON_EXECUTABLE -m pip install \
+        rti.connext==7.3.0 \
+        pyrealsense2==2.55.1.6486 \
+        toml==0.10.2 \
+        dearpygui==2.0.0 \
+        setuptools==75.8.0 \
+        pydantic==2.10.6
+
+RUN mkdir -p /workspace/third_party
+
+RUN /tmp/env_setup/install_robotic_us_ext.sh /workspace/robotic_ultrasound/scripts/simulation
+
+RUN /tmp/env_setup/install_lerobot.sh /workspace/third_party/lerobot
+
+RUN /tmp/env_setup/install_pi0.sh /workspace/third_party/openpi
+
+RUN /tmp/env_setup/install_holoscan.sh /workspace/robotic_ultrasound/scripts/holoscan_apps
+
+COPY tools/env_setup/install_cosmos_transfer1.sh /tmp/env_setup/
+
+COPY tools/env_setup/install_cudnn.sh /tmp/env_setup/
+
+RUN /tmp/env_setup/install_cudnn.sh
+
+RUN --mount=type=ssh \
+    /tmp/env_setup/install_cosmos_transfer1.sh /workspace/third_party/cosmos-transfer1
+
+WORKDIR /workspace/robotic_ultrasound/scripts
+
+ENV PYTHONPATH=/workspace/robotic_ultrasound/scripts:/workspace/third_party/cosmos-transfer1
+
+ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat

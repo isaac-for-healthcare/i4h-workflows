@@ -1,0 +1,9 @@
+struct JoystickEvent {
+  int64 ts;
+  int64 type;
+  string name;
+  string os;
+  sequence <double> axes;
+  sequence <boolean> buttons;
+  sequence <double> hats;  // flattened of Tuple(float, float)
+};
