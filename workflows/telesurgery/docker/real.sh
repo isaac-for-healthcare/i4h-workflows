@@ -66,7 +66,7 @@ function run() {
     echo "RTI_LICENSE_FILE is not set or does not exist"
     exit 1
   fi
-  
+
   xhost +
 
   local OTHER_ARGS=""

@@ -22,7 +22,6 @@ from holohub.operators.dds.publisher import DDSPublisherOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_merge import CameraStreamMergeOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.encoder import NVJpegEncoderOp
-from holohub.operators.sink import NoOp
 from holoscan.core import Application
 from holoscan.resources import BlockMemoryPool, MemoryStorageType
 from schemas.camera_stream import CameraStream
