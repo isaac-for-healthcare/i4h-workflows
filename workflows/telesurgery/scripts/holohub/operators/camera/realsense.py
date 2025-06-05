@@ -79,9 +79,13 @@ class RealsenseOp(Operator):
     def start(self):
         config = rs.config()
         context = rs.context()
+
         try:
             for i, device in enumerate(context.query_devices()):
-                print(f"(RealSense): {i}: Available device: {device}")
+                try:
+                    print(f"(RealSense): {i}: Available device: {device}")
+                except Exception:
+                    print(f"(RealSense): Failed to query device {i} (Ignoring)")
         except Exception:
             print("(RealSense): FAILED TO QUERY DEVICES (Ignoring)")
 
