@@ -94,16 +94,6 @@ function run() {
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v $HOME/.Xauthority:/root/.Xauthority \
     -v /dev:/dev \
-    -v ~/docker/telesurgery/cache/computecache:/root/.nv/ComputeCache:rw \
-    -v ~/docker/telesurgery/cache/glcache:/root/.cache/nvidia/GLCache:rw \
-    -v ~/docker/telesurgery/cache/i4h-assets:/root/.cache/i4h-assets:rw \
-    -v ~/docker/telesurgery/cache/kit:/isaac-sim/kit/cache:rw \
-    -v ~/docker/telesurgery/cache/ov:/root/.cache/ov:rw \
-    -v ~/docker/telesurgery/cache/pip:/root/.cache/pip:rw \
-    -v ~/docker/telesurgery/data:/root/.local/share/ov/data:rw \
-    -v ~/docker/telesurgery/documents:/root/Documents:rw \
-    -v ~/docker/telesurgery/logs:/root/.nvidia-omniverse/logs:rw \
-    -v ~/rti_connext_dds-7.3.0/:/opt/rti \
     -v $(pwd):/workspace/i4h-workflows \
     -v ${RTI_LICENSE_FILE}:/root/rti/rti_license.dat \
     $(for dev in /dev/video*; do echo --device=$dev; done) \
