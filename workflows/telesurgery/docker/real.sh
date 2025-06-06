@@ -78,6 +78,9 @@ function run() {
 
 function init() {
   echo "Initializing Telesurgery environment ..."
+  echo "   Patient IP:       ${PATIENT_IP}"
+  echo "   Surgeon IP:       ${SURGEON_IP}"
+  echo "   DDS Discovery IP: ${NDDS_DISCOVERY_PEERS}"
 }
 
 $@

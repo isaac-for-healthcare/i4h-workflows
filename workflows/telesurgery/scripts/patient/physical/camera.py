@@ -15,6 +15,7 @@
 
 import argparse
 import json
+import os
 
 from holohub.operators.camera.cv2 import CV2VideoCaptureOp
 from holohub.operators.camera.realsense import RealsenseOp
@@ -151,12 +152,27 @@ def main():
     parser.add_argument("--framerate", type=int, default=30, help="frame rate")
     parser.add_argument("--stream_type", type=str, default="color", choices=["color", "depth"])
     parser.add_argument("--stream_format", type=str, default="")
-    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvjpeg")
-    parser.add_argument("--encoder_params", type=str, default=json.dumps({"quality": 90}), help="encoder params")
+    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvc")
+    parser.add_argument("--encoder_params", type=str, default=None, help="encoder params")
     parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
 
     args = parser.parse_args()
+
+    if args.encoder == "nvjpeg" and args.encoder_params is None:
+        encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvjpeg_encoder_params.json")
+    elif args.encoder == "nvc" and args.encoder_params is None:
+        encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvc_encoder_params.json")
+    elif os.path.isfile(args.encoder_params):
+        encoder_params = args.encoder_params
+    else:
+        encoder_params = json.loads(args.encoder_params) if args.encoder_params else {}
+
+    print(f"Encoder params: {encoder_params}")
+    if os.path.isfile(encoder_params):
+        with open(encoder_params) as f:
+            encoder_params = json.load(f)
+            
     app = App(
         camera=args.camera,
         camera_name=args.name,
@@ -167,7 +183,7 @@ def main():
         stream_type=args.stream_type,
         stream_format=args.stream_format,
         encoder=args.encoder,
-        encoder_params=json.loads(args.encoder_params) if args.encoder_params else {},
+        encoder_params=encoder_params,
         dds_domain_id=args.domain_id,
         dds_topic=args.topic if args.topic else f"telesurgery/{args.name}_camera/rgb",
     )

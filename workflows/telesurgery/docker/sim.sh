@@ -100,6 +100,9 @@ function init() {
     echo "Please wait while downloading i4h-assets (Robots)..."
     yes Yes | i4h-asset-retrieve --sub-path Robots | grep -v "Skipping download"
   fi
+  echo "   Patient IP:       ${PATIENT_IP}"
+  echo "   Surgeon IP:       ${SURGEON_IP}"
+  echo "   DDS Discovery IP: ${NDDS_DISCOVERY_PEERS}"
 }
 
 $@

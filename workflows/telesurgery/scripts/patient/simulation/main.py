@@ -33,8 +33,8 @@ def main():
     parser.add_argument("--width", type=int, default=1920, help="width")
     parser.add_argument("--height", type=int, default=1080, help="height")
     parser.add_argument("--framerate", type=int, default=30, help="frame rate")
-    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvjpeg")
-    parser.add_argument("--encoder_params", type=str, default=json.dumps({"quality": 90}), help="encoder params")
+    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvc")
+    parser.add_argument("--encoder_params", type=str, default=None, help="encoder params")
     parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
     parser.add_argument("--api_host", type=str, default="0.0.0.0", help="local api server host")
@@ -115,11 +115,20 @@ def main():
     # holoscan app in async mode to consume camera source
     from patient.simulation.camera.app import App as CameraApp
 
-    if os.path.isfile(args.encoder_params):
-        with open(args.encoder_params) as f:
-            encoder_params = json.load(f)
+    if args.encoder == "nvjpeg" and args.encoder_params is None:
+        encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvjpeg_encoder_params.json")
+    elif args.encoder == "nvc" and args.encoder_params is None:
+        encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvc_encoder_params.json")
+    elif os.path.isfile(args.encoder_params):
+        encoder_params = args.encoder_params
     else:
         encoder_params = json.loads(args.encoder_params) if args.encoder_params else {}
+
+    print(f"Encoder params: {encoder_params}")
+
+    if os.path.isfile(encoder_params):
+        with open(encoder_params) as f:
+            encoder_params = json.load(f)
 
     camera_app = CameraApp(
         width=args.width,

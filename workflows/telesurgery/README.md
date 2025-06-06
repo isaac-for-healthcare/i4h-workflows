@@ -77,17 +77,17 @@ workflows/telesurgery/docker/real.sh build
 # Start the Docker Container
 workflows/telesurgery/docker/real.sh run
 
-# Using RealSense Camera
+# Using RealSense Camera with NVIDIA H.264 Encoder
 python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720
 
-# Using CV2 Camera
+# Using CV2 Camera with NVIDIA H.264 Encoder
 python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080
 
-# Using RealSense Camera with NVIDIA H.264 Encoder
-python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720 --encoder nvc
+# Using RealSense Camera with NVJPEG Encoder
+python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720 --encoder nvjpeg
 
-# Using CV2 Camera with NVIDIA H.264 Encoder
-python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080 --encoder nvc
+# Using CV2 Camera with NVJPEG Encoder
+python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080 --encoder nvjpeg
 ```
 
 ##### Surgeon Application
@@ -95,11 +95,11 @@ python patient/physical/camera.py --camera cv2 --name robot --width 1920 --heigh
 # Start the Docker Container
 workflows/telesurgery/docker/real.sh run
 
-# Run the Surgeon Application with NVJPEG Encoder
-python surgeon/camera.py --name [robot|room] --width 1280 --height 720
+# Start the Surgeon Application with NVIDIA H.264 Decoder
+python surgeon/camera.py --name [robot|room] --width 1280 --height 720 2> /dev/null
 
-# Start the Surgeon Application with NVIDIA H.264 Encoder
-python surgeon/camera.py --name [robot|room] --width 1280 --height 720 --decoder nvc 2> /dev/null
+# Run the Surgeon Application with NVJPEG Decoder
+python surgeon/camera.py --name [robot|room] --width 1280 --height 720 --decoder nvjpeg
 ```
 
 ##### Gamepad Controller Application
@@ -126,11 +126,11 @@ workflows/telesurgery/docker/sim.sh build
 # Start the Docker Container
 workflows/telesurgery/docker/sim.sh run
 
-# Start the Patient Application with NVJPEG Encoder
+# Start the Patient Application with NVIDIA H.264 Encoder
 python patient/simulation/main.py
 
-# Start the Patient Application with NVIDIA H.264 Encoder
-python patient/simulation/main.py --encoder nvc
+# Start the Patient Application with NVJPEG Encoder
+python patient/simulation/main.py --encoder nvjpeg
 ```
 
 ##### Surgeon Application
@@ -138,11 +138,11 @@ python patient/simulation/main.py --encoder nvc
 # Start the Docker Container
 workflows/telesurgery/docker/sim.sh run
 
-# Run the Surgeon Application with NVJPEG Encoder
-python surgeon/camera.py --name robot --width 1280 --height 720
+# Start the Surgeon Application with NVIDIA H.264 Decoder
+python surgeon/camera.py --name robot --width 1280 --height 720 2> /dev/null
 
-# Start the Surgeon Application with NVIDIA H.264 Encoder
-python surgeon/camera.py --name robot --width 1280 --height 720 --decoder nvc 2> /dev/null
+# Run the Surgeon Application with NVJPEG Decoder
+python surgeon/camera.py --name robot --width 1280 --height 720 --decoder nvjpeg
 ```
 
 ##### Gamepad Controller Application
@@ -173,11 +173,9 @@ export NTP_SERVER_HOST=<NTP server address>
 docker stop ntp-server && docker rm ntp-server
 ```
 
-### NVIDIA Video Codec Configuration
+### Advanced NVIDIA Video Codec Configuration
 
-Camera data can be streamed using either the H.264 or HEVC (H.265) codecs. To enable this for the Patient and Surgeon applications, use the `--encoder nvc` or `--decoder nvc` argument, respectively.
-
-Encoding parameters can be customized in the Patient application using the `--encoder_params` argument:
+The applications streams H.264 by default using NVIDIA Video Codec. Additional encoding parameters can be customized in the Patient application using the `--encoder_params` argument:
 
 ```bash
 python patient/simulation/main.py --encoder nvc --encoder_params patient/nvc_encoder_params.json
@@ -196,6 +194,10 @@ Here's an example of encoding parameters in JSON format:
     "multi_pass_encoding": 0 // Options: 0 to disable, 1 for Quarter resolution, 2 for Full resolution
 }
 ```
+
+### Advanced NVJPEG Configuration
+
+To configure the quality of the encoded frames with NVJPEG encoder, either 
 
 ## Troubleshooting
 
