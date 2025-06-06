@@ -29,12 +29,14 @@
 - 50GB of disk space
 
 #### Software Requirements
-- NVIDIA Driver Version >= 555
-- CUDA Version >= 12.6
+- NVIDIA Driver Version >= 555 
+  - NVIDIA Video Codec requires driver version 570 or later
+- [CUDA](https://developer.nvidia.com/cuda-toolkit) Version >= 12.6
+  - NVIDIA Video Codec requires CUDA version 12.8 or later
 - Python 3.10
 - RTI DDS License
-- Docker 28.0.4+
-- NVIDIA Container Toolkit 1.17.5+
+- [Docker](https://docs.docker.com/engine/install/) 28.0.4+
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) 1.17.5+
 
 ### Common Setup
 
@@ -211,6 +213,16 @@ A: Start the ssh-agent
 ```bash
 eval "$(ssh-agent -s)" && ssh-add
 ```
+#### Unable to launch the applications when using NVIDIA Video Codec
+
+Q: I'm getting an error when I start the application with the NVIDIA Video Codec.
+
+```BASH
+[error] [nv_video_encoder.cpp:101] Failed to create encoder: LoadNvEncApi : Current Driver Version does not support this NvEncodeAPI version, please upgrade driver at /workspace/holohub/build/nvidia_video_codec/_deps/nvc_sdk/NvEncoder/NvEncoder.cpp:82
+```
+
+**A:** NVIDIA Video Codec requires CUDA version 12 (driver version 570.0) or later. Check out the [NVIDIA Video Codec System Requirements](https://developer.nvidia.com/nvidia-video-codec-sdk/download) section for more details. **
+
 
 ## Licensing
 
