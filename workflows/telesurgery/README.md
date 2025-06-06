@@ -2,9 +2,6 @@
 
 ![Telesurgery Workflow](../../docs/source/telesurgery_workflow.jpg)
 
-<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=3 orderedList=false} -->
-
-<!-- code_chunk_output -->
 
 - [Telesurgery Workflow](#telesurgery-workflow)
   - [Prerequisites](#prerequisites)
@@ -19,8 +16,6 @@
   - [Troubleshooting](#troubleshooting)
     - [Common Issues](#common-issues)
   - [Licensing](#licensing)
-
-<!-- /code_chunk_output -->
 
 
 ## Prerequisites
@@ -202,9 +197,6 @@ Here's an example of encoding parameters in JSON format:
     "multi_pass_encoding": 0 // Options: 0 to disable, 1 for Quarter resolution, 2 for Full resolution
 }
 ```
-
-> [!NOTE]
-> H.264 or HEVC (H.265) codecs are available on x86 platform only.
 
 ## Troubleshooting
 

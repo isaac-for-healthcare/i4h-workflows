@@ -19,37 +19,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/" >/dev/null 2>&1 && pwd)"
 # Source environment variables at script level
 source $SCRIPT_DIR/../scripts/env.sh
 
+# Source common utilities
+source $SCRIPT_DIR/utils.sh
+
 HOLOHUB_DIR=$SCRIPT_DIR/../scripts/holohub
 DOCKER_IMAGE=telesurgery:0.2
 CONTAINER_NAME=telesurgery
-
-get_host_gpu() {
-    if ! command -v nvidia-smi >/dev/null; then
-        echo "Could not find any GPU drivers on host. Defaulting build to target dGPU/CPU stack." >&2
-        echo -n "dgpu";
-    elif [[ ! $(nvidia-smi --query-gpu=name --format=csv,noheader) ]] || \
-         [[ $(nvidia-smi --query-gpu=name --format=csv,noheader -i 0) =~ "Orin (nvgpu)" ]]; then
-        echo -n "igpu";
-    else
-        echo -n "dgpu";
-    fi
-}
-
-function download_operators() {
-  VIDEO_CODEC_FILE=/tmp/nv_video_codec.zip
-
-  if [ "$(uname -m)" == "aarch64" ]; then
-    echo "Skipping NVIDIA Video Codec Operators for aarch64"
-    return
-  fi
-
-  if [ ! -d "$HOLOHUB_DIR/operators/nvidia_video_codec/lib" ]; then
-    echo "Downloading NVIDIA Video Codec Operators"
-    curl -L -o $VIDEO_CODEC_FILE 'https://edge.urm.nvidia.com:443/artifactory/sw-holoscan-cli-generic/holohub/operators/nv_video_codec_0.2.zip'
-    unzip -o $VIDEO_CODEC_FILE -d $HOLOHUB_DIR/operators/nvidia_video_codec
-    rm $VIDEO_CODEC_FILE
-  fi
-}
 
 function build() {
   BASE_IMAGE=nvcr.io/nvidia/clara-holoscan/holoscan:v3.2.0-$(get_host_gpu)

@@ -91,7 +91,6 @@ class App(Application):
                     self,
                     name="nvc_encoder",
                     cuda_device_ordinal=0,
-                    copy_to_host=False,
                     width=self.width,
                     height=self.height,
                     codec=self.encoder_params.get("codec", "H264"),
@@ -103,7 +102,7 @@ class App(Application):
                     allocator=BlockMemoryPool(
                         self,
                         name="pool",
-                        storage_type=MemoryStorageType.DEVICE,
+                        storage_type=MemoryStorageType.HOST,
                         block_size=self.width * self.height * 3 * 4,
                         num_blocks=2,
                     ),

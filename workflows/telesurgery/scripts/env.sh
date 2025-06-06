@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/" >/dev/null 2>&1 && pwd)"
+ENV_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/" >/dev/null 2>&1 && pwd)"
 
 
 # Host IP for Patient/Surgeon
@@ -26,16 +26,16 @@ export SURGEON_IP="${SURGEON_IP:-127.0.0.1}"
 export NDDS_DISCOVERY_PEERS="${NDDS_DISCOVERY_PEERS:-$PATIENT_IP}"
 
 # RTI QOS Profile
-export NDDS_QOS_PROFILES=$SCRIPT_DIR/dds/qos_profile.xml
+export NDDS_QOS_PROFILES=$ENV_SCRIPT_DIR/dds/qos_profile.xml
 
 # RTI License
 if [ -z "${RTI_LICENSE_FILE}" ]; then
-  export RTI_LICENSE_FILE=$SCRIPT_DIR/dds/rti_license.dat
+  export RTI_LICENSE_FILE=$ENV_SCRIPT_DIR/dds/rti_license.dat
 fi
 
 # Python Path
-export PYTHONPATH=$SCRIPT_DIR:$PYTHONPATH
-export LD_LIBRARY_PATH=$SCRIPT_DIR/holohub/operators/nvidia_video_codec/lib:$LD_LIBRARY_PATH
+export PYTHONPATH=$ENV_SCRIPT_DIR:$PYTHONPATH
+export LD_LIBRARY_PATH=$ENV_SCRIPT_DIR/holohub/operators/nvidia_video_codec/lib:$LD_LIBRARY_PATH
 # Optional: NTP Server to capture time diff between 2 nodes
 
 if [ ! -z "${NTP_SERVER_HOST}" ] && [ ! -z "${NTP_SERVER_PORT}" ]; then
