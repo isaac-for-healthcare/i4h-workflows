@@ -19,8 +19,8 @@ project(holoscan-i4h)
 
 set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/../install")
 
-set(LIB_DIR "${CMAKE_BINARY_DIR}/lib")    
-set(INCLUDE_DIR "${CMAKE_BINARY_DIR}/include")    
+set(LIB_DIR "${CMAKE_BINARY_DIR}/lib")
+set(INCLUDE_DIR "${CMAKE_BINARY_DIR}/include")
 
 file(MAKE_DIRECTORY ${INCLUDE_DIR})
 file(MAKE_DIRECTORY ${LIB_DIR})

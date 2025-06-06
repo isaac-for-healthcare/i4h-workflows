@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import holoscan
 import numpy as np
 import pyrealsense2 as rs
-import holoscan
 import rti.connextdds as dds
 from dds.schemas.camera_info import CameraInfo
 from holoscan.core import Operator
@@ -130,5 +130,3 @@ class RealsenseOp(Operator):
             self.depth_writer.write(CameraInfo(data=depth.tobytes(), width=self.width, height=self.height))
             if not self.show_holoviz:
                 op_output.emit({"depth": holoscan.as_tensor(depth)}, "depth")
-
-

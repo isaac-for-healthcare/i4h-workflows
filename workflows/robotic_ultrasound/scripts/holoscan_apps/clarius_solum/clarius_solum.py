@@ -19,6 +19,7 @@ import os
 from holoscan.core import Application
 from holoscan.operators import HolovizOp
 from holoscan.resources import UnboundedAllocator
+
 from holohub.operators.clarius_solum.clarius_solum import ClariusSolumOp
 from holohub.operators.no_op.no_op import NoOp
 

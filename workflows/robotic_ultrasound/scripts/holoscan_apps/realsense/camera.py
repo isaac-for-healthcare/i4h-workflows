@@ -16,14 +16,13 @@
 import argparse
 import os
 
-import holoscan
 from holoscan.conditions import CountCondition
-from holoscan.core import Application, Operator
-from holoscan.core._core import OperatorSpec
+from holoscan.core import Application
 from holoscan.operators.holoviz import HolovizOp
 from holoscan.resources import UnboundedAllocator
-from holohub.operators.realsense.realsense import RealsenseOp
+
 from holohub.operators.no_op.no_op import NoOp
+from holohub.operators.realsense.realsense import RealsenseOp
 
 
 class RealsenseApp(Application):

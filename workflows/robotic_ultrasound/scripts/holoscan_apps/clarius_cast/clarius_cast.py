@@ -14,21 +14,15 @@
 # limitations under the License.
 
 import argparse
-import ctypes
 import os
-import sys
-from io import BytesIO
 
-import holoscan
-import numpy as np
-import rti.connextdds as dds
-from dds.schemas.usp_data import UltraSoundProbeData
-from holoscan.core import Application, Operator, OperatorSpec
+from holoscan.core import Application
 from holoscan.operators import HolovizOp
 from holoscan.resources import UnboundedAllocator
+
 from holohub.operators.clarius_cast.clarius_cast import ClariusCastOp
 from holohub.operators.no_op.no_op import NoOp
-from PIL import Image
+
 
 class ClariusCastApp(Application):
     """Application for streaming Ultrasound image data using Clarius Cast APIs"""
