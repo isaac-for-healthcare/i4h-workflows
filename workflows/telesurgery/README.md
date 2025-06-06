@@ -23,18 +23,16 @@
 ### System Requirements
 
 #### Hardware Requirements
-- Ubuntu 22.04
+- Ubuntu >= 22.04
 - NVIDIA GPU with compute capability 8.6 and 32GB of memory
    - GPUs without RT Cores, such as A100 and H100, are not supported
 - 50GB of disk space
 
 #### Software Requirements
-- NVIDIA Driver Version >= 555 
-  - NVIDIA Video Codec requires driver version 570 or later
-- [CUDA](https://developer.nvidia.com/cuda-toolkit) Version >= 12.6
-  - NVIDIA Video Codec requires CUDA version 12.8 or later
+- [NVIDIA Driver Version >= 570](https://developer.nvidia.com/cuda-12-8-1-download-archive)
+- [CUDA Version >= 12.8](https://developer.nvidia.com/cuda-12-8-1-download-archive)
 - Python 3.10
-- RTI DDS License
+- [RTI DDS License](https://www.rti.com/free-trial)
 - [Docker](https://docs.docker.com/engine/install/) 28.0.4+
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) 1.17.5+
 
@@ -101,7 +99,7 @@ workflows/telesurgery/docker/real.sh run
 python surgeon/camera.py --name [robot|room] --width 1280 --height 720
 
 # Start the Surgeon Application with NVIDIA H.264 Encoder
-python surgeon/camera.py --name [robot|room] --width 1280 --height 720 --decoder nvc
+python surgeon/camera.py --name [robot|room] --width 1280 --height 720 --decoder nvc 2> /dev/null
 ```
 
 ##### Gamepad Controller Application
@@ -223,6 +221,21 @@ Q: I'm getting an error when I start the application with the NVIDIA Video Codec
 
 **A:** NVIDIA Video Codec requires CUDA version 12 (driver version 570.0) or later. Check out the [NVIDIA Video Codec System Requirements](https://developer.nvidia.com/nvidia-video-codec-sdk/download) section for more details. **
 
+
+#### Update CUDA Driver on IGX
+```bash
+# ssh to igx-host to run the following commands
+sudo systemctl isolate multi-user
+
+sudo apt purge nvidia-kernel-*
+sudo add-apt-repository ppa:graphics-drivers/ppa
+sudo apt update
+
+sudo apt-get -y install linux-headers-nvidia-tegra aptitude
+sudo aptitude install nvidia-driver-570-open # Resolve any conflicts
+
+# hard reboot igx (soft reboot may not work)
+```
 
 ## Licensing
 
