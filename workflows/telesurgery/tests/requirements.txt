@@ -1,0 +1,5 @@
+pytest
+holoscan==3.2.0
+numpy<2.0.0
+pynvjpeg
+vgamepad
