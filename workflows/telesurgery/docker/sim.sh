@@ -62,7 +62,6 @@ function run() {
     -e XDG_RUNTIME_DIR \
     -e XDG_SESSION_TYPE \
     -e SSH_AUTH_SOCK=/ssh-agent \
-    -e NDDS_DISCOVERY_PEERS="$NDDS_DISCOVERY_PEERS" \
     -e PATIENT_IP="$PATIENT_IP" \
     -e SURGEON_IP="$SURGEON_IP" \
     $OTHER_ARGS \
@@ -78,13 +77,12 @@ function run() {
     -v ~/docker/telesurgery/data:/root/.local/share/ov/data:rw \
     -v ~/docker/telesurgery/documents:/root/Documents:rw \
     -v ~/docker/telesurgery/logs:/root/.nvidia-omniverse/logs:rw \
-    -v ~/rti_connext_dds-7.3.0/:/opt/rti \
     -v $(pwd):/workspace/i4h-workflows \
     -v ${RTI_LICENSE_FILE}:/root/rti/rti_license.dat \
     $(for dev in /dev/video*; do echo --device=$dev; done) \
     $OTHER_ARGS \
     $DOCKER_IMAGE \
-    -c "/workspace/i4h-workflows/workflows/telesurgery/scripts/env.sh && /workspace/i4h-workflows/workflows/telesurgery/docker/sim.sh init && exec bash"
+    -c "source /workspace/i4h-workflows/workflows/telesurgery/scripts/env.sh && /workspace/i4h-workflows/workflows/telesurgery/docker/sim.sh init && exec bash"
 }
 
 function enter() {
@@ -97,8 +95,10 @@ function init() {
   ln -s /workspace/isaaclab /workspace/i4h-workflows/third_party/IssacLab
 
   if [ ! -d "/root/.cache/i4h-assets/$ISAAC_ASSET_SHA256_HASH" ]; then
-    echo "Please wait while downloading i4h-assets..."
-    yes Yes | i4h-asset-retrieve
+    echo "Please wait while downloading i4h-assets (Props)..."
+    yes Yes | i4h-asset-retrieve --sub-path Props | grep -v "Skipping download"
+    echo "Please wait while downloading i4h-assets (Robots)..."
+    yes Yes | i4h-asset-retrieve --sub-path Robots | grep -v "Skipping download"
   fi
 }
 

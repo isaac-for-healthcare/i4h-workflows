@@ -54,7 +54,6 @@ When running the Patient and the Surgeon applications on separate systems, expor
 ```bash
 export PATIENT_IP="<IP Address of the system running the Patient application>"
 export SURGEON_IP="<IP Address of the system running the Surgeon application>"
-export NDDS_DISCOVERY_PEERS="${PATIENT_IP}"
 
 # Export the following for NTP Server
 export NTP_SERVER_HOST="<IP Address of the NTP Server>"
@@ -143,7 +142,7 @@ workflows/telesurgery/docker/sim.sh run
 python surgeon/camera.py --name robot --width 1280 --height 720
 
 # Start the Surgeon Application with NVIDIA H.264 Encoder
-python surgeon/camera.py --name robot --width 1280 --height 720 --decoder nvc
+python surgeon/camera.py --name robot --width 1280 --height 720 --decoder nvc 2> /dev/null
 ```
 
 ##### Gamepad Controller Application

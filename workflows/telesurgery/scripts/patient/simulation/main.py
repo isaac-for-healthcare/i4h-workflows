@@ -39,7 +39,7 @@ def main():
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
     parser.add_argument("--api_host", type=str, default="0.0.0.0", help="local api server host")
     parser.add_argument("--api_port", type=int, default=8081, help="local api server port")
-    parser.add_argument("--timeline_play", type=bool, default=False, help="play the timeline")
+    parser.add_argument("--timeline_play", type=bool, default=True, help="play the timeline")
     args = parser.parse_args()
 
     app_launcher = AppLauncher(headless=False)
@@ -116,7 +116,7 @@ def main():
     from patient.simulation.camera.app import App as CameraApp
 
     if os.path.isfile(args.encoder_params):
-        with open(args.encoder_params, "r") as f:
+        with open(args.encoder_params) as f:
             encoder_params = json.load(f)
     else:
         encoder_params = json.loads(args.encoder_params) if args.encoder_params else {}

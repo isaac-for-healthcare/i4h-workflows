@@ -22,8 +22,7 @@ ENV_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/" >/dev/null 2>&1 && pwd)"
 export PATIENT_IP="${PATIENT_IP:-127.0.0.1}"
 export SURGEON_IP="${SURGEON_IP:-127.0.0.1}"
 
-# RTI Discovery Address
-export NDDS_DISCOVERY_PEERS="${NDDS_DISCOVERY_PEERS:-$PATIENT_IP}"
+export NDDS_DISCOVERY_PEERS="${PATIENT_IP},${SURGEON_IP}"
 
 # RTI QOS Profile
 export NDDS_QOS_PROFILES=$ENV_SCRIPT_DIR/dds/qos_profile.xml

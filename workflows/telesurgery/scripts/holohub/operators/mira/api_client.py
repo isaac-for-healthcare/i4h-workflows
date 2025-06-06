@@ -51,11 +51,15 @@ class ApiClientOp(Operator):
                     print(f"Received message: {json_message}")
             except Exception as e:
                 print(f"Error in message listener: {e}")
+                self.cleanup()
+                raise e
 
     def compute(self, op_input, op_output, context):
         try:
             message = op_input.receive("input")
             message["id"] = self.rpc_id
+            if self.ws is None:
+                self.start()
 
             self.ws.send(json.dumps(message))
             self.rpc_id += 1

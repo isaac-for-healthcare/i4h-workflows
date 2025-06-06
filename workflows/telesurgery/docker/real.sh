@@ -63,7 +63,6 @@ function run() {
     -e XDG_RUNTIME_DIR \
     -e XDG_SESSION_TYPE \
     -e SSH_AUTH_SOCK=/ssh-agent \
-    -e NDDS_DISCOVERY_PEERS="$NDDS_DISCOVERY_PEERS" \
     -e PATIENT_IP="$PATIENT_IP" \
     -e SURGEON_IP="$SURGEON_IP" \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
@@ -74,7 +73,7 @@ function run() {
     $(for dev in /dev/video*; do echo --device=$dev; done) \
     $OTHER_ARGS \
     $DOCKER_IMAGE \
-    -c "/workspace/i4h-workflows/workflows/telesurgery/scripts/env.sh && /workspace/i4h-workflows/workflows/telesurgery/docker/real.sh init && exec bash"
+    -c "source /workspace/i4h-workflows/workflows/telesurgery/scripts/env.sh && /workspace/i4h-workflows/workflows/telesurgery/docker/real.sh init && exec bash"
 }
 
 function init() {
