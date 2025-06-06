@@ -35,7 +35,7 @@ def main():
     parser.add_argument("--framerate", type=int, default=30, help="frame rate")
     parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvc")
     parser.add_argument("--encoder_params", type=str, default=None, help="encoder params")
-    parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
+    parser.add_argument("--domain_id", type=int, default=9, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
     parser.add_argument("--api_host", type=str, default="0.0.0.0", help="local api server host")
     parser.add_argument("--api_port", type=int, default=8081, help="local api server port")
@@ -105,7 +105,6 @@ def main():
     from patient.simulation.camera.sensor import CameraEx
 
     camera = CameraEx(
-        channels=4 if args.encoder == "nvc" else 3,
         prim_path=camera_prim_path,
         frequency=args.framerate,
         resolution=(args.width, args.height),

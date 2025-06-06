@@ -154,7 +154,7 @@ def main():
     parser.add_argument("--stream_format", type=str, default="")
     parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvc")
     parser.add_argument("--encoder_params", type=str, default=None, help="encoder params")
-    parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
+    parser.add_argument("--domain_id", type=int, default=9, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
 
     args = parser.parse_args()
@@ -172,7 +172,7 @@ def main():
     if os.path.isfile(encoder_params):
         with open(encoder_params) as f:
             encoder_params = json.load(f)
-            
+
     app = App(
         camera=args.camera,
         camera_name=args.name,

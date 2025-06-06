@@ -99,7 +99,7 @@ def main():
     parser.add_argument("--width", type=int, default=1920, help="width")
     parser.add_argument("--height", type=int, default=1080, help="height")
     parser.add_argument("--decoder", type=str, choices=["nvjpeg", "none", "nvc"], default="nvc")
-    parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
+    parser.add_argument("--domain_id", type=int, default=9, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
 
     args = parser.parse_args()

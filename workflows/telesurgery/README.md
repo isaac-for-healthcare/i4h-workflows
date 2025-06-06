@@ -197,7 +197,7 @@ Here's an example of encoding parameters in JSON format:
 
 ### Advanced NVJPEG Configuration
 
-To configure the quality of the encoded frames with NVJPEG encoder, either 
+To configure the quality of the encoded frames with NVJPEG encoder, either
 
 ## Troubleshooting
 

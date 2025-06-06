@@ -63,7 +63,7 @@ class RealsenseOp(Operator):
             if stream_format
             else rs.format.z16
             if stream_type == "depth"
-            else rs.format.rgb8
+            else rs.format.rgba8
         )
         self.ntp_offset_time = get_ntp_offset()
 

@@ -35,11 +35,6 @@ class CameraStreamSplitOp(Operator):
         if isinstance(stream.data, np.ndarray):
             # For NVC encoder: move data to GPU
             camera_data = cp.asarray(stream.data)
-            if camera_data.shape[-1] == 3:
-                rgb = camera_data
-                h, w = rgb.shape[:2]
-                alpha = cp.full((h, w, 1), 255, dtype=cp.uint8)
-                camera_data = cp.concatenate((rgb, alpha), axis=2)
         elif isinstance(stream.data, rti.connextdds.Uint8Seq):
             # For NVC decoder: convert DDS sequence to numpy array
             camera_data = np.reshape(stream.data, (len(stream.data),))
