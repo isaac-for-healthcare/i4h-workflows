@@ -63,6 +63,18 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         prim_path="/World/Light",
         spawn=sim_utils.DomeLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75)),
     )
+
+    point_light = AssetBaseCfg(
+        prim_path="/World/PointLight",
+        spawn=sim_utils.SphereLightCfg(
+            intensity=30000.0,
+            radius=0.5,
+            color=(0.75, 0.75, 0.75),
+            enable_color_temperature=False,
+        ),
+        init_state=AssetBaseCfg.InitialStateCfg(pos=[0.5, 0.0, 1.5]),
+    )
+
     table = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Table",
         init_state=RigidObjectCfg.InitialStateCfg(
@@ -71,6 +83,19 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         spawn=sim_utils.UsdFileCfg(
             usd_path=robot_us_assets.table_with_cover,
             semantic_tags=[("class", "table")],
+        ),
+    )
+
+    # directly spawn the whole scene from the USD file
+    scene = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/Hospital",
+        init_state=AssetBaseCfg.InitialStateCfg(
+            pos=[0.0 - 2.997, 0.0 - 7.87, 0.0 - 0.83815],
+            rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, 0.0]), degrees=True),
+        ),
+        spawn=sim_utils.UsdFileCfg(
+            usd_path="https://art.ov.nvidia.com/omniverse://art.ov.nvidia.com/Projects/Digital%20Twins%20Library/Hospital/Scenes/hospital_a_surgery_room_isometric.usd",
+            scale=(0.01, 0.01, 0.01),
         ),
     )
 
