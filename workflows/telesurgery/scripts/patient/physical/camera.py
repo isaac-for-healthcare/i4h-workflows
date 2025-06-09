@@ -152,7 +152,7 @@ def main():
     parser.add_argument("--framerate", type=int, default=30, help="frame rate")
     parser.add_argument("--stream_type", type=str, default="color", choices=["color", "depth"])
     parser.add_argument("--stream_format", type=str, default="")
-    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvc")
+    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvc", help="encoder type")
     parser.add_argument("--encoder_params", type=str, default=None, help="encoder params")
     parser.add_argument("--domain_id", type=int, default=9, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")

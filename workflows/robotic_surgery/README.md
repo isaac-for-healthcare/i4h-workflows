@@ -23,7 +23,7 @@
 - 16GB RAM minimum
 
 ### Software Requirements
-- NVIDIA Driver Version >= 555
+- [NVIDIA Driver Version >= 555](https://www.nvidia.com/en-us/drivers/)
 - Python 3.10
 
 ## Quick Start

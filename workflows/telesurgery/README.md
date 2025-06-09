@@ -27,6 +27,7 @@
 - NVIDIA GPU with compute capability 8.6 and 32GB of memory
    - GPUs without RT Cores, such as A100 and H100, are not supported
 - 50GB of disk space
+- XBOX Controller or Haply Inverse 3.
 
 #### Software Requirements
 - [NVIDIA Driver Version >= 570](https://developer.nvidia.com/cuda-12-8-1-download-archive)
@@ -55,10 +56,13 @@ When running the Patient and the Surgeon applications on separate systems, expor
 export PATIENT_IP="<IP Address of the system running the Patient application>"
 export SURGEON_IP="<IP Address of the system running the Surgeon application>"
 
-# Export the following for NTP Server
+# Export the following for NTP Server (Optional)
 export NTP_SERVER_HOST="<IP Address of the NTP Server>"
 export NTP_SERVER_PORT="123"
 ```
+
+> [!Note]
+> For NTP settings and variables, refer to the [NTP (Network Time Protocol) Server](#ntp-server-setup) section for additional details.
 
 ## Running the System
 

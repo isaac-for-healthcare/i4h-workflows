@@ -70,7 +70,7 @@ RUN --mount=type=ssh \
 # Install Python dependencies
 COPY workflows/telesurgery/requirements.txt /tmp/requirements.txt
 RUN $PYTHON_EXECUTABLE -m pip install "numpy<2.0.0" \
-    && $PYTHON_EXECUTABLE -m pip install --no-build-isolation pynvjpeg \
+    && $PYTHON_EXECUTABLE -m pip install --no-build-isolation pynvjpeg==0.0.13 \
     && $PYTHON_EXECUTABLE -m pip install -r /tmp/requirements.txt
 
 RUN mkdir -p /root/rti

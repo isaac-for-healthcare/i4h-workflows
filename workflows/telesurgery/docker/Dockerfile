@@ -52,7 +52,7 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_P
 
 COPY workflows/telesurgery/requirements.txt /tmp/requirements.txt
 RUN python3 -m pip install "numpy<2.0.0" \
-    && python3 -m pip install --no-build-isolation pynvjpeg \
+    && python3 -m pip install --no-build-isolation pynvjpeg==0.0.13 \
     && python3 -m pip install -r /tmp/requirements.txt
 
 RUN mkdir -p /root/rti
