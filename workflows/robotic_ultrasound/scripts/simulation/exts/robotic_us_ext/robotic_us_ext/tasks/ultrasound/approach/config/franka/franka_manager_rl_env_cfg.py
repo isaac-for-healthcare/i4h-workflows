@@ -345,21 +345,20 @@ class EventCfg:
     reset_scene = EventTerm(func=mdp.reset_scene_to_default, mode="reset")
 
     # uncomment to use the texture randomizer
-    table_texture_randomizer = EventTerm(
-        func=mdp.randomize_visual_texture_material,
-        mode="reset",
-        params={
-            "asset_cfg": SceneEntityCfg("table"),
-            "texture_paths": [
-                # "/home/yunliu/Workspace/Code/i4h-workflows/docs/source/metallic_2048.png",
-                # f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Bamboo_Planks/Bamboo_Planks_BaseColor.png",
-                # f"{NVIDIA_NUCLEUS_DIR}/Materials/Vmaterials/Leather/PU_Split_Leather_Blue_Punched.png",
-                "/home/yunliu/Workspace/Code/i4h-workflows/docs/source/blue_leather.jpg"
-            ],
-            "event_name": "table_texture_randomizer",
-            "texture_rotation": (math.pi / 2, math.pi / 2),
-        },
-    )
+    # table_texture_randomizer = EventTerm(
+    #     func=mdp.randomize_visual_texture_material,
+    #     mode="reset",
+    #     params={
+    #         "asset_cfg": SceneEntityCfg("table"),
+    #         "texture_paths": [
+    #             # "/home/yunliu/Workspace/Code/i4h-workflows/docs/source/metallic_2048.png",
+    #             # f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Bamboo_Planks/Bamboo_Planks_BaseColor.png",
+    #             # f"{NVIDIA_NUCLEUS_DIR}/Materials/Vmaterials/Leather/PU_Split_Leather_Blue_Punched.png",
+    #         ],
+    #         "event_name": "table_texture_randomizer",
+    #         "texture_rotation": (math.pi / 2, math.pi / 2),
+    #     },
+    # )
 
     # the second reset only affects the organ body, and adds a random offset to the organ body, w.r.t to
     # the current position.
