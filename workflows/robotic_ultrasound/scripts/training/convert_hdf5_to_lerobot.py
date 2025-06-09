@@ -208,6 +208,28 @@ class Pi0FeatureDict(BaseFeatureDict):
     ):
         super().__init__(image_shape, state_shape, actions_shape, include_depth, include_seg, include_video)
 
+class Pi0AbsActionFeatureDict(BaseFeatureDict):
+    action_key = "actions"
+    room_image_key = "image"
+    wrist_image_key = "wrist_image"
+    state_key = "state"
+    seg_room_key = "observation.seg.room"
+    seg_wrist_key = "observation.seg.wrist"
+    depth_room_key = "observation.depth.room"
+    depth_wrist_key = "observation.depth.wrist"
+
+    def __init__(
+        self,
+        image_shape: tuple[int, int, int] = (224, 224, 3),
+        state_shape: tuple[int, ...] = (7,),
+        actions_shape: tuple[int, ...] = (7,),
+        include_depth: bool = False,
+        include_seg: bool = False,
+        include_video: bool = False,
+    ):
+        super().__init__(image_shape, state_shape, actions_shape, include_depth, include_seg, include_video)
+
+
 
 class GR00TN1FeatureDict(BaseFeatureDict):
     action_key = "action"  # GR00T uses "action"
@@ -349,6 +371,7 @@ def main(
     repo_id: str,
     task_prompt: str,
     feature_builder,
+    action_key: str,
     include_depth: bool = False,
     include_seg: bool = False,
     run_compute_stats: bool = False,
@@ -419,12 +442,12 @@ def main(
         hdf5_path = os.path.join(data_dir, f"data_{episode_idx}.hdf5")
         with h5py.File(hdf5_path, "r") as f:
             root_name = "data/demo_0"
-            num_steps = len(f[root_name]["action"])
+            num_steps = len(f[root_name][action_key])
 
             for step in range(num_steps):
                 rgb = f[root_name]["observations/rgb_images"][step]
                 state = f[root_name]["abs_joint_pos"][step]
-                action = f[root_name]["action"][step]
+                action = f[root_name][action_key][step]
 
                 seg = None
                 if include_seg:
@@ -485,7 +508,7 @@ if __name__ == "__main__":
         "--feature_builder_type",
         type=str,
         default="pi0",
-        choices=["pi0", "gr00tn1"],
+        choices=["pi0", "gr00tn1", "pi0_abs"],
         help="Type of feature builder to use (pi0 or gr00tn1).",
     )
     parser.add_argument(
@@ -515,12 +538,25 @@ if __name__ == "__main__":
         default=False,
         help="Run compute stats (true/false)",
     )
+    parser.add_argument(
+        "--action_key",
+        type=str,
+        default="action",
+        help="Key of the action in the hdf5 file",
+    )
 
     args = parser.parse_args()
 
     # Instantiate the feature builder based on args
     if args.feature_builder_type == "gr00tn1":
         feature_builder = GR00TN1FeatureDict(
+            image_shape=args.image_shape,
+            include_depth=args.include_depth,
+            include_seg=args.include_seg,
+            include_video=args.include_video,
+        )
+    elif args.feature_builder_type == "pi0_abs":
+        feature_builder = Pi0AbsActionFeatureDict(
             image_shape=args.image_shape,
             include_depth=args.include_depth,
             include_seg=args.include_seg,
@@ -538,6 +574,7 @@ if __name__ == "__main__":
         args.data_dir,
         args.repo_id,
         args.task_prompt,
+        action_key=args.action_key,
         feature_builder=feature_builder,
         include_depth=args.include_depth,
         include_seg=args.include_seg,

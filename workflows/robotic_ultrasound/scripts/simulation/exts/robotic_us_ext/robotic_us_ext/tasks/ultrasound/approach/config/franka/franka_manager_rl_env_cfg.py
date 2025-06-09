@@ -35,9 +35,10 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sensors import FrameTransformerCfg
+from isaaclab.sensors import CameraCfg, FrameTransformerCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
 from isaaclab.utils import configclass
+from isaaclab.utils.assets import NVIDIA_NUCLEUS_DIR
 from isaacsim.core.utils.torch.rotations import euler_angles_to_quats
 from robotic_us_ext.lab_assets.franka import FRANKA_PANDA_HIGH_PD_FORCE_CFG, FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG
 from robotic_us_ext.tasks.ultrasound.approach import mdp
@@ -63,17 +64,41 @@ class RoboticSoftCfg(InteractiveSceneCfg):
         prim_path="/World/Light",
         spawn=sim_utils.DomeLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75)),
     )
+    point_light = AssetBaseCfg(
+        prim_path="/World/PointLight",
+        spawn=sim_utils.SphereLightCfg(
+            intensity=30000.0,
+            radius=0.5,
+            color=(0.75, 0.75, 0.75),
+            enable_color_temperature=False,
+        ),
+        init_state=AssetBaseCfg.InitialStateCfg(pos=[0.5, 0.0, 1.5]),
+    )
+
     table = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Table",
         init_state=RigidObjectCfg.InitialStateCfg(
             pos=[0.4804, 0.02017, -0.84415], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, -90.0]), degrees=True)
         ),
         spawn=sim_utils.UsdFileCfg(
-            usd_path=robot_us_assets.table_with_cover,
+            # usd_path=robot_us_assets.table_with_cover,
+            usd_path="/home/yunliu/.cache/i4h-assets/66335f3780fd87f8ddfd512df43839c78f1836f7fe78a686dfb3bcc0a22badcc/Props/VentionTableWithLeatherCover/table_with_cover.usd",
             semantic_tags=[("class", "table")],
         ),
     )
 
+    # directly spawn the whole scene from the USD file
+    scene = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/Hospital",
+        init_state=AssetBaseCfg.InitialStateCfg(
+            pos=[0.0 - 2.997, 0.0 - 7.87, 0.0 - 0.83815],
+            rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, 0.0]), degrees=True),
+        ),
+        spawn=sim_utils.UsdFileCfg(
+            usd_path="https://art.ov.nvidia.com/omniverse://art.ov.nvidia.com/Projects/Digital%20Twins%20Library/Hospital/Scenes/hospital_a_surgery_room_isometric.usd",
+            scale=(0.01, 0.01, 0.01),
+        ),
+    )
     # body
     # spawn the organ model onto the table, it needs to be scaled (1/10 of an inch?)
     # the model with _rigid was modified in USDComposer to have rigid body properties.
@@ -320,20 +345,21 @@ class EventCfg:
     reset_scene = EventTerm(func=mdp.reset_scene_to_default, mode="reset")
 
     # uncomment to use the texture randomizer
-    # table_texture_randomizer = EventTerm(
-    #     func=mdp.randomize_visual_texture_material,
-    #     mode="reset",
-    #     params={
-    #         "asset_cfg": SceneEntityCfg("table"),
-    #         "texture_paths": [
-    #             "./metallic_2048.jpg",
-    #             f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Bamboo_Planks/Bamboo_Planks_BaseColor.png",
-    #             f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Walnut_Planks/Walnut_Planks_BaseColor.png",
-    #         ],
-    #         "event_name": "table_texture_randomizer",
-    #         "texture_rotation": (math.pi / 2, math.pi / 2),
-    #     },
-    # )
+    table_texture_randomizer = EventTerm(
+        func=mdp.randomize_visual_texture_material,
+        mode="reset",
+        params={
+            "asset_cfg": SceneEntityCfg("table"),
+            "texture_paths": [
+                # "/home/yunliu/Workspace/Code/i4h-workflows/docs/source/metallic_2048.png",
+                # f"{NVIDIA_NUCLEUS_DIR}/Materials/Base/Wood/Bamboo_Planks/Bamboo_Planks_BaseColor.png",
+                # f"{NVIDIA_NUCLEUS_DIR}/Materials/Vmaterials/Leather/PU_Split_Leather_Blue_Punched.png",
+                "/home/yunliu/Workspace/Code/i4h-workflows/docs/source/blue_leather.jpg"
+            ],
+            "event_name": "table_texture_randomizer",
+            "texture_rotation": (math.pi / 2, math.pi / 2),
+        },
+    )
 
     # the second reset only affects the organ body, and adds a random offset to the organ body, w.r.t to
     # the current position.
@@ -399,7 +425,7 @@ class RoboticIkRlEnvCfg(ManagerBasedRLEnvCfg):
     """Base Configuration for the robotic ultrasound environment."""
 
     # Scene settings
-    scene: RoboticSoftCfg = RoboticSoftCfg(num_envs=1, env_spacing=2.5)
+    scene: RoboticSoftCfg = RoboticSoftCfg(num_envs=1, env_spacing=2.5, replicate_physics=False)
     # Basic settings
     observations: PoseObservationsCfg = PoseObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
@@ -497,4 +523,43 @@ class FrankaModRGBDIkRlEnvCfg(RoboticIkRlEnvCfg):
                     ),
                 )
             ],
+        )
+        
+        mapping = {
+            "class:table": (0, 255, 0, 255),
+            "class:organ": (0, 0, 255, 255),
+            "class:robot": (255, 255, 0, 255),
+            "class:ground": (255, 0, 0, 255),
+            "class:UNLABELLED": (0, 0, 0, 255),
+        }
+        # ToDo: switch to a tiled camera
+        self.scene.wrist_camera = CameraCfg(
+            data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
+            prim_path="{ENV_REGEX_NS}/Robot/D405_rigid/D405/Camera_OmniVision_OV9782_Color",
+            spawn=None,
+            height=224,
+            width=224,
+            update_period=0.0,
+            colorize_semantic_segmentation=True,
+            semantic_segmentation_mapping=mapping,
+        )
+        self.scene.room_camera = CameraCfg(
+            prim_path="{ENV_REGEX_NS}/third_person_cam",
+            update_period=0.0,
+            height=224,
+            width=224,
+            data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=12.0,
+                focus_distance=100.0,
+                horizontal_aperture=20.955,
+                clipping_range=(0.1, 1.0e5),
+            ),
+            offset=CameraCfg.OffsetCfg(
+                pos=(0.55942, 0.56039, 0.36243),
+                rot=euler_angles_to_quats(torch.tensor([248.0, 0.0, 180.0]), degrees=True),
+                convention="ros",
+            ),
+            colorize_semantic_segmentation=True,
+            semantic_segmentation_mapping=mapping,
         )

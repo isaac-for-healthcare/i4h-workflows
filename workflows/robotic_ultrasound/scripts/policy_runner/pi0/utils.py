@@ -133,7 +133,7 @@ class Inputs(transforms.DataTransformFn):
 class Outputs(transforms.DataTransformFn):
     def __call__(self, data: dict) -> dict:
         # Only return the first 6 dims.
-        return {"actions": np.asarray(data["actions"][:, :6])}
+        return {"actions": np.asarray(data["actions"][:, :7])}
 
 
 @dataclasses.dataclass(frozen=True)

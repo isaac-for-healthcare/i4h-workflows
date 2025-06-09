@@ -156,7 +156,7 @@ def main():
                 np.array(actions)
                 .astype(np.float32)
                 .reshape(
-                    args.chunk_length * 6,
+                    args.chunk_length * 7,
                 )
                 .tolist()
             )
