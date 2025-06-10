@@ -12,7 +12,7 @@
     - [Simulation Environment](#simulation-environment)
   - [Advanced Configuration](#advanced-configuration)
     - [NTP Server Setup](#ntp-server-setup)
-    - [NVIDIA Video Codec Configuration](#nvidia-video-codec-configuration)
+    - [NVIDIA Video Codec Configuration](#advanced-nvidia-video-codec-configuration)
   - [Troubleshooting](#troubleshooting)
     - [Common Issues](#common-issues)
   - [Licensing](#licensing)
