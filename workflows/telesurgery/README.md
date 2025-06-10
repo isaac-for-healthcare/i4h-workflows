@@ -31,8 +31,8 @@
 
 
 #### Software Requirements
-- [NVIDIA Driver Version >= 570](https://developer.nvidia.com/cuda-12-8-1-download-archive)
-- [CUDA Version >= 12.8](https://developer.nvidia.com/cuda-12-8-1-download-archive)
+- [NVIDIA Driver Version >= 570](https://developer.nvidia.com/cuda-downloads)
+- [CUDA Version >= 12.8](https://developer.nvidia.com/cuda-downloads)
 - Python 3.10
 - [RTI DDS License](https://www.rti.com/free-trial)
 - [Docker](https://docs.docker.com/engine/install/) 28.0.4+

@@ -22,7 +22,7 @@
 
 ### Software Requirements
 - [NVIDIA Driver Version >= 555](https://www.nvidia.com/en-us/drivers/)
-- [CUDA Version >= 12.6]((https://developer.nvidia.com/cuda-12-8-1-download-archive))
+- [CUDA Version >= 12.6]((https://developer.nvidia.com/cuda-downloads))
 - Python 3.10
 - [RTI DDS License](https://www.rti.com/free-trial)
 
