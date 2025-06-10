@@ -35,7 +35,7 @@ if(NOT EXISTS "${LIB_DIR}/clarius_cast/libcast.so")
          )
     # Unzip the file
     execute_process(
-        COMMAND ${CMAKE_COMMAND} -E tar xzf ${LIB_DIR}/clarius_cast/cast.zip
+        COMMAND unzip cast.zip
         WORKING_DIRECTORY ${LIB_DIR}/clarius_cast
     )
 
