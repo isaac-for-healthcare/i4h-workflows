@@ -21,8 +21,8 @@ from holoscan.core import Application
 from holoscan.operators.holoviz import HolovizOp
 from holoscan.resources import UnboundedAllocator
 
-from holohub.operators.no_op.no_op import NoOp
-from holohub.operators.realsense.realsense import RealsenseOp
+from holoscan_i4h.operators.no_op.no_op import NoOp
+from holoscan_i4h.operators.realsense.realsense import RealsenseOp
 
 
 class RealsenseApp(Application):

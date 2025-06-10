@@ -212,8 +212,8 @@ wandb/
 third_party/
 
 # third-party files
-holohub/install
-holohub/build
+holoscan_i4h/install
+holoscan_i4h/build
 
 # Raytracing Ultrasound Simulator
 workflows/robotic_ultrasound/scripts/raysim

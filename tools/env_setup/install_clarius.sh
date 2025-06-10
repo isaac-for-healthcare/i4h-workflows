@@ -17,10 +17,10 @@
 
 set -e
 
-HOLOHUB_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../../holohub && pwd)"
+HOLOSCAN_I4H_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../../holoscan_i4h && pwd)"
 
 (
-  cd $HOLOHUB_ROOT
+  cd $HOLOSCAN_I4H_ROOT
   cmake . -B build && cmake --build build && cmake --install build
   echo "Successfully built Clarius libs"
 )

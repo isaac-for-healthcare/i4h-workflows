@@ -27,12 +27,12 @@ from holoscan.core import Operator, OperatorSpec
 from PIL import Image
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-holohub_dir = f"{script_dir}/../../"
+holoscan_i4h_dir = f"{script_dir}/../../"
 
 # load the libsolum.so shared library
-libsolum_handle = ctypes.CDLL(f"{holohub_dir}/install/lib/clarius_solum/libsolum.so", ctypes.RTLD_GLOBAL)._handle
+libsolum_handle = ctypes.CDLL(f"{holoscan_i4h_dir}/install/lib/clarius_solum/libsolum.so", ctypes.RTLD_GLOBAL)._handle
 
-sys.path.append(f"{holohub_dir}/install/lib/clarius_solum")
+sys.path.append(f"{holoscan_i4h_dir}/install/lib/clarius_solum")
 import pysolum
 
 # Is probe connected

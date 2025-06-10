@@ -20,8 +20,8 @@ from holoscan.core import Application
 from holoscan.operators import HolovizOp
 from holoscan.resources import UnboundedAllocator
 
-from holohub.operators.clarius_solum.clarius_solum import ClariusSolumOp
-from holohub.operators.no_op.no_op import NoOp
+from holoscan_i4h.operators.clarius_solum.clarius_solum import ClariusSolumOp
+from holoscan_i4h.operators.no_op.no_op import NoOp
 
 
 class ClariusSolumApp(Application):
