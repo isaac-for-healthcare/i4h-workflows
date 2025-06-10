@@ -24,10 +24,11 @@
 
 #### Hardware Requirements
 - Ubuntu >= 22.04
-- NVIDIA GPU with compute capability 8.6 and 32GB of memory
+- NVIDIA GPU with compute capability 8.6 and 8GB of memory
    - GPUs without RT Cores, such as A100 and H100, are not supported
 - 50GB of disk space
 - XBOX Controller or Haply Inverse 3.
+
 
 #### Software Requirements
 - [NVIDIA Driver Version >= 570](https://developer.nvidia.com/cuda-12-8-1-download-archive)
