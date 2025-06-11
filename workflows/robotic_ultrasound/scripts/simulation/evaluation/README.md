@@ -121,12 +121,12 @@ Our model was tested on both the original texture and several unseen textures. T
 |---------------------------------------|------------------|-----------------------------|-------------------------|-------------------------|
 | Pi0-400-rel                           | 84.5             | 61.2                        | 63.4                    | 59.6                    |
 | GR00T-N1-400-rel                      | 84.1             | 61.5                        | 58.3                    | 64.0                    |
-| Pi0-800-rel (w/ cosmos)               | 90.0             | 77.6                        | 83.1                    | 84.6                    |
+| Pi0-800-rel (w/ cosmos)               | 90.0             | 77.6                        | 83.1                    | 84.8                    |
 | GR00T-N1-800-rel (w/ cosmos)          | 92.8             | 91.1                        | 92.8                    | 91.7                    |
 | Pi0-400-abs                           | 96.5             | 97.0                        | 96.3                    | 11.6                    |
 | GR00T-N1-400-abs                      | 99.3             | 10.6                        | 19.1                    | 20.4                    |
-| Pi0-800-abs (w/ cosmos)               | 98.8             | 85.1                        | 84.7                    | 87.6                    |
-| GR00T-N1-800-abs (w/ cosmos)          | 97.7             | 94.5                        | 95.8                    | 93.8                    |
+| Pi0-800-abs (w/ cosmos)               | 97.7             | 94.5                        | 95.8                    | 93.8                    |
+| GR00T-N1-800-abs (w/ cosmos)          | 98.8             | 85.1                        | 84.7                    | 87.6                    |
 
 ### Success Rate vs. Radius Plot
    - A plot named by the `--saved_compare_name` argument (default: `comparison_success_rate_vs_radius.png`) is saved in the `data_root` directory.
