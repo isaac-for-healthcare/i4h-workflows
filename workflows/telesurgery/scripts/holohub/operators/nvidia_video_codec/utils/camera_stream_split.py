@@ -25,8 +25,8 @@ class CameraStreamSplitOp(Operator):
 
     def setup(self, spec):
         spec.input("input")
-        spec.output("metadata")
-        spec.output("camera")
+        spec.output("output")
+        spec.output("image")
 
     def compute(self, op_input, op_output, context):
         stream = op_input.receive("input")
@@ -41,5 +41,5 @@ class CameraStreamSplitOp(Operator):
         else:
             camera_data = stream.data
 
-        op_output.emit(stream, "metadata")
-        op_output.emit({"": Tensor.as_tensor(camera_data)}, "camera")
+        op_output.emit(stream, "output")
+        op_output.emit({"": Tensor.as_tensor(camera_data)}, "image")

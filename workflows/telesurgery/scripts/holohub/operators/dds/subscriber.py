@@ -44,10 +44,10 @@ class DDSSubscriberOp(Operator):
     def start(self):
         dp = dds.DomainParticipant(domain_id=self.dds_domain_id)
         self.dds_reader = dds.DataReader(dds.Topic(dp, self.dds_topic, self.dds_topic_class))
-        # self.selector = self.dds_reader.select().max_samples(1)
+        self.selector = self.dds_reader.select().max_samples(1)
         print(f"NDDS_DISCOVERY_PEERS: {os.environ.get('NDDS_DISCOVERY_PEERS')}")
         print(f"Reading data from DDS: {self.dds_topic}:{self.dds_domain_id} => {self.dds_topic_class.__name__}")
 
     def compute(self, op_input, op_output, context):
-        for data in self.dds_reader.take_data():
-            op_output.emit(data, "output")
+        for o in self.selector.take_data():
+            op_output.emit(o, "output")

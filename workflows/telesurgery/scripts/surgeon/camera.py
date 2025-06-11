@@ -16,10 +16,11 @@
 import argparse
 
 from holohub.operators.dds.subscriber import DDSSubscriberOp
+from holohub.operators.nvidia_video_codec.utils.camera_stream_merge import CameraStreamMergeOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.decoder import NVJpegDecoderOp
 from holohub.operators.stats import CameraStreamStats
-from holoscan.core import Application
+from holoscan.core import Application, MetadataPolicy
 from holoscan.operators.holoviz import HolovizOp
 from holoscan.resources import RMMAllocator, UnboundedAllocator
 from schemas.camera_stream import CameraStream
@@ -63,6 +64,8 @@ class App(Application):
                 allocator=RMMAllocator(self, name="video_decoder_allocator"),
             )
             split_op = CameraStreamSplitOp(self, name="split_op")
+            merge_op = CameraStreamMergeOp(self, name="merge_op", for_encoder=False)
+            merge_op.metadata_policy = MetadataPolicy.UPDATE
         else:
             decoder_op = NVJpegDecoderOp(
                 self,
@@ -82,14 +85,15 @@ class App(Application):
 
         if self.decoder == "nvc":
             self.add_flow(dds, split_op, {("output", "input")})
-            self.add_flow(split_op, decoder_op, {("camera", "input")})
-            self.add_flow(split_op, stats, {("metadata", "input")})
-            self.add_flow(decoder_op, stats, {("output", "camera")})
+            self.add_flow(split_op, merge_op, {("output", "input")})
+            self.add_flow(split_op, decoder_op, {("image", "input")})
+            self.add_flow(decoder_op, merge_op, {("output", "image")})
+            self.add_flow(merge_op, stats, {("output", "input")})
             self.add_flow(decoder_op, viz, {("output", "receivers")})
         else:
             self.add_flow(dds, decoder_op, {("output", "input")})
             self.add_flow(decoder_op, stats, {("output", "input")})
-            self.add_flow(decoder_op, viz, {("camera", "receivers")})
+            self.add_flow(decoder_op, viz, {("image", "receivers")})
 
 
 def main():

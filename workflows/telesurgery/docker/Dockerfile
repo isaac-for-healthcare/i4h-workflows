@@ -63,3 +63,5 @@ ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat
 ENV PYTHONPATH=/workspace/i4h-workflows/workflows/telesurgery/scripts
 
 WORKDIR /workspace/i4h-workflows/workflows/telesurgery/scripts
+
+RUN python3 -m pip install git+https://github.com/nvidia-holoscan/holoscan-sensor-bridge.git@2.2.0-EA#subdirectory=python

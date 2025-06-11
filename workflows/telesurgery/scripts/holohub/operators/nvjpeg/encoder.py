@@ -15,6 +15,7 @@
 
 import time
 
+import cupy
 import numpy as np
 from holoscan.core import Operator
 from holoscan.core._core import OperatorSpec
@@ -53,6 +54,9 @@ class NVJpegEncoderOp(Operator):
         assert isinstance(stream, CameraStream)
 
         start = time.time()
+        if isinstance(stream.data, cupy.ndarray):
+            stream.data = cupy.asnumpy(stream.data)
+
         if self.skip:
             stream.data = stream.data.tobytes() if isinstance(stream.data, np.ndarray) else stream.data
             stream.compress_ratio = 1

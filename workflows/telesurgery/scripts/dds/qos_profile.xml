@@ -16,7 +16,12 @@
                     <name>Telesurgery DDS</name>
                 </participant_name>
                 <transport_builtin>
-                    <mask>UDPv4</mask>
+                    <mask>SHMEM | UDPv4</mask>
+                    <shmem>
+                        <message_size_max>5242880</message_size_max>
+                        <received_message_count_max>10</received_message_count_max>
+                        <receive_buffer_size>5242880</receive_buffer_size>
+                    </shmem>
                     <udpv4>
                         <send_socket_buffer_size>5242880</send_socket_buffer_size>
                         <recv_socket_buffer_size>5242880</recv_socket_buffer_size>

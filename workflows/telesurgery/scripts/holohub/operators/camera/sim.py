@@ -22,7 +22,7 @@ from holoscan.core._core import OperatorSpec
 from schemas.camera_stream import CameraStream
 
 
-class IsaacSimCameraSourceOp(Operator):
+class IsaacSimToCameraStreamOp(Operator):
     """
     Operator to capture video using OpenCV.
     Process RGB frames from Isaac SIM.

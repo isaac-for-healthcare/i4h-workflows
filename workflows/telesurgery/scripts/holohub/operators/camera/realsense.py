@@ -23,7 +23,7 @@ from holoscan.core._core import OperatorSpec
 from schemas.camera_stream import CameraStream
 
 
-class RealsenseOp(Operator):
+class RealsenseToCameraStreamOp(Operator):
     """
     Operator to interface with an Intel RealSense camera.
     Captures RGB or depth frames.
