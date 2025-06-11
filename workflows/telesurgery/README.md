@@ -187,6 +187,7 @@ python patient/simulation/main.py --encoder nvc --encoder_params patient/nvc_enc
 ```
 
 #### Sample Encoding Parameters
+
 Here's an example of encoding parameters in JSON format:
 
 ```json
@@ -202,7 +203,13 @@ Here's an example of encoding parameters in JSON format:
 
 ### Advanced NVJPEG Configuration
 
-To configure the quality of the encoded frames with NVJPEG encoder, either
+Adjust the quality of encoded frames using the NVJPEG encoder by editing the [nvjpeg_encoder_params.json](./scripts/patient/nvjpeg_encoder_params.json) file. Simply change the quality parameter to a value between 1 and 100:
+
+```json
+{
+    "quality": 90
+}
+```
 
 ## Troubleshooting
 
