@@ -244,7 +244,7 @@ def main():
     parser.add_argument("--width", type=int, default=1920, help="width")
     parser.add_argument("--height", type=int, default=1080, help="height")
     parser.add_argument("--device_idx", type=int, default=0, help="device index")
-    parser.add_argument("--framerate", type=int, default=30, help="frame rate")
+    parser.add_argument("--framerate", type=int, default=60, help="frame rate")
     parser.add_argument("--stream_type", type=str, default="color", choices=["color", "depth"])
     parser.add_argument("--stream_format", type=str, default="")
     parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvc", help="encoder type")

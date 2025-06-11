@@ -16,8 +16,14 @@
 # limitations under the License.
 
 ARG BASE_IMAGE=nvcr.io/nvidia/clara-holoscan/holoscan:v3.2.0-dgpu
-FROM $BASE_IMAGE
 
+# HSB Build
+FROM $BASE_IMAGE AS hsbbuild
+RUN git clone --branch "2.2.0-EA" --single-branch https://github.com/nvidia-holoscan/holoscan-sensor-bridge.git /opt/hololink
+RUN cd /opt/hololink/python  && $INSTALL_ENVIRONMENT pip3 wheel -v .
+
+# Main Docker
+FROM $BASE_IMAGE
 WORKDIR /workspace
 # Install uv using curl for openpi
 RUN apt-get update && \
@@ -64,4 +70,5 @@ ENV PYTHONPATH=/workspace/i4h-workflows/workflows/telesurgery/scripts
 
 WORKDIR /workspace/i4h-workflows/workflows/telesurgery/scripts
 
-RUN python3 -m pip install git+https://github.com/nvidia-holoscan/holoscan-sensor-bridge.git@2.2.0-EA#subdirectory=python
+COPY --from=hsbbuild /opt/hololink/python/hololink-*.whl /tmp/wheel/
+RUN WHEEL=$(find /tmp/wheel -type f -name "hololink-*.whl") && pip3 install ${WHEEL}
