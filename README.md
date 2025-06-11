@@ -15,7 +15,8 @@
 ## Table of Contents
 - [Overview](#overview)
 - [Key Features](#key-features)
-- [Getting Started](#getting-started)
+- [Available Workflows](#available-workflows)
+- [Tutorials](#tutorials)
 - [Project Structure](#project-structure)
 - [Contributing](#contributing)
 - [Support](#support)
@@ -24,64 +25,44 @@
 
 ## Overview
 
-**[Nvidia Isaac for Healthcare](https://github.com/isaac-for-healthcare)** is a comprehensive 3-computer solution for healthcare robotics, enabling developers to leverage NVIDIA technologies for:
+This repository contains **healthcare robotics workflows** - complete, end-to-end implementations that demonstrate how to build, simulate, and deploy robotic systems for specific medical applications using the [Nvidia Isaac for Healthcare](https://github.com/isaac-for-healthcare) platform.
 
-- Accelerating development and testing of AI algorithms with synthetic data generated in digital twin
-- Accelerating development, training and testing of robotic policies in digital twin environments
-- Enabling development, training and testing of systems with hardware-in-the-loop (HIL)
-- Seamlessly transitioning from simulation to physical systems (Sim2Real)
-
-## Key Features
+### What are Workflows?
 
 ![Key features](./docs/source/key_features.jpg)
 
-Our framework provides powerful capabilities for healthcare robotics development:
+Workflows are comprehensive reference implementations that showcase the complete development pipeline from simulation to real-world deployment. Each workflow includes digital twin environments, AI model training capabilities, and deployment frameworks for specific healthcare robotics applications.
 
-### Digital Twin & Simulation
-- **Digital prototyping** of next-gen healthcare robotic systems, sensors and instruments
-- **Synthetic data generation (SDG)** for training AI models, augmented with real data
-- **Hardware-in-the-loop (HIL)** testing and evaluation of AI models in digital twin environments
+### Available Workflows
+This repository currently includes three main workflows:
 
-### AI & Robotics Development
-- **Data collection** for training robotic policies through imitation learning
-- **XR and haptics-enabled teleoperation** of robotic systems in digital twin
-- **GPU-accelerated training** of reinforcement and imitation learning algorithms
-- **Augmented dexterity training** for robot-assisted surgery
+- **[Robotic Surgery](./workflows/robotic_surgery/README.md)** - Physics-based surgical robot simulation framework with photorealistic rendering for developing autonomous surgical skills. Supports da Vinci Research Kit (dVRK), dual-arm configurations, and STAR surgical arms. This workflow enables researchers and medical device companies to train AI models for surgical assistance, validate robot behaviors safely, and accelerate development through GPU-parallelized reinforcement learning. Includes pre-built surgical subtasks like suture needle manipulation and precise reaching tasks.
+- **[Robotic Ultrasound](./workflows/robotic_ultrasound/README.md)** - Comprehensive autonomous ultrasound imaging system featuring physics-accurate sensor simulation through GPU-accelerated raytracing technology that models ultrasound wave propagation, tissue interactions, and acoustic properties in real-time. The raytracing ultrasound simulator generates photorealistic B-mode images by simulating acoustic wave physics, enabling synthetic data generation for training AI models without requiring physical ultrasound hardware. Supports multiple AI policies (PI0, GR00T N1), distributed communication via RTI DDS, and Holoscan deployment for clinical applications. This workflow enables medical imaging researchers, ultrasound device manufacturers, and healthcare AI developers to train robotic scanning protocols, validate autonomous imaging algorithms, and accelerate development through GPU-accelerated simulation before clinical deployment.
+- **[Telesurgery](./workflows/telesurgery/README.md)** - Real-time remote surgical operations framework supporting both simulated and physical environments with low-latency video streaming, haptic feedback, and distributed control systems. This workflow features H.264/HEVC hardware-accelerated video encoding, RTI DDS communication, cross-platform deployment (x86/AARCH64), and seamless sim-to-real transition. Designed for surgical robotics companies, medical device manufacturers, and telemedicine providers to develop remote surgical capabilities, validate teleoperation systems, and deploy scalable telesurgery solutions across different network conditions.
 
-### Deployment & Training
-- **Sim2Real deployment** on Nvidia Holoscan
-- **Continuous testing (CT)** of robotic systems through HIL digital twin systems
-- **Interactive training** experiences for clinicians/users (pre-op planning, post-op evaluations/insights)
+Each workflow provides complete simulation environments, training datasets, pre-trained models, and deployment tools to accelerate your healthcare robotics development.
 
 Please see [What's New](./docs/source/whatsnew_0_1_0.md) for details on our milestone releases.
 
-## Getting Started
-
-For everything you need to get started, including detailed tutorials and step-by-step guides, follow these links to learn more about:
-
-### Workflows
-- [Robotic ultrasound](./workflows/robotic_ultrasound/README.md)
-- [Robotic surgery](./workflows/robotic_surgery/README.md)
-- [Telesurgery](./workflows/telesurgery/README.md)
-
 ### Tutorials
+
+Get started with our comprehensive tutorials that guide you through key aspects of the framework:
 - [Bring your own patient](./tutorials/assets/bring_your_own_patient/README.md)
 - [Bring your own robot](./tutorials/assets/bring_your_own_robot)
 - [Sim2Real Transition](./tutorials/sim2real/README.md)
 
-## Project Structure
+## Repository Structure
 
 ```
 i4h-workflows/
-├── docs/                  # Documentation and guides
-├── workflows/            # Main workflow implementations
-│   ├── robotic_surgery/  # Robotic surgery workflow
-│   └── robotic_ultrasound/ # Robotic ultrasound workflow
+├── docs/                 # Documentation and guides
 ├── tutorials/            # Tutorial materials
-│   ├── assets/          # Asset-related tutorials
-│   └── sim2real/        # Sim2Real transition tutorials
-├── tests/               # Test suite
-└── examples/            # Example implementations
+│   ├── assets/             # Asset-related tutorials
+│   └── sim2real/           # Sim2Real transition tutorials
+├── workflows/            # Main workflow implementations
+│   ├── robotic_surgery/    # Robotic surgery workflow
+│   ├── robotic_ultrasound/ # Robotic ultrasound workflow
+│   └── telesurgery/        # Telesurgery workflow
 ```
 
 ## Contributing

@@ -2,6 +2,9 @@
 
 ![Robotic Surgery Workflow](../../docs/source/robotic_surgery_workflow.jpg)
 
+The Robotic Surgery Workflow is a comprehensive solution designed for healthcare professionals and researchers working in the field of robotic-assisted surgery. This workflow provides a robust framework for simulating, training, and analyzing robotic surgical procedures in a virtual environment. It leverages NVIDIA's ray tracing capabilities to create highly realistic surgical simulations, enabling surgeons to practice complex procedures, researchers to develop new surgical techniques, and medical institutions to enhance their training programs. By offering a safe, controlled environment for surgical practice and research, this workflow helps improve surgical outcomes, reduce training costs, and advance the field of robotic surgery.
+
+
 ## Table of Contents
 - [System Requirements](#system-requirements)
 - [Quick Start](#quick-start)
