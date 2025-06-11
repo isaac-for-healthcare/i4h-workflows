@@ -14,10 +14,9 @@
 
 ## Table of Contents
 - [Overview](#overview)
-- [Key Features](#key-features)
 - [Available Workflows](#available-workflows)
 - [Tutorials](#tutorials)
-- [Project Structure](#project-structure)
+- [Repository Structure](#repository-structure)
 - [Contributing](#contributing)
 - [Support](#support)
 - [License](#license)
