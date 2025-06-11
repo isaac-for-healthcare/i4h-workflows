@@ -60,7 +60,6 @@ ENV PATH=/isaac-sim/kit/python/bin/:/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 ENV LD_LIBRARY_PATH=/opt/nvidia/holoscan/lib/:/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
 ENV LD_LIBRARY_PATH=/workspace/i4h-workflows/workflows/telesurgery/scripts/holohub/operators/nvidia_video_codec/libs:$LD_LIBRARY_PATH
 ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat
-ENV ISAAC_ASSET_SHA256_HASH=8e80faed126c533243f50bb01dca3dcf035e86b5bf567d622878866a8ef7f12d
 ENV PYTHONPATH=/workspace/i4h-workflows/workflows/telesurgery/scripts
 
 WORKDIR /workspace/i4h-workflows/workflows/telesurgery/scripts

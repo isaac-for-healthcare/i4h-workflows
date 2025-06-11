@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM nvcr.io/nvidia/isaac-lab:2.0.2
+FROM nvcr.io/nvidia/isaac-lab:2.1.0
 
 # Fix livestream public endpoint address issue in 2.0.2/2.1.0
 RUN sed -i '/--\/app\/livestream\/publicEndpointAddress=/d' /workspace/isaaclab/source/isaaclab/isaaclab/app/app_launcher.py
