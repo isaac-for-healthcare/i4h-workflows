@@ -152,7 +152,7 @@ In these visualizations, the ground truth trajectory (derived from the 'scan' st
 
 ### Key Observations and Conclusion
 
-The evaluation results from our experiments offer several insights into model performance. It's important to note that the Pi0 models were trained for 30,000 iterations using LoRA, and the GR00T models for 50,000 iterations without LoRA. All models utilized a relative action space for policy learning.
+The evaluation results from our experiments offer several insights into model performance. All models utilized a relative action space for policy learning.
 
 *   **Effect of Cosmos-transfer Data Augmentation:** In our tests, augmenting the training dataset with Cosmos-transfer (resulting in the Pi0-800 and GR00T-N1-800 models) appeared to enhance policy success rates and robustness to three tested unseen table textures when compared to models trained solely on the original dataset (Pi0-400 and GR00T-N1-400). For example, the GR00T-N1-800 model showed more consistent performance across tested textures. Data augmentation, while beneficial for diversity, does require additional computational resources for generating and processing the augmented samples.
 
