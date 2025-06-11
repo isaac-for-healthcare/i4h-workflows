@@ -145,7 +145,7 @@ The example plot visually represents comparisons between different models, where
    - The title of each plot includes the episode number, method name, success rate at `radius_for_plots`, and average minimum distance.
 
    **Example 3D Trajectory Visualization:**
-   
+
    ![3D Trajectory Example](../../../../../docs/source/3d_trajectories-5_Texture2-Pi0-w.png)
 
    In this visualization, the ground truth trajectory (derived from the 'scan' state) is depicted in black, while the colored line represents the predicted trajectory from the model.
