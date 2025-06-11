@@ -20,7 +20,6 @@ import gymnasium as gym
 import numpy as np
 import torch
 from isaaclab.app import AppLauncher
-from policy_runner.pi0.runners import PI0PolicyRunner
 from simulation.environments.state_machine.utils import (
     RobotPositions,
     RobotQuaternions,
@@ -63,6 +62,8 @@ args_cli = parser.parse_args()
 
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
+from policy_runner.pi0.runners import PI0PolicyRunner  # noqa: F401
+
 simulation_app = app_launcher.app
 reset_flag = False
 
