@@ -207,22 +207,23 @@ Replace `/path/to/your/hdf5_data_directory` with the actual path to the director
 [Cosmos-Transfer1](https://github.com/nvidia-cosmos/cosmos-transfer1) is a world-to-world transfer model designed to bridge the perceptual divide between simulated and real-world environments.
 We introduce a training-free guided generation method on top of Cosmos-Transfer1 to overcome unsatisfactory results on unseen healthcare simulation assets.
 Directly applying Cosmos-Transfer with various control inputs results in unsatisfactory outputs for the human phantom and robotic arm (see bottom figure). In contrast, our guided generation method preserves the appearance of the phantom and robotic arm while generating diverse backgrounds.
+
 <img src="../../../../docs/source/cosmos_transfer_result.png" width="512" height="600" />
 
 This training-free guided generation approach by encoding simulation videos into the latent space and applying spatial masking to guide the generation process. The trade-off between realism and faithfulness can be controlled by adjusting the number of guided denoising steps. In addition, our generation pipeline supports multi-view video generation. We first leverage the camera information to warp the generated room view to wrist view, then use it as the guidance of wrist-view generation.
 
 #### Download Cosmos-transfer1 Checkpoints
-Please install cosmos-transfer1 dependency and move to the third party `cosmos-transfer1` folder. The following command downloads the checkpoints:
+The cosmos-transfer1 dependency is already installed after completing the [Installation](#installation) section. Move to the third party `cosmos-transfer1` folder and run the following command to download the checkpoints:
 ```sh
-conda activate cosmos-transfer1
 CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/download_checkpoints.py --output_dir checkpoints/
 ```
+
 #### Video Prompt Generation
 We follow the idea in [lucidsim](https://github.com/lucidsim/lucidsim) to first generate batches of meta prompt that contains a very concise description of the potential scene, then instruct the LLM (e.g., [gemma-3-27b-it](https://build.nvidia.com/google/gemma-3-27b-it)) to upsample the meta prompt with detailed descriptions.
 We provide example prompts in [`generated_prompts_two_seperate_views.json`](./environments/cosmos_transfer1/config/generated_prompts_two_seperate_views.json).
 
 #### Running Cosmos-transfer1 + Guided Generation
-Please move to the current [`simulation` folder](./) and execute the following command to start the generation pipeline:
+Please move back to the current [simulation folder](./) and execute the following command to start the generation pipeline:
 ```sh
 export CHECKPOINT_DIR="path to downloaded cosmos-transfer1 checkpoints"
 # Set project root path
