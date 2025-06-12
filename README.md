@@ -48,7 +48,7 @@ Please see [What's New](./docs/source/whatsnew_0_1_0.md) for details on our mile
 Get started with our comprehensive tutorials that guide you through key aspects of the framework:
 - [Bring your own patient](./tutorials/assets/bring_your_own_patient/README.md)
 - [Bring your own robot](./tutorials/assets/bring_your_own_robot)
-- [Sim2Real Transition](./tutorials/sim2real/README.md)
+- [Bring your own xr](./tutorials/assets/bring_your_own_xr)
 
 ## Repository Structure
 
