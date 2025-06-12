@@ -212,8 +212,8 @@ wandb/
 third_party/
 
 # third-party files
-**/clarius_cast/include
-**/clarius_solum/include
+holoscan_i4h/install
+holoscan_i4h/build
 
 # Raytracing Ultrasound Simulator
 workflows/robotic_ultrasound/scripts/raysim
