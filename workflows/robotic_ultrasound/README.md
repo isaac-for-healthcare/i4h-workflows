@@ -45,7 +45,7 @@
    ```
 5. Set environment variables:
    ```bash
-   export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts`
+   export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts:<path-to-i4h-workflows>`
    export RTI_LICENSE_FILE=<path-to-rti-license-file>
    ```
 
