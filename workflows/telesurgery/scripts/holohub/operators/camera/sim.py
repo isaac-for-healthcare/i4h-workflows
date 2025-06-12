@@ -41,7 +41,7 @@ class IsaacSimCameraSourceOp(Operator):
         self.width = width
         self.height = height
         self.stream_type = 2  # color
-        self.stream_format = 5  # rgb
+        self.stream_format = 7  # rgba
         self.ntp_offset_time = get_ntp_offset()
 
         self.q: queue.Queue = queue.Queue()

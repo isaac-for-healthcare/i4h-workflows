@@ -46,7 +46,7 @@ class CV2VideoCaptureOp(Operator):
         self.framerate = framerate
 
         self.stream_type = 2  # color
-        self.stream_format = 5  # rgb
+        self.stream_format = 7  # rgba
         self.ntp_offset_time = get_ntp_offset()
 
         super().__init__(fragment, *args, **kwargs)
@@ -72,7 +72,7 @@ class CV2VideoCaptureOp(Operator):
         if not ret:
             raise RuntimeError("Failed to capture frame from camera")
 
-        data = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        data = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
 
         ts = int((time.time() + self.ntp_offset_time) * 1000)
         stream = CameraStream(
