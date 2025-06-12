@@ -33,13 +33,13 @@ def main():
     parser.add_argument("--width", type=int, default=1920, help="width")
     parser.add_argument("--height", type=int, default=1080, help="height")
     parser.add_argument("--framerate", type=int, default=30, help="frame rate")
-    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvjpeg")
-    parser.add_argument("--encoder_params", type=str, default=json.dumps({"quality": 90}), help="encoder params")
-    parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
+    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvc", help="encoder type")
+    parser.add_argument("--encoder_params", type=str, default=None, help="encoder params")
+    parser.add_argument("--domain_id", type=int, default=9, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
     parser.add_argument("--api_host", type=str, default="0.0.0.0", help="local api server host")
     parser.add_argument("--api_port", type=int, default=8081, help="local api server port")
-    parser.add_argument("--timeline_play", type=bool, default=False, help="play the timeline")
+    parser.add_argument("--timeline_play", type=bool, default=True, help="play the timeline")
     args = parser.parse_args()
 
     app_launcher = AppLauncher(headless=False)
@@ -105,7 +105,6 @@ def main():
     from patient.simulation.camera.sensor import CameraEx
 
     camera = CameraEx(
-        channels=4 if args.encoder == "nvc" else 3,
         prim_path=camera_prim_path,
         frequency=args.framerate,
         resolution=(args.width, args.height),
@@ -115,11 +114,20 @@ def main():
     # holoscan app in async mode to consume camera source
     from patient.simulation.camera.app import App as CameraApp
 
-    if os.path.isfile(args.encoder_params):
-        with open(args.encoder_params, "r") as f:
-            encoder_params = json.load(f)
+    if args.encoder == "nvjpeg" and args.encoder_params is None:
+        encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvjpeg_encoder_params.json")
+    elif args.encoder == "nvc" and args.encoder_params is None:
+        encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvc_encoder_params.json")
+    elif os.path.isfile(args.encoder_params):
+        encoder_params = args.encoder_params
     else:
         encoder_params = json.loads(args.encoder_params) if args.encoder_params else {}
+
+    print(f"Encoder params: {encoder_params}")
+
+    if os.path.isfile(encoder_params):
+        with open(encoder_params) as f:
+            encoder_params = json.load(f)
 
     camera_app = CameraApp(
         width=args.width,

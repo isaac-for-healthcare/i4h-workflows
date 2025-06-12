@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 import rti.connextdds as dds
 from holoscan.core import Operator
 from holoscan.core._core import OperatorSpec
@@ -43,6 +45,7 @@ class DDSSubscriberOp(Operator):
         dp = dds.DomainParticipant(domain_id=self.dds_domain_id)
         self.dds_reader = dds.DataReader(dds.Topic(dp, self.dds_topic, self.dds_topic_class))
         # self.selector = self.dds_reader.select().max_samples(1)
+        print(f"NDDS_DISCOVERY_PEERS: {os.environ.get('NDDS_DISCOVERY_PEERS')}")
         print(f"Reading data from DDS: {self.dds_topic}:{self.dds_domain_id} => {self.dds_topic_class.__name__}")
 
     def compute(self, op_input, op_output, context):

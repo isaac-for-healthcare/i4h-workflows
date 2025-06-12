@@ -21,10 +21,10 @@
 - 50GB of disk space
 
 ### Software Requirements
-- NVIDIA Driver Version >= 555
-- CUDA Version >= 12.6
+- [NVIDIA Driver Version >= 555](https://www.nvidia.com/en-us/drivers/)
+- [CUDA Version >= 12.6]((https://developer.nvidia.com/cuda-downloads))
 - Python 3.10
-- RTI DDS License
+- [RTI DDS License](https://www.rti.com/free-trial)
 
 ## Quick Start
 
