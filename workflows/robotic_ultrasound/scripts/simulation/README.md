@@ -45,9 +45,10 @@ Please refer to the [Environment Setup - Set environment variables before runnin
 
 #### Run the script
 
-Please move to the current [`simulation` folder](./) and execute:
+Please cd to the current [`simulation` folder](./) and execute:
 
 ```sh
+cd workflows/robotic_ultrasound/scripts/simulation
 python imitation_learning/pi0_policy/eval.py --enable_camera
 ```
 
@@ -68,9 +69,10 @@ Please refer to the [Environment Setup - Set environment variables before runnin
 
 #### Run the script
 
-Please move to the current [`simulation` folder](./) and execute:
+Please cd to the current [`simulation` folder](./) and execute:
 
 ```sh
+cd ../simulation
 python environments/sim_with_dds.py --enable_cameras
 ```
 
@@ -119,9 +121,10 @@ The state machine integrates multiple control modules:
 
 Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) to set the `PYTHONPATH`.
 
-Then please move to the current [`simulation` folder](./) and execute:
+Then please cd to the current [`simulation` folder](./) and execute:
 
 ```sh
+cd ../simulation
 python environments/state_machine/liver_scan_sm.py --enable_cameras
 ```
 
@@ -215,6 +218,7 @@ This training-free guided generation approach by encoding simulation videos into
 #### Download Cosmos-transfer1 Checkpoints
 The cosmos-transfer1 dependency is already installed after completing the [Installation](#installation) section. Move to the third party `cosmos-transfer1` folder and run the following command to download the checkpoints:
 ```sh
+cd third_party/cosmos-transfer1
 CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/download_checkpoints.py --output_dir checkpoints/
 ```
 
@@ -223,8 +227,9 @@ We follow the idea in [lucidsim](https://github.com/lucidsim/lucidsim) to first 
 We provide example prompts in [`generated_prompts_two_seperate_views.json`](./environments/cosmos_transfer1/config/generated_prompts_two_seperate_views.json).
 
 #### Running Cosmos-transfer1 + Guided Generation
-Please move back to the current [simulation folder](./) and execute the following command to start the generation pipeline:
+Please cd back to the current [simulation folder](./) and execute the following command to start the generation pipeline:
 ```sh
+cd ../../workflows/robotic_ultrasound/scripts/simulation/
 export CHECKPOINT_DIR="path to downloaded cosmos-transfer1 checkpoints"
 # Set project root path
 export PROJECT_ROOT="{your path}/i4h-workflows"
@@ -281,9 +286,10 @@ The teleoperation interface allows direct control of the robotic arm using vario
 
 #### Running Teleoperation
 
-Please move to the current [`simulation` folder](./) and execute the following command to start the teleoperation:
+Please cd to the current [`simulation` folder](./) and execute the following command to start the teleoperation:
 
 ```sh
+cd ../simulation
 python environments/teleoperation/teleop_se3_agent.py --enable_cameras
 ```
 
