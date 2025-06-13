@@ -1,6 +1,7 @@
 # Telesurgery Workflow
 
 ![Telesurgery Workflow](../../docs/source/telesurgery_workflow.jpg)
+The Telesurgery Workflow is a cutting-edge solution designed for healthcare professionals and researchers working in the field of remote surgical procedures. This workflow provides a comprehensive framework for enabling and analyzing remote surgical operations, leveraging NVIDIA's advanced GPU capabilities to ensure real-time, high-fidelity surgical interactions across distances. It enables surgeons to perform complex procedures remotely, researchers to develop new telemedicine techniques, and medical institutions to expand their reach to underserved areas. By offering a robust platform for remote surgical operations, this workflow helps improve healthcare accessibility, reduce geographical barriers to specialized care, and advance the field of telemedicine.
 
 
 - [Telesurgery Workflow](#telesurgery-workflow)
