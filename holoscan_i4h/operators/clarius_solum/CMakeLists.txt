@@ -21,41 +21,19 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(pybind11 REQUIRED)
 pybind11_add_module(pysolum pysolum.cpp)
 
-set(LIB_DIR "${CMAKE_BINARY_DIR}/lib")
-set(INCLUDE_DIR "${CMAKE_BINARY_DIR}/include")
-
 execute_process(
-    COMMAND lsb_release -sr
+    COMMAND bash -c "cat /etc/lsb-release | grep DISTRIB_RELEASE | cut -d= -f2"
     OUTPUT_VARIABLE UBUNTU_VERSION
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-# Download Clarius library and header files
-if(NOT EXISTS "${LIB_DIR}/clarius_solum/libsolum.so")
-    file(DOWNLOAD
-        "https://github.com/clariusdev/solum/releases/download/v12.0.2/solum-12.0.2-linux.x86_64-gcc_ubuntu_${UBUNTU_VERSION}.zip"
-         "${LIB_DIR}/clarius_solum/solum.zip"
-         )
-    # Unzip the file
-    execute_process(
-        COMMAND unzip solum.zip
-        WORKING_DIRECTORY ${LIB_DIR}/clarius_solum
+include(FetchContent)
+FetchContent_Declare(
+        clarius_solum
+        URL "https://github.com/clariusdev/solum/releases/download/v12.0.2/solum-12.0.2-linux.x86_64-gcc_ubuntu_${UBUNTU_VERSION}.zip"
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
-    execute_process(COMMAND rm ${LIB_DIR}/clarius_solum/solum.zip)
-endif()
-
-if(NOT EXISTS "${INCLUDE_DIR}/solum/solum.h")
-    execute_process(COMMAND rm -rf "${INCLUDE_DIR}/solum")
-    message("mv ${LIB_DIR}/clarius_solum/solum ${INCLUDE_DIR}/")
-    file(MAKE_DIRECTORY ${INCLUDE_DIR}/solum)
-    execute_process(COMMAND mv "${LIB_DIR}/clarius_solum/solum" "${INCLUDE_DIR}/")
-endif()
-
+FetchContent_MakeAvailable(clarius_solum)
 
 # Header files
-target_include_directories(pysolum PRIVATE "${INCLUDE_DIR}/")
-
-# Place lib in lib/ folder
-set_target_properties(pysolum PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${LIB_DIR}/clarius_solum"
-)
+target_include_directories(pysolum PRIVATE "${clarius_solum_SOURCE_DIR}")

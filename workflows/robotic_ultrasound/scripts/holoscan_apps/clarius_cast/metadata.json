@@ -1,0 +1,26 @@
+{
+	"application": {
+		"name": "clarius_cast",
+		"authors": [
+			{
+				"name": "Holoscan Team",
+				"affiliation": "NVIDIA"
+			}
+		],
+		"dockerfile": "workflows/robotic_ultrasound/scripts/holoscan_apps/clarius_cast/Dockerfile",
+		"language": "Python",
+		"version": "1.0",
+		"changelog": {
+			"1.0": "Initial Release"
+		},
+		"platforms": ["x86_64", "aarch64"],
+		"tags": ["Isaac4Healthcare", "Robotics"],
+		"ranking": 0,
+		"dependencies": {
+		},
+		"run": {
+			"command": "python clarius_cast.py",
+			"workdir": "holohub_app_source"
+		}
+	}
+}
