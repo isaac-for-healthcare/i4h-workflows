@@ -37,7 +37,7 @@ from .constants import (
 
 
 class GamepadControllerOp(Operator):
-    def __init__(self, fragment, *args, control_mode: ControlMode = ControlMode.POLAR, **kwargs):
+    def __init__(self, fragment, *args, control_mode: ControlMode = ControlMode.CARTESIAN, **kwargs):
         self.control_mode = control_mode
         self.reset_grips = False
         self.west_east_pressed_time: Any = None
@@ -83,7 +83,7 @@ class GamepadControllerOp(Operator):
             self.rpc("set_lightring", LIGHT_RING_SOLID_RED.to_dict())
             return
 
-        is_xbox = "xbox" in event.name.lower()
+        is_xbox = "xbox" in event.name.lower() or "x-box" in event.name.lower()
         if event.os == "posix":
             map = LINUX_XBOX_MAP if is_xbox else LINUX_PRO_CONTROLLER_MAP
         else:

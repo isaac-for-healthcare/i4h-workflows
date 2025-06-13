@@ -33,10 +33,10 @@ This physics-based approach enables the generation of highly realistic synthetic
 - 50GB of disk space
 
 ### Software Requirements
-- NVIDIA Driver Version >= 555
-- CUDA Version >= 12.6
+- [NVIDIA Driver Version >= 555](https://www.nvidia.com/en-us/drivers/)
+- [CUDA Version >= 12.6]((https://developer.nvidia.com/cuda-downloads))
 - Python 3.10
-- RTI DDS License
+- [RTI DDS License](https://www.rti.com/free-trial)
 
 ## Quick Start
 
@@ -57,7 +57,7 @@ This physics-based approach enables the generation of highly realistic synthetic
    ```
 5. Set environment variables:
    ```bash
-   export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts`
+   export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts:<path-to-i4h-workflows>`
    export RTI_LICENSE_FILE=<path-to-rti-license-file>
    ```
 
