@@ -5,7 +5,7 @@
     <qos_library name="TelesurgeryDDSTransport">
 
         <!-- Optimized profile for shared memory and local network -->
-        <qos_profile name="UDP" base_name="BuiltinQosSnippetLib::Transport.UDP.AvoidIPFragmentation" is_default_qos="true">
+        <qos_profile name="SHMEM+LAN" base_name="BuiltinQosSnippetLib::Transport.UDP.AvoidIPFragmentation" is_default_qos="true">
             <participant_factory_qos>
                 <logging>
                     <verbosity>SILENT</verbosity>
@@ -18,13 +18,13 @@
                 <transport_builtin>
                     <mask>SHMEM | UDPv4</mask>
                     <shmem>
-                        <message_size_max>5242880</message_size_max>
+                        <message_size_max>8500000</message_size_max>
                         <received_message_count_max>10</received_message_count_max>
-                        <receive_buffer_size>5242880</receive_buffer_size>
+                        <receive_buffer_size>8500000</receive_buffer_size>
                     </shmem>
                     <udpv4>
-                        <send_socket_buffer_size>5242880</send_socket_buffer_size>
-                        <recv_socket_buffer_size>5242880</recv_socket_buffer_size>
+                        <send_socket_buffer_size>8500000</send_socket_buffer_size>
+                        <recv_socket_buffer_size>8500000</recv_socket_buffer_size>
                         <disable_interface_tracking>true</disable_interface_tracking>
                     </udpv4>
                 </transport_builtin>

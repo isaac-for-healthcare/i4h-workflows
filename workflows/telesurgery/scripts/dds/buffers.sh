@@ -69,15 +69,16 @@ current_rmem_max=$(get_sysctl_value net.core.rmem_max)
 current_wmem_max=$(get_sysctl_value net.core.wmem_max)
 
 # Desired values
-new_rmem_default=5242880
-new_wmem_default=5242880
-new_rmem_max=5242880
-new_wmem_max=5242880
+new_rmem_default=8500000
+new_wmem_default=8500000
+new_rmem_max=8500000
+new_wmem_max=8500000
 
 if [[ $current_rmem_default -lt $new_rmem_default || $current_wmem_default -lt $new_wmem_default || $current_rmem_max -lt $new_rmem_max || $current_wmem_max -lt $new_wmem_max ]]; then
 
     # Prompt for buffer size increase
-    echo -e "\nConnext recommends larger values for these settings to improve performance.\nWould you like to increase your send/receive socket buffer sizes? Default will be increased to 5242880, and Maximum to 5242880. (y/n)"
+    echo -e "\nConnext recommends larger values for these settings to improve performance.\n
+    Would you like to increase your send/receive socket buffer sizes? Default will be increased to 8500000, and Maximum to 8500000. (y/n)"
     read answer
 
     if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
@@ -92,7 +93,7 @@ if [[ $current_rmem_default -lt $new_rmem_default || $current_wmem_default -lt $
                 if [ "$VERBOSE" = true ]; then
                     echo "Increasing $param from $current to $new"
                 fi
-                run_cmd "sudo sysctl -w $param=$new"
+                run_cmd "sysctl -w $param=$new"
             else
                 echo "Keeping $param at current value ($current) as it's already higher than suggested value ($new)"
             fi

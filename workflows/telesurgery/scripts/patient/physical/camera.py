@@ -27,9 +27,10 @@ from holohub.operators.dds.publisher import DDSPublisherOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_merge import CameraStreamMergeOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.encoder import NVJpegEncoderOp
+from holohub.operators.to_viz import CameraStreamToViz
 from holoscan.conditions import BooleanCondition
 from holoscan.core import Application, MetadataPolicy
-from holoscan.operators import BayerDemosaicOp
+from holoscan.operators import BayerDemosaicOp, HolovizOp
 from holoscan.resources import BlockMemoryPool, MemoryStorageType
 from schemas.camera_stream import CameraStream
 
@@ -57,6 +58,8 @@ class App(Application):
         hsb_ibv_name=None,
         hsb_ibv_port=None,
         hsb_camera=None,
+        show_viz=False,
+        srgb=True,
     ):
         self.camera = camera
         self.camera_name = camera_name
@@ -77,6 +80,8 @@ class App(Application):
         self.hsb_ibv_name = hsb_ibv_name
         self.hsb_ibv_port = hsb_ibv_port
         self.hsb_camera = hsb_camera
+        self.show_viz = show_viz
+        self.srgb = srgb
 
         super().__init__()
 
@@ -221,6 +226,12 @@ class App(Application):
             dds_topic_class=CameraStream,
         )
 
+        if self.show_viz:
+            stream_to_viz = CameraStreamToViz(self)
+            visualizer = HolovizOp(self, name="holoviz", framebuffer_srgb=True)
+            self.add_flow(source, stream_to_viz, {("output", "input")})
+            self.add_flow(stream_to_viz, visualizer, {("output", "receivers")})
+
         if self.encoder == "nvc":
             print("Using NVC encoder with split and merge")
             self.add_flow(source, split_op, {("output", "input")})
@@ -251,6 +262,8 @@ def main():
     parser.add_argument("--encoder_params", type=str, default=None, help="encoder params")
     parser.add_argument("--domain_id", type=int, default=9, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
+    parser.add_argument("--show_viz", type=bool, default=False, help="show viz")
+    parser.add_argument("--srgb", type=bool, default=True, help="framebuffer srgb for viz")
 
     infiniband_devices = hololink.infiniband_devices()
     parser.add_argument("--ibv-name", default=infiniband_devices[0], help="IBV device to use")
@@ -329,6 +342,8 @@ def main():
         hsb_ibv_name=args.ibv_name,
         hsb_ibv_port=args.ibv_port,
         hsb_camera=hsb_camera,
+        show_viz=args.show_viz,
+        srgb=args.srgb,
     )
 
     if hololink_channel is not None:

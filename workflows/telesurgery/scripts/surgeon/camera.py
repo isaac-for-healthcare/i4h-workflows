@@ -20,6 +20,7 @@ from holohub.operators.nvidia_video_codec.utils.camera_stream_merge import Camer
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.decoder import NVJpegDecoderOp
 from holohub.operators.stats import CameraStreamStats
+from holohub.operators.to_viz import CameraStreamToViz
 from holoscan.core import Application, MetadataPolicy
 from holoscan.operators.holoviz import HolovizOp
 from holoscan.resources import RMMAllocator, UnboundedAllocator
@@ -74,6 +75,7 @@ class App(Application):
             )
 
         stats = CameraStreamStats(self, name="stats", interval_ms=1000)
+        stream_to_viz = CameraStreamToViz(self)
         viz = HolovizOp(
             self,
             allocator=UnboundedAllocator(self, name="pool"),
@@ -81,6 +83,7 @@ class App(Application):
             window_title="Camera",
             width=self.width,
             height=self.height,
+            framebuffer_srgb=self.srgb,
         )
 
         if self.decoder == "nvc":
@@ -93,7 +96,8 @@ class App(Application):
         else:
             self.add_flow(dds, decoder_op, {("output", "input")})
             self.add_flow(decoder_op, stats, {("output", "input")})
-            self.add_flow(decoder_op, viz, {("image", "receivers")})
+            self.add_flow(decoder_op, stream_to_viz, {("output", "input")})
+            self.add_flow(stream_to_viz, viz, {("output", "receivers")})
 
 
 def main():
@@ -105,6 +109,7 @@ def main():
     parser.add_argument("--decoder", type=str, choices=["nvjpeg", "none", "nvc"], default="nvc", help="decoder type")
     parser.add_argument("--domain_id", type=int, default=9, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
+    parser.add_argument("--srgb", type=bool, default=True, help="framebuffer srgb for viz")
 
     args = parser.parse_args()
     app = App(
