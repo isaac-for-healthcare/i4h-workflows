@@ -23,10 +23,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
     pybind11-dev \
-    libicu70 \
     libglx0 \
     libegl1 \
-    libegl1-mesa \
     libegl1-mesa-dev \
     libxkbcommon0 \
     libxkbcommon-x11-0 \
