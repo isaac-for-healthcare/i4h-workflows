@@ -22,10 +22,8 @@ FROM ${BASE_IMAGE} AS base
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y \
-    libicu70 \
     libglx0 \
     libegl1 \
-    libegl1-mesa \
     libegl1-mesa-dev \
     libxkbcommon0 \
     libxkbcommon-x11-0 \
@@ -43,6 +41,5 @@ RUN apt-get update && apt-get install -y \
 RUN pip install rti.connext Pillow
 
 # Add schemas directory to PYTHONPATH to enable importing operators
-ENV PYTHONPATH=$PYTHONPATH:/workspace/holohub:/workspace/holohub/workflows/robotic_ultrasound/scripts
-ENV PYTHONPATH=$PYTHONPATH:/workspace/holohub/build/clarius_cast/_deps/clarius_cast-src/python310
+ENV PYTHONPATH=$PYTHONPATH:/workspace/holohub:/workspace/holohub/workflows/robotic_ultrasound/scripts:/workspace/holohub/build/clarius_cast/_deps/clarius_cast-src/python310
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/workspace/holohub/build/clarius_cast/_deps/clarius_cast-src:/workspace/holohub/build/clarius_cast/_deps/clarius_cast-src/python310
