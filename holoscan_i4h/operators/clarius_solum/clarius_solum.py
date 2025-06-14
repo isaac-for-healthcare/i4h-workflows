@@ -15,7 +15,6 @@
 
 import ctypes
 import os
-import sys
 from io import BytesIO
 from time import sleep
 
