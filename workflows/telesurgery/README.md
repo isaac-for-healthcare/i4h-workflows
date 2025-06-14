@@ -89,7 +89,7 @@ python patient/physical/camera.py --camera imx274 --name robot --width 1920 --he
 python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720 --framerate 30
 
 # Using CV2 Camera with NVIDIA H.264 Encoder
-python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080 --framerate 30
+python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080 --framerate 30 --device_idx 0
 
 # Using RealSense Camera with NVJPEG Encoder
 python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720 --framerate 30 --encoder nvjpeg
@@ -103,11 +103,11 @@ python patient/physical/camera.py --camera cv2 --name robot --width 1920 --heigh
 # Start the Docker Container
 workflows/telesurgery/docker/real.sh run
 
-# Start the Surgeon Application with NVIDIA H.264 Decoder (resizes original image to 1280x720)
-python surgeon/camera.py --name robot --width 1280 --height 720 2> /dev/null
+# Start the Surgeon Application with NVIDIA H.264 Decoder
+python surgeon/camera.py --name robot 2> /dev/null
 
 # Run the Surgeon Application with NVJPEG Decoder
-python surgeon/camera.py --name [robot|room] --width 1280 --height 720 --decoder nvjpeg
+python surgeon/camera.py --name [robot|room] --decoder nvjpeg
 ```
 
 ##### Gamepad Controller Application

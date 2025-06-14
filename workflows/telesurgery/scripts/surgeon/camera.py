@@ -37,12 +37,14 @@ class App(Application):
         decoder,
         dds_domain_id,
         dds_topic,
+        srgb=True,
     ):
         self.width = width
         self.height = height
         self.decoder = decoder
         self.dds_domain_id = dds_domain_id
         self.dds_topic = dds_topic
+        self.srgb = srgb
 
         super().__init__()
 
@@ -118,6 +120,7 @@ def main():
         decoder=args.decoder,
         dds_domain_id=args.domain_id,
         dds_topic=args.topic if args.topic else f"telesurgery/{args.name}_camera/rgb",
+        srgb=args.srgb,
     )
     app.run()
 
