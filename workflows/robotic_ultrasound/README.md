@@ -2,6 +2,18 @@
 
 ![Robotic Ultrasound Workflow](../../docs/source/robotic_us_workflow.jpg)
 
+The Robotic Ultrasound Workflow is a comprehensive solution designed for healthcare professionals, medical imaging researchers, and ultrasound device manufacturers working in the field of autonomous ultrasound imaging. This workflow provides a robust framework for simulating, training, and deploying robotic ultrasound systems using NVIDIA's advanced ray tracing technology. By offering a physics-accurate ultrasound simulation environment, it enables researchers to develop and validate autonomous scanning protocols, train AI models for image interpretation, and accelerate the development of next-generation ultrasound systems without requiring physical hardware.
+
+The workflow features a state-of-the-art ultrasound sensor simulation that leverages GPU-accelerated ray tracing to model the complex physics of ultrasound wave propagation. The simulator accurately represents:
+- Acoustic wave propagation through different tissue types
+- Tissue-specific acoustic properties (impedance, attenuation, scattering)
+- Real-time B-mode image generation based on echo signals
+- Dynamic tissue deformation and movement
+- Multi-frequency transducer capabilities
+
+This physics-based approach enables the generation of highly realistic synthetic ultrasound images that closely match real-world data, making it ideal for training AI models and validating autonomous scanning algorithms. The workflow supports multiple AI policies (PI0, GR00T N1) and can be deployed using NVIDIA Holoscan for clinical applications, providing a complete pipeline from simulation to real-world deployment.
+
+
 ## Table of Contents
 - [System Requirements](#system-requirements)
 - [Quick Start](#quick-start)
@@ -45,7 +57,7 @@
    ```
 5. Set environment variables:
    ```bash
-   export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts`
+   export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts:<path-to-i4h-workflows>`
    export RTI_LICENSE_FILE=<path-to-rti-license-file>
    ```
 

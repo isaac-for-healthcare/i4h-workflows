@@ -282,7 +282,8 @@ def main():
             zero_out_xy_rotation=False,
             use_wrist_position=True,
             use_wrist_rotation=True,
-            delta_rot_scale_factor=3.0,
+            delta_rot_scale_factor=8.0,
+            delta_pos_scale_factor=8.0,
         )
         grip_retargeter = GripperRetargeter(bound_hand=OpenXRDevice.TrackingTarget.HAND_RIGHT)
 
@@ -301,7 +302,7 @@ def main():
         def process_hand_tracking_pose(delta_pose: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
             # Define the transformation matrix (preprocessing step for wrist frame to world frame)
             transform_matrix = torch.tensor(
-                [[0, 0, 1, 0], [0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 1]],
+                [[-1, 0, 0, 0], [0, 1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]],
                 dtype=torch.float32,
                 device=env.unwrapped.device,
             )
@@ -314,7 +315,7 @@ def main():
             delta_pos = delta_pos_4d[:, :3]
 
             # Process hand tracking rotation (wrist -> world)
-            delta_rot = math_utils.quat_from_euler_xyz(-delta_pose[:, 3], delta_pose[:, 4], -delta_pose[:, 5])
+            delta_rot = math_utils.quat_from_euler_xyz(delta_pose[:, 3], delta_pose[:, 4], delta_pose[:, 5])
             delta_rot_matrix = math_utils.matrix_from_quat(delta_rot)
             delta_rot_matrix = torch.matmul(
                 transform_matrix[:3, :3], torch.matmul(delta_rot_matrix, transform_matrix[:3, :3].T)
