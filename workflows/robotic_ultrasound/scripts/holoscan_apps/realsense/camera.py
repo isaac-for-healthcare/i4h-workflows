@@ -74,6 +74,7 @@ class RealsenseApp(Application):
                 noop = NoOp(self, ["color"])
                 self.add_flow(camera, noop)
 
+
 def main():
     """Parse command-line arguments and run the application."""
     parser = argparse.ArgumentParser(description="Run the RealSense camera application")

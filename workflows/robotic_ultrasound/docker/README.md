@@ -127,7 +127,7 @@ This utility will display real-time ultrasound images and other sensor data stre
      ```bash
      docker run --rm --gpus all nvidia/cuda:11.8-base-ubuntu20.04 nvidia-smi
      ```
-  
+
 - **Policy not responding**: Ensure the policy runner is started before the simulation and is running in the background
 - **No ultrasound images**: Verify that the `raysim` directory is properly mounted and the ultrasound raytracing simulator is running
 - **Display issues**: Make sure `xhost +local:docker` was run before starting the container and the terminal shouldn't be running in a headless mode (e.g. in ssh connection without `-X` option)

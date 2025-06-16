@@ -19,7 +19,8 @@ from holoscan.core._core import OperatorSpec
 
 class NoOp(Operator):
     """A sink operator that takes input and discards them."""
-    def __init__(self, fragment, input_ports = None, *args, **kwargs):
+
+    def __init__(self, fragment, input_ports=None, *args, **kwargs):
         self.input_ports = input_ports or ["input"]
         super().__init__(fragment, *args, **kwargs)
 
