@@ -51,15 +51,15 @@ docker run --name isaac-sim --entrypoint bash -itd --runtime=nvidia --gpus all -
 ```bash
 docker exec -it isaac-sim bash
 # Inside the container, run the policy
-python policy_runner/run_policy.py
+conda activate robotic_ultrasound
+cd /workspace/i4h-workflows/workflows/robotic_ultrasound/scripts
+python workflows/robotic_ultrasound/scripts/policy_runner/run_policy.py
 ```
-
-The policy runner will be running in an environment managed by `uv` located in `/workspace/openpi/.venv`.
 
 ### Run Simulation
 
 ```bash
 docker exec -it isaac-sim bash
 # Inside the container, run the simulation
-python simulation/environments/sim_with_dds.py --enable_camera --livestream 2
+python workflows/robotic_ultrasound/scripts/simulation/environments/sim_with_dds.py --enable_camera --livestream 2
 ```
