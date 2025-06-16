@@ -355,6 +355,12 @@ def main():
         hsb_hololink = hololink_channel.hololink()
         hsb_hololink.start()
 
+        # Reset it on start
+        hsb_hololink.reset()
+        hsb_camera.setup_clock()
+        hsb_camera.configure(hsb_camera_mode)
+        hsb_camera.set_digital_gain_reg(0x4)
+
     app.run()
 
     if hsb_hololink is not None:
