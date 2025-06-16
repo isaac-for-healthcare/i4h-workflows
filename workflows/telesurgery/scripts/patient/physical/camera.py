@@ -27,6 +27,7 @@ from holohub.operators.dds.publisher import DDSPublisherOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_merge import CameraStreamMergeOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.encoder import NVJpegEncoderOp
+from holohub.operators.stats import CameraStreamStats
 from holohub.operators.to_viz import CameraStreamToViz
 from holoscan.conditions import BooleanCondition
 from holoscan.core import Application, MetadataPolicy
@@ -225,6 +226,7 @@ class App(Application):
             dds_topic=self.dds_topic,
             dds_topic_class=CameraStream,
         )
+        stats = CameraStreamStats(self, name="stats", interval_ms=1000)
 
         if self.show_viz:
             stream_to_viz = CameraStreamToViz(self)
@@ -239,9 +241,11 @@ class App(Application):
             self.add_flow(split_op, encoder_op, {("image", "input")})
             self.add_flow(encoder_op, merge_op, {("output", "image")})
             self.add_flow(merge_op, dds, {("output", "input")})
+            self.add_flow(merge_op, stats, {("output", "input")})
         else:
             self.add_flow(source, encoder_op, {("output", "input")})
             self.add_flow(encoder_op, dds, {("output", "input")})
+            self.add_flow(encoder_op, stats, {("output", "input")})
 
 
 def main():
@@ -302,6 +306,7 @@ def main():
 
         # Get a handle to the data source
         channel_metadata = hololink.Enumerator.find_channel(channel_ip=args.hololink)
+        print(f"{channel_metadata=}")
         hololink_channel = hololink.DataChannel(channel_metadata)
 
         # Get a handle to the camera
