@@ -26,7 +26,6 @@ RUN apt-get update && \
         jq
 
 # Add github.com to list of known hosts for git clone with ssh
-# Note that https://api.github.com/meta is highly rate-limited, if it fails, 
 # use COPY command instead
 RUN mkdir -p ~/.ssh && \
     curl --silent https://api.github.com/meta \
@@ -51,7 +50,7 @@ RUN apt-get install -y \
         build-essential \
         cmake \
         vulkan- tools
- 
+
 # Needed for Holoscan apps
 RUN apt-get install -y \
         lsb-release \
