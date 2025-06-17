@@ -126,21 +126,17 @@ This utility will display real-time ultrasound images and other sensor data stre
      # Check Docker can access GPU
      docker run --rm --gpus all --runtime=nvidia nvidia/cuda:12.8.1-devel-ubuntu24.04 nvidia-smi
      ```
-   If the `--runtime=nvidia` is not working, you can try to configure Docker daemon for NVIDIA runtime:
-     ```bash
-     # Edit /etc/docker/daemon.json
-     sudo tee /etc/docker/daemon.json > /dev/null <<EOF
-{
-    "default-runtime": "nvidia",
-    "runtimes": {
-        "nvidia": {
-            "path": "nvidia-container-runtime",
-            "runtimeArgs": []
-        }
-    }
-}
-EOF
-     sudo systemctl restart docker
+   If the `--runtime=nvidia` is not working, you can try to configure Docker daemon for NVIDIA runtime. The file should contain the following content:
+     ```json
+      {
+         "default-runtime": "nvidia",
+         "runtimes": {
+            "nvidia": {
+                  "path": "nvidia-container-runtime",
+                  "runtimeArgs": []
+            }
+         }
+      }
      ```
 
 - **Policy not responding**: Ensure the policy runner is started before the simulation and is running in the background
