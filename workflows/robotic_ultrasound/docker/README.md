@@ -122,7 +122,7 @@ This utility will display real-time ultrasound images and other sensor data stre
      ```bash
      # Check NVIDIA driver
      nvidia-smi
-     
+
      # Check Docker can access GPU
      docker run --rm --gpus all --runtime=nvidia nvidia/cuda:12.8.1-devel-ubuntu24.04 nvidia-smi
      ```
@@ -158,6 +158,6 @@ docker run --rm --gpus all nvidia/cuda:12.0-base-ubuntu20.04 nvidia-smi
 # Test Vulkan support
 docker run --rm --gpus all -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY robot_us:latest vulkaninfo
 
-# Test OpenGL support  
+# Test OpenGL support
 docker run --rm --gpus all -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY robot_us:latest glxinfo | head -20
 ```
