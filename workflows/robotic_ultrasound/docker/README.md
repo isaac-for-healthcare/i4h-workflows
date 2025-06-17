@@ -35,7 +35,8 @@ Since we need to run multiple instances (policy runner, simulation, etc.), we ne
 
 ```bash
 xhost +local:docker
-docker run --name isaac-sim --entrypoint bash -itd --runtime=nvidia --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
+docker run --name isaac-sim -itd --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
+    --runtime=nvidia \
     -e DISPLAY=$DISPLAY \
     -e "PRIVACY_CONSENT=Y" \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
@@ -49,11 +50,11 @@ docker run --name isaac-sim --entrypoint bash -itd --runtime=nvidia --gpus all -
     -v ~/docker/isaac-sim/documents:/root/Documents:rw \
     -v ~/.cache/i4h-assets:/root/.cache/i4h-assets:rw \
     -v ~/docker/rti:/root/rti:ro \
-    -v ~/raysim:/root/raysim:ro \
-    robot_us:latest
+    robot_us:latest \
+    bash
 ```
 
-**Note:** The `<path-to-raysim>:/workspace/i4h-workflows/workflows/robotic_ultrasound/scripts/raysim:ro` mount could be required for ultrasound raytracing simulation, If you haven't downloaded the raysim module following the [Environment Setup - Install the raytracing ultrasound simulator](../README.md#install-the-raytracing-ultrasound-simulator) instructions. If you don't need ultrasound simulation, you can omit this mount.
+**Note:** The `<path-to-raysim>:/workspace/i4h-workflows/workflows/robotic_ultrasound/scripts/raysim:ro` mount is also required for ultrasound raytracing simulation, If you haven't downloaded the raysim module following the [Environment Setup - Install the raytracing ultrasound simulator](../README.md#install-the-raytracing-ultrasound-simulator) instructions. If you don't need ultrasound simulation, you can omit this mount.
 
 ## Running the Simulation
 
@@ -63,6 +64,8 @@ First, start the policy runner in the background. This process will wait for sim
 
 ```bash
 docker exec -it isaac-sim bash
+# Inside the container
+conda activate robotic_ultrasound
 python workflows/robotic_ultrasound/scripts/policy_runner/run_policy.py
 ```
 
@@ -75,6 +78,7 @@ In a separate terminal session, start the main simulation:
 ```bash
 docker exec -it isaac-sim bash
 # Inside the container, run the simulation
+conda activate robotic_ultrasound
 python workflows/robotic_ultrasound/scripts/simulation/environments/sim_with_dds.py --enable_camera --livestream 2
 ```
 
@@ -110,25 +114,54 @@ This utility will display real-time ultrasound images and other sensor data stre
 
 ## Troubleshooting
 
-- **`unknown or invalid runtime name: nvidia`**: This error occurs when the NVIDIA Docker runtime is not installed or properly configured. To fix this:
-  1. Install the NVIDIA Container Toolkit:
+### GPU Device Errors
+
+- **"Failed to create any GPU devices" or "omni.gpu_foundation_factory.plugin" errors**: This indicates GPU device access issues. Try these fixes in order:
+
+  **Verify NVIDIA drivers and container toolkit installation**:
      ```bash
-     # For Ubuntu/Debian
-     distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-     curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
-     curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
-     sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+     # Check NVIDIA driver
+     nvidia-smi
+     
+     # Check Docker can access GPU
+     docker run --rm --gpus all --runtime=nvidia nvidia/cuda:12.8.1-devel-ubuntu24.04 nvidia-smi
      ```
-  2. Restart the Docker daemon:
+   If the `--runtime=nvidia` is not working, you can try to configure Docker daemon for NVIDIA runtime:
      ```bash
+     # Edit /etc/docker/daemon.json
+     sudo tee /etc/docker/daemon.json > /dev/null <<EOF
+{
+    "default-runtime": "nvidia",
+    "runtimes": {
+        "nvidia": {
+            "path": "nvidia-container-runtime",
+            "runtimeArgs": []
+        }
+    }
+}
+EOF
      sudo systemctl restart docker
-     ```
-  3. Verify the installation:
-     ```bash
-     docker run --rm --gpus all nvidia/cuda:11.8-base-ubuntu20.04 nvidia-smi
      ```
 
 - **Policy not responding**: Ensure the policy runner is started before the simulation and is running in the background
+
 - **No ultrasound images**: Verify that the `raysim` directory is properly mounted and the ultrasound raytracing simulator is running
+
 - **Display issues**: Make sure `xhost +local:docker` was run before starting the container and the terminal shouldn't be running in a headless mode (e.g. in ssh connection without `-X` option)
+
 - **Missing assets**: Verify that the I4H assets and RTI license are properly mounted and accessible
+
+### Verification Commands
+
+After applying fixes, test with these commands:
+
+```bash
+# Test basic GPU access
+docker run --rm --gpus all nvidia/cuda:12.0-base-ubuntu20.04 nvidia-smi
+
+# Test Vulkan support
+docker run --rm --gpus all -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY robot_us:latest vulkaninfo
+
+# Test OpenGL support  
+docker run --rm --gpus all -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY robot_us:latest glxinfo | head -20
+```
