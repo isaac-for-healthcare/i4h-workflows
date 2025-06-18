@@ -35,6 +35,8 @@ class HSBToCameraStreamOp(Operator):
 
     def compute(self, op_input, op_output, context):
         data = cp.asarray(op_input.receive("input")[""])
+        alpha = cp.full((data.shape[0], data.shape[1], 1), 255, dtype=data.dtype)
+        data_rgba = cp.concatenate((data, alpha), axis=2)
 
         ts = int((time.time() + self.ntp_offset_time) * 1000)
         stream = CameraStream(
@@ -43,6 +45,6 @@ class HSBToCameraStreamOp(Operator):
             format=7,
             width=self.width,
             height=self.height,
-            data=data,
+            data=data_rgba,
         )
         op_output.emit(stream, "output")

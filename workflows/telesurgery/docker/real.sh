@@ -23,7 +23,7 @@ source $SCRIPT_DIR/../scripts/env.sh
 source $SCRIPT_DIR/utils.sh
 
 HOLOHUB_DIR=$SCRIPT_DIR/../scripts/holohub
-DOCKER_IMAGE=telesurgery:0.2
+DOCKER_IMAGE=telesurgery:0.2.1
 CONTAINER_NAME=telesurgery
 
 function build() {
@@ -31,6 +31,8 @@ function build() {
   echo "Building Telesurgery Docker Image using ${BASE_IMAGE}"
   docker build --ssh default \
     --build-arg BASE_IMAGE=$BASE_IMAGE \
+    --build-arg HSB_REPO_URL=$HSB_REPO_URL \
+    --build-arg HSB_BRANCH=$HSB_BRANCH \
     -t $DOCKER_IMAGE \
     -f workflows/telesurgery/docker/Dockerfile .
   download_operators

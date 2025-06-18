@@ -19,7 +19,12 @@ ARG BASE_IMAGE=nvcr.io/nvidia/clara-holoscan/holoscan:v3.2.0-dgpu
 
 # HSB Build
 FROM $BASE_IMAGE AS hsbbuild
-RUN git clone --branch "2.2.0-EA" --single-branch https://github.com/nvidia-holoscan/holoscan-sensor-bridge.git /opt/hololink
+ARG HSB_REPO_URL
+ENV HSB_REPO_URL=${HSB_REPO_URL:-https://github.com/nvidia-holoscan/holoscan-sensor-bridge.git}
+ARG HSB_BRANCH
+ENV HSB_BRANCH=${HSB_BRANCH:-2.2.0-EA}
+
+RUN git clone --branch ${HSB_BRANCH} --single-branch  ${HSB_REPO_URL} /opt/hololink
 RUN cd /opt/hololink/python  && $INSTALL_ENVIRONMENT pip3 wheel -v .
 
 # Main Docker
