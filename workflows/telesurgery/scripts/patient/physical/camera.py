@@ -203,7 +203,7 @@ class App(Application):
                 hololink_channel=self.hsb_hololink_channel,
                 device=self.hsb_camera,
             )
-            source = HSBToCameraStreamOp(self, name="hsb", width=self.width, height=self.height)
+            source = HSBToCameraStreamOp(self, name="hsb", width=self.width, height=self.height, is_nvc = self.encoder == "nvc")
 
             self.add_flow(receiver_operator, hdmi_converter_operator, {("output", "input")})
             self.add_flow(hdmi_converter_operator, source, {("output", "input")})
@@ -328,12 +328,14 @@ def main():
     hololink_channel = None
     hsb_hololink = None
     hsb_camera = None
+    is_4k = False
     if args.camera == "imx274" or args.camera == "yuan_hsb":
         assert args.framerate == 60
 
         camera_mode = -1
         if args.width == 3840 and args.height == 2160:
             camera_mode = 0
+            is_4k = True
         elif args.width == 1920 and args.height == 1080:
             camera_mode = 1
         if camera_mode < 0:
@@ -399,6 +401,7 @@ def main():
         hsb_camera=hsb_camera,
         show_viz=args.show_viz,
         srgb=args.srgb,
+        yuan_4k_video=is_4k,
     )
 
     if hololink_channel is not None:

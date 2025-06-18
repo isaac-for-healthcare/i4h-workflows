@@ -23,9 +23,10 @@ from schemas.camera_stream import CameraStream
 
 
 class HSBToCameraStreamOp(Operator):
-    def __init__(self, fragment, width, height, *args, **kwargs):
+    def __init__(self, fragment, width, height, is_nvc, *args, **kwargs):
         self.width = width
         self.height = height
+        self.is_nvc = is_nvc
         self.ntp_offset_time = get_ntp_offset()
         super().__init__(fragment, *args, **kwargs)
 
@@ -35,8 +36,9 @@ class HSBToCameraStreamOp(Operator):
 
     def compute(self, op_input, op_output, context):
         data = cp.asarray(op_input.receive("input")[""])
-        alpha = cp.full((data.shape[0], data.shape[1], 1), 255, dtype=data.dtype)
-        data_rgba = cp.concatenate((data, alpha), axis=2)
+        if self.is_nvc:
+            alpha = cp.full((data.shape[0], data.shape[1], 1), 255, dtype=data.dtype)
+            data = cp.concatenate((data, alpha), axis=2)
 
         ts = int((time.time() + self.ntp_offset_time) * 1000)
         stream = CameraStream(
@@ -45,6 +47,6 @@ class HSBToCameraStreamOp(Operator):
             format=7,
             width=self.width,
             height=self.height,
-            data=data_rgba,
+            data=data,
         )
         op_output.emit(stream, "output")

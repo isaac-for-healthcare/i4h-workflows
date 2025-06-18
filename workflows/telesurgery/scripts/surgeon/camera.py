@@ -64,7 +64,7 @@ class App(Application):
                 self,
                 name="nvc_decoder",
                 cuda_device_ordinal=0,
-                allocator=RMMAllocator(self, name="video_decoder_allocator"),
+                allocator=RMMAllocator(self, name="video_decoder_allocator", device_memory_max_size="50MB"),
             )
             split_op = CameraStreamSplitOp(self, name="split_op")
             merge_op = CameraStreamMergeOp(self, name="merge_op", for_encoder=False)
