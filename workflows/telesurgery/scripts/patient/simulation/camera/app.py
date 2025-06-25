@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from holohub.operators.camera.sim import IsaacSimCameraSourceOp
+from holohub.operators.camera.sim import IsaacSimToCameraStreamOp
 from holohub.operators.dds.publisher import DDSPublisherOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_merge import CameraStreamMergeOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
@@ -42,7 +42,7 @@ class App(Application):
         self.encoder = encoder
         self.encoder_params = encoder_params
 
-        self.source: IsaacSimCameraSourceOp | None = None
+        self.source: IsaacSimToCameraStreamOp | None = None
 
         super().__init__()
 
@@ -53,7 +53,7 @@ class App(Application):
             print(f"Discarding an incoming frame: {frame_num}!")
 
     def compose(self):
-        self.source = IsaacSimCameraSourceOp(
+        self.source = IsaacSimToCameraStreamOp(
             self,
             name="sim_camera",
             width=self.width,
