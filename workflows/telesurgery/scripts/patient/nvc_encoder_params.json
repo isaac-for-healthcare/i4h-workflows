@@ -1,8 +1,8 @@
 {
-    "codec": "H264",
+    "codec": "HEVC",
     "preset": "P3",
-    "bitrate": 10000000,
+    "bitrate": 120000000,
     "frame_rate": 60,
-    "rate_control_mode": 1,
+    "rate_control_mode": 2,
     "multi_pass_encoding": 0
 }
