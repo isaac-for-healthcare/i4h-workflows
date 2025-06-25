@@ -17,9 +17,6 @@ import cupy as cp
 from holoscan.core import Operator
 from schemas.camera_stream import CameraStream
 
-class MergeSidebySideOp:
-
-
 
 class MergeSideBySideOp(Operator):
     """
