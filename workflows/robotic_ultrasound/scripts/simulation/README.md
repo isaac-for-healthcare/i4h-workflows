@@ -188,7 +188,7 @@ Ensure your `PYTHONPATH` is set up as described in the [Environment Setup - Set 
 Navigate to the [`simulation` folder](./) and execute:
 
 ```sh
-python environments/state_machine/replay_recording.py --hdf5_path /path/to/your/hdf5_data_directory --task <YourTaskName>
+python environments/state_machine/replay_recording.py /path/to/your/hdf5_data_directory --task <YourTaskName> --enable_camera
 ```
 
 Replace `/path/to/your/hdf5_data_directory` with the actual path to the directory containing your `data_*.hdf5` files or single HDF5 file, and `<YourTaskName>` with the task name used during data collection (e.g., `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0`).
