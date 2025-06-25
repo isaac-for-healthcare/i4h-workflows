@@ -71,11 +71,13 @@ ensure_fresh_third_party_dir
 # ---- Install build tools (Common) ----
 echo "Installing build tools..."
 if [ "$EUID" -ne 0 ]; then
+    sudo apt-get install -y cmake
     sudo apt-get update
-    sudo apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
+    sudo apt-get install -y git build-essential pybind11-dev libxcb-cursor0
 else
+    apt-get install -y cmake
     apt-get update
-    apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
+    apt-get install -y git build-essential pybind11-dev libxcb-cursor0
 fi
 
 
