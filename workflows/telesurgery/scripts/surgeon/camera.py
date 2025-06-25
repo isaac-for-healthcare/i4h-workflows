@@ -18,6 +18,7 @@ import argparse
 from holohub.operators.dds.subscriber import DDSSubscriberOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_merge import CameraStreamMergeOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
+from holohub.operators.nvidia_video_codec.utils.merge_side_by_side import MergeSideBySideOp
 from holohub.operators.nvjpeg.decoder import NVJpegDecoderOp
 from holohub.operators.stats import CameraStreamStats
 from holohub.operators.to_viz import CameraStreamToViz
@@ -38,6 +39,7 @@ class App(Application):
         dds_domain_id,
         dds_topic,
         srgb=True,
+        is_3d_input=False,
     ):
         self.width = width
         self.height = height
@@ -45,6 +47,7 @@ class App(Application):
         self.dds_domain_id = dds_domain_id
         self.dds_topic = dds_topic
         self.srgb = srgb
+        self.is_3d_input = is_3d_input
 
         super().__init__()
 
@@ -69,6 +72,7 @@ class App(Application):
             split_op = CameraStreamSplitOp(self, name="split_op")
             merge_op = CameraStreamMergeOp(self, name="merge_op", for_encoder=False)
             merge_op.metadata_policy = MetadataPolicy.UPDATE
+            merge_side_by_side_op = MergeSideBySideOp(self, name="merge_side_by_side_op")
         else:
             decoder_op = NVJpegDecoderOp(
                 self,
@@ -92,7 +96,11 @@ class App(Application):
             self.add_flow(dds, split_op, {("output", "input")})
             self.add_flow(split_op, merge_op, {("output", "input")})
             self.add_flow(split_op, decoder_op, {("image", "input")})
-            self.add_flow(decoder_op, merge_op, {("output", "image")})
+            if self.is_3d_input:
+                self.add_flow(decoder_op, merge_side_by_side_op, {("output", "image")})
+                self.add_flow(merge_side_by_side_op, merge_op, {("output", "image")})
+            else:
+                self.add_flow(decoder_op, merge_op, {("output", "image")})
             self.add_flow(merge_op, stats, {("output", "input")})
             self.add_flow(decoder_op, viz, {("output", "receivers")})
         else:
@@ -112,6 +120,7 @@ def main():
     parser.add_argument("--domain_id", type=int, default=9, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
     parser.add_argument("--srgb", type=bool, default=True, help="framebuffer srgb for viz")
+    parser.add_argument("--is_3d_input", type=bool, default=False, help="is 3d input")
 
     args = parser.parse_args()
     app = App(
@@ -121,6 +130,7 @@ def main():
         dds_domain_id=args.domain_id,
         dds_topic=args.topic if args.topic else f"telesurgery/{args.name}_camera/rgb",
         srgb=args.srgb,
+        is_3d_input=args.is_3d_input,
     )
     app.run()
 

@@ -63,6 +63,7 @@ class App(Application):
         show_viz=False,
         srgb=True,
         yuan_4k_video=True,
+        is_3d_input=False,
     ):
         self.camera = camera
         self.camera_name = camera_name
@@ -86,6 +87,7 @@ class App(Application):
         self.show_viz = show_viz
         self.srgb = srgb
         self.yuan_4k_video = yuan_4k_video
+        self.is_3d_input = is_3d_input
 
         super().__init__()
 
@@ -179,14 +181,25 @@ class App(Application):
                 block_size=self.hsb_camera._width * 3
                 * ctypes.sizeof(ctypes.c_uint8)
                 * self.hsb_camera._height,
-                num_blocks=4,
+                num_blocks=4 if not self.is_3d_input else 9,
             )
-            hdmi_converter_operator = hololink.operators.HDMIConverterOp(
-                self,
-                name="hdmi_converter",
-                allocator=hdmi_converter_pool,
-                cuda_device_ordinal=self.hsb_cuda_device_ordinal,
-            )
+            if not self.is_3d_input: # No 3D format convert
+                hdmi_converter_operator = hololink.operators.HDMIConverterOp(
+                    self,
+                    name="hdmi_converter",
+                    allocator=hdmi_converter_pool,
+                    cuda_device_ordinal=self.hsb_cuda_device_ordinal)
+            else: # Convert from line_by_line to side_by_side_half
+                hdmi_converter_operator = hololink.operators.HDMIConverterOp(
+                    self,
+                    name="hdmi_converter",
+                    allocator=hdmi_converter_pool,
+                    cuda_device_ordinal=self.hsb_cuda_device_ordinal,
+                    input_3d_format=hololink.operators.HDMIConverterOp.Video3DFormat.LINE_BY_LINE,
+                    output_3d_format=hololink.operators.HDMIConverterOp.Video3DFormat.SIDE_BY_SIDE_HALF)
+                self.width = self.width * 2
+                self.height = self.height // 2
+
             self.hsb_camera.configure_converter(hdmi_converter_operator)
 
             frame_size = hdmi_converter_operator.get_csi_length()
@@ -315,6 +328,7 @@ def main():
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
     parser.add_argument("--show_viz", type=bool, default=False, help="show viz")
     parser.add_argument("--srgb", type=bool, default=True, help="framebuffer srgb for viz")
+    parser.add_argument("--is_3d_input", type=bool, default=False, help="is 3d input")
 
     infiniband_devices = hololink.infiniband_devices()
     parser.add_argument("--ibv-name", default=infiniband_devices[0], help="IBV device to use")
@@ -402,6 +416,7 @@ def main():
         show_viz=args.show_viz,
         srgb=args.srgb,
         yuan_4k_video=is_4k,
+        is_3d_input=args.is_3d_input,
     )
 
     if hololink_channel is not None:
