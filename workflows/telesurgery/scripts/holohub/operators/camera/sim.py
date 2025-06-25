@@ -57,11 +57,6 @@ class IsaacSimToCameraStreamOp(Operator):
         self.q.empty()
 
     def on_new_frame_rcvd(self, data, frame_num):
-        self.q.put(data)
-
-    def compute(self, op_input, op_output, context):
-        data = self.q.get()
-
         ts = int((time.time() + self.ntp_offset_time) * 1000)
         stream = CameraStream(
             ts=ts,
@@ -70,5 +65,10 @@ class IsaacSimToCameraStreamOp(Operator):
             width=self.width,
             height=self.height,
             data=data,
+            frame_num=frame_num,
         )
+        self.q.put(stream)
+
+    def compute(self, op_input, op_output, context):
+        stream = self.q.get()
         op_output.emit(stream, "output")

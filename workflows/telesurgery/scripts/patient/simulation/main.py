@@ -118,16 +118,19 @@ def main():
         encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvjpeg_encoder_params.json")
     elif args.encoder == "nvc" and args.encoder_params is None:
         encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvc_encoder_params.json")
-    elif os.path.isfile(args.encoder_params):
+    elif args.encoder_params and os.path.isfile(args.encoder_params):
         encoder_params = args.encoder_params
     else:
         encoder_params = json.loads(args.encoder_params) if args.encoder_params else {}
 
+    if isinstance(encoder_params, str):
+        if os.path.isfile(encoder_params):
+            with open(encoder_params) as f:
+                encoder_params = json.load(f)
+        else:
+            print(f"Ignoring non existing file: {encoder_params}")
+            encoder_params = {}
     print(f"Encoder params: {encoder_params}")
-
-    if os.path.isfile(encoder_params):
-        with open(encoder_params) as f:
-            encoder_params = json.load(f)
 
     camera_app = CameraApp(
         width=args.width,

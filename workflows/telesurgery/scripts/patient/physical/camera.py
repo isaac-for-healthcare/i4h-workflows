@@ -323,10 +323,14 @@ def main():
     else:
         encoder_params = json.loads(args.encoder_params) if args.encoder_params else {}
 
+    if isinstance(encoder_params, str):
+        if os.path.isfile(encoder_params):
+            with open(encoder_params) as f:
+                encoder_params = json.load(f)
+        else:
+            print(f"Ignoring non existing file: {encoder_params}")
+            encoder_params = {}
     print(f"Encoder params: {encoder_params}")
-    if isinstance(encoder_params, str) and os.path.isfile(encoder_params):
-        with open(encoder_params) as f:
-            encoder_params = json.load(f)
 
     app = App(
         camera=args.camera,
