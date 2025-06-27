@@ -51,7 +51,6 @@ class CameraStreamStats(Operator):
         self.compress_ratio.append(stream.compress_ratio)
         if stream.postdds > 0:
             networkf_latency = stream.postdds - stream.predds
-            print(f"stream.postdds: {stream.postdds}, stream.predds: {stream.predds}")
             self.network_latency.append(networkf_latency)
 
         if ts - self.prev_ts > self.interval_ms:
@@ -72,7 +71,7 @@ class CameraStreamStats(Operator):
                 f"min: {l1:02d}, max: {l2:03d}, avg: {l3:03d}, "
                 f"encode: {e1:02.2f}, decode: {d1:02.2f}, "
                 f"compress: {c1:03.1f}x, size: {s1:,} "
-                f"network: {n1:02.2f}, len {len(self.network_latency)}"
+                f"network: {n1:02.2f}, array: {self.network_latency}"
             )
 
             self.time_diff.clear()
