@@ -15,6 +15,7 @@
 
 import cupy as cp
 from holoscan.core import Operator
+from common.utils import get_ntp_offset
 from schemas.camera_stream import CameraStream
 
 
@@ -23,7 +24,7 @@ class CameraStreamMergeOp(Operator):
 
     def __init__(self, fragment, for_encoder=True, *args, **kwargs):
         self.for_encoder = for_encoder
-
+        self.ntp_offset_time = get_ntp_offset()
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec):
@@ -40,6 +41,7 @@ class CameraStreamMergeOp(Operator):
             stream.data = cp.asarray(camera_tensor).get().tobytes()
             stream.encode_latency = self.metadata.get("video_encoder_encode_latency_ms", 0)
             stream.compress_ratio = self.metadata.get("video_encoder_compress_ratio", 0)
+            stream.predds = int((time.time() + self.ntp_offset_time) * 1000)
         else:
             stream.decode_latency = self.metadata.get("video_decoder_decode_latency_ms", 0)
         op_output.emit(stream, "output")

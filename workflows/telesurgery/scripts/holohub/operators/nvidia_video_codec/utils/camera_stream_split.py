@@ -17,11 +17,17 @@ import cupy as cp
 import numpy as np
 import rti.connextdds
 from holoscan.core import Operator, Tensor
+from common.utils import get_ntp_offset
 from schemas.camera_stream import CameraStream
 
 
 class CameraStreamSplitOp(Operator):
     """Operator to split a camera stream into two streams."""
+
+    def __init__(self, fragment, for_encoder=True, *args, **kwargs):
+        self.ntp_offset_time = get_ntp_offset()
+        self.for_encoder = for_encoder
+        super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec):
         spec.input("input")
@@ -40,6 +46,7 @@ class CameraStreamSplitOp(Operator):
             camera_data = np.reshape(stream.data, (len(stream.data),))
         else:
             camera_data = stream.data
-
+        if not self.for_encoder:
+            stream.postdds = int((time.time() + self.ntp_offset_time) * 1000)
         op_output.emit(stream, "output")
         op_output.emit({"": Tensor.as_tensor(camera_data)}, "image")

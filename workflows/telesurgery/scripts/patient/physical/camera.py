@@ -31,7 +31,7 @@ from holohub.operators.nvjpeg.encoder import NVJpegEncoderOp
 from holohub.operators.stats import CameraStreamStats
 from holohub.operators.to_viz import CameraStreamToViz
 from holoscan.conditions import BooleanCondition
-from holoscan.core import Application, MetadataPolicy
+from holoscan.core import Application, MetadataPolicy, Tracker
 from holoscan.operators import BayerDemosaicOp, HolovizOp
 from holoscan.resources import BlockMemoryPool, MemoryStorageType
 from schemas.camera_stream import CameraStream
@@ -430,7 +430,9 @@ def main():
             hsb_camera.configure(hsb_camera_mode)
             hsb_camera.set_digital_gain_reg(0x4)
 
-    app.run()
+    with Tracker(app, filename="./latency.log") as tracker:
+        app.run()
+        tracker.print()
 
     if hsb_hololink is not None:
         hsb_hololink.stop()
