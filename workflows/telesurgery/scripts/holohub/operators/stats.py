@@ -61,7 +61,7 @@ class CameraStreamStats(Operator):
             e1 = np.mean(self.time_encode)
             d1 = np.mean(self.time_decode)
             c1 = np.mean(self.compress_ratio)
-            n1 = np.mean(self.network_latency)
+            n1 = np.mean(self.network_latency) if stream.postdds > 0 else 0
             s1 = stream.width * stream.height * (4 if stream.type == 2 else 1)
 
             # Print the results
