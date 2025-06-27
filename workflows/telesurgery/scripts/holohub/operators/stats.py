@@ -77,4 +77,5 @@ class CameraStreamStats(Operator):
             self.time_encode.clear()
             self.time_decode.clear()
             self.compress_ratio.clear()
+            self.network_latency.clear()
             self.prev_ts = ts
