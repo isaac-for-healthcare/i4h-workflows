@@ -51,6 +51,7 @@ class CameraStreamStats(Operator):
         self.compress_ratio.append(stream.compress_ratio)
         if stream.postdds > 0:
             networkf_latency = stream.postdds - stream.predds
+            print(f"stream.postdds: {stream.postdds}, stream.predds: {stream.predds}")
             self.network_latency.append(networkf_latency)
 
         if ts - self.prev_ts > self.interval_ms:
