@@ -71,7 +71,7 @@ class CameraStreamStats(Operator):
                 f"min: {l1:02d}, max: {l2:03d}, avg: {l3:03d}, "
                 f"encode: {e1:02.2f}, decode: {d1:02.2f}, "
                 f"compress: {c1:03.1f}x, size: {s1:,} "
-                f"network: {n1:02.2f}, array: {self.network_latency}"
+                f"network: {n1:02.2f}"
             )
 
             self.time_diff.clear()

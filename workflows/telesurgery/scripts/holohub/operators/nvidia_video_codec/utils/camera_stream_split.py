@@ -26,7 +26,6 @@ class CameraStreamSplitOp(Operator):
     """Operator to split a camera stream into two streams."""
 
     def __init__(self, fragment, for_encoder=True, *args, **kwargs):
-        self.ntp_offset_time = get_ntp_offset()
         self.for_encoder = for_encoder
         super().__init__(fragment, *args, **kwargs)
 
@@ -48,6 +47,7 @@ class CameraStreamSplitOp(Operator):
         else:
             camera_data = stream.data
         if not self.for_encoder:
+            self.ntp_offset_time = get_ntp_offset()
             stream.postdds = (time.time() + self.ntp_offset_time)
         op_output.emit(stream, "output")
         op_output.emit({"": Tensor.as_tensor(camera_data)}, "image")
