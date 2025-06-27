@@ -42,7 +42,7 @@ class CameraStreamMergeOp(Operator):
             stream.data = cp.asarray(camera_tensor).get().tobytes()
             stream.encode_latency = self.metadata.get("video_encoder_encode_latency_ms", 0)
             stream.compress_ratio = self.metadata.get("video_encoder_compress_ratio", 0)
-            stream.predds = int((time.time() + self.ntp_offset_time) * 1000)
+            stream.predds = (time.time() + self.ntp_offset_time)
         else:
             stream.decode_latency = self.metadata.get("video_decoder_decode_latency_ms", 0)
         op_output.emit(stream, "output")

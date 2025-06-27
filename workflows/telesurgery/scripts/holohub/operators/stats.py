@@ -49,8 +49,9 @@ class CameraStreamStats(Operator):
         self.time_encode.append(stream.encode_latency)
         self.time_decode.append(stream.decode_latency)
         self.compress_ratio.append(stream.compress_ratio)
-        networkf_latency = stream.postdds - stream.predds
-        self.network_latency.append(networkf_latency)
+        if stream.postdds > 0:
+            networkf_latency = stream.postdds - stream.predds
+            self.network_latency.append(networkf_latency)
 
         if ts - self.prev_ts > self.interval_ms:
             f1 = len(self.time_diff)
@@ -61,7 +62,7 @@ class CameraStreamStats(Operator):
             e1 = np.mean(self.time_encode)
             d1 = np.mean(self.time_decode)
             c1 = np.mean(self.compress_ratio)
-            n1 = np.mean(self.network_latency) if stream.postdds > 0 else 0
+            n1 = np.mean(self.network_latency) * 1000 if stream.postdds > 0 else 0
             s1 = stream.width * stream.height * (4 if stream.type == 2 else 1)
 
             # Print the results
@@ -70,7 +71,7 @@ class CameraStreamStats(Operator):
                 f"min: {l1:02d}, max: {l2:03d}, avg: {l3:03d}, "
                 f"encode: {e1:02.2f}, decode: {d1:02.2f}, "
                 f"compress: {c1:03.1f}x, size: {s1:,} "
-                f"network: {n1:02.2f}"
+                f"network: {n1:02.2f}, len {len(self.network_latency)}"
             )
 
             self.time_diff.clear()
