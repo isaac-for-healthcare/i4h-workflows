@@ -16,8 +16,7 @@
 # limitations under the License.
 
 
-ARG BASE_IMAGE
-FROM ${BASE_IMAGE} AS base
+FROM nvcr.io/nvidia/clara-holoscan/holoscan:v3.2.0-dgpu as base
 
 ARG DEBIAN_FRONTEND=noninteractive
 
