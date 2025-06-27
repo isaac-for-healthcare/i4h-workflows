@@ -69,7 +69,7 @@ class App(Application):
                 cuda_device_ordinal=0,
                 allocator=RMMAllocator(self, name="video_decoder_allocator", device_memory_max_size="50MB"),
             )
-            split_op = CameraStreamSplitOp(self, name="split_op", for_encoder=False)
+            split_op = CameraStreamSplitOp(self, name="split_op")
             merge_op = CameraStreamMergeOp(self, name="merge_op", for_encoder=False)
             merge_op.metadata_policy = MetadataPolicy.UPDATE
             merge_side_by_side_op = MergeSideBySideOp(self, name="merge_side_by_side_op")
