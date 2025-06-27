@@ -15,6 +15,7 @@
 
 import cupy as cp
 import numpy as np
+import time
 import rti.connextdds
 from holoscan.core import Operator, Tensor
 from common.utils import get_ntp_offset

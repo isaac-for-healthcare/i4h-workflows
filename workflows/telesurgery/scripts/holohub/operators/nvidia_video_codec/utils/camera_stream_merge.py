@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import cupy as cp
+import time
 from holoscan.core import Operator
 from common.utils import get_ntp_offset
 from schemas.camera_stream import CameraStream
