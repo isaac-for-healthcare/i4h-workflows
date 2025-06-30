@@ -28,7 +28,7 @@ This physics-based approach enables the generation of highly realistic synthetic
 
 ### Hardware Requirements
 - Ubuntu 22.04
-- NVIDIA GPU with compute capability 8.6 and 32GB of memory
+- NVIDIA GPU with compute capability 8.6 and 32GB of memory ([see NVIDIA's compute capability guide](https://developer.nvidia.com/cuda-gpus#compute))
     - GPUs without RT Cores (A100, H100) are not supported
 - 50GB of disk space
 
@@ -40,28 +40,41 @@ This physics-based approach enables the generation of highly realistic synthetic
 
 ## Quick Start
 
+**Note**: The setup process takes approximately 30-40 minutes to complete, depending on your system and network connection.
+
 1. Install NVIDIA driver (>= 555) and CUDA (>= 12.6)
-2. Create and activate conda environment:
+2. Install conda:
+
+   [Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/main) is recommended.
+
+3. Create and activate conda environment:
    ```bash
    conda create -n robotic_ultrasound python=3.10 -y
    conda activate robotic_ultrasound
    ```
-3. Run the setup script:
+4. Clone the repository:
+   ```bash
+   git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
+   cd i4h-workflows
+   ```
+5. Run the setup script:
    ```bash
    cd <path-to-i4h-workflows>
    bash tools/env_setup_robot_us.sh --policy pi0
    ```
-4. Download assets:
+6. Download assets:
    ```bash
    i4h-asset-retrieve
    ```
-5. Set environment variables:
+7. Set environment variables:
    ```bash
    export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts:<path-to-i4h-workflows>`
    export RTI_LICENSE_FILE=<path-to-rti-license-file>
    ```
 
 ## Environment Setup
+
+**Note**: The setup process takes approximately 30-40 minutes to complete, depending on your system and network connection.
 
 ### Prerequisites
 

@@ -220,3 +220,7 @@ workflows/robotic_ultrasound/scripts/raysim
 
 # Bring Your Own XR
 openxr/
+
+# Ignore Holohub CLI
+cmake
+utilities
