@@ -40,4 +40,6 @@ class CameraStream:
     compress_ratio: float = 0.0
     encode_latency: float = 0.0
     decode_latency: float = 0.0
+    predds: float = 0.0
+    postdds: float = 0.0
     data: Sequence[idl.uint8] = field(default_factory=idl.array_factory(idl.uint8))
