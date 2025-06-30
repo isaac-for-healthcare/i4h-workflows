@@ -28,7 +28,7 @@ This physics-based approach enables the generation of highly realistic synthetic
 
 ### Hardware Requirements
 - Ubuntu 22.04
-- NVIDIA GPU with compute capability 8.6 and 32GB of memory ([see NVIDIA's compute capability guide](https://developer.nvidia.com/cuda-gpus#compute))
+- NVIDIA GPU with compute capability 8.6 and 8GB of memory ([see NVIDIA's compute capability guide](https://developer.nvidia.com/cuda-gpus#compute))
     - GPUs without RT Cores (A100, H100) are not supported
 - 50GB of disk space
 
