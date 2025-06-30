@@ -52,7 +52,7 @@ Install or upgrade to the latest NVIDIA driver from [NVIDIA website](https://www
 [Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/main) is recommended.
 
 ##### Create Conda Environment
- 
+
 ```bash
 # Create a new conda environment
 conda create -n robotic_surgery python=3.10 -y
@@ -65,7 +65,7 @@ conda activate robotic_surgery
    git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
    cd i4h-workflows
    ```
-   
+
 ##### Install All Dependencies
 The main script `tools/env_setup_robot_surgery.sh` installs all necessary dependencies:
 

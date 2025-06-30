@@ -108,7 +108,7 @@ For detailed steps, refer to the [official documentation on importing URDF](http
 
 - [URDF to USD Conversion Documentation](https://docs.isaacsim.omniverse.nvidia.com/latest/importer_exporter/import_urdf.html#tutorial-import-urdf)
 - [Omniverse CAD Extension Documentation](https://docs.omniverse.nvidia.com/extensions/latest/ext_cad-converter/manual.html)
-- [Omniverse Importers and Exporters Documentation](https://docs.isaacsim.omniverse.nvidia.com/latest/robot_setup/importers_exporters.html#)
+- [Omniverse Importers and Exporters Documentation](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/robot_setup/importers_exporters.html)
 - [Video Tutorial: Training a Robot from Scratch in Simulation, from URDF to OpenUSD](https://www.youtube.com/live/_HMk7I-vSBQ)
 
 ## Support
