@@ -24,7 +24,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 # Allow setting the python in PYTHON_EXECUTABLE
 PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
-HOLOSCAN_DIR=${1:-$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/holoscan_apps/}
+HOLOSCAN_I4H_DIR=${1:-$PROJECT_ROOT/holoscan_i4h/}
 
 # ---- Install Holoscan ----
 $PYTHON_EXECUTABLE -m pip install holoscan==2.9.0
@@ -32,15 +32,16 @@ echo "Holoscan installed successfully!"
 
 # ---- Install Holoscan Apps ----
 echo "Building Holoscan Apps..."
-pushd $HOLOSCAN_DIR
+pushd $HOLOSCAN_I4H_DIR
 
 # clean previous downloads and builds
+cd $HOLOSCAN_I4H_DIR
 rm -rf build
-rm -rf clarius_solum/include
-rm -rf clarius_solum/lib
-rm -rf clarius_cast/include
-rm -rf clarius_cast/lib
-cmake -B build -S . && cmake --build build
+rm -rf install
+
+# ---- Installing Clarius libs ----
+echo "Installing Clarius libs..."
+bash $PROJECT_ROOT/tools/env_setup/install_clarius.sh
 
 popd
 echo "Holoscan Apps build completed!"
