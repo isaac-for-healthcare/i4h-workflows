@@ -18,10 +18,15 @@ import numpy as np
 import rti.connextdds
 from holoscan.core import Operator, Tensor
 from schemas.camera_stream import CameraStream
-
+from common.utils import get_ntp_offset
+import time
 
 class CameraStreamSplitOp(Operator):
     """Operator to split a camera stream into two streams."""
+    def __init__(self, fragment, for_encoder=True, *args, **kwargs):
+        self.for_encoder = for_encoder
+        self.ntp_offset_time = get_ntp_offset()
+        super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec):
         spec.input("input")
@@ -32,6 +37,9 @@ class CameraStreamSplitOp(Operator):
         stream = op_input.receive("input")
         assert isinstance(stream, CameraStream)
 
+        if not self.for_encoder:
+            stream.postdds = (time.time() + self.ntp_offset_time) * 1000
+
         if isinstance(stream.data, np.ndarray):
             # For NVC encoder: move data to GPU
             camera_data = cp.asarray(stream.data)
@@ -40,6 +48,5 @@ class CameraStreamSplitOp(Operator):
             camera_data = np.reshape(stream.data, (len(stream.data),))
         else:
             camera_data = stream.data
-
         op_output.emit(stream, "output")
         op_output.emit({"": Tensor.as_tensor(camera_data)}, "image")

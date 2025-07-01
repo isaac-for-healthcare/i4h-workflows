@@ -17,6 +17,7 @@ import argparse
 import ctypes
 import json
 import os
+import logging
 
 import hololink
 from cuda import cuda
@@ -30,7 +31,7 @@ from holohub.operators.nvjpeg.encoder import NVJpegEncoderOp
 from holohub.operators.stats import CameraStreamStats
 from holohub.operators.to_viz import CameraStreamToViz
 from holoscan.conditions import BooleanCondition
-from holoscan.core import Application, MetadataPolicy
+from holoscan.core import Application, MetadataPolicy, Tracker
 from holoscan.operators import BayerDemosaicOp, HolovizOp
 from holoscan.resources import BlockMemoryPool, MemoryStorageType
 from schemas.camera_stream import CameraStream
@@ -61,6 +62,9 @@ class App(Application):
         hsb_camera=None,
         show_viz=False,
         srgb=True,
+        yuan_4k_video=True,
+        is_3d_input=False,
+        is_3d_to_2d_mode=0,
     ):
         self.camera = camera
         self.camera_name = camera_name
@@ -83,7 +87,9 @@ class App(Application):
         self.hsb_camera = hsb_camera
         self.show_viz = show_viz
         self.srgb = srgb
-
+        self.yuan_4k_video = yuan_4k_video
+        self.is_3d_input = is_3d_input
+        self.is_3d_to_2d_mode = is_3d_to_2d_mode
         super().__init__()
 
     def compose(self):
@@ -159,7 +165,61 @@ class App(Application):
             self.add_flow(image_processor_operator, demosaic, {("output", "receiver")})
             self.add_flow(demosaic, image_shift, {("transmitter", "input")})
             self.add_flow(image_shift, source, {("output", "input")})
+        elif self.camera == "yuan_hsb":
+            if self.yuan_4k_video:
+                self.hsb_camera._width = 3840
+                self.hsb_camera._height = 2160
+            else:
+                self.hsb_camera._width = 1920
+                self.hsb_camera._height = 1080
 
+            condition = BooleanCondition(self, name="ok", enable_tick=True)
+            hdmi_converter_pool = BlockMemoryPool(
+                self,
+                name="pool",
+                # storage_type of 1 is device memory
+                storage_type=1,
+                block_size=self.hsb_camera._width * 3
+                * ctypes.sizeof(ctypes.c_uint8)
+                * self.hsb_camera._height,
+                num_blocks=4 if not self.is_3d_input else 9,
+            )
+            if not self.is_3d_input: # No 3D format convert
+                hdmi_converter_operator = hololink.operators.HDMIConverterOp(
+                    self,
+                    name="hdmi_converter",
+                    allocator=hdmi_converter_pool,
+                    cuda_device_ordinal=self.hsb_cuda_device_ordinal)
+            else: # Convert from line_by_line to side_by_side_half
+                output_3d_format = hololink.operators.HDMIConverterOp.Video3DFormat.SIDE_BY_SIDE_HALF if self.is_3d_to_2d_mode == 0 else hololink.operators.HDMIConverterOp.Video3DFormat.TOP_AND_BOTTOM
+                hdmi_converter_operator = hololink.operators.HDMIConverterOp(
+                    self,
+                    name="hdmi_converter",
+                    allocator=hdmi_converter_pool,
+                    cuda_device_ordinal=self.hsb_cuda_device_ordinal,
+                    input_3d_format=hololink.operators.HDMIConverterOp.Video3DFormat.LINE_BY_LINE,
+                    output_3d_format=output_3d_format)
+
+            self.hsb_camera.configure_converter(hdmi_converter_operator)
+
+            frame_size = hdmi_converter_operator.get_csi_length()
+            logging.info(f"{frame_size=}")
+            frame_context = self.hsb_cuda_context
+            receiver_operator = hololink.operators.RoceReceiverOp(
+                self,
+                condition,
+                name="receiver",
+                frame_size=frame_size,
+                frame_context=frame_context,
+                ibv_name=self.hsb_ibv_name,
+                ibv_port=self.hsb_ibv_port,
+                hololink_channel=self.hsb_hololink_channel,
+                device=self.hsb_camera,
+            )
+            source = HSBToCameraStreamOp(self, name="hsb", width=self.width, height=self.height, is_nvc = self.encoder == "nvc")
+
+            self.add_flow(receiver_operator, hdmi_converter_operator, {("output", "input")})
+            self.add_flow(hdmi_converter_operator, source, {("output", "input")})
         elif self.camera == "realsense":
             source = RealsenseToCameraStreamOp(
                 self,
@@ -252,7 +312,7 @@ def main():
     """Parse command-line arguments and run the application."""
     parser = argparse.ArgumentParser(description="Run the camera application")
     parser.add_argument(
-        "--camera", type=str, default="imx274", choices=["realsense", "cv2", "imx274"], help="camera type"
+        "--camera", type=str, default="imx274", choices=["realsense", "cv2", "imx274", "yuan_hsb"], help="camera type"
     )
     parser.add_argument("--hololink", type=str, default="192.168.0.2", help="IP address of Hololink board")
     parser.add_argument("--name", type=str, default="robot", help="camera name")
@@ -268,6 +328,8 @@ def main():
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
     parser.add_argument("--show_viz", type=bool, default=False, help="show viz")
     parser.add_argument("--srgb", type=bool, default=True, help="framebuffer srgb for viz")
+    parser.add_argument("--is_3d_input", type=bool, default=False, help="is 3d input")
+    parser.add_argument("--3d_to_2d_mode", type=int, default=0, help="3d to 2d mode")
 
     infiniband_devices = hololink.infiniband_devices()
     parser.add_argument("--ibv-name", default=infiniband_devices[0], help="IBV device to use")
@@ -281,18 +343,18 @@ def main():
     hololink_channel = None
     hsb_hololink = None
     hsb_camera = None
-    if args.camera == "imx274":
+    is_4k = False
+    if args.camera == "imx274" or args.camera == "yuan_hsb":
         assert args.framerate == 60
 
         camera_mode = -1
         if args.width == 3840 and args.height == 2160:
             camera_mode = 0
+            is_4k = True
         elif args.width == 1920 and args.height == 1080:
             camera_mode = 1
         if camera_mode < 0:
             raise f"(only 3840x2160 or 1920x1080 are supported for {args.camera}"
-
-        args.camera = "hsb"
 
         (cu_result,) = cuda.cuInit(0)
         assert cu_result == cuda.CUresult.CUDA_SUCCESS
@@ -309,10 +371,15 @@ def main():
         print(f"{channel_metadata=}")
         hololink_channel = hololink.DataChannel(channel_metadata)
 
-        # Get a handle to the camera
-        hsb_camera = hololink.sensors.imx274.dual_imx274.Imx274Cam(hololink_channel, expander_configuration=0)
-        hsb_camera_mode = hololink.sensors.imx274.imx274_mode.Imx274_Mode(camera_mode)
-        hsb_camera.set_mode(hsb_camera_mode)
+        if args.camera == "imx274":
+            args.camera = "hsb"
+            # Get a handle to the camera
+            hsb_camera = hololink.sensors.imx274.dual_imx274.Imx274Cam(hololink_channel, expander_configuration=0)
+            hsb_camera_mode = hololink.sensors.imx274.imx274_mode.Imx274_Mode(camera_mode)
+            hsb_camera.set_mode(hsb_camera_mode)
+        elif args.camera == "yuan_hsb":
+            # Get a handle to the camera
+            hsb_camera = hololink.sensors.HDMISource(hololink_channel)
 
     if args.encoder == "nvjpeg" and args.encoder_params is None:
         encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvjpeg_encoder_params.json")
@@ -353,6 +420,9 @@ def main():
         hsb_camera=hsb_camera,
         show_viz=args.show_viz,
         srgb=args.srgb,
+        yuan_4k_video=is_4k,
+        is_3d_input=args.is_3d_input,
+        is_3d_to_2d_mode=args.is_3d_to_2d_mode,
     )
 
     if hololink_channel is not None:
@@ -361,11 +431,14 @@ def main():
 
         # Reset it on start
         hsb_hololink.reset()
-        hsb_camera.setup_clock()
-        hsb_camera.configure(hsb_camera_mode)
-        hsb_camera.set_digital_gain_reg(0x4)
+        if args.camera == "imx274":
+            hsb_camera.setup_clock()
+            hsb_camera.configure(hsb_camera_mode)
+            hsb_camera.set_digital_gain_reg(0x4)
 
-    app.run()
+    with Tracker(app, filename="./latency.log") as tracker:
+        app.run()
+        tracker.print()
 
     if hsb_hololink is not None:
         hsb_hololink.stop()
