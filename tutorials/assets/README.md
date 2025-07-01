@@ -13,3 +13,6 @@ This directory contains tutorials for integrating and teleoperating your own rob
 
 - [Replace Franka Hand with Ultrasound Probe](./bring_your_own_robot/replace_franka_hand_with_ultrasound_probe.md)
   Step-by-step guide to replacing the Franka robot’s hand with an ultrasound probe in Isaac Sim, including CAD/URDF conversion, asset import, and joint setup for custom robotic ultrasound simulation.
+
+- [Bring Your Own Head-Mounted Display with OpenXR](./bring_your_own_xr/)
+  Comprehensive guide for using OpenXR-enabled mixed reality devices (like Apple Vision Pro) for immersive robotic teleoperation in Isaac Lab. Learn to set up NVIDIA CloudXR runtime, configure hand tracking controls, and enable simulated robotic teleoperation in Isaac Lab
