@@ -20,26 +20,28 @@ from schemas.camera_stream import CameraStream
 
 class MergeSideBySideOp(Operator):
     """
-    Holoscan Operator to merge a side-by-side image in a CameraStream to a line-by-line image.
-    Receives a CameraStream and an image, emits a CameraStream with merged image data.
+    Holoscan Operator to merge an up-down image in a CameraStream to a line-by-line image.
+    The top half of the image is for the left eye and the bottom half is the right eye.
     """
     def _merge_side_by_side(self, img):
         """
-        Merge a side-by-side image (left|right) into a line-by-line (interleaved) image using CuPy.
-        Input:  img (H, 2W, C) or (H, 2W) (side-by-side)
-        Output: img_out (2H, W, C) or (2H, W) (line-by-line)
+        Merge an up-down image (up|down) into a line-by-line (interleaved) image using CuPy.
+        Input:  img (2H, W, C) or (2H, W) (up-down)
+        Output: img_out (H, 2W, C) or (H, 2W) (line-by-line)
         """
         # Ensure input is a CuPy array
         img = cp.asarray(img)
-        h, w2 = img.shape[:2]
-        w = w2 // 2
-        left = img[:, :w, ...]
-        right = img[:, w:, ...]
+        h2, w = img.shape[:2]
+        if h2 % 2 != 0:
+            raise ValueError("Input image height must be even for up-down splitting.")
+        h = h2 // 2
+        up = img[:h, :, ...]
+        down = img[h:, :, ...]
         # Prepare output array
         out_shape = (h * 2, w) + img.shape[2:]
         out = cp.empty(out_shape, dtype=img.dtype)
-        out[0::2] = left
-        out[1::2] = right
+        out[0::2] = up
+        out[1::2] = down
         return out
 
     def setup(self, spec):
