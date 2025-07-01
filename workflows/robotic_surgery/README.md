@@ -82,7 +82,7 @@ bash tools/env_setup_robot_surgery.sh
 
 ### Asset Setup
 
-**Note**: The assets are ~60GB and could take some time to download depending on your internet connection.
+**Note**: The assets can be automatically retrieved when running the workflows. Optionally, you can also download all the assets in advance. Please note that the assets are approximately 65 GB and may take some time to download depending on your internet connection.
 
 Download the required assets using:
 ```bash
