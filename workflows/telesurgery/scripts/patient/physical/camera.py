@@ -64,6 +64,7 @@ class App(Application):
         srgb=True,
         yuan_4k_video=True,
         is_3d_input=False,
+        is_3d_to_2d_mode=0,
     ):
         self.camera = camera
         self.camera_name = camera_name
@@ -88,7 +89,7 @@ class App(Application):
         self.srgb = srgb
         self.yuan_4k_video = yuan_4k_video
         self.is_3d_input = is_3d_input
-
+        self.is_3d_to_2d_mode = is_3d_to_2d_mode
         super().__init__()
 
     def compose(self):
@@ -190,15 +191,14 @@ class App(Application):
                     allocator=hdmi_converter_pool,
                     cuda_device_ordinal=self.hsb_cuda_device_ordinal)
             else: # Convert from line_by_line to side_by_side_half
+                output_3d_format = hololink.operators.HDMIConverterOp.Video3DFormat.SIDE_BY_SIDE_HALF if self.is_3d_to_2d_mode == 0 else hololink.operators.HDMIConverterOp.Video3DFormat.TOP_AND_BOTTOM
                 hdmi_converter_operator = hololink.operators.HDMIConverterOp(
                     self,
                     name="hdmi_converter",
                     allocator=hdmi_converter_pool,
                     cuda_device_ordinal=self.hsb_cuda_device_ordinal,
                     input_3d_format=hololink.operators.HDMIConverterOp.Video3DFormat.LINE_BY_LINE,
-                    output_3d_format=hololink.operators.HDMIConverterOp.Video3DFormat.SIDE_BY_SIDE_HALF)
-                self.width = self.width * 2
-                self.height = self.height // 2
+                    output_3d_format=output_3d_format)
 
             self.hsb_camera.configure_converter(hdmi_converter_operator)
 
@@ -329,6 +329,7 @@ def main():
     parser.add_argument("--show_viz", type=bool, default=False, help="show viz")
     parser.add_argument("--srgb", type=bool, default=True, help="framebuffer srgb for viz")
     parser.add_argument("--is_3d_input", type=bool, default=False, help="is 3d input")
+    parser.add_argument("--3d_to_2d_mode", type=int, default=0, help="3d to 2d mode")
 
     infiniband_devices = hololink.infiniband_devices()
     parser.add_argument("--ibv-name", default=infiniband_devices[0], help="IBV device to use")
@@ -417,6 +418,7 @@ def main():
         srgb=args.srgb,
         yuan_4k_video=is_4k,
         is_3d_input=args.is_3d_input,
+        is_3d_to_2d_mode=args.is_3d_to_2d_mode,
     )
 
     if hololink_channel is not None:
