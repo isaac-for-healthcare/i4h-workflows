@@ -35,9 +35,12 @@ Since we need to run multiple instances (policy runner, simulation, etc.), we ne
 
 ```bash
 xhost +local:docker
-docker run --name isaac-sim -itd --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
+docker run --name isaac-sim -itd --gpus all --rm --network=host \
     --runtime=nvidia \
+    --entrypoint=bash \
     -e DISPLAY=$DISPLAY \
+    -e "OMNI_KIT_ACCEPT_EULA=Y" \
+    -e "ACCEPT_EULA=Y" \
     -e "PRIVACY_CONSENT=Y" \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
@@ -50,8 +53,7 @@ docker run --name isaac-sim -itd --gpus all -e "ACCEPT_EULA=Y" --rm --network=ho
     -v ~/docker/isaac-sim/documents:/root/Documents:rw \
     -v ~/.cache/i4h-assets:/root/.cache/i4h-assets:rw \
     -v ~/docker/rti:/root/rti:ro \
-    robot_us:latest \
-    bash
+    robot_us:latest
 ```
 
 **Note:** The `<path-to-raysim>:/workspace/i4h-workflows/workflows/robotic_ultrasound/scripts/raysim:ro` mount is also required for ultrasound raytracing simulation, If you haven't downloaded the raysim module following the [Environment Setup - Install the raytracing ultrasound simulator](../README.md#install-the-raytracing-ultrasound-simulator) instructions. If you don't need ultrasound simulation, you can omit this mount.
