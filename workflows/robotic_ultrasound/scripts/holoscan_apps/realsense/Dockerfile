@@ -1,4 +1,6 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# syntax=docker/dockerfile:1
+
+# SPDX-FileCopyrightText: Copyright (c) 2022-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,5 +15,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_holohub_operator(clarius_cast)
-add_holohub_operator(clarius_solum)
+
+FROM nvcr.io/nvidia/clara-holoscan/holoscan:v3.2.0-dgpu as base
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN pip install pyrealsense2 rti.connext
+
+# Install librealsense.
+RUN apt update \
+    && apt install --no-install-recommends -y \
+        libusb-1.0-0-dev
+
+# Add schemas directory to PYTHONPATH to enable importing operators
+ENV PYTHONPATH=$PYTHONPATH:/workspace/holohub:/workspace/holohub/workflows/robotic_ultrasound/scripts
