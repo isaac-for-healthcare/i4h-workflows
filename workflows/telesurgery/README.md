@@ -25,7 +25,7 @@ The Telesurgery Workflow is a cutting-edge solution designed for healthcare prof
 
 #### Hardware Requirements
 - Ubuntu >= 22.04
-- NVIDIA GPU with compute capability 8.6 and 8GB of memory
+- NVIDIA GPU with compute capability 8.6 and 24GB of memory ([see NVIDIA's compute capability guide](https://developer.nvidia.com/cuda-gpus#compute))
    - GPUs without RT Cores, such as A100 and H100, are not supported
 - 50GB of disk space
 - XBOX Controller or Haply Inverse 3.

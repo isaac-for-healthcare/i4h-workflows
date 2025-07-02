@@ -188,7 +188,7 @@ Ensure your `PYTHONPATH` is set up as described in the [Environment Setup - Set 
 Navigate to the [`simulation` folder](./) and execute:
 
 ```sh
-python environments/state_machine/replay_recording.py --hdf5_path /path/to/your/hdf5_data_directory --task <YourTaskName>
+python environments/state_machine/replay_recording.py /path/to/your/hdf5_data_directory --task <YourTaskName> --enable_camera
 ```
 
 Replace `/path/to/your/hdf5_data_directory` with the actual path to the directory containing your `data_*.hdf5` files or single HDF5 file, and `<YourTaskName>` with the task name used during data collection (e.g., `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0`).
@@ -216,11 +216,15 @@ Directly applying Cosmos-Transfer with various control inputs results in unsatis
 This training-free guided generation approach by encoding simulation videos into the latent space and applying spatial masking to guide the generation process. The trade-off between realism and faithfulness can be controlled by adjusting the number of guided denoising steps. In addition, our generation pipeline supports multi-view video generation. We first leverage the camera information to warp the generated room view to wrist view, then use it as the guidance of wrist-view generation.
 
 #### Download Cosmos-transfer1 Checkpoints
-The cosmos-transfer1 dependency is already installed after completing the [Installation](#installation) section. Move to the third party `cosmos-transfer1` folder and run the following command to download the checkpoints:
+The cosmos-transfer1 dependency is already installed after completing the [Installation](#installation) section. Please navigate to the third party `cosmos-transfer1` folder and run the following command to download the checkpoints:
 ```sh
 cd third_party/cosmos-transfer1
 CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/download_checkpoints.py --output_dir checkpoints/
 ```
+
+> **Note:** You need to be logged in to Hugging Face (`huggingface-cli login`) before running the download script. Additionally, for the `meta-llama/Llama-Guard-3-8B` model, you need to request additional access on the [Hugging Face model page](https://huggingface.co/meta-llama/Llama-Guard-3-8B) before you can download it.
+
+
 
 #### Video Prompt Generation
 We follow the idea in [lucidsim](https://github.com/lucidsim/lucidsim) to first generate batches of meta prompt that contains a very concise description of the potential scene, then instruct the LLM (e.g., [gemma-3-27b-it](https://build.nvidia.com/google/gemma-3-27b-it)) to upsample the meta prompt with detailed descriptions.
