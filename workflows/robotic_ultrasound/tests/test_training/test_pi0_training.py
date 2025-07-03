@@ -88,12 +88,21 @@ class TestBase(unittest.TestCase):
         # ===== CRITICAL: Shutdown JAX runtime to prevent C++ crashes =====
         try:
             import jax
-            jax.clear_backends()  # Clear all JAX backends
-            # Note: jax.shutdown() might not exist in all versions
-            if hasattr(jax, 'shutdown'):
-                jax.shutdown()
+            # Modern JAX cleanup (v0.4.36+)
+            if hasattr(jax, 'clear_caches'):
+                jax.clear_caches()
+            
+            # Try to clear backends if available (older JAX versions)
+            if hasattr(jax, 'clear_backends'):
+                jax.clear_backends()
+            
+            # Force garbage collection to clean up JAX objects
+            import gc
+            gc.collect()
+            
         except Exception as e:
-            print(f"Warning: JAX cleanup failed: {e}")
+            # Suppress JAX cleanup warnings - they're not critical
+            pass
 
         if self.should_cleanup:
             # Remove test data directory
