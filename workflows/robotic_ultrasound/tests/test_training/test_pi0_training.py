@@ -91,6 +91,8 @@ class TestBase(unittest.TestCase):
             # Note: jax.shutdown() might not exist in all versions
             if hasattr(jax, 'shutdown'):
                 jax.shutdown()
+        except Exception as e:
+            print(f"Warning: JAX cleanup failed: {e}")
 
         if self.should_cleanup:
             # Remove test data directory
