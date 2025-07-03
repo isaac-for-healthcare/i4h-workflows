@@ -90,6 +90,3 @@ RUN --mount=type=ssh \
 
 ENV PYTHONPATH=/workspace/i4h-workflows/workflows/robotic_ultrasound/scripts
 ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat
-
-# Make sure it activates robotic_ultrasound when running docker exec -it isaac-sim bash
-ENTRYPOINT ["/bin/bash", "-c", "source ~/miniconda3/bin/activate && conda activate robotic_ultrasound && exec \"$@\""]
