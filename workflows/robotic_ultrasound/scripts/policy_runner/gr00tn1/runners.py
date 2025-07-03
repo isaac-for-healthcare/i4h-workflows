@@ -51,6 +51,7 @@ class GR00TN1PolicyRunner:
             modality_config=modality_config,
             modality_transform=modality_transform,
             embodiment_tag=embodiment_tag,
+            denoising_steps=4,
             device=device,
         )
         self.task_description = task_description
@@ -66,3 +67,33 @@ class GR00TN1PolicyRunner:
         }
 
         return self.model.get_action(data_point)[self.action_key]
+
+    def infer_g1(self, room_img, current_state) -> torch.Tensor:
+        # Prepare input data with batch dimension for model
+        data_point = {
+            "video.rs_view": np.expand_dims(room_img, axis=0),
+            "state.left_arm": np.expand_dims(np.array(current_state[15:22]), axis=0),
+            "state.left_hand": np.expand_dims(np.array(current_state[22:29]), axis=0),
+            "state.right_arm": np.expand_dims(np.array(current_state[29:36]), axis=0),
+            "state.right_hand": np.expand_dims(np.array(current_state[36:43]), axis=0),
+            "annotation.human.task_description": [self.task_description],
+        }
+        print(data_point["video.rs_view"].shape)
+        print(data_point["state.left_arm"].shape)
+        print(data_point["state.left_hand"].shape)
+        print(data_point["state.right_arm"].shape)
+        print(data_point["state.right_hand"].shape)
+        print(type(data_point["annotation.human.task_description"]))
+        action_chunk = self.model.get_action(data_point)
+        # for key in action_chunk.keys():
+        #     print(key, "***********")
+        #     print(action_chunk[key].shape, "***********")
+        #     print(action_chunk[key].dtype, "***********")
+        #     print(action_chunk[key], "***********")
+        # concat the action chunk for all the keys
+        concat_pred_action = np.concatenate(
+            [np.atleast_1d(action_chunk[key]) for key in action_chunk.keys()],
+            axis=1,
+        )
+        print(concat_pred_action.shape, '********')
+        return concat_pred_action
