@@ -13,14 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# ===== CRITICAL: Set environment variables BEFORE any imports =====
-# This prevents async checkpointing and threading issues that cause SIGABRT
 import os
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["XLA_FLAGS"] = "--xla_cpu_multi_thread_eigen=false"
-os.environ["PYTHONFAULTHANDLER"] = "1"
-os.environ["WANDB_MODE"] = "offline"
-
 import shutil
 import threading
 import time
@@ -61,49 +54,16 @@ class TestBase(unittest.TestCase):
         self.test_config = get_config(
             name="robotic_ultrasound_lora", repo_id=self.TEST_REPO_ID, exp_name="test_experiment"
         )
-        
-        # ===== CRITICAL FIX: Disable async checkpointing for tests =====
-        # This prevents the C++ thread crash that causes SIGABRT
-        if hasattr(self.test_config, 'enable_async_checkpointing'):
-            self.test_config.enable_async_checkpointing = False
-        
-        # Try to disable at the checkpoint manager level if possible
-        if hasattr(self.test_config, 'checkpoint_manager_options'):
-            if hasattr(self.test_config.checkpoint_manager_options, 'enable_async_checkpointing'):
-                self.test_config.checkpoint_manager_options.enable_async_checkpointing = False
-        
         self.test_prompt = "test_prompt"
 
         # Flag to allow for cleanup
         self.should_cleanup = False
 
+        # Configure wandb to run in offline mode (no login required)
+        os.environ["WANDB_MODE"] = "offline"
+
     def tearDown(self):
         """Clean up after each test method."""
-        # ===== CRITICAL: Join training threads first =====
-        if hasattr(self, 'training_thread') and self.training_thread.is_alive():
-            self.training_thread.join(timeout=10)
-            if self.training_thread.is_alive():
-                print("Warning: Training thread did not stop cleanly")
-
-        # ===== CRITICAL: Shutdown JAX runtime to prevent C++ crashes =====
-        try:
-            import jax
-            # Modern JAX cleanup (v0.4.36+)
-            if hasattr(jax, 'clear_caches'):
-                jax.clear_caches()
-            
-            # Try to clear backends if available (older JAX versions)
-            if hasattr(jax, 'clear_backends'):
-                jax.clear_backends()
-            
-            # Force garbage collection to clean up JAX objects
-            import gc
-            gc.collect()
-            
-        except Exception as e:
-            # Suppress JAX cleanup warnings - they're not critical
-            pass
-
         if self.should_cleanup:
             # Remove test data directory
             if os.path.exists(self.test_data_dir):
@@ -282,12 +242,12 @@ class TestTraining(TestBase):
         self.assertTrue(os.path.exists(stats_file), f"Stats file not created at {stats_file}")
 
         # Start training in a separate thread so we can stop it after a minute
-        self.training_thread = threading.Thread(target=self._run_training)
-        self.training_thread.daemon = True
+        training_thread = threading.Thread(target=self._run_training)
+        training_thread.daemon = True
 
         # Start timer
         start_time = time.time()
-        self.training_thread.start()
+        training_thread.start()
 
         # Let training run for at least one minute
         time.sleep(60)
@@ -297,7 +257,7 @@ class TestTraining(TestBase):
         self.assertGreaterEqual(elapsed_time, 60, "Training should run for at least one minute")
 
         # Training should still be running
-        self.assertTrue(self.training_thread.is_alive(), "Training thread should still be running")
+        self.assertTrue(training_thread.is_alive(), "Training thread should still be running")
 
     def _run_training(self):
         """Run the training process."""
