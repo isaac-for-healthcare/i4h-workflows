@@ -87,6 +87,7 @@ class TestBase(unittest.TestCase):
 
         # ===== CRITICAL: Shutdown JAX runtime to prevent C++ crashes =====
         try:
+            import jax
             jax.clear_backends()  # Clear all JAX backends
             # Note: jax.shutdown() might not exist in all versions
             if hasattr(jax, 'shutdown'):
