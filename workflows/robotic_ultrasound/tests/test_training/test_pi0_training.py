@@ -86,14 +86,11 @@ class TestBase(unittest.TestCase):
                 print("Warning: Training thread did not stop cleanly")
 
         # ===== CRITICAL: Shutdown JAX runtime to prevent C++ crashes =====
-        if JAX_AVAILABLE:
-            try:
-                jax.clear_backends()  # Clear all JAX backends
-                # Note: jax.shutdown() might not exist in all versions
-                if hasattr(jax, 'shutdown'):
-                    jax.shutdown()
-            except Exception as e:
-                print(f"Warning: JAX cleanup failed: {e}")
+        try:
+            jax.clear_backends()  # Clear all JAX backends
+            # Note: jax.shutdown() might not exist in all versions
+            if hasattr(jax, 'shutdown'):
+                jax.shutdown()
 
         if self.should_cleanup:
             # Remove test data directory
