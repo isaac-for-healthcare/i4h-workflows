@@ -280,26 +280,31 @@ def run_integration_tests(workflow_name, timeout=1200):
     print(f"Test timeout: {timeout} seconds ({timeout//60} minutes)")
 
     project_root = f"workflows/{workflow_name}"
-    default_license_file = os.path.join(os.getcwd(), project_root, "scripts", "dds", "rti_license.dat")
-    os.environ["RTI_LICENSE_FILE"] = os.environ.get("RTI_LICENSE_FILE", default_license_file)
-    all_tests_passed = True
-    tests_dir = os.path.join(project_root, "tests")
-    print(f"Looking for tests in {tests_dir}")
-    tests = get_tests(tests_dir, pattern="test_integration_*.py")
-    env = _setup_test_env(project_root, tests_dir)
+    try:
+        default_license_file = os.path.join(os.getcwd(), project_root, "scripts", "dds", "rti_license.dat")
+        os.environ["RTI_LICENSE_FILE"] = os.environ.get("RTI_LICENSE_FILE", default_license_file)
+        all_tests_passed = True
+        tests_dir = os.path.join(project_root, "tests")
+        print(f"Looking for tests in {tests_dir}")
+        tests = get_tests(tests_dir, pattern="test_integration_*.py")
+        env = _setup_test_env(project_root, tests_dir)
 
-    for test_path in tests:
-        cmd = [
-            sys.executable,
-            "-m",
-            "unittest",
-            test_path,
-        ]
-        if "cosmos_transfer1" in test_path:
-            env = _setup_test_cosmos_transfer1_env(os.getcwd(), project_root, tests_dir)
+        for test_path in tests:
+            cmd = [
+                sys.executable,
+                "-m",
+                "unittest",
+                test_path,
+            ]
+            if "cosmos_transfer1" in test_path:
+                env = _setup_test_cosmos_transfer1_env(os.getcwd(), project_root, tests_dir)
 
-        if not _run_test_process(cmd, env, test_path):
-            all_tests_passed = False
+            if not _run_test_process(cmd, env, test_path):
+                all_tests_passed = False
+    except Exception as e:
+        print(f"Error running integration tests: {e}")
+        print(traceback.format_exc())
+        return 1
 
     return 0 if all_tests_passed else 1
 

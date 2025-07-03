@@ -85,4 +85,7 @@ echo "Installing IsaacLab ..."
 yes Yes | ./isaaclab.sh --install
 popd
 
+# ---- Apply dependency package version patch ----
+pip install 'warp-lang==1.7.2'
+
 echo "IsaacSim and dependencies installed successfully!"
