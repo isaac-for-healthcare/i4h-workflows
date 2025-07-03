@@ -85,6 +85,9 @@ class TestBase(unittest.TestCase):
         if os.path.exists(self.hdf5_data_dir):
             shutil.rmtree(self.hdf5_data_dir)
 
+        if hasattr(self, 'training_thread') and self.training_thread.is_alive():
+            self.training_thread.join(timeout=10)
+
 
 class TestConvertHdf5ToLeRobot(TestBase):
     """Test the conversion of HDF5 data to LeRobot format."""
