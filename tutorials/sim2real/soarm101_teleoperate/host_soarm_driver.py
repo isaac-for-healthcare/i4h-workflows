@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""
-SO-ARM101 Hardware Driver - ULTRA HIGH-FREQUENCY Host Machine
-Communicates with real SO-ARM hardware using LeRobot and sends data via TCP socket.
-No ROS2 required on host machine.
-
-PERFORMANCE OPTIMIZATIONS:
-- Normal mode: 100Hz hardware sampling and data transmission  
-- Real-time mode: 140Hz for minimal latency (7ms intervals)
-- Optimized TCP data streaming with JSON compression
-- Concurrent hardware control and network serving
-"""
 
 import time
 import json
@@ -70,7 +59,7 @@ class SOArmTCPServer:
             print("🔧 Setting up SO101 Leader arm...")
             try:
                 leader_config = SO101LeaderConfig(
-                    port="/dev/ttyACM1",  # Leader arm port
+                    port="/dev/ttyACM0",  # Leader arm port
                     id="my_awesome_leader_arm"  # Use your calibrated ID
                 )
                 
@@ -89,7 +78,7 @@ class SOArmTCPServer:
             print("🔧 Setting up SO101 Follower arm (optional)...")
             try:
                 follower_config = SO101FollowerConfig(
-                    port="/dev/ttyACM0",  # Follower arm port
+                    port="/dev/ttyACM1",  # Follower arm port
                     id="my_awesome_follower_arm"  # Use your calibrated ID
                 )
                 

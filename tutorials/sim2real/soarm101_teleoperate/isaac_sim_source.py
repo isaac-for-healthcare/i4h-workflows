@@ -1,31 +1,4 @@
 #!/usr/bin/env python3
-"""
-SO-ARM Isaac Sim Controller - ULTRA LOW LATENCY VERSION
-Based on successful diagnostic findings with high-frequency optimizations.
-
-PERFORMANCE OPTIMIZATIONS:
-- Normal mode: 125Hz processing, 100Hz hardware data
-- Real-time mode: 200Hz processing, 140Hz hardware data  
-- High-speed joint control (3-5 rad/s velocities)
-- Optimized rendering (every 2-3 physics steps)
-- Ultra-low damping for responsive movement
-
-This script connects as TCP client to the hardware driver server and controls the virtual robot
-in Isaac Sim using the proven APIs from the diagnostic script.
-
-Architecture:
-    host_soarm_driver.py (TCP Server on port 8888) 
-                    ↓
-    isaac_sim_source.py (TCP Client connecting to port 8888)
-
-Usage:
-    # Terminal 1: Start hardware driver (ultra high-frequency)
-    python3 host_soarm_driver.py --port 8888 --realtime
-    
-    # Terminal 2: Start Isaac Sim controller (ultra low latency)
-    source /path/to/isaac-sim/setup_conda_env.sh  
-    python isaac_sim_source.py --port 8888 --realtime
-"""
 
 import argparse
 import socket
@@ -88,17 +61,12 @@ class IsaacSimSOArmController:
         # Create world (same as diagnostic)
         self.world = World(stage_units_in_meters=1.0)
         
-        # Load robot USD file
-        import os
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        usd_path = os.path.join(script_dir, "so101_new_calib.usd")
+        # Load robot from Omniverse asset
+        omniverse_asset_url = "omniverse://isaac-dev.ov.nvidia.com/Projects/isaacsim/Robots/so101_new_calib/so101_new_calib.usd"
         
-        if not os.path.exists(usd_path):
-            raise FileNotFoundError(f"USD file not found: {usd_path}")
-        
-        print(f"✅ Loading USD: {usd_path}")
+        print(f"✅ Loading Omniverse asset: {omniverse_asset_url}")
         robot_prim_path = "/World/SO101_Follower"
-        add_reference_to_stage(usd_path=usd_path, prim_path=robot_prim_path)
+        add_reference_to_stage(usd_path=omniverse_asset_url, prim_path=robot_prim_path)
         
         # Create robot object (same as diagnostic)
         self.robot = Robot(prim_path=robot_prim_path, name="SO101_Follower")
