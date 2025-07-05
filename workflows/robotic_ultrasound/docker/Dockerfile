@@ -46,7 +46,7 @@ RUN apt-get install -y \
         vim \
         git \
         xvfb \
-        linux-headers-$(uname -r) \
+        linux-headers-generic \
         build-essential \
         cmake \
         vulkan-tools
