@@ -21,7 +21,7 @@ import sys
 
 def install_dependencies(workflow_name: str = "robotic_ultrasound"):
     """Install project dependencies from requirements.txt"""
-    if workflow_name not in ["robotic_ultrasound", "robotic_surgery"]:
+    if workflow_name not in ["robotic_ultrasound", "robotic_surgery", "none"]:
         raise ValueError(f"Invalid workflow name: {workflow_name}")
 
     try:
