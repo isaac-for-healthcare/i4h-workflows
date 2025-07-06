@@ -13,68 +13,139 @@ The workflow features a state-of-the-art ultrasound sensor simulation that lever
 
 This physics-based approach enables the generation of highly realistic synthetic ultrasound images that closely match real-world data, making it ideal for training AI models and validating autonomous scanning algorithms. The workflow supports multiple AI policies (PI0, GR00T N1) and can be deployed using NVIDIA Holoscan for clinical applications, providing a complete pipeline from simulation to real-world deployment.
 
-
 ## Table of Contents
-- [System Requirements](#system-requirements)
 - [Quick Start](#quick-start)
-- [Environment Setup](#environment-setup)
+- [Next Steps: Running Workflows](#next-steps-running-workflows)
+- [Detailed Setup Instructions](#detailed-setup-instructions)
+  - [System Requirements](#system-requirements)
   - [Prerequisites](#prerequisites)
   - [Installation Steps](#installation-steps)
   - [Asset Setup](#asset-setup)
   - [Environment Variables](#environment-variables)
-- [Running the Workflow](#running-the-workflow)
+- [Workflow Examples](#workflow-examples)
+- [Troubleshooting](#troubleshooting)
 
-## System Requirements
+## Quick Start
 
-### Hardware Requirements
+Get up and running with the robotic ultrasound workflow in just a few steps:
+
+**⏱️ Setup time:** ~30-40 minutes (depending on your system and network connection)
+
+### Prerequisites Check
+- Ubuntu 22.04
+- NVIDIA GPU with RT Cores and 24GB+ memory
+- NVIDIA Driver ≥ 555
+- CUDA ≥ 12.6
+- RTI DDS License ([get free trial](https://www.rti.com/free-trial))
+
+### Installation
+1. **Create conda environment:**
+   ```bash
+   conda create -n robotic_ultrasound python=3.10 -y
+   conda activate robotic_ultrasound
+   ```
+
+2. **Clone and setup:**
+   ```bash
+   git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
+   cd i4h-workflows
+   bash tools/env_setup_robot_us.sh --policy pi0
+   ```
+
+3. **Download assets:**
+   ```bash
+   i4h-asset-retrieve
+   ```
+
+4. **Set environment variables:**
+   ```bash
+   export PYTHONPATH=`pwd`/workflows/robotic_ultrasound/scripts:`pwd`
+   export RTI_LICENSE_FILE=<path-to-your-rti-license-file>
+   ```
+
+✅ **Setup complete!** Your robotic ultrasound workflow is now ready to use.
+
+## Next Steps: Running Workflows
+
+Now that you've completed the setup, here's what you can do next:
+
+### 🎯 Choose Your Workflow Path
+
+#### **Option 1: Start with Liver Scan State Machine**
+Perfect for understanding the workflow fundamentals with a structured approach:
+```bash
+# Run the liver scan state machine
+cd workflows/robotic_ultrasound/scripts/simulation
+python environments/state_machine/liver_scan_sm.py --enable_cameras
+```
+
+#### **Option 2: Try Policy-Based Control**
+Experience AI-driven robotic control with PI0 policy:
+```bash
+# Run with PI0 policy evaluation
+cd workflows/robotic_ultrasound/scripts/simulation
+python imitation_learning/pi0_policy/eval.py --enable_camera
+```
+
+#### **Option 3: Interactive Teleoperation**
+Control the robotic arm directly using keyboard, SpaceMouse, or gamepad:
+```bash
+# Run teleoperation interface
+cd workflows/robotic_ultrasound/scripts/simulation
+python environments/teleoperation/teleop_se3_agent.py --enable_cameras
+```
+
+#### **Option 4: Full Multi-Component Workflow**
+Run the complete robotic ultrasound pipeline (requires 4 terminals):
+
+**Terminal 1 - Visualization:**
+```bash
+cd workflows/robotic_ultrasound/scripts/utils
+python visualization.py
+```
+
+**Terminal 2 - Policy Runner:**
+```bash
+cd workflows/robotic_ultrasound/scripts/policy_runner
+python run_policy.py
+```
+
+**Terminal 3 - Simulation with DDS:**
+```bash
+cd workflows/robotic_ultrasound/scripts/simulation
+python environments/sim_with_dds.py --enable_cameras
+```
+
+**Terminal 4 - Ultrasound Raytracing:**
+```bash
+cd workflows/robotic_ultrasound/scripts/simulation
+python examples/ultrasound_raytracing.py
+```
+
+### 📚 Learn More
+- **[Workflow Examples](#workflow-examples)** - Explore all available scripts and their purposes
+- **[Detailed Setup Instructions](#detailed-setup-instructions)** - For advanced configuration and troubleshooting
+- **[Troubleshooting](#troubleshooting)** - Common issues and solutions
+
+---
+
+## Detailed Setup Instructions
+
+This section provides comprehensive setup instructions for advanced users or troubleshooting purposes.
+
+### System Requirements
+
+#### Hardware Requirements
 - Ubuntu 22.04
 - NVIDIA GPU with compute capability 8.6 and 24GB of memory ([see NVIDIA's compute capability guide](https://developer.nvidia.com/cuda-gpus#compute))
     - GPUs without RT Cores (A100, H100) are not supported
 - 50GB of disk space
 
-### Software Requirements
+#### Software Requirements
 - [NVIDIA Driver Version >= 555](https://www.nvidia.com/en-us/drivers/)
-- [CUDA Version >= 12.6]((https://developer.nvidia.com/cuda-downloads))
+- [CUDA Version >= 12.6](https://developer.nvidia.com/cuda-downloads)
 - Python 3.10
 - [RTI DDS License](https://www.rti.com/free-trial)
-
-## Quick Start
-
-**Note**: The setup process takes approximately 30-40 minutes to complete, depending on your system and network connection.
-
-1. Install NVIDIA driver (>= 555) and CUDA (>= 12.6)
-2. Install conda:
-
-   [Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/main) is recommended.
-
-3. Create and activate conda environment:
-   ```bash
-   conda create -n robotic_ultrasound python=3.10 -y
-   conda activate robotic_ultrasound
-   ```
-4. Clone the repository:
-   ```bash
-   git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
-   cd i4h-workflows
-   ```
-5. Run the setup script:
-   ```bash
-   cd <path-to-i4h-workflows>
-   bash tools/env_setup_robot_us.sh --policy pi0
-   ```
-6. Download assets:
-   ```bash
-   i4h-asset-retrieve
-   ```
-7. Set environment variables:
-   ```bash
-   export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts:<path-to-i4h-workflows>`
-   export RTI_LICENSE_FILE=<path-to-rti-license-file>
-   ```
-
-## Environment Setup
-
-**Note**: The setup process takes approximately 30-40 minutes to complete, depending on your system and network connection.
 
 ### Prerequisites
 
@@ -164,7 +235,7 @@ Before running any scripts, you need to set up the following environment variabl
 
 1. **PYTHONPATH**: Set this to point to the scripts directory:
    ```bash
-   export PYTHONPATH=<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts
+   export PYTHONPATH=<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts:<path-to-i4h-workflows>
    ```
    This ensures Python can find the modules under the [`scripts`](./scripts) directory.
 
@@ -174,23 +245,59 @@ Before running any scripts, you need to set up the following environment variabl
    ```
    This is required for the DDS communication package to function properly.
 
-
-## Running the Workflow
+## Workflow Examples
 
 The robotic ultrasound workflow provides several example scripts demonstrating different components:
 
-- [Holoscan Apps](./scripts/holoscan_apps)
-- [Policy Runner](./scripts/policy_runner)
-- [Simulation](./scripts/simulation)
-- [Training](./scripts/training)
-- [Visualization Utilities](./scripts/utils)
+### 🔬 Simulation Scripts
+Located in [`scripts/simulation`](./scripts/simulation):
+- **`basic_simulation.py`** - Basic ultrasound simulation without external dependencies
+- **`sim_with_dds.py`** - Simulation with DDS communication for multi-component workflows
+- **`ultrasound_raytracing.py`** - Advanced raytracing-based ultrasound simulation
 
-### Important Notes
-1. You may need to run multiple scripts simultaneously in different terminals
-2. A typical setup requires 4 terminals running:
-   - Visualization
-   - Policy runner
-   - Sim_with_dds
-   - Ultrasound raytracing simulations
+### 🤖 Policy Runner Scripts
+Located in [`scripts/policy_runner`](./scripts/policy_runner):
+- **`policy_runner.py`** - Generic policy runner supporting multiple AI policies
+- **`run_pi0_policy.py`** - Specialized runner for PI0 policy
+- **`run_gr00t_policy.py`** - Specialized runner for GR00T N1 policy
 
-If you encounter issues not covered in the notes above, please check the documentation for each component or open a new issue on GitHub.
+### 🏥 Holoscan Applications
+Located in [`scripts/holoscan_apps`](./scripts/holoscan_apps):
+- **Clinical deployment apps** - Production-ready applications for real-world use
+- **Integration examples** - Connecting simulation to clinical workflows
+
+### 🎯 Training Scripts
+Located in [`scripts/training`](./scripts/training):
+- **Model training pipelines** - Train AI models using simulated ultrasound data
+- **Policy optimization** - Improve autonomous scanning strategies
+
+### 📊 Visualization Utilities
+Located in [`scripts/utils`](./scripts/utils):
+- **`visualization.py`** - Real-time visualization of ultrasound data and robot movements
+- **Data analysis tools** - Process and analyze workflow outputs
+
+## Troubleshooting
+
+### Common Issues
+
+**PyTorch Version Warnings**
+```
+ERROR: pip's dependency resolver does not currently take into account all the packages...
+```
+These warnings are expected and can be safely ignored. The workflow functions correctly despite version conflicts.
+
+**Asset Download Warnings**
+Warnings about blocking functions during asset download are normal and the download will complete successfully.
+
+**GPU Compatibility**
+Ensure your GPU has RT Cores. A100 and H100 GPUs are not supported due to lack of RT Cores.
+
+**Environment Variables**
+If you encounter import errors, verify that your `PYTHONPATH` includes both the scripts directory and the repository root.
+
+### Getting Help
+
+If you encounter issues not covered above:
+1. Check the documentation for each component
+2. Review the [GitHub issues](https://github.com/isaac-for-healthcare/i4h-workflows/issues)
+3. Open a new issue with detailed error information
