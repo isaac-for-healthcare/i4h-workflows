@@ -53,6 +53,7 @@ RUN apt-get install -y \
 
 # Needed for Holoscan apps
 RUN apt-get install -y \
+        unzip \
         lsb-release \
         libglib2.0-0 \
         libdbus-1-3 \
