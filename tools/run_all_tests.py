@@ -147,7 +147,7 @@ def _run_test_process(cmd, env, test_path, timeout=1200):
             print(f"\nTEST PASSED in {elapsed_time} seconds")
             return True
         elif return_code == -6:
-            print(f"\n The process crashes at shutdown because of native async code that does not finalize safely.")
+            print("\n The process crashes at shutdown because of native async code that does not finalize safely.")
             return True
         else:
             print(f"\nTEST FAILED with return code {return_code} after {elapsed_time} seconds")

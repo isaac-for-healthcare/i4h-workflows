@@ -14,7 +14,7 @@ To build the docker image, you will need to set up the SSH agent and add your SS
 export DOCKER_BUILDKIT=1
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key
-docker build --ssh default -f workflows/robotic_ultrasound/docker/Dockerfile -t robot_us:latest .
+docker build --ssh default --no-cache -f workflows/robotic_ultrasound/docker/Dockerfile -t robot_us:latest .
 ```
 
 ## Prepare the RTI License Locally
