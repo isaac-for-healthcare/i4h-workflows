@@ -19,11 +19,26 @@ FROM  nvidia/cuda:12.8.1-devel-ubuntu24.04
 
 SHELL ["/bin/bash", "-c"]
 
+# Install all packages in a single layer to avoid caching issues
 RUN apt-get update && \
     apt-get install -y \
         wget \
         curl \
-        jq
+        jq \
+        vim \
+        git \
+        xvfb \
+        build-essential \
+        cmake \
+        vulkan-tools \
+        unzip \
+        lsb-release \
+        libglib2.0-0 \
+        libdbus-1-3 \
+        libopengl0 \
+        libxcb-keysyms1 \
+        libglu1-mesa && \
+    rm -rf /var/lib/apt/lists/*
 
 # Add github.com to list of known hosts for git clone with ssh
 # use COPY command instead
@@ -40,28 +55,6 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 # set 'graphics' driver cap to use OpenGL/EGL
 # set 'display' to allow use of virtual display
 ENV NVIDIA_DRIVER_CAPABILITIES=graphics,video,compute,utility,display
-
-# Additional packages needed
-RUN apt-get install -y \
-        vim \
-        git \
-        xvfb \
-        build-essential \
-        cmake \
-        vulkan-tools
-
-# Needed for Holoscan apps
-RUN apt-get install -y \
-        unzip \
-        lsb-release \
-        libglib2.0-0 \
-        libdbus-1-3 \
-        libopengl0 \
-        libxcb-keysyms1
-
-# Needed for IsaacSim / IsaacLab
-RUN apt-get install -y \
-        libglu1-mesa
 
 # Install Everything in conda environment
 
