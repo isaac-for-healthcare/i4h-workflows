@@ -15,7 +15,7 @@ What's expected:
 - Terminal messages showing the progress of the simulation, e.g. `[info] Timing Simulation took 1.389568 ms`
 
 
-To visualize the ultrasound images, please check out the [Visualization Utility](../utils/README.md), but it's not recommended to use it without [moving the probe with robotic arm](../../../README.md#policy--ultrasound-simulation), which receives `topic_ultrasound_info` from the scripts such as [sim_with_dds.py](./environments/sim_with_dds.py) or [Tele-op](./environments/teleoperation/teleop_se3_agent.py).
+To visualize the ultrasound images, please check out the [Visualization Utility](../../utils/README.md), but it's not recommended to use it without [moving the probe with robotic arm](../../../README.md#policy--ultrasound-simulation), which receives `topic_ultrasound_info` from the scripts such as [sim_with_dds.py](../environments/sim_with_dds.py) or [Tele-op](../environments/teleoperation/teleop_se3_agent.py).
 
 
 ## Configuration

@@ -10,7 +10,7 @@ python -m simulation.environments.teleoperation.teleop_se3_agent --enable_camera
 
 What's expected:
 - Isaac Sim window with the assets loaded
-- You can control the robot arm directly using keyboard (pressing buttons like 'w', 'a', 's', 'd'). Check [Teleoperation](./scripts/simulation/environments/teleoperation/README.md) for more details.
+- You can control the robot arm directly using keyboard (pressing buttons like 'w', 'a', 's', 'd'). Check [Keyboard Controls](#keyboard-controls) for more details.
 
 ### Control Schemes
 
@@ -20,7 +20,7 @@ What's expected:
 
 #### Hand Tracking Controls
 
-Please review the [Hand Tracking Teleoperation Tutorial](../../../../tutorials/assets/bring_your_own_xr/README.md) for
+Please review the [Hand Tracking Teleoperation Tutorial](../../../../../../tutorials/assets/bring_your_own_xr/README.md) for
 details on Isaac Lab XR hand tracking support and setup instructions.
 
 #### Camera Visualization

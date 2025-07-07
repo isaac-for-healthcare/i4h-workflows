@@ -9,7 +9,7 @@ Directly applying Cosmos-Transfer with various control inputs results in unsatis
 This training-free guided generation approach by encoding simulation videos into the latent space and applying spatial masking to guide the generation process. The trade-off between realism and faithfulness can be controlled by adjusting the number of guided denoising steps. In addition, our generation pipeline supports multi-view video generation. We first leverage the camera information to warp the generated room view to wrist view, then use it as the guidance of wrist-view generation.
 
 #### Download Cosmos-transfer1 Checkpoints
-The cosmos-transfer1 dependency is already installed after completing the [Installation](#installation) section. Please navigate to the third party `cosmos-transfer1` folder and run the following command to download the checkpoints:
+The cosmos-transfer1 dependency is already installed after completing the [Installation](../../../../README.md#installation-steps) section. Please navigate to the third party `cosmos-transfer1` folder and run the following command to download the checkpoints:
 ```sh
 cd third_party/cosmos-transfer1
 CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/download_checkpoints.py --output_dir checkpoints/
