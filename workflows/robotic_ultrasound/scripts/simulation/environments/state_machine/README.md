@@ -32,7 +32,7 @@ The state machine integrates multiple control modules:
 - **Orientation Control**: Maintains proper probe orientation
 - **Path Planning**: Guides the robot through the scanning trajectory
 
-> **Note:** 
+> **Note:**
 > This implementation works **only with a single environment** (`--num_envs 1`).
 > It should be used with the `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0` environment.
 

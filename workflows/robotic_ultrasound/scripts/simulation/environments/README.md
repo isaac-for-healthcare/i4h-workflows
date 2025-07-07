@@ -6,7 +6,7 @@ This folder contains the core simulation infrastructure for robotic ultrasound e
 
 - **`sim_with_dds.py`** - Main simulation orchestrator that runs single-arm manipulator simulations with real-time DDS communication, publishes multi-modal sensor data (room/wrist cameras, robot states, probe positions), subscribes to control commands for closed-loop operation, and supports data replay from recorded HDF5 trajectories
 - **`state_machine/`** - State machine implementations for structured robotic ultrasound workflows
-- **`cosmos_transfer1/`** - Transfer learning pipeline and guided generation components  
+- **`cosmos_transfer1/`** - Transfer learning pipeline and guided generation components
 - **`teleoperation/`** - Teleoperation agents and control interfaces
 
 ## Sim with DDS

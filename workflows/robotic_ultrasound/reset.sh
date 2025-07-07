@@ -23,18 +23,18 @@ echo "Killing robotic ultrasound workflow processes..."
 kill_process_tree() {
     local pattern="$1"
     local name="$2"
-    
+
     echo "Checking for processes matching: $pattern"
-    
+
     # Get PIDs of matching processes
     pids=$(pgrep -f "$pattern")
-    
+
     if [ ! -z "$pids" ]; then
         echo "Found PIDs: $pids for $name"
-        
+
         for pid in $pids; do
             echo "Killing process tree for PID $pid ($name)"
-            
+
             # Get all child processes
             children=$(pgrep -P $pid 2>/dev/null)
             if [ ! -z "$children" ]; then
@@ -45,15 +45,15 @@ kill_process_tree() {
                     kill -TERM $child 2>/dev/null
                 done
             fi
-            
+
             # Kill the parent process
             echo "  Killing parent process $pid"
             kill -TERM $pid 2>/dev/null
         done
-        
+
         # Wait for graceful shutdown
         sleep 2
-        
+
         # Force kill any remaining processes and children
         for pid in $pids; do
             if kill -0 $pid 2>/dev/null; then
@@ -67,7 +67,7 @@ kill_process_tree() {
                 kill -9 $pid 2>/dev/null
             fi
         done
-        
+
         echo "Killed $name processes"
     else
         echo "No processes found for $name"

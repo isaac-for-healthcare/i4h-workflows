@@ -106,16 +106,20 @@ app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
 """Import remaining modules."""
-import gymnasium as gym  # noqa: F401
-import torch  # noqa: F401
-from isaaclab_tasks.utils.parse_cfg import parse_env_cfg  # noqa: F401
-from simulation.environments.state_machine.meta_state_machine.ultrasound_state_machine import UltrasoundStateMachine  # noqa: F401
+# isort: off
+
+import gymnasium as gym
+import torch
+from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
 from robotic_us_ext import tasks  # noqa: F401
-from simulation.environments.state_machine.data_collection import DataCollectionManager  # noqa: F401
-from simulation.environments.state_machine.modules.force_module import ForceControlModule  # noqa: F401
-from simulation.environments.state_machine.modules.orientation_module import OrientationControlModule  # noqa: F401
-from simulation.environments.state_machine.modules.path_planning_module import PathPlanningModule  # noqa: F401
-from simulation.environments.state_machine.utils import (  # noqa: F401
+from simulation.environments.state_machine.data_collection import DataCollectionManager
+from simulation.environments.state_machine.meta_state_machine.ultrasound_state_machine import (
+    UltrasoundStateMachine,
+)
+from simulation.environments.state_machine.modules.force_module import ForceControlModule
+from simulation.environments.state_machine.modules.orientation_module import OrientationControlModule
+from simulation.environments.state_machine.modules.path_planning_module import PathPlanningModule
+from simulation.environments.state_machine.utils import (
     RobotPositions,
     RobotQuaternions,
     UltrasoundState,
@@ -123,6 +127,8 @@ from simulation.environments.state_machine.utils import (  # noqa: F401
     compute_relative_action,
     get_robot_obs,
 )
+
+# isort: on
 
 # Add publisher classes before main()
 pub_data = {

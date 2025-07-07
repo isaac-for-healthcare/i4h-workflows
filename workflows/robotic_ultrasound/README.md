@@ -36,32 +36,32 @@ Get up and running with the robotic ultrasound workflow in just a few steps:
 - NVIDIA GPU with RT Cores, Ampere or later architecture (requested by VDR), and 24GB+ memory
    <details>
    <summary>📋 Check GPU Compatibility</summary>
-   
+
    ```bash
    nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader
    ```
-   
+
    Ensure your GPU shows:
    - Compute capability ≥8.6 (Ampere or later architecture)
    </details>
 - NVIDIA Driver ≥ 555 (for Raytracing Ultrasound Simulator)
    <details>
    <summary>📋 Check Driver Version</summary>
-   
+
    ```bash
    nvidia-smi --query-gpu=driver_version --format=csv,noheader,nounits
    ```
-   
+
    Ensure your driver shows version ≥555.
    </details>
 - CUDA ≥ 12.6 (for Raytracing Ultrasound Simulator)
    <details>
    <summary>📋 Check CUDA Version</summary>
-   
+
    ```bash
    nvcc --version | grep "release" | awk '{print $6}' | cut -d',' -f1
    ```
-   
+
    Ensure your CUDA shows version ≥12.6.
    </details>
 - RTI DDS License ([get free trial](https://www.rti.com/free-trial))
@@ -91,16 +91,16 @@ You can visit [Installing Miniconda](https://www.anaconda.com/docs/getting-start
    export PYTHONPATH=`pwd`/workflows/robotic_ultrasound/scripts:$PYTHONPATH
    export RTI_LICENSE_FILE=<path-to-your-rti-license-file>
    ```
-   
+
    <details>
    <summary>💾 Make Environment Variables Persistent</summary>
-   
+
    ```bash
    echo "export PYTHONPATH=`pwd`/workflows/robotic_ultrasound/scripts:\$PYTHONPATH" >> ~/.bashrc
    echo "export RTI_LICENSE_FILE=<path-to-your-rti-license-file>" >> ~/.bashrc
    source ~/.bashrc
    ```
-   
+
    Replace `<path-to-your-rti-license-file>` with your actual RTI license file path.
    </details>
 
@@ -131,10 +131,10 @@ What's expected (requested by VDR):
 - Isaac Sim window running with a Franka robot arm driven by the pi0 policy
 - Policy runner is reading images from the cameras and sending commands to the robot arm to move to the target position on DDS topics
 
-> **Note:**  
-> You may see `"IsaacSim 4.5.0 is not responding"`.  
-> It can take several minutes to download the assets and models from the internet and load them to the scene.  
-> If this is the first time you run the workflow, it can take up to **10 minutes**.  
+> **Note:**
+> You may see `"IsaacSim 4.5.0 is not responding"`.
+> It can take several minutes to download the assets and models from the internet and load them to the scene.
+> If this is the first time you run the workflow, it can take up to **10 minutes**.
 > If your network isn't in the US region, it can take longer to download the assets.
 > To exit the workflow, press `Ctrl+C` in the terminal and run `bash workflows/robotic_ultrasound/reset.sh` to kill all processes spawned by the workflow.
 
