@@ -33,15 +33,37 @@ Get up and running with the robotic ultrasound workflow in just a few steps:
 
 ### Prerequisites Check
 - Ubuntu 22.04/24.04
-   - FIXME: provide a command to check if the system is Ubuntu 22.04/24.04
 - NVIDIA GPU with RT Cores, Ampere or later architecture (requested by VDR), and 24GB+ memory
-   - FIXME: provide a command to check if the vram is sufficient
+   <details>
+   <summary>📋 Check GPU Compatibility</summary>
+   
+   ```bash
+   nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader
+   ```
+   
+   Ensure your GPU shows:
+   - Compute capability ≥8.6 (Ampere or later architecture)
+   </details>
 - NVIDIA Driver ≥ 555 (for Raytracing Ultrasound Simulator)
-   - FIXME: provide a command to check if the driver is new enough
+   <details>
+   <summary>📋 Check Driver Version</summary>
+   
+   ```bash
+   nvidia-smi --query-gpu=driver_version --format=csv,noheader,nounits
+   ```
+   
+   Ensure your driver shows version ≥555.
+   </details>
 - CUDA ≥ 12.6 (for Raytracing Ultrasound Simulator)
-   - FIXME: provide a command to check if the cuda is new enough
-- CONDA
-   - FIXME: provide a command to install miniconda
+   <details>
+   <summary>📋 Check CUDA Version</summary>
+   
+   ```bash
+   nvcc --version | grep "release" | awk '{print $6}' | cut -d',' -f1
+   ```
+   
+   Ensure your CUDA shows version ≥12.6.
+   </details>
 - RTI DDS License ([get free trial](https://www.rti.com/free-trial))
 
 ### Conda Installation
@@ -69,7 +91,18 @@ You can visit [Installing Miniconda](https://www.anaconda.com/docs/getting-start
    export PYTHONPATH=`pwd`/workflows/robotic_ultrasound/scripts:$PYTHONPATH
    export RTI_LICENSE_FILE=<path-to-your-rti-license-file>
    ```
-   FIXME: add a command to write them to .bashrc
+   
+   <details>
+   <summary>💾 Make Environment Variables Persistent</summary>
+   
+   ```bash
+   echo "export PYTHONPATH=`pwd`/workflows/robotic_ultrasound/scripts:\$PYTHONPATH" >> ~/.bashrc
+   echo "export RTI_LICENSE_FILE=<path-to-your-rti-license-file>" >> ~/.bashrc
+   source ~/.bashrc
+   ```
+   
+   Replace `<path-to-your-rti-license-file>` with your actual RTI license file path.
+   </details>
 
 4. **Download Raytracing Ultrasound Simulator: raysim**
    ```bash
@@ -174,6 +207,9 @@ Here is a catalog of all the scripts in the workflow in the [scripts](scripts) f
 ## Detailed Setup Instructions
 
 This section provides comprehensive setup instructions for advanced users or troubleshooting purposes.
+
+<details>
+<summary>📋 Detailed Setup Instructions</summary>
 
 ### System Requirements
 
@@ -299,37 +335,7 @@ Before running any scripts, you need to set up the following environment variabl
    export RTI_LICENSE_FILE=<path-to-rti-license-file>
    ```
    This is required for the DDS communication package to function properly.
-
-## Workflow Examples
-
-The robotic ultrasound workflow provides several example scripts demonstrating different components:
-
-### 🔬 Simulation Scripts
-Located in [`scripts/simulation`](./scripts/simulation):
-- **`basic_simulation.py`** - Basic ultrasound simulation without external dependencies
-- **`sim_with_dds.py`** - Simulation with DDS communication for multi-component workflows
-- **`ultrasound_raytracing.py`** - Advanced raytracing-based ultrasound simulation
-
-### 🤖 Policy Runner Scripts
-Located in [`scripts/policy_runner`](./scripts/policy_runner):
-- **`policy_runner.py`** - Generic policy runner supporting multiple AI policies
-- **`run_pi0_policy.py`** - Specialized runner for PI0 policy
-- **`run_gr00t_policy.py`** - Specialized runner for GR00T N1 policy
-
-### 🏥 Holoscan Applications
-Located in [`scripts/holoscan_apps`](./scripts/holoscan_apps):
-- **Clinical deployment apps** - Production-ready applications for real-world use
-- **Integration examples** - Connecting simulation to clinical workflows
-
-### 🎯 Training Scripts
-Located in [`scripts/training`](./scripts/training):
-- **Model training pipelines** - Train AI models using simulated ultrasound data
-- **Policy optimization** - Improve autonomous scanning strategies
-
-### 📊 Visualization Utilities
-Located in [`scripts/utils`](./scripts/utils):
-- **`visualization.py`** - Real-time visualization of ultrasound data and robot movements
-- **Data analysis tools** - Process and analyze workflow outputs
+</details>
 
 ## Troubleshooting
 
@@ -356,3 +362,13 @@ If you encounter issues not covered above:
 1. Check the documentation for each component
 2. Review the [GitHub issues](https://github.com/isaac-for-healthcare/i4h-workflows/issues)
 3. Open a new issue with detailed error information
+
+## Jump to Section
+
+- [Policy Runner](./scripts/policy_runner/README.md)
+- [Simulation](./scripts/simulation/README.md)
+- [Utils](./scripts/utils/README.md)
+- [Holoscan Apps](./scripts/holoscan_apps/README.md)
+- [Training GR00T N1](./scripts/training/gr00t_n1/README.md)
+- [Training PI0](./scripts/training/pi_zero/README.md)
+- [Evaluation](./scripts/simulation/evaluation/README.md)
