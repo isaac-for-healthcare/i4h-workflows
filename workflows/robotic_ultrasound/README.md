@@ -32,10 +32,11 @@ Get up and running with the robotic ultrasound workflow in just a few steps:
 **⏱️ Setup time:** ~30-40 minutes (depending on your system and network connection)
 
 ### Prerequisites Check
-- Ubuntu 22.04
+- Ubuntu 22.04/24.04
 - NVIDIA GPU with RT Cores and 24GB+ memory
-- NVIDIA Driver ≥ 555
-- CUDA ≥ 12.6
+- NVIDIA Driver ≥ 555 (for Raytracing Ultrasound Simulator)
+- CUDA ≥ 12.6 (for Raytracing Ultrasound Simulator)
+- Python 3.10 (for IsaacSim and IsaacLab)
 - RTI DDS License ([get free trial](https://www.rti.com/free-trial))
 
 ### Installation
@@ -49,38 +50,44 @@ Get up and running with the robotic ultrasound workflow in just a few steps:
    ```bash
    git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
    cd i4h-workflows
-   bash tools/env_setup_robot_us.sh --policy pi0
+   bash tools/env_setup_robot_us.sh
    ```
 
-3. **Download assets:**
+3. **Set environment variables:**
    ```bash
-   i4h-asset-retrieve
-   ```
-
-4. **Set environment variables:**
-   ```bash
-   export PYTHONPATH=`pwd`/workflows/robotic_ultrasound/scripts:`pwd`
+   export PYTHONPATH=`pwd`/workflows/robotic_ultrasound/scripts:$PYTHONPATH
    export RTI_LICENSE_FILE=<path-to-your-rti-license-file>
    ```
+   FIXME: add a command to write them to .bashrc
+
+4. **Download Raytracing Ultrasound Simulator: raysim**
+   ```bash
+   # Download Raytracing Ultrasound Simulator: raysim
+   wget https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/download/v0.2.0rc1/raysim-py310-linux-v0.2.0rc1.zip -O workflows/robotic_ultrasound/scripts/raysim.zip
+   unzip workflows/robotic_ultrasound/scripts/raysim.zip -d workflows/robotic_ultrasound/scripts/raysim
+   rm workflows/robotic_ultrasound/scripts/raysim.zip
+   ```
+   FIXME: this https assets will not be available before GA. Alternatively, you can download it from the link below.
 
 ✅ **Setup complete!** Your robotic ultrasound workflow is now ready to use.
 
 ## Next Steps: Running Workflows
 
+### First Run
+
+Try Policy-Based Control with PI0
+```bash
+python -m simulation.imitation_learning.pi0_policy.eval --enable_camera
+```
+
+
+### Script Catalog
+
 Now that you've completed the setup, here's what you can do next:
 
 ### 🎯 Choose Your Workflow Path
 
-#### **Option 1: Start with Liver Scan State Machine**
-Perfect for understanding the workflow fundamentals with a structured approach:
-```bash
-# Run the liver scan state machine
-cd workflows/robotic_ultrasound/scripts/simulation
-python environments/state_machine/liver_scan_sm.py --enable_cameras
-```
-
-#### **Option 2: Try Policy-Based Control**
-Experience AI-driven robotic control with PI0 policy:
+#### **Option 1: Try Policy-Based Control with PI0**
 ```bash
 # Run with PI0 policy evaluation
 cd workflows/robotic_ultrasound/scripts/simulation
