@@ -20,7 +20,12 @@ docker build --ssh default -f workflows/robotic_surgery/docker/Dockerfile -t rob
 ## Run the Container
 
 ```bash
-docker run --name isaac-sim --entrypoint bash -it --runtime=nvidia --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
+docker run --name isaac-sim -it --gpus all --rm --network=host \
+    --runtime=nvidia \
+    --entrypoint=bash \
+    -e DISPLAY=$DISPLAY \
+    -e "OMNI_KIT_ACCEPT_EULA=Y" \
+    -e "ACCEPT_EULA=Y" \
     -e "PRIVACY_CONSENT=Y" \
     -v ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
     -v ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw \
@@ -41,6 +46,7 @@ In the container, run the simulation with `--livestream 2` to stream the simulat
 ```bash
 docker exec -it isaac-sim bash
 # Inside the container, run the simulation
+conda activate robotic_surgery
 python simulation/scripts/environments/state_machine/reach_psm_sm.py --livestream 2
 ```
 
