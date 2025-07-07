@@ -15,15 +15,15 @@ This physics-based approach enables the generation of highly realistic synthetic
 
 ## Table of Contents
 - [Quick Start](#quick-start)
-- [Next Steps: Running Workflows](#next-steps-running-workflows)
+- [Running Workflows](#running-workflows)
 - [Detailed Setup Instructions](#detailed-setup-instructions)
   - [System Requirements](#system-requirements)
   - [Prerequisites](#prerequisites)
   - [Installation Steps](#installation-steps)
   - [Asset Setup](#asset-setup)
   - [Environment Variables](#environment-variables)
-- [Workflow Examples](#workflow-examples)
 - [Troubleshooting](#troubleshooting)
+- [Jump to Section](#jump-to-section)
 
 ## Quick Start
 
