@@ -38,7 +38,7 @@ This physics-based approach enables the generation of highly realistic synthetic
 
 #### GPU Architecture Requirements
 - **NVIDIA GPU**: RT Core-enabled architecture (Ampere or later)
-- **Compute Capability**: ≥8.6 
+- **Compute Capability**: ≥8.6
 - **VRAM**: ≥24GB GDDR6/HBM
 - **Unsupported**: A100, H100 (lack RT Cores for ray tracing acceleration)
 
@@ -236,13 +236,13 @@ Install CUDA from [NVIDIA CUDA Quick Start Guide](https://docs.nvidia.com/cuda/c
 
 ```bash
 # Download CUDA installer
- wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb 
- sudo dpkg -i cuda-keyring_1.1-1_all.deb 
- sudo apt-get update 
- sudo apt-get -y install cuda-toolkit-12-8 
- echo 'export PATH=/usr/local/cuda-12.8/bin:$PATH' >> ~/.bashrc 
- echo 'export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc 
- source ~/.bashrc 
+ wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+ sudo dpkg -i cuda-keyring_1.1-1_all.deb
+ sudo apt-get update
+ sudo apt-get -y install cuda-toolkit-12-8
+ echo 'export PATH=/usr/local/cuda-12.8/bin:$PATH' >> ~/.bashrc
+ echo 'export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+ source ~/.bashrc
 ```
 
 #### 3️⃣ RTI DDS License Configuration
@@ -273,7 +273,7 @@ cd i4h-workflows
 bash tools/env_setup_robot_us.sh --policy pi0     # PI0 policies
 # OR
 bash tools/env_setup_robot_us.sh --policy gr00tn1 # GR00T N1 foundation models
-# OR  
+# OR
 bash tools/env_setup_robot_us.sh --policy none    # Base dependencies only
 ```
 
@@ -340,7 +340,7 @@ isaaclab 0.34.9 requires torch==2.5.1, but you have torch 2.6.0 which is incompa
 
 ### 🎯 Component Documentation
 - [🤖 Policy Runner](./scripts/policy_runner/README.md) - AI inference pipeline
-- [🔬 Simulation](./scripts/simulation/README.md) - Physics simulation framework  
+- [🔬 Simulation](./scripts/simulation/README.md) - Physics simulation framework
 - [🛠️ Utils](./scripts/utils/README.md) - Visualization and debugging tools
 - [🏥 Holoscan Apps](./scripts/holoscan_apps/README.md) - Clinical hardware integration
 - [🧠 GR00T N1 Training](./scripts/training/gr00t_n1/README.md) - Foundation model training
