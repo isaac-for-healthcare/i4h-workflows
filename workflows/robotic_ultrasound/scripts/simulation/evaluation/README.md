@@ -4,6 +4,15 @@ After running simulations and collecting predicted trajectories (e.g., using `si
 
 This script is located at `workflows/robotic_ultrasound/scripts/simulation/evaluation/evaluate_trajectories.py`.
 
+## Quick Start
+
+```sh
+python -m simulation.evaluation.evaluate_trajectories \
+  --data_root /path/to/data \
+  --method-name MyModel \
+  --ps-file-pattern "model_output/preds_{e}.npz" ...
+```
+
 ## Overview
 
 The script performs the following main functions:
@@ -19,10 +28,8 @@ The script performs the following main functions:
 
 ## Usage
 
-Navigate to the `scripts/simulation/evaluation/` folder (or ensure your PYTHONPATH is set correctly if running from elsewhere) and execute:
-
 ```sh
-python evaluate_trajectories.py \
+python -m simulation.evaluation.evaluate_trajectories \
     --data_root /path/to/your/data_and_predictions \
     --method-name WCOS --ps-file-pattern "800/pi0_robot_obs_{e}.npz" --ps-label "With COSMOS" --ps-color "red" \
     --method-name WOCOS --ps-file-pattern "400/pi0_robot_obs_{e}.npz" --ps-label "Without COSMOS" --ps-color "green" \
@@ -55,7 +62,7 @@ Key Command-Line Arguments:
 To evaluate one or more prediction methods, provide their details using the `--method-name`, `--ps-file-pattern`, `--ps-label`, and `--ps-color` arguments. Each of these arguments should be used once for each method you want to compare. For example, to compare two methods "MethodA" and "MethodB":
 
 ```sh
-python evaluate_trajectories.py \
+python -m simulation.evaluation.evaluate_trajectories \
     --method-name MethodA --ps-file-pattern "path/to/methodA/results_{e}.npz" --ps-label "Method A Results" --ps-color "blue" \
     --method-name MethodB --ps-file-pattern "path/to/methodB/results_{e}.npz" --ps-label "Method B Results" --ps-color "green" \
     # ... other arguments like --data_root, --episode etc.

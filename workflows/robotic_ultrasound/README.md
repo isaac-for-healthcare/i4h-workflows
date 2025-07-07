@@ -29,12 +29,12 @@ This physics-based approach enables the generation of highly realistic synthetic
 
 Get up and running with the robotic ultrasound workflow in just a few steps:
 
-**⏱️ Setup time:** ~30-40 minutes (depending on your system and network connection)
+**⏱️ Setup time:** ~30-40 minutes (depending on your system and network connection) (requested by VDR)
 
 ### Prerequisites Check
 - Ubuntu 22.04/24.04
    - FIXME: provide a command to check if the system is Ubuntu 22.04/24.04
-- NVIDIA GPU with RT Cores and 24GB+ memory
+- NVIDIA GPU with RT Cores, Ampere or later architecture (requested by VDR), and 24GB+ memory
    - FIXME: provide a command to check if the vram is sufficient
 - NVIDIA Driver ≥ 555 (for Raytracing Ultrasound Simulator)
    - FIXME: provide a command to check if the driver is new enough
@@ -45,7 +45,13 @@ Get up and running with the robotic ultrasound workflow in just a few steps:
 - RTI DDS License ([get free trial](https://www.rti.com/free-trial))
 
 ### Conda Installation
-1. **Create conda environment:**
+
+The robotic ultrasound workflow only supports setup with conda environment, due to the need of both installing pip and system packages.
+
+You can visit [Installing Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install#quickstart-install-instructions) website to install miniconda.
+(requested by VDR)
+
+1. **Create a new conda environment with Python 3.10:**
    ```bash
    conda create -n robotic_ultrasound python=3.10 -y
    conda activate robotic_ultrasound
@@ -76,7 +82,8 @@ Get up and running with the robotic ultrasound workflow in just a few steps:
 
 ✅ **Setup complete!** Your robotic ultrasound workflow is now ready to use.
 
-## Next Steps: Running Workflows
+## Running Workflows
+(requested by VDR)
 
 ### First Runs
 
@@ -87,13 +94,37 @@ Now that you've completed the setup, you can try the following workflows:
 (python -m policy_runner.run_policy --policy pi0 & python -m simulation.environments.sim_with_dds --enable_cameras & wait)
 ```
 
-(FIXME) What's expected:
-- IsaacSim window with a Franka robot arm and a ultrasound probe scanning a abdominal phatnom placed on a table
-- You may see "IsaacSim 4.5.0 is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
+What's expected (requested by VDR):
+- Isaac Sim window running with a Franka robot arm driven by the pi0 policy
+- Policy runner is reading images from the cameras and sending commands to the robot arm to move to the target position on DDS topics
 
-NOTE: to exit the IsaacSim window, press `Ctrl+C` in the terminal.
+> **Note:**  
+> You may see `"IsaacSim 4.5.0 is not responding"`.  
+> It can take several minutes to download the assets and models from the internet and load them to the scene.  
+> If this is the first time you run the workflow, it can take up to **10 minutes**.  
+> If your network isn't in the US region, it can take longer to download the assets.
+> To exit the workflow, press `Ctrl+C` in the terminal and run `bash workflows/robotic_ultrasound/reset.sh` to kill all processes spawned by the workflow.
 
-#### Interactive Teleoperation**
+#### Policy + Ultrasound Simulation
+```bash
+(python -m policy_runner.run_policy --policy pi0 & \
+python -m simulation.environments.sim_with_dds --enable_cameras &  \
+python -m simulation.examples.ultrasound_raytracing & \
+python -m utils.visualization & \
+wait)
+```
+
+What's expected (requested by VDR):
+- Isaac Sim window running with a Franka robot arm driven by the pi0 policy
+- Policy runner is reading images from the cameras and sending commands to the robot arm to move to the target position on DDS topics
+- Ultrasound raytracing simulator is running and streaming ultrasound images on DDS topics
+- Python GUI Visualization is running and displaying the wrist/room camera images and ultrasound images
+
+> **Note:**
+> The ultrasound image would stay still until the isaacsim simulation finishes loading the assets.
+> To exit the workflow, press `Ctrl+C` in the terminal and run `bash workflows/robotic_ultrasound/reset.sh` to kill all processes spawned by the workflow.
+
+#### Interactive Teleoperation
 Control the robotic arm directly using keyboard, SpaceMouse, or gamepad:
 ```bash
 (python -m simulation.examples.ultrasound_raytracing & \
@@ -102,73 +133,41 @@ python workflows/robotic_ultrasound/scripts/utils/visualization.py & \
 wait)
 ```
 
+What's expected (requested by VDR):
+- Isaac Sim window with the assets loaded
+- You can control the robot arm directly using keyboard (pressing buttons like 'w', 'a', 's', 'd'). Check [Teleoperation](./scripts/simulation/environments/teleoperation/README.md) for more details.
+- Ultrasound raytracing simulator is running and streaming ultrasound images on DDS topics
+- Python GUI Visualization is running and displaying the wrist/room camera images and ultrasound images
+
+> **Notes:**
+> To exit the workflow, press `Ctrl+C` in the terminal and run `bash workflows/robotic_ultrasound/reset.sh` to kill all processes spawned by the workflow.
 
 ### 🎯 Choose Your Workflow Path
 
 #### Script Catalog
 
+Here is a catalog of all the scripts in the workflow in the [scripts](scripts) folder.
+
 | Category | Script | Purpose | Expected Runtime | Key Requirements | Usage Scenario | Documentation |
 |----------|--------|---------|------------------|------------------|----------------|---------------|
-| **🚀 Quick Start** | `simulation/imitation_learning/pi0_policy/eval.py` | PI0 policy evaluation with camera visualization | 2-5 minutes | PI0 policy, Isaac Sim | First-time users, policy testing | [Simulation README](scripts/simulation/README.md#pi0-policy-evaluation) |
-| **🎮 Interactive Control** | `simulation/environments/teleoperation/teleop_se3_agent.py` | Manual robot control via keyboard/gamepad | Continuous | Isaac Sim, input device | Manual control, data collection | [Simulation README](scripts/simulation/README.md#teleoperation) |
-| **📊 Visualization** | `utils/visualization.py` | Real-time camera feeds and ultrasound display | Continuous | DDS, Qt/GUI | Monitoring simulations, debugging | [Utils README](scripts/utils/README.md) |
-| **🔄 Multi-Component** | `simulation/environments/sim_with_dds.py` | Main simulation with DDS communication | Continuous | Isaac Sim, DDS | Full pipeline testing | [Simulation README](scripts/simulation/README.md#simulation-with-dds) |
-| **🩺 Ultrasound Simulation** | `simulation/examples/ultrasound_raytracing.py` | Physics-based ultrasound image generation | Continuous | RayTracing Simulator | Realistic ultrasound imaging | [Simulation README](scripts/simulation/README.md#ultrasound-raytracing-simulation) |
-| **🤖 Policy Execution** | `policy_runner/run_policy.py` | Generic policy runner for multiple AI models | Continuous | Trained models, DDS | Policy deployment | [Policy Runner README](scripts/policy_runner/README.md) |
-| **🏥 Clinical Applications** | `holoscan_apps/clarius_cast/clarius_cast.py` | Clarius Cast ultrasound probe integration | Continuous | Clarius probe, Holoscan | Real hardware deployment | [Holoscan Apps README](scripts/holoscan_apps/README.md) |
-| **🏥 Clinical Applications** | `holoscan_apps/clarius_solum/clarius_solum.py` | Clarius Solum ultrasound probe integration | Continuous | Clarius probe, Holoscan | Real hardware deployment | [Holoscan Apps README](scripts/holoscan_apps/README.md) |
-| **🏥 Clinical Applications** | `holoscan_apps/realsense/camera.py` | RealSense depth camera integration | Continuous | RealSense camera, Holoscan | Depth sensing applications | [Holoscan Apps README](scripts/holoscan_apps/README.md) |
-| **🧠 AI Training** | `training/pi_zero/train.py` | Train PI0 imitation learning models | 2-8 hours | Training data, GPU | Model development | [PI0 Training README](scripts/training/pi_zero/README.md) |
-| **🧠 AI Training** | `training/gr00t_n1/train.py` | Train GR00T N1 foundation models | 4-12 hours | Training data, GPU | Advanced model development | [GR00T N1 Training README](scripts/training/gr00t_n1/README.md) |
-| **🔄 Data Processing** | `training/convert_hdf5_to_lerobot.py` | Convert HDF5 data to LeRobot format | 5-30 minutes | HDF5 files | Data preprocessing | [GR00T N1 Training README](scripts/training/gr00t_n1/README.md#data-conversion) |
-| **📈 Evaluation** | `simulation/evaluation/evaluate_trajectories.py` | Compare predicted vs ground truth trajectories | 2-10 minutes | Trajectory data | Performance analysis | [Evaluation README](scripts/simulation/evaluation/README.md) |
-| **🏗️ State Machine** | `simulation/environments/state_machine/liver_scan_sm.py` | Automated liver scanning protocol | 5-15 minutes | Isaac Sim | Automated data collection | [Simulation README](scripts/simulation/README.md#liver-scan-state-machine) |
-| **🔄 Replay** | `simulation/environments/state_machine/replay_recording.py` | Replay recorded robot trajectories | 2-5 minutes | Recording files | Data validation | [Simulation README](scripts/simulation/README.md#replay-recordings) |
-| **📡 Communication** | `dds/publisher.py` | DDS data publishing utilities | Continuous | DDS license | Data streaming | [DDS README](scripts/dds/README.md) |
-| **📡 Communication** | `dds/subscriber.py` | DDS data subscription utilities | Continuous | DDS license | Data reception | [DDS README](scripts/dds/README.md) |
-
-
-```
-
-#### **Option 3: Interactive Teleoperation**
-Control the robotic arm directly using keyboard, SpaceMouse, or gamepad:
-```bash
-# Run teleoperation interface
-cd workflows/robotic_ultrasound/scripts/simulation
-python environments/teleoperation/teleop_se3_agent.py --enable_cameras
-```
-
-#### **Option 4: Full Multi-Component Workflow**
-Run the complete robotic ultrasound pipeline (requires 4 terminals):
-
-**Terminal 1 - Visualization:**
-```bash
-cd workflows/robotic_ultrasound/scripts/utils
-python visualization.py
-```
-
-**Terminal 2 - Policy Runner:**
-```bash
-cd workflows/robotic_ultrasound/scripts/policy_runner
-python run_policy.py
-```
-
-**Terminal 3 - Simulation with DDS:**
-```bash
-cd workflows/robotic_ultrasound/scripts/simulation
-python environments/sim_with_dds.py --enable_cameras
-```
-
-**Terminal 4 - Ultrasound Raytracing:**
-```bash
-cd workflows/robotic_ultrasound/scripts/simulation
-python examples/ultrasound_raytracing.py
-```
-
-### 📚 Learn More
-- **[Workflow Examples](#workflow-examples)** - Explore all available scripts and their purposes
-- **[Detailed Setup Instructions](#detailed-setup-instructions)** - For advanced configuration and troubleshooting
-- **[Troubleshooting](#troubleshooting)** - Common issues and solutions
+| **🚀 Quick Start** | [simulation/imitation_learning/pi0_policy/eval.py](scripts/simulation/imitation_learning/pi0_policy/eval.py) | PI0 policy evaluation | 2-5 minutes | PI0 policy, Isaac Sim | First-time users, policy testing | [Simulation README](./scripts/simulation/imitation_learning/README.md) |
+| **🔄 Multi-Component** | [simulation/environments/sim_with_dds.py](scripts/simulation/environments/sim_with_dds.py) | Main simulation with DDS communication | Continuous | Isaac Sim, DDS | Full pipeline testing | [Simulation README](./scripts/simulation/environments/README.md) |
+| **🎮 Interactive Control** | [simulation/environments/teleoperation/teleop_se3_agent.py](scripts/simulation/environments/teleoperation/teleop_se3_agent.py) | Manual robot control via keyboard/gamepad | Continuous | Isaac Sim, input device | Manual control, data collection | [Simulation README](./scripts/simulation/environments/teleoperation/README.md) |
+| **📊 Visualization** | [utils/visualization.py](scripts/utils/visualization.py) | Real-time camera feeds and ultrasound display | Continuous | DDS, GUI | Monitoring simulations, debugging | [Utils README](./scripts/utils/README.md) |
+| **🩺 Ultrasound Simulation** | [simulation/examples/ultrasound_raytracing.py](scripts/simulation/examples/ultrasound_raytracing.py) | Physics-based ultrasound image generation | Continuous | RayTracing Simulator | Realistic ultrasound imaging | [Simulation README](scripts/simulation/examples/README.md) |
+| **🤖 Policy Execution** | [policy_runner/run_policy.py](scripts/policy_runner/run_policy.py) | Generic policy runner for PI0 and GR00T N1 models | Continuous | Model inference, DDS | Policy deployment | [Policy Runner README](scripts/policy_runner/README.md) |
+| **🏥 Hardware-in-the-loop** | [holoscan_apps/clarius_cast/clarius_cast.py](scripts/holoscan_apps/clarius_cast/clarius_cast.py) | Clarius Cast ultrasound probe integration | Continuous | Clarius probe, Holoscan | Hardware-in-the-loop | [Holoscan Apps README](scripts/holoscan_apps/README.md) |
+| **🏥 Hardware-in-the-loop** | [holoscan_apps/clarius_solum/clarius_solum.py](scripts/holoscan_apps/clarius_solum/clarius_solum.py) | Clarius Solum ultrasound probe integration | Continuous | Clarius probe, Holoscan | Hardware-in-the-loop | [Holoscan Apps README](scripts/holoscan_apps/README.md) |
+| **🏥 Hardware-in-the-loop** | [holoscan_apps/realsense/camera.py](scripts/holoscan_apps/realsense/camera.py) | RealSense depth camera integration | Continuous | RealSense camera, Holoscan | Hardware-in-the-loop | [Holoscan Apps README](scripts/holoscan_apps/README.md) |
+| **🧠 Policy Training** | [training/pi_zero/train.py](scripts/training/pi_zero/train.py) | Train PI0 imitation learning models | Depends on the dataset size | Training data, GPU | Model development | [PI0 Training README](scripts/training/pi_zero/README.md) |
+| **🧠 Policy Training** | [training/gr00t_n1/train.py](scripts/training/gr00t_n1/train.py) | Train GR00T N1 foundation models | Depends on the dataset size | Training data, GPU | Advanced model development | [GR00T N1 Training README](scripts/training/gr00t_n1/README.md) |
+| **🔄 Data Processing** | [training/convert_hdf5_to_lerobot.py](scripts/training/convert_hdf5_to_lerobot.py) | Convert HDF5 data to LeRobot format | Depends on the dataset size | HDF5 files | Data preprocessing | [GR00T N1 Training README](scripts/training/gr00t_n1/README.md#data-conversion) |
+| **📈 Evaluation** | [simulation/evaluation/evaluate_trajectories.py](scripts/simulation/evaluation/evaluate_trajectories.py) | Compare predicted vs ground truth trajectories | Depends on the dataset size | Trajectory data | Performance analysis | [Evaluation README](scripts/simulation/evaluation/README.md) |
+| **🏗️ State Machine** | [simulation/environments/state_machine/liver_scan_sm.py](scripts/simulation/environments/state_machine/liver_scan_sm.py) | Automated liver scanning protocol | 5-15 minutes | Isaac Sim | Automated data collection | [Simulation README](scripts/simulation/environments/state_machine/README.md) |
+| **🗂️ Data Collection** | [simulation/environments/state_machine/liver_scan_sm.py](scripts/simulation/environments/state_machine/liver_scan_sm.py) | Automated liver scanning protocol | 5-15 minutes | Isaac Sim | Automated data collection | [Simulation README](scripts/simulation/environments/state_machine/README.md) |
+| **🔄 Replay** | [simulation/environments/state_machine/replay_recording.py](scripts/simulation/environments/state_machine/replay_recording.py) | Replay recorded robot trajectories | 2-5 minutes | Recording files | Data validation | [Simulation README](scripts/simulation/environments/state_machine/README.md#replay-recordings) |
+| **📡 Communication** | [dds/publisher.py](scripts/dds/publisher.py) | DDS data publishing utilities | Continuous | DDS license | Data streaming | [DDS README](scripts/dds/README.md) |
+| **📡 Communication** | [dds/subscriber.py](scripts/dds/subscriber.py) | DDS data subscription utilities | Continuous | DDS license | Data reception | [DDS README](scripts/dds/README.md) |
 
 ---
 
@@ -179,10 +178,10 @@ This section provides comprehensive setup instructions for advanced users or tro
 ### System Requirements
 
 #### Hardware Requirements
-- Ubuntu 22.04
+- Ubuntu 22.04 or 24.04
 - NVIDIA GPU with compute capability 8.6 and 24GB of memory ([see NVIDIA's compute capability guide](https://developer.nvidia.com/cuda-gpus#compute))
     - GPUs without RT Cores (A100, H100) are not supported
-- 50GB of disk space
+- 100GB of disk space
 
 #### Software Requirements
 - [NVIDIA Driver Version >= 555](https://www.nvidia.com/en-us/drivers/)
@@ -214,6 +213,17 @@ Install CUDA from [NVIDIA CUDA Quick Start Guide](https://docs.nvidia.com/cuda/c
 RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
 
 #### 4. Install Dependencies
+
+##### Install Miniconda
+You can visit [Installing Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install#quickstart-install-instructions) website to install miniconda.
+
+1. Download Miniconda installer
+```bash
+# Download Miniconda installer
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+# Run the installer
+bash Miniconda3-latest-Linux-x86_64.sh
+```
 
 ##### Create Conda Environment
 ```bash
@@ -268,7 +278,9 @@ Download the required assets using:
 i4h-asset-retrieve
 ```
 
-This will download assets to `~/.cache/i4h-assets/<sha256>`. For more details, refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.2.0rc2/docs/catalog_helper.md).
+The total size of the assets is about 65GB, but individual assets will be downloaded when you run a specific workflow automatically. (requested by VDR)
+
+This will download assets to `~/.cache/i4h-assets/<sha256>`. For more details, refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.2.0rc1/docs/catalog_helper.md).
 
 **Note**: During asset download, you may see warnings about blocking functions. This is expected behavior and the download will complete successfully despite these warnings.
 

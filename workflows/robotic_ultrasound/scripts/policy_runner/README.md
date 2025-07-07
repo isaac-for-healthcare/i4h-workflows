@@ -7,68 +7,66 @@ This script allows running different policy models (currently PI0 and GR00T N1) 
 *   **PI0**: Based on the [openpi](https://github.com/Physical-Intelligence/openpi) library.
 *   **GR00T N1**: NVIDIA's foundation model for humanoid robots. Refer to [NVIDIA Isaac GR00T](https://github.com/NVIDIA/Isaac-GR00T) for more information.
 
-## Run PI0 Policy with DDS communication
+## Run Policy with DDS communication
 
-### Prepare Model Weights and USD Assets and Install Dependencies
+### Prepare Model Weights
 
-Please refer to the [Environment Setup](../../README.md#environment-setup) instructions specific to the **PI0** policy.
+The model weights are downloaded automatically when you run the policy runner. You can also download the weights manually by running the following command:
+```bash
+# Download the model weights for PI0
+i4h-asset-retrieve --sub-path Policies/LiverScan/Pi0
 
-### Ensure the PYTHONPATH Is Set
+# Download the model weights for GR00T N1
+i4h-asset-retrieve --sub-path Policies/LiverScan/GR00TN1
+```
 
-Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
+### Dependencies
+
+You may need to install the dependencies for either groot and pi0 (default installed).
+
+```bash
+# Install the dependencies for PI0, default installed
+bash tools/env_setup_robot_us.sh --policy pi0
+# Install the dependencies for GR00T N1
+bash tools/env_setup_robot_us.sh --policy gr00tn1
+```
+
+(FIXME: can we just install the dependencies for groot N1 after we have the pi0 installed, and vice versa?)
 
 ### Run Policy
-
-Please move to the current [`policy_runner` folder](./) and execute:
 
 ```sh
 # Example for PI0
-python run_policy.py --policy pi0 [other arguments...]
-```
-
-## Run GR00T N1 Policy with DDS communication
-
-### Prepare Model Weights and Dependencies
-
-Please refer to the [Environment Setup](../../README.md#environment-setup) instructions, ensuring you use the `--policy gr00tn1` option when running `tools/env_setup_robot_us.sh` to install GR00T N1 dependencies.
-For acquiring model weights and further details, consult the official [NVIDIA Isaac GR00T Installation Guide](https://github.com/NVIDIA/Isaac-GR00T?tab=readme-ov-file#installation-guide).
-Ensure the environment where you run `run_policy.py` has the GR00 TN1 dependencies installed.
-
-### Ensure the PYTHONPATH Is Set
-
-Please refer to the [Environment Setup - Set environment variables before running the scripts](../../README.md#set-environment-variables-before-running-the-scripts) instructions.
-
-### Run Policy
-
-Please move to the current [`policy_runner` folder](./) and execute:
-
-```sh
+python -m policy_runner.run_policy --policy pi0
 # Example for GR00T N1
-python run_policy.py --policy gr00tn1 [other arguments...]
+python -m policy_runner.run_policy --policy gr00tn1
 ```
 
-## Command Line Arguments
+What's expected:
+- Terminal message shows the policy is loaded and running
+- It will predict actions and publish them to the DDS topics
+- When there are no image feed, the model will not predict any action.
 
-Here's a markdown table describing the command-line arguments:
+### Command Line Arguments
 
-| Argument                  | Description                                                              | Default Value                      | Policy    |
-|---------------------------|--------------------------------------------------------------------------|------------------------------------|-----------|
-| `--policy`                | Policy type to use.                                                      | `pi0`                              | Both      |
-| `--ckpt_path`             | Checkpoint path for the policy model.                                    | Uses downloaded assets             | Both      |
-| `--task_description`      | Task description text prompt for the policy.                             | `Perform a liver ultrasound.`      | Both      |
-| `--chunk_length`          | Length of the action chunk inferred by the policy per inference step.    | 50                                 | Both      |
-| `--repo_id`               | LeRobot repo ID for dataset normalization (used for PI0).                | `i4h/sim_liver_scan`               | PI0       |
-| `--data_config`           | Data config name (used for GR00T N1).                                     | `single_panda_us`                  | GR00T N1   |
-| `--embodiment_tag`        | The embodiment tag for the model (used for GR00T N1).                     | `new_embodiment`                   | GR00T N1   |
-| `--rti_license_file`      | Path to the RTI license file.                                            | Uses env `RTI_LICENSE_FILE`      | Both (DDS)|
-| `--domain_id`             | Domain ID for DDS communication.                                         | 0                                  | Both (DDS)|
-| `--height`                | Input image height for cameras.                                          | 224                                | Both (DDS)|
-| `--width`                 | Input image width for cameras.                                           | 224                                | Both (DDS)|
-| `--topic_in_room_camera`  | Topic name to consume room camera RGB data.                              | `topic_room_camera_data_rgb`       | Both (DDS)|
-| `--topic_in_wrist_camera` | Topic name to consume wrist camera RGB data.                             | `topic_wrist_camera_data_rgb`      | Both (DDS)|
-| `--topic_in_franka_pos`   | Topic name to consume Franka position data.                              | `topic_franka_info`                | Both (DDS)|
-| `--topic_out`             | Topic name to publish generated Franka actions.                          | `topic_franka_ctrl`                | Both (DDS)|
-| `--verbose`               | Whether to print DDS communication logs.                                 | False                              | Both (DDS)|
+| Argument | Type | Default | Description | Policy Support |
+|----------|------|---------|-------------|----------------|
+| `--policy` | str | "pi0" | Policy type to use (choices: pi0, gr00tn1) | Both |
+| `--ckpt_path` | str | robot_us_assets.policy_ckpt | Checkpoint path for the policy model | Both |
+| `--task_description` | str | "Perform a liver ultrasound." | Task description text prompt for the policy | Both |
+| `--chunk_length` | int | 50 | Length of the action chunk inferred by the policy | Both |
+| `--repo_id` | str | "i4h/sim_liver_scan" | LeRobot repo ID for dataset normalization | PI0 only |
+| `--data_config` | str | "single_panda_us" | Data config name for GR00T N1 policy | GR00T N1 only |
+| `--embodiment_tag` | str | "new_embodiment" | The embodiment tag for the GR00T N1 model | GR00T N1 only |
+| `--rti_license_file` | str | $RTI_LICENSE_FILE | Path to the RTI license file | Both (DDS) |
+| `--domain_id` | int | 0 | Domain ID for DDS communication | Both (DDS) |
+| `--height` | int | 224 | Input image height for cameras | Both (DDS) |
+| `--width` | int | 224 | Input image width for cameras | Both (DDS) |
+| `--topic_in_room_camera` | str | "topic_room_camera_data_rgb" | Topic name to consume room camera RGB data | Both (DDS) |
+| `--topic_in_wrist_camera` | str | "topic_wrist_camera_data_rgb" | Topic name to consume wrist camera RGB data | Both (DDS) |
+| `--topic_in_franka_pos` | str | "topic_franka_info" | Topic name to consume Franka position data | Both (DDS) |
+| `--topic_out` | str | "topic_franka_ctrl" | Topic name to publish generated Franka actions | Both (DDS) |
+| `--verbose` | bool | False | Whether to print DDS communication logs | Both (DDS) |
 
 ## Performance Metrics
 
@@ -89,3 +87,7 @@ Here's a markdown table describing the command-line arguments:
 > - GR00T N1 model: Predicts 16 actions in ~92ms
 >
 >  You can choose how many of these predictions to utilize based on your specific control frequency requirements.
+
+## Jump to Section
+
+- [Sim with DDS](../simulation/environments/README.md)
