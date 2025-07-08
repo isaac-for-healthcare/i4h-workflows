@@ -71,9 +71,13 @@ ensure_fresh_third_party_dir
 # ---- Install build tools (Common) ----
 echo "Installing build tools..."
 if [ "$EUID" -ne 0 ]; then
-    sudo apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
+    sudo apt-get install -y cmake
+    sudo apt-get update
+    sudo apt-get install -y git build-essential pybind11-dev libxcb-cursor0
 else
-    apt-get install -y git cmake build-essential pybind11-dev libxcb-cursor0
+    apt-get install -y cmake
+    apt-get update
+    apt-get install -y git build-essential pybind11-dev libxcb-cursor0
 fi
 
 
@@ -112,6 +116,11 @@ if [[ "$INSTALL_WITH_POLICY" == "gr00tn1" ]]; then
     echo "Installing GR00T N1 Policy Dependencies (delegating to script)..."
     bash "$PROJECT_ROOT/tools/env_setup/install_gr00tn1.sh"
 fi
+
+
+# ---- Installing Clarius libs ----
+echo "Installing Clarius libs..."
+bash $PROJECT_ROOT/tools/env_setup/install_clarius.sh
 
 
 # for holoscan and cosmos transfer1, we need to install the following conda packages:

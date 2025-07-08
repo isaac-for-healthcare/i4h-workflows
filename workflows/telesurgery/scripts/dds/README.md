@@ -24,6 +24,6 @@ For comprehensive troubleshooting guidance, refer to the [RTI Connext DDS Gettin
 ```bash
 export PATH=$PATH:/opt/rti.com/rti_connext_dds-7.5.0/bin
 
-rtiddsping -domainId 779 -publisher
-rtiddsping -domainId 779 -subscriber -peer <peer_ip>
+rtiddsping -domainId 9 -publisher  -peer <peer_ip>
+rtiddsping -domainId 9 -subscriber -peer <peer_ip>
 ```

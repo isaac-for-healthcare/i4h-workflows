@@ -9,6 +9,9 @@
         },
         {
             "pattern": "^#%EF%B8%8F.*"
+        },
+        {
+            "pattern": "https://developer.nvidia.com/cuda-downloads"
         }
     ],
     "timeout": "20s",

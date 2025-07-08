@@ -27,6 +27,11 @@ check_conda_env() {
 }
 
 check_nvidia_gpu() {
+    # skip check if building docker image
+    if [ "$BUILD_DOCKER_IMAGE" = "true" ]; then
+        return
+    fi
+
     if ! nvidia-smi &> /dev/null; then
         echo "Error: NVIDIA GPU not found or driver not installed"
         exit 1

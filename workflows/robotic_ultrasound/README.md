@@ -2,6 +2,18 @@
 
 ![Robotic Ultrasound Workflow](../../docs/source/robotic_us_workflow.jpg)
 
+The Robotic Ultrasound Workflow is a comprehensive solution designed for healthcare professionals, medical imaging researchers, and ultrasound device manufacturers working in the field of autonomous ultrasound imaging. This workflow provides a robust framework for simulating, training, and deploying robotic ultrasound systems using NVIDIA's advanced ray tracing technology. By offering a physics-accurate ultrasound simulation environment, it enables researchers to develop and validate autonomous scanning protocols, train AI models for image interpretation, and accelerate the development of next-generation ultrasound systems without requiring physical hardware.
+
+The workflow features a state-of-the-art ultrasound sensor simulation that leverages GPU-accelerated ray tracing to model the complex physics of ultrasound wave propagation. The simulator accurately represents:
+- Acoustic wave propagation through different tissue types
+- Tissue-specific acoustic properties (impedance, attenuation, scattering)
+- Real-time B-mode image generation based on echo signals
+- Dynamic tissue deformation and movement
+- Multi-frequency transducer capabilities
+
+This physics-based approach enables the generation of highly realistic synthetic ultrasound images that closely match real-world data, making it ideal for training AI models and validating autonomous scanning algorithms. The workflow supports multiple AI policies (PI0, GR00T N1) and can be deployed using NVIDIA Holoscan for clinical applications, providing a complete pipeline from simulation to real-world deployment.
+
+
 ## Table of Contents
 - [System Requirements](#system-requirements)
 - [Quick Start](#quick-start)
@@ -16,40 +28,53 @@
 
 ### Hardware Requirements
 - Ubuntu 22.04
-- NVIDIA GPU with compute capability 8.6 and 32GB of memory
+- NVIDIA GPU with compute capability 8.6 and 24GB of memory ([see NVIDIA's compute capability guide](https://developer.nvidia.com/cuda-gpus#compute))
     - GPUs without RT Cores (A100, H100) are not supported
 - 50GB of disk space
 
 ### Software Requirements
-- NVIDIA Driver Version >= 555
-- CUDA Version >= 12.6
+- [NVIDIA Driver Version >= 555](https://www.nvidia.com/en-us/drivers/)
+- [CUDA Version >= 12.6]((https://developer.nvidia.com/cuda-downloads))
 - Python 3.10
-- RTI DDS License
+- [RTI DDS License](https://www.rti.com/free-trial)
 
 ## Quick Start
 
+**Note**: The setup process takes approximately 30-40 minutes to complete, depending on your system and network connection.
+
 1. Install NVIDIA driver (>= 555) and CUDA (>= 12.6)
-2. Create and activate conda environment:
+2. Install conda:
+
+   [Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/main) is recommended.
+
+3. Create and activate conda environment:
    ```bash
    conda create -n robotic_ultrasound python=3.10 -y
    conda activate robotic_ultrasound
    ```
-3. Run the setup script:
+4. Clone the repository:
+   ```bash
+   git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
+   cd i4h-workflows
+   ```
+5. Run the setup script:
    ```bash
    cd <path-to-i4h-workflows>
    bash tools/env_setup_robot_us.sh --policy pi0
    ```
-4. Download assets:
+6. Download assets:
    ```bash
    i4h-asset-retrieve
    ```
-5. Set environment variables:
+7. Set environment variables:
    ```bash
-   export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts`
+   export PYTHONPATH=`<path-to-i4h-workflows>/workflows/robotic_ultrasound/scripts:<path-to-i4h-workflows>`
    export RTI_LICENSE_FILE=<path-to-rti-license-file>
    ```
 
 ## Environment Setup
+
+**Note**: The setup process takes approximately 30-40 minutes to complete, depending on your system and network connection.
 
 ### Prerequisites
 
@@ -86,8 +111,8 @@ conda activate robotic_ultrasound
 
 ##### Install Raytracing Ultrasound Simulator
 Choose one of the following options:
-- **(Experimental)** Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.2.0rc1) and extract to `workflows/robotic_ultrasound/scripts/raysim`
-- **(Recommended)** Install and build following instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation)
+- **(Use pre-built binary)** Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.2.0rc2) and extract to `workflows/robotic_ultrasound/scripts/raysim`
+- **(Compiling from source)** Install and build following instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation)
 
 ##### Install All Dependencies
 The main script `tools/env_setup_robot_us.sh` installs all necessary dependencies. It first installs common base components and then policy-specific packages based on an argument.
@@ -129,7 +154,7 @@ Download the required assets using:
 i4h-asset-retrieve
 ```
 
-This will download assets to `~/.cache/i4h-assets/<sha256>`. For more details, refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.2.0rc1/docs/catalog_helper.md).
+This will download assets to `~/.cache/i4h-assets/<sha256>`. For more details, refer to the [Asset Container Helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.2.0rc2/docs/catalog_helper.md).
 
 **Note**: During asset download, you may see warnings about blocking functions. This is expected behavior and the download will complete successfully despite these warnings.
 

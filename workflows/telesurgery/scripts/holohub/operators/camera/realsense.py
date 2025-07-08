@@ -63,7 +63,7 @@ class RealsenseOp(Operator):
             if stream_format
             else rs.format.z16
             if stream_type == "depth"
-            else rs.format.rgb8
+            else rs.format.rgba8
         )
         self.ntp_offset_time = get_ntp_offset()
 
@@ -79,9 +79,13 @@ class RealsenseOp(Operator):
     def start(self):
         config = rs.config()
         context = rs.context()
+
         try:
-            for device in context.query_devices():
-                print(f"(RealSense): Available device: {device}")
+            for i, device in enumerate(context.query_devices()):
+                try:
+                    print(f"(RealSense): {i}: Available device: {device}")
+                except Exception:
+                    print(f"(RealSense): Failed to query device {i} (Ignoring)")
         except Exception:
             print("(RealSense): FAILED TO QUERY DEVICES (Ignoring)")
 

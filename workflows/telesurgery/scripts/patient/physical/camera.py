@@ -15,6 +15,7 @@
 
 import argparse
 import json
+import os
 
 from holohub.operators.camera.cv2 import CV2VideoCaptureOp
 from holohub.operators.camera.realsense import RealsenseOp
@@ -22,7 +23,6 @@ from holohub.operators.dds.publisher import DDSPublisherOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_merge import CameraStreamMergeOp
 from holohub.operators.nvidia_video_codec.utils.camera_stream_split import CameraStreamSplitOp
 from holohub.operators.nvjpeg.encoder import NVJpegEncoderOp
-from holohub.operators.sink import NoOp
 from holoscan.core import Application
 from holoscan.resources import BlockMemoryPool, MemoryStorageType
 from schemas.camera_stream import CameraStream
@@ -92,7 +92,6 @@ class App(Application):
                     self,
                     name="nvc_encoder",
                     cuda_device_ordinal=0,
-                    copy_to_host=False,
                     width=self.width,
                     height=self.height,
                     codec=self.encoder_params.get("codec", "H264"),
@@ -104,7 +103,7 @@ class App(Application):
                     allocator=BlockMemoryPool(
                         self,
                         name="pool",
-                        storage_type=MemoryStorageType.DEVICE,
+                        storage_type=MemoryStorageType.HOST,
                         block_size=self.width * self.height * 3 * 4,
                         num_blocks=2,
                     ),
@@ -130,8 +129,6 @@ class App(Application):
             dds_topic_class=CameraStream,
         )
 
-        sink = NoOp(self)
-
         if self.encoder == "nvc":
             print("Using NVC encoder with split and merge")
             self.add_flow(source, split_op, {("output", "input")})
@@ -139,11 +136,9 @@ class App(Application):
             self.add_flow(split_op, merge_op, {("metadata", "metadata")})
             self.add_flow(encoder_op, merge_op, {("output", "camera")})
             self.add_flow(merge_op, dds, {("output", "input")})
-            self.add_flow(dds, sink, {("output", "input")})
         else:
             self.add_flow(source, encoder_op, {("output", "input")})
             self.add_flow(encoder_op, dds, {("output", "input")})
-            self.add_flow(dds, sink, {("output", "input")})
 
 
 def main():
@@ -157,12 +152,27 @@ def main():
     parser.add_argument("--framerate", type=int, default=30, help="frame rate")
     parser.add_argument("--stream_type", type=str, default="color", choices=["color", "depth"])
     parser.add_argument("--stream_format", type=str, default="")
-    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvjpeg")
-    parser.add_argument("--encoder_params", type=str, default=json.dumps({"quality": 90}), help="encoder params")
-    parser.add_argument("--domain_id", type=int, default=779, help="dds domain id")
+    parser.add_argument("--encoder", type=str, choices=["nvjpeg", "nvc", "none"], default="nvc", help="encoder type")
+    parser.add_argument("--encoder_params", type=str, default=None, help="encoder params")
+    parser.add_argument("--domain_id", type=int, default=9, help="dds domain id")
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
 
     args = parser.parse_args()
+
+    if args.encoder == "nvjpeg" and args.encoder_params is None:
+        encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvjpeg_encoder_params.json")
+    elif args.encoder == "nvc" and args.encoder_params is None:
+        encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvc_encoder_params.json")
+    elif os.path.isfile(args.encoder_params):
+        encoder_params = args.encoder_params
+    else:
+        encoder_params = json.loads(args.encoder_params) if args.encoder_params else {}
+
+    print(f"Encoder params: {encoder_params}")
+    if os.path.isfile(encoder_params):
+        with open(encoder_params) as f:
+            encoder_params = json.load(f)
+
     app = App(
         camera=args.camera,
         camera_name=args.name,
@@ -173,7 +183,7 @@ def main():
         stream_type=args.stream_type,
         stream_format=args.stream_format,
         encoder=args.encoder,
-        encoder_params=json.loads(args.encoder_params) if args.encoder_params else {},
+        encoder_params=encoder_params,
         dds_domain_id=args.domain_id,
         dds_topic=args.topic if args.topic else f"telesurgery/{args.name}_camera/rgb",
     )

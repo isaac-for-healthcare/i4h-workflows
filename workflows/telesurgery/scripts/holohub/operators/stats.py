@@ -62,7 +62,7 @@ class CameraStreamStats(Operator):
             e1 = np.mean(self.time_encode)
             d1 = np.mean(self.time_decode)
             c1 = np.mean(self.compress_ratio)
-            s1 = stream.width * stream.height * (3 if stream.format == 5 else 1)
+            s1 = stream.width * stream.height * (4 if stream.type == 2 else 1)
 
             # Print the results
             print(

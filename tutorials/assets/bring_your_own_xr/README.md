@@ -178,10 +178,27 @@ to any device if no device is connected. Click "Stop AR" to exit the OpenXR sess
 **Note**: XR teleoperation updates are currently applied relative to the probe head. The coordinate system from
 the user's tracked right hand is applied along the local probe axes as pictured below:
 - **Hand Tracking Left/Right** -> Green axis
-- **Hand Tracking Up/Down** -> Red axis
-- **Hand Tracking Towards/Away** -> Blue axis
+- **Hand Tracking Up/Down** -> Blue axis
+- **Hand Tracking Towards/Away** -> Red axis
 
 ![Coordinate frame as viewed along the robotic ultrasound probe](resources/probe_frame.png)
+
+This mapping is achieved by a `transform_matrix` defined in the `teleop_se3_agent.py` script. The hand tracking system provides coordinates in its own frame, which needs to be converted to the robot's end-effector (probe) frame. The `transform_matrix`:
+```python
+torch.tensor(
+    [[-1, 0, 0, 0], [0, 1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]],
+    dtype=torch.float32,
+    device=env.unwrapped.device,
+)
+```
+This matrix effectively flips the X and Z axes of the incoming hand tracking data. Specifically:
+- The X-axis (Up/Down in hand tracking) is inverted.
+- The Y-axis (Left/Right in hand tracking) remains unchanged.
+- The Z-axis (Towards/Away in hand tracking) is inverted.
+
+This transformation ensures that the user's hand movements are intuitively mapped to the robot's actions in the simulation environment.
+For a clearer understanding of how the `transform_matrix` maps hand tracking coordinates to the probe frame, please refer to the coordinate frame visualization below:
+![Coordinate frame](resources/probe_frame_room_view.png)
 
 ## Apple Vision Pro
 

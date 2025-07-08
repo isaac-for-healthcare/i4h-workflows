@@ -15,42 +15,69 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM nvcr.io/nvidia/isaac-lab:2.1.0
+FROM nvidia/cuda:12.8.1-devel-ubuntu24.04
 
-# Apply patches to IsaacLab
-COPY tools/env_setup/patches/events_random_texture.patch /tmp/
-COPY tools/env_setup/patches/from_files_semantic_tags.patch /tmp/
+SHELL ["/bin/bash", "-c"]
 
-RUN cd /workspace/isaaclab && \
-    patch -p1 < /tmp/events_random_texture.patch && \
-    patch -p1 < /tmp/from_files_semantic_tags.patch && \
-    rm /tmp/events_random_texture.patch /tmp/from_files_semantic_tags.patch
+# Install all packages in a single layer to avoid caching issues
+RUN apt-get update && \
+    apt-get install -y \
+        wget \
+        curl \
+        jq \
+        vim \
+        git \
+        xvfb \
+        build-essential \
+        cmake \
+        vulkan-tools \
+        unzip \
+        lsb-release \
+        libglib2.0-0 \
+        libdbus-1-3 \
+        libopengl0 \
+        libxcb-keysyms1 \
+        libglu1-mesa && \
+    rm -rf /var/lib/apt/lists/*
 
+# Add github.com to list of known hosts for git clone with ssh
+# use COPY command instead
+RUN mkdir -p ~/.ssh && \
+    curl --silent https://api.github.com/meta \
+        | jq --raw-output '"github.com "+.ssh_keys[]' >> ~/.ssh/known_hosts
+#RUN mkdir -p ~/.ssh
+#COPY ./github /root/.ssh/known_hosts
 
-# This line enables SSH access for the following RUN command
-RUN apt-get update && apt-get install -y git openssh-client
+# all devices should be visible
+ENV NVIDIA_VISIBLE_DEVICES=all
+# set 'compute' driver cap to use Cuda
+# set 'video' driver cap to use the video encoder
+# set 'graphics' driver cap to use OpenGL/EGL
+# set 'display' to allow use of virtual display
+ENV NVIDIA_DRIVER_CAPABILITIES=graphics,video,compute,utility,display
 
-# Add GitHub to known hosts to avoid "host key verification failed"
-RUN mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+# Install Everything in conda environment
 
-WORKDIR /workspace/robotic_surgery/scripts
+WORKDIR /workspace/i4h-workflows
 
-# Fix livestream public endpoint address issue in 2.0.2/2.1.0
-RUN sed -i '/--\/app\/livestream\/publicEndpointAddress=/d' /workspace/isaaclab/source/isaaclab/isaaclab/app/app_launcher.py
+COPY tools /workspace/i4h-workflows/tools
+COPY workflows /workspace/i4h-workflows/workflows
 
-COPY workflows/robotic_surgery/scripts .
+# Install miniconda3 and create robotic_surgery
+RUN --mount=type=ssh \
+    mkdir -p ~/miniconda3 && \
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh && \
+    bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3 && \
+    rm ~/miniconda3/miniconda.sh && \
+    source ~/miniconda3/bin/activate && \
+    conda init --all && \
+    conda create -n robotic_surgery python=3.10.14 -y
 
-COPY tools/env_setup/install_robotic_surgery_extensions.sh /tmp/install_robotic_surgery_extensions.sh
+RUN --mount=type=ssh \
+    source ~/miniconda3/bin/activate && \
+    conda activate robotic_surgery && \
+    cd /workspace/i4h-workflows && \
+    BUILD_DOCKER_IMAGE=true bash tools/env_setup_robot_surgery.sh
 
-ENV PYTHONPATH=/workspace/robotic_surgery/scripts
-
-ENV PYTHON_EXECUTABLE=/workspace/isaaclab/_isaac_sim/python.sh
-
-RUN --mount=type=ssh $PYTHON_EXECUTABLE -m pip install --no-deps git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0rc1
-
-# Install the robotic surgery extensions
-# Extension installation also needs to know which python to use via the PYTHON_EXECUTABLE environment variable
-RUN /tmp/install_robotic_surgery_extensions.sh simulation/exts
-
-# Clean up the install script
-RUN rm /tmp/install_robotic_surgery_extensions.sh
+ENV PYTHONPATH=/workspace/i4h-workflows/workflows/robotic_surgery/scripts
+ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat

@@ -35,7 +35,7 @@ mkdir -p "$PROJECT_ROOT/third_party"
 # ---- Install IsaacSim ----
 echo "Installing IsaacSim..."
 pip install 'isaacsim[all,extscache]==4.5.0' \
-    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0rc1 \
+    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0rc2 \
     --extra-index-url https://pypi.nvidia.com
 
 ISAACLAB_DIR="$PROJECT_ROOT/third_party/IsaacLab"
@@ -84,5 +84,8 @@ pushd "$ISAACLAB_DIR"
 echo "Installing IsaacLab ..."
 yes Yes | ./isaaclab.sh --install
 popd
+
+# ---- Apply dependency package version patch ----
+pip install 'warp-lang==1.7.2'
 
 echo "IsaacSim and dependencies installed successfully!"
