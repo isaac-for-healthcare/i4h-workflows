@@ -276,6 +276,7 @@ bash tools/env_setup_robot_us.sh --policy gr00tn1 # GR00T N1 foundation models
 # OR
 bash tools/env_setup_robot_us.sh --policy none    # Base dependencies only
 ```
+The environment for pi0 and gr00tn1 has conflicts with each other. You can only install one of them at a time.
 
 **Dependency Conflict Resolution:**
 Expected PyTorch version conflicts between IsaacLab (2.5.1) and OpenPI (2.6.0) are non-critical and can be ignored.
@@ -325,7 +326,7 @@ isaaclab 0.34.9 requires torch==2.5.1, but you have torch 2.6.0 which is incompa
 **Resolution**: These PyTorch version conflicts are expected and non-blocking. The workflow maintains compatibility across version differences.
 
 #### 🔗 Module Import Resolution
-**Symptoms**: `ModuleNotFoundError` during script execution
+**Symptoms**: `ModuleNotFoundError` or `Error while finding module specification for 'xxx'` during script execution
 **Resolution**: Verify `PYTHONPATH` includes both `scripts/` directory and repository root.
 
 ### 🆘 Support Resources

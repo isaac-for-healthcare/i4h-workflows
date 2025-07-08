@@ -30,8 +30,7 @@ bash tools/env_setup_robot_us.sh --policy pi0
 # Install the dependencies for GR00T N1
 bash tools/env_setup_robot_us.sh --policy gr00tn1
 ```
-
-(FIXME: can we just install the dependencies for groot N1 after we have the pi0 installed, and vice versa?)
+The environment for pi0 and gr00tn1 has conflicts with each other. You can only install one of them at a time.
 
 ### Run Policy
 
