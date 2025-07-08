@@ -29,7 +29,7 @@ docker build --ssh default -f workflows/robotic_surgery/docker/Dockerfile -t rob
 
 ## Running the Container
 
-```bash
+```sh
 # Allow Docker to access X11 display
 xhost +local:docker
 
@@ -42,6 +42,7 @@ docker run --name isaac-sim -it --gpus all --rm \
     -e "OMNI_KIT_ACCEPT_EULA=Y" \
     -e "ACCEPT_EULA=Y" \
     -e "PRIVACY_CONSENT=Y" \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
     -v ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw \
     -v ~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw \
