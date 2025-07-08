@@ -1,26 +1,41 @@
-# Simulation LiveStream from Remote Docker Container
+# Robotic Surgery Docker Container
 
-This document describes how to run the simulation in a remote docker container and stream the simulation to a local machine.
+This guide provides instructions for running robotic surgery simulations using Docker containers with Isaac Sim.
 
 ## Prerequisites
 
-Please refer to [Livestream Clients Guide in Isaac Sim](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/manual_livestream_clients.html#isaac-sim-short-webrtc-streaming-client) and download [Isaac Sim WebRTC Streaming Client](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/download.html#isaac-sim-latest-release)
+- **Docker Engine**
+- **NVIDIA Docker Runtime**
+- **Git** with SSH key access to private repositories
+- **X11 forwarding** support (for GUI mode)
 
-## Build Docker Image
+## Build the Docker Image
 
-To build the docker image, you will need to set up the SSH agent and add your SSH key to the agent, so that the docker build process can access the private repository.
+```sh
+# Clone the repository
+git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
+cd i4h-workflows
 
-```bash
+# Enable BuildKit
 export DOCKER_BUILDKIT=1
+
+# Set up SSH agent for private repository access
 eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key
+ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key path
+
+# Build the Docker image with SSH forwarding
 docker build --ssh default -f workflows/robotic_surgery/docker/Dockerfile -t robotic_surgery:latest .
 ```
 
-## Run the Container
+## Running the Container
 
 ```bash
-docker run --name isaac-sim -it --gpus all --rm --network=host \
+# Allow Docker to access X11 display
+xhost +local:docker
+
+# Run container with GUI support
+docker run --name isaac-sim -it --gpus all --rm \
+    --network=host \
     --runtime=nvidia \
     --entrypoint=bash \
     -e DISPLAY=$DISPLAY \
@@ -39,20 +54,61 @@ docker run --name isaac-sim -it --gpus all --rm --network=host \
     robotic_surgery:latest
 ```
 
-### Run the Simulation
+## Running the Simulation
 
-In the container, run the simulation with `--livestream 2` to stream the simulation to the local machine. For example, to run the `reach_psm_sm.py` script, run the following command:
+### 1. Interactive GUI Mode with X11 Forwarding
+
+For interactive development and debugging:
 
 ```bash
-docker exec -it isaac-sim bash
-# Inside the container, run the simulation
+# Inside the container
 conda activate robotic_surgery
-python simulation/scripts/environments/state_machine/reach_psm_sm.py --livestream 2
+
+# Run simulation with GUI
+python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_psm_sm.py
 ```
 
-Please refer to the [simulation README](../scripts/simulation/README.md) for other examples.
+Please refer to the [Simulation README](../scripts/simulation/README.md) for more details.
 
+### 2. Headless Streaming Mode
 
-### Open the WebRTC Client
+For remote access:
 
-Wait for the simulation to start (you should see the message "Resetting the state machine" when the simulation is ready), and open the WebRTC client to view the simulation.
+```bash
+# Inside the container
+conda activate robotic_surgery
+
+# Run simulation with WebRTC streaming
+python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_psm_sm.py --livestream 2
+```
+
+#### WebRTC Client Setup
+
+1. **Download the Isaac Sim WebRTC Client**:
+   - Visit the [Isaac Sim Download Page](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/installation/download.html)
+   - Download the **Isaac Sim WebRTC Streaming Client**
+
+2. **Configure Connection**:
+   - Open the WebRTC client
+   - Enter the server IP address (container host IP)
+   - Wait for the simulation to initialize (look for "Resetting the state machine" message)
+   - Click "Connect"
+
+3. **Network Requirements**:
+   - Ensure ports are accessible: `TCP/UDP 47995-48012`, `TCP/UDP 49000-49007`, `TCP 49100`
+   - For remote access, configure firewall rules accordingly
+
+## Troubleshooting
+
+### Common Issues
+
+**Display Issues**:
+```bash
+# Reset X11 permissions
+xhost -local:docker
+xhost +local:docker
+
+# Check DISPLAY variable
+echo $DISPLAY
+```
+This value should be set for interactive mode.
