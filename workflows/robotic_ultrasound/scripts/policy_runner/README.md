@@ -9,20 +9,9 @@ This script allows running different policy models (currently PI0 and GR00T N1) 
 
 ## Run Policy with DDS communication
 
-### Prepare Model Weights
-
-The model weights are downloaded automatically when you run the policy runner. You can also download the weights manually by running the following command:
-```bash
-# Download the model weights for PI0
-i4h-asset-retrieve --sub-path Policies/LiverScan/Pi0
-
-# Download the model weights for GR00T N1
-i4h-asset-retrieve --sub-path Policies/LiverScan/GR00TN1
-```
-
 ### Dependencies
 
-You may need to install the dependencies for either groot and pi0 (default installed).
+You may need to install the dependencies for either pi0 (default installed) or gr00tn1.
 
 ```bash
 # Install the dependencies for PI0, default installed
@@ -31,6 +20,19 @@ bash tools/env_setup_robot_us.sh --policy pi0
 bash tools/env_setup_robot_us.sh --policy gr00tn1
 ```
 The environment for pi0 and gr00tn1 has conflicts with each other. You can only install one of them at a time.
+
+### Prepare Model Weights
+
+The model weights will be downloaded automatically when you [run the policy runner](#run-policy).
+
+Optionally, you can also download the weights manually by running the following command:
+```bash
+# Download the model weights for PI0
+i4h-asset-retrieve --sub-path Policies/LiverScan/Pi0
+
+# Download the model weights for GR00T N1
+i4h-asset-retrieve --sub-path Policies/LiverScan/GR00TN1
+```
 
 ### Run Policy
 
@@ -41,10 +43,11 @@ python -m policy_runner.run_policy --policy pi0
 python -m policy_runner.run_policy --policy gr00tn1
 ```
 
-What's expected:
-- Terminal message shows the policy is loaded and running
-- It will predict actions and publish them to the DDS topics
-- When there are no image feed, the model will not predict any action.
+**Expected Behavior:**
+- Terminal messages will confirm that the policy has loaded and is running.
+- The policy will predict actions and publish them to DDS topics when image feeds are available.
+- When no image feeds are available on DDS, the model will not predict any actions.
+- You can run the simulation with DDS communication by following the [Sim with DDS](../simulation/environments/README.md) guide.
 
 ### Command Line Arguments
 

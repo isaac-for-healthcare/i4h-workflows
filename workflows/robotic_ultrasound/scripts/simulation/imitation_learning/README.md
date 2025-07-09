@@ -10,8 +10,8 @@ This script evaluates the PI0 policy in the IsaacSim simulation environment.
 python -m simulation.imitation_learning.pi0_policy.eval --enable_cameras
 ```
 
-What's expected:
-- IsaacSim window with a Franka robot arm driven by pi0 policy without DDS communication
+**Expected Behavior:**
+- IsaacSim window with a Franka robot arm driven by pi0 policy without DDS communication.
 
 > **Note:**
 > You may see "IsaacSim 4.5.0 is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.

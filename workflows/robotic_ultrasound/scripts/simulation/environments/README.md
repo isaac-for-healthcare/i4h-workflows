@@ -17,9 +17,9 @@ This script runs the simulation with DDS communication.
 python -m simulation.environments.sim_with_dds --enable_cameras
 ```
 
-What's expected:
-- IsaacSim window with a Franka robot arm and a ultrasound probe
-- The robotic arm won't move until you run the [policy runner scripts](../../policy_runner/README.md) to send control commands to the robot arm or replaying the recorded data
+**Expected Behavior:**
+- IsaacSim window with a Franka robot arm and a ultrasound probe.
+- The robotic arm won't move until you run the [policy runner scripts](../../policy_runner/README.md) to send control commands to the robot arm or replaying the recorded data.
 
 ### Evaluating with Recorded Initial States and Saving Trajectories
 
@@ -39,7 +39,7 @@ python -m simulation.environments.sim_with_dds \
 
 This command will load the initial state from `data_0.hdf5`, run the simulation (presumably interacting with a policy via DDS), and save the resulting trajectory to a file like `pi0-800_robot_obs_0.npz` in the `/mnt/hdd/cosmos/heldout-test50/` directory.
 
-What's expected:
+**Expected Behavior:**
 - IsaacSim window with a Franka robot arm and a ultrasound probe, replaying the recorded data
 
 ### Command Line Arguments
@@ -68,8 +68,9 @@ What's expected:
 
 ## Jump to Section
 
-- [State Machine](./state_machine/README.md)
-- [Data Collection in State Machine](./state_machine/README.md#data-collection)
+- [Liver Scan State Machine](./state_machine/README.md)
+    - [Data Collection in State Machine](./state_machine/README.md#data-collection)
+    - [Data Replay in State Machine](./state_machine/README.md#replay-recorded-trajectories)
 - [Cosmos Transfer1](./cosmos_transfer1/README.md)
 - [Teleoperation](./teleoperation/README.md)
 - [Policy Runner](../../policy_runner/README.md)

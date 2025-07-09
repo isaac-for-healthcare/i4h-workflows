@@ -6,7 +6,7 @@ The Liver Scan State Machine provides a structured approach to performing ultras
 
 We also have a script to replay the recorded data in the IsaacSim simulation environment.
 
-## Liver Scan State Machine
+## Running the State Machine
 
 This script runs the liver scan state machine in the IsaacSim simulation environment.
 
@@ -14,8 +14,8 @@ This script runs the liver scan state machine in the IsaacSim simulation environ
 python -m simulation.environments.state_machine.liver_scan_sm --enable_cameras
 ```
 
-What's expected:
-- IsaacSim window with a Franka robot arm and a ultrasound probe performing a liver scan
+**Expected Behavior:**
+- IsaacSim window with a Franka robot arm and a ultrasound probe performing a liver scan.
 - You may see "IsaacSim 4.5.0 is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
 
 ### States Overview

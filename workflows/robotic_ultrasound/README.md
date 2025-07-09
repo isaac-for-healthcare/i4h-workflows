@@ -136,10 +136,10 @@ rm workflows/robotic_ultrasound/scripts/raysim.zip
 (python -m policy_runner.run_policy --policy pi0 & python -m simulation.environments.sim_with_dds --enable_cameras & wait)
 ```
 
-**Expected System Behavior:**
-- Isaac Sim physics simulation with Franka robotic arm
-- PI0 policy inference pipeline processing visual input streams
-- DDS-based communication for real-time control commands and sensor feedback
+**Expected Behavior:**
+- Isaac Sim physics simulation with Franka robotic arm.
+- PI0 policy inference pipeline processing visual input streams.
+- DDS-based communication for real-time control commands and sensor feedback.
 
 > ⏳ **Initial Load Time**: First execution may require 10+ minutes for asset download and scene initialization
 
@@ -152,11 +152,10 @@ python -m utils.visualization & \
 wait)
 ```
 
-**Expected System Behavior:**
-- Full autonomous robotic ultrasound scanning pipeline
-- Real-time physics-based ultrasound image synthesis via GPU ray tracing
-- Multi-modal sensor data visualization (RGB cameras + ultrasound B-mode)
-- DDS middleware for distributed system communication
+**Expected Behavior:**
+- Full autonomous robotic ultrasound scanning pipeline.
+- Real-time physics-based ultrasound image synthesis via GPU ray tracing.
+- Multi-modal sensor data visualization (RGB cameras + ultrasound B-mode).
 
 #### 🎮 Manual Teleoperation Interface
 ```bash
@@ -166,10 +165,10 @@ python workflows/robotic_ultrasound/scripts/utils/visualization.py & \
 wait)
 ```
 
-**Expected System Behavior:**
-- Direct SE(3) pose control via keyboard/SpaceMouse/gamepad input
-- Real-time ultrasound image generation during manual scanning
-- Multi-camera visualization with synchronized ultrasound feedback
+**Expected Behavior:**
+- Direct SE(3) pose control via keyboard/SpaceMouse/gamepad input.
+- Real-time ultrasound image generation during manual scanning.
+- Multi-camera visualization with synchronized ultrasound feedback.
 
 **Control Mapping**: Reference [Teleoperation Documentation](./scripts/simulation/environments/teleoperation/README.md#keyboard-controls)
 
