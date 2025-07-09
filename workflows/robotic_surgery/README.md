@@ -13,7 +13,7 @@ The framework supports multiple surgical robots and tasks:
 - **dVRK (da Vinci Research Kit)**: Patient Side Manipulator (PSM) for minimally invasive surgery.
 - **STAR (Smart Tissue Autonomous Robot)**: Autonomous surgical robot for tissue manipulation.
 - **Multi-arm coordination**: Dual-arm surgical robot synchronization.
-- **Surgical task simulation**: Needle lifting, suturing, peg transfer, and etc.
+- **Surgical task simulation**: Needle lifting, suturing, peg transfer, etc.
 
 ---
 
@@ -87,7 +87,7 @@ conda activate robotic_surgery
 git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
 
-# Install all dependencies (this takes 40-60 minutes)
+# Install all dependencies
 bash tools/env_setup_robot_surgery.sh
 ```
 
@@ -112,7 +112,7 @@ export PYTHONPATH=$(pwd)/workflows/robotic_surgery/scripts
 
    This ensures the environment variables are automatically set when you open new terminals.
 
-   **Note:** If you have `robotic_surgery` workflow scripts or previous versions of `robotic_ultrasound` workflow scripts in your `PYTHONPATH`, you can reset it to include only the robotic_ultrasound scripts by running `export PYTHONPATH=$(pwd)/workflows/robotic_ultrasound/scripts`
+   **Note:** If you have `robotic_ultrasound` workflow scripts or previous versions of `robotic_surgery` workflow scripts in your `PYTHONPATH`, you can reset it to include only the `robotic_surgery` scripts by running `export PYTHONPATH=$(pwd)/workflows/robotic_surgery/scripts`
    </details>
 
 
@@ -205,14 +205,14 @@ The robotic surgery workflow is built on the following core dependencies:
 
 ### 🐳 Docker Installation Procedures
 
-Please refer to the [Robotic Ultrasound Docker Container Guide](./docker/README.md) for detailed instructions on how to run the workflow in a Docker container.
+Please refer to the [Robotic Surgery Docker Container Guide](./docker/README.md) for detailed instructions on how to run the workflow in a Docker container.
 
 ### 🔨 Conda Installation Procedures
 
 #### 1️⃣ NVIDIA Graphics Driver Installation
 Install or upgrade to the latest NVIDIA driver from [NVIDIA website](https://www.nvidia.com/en-us/drivers/)
 
-**Note**: The workflow requires driver version ≥555 for ray tracing capabilities.
+**Note**: The workflow requires driver version ≥535.129.03 for ray tracing capabilities.
 
 #### 2️⃣ Conda Installation
 Install Miniconda following the [official guide](https://www.anaconda.com/docs/getting-started/miniconda/install):
