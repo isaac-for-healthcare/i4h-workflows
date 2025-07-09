@@ -69,7 +69,10 @@ The command to run the simulation is the same as [Running Workflows](../README.m
 
 For example,
 ```sh
+# Inside the container
 conda activate robotic_ultrasound
+
+# Run simulation with GUI
 (python -m policy_runner.run_policy --policy pi0 & python -m simulation.environments.sim_with_dds --enable_cameras & wait)
 ```
 

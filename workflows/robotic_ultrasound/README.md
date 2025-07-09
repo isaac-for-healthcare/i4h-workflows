@@ -51,10 +51,12 @@ This physics-based approach enables the generation of highly realistic synthetic
    Verify output shows compute capability ≥8.6 (Ampere/Ada Lovelace/Hopper with RT Cores)
    </details>
 
-#### Driver & Runtime Requirements
+#### Driver & System Requirements
+- **Operating System**: Ubuntu 22.04 LTS / 24.04 LTS (x86_64)
 - **NVIDIA Driver**: ≥555.x (RTX ray tracing API support)
 - **CUDA Toolkit**: ≥12.6 (OptiX 8.x compatibility)
-- **Operating System**: Ubuntu 22.04 LTS / 24.04 LTS
+- **Memory Requirements**: ≥24GB GPU memory, ≥64GB system RAM
+- **Storage**: ≥100GB NVMe SSD (asset caching and simulation data)
 
    <details>
    <summary>🔍 Driver Version Validation</summary>
@@ -71,6 +73,10 @@ This physics-based approach enables the generation of highly realistic synthetic
    nvcc --version | grep "release" | awk '{print $6}' | cut -d',' -f1
    ```
    </details>
+
+#### Software Dependencies
+- **Python**: 3.10 (exact version required)
+- **Conda**: Miniconda or Anaconda ([installation guide](https://www.anaconda.com/docs/getting-started/miniconda/install))
 
 #### Communication Middleware
 - **RTI Connext DDS**: Professional or evaluation license ([obtain here](https://www.rti.com/free-trial))
@@ -96,6 +102,8 @@ cd i4h-workflows
 bash tools/env_setup_robot_us.sh
 ```
 
+**⚠️ Expected Build Time**: The environment setup process takes 40-60 minutes. You may encounter intermediary warnings about macaroon bakery library dependencies - these are non-critical and can be ignored.
+
 #### 3️⃣ Environment Variable Configuration
 ```bash
 export PYTHONPATH=`pwd`/workflows/robotic_ultrasound/scripts:$PYTHONPATH
@@ -110,6 +118,10 @@ export RTI_LICENSE_FILE=<path-to-your-rti-license-file>
    echo "export RTI_LICENSE_FILE=<path-to-your-rti-license-file>" >> ~/.bashrc
    source ~/.bashrc
    ```
+
+   This ensures the environment variables are automatically set when you open new terminals.
+
+   **Note:** If you have `robotic_surgery` workflow scripts or previous versions of `robotic_ultrasound` workflow scripts in your `PYTHONPATH`, you can reset it to include only the robotic_ultrasound scripts by running `export PYTHONPATH=$(pwd)/workflows/robotic_ultrasound/scripts`
    </details>
 
 #### 4️⃣ Raytracing Ultrasound Simulator Installation
@@ -125,10 +137,6 @@ rm workflows/robotic_ultrasound/scripts/raysim.zip
 ✅ **Installation Complete** - Your robotic ultrasound simulation environment is operational.
 
 ---
-
-### Docker Setup
-
-Please refer to the [Robotic Ultrasound Docker Container Guide](./docker/README.md) for detailed instructions on how to run the workflow in a Docker container.
 
 ## ⚡ Running Workflows
 
@@ -237,7 +245,11 @@ The robotic ultrasound workflow is built on the following dependencies:
 - [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing)
 - [RTI Connext DDS](https://www.rti.com/products)
 
-### 🔨 Installation Procedures
+### 🐳 Docker Installation Procedures
+
+Please refer to the [Robotic Ultrasound Docker Container Guide](./docker/README.md) for detailed instructions on how to run the workflow in a Docker container.
+
+### 🔨 Conda Installation Procedures
 
 #### 1️⃣ NVIDIA Graphics Driver Installation
 Install or upgrade to the latest NVIDIA driver from [NVIDIA website](https://www.nvidia.com/en-us/drivers/)
