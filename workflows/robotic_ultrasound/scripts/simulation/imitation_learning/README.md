@@ -28,3 +28,7 @@ python -m simulation.imitation_learning.pi0_policy.eval --enable_cameras
 | `--repo_id` | str | "i4h/sim_liver_scan" | The LeRobot repo id for the dataset norm |
 
 *Note: Additional arguments are available through the IsaacLab AppLauncher framework.*
+
+## Jump to Section
+
+- [Task setting for the simulation environment](../exts/robotic_us_ext/README.md)

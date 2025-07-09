@@ -93,3 +93,4 @@ python -m policy_runner.run_policy --policy gr00tn1
 ## Jump to Section
 
 - [Sim with DDS](../simulation/environments/README.md)
+- [Task setting for the simulation environment](../simulation/exts/robotic_us_ext/README.md)
