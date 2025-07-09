@@ -176,6 +176,7 @@ python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learni
 | **🧩 Peg Transfer** | [lift_block_sm.py](scripts/simulation/scripts/environments/state_machine/lift_block_sm.py) | First-time users, basic robot control | Peg transfer surgical training task | [State Machine README](scripts/simulation/scripts/environments/state_machine/README.md#peg-block-lift) | Isaac Lab | 2-5 minutes |
 | **🧠 RL Training** | [train.py](scripts/simulation/scripts/reinforcement_learning/rsl_rl/train.py) | AI model development | Reinforcement learning agent training | [RSL-RL README](scripts/simulation/scripts/reinforcement_learning/rsl_rl/README.md#training-and-playing) | Isaac Lab | 45+ minutes |
 | **🎮 RL Evaluation** | [play.py](scripts/simulation/scripts/reinforcement_learning/rsl_rl/play.py) | Model validation | Trained agent evaluation and visualization | [RSL-RL README](scripts/simulation/scripts/reinforcement_learning/rsl_rl/README.md#training-and-playing) | Isaac Lab, trained model | 5-10 minutes |
+| **🎮 MIRA Teleoperation Tutorial** | [teleoperate_virtual_incision_mira.py](../../tutorials/assets/bring_your_own_robot/Virtual_Incision_MIRA/teleoperate_virtual_incision_mira.py) | Interactive robot control | Virtual Incision MIRA keyboard teleoperation | [Virtual Incision MIRA README](../../tutorials/assets/bring_your_own_robot/Virtual_Incision_MIRA/README.md) | Isaac Lab | 5-10 minutes |
 
 ---
 
