@@ -126,12 +126,17 @@ rm workflows/robotic_ultrasound/scripts/raysim.zip
 
 ---
 
+### Docker Setup
+
+Please refer to the [Robotic Ultrasound Docker Container Guide](./docker/README.md) for detailed instructions on how to run the workflow in a Docker container.
+
 ## ⚡ Running Workflows
 
 ### 🔬 Experimental Configurations
 
 #### 🤖 Policy-Based Control with PI0
 ```bash
+conda activate robotic_ultrasound
 (python -m policy_runner.run_policy --policy pi0 & python -m simulation.environments.sim_with_dds --enable_cameras & wait)
 ```
 
@@ -140,10 +145,15 @@ rm workflows/robotic_ultrasound/scripts/raysim.zip
 - PI0 policy inference pipeline processing visual input streams.
 - DDS-based communication for real-time control commands and sensor feedback.
 
+> **Note:**
+> You may see "IsaacSim 4.5.0 is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
+> It may take an additional 1 or 2 minutes for the policy to start inferencing, so the robot arm may not move immediately.
+
 > ⏳ **Initial Load Time**: First execution may require 10+ minutes for asset download and scene initialization
 
 #### 🔊 Integrated Ultrasound Raytracing Pipeline
 ```bash
+conda activate robotic_ultrasound
 (python -m policy_runner.run_policy --policy pi0 & \
 python -m simulation.environments.sim_with_dds --enable_cameras &  \
 python -m simulation.examples.ultrasound_raytracing & \
@@ -158,6 +168,7 @@ wait)
 
 #### 🎮 Manual Teleoperation Interface
 ```bash
+conda activate robotic_ultrasound
 (python -m simulation.examples.ultrasound_raytracing & \
 python -m simulation.environments.teleoperation.teleop_se3_agent --enable_cameras & \
 python workflows/robotic_ultrasound/scripts/utils/visualization.py & \
@@ -182,12 +193,8 @@ wait)
 | **🚀 Quick Start** | [simulation/imitation_learning/pi0_policy/eval.py](scripts/simulation/imitation_learning/pi0_policy/eval.py) | First-time users, policy testing | PI0 policy evaluation | [Simulation README](./scripts/simulation/imitation_learning/README.md) | PI0 policy, Isaac Sim | 2-5 minutes |
 | **🔄 Multi-Component** | [simulation/environments/sim_with_dds.py](scripts/simulation/environments/sim_with_dds.py) | Full pipeline testing | Main simulation with DDS communication | [Simulation README](./scripts/simulation/environments/README.md) | Isaac Sim, DDS | Continuous |
 | **🎮 Interactive Control** | [simulation/environments/teleoperation/teleop_se3_agent.py](scripts/simulation/environments/teleoperation/teleop_se3_agent.py) | Manual control, data collection | Manual robot control via keyboard/gamepad | [Simulation README](./scripts/simulation/environments/teleoperation/README.md) | Isaac Sim, input device | Continuous |
-| **📊 Visualization** | [utils/visualization.py](scripts/utils/visualization.py) | Monitoring simulations, debugging | Real-time camera feeds and ultrasound display | [Utils README](./scripts/utils/README.md) | DDS, GUI | Continuous |
 | **🩺 Ultrasound Simulation** | [simulation/examples/ultrasound_raytracing.py](scripts/simulation/examples/ultrasound_raytracing.py) | Realistic ultrasound imaging | Physics-based ultrasound image generation | [Simulation README](scripts/simulation/examples/README.md) | RayTracing Simulator | Continuous |
-| **🤖 Policy Execution** | [policy_runner/run_policy.py](scripts/policy_runner/run_policy.py) | Policy deployment | Generic policy runner for PI0 and GR00T N1 models | [Policy Runner README](scripts/policy_runner/README.md) | Model inference, DDS | Continuous |
-| **🏥 Hardware-in-the-loop** | [holoscan_apps/clarius_cast/clarius_cast.py](scripts/holoscan_apps/clarius_cast/clarius_cast.py) | Hardware-in-the-loop | Clarius Cast ultrasound probe integration | [Holoscan Apps README](scripts/holoscan_apps/README.md) | Clarius probe, Holoscan | Continuous |
-| **🏥 Hardware-in-the-loop** | [holoscan_apps/clarius_solum/clarius_solum.py](scripts/holoscan_apps/clarius_solum/clarius_solum.py) | Hardware-in-the-loop | Clarius Solum ultrasound probe integration | [Holoscan Apps README](scripts/holoscan_apps/README.md) | Clarius probe, Holoscan | Continuous |
-| **🏥 Hardware-in-the-loop** | [holoscan_apps/realsense/camera.py](scripts/holoscan_apps/realsense/camera.py) | Hardware-in-the-loop | RealSense depth camera integration | [Holoscan Apps README](scripts/holoscan_apps/README.md) | RealSense camera, Holoscan | Continuous |
+| **🤖 Policy Inference** | [policy_runner/run_policy.py](scripts/policy_runner/run_policy.py) | Policy deployment | Generic policy runner for PI0 and GR00T N1 models | [Policy Runner README](scripts/policy_runner/README.md) | Model inference, DDS | Continuous |
 | **🧠 Policy Training** | [training/pi_zero/train.py](scripts/training/pi_zero/train.py) | Model development | Train PI0 imitation learning models | [PI0 Training README](scripts/training/pi_zero/README.md) | Training data, GPU | Depends on the dataset size |
 | **🧠 Policy Training** | [training/gr00t_n1/train.py](scripts/training/gr00t_n1/train.py) | Advanced model development | Train GR00T N1 foundation models | [GR00T N1 Training README](scripts/training/gr00t_n1/README.md) | Training data, GPU | Depends on the dataset size |
 | **🔄 Data Processing** | [training/convert_hdf5_to_lerobot.py](scripts/training/convert_hdf5_to_lerobot.py) | Data preprocessing | Convert HDF5 data to LeRobot format | [GR00T N1 Training README](scripts/training/gr00t_n1/README.md#data-conversion) | HDF5 files | Depends on the dataset size |
@@ -195,6 +202,12 @@ wait)
 | **🏗️ State Machine** | [simulation/environments/state_machine/liver_scan_sm.py](scripts/simulation/environments/state_machine/liver_scan_sm.py) | Automated data collection | Automated liver scanning protocol | [Simulation README](scripts/simulation/environments/state_machine/README.md) | Isaac Sim | 5-15 minutes |
 | **🗂️ Data Collection** | [simulation/environments/state_machine/liver_scan_sm.py](scripts/simulation/environments/state_machine/liver_scan_sm.py) | Automated data collection | Automated liver scanning protocol | [Simulation README](scripts/simulation/environments/state_machine/README.md) | Isaac Sim | 5-15 minutes |
 | **🔄 Replay** | [simulation/environments/state_machine/replay_recording.py](scripts/simulation/environments/state_machine/replay_recording.py) | Data validation | Replay recorded robot trajectories | [Simulation README](scripts/simulation/environments/state_machine/README.md#replay-recordings) | Recording files | 2-5 minutes |
+| **🎯 Customization** | [tutorials/assets/bring_your_own_patient/README.md](../../tutorials/assets/bring_your_own_patient/README.md) | Patient data integration | Convert CT/MRI scans to USD for simulation | [Patient Tutorial](../tutorials/assets/bring_your_own_patient/README.md) | MONAI, medical imaging data | Variable |
+| **🎯 Customization** | [tutorials/assets/bring_your_own_robot/replace_franka_hand_with_ultrasound_probe.md](../../tutorials/assets/bring_your_own_robot/replace_franka_hand_with_ultrasound_probe.md) | Robot customization | Replace Franka hand with ultrasound probe | [Robot Tutorial](../tutorials/assets/bring_your_own_robot/replace_franka_hand_with_ultrasound_probe.md) | Isaac Sim, CAD/URDF files | 30-60 minutes |
+| **📊 Visualization** | [utils/visualization.py](scripts/utils/visualization.py) | Monitoring simulations, debugging | Real-time camera feeds and ultrasound display | [Utils README](./scripts/utils/README.md) | DDS, GUI | Continuous |
+| **🏥 Hardware-in-the-loop** | [holoscan_apps/clarius_cast/clarius_cast.py](scripts/holoscan_apps/clarius_cast/clarius_cast.py) | Hardware-in-the-loop | Clarius Cast ultrasound probe integration | [Holoscan Apps README](scripts/holoscan_apps/README.md) | Clarius probe, Holoscan | Continuous |
+| **🏥 Hardware-in-the-loop** | [holoscan_apps/clarius_solum/clarius_solum.py](scripts/holoscan_apps/clarius_solum/clarius_solum.py) | Hardware-in-the-loop | Clarius Solum ultrasound probe integration | [Holoscan Apps README](scripts/holoscan_apps/README.md) | Clarius probe, Holoscan | Continuous |
+| **🏥 Hardware-in-the-loop** | [holoscan_apps/realsense/camera.py](scripts/holoscan_apps/realsense/camera.py) | Hardware-in-the-loop | RealSense depth camera integration | [Holoscan Apps README](scripts/holoscan_apps/README.md) | RealSense camera, Holoscan | Continuous |
 | **📡 Communication** | [dds/publisher.py](scripts/dds/publisher.py) | Data streaming | DDS data publishing utilities | [DDS README](scripts/dds/README.md) | DDS license | Continuous |
 | **📡 Communication** | [dds/subscriber.py](scripts/dds/subscriber.py) | Data reception | DDS data subscription utilities | [DDS README](scripts/dds/README.md) | DDS license | Continuous |
 
