@@ -22,7 +22,6 @@ import gymnasium as gym
 
 from ..teleop import ik_rel_env_cfg
 from . import agents, franka_manager_rl_env_cfg
-from ....pick.config.g1 import pick_g1_env_cfg
 
 ##
 # Inverse Kinematics - Absolute Pose Control

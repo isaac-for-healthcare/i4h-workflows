@@ -48,7 +48,6 @@ from isaaclab.utils import configclass
 from isaacsim.core.utils.torch.rotations import euler_angles_to_quats
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
-from isaaclab_assets.robots.fourier import GR1T2_CFG  # isort: skip
 from isaaclab_assets.robots.unitree import G1_CFG
 from robotic_us_ext.tasks.ultrasound.pick import mdp
 from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
@@ -128,28 +127,28 @@ class ObjectTableSceneCfg(InteractiveSceneCfg):
             rot=(0.7071, 0, 0, 0.7071),
             joint_pos={
                 # right-arm
-                "right_shoulder_pitch_joint": 0.0,
-                "right_shoulder_roll_joint": 0.0,
+                "right_shoulder_pitch_joint": 0.3,
+                "right_shoulder_roll_joint": -0.25,
                 "right_shoulder_yaw_joint": 0.0,
-                "right_elbow_joint": -0.0,
+                "right_elbow_joint": -0.2,
                 "right_wrist_yaw_joint": 0.0,
-                "right_wrist_roll_joint": 0.0,
+                "right_wrist_roll_joint": -0.15,
                 "right_wrist_pitch_joint": 0.0,
                 # left-arm
-                "left_shoulder_pitch_joint": 0.0,
-                "left_shoulder_roll_joint": 0.0,
+                "left_shoulder_pitch_joint": 0.3,
+                "left_shoulder_roll_joint": 0.25,
                 "left_shoulder_yaw_joint": 0.0,
-                "left_elbow_joint": -0.0,
+                "left_elbow_joint": -0.2,
                 "left_wrist_yaw_joint": 0.0,
-                "left_wrist_roll_joint": 0.0,
+                "left_wrist_roll_joint": 0.15,
                 "left_wrist_pitch_joint": 0.0,
-                # 躯干和腿部
+                # waist and legs
                 "waist_pitch_joint": 0.0,
                 "waist_yaw_joint": 0.0,
                 "waist_roll_joint": 0.0,
-                ".*_hip_pitch_joint": 0.0,
-                ".*_knee_joint": 0.0,
-                ".*_ankle_pitch_joint": 0,
+                ".*_hip_pitch_joint": -0.1,
+                ".*_knee_joint": 0.3,
+                ".*_ankle_pitch_joint": -0.2,
                 ".*_ankle_roll_joint": 0.0,
                 ".*_hand_.*": 0.0,
                 # "head_joint": 0.0,
@@ -168,32 +167,36 @@ class ObjectTableSceneCfg(InteractiveSceneCfg):
                     ".*_hip_roll_joint", 
                     ".*_hip_pitch_joint",
                     ".*_knee_joint",
+                    "waist_.*_joint"
                 ],
                 effort_limit=300,
                 velocity_limit=100.0,
                 stiffness={
-                    ".*_hip_yaw_joint": 150.0,
-                    ".*_hip_roll_joint": 150.0,
-                    ".*_hip_pitch_joint": 200.0,
-                    ".*_knee_joint": 200.0,
+                    ".*_hip_yaw_joint": 100.0,
+                    ".*_hip_roll_joint": 100.0,
+                    ".*_hip_pitch_joint": 100.0,
+                    ".*_knee_joint": 150.0,
+                    "waist_.*_joint": 200.0,
                 },
                 damping={
-                    ".*_hip_yaw_joint": 5.0,
-                    ".*_hip_roll_joint": 5.0,
-                    ".*_hip_pitch_joint": 5.0,
-                    ".*_knee_joint": 5.0,
+                    ".*_hip_yaw_joint": 2.0,
+                    ".*_hip_roll_joint": 2.0,
+                    ".*_hip_pitch_joint": 2.0,
+                    ".*_knee_joint": 4.0,
+                    "waist_.*_joint": 5.0,
                 },
                 armature={
                     ".*_hip_.*": 0.01,
                     ".*_knee_joint": 0.01,
+                    "waist_.*_joint": 0.01,
                 },
             ),
             "feet": ImplicitActuatorCfg(
                 effort_limit=20,
                 joint_names_expr=[".*_ankle_pitch_joint", ".*_ankle_roll_joint"],
-                stiffness=20.0,
+                stiffness=40.0,
                 damping=2.0,
-                armature=0.02,
+                armature=0.01,
             ),
             "arms": ImplicitActuatorCfg(
                 joint_names_expr=[
@@ -201,7 +204,9 @@ class ObjectTableSceneCfg(InteractiveSceneCfg):
                     ".*_shoulder_roll_joint",
                     ".*_shoulder_yaw_joint",
                     ".*_elbow_joint",
-                    ".*_hand_.*_joint",
+                    ".*_wrist_roll_joint",
+                    ".*_wrist_pitch_joint",
+                    ".*_wrist_yaw_joint",
                 ],
                 effort_limit=300,
                 velocity_limit=100.0,
@@ -210,7 +215,7 @@ class ObjectTableSceneCfg(InteractiveSceneCfg):
                 armature={
                     ".*_shoulder_.*": 0.01,
                     ".*_elbow_.*": 0.01,
-                    ".*_hand_.*": 0.001,
+                    ".*_wrist_.*": 0.001,
                 },
             ),
         },

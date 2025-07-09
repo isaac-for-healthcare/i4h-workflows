@@ -37,9 +37,6 @@ else
     # Ensure parent third_party dir exists
     mkdir -p "$PROJECT_ROOT/third_party"
     git clone https://github.com/NVIDIA/Isaac-GR00T "$GR00T_DIR"
-    pushd "$GR00T_DIR"
-    git checkout n1-release
-    popd
 fi
 
 pushd "$GR00T_DIR"
@@ -53,7 +50,7 @@ else
 fi
 
 pip install -e .[base]
-pip install transformers==4.45.2
+pip install transformers==4.51.3
 popd
 
 pip install --no-build-isolation flash-attn==2.7.1.post4
