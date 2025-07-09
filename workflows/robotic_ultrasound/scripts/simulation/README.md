@@ -9,5 +9,5 @@ This folder contains the scripts to run the simulation in the IsaacSim environme
 - [Ultrasound Raytracing Simulation](./examples/README.md)
 - [Trajectory Evaluation](./evaluation/README.md)
 
-## Jump to Section
+## Documentation Links
 - [Policy Runner with DDS](../policy_runner/README.md)

@@ -57,7 +57,7 @@ wait)
 | `--viz_domain_id` | int | 1 | Domain ID for visualization data publishing |
 | `--rti_license_file` | str | None | Path to the RTI license file (required) |
 
-## Jump to Section
+## Documentation Links
 
 - [Ultrasound Raytracing Simulation](../../examples/README.md)
 - [Visualization](../../../utils/README.md)

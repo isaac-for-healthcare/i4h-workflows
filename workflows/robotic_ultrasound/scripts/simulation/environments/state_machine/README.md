@@ -113,6 +113,6 @@ Replace `/path/to/your/hdf5_data_directory` with the actual path to the director
 > **Note:** Additional common Isaac Lab arguments (like `--device`) can also be used.
 
 
-## Jump to Section
+## Documentation Links
 
 - [Task setting for the simulation environment](../../exts/robotic_us_ext/README.md)

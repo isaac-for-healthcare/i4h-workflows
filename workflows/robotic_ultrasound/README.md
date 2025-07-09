@@ -25,7 +25,6 @@ This physics-based approach enables the generation of highly realistic synthetic
 - [⚡ Running Workflows](#-running-workflows)
 - [🔧 Detailed Setup Instructions](#-detailed-setup-instructions)
 - [🛠️ Troubleshooting](#️-troubleshooting)
-- [📚 Documentation Links](#-documentation-links)
 
 ---
 
@@ -172,7 +171,7 @@ wait)
 
 **Control Mapping**: Reference [Teleoperation Documentation](./scripts/simulation/environments/teleoperation/README.md#keyboard-controls)
 
-> 🔄 **Process Termination**: Use `Ctrl+C` followed by `bash workflows/robotic_ultrasound/reset.sh` to cleanly terminate all distributed processes
+> 🔄 **Process Termination**: Use `Ctrl+C` followed by `bash workflows/robotic_ultrasound/reset.sh` to cleanly terminate all distributed processes.
 
 ---
 
@@ -280,6 +279,12 @@ The environment for pi0 and gr00tn1 has conflicts with each other. You can only 
 **Dependency Conflict Resolution:**
 Expected PyTorch version conflicts between IsaacLab (2.5.1) and OpenPI (2.6.0) are non-critical and can be ignored.
 
+#### 6️⃣ Raytracing Ultrasound Simulator Installation
+
+Choose one of the following options:
+- **(Use pre-built binary)** Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.2.0rc2) and extract to `workflows/robotic_ultrasound/scripts/raysim`.
+- **(Compiling from source)** Install and build following instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/main/ultrasound-raytracing#installation) and copy the `raysim` folder to `workflows/robotic_ultrasound/scripts/`.
+
 ### 📦 Asset Management
 
 #### Automated Asset Retrieval
@@ -332,17 +337,3 @@ isaaclab 0.34.9 requires torch==2.5.1, but you have torch 2.6.0 which is incompa
 
 - **Technical Documentation**: Component-specific README files
 - **Issue Tracking**: [GitHub Issues](https://github.com/isaac-for-healthcare/i4h-workflows/issues)
-- **Community Support**: GitHub Discussions
-
----
-
-## 📚 Documentation Links
-
-### 🎯 Component Documentation
-- [🤖 Policy Runner](./scripts/policy_runner/README.md) - AI inference pipeline
-- [🔬 Simulation](./scripts/simulation/README.md) - Physics simulation framework
-- [🛠️ Utils](./scripts/utils/README.md) - Visualization and debugging tools
-- [🏥 Holoscan Apps](./scripts/holoscan_apps/README.md) - Clinical hardware integration
-- [🧠 GR00T N1 Training](./scripts/training/gr00t_n1/README.md) - Foundation model training
-- [🎓 PI0 Training](./scripts/training/pi_zero/README.md) - Imitation learning training
-- [📈 Evaluation](./scripts/simulation/evaluation/README.md) - Performance analysis tools

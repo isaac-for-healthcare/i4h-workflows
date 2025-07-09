@@ -90,7 +90,7 @@ python -m policy_runner.run_policy --policy gr00tn1
 >
 >  You can choose how many of these predictions to utilize based on your specific control frequency requirements.
 
-## Jump to Section
+## Documentation Links
 
 - [Sim with DDS](../simulation/environments/README.md)
 - [Task setting for the simulation environment](../simulation/exts/robotic_us_ext/README.md)

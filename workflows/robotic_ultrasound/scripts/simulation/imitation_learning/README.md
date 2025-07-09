@@ -29,6 +29,6 @@ python -m simulation.imitation_learning.pi0_policy.eval --enable_cameras
 
 *Note: Additional arguments are available through the IsaacLab AppLauncher framework.*
 
-## Jump to Section
+## Documentation Links
 
 - [Task setting for the simulation environment](../exts/robotic_us_ext/README.md)

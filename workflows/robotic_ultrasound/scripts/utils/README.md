@@ -89,7 +89,7 @@ Each subscriber is implemented as a separate Python thread, allowing asynchronou
   - Add a short delay (time.sleep) after initialization to ensure publishers and subscribers are properly established
   - Check network connectivity if running across multiple machines
 
-## Jump to Section
+## Documentation Links
 
 - [Sim with DDS](../simulation/environments/README.md)
 - [Teleoperation](../simulation/environments/teleoperation/README.md)
