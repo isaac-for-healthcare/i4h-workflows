@@ -32,10 +32,34 @@ execute_process(
 
 # Download Clarius library and header files
 if(NOT EXISTS "${LIB_DIR}/clarius_solum/libsolum.so")
+    set(SOLUM_URL "https://github.com/clariusdev/solum/releases/download/v12.0.2/solum-12.0.2-linux.x86_64-gcc_ubuntu_${UBUNTU_VERSION}.zip")
+    set(SOLUM_ZIP_PATH "${LIB_DIR}/clarius_solum/solum.zip")
+    
+    message(STATUS "Downloading Clarius Solum library from: ${SOLUM_URL}")
+    
+    # Download the zip file with error checking
     file(DOWNLOAD
-        "https://github.com/clariusdev/solum/releases/download/v12.0.2/solum-12.0.2-linux.x86_64-gcc_ubuntu_${UBUNTU_VERSION}.zip"
-         "${LIB_DIR}/clarius_solum/solum.zip"
-         )
+        "${SOLUM_URL}"
+        "${SOLUM_ZIP_PATH}"
+        STATUS DOWNLOAD_STATUS
+        TIMEOUT 600
+        SHOW_PROGRESS
+    )
+    
+    # Check download status
+    list(GET DOWNLOAD_STATUS 0 DOWNLOAD_ERROR_CODE)
+    list(GET DOWNLOAD_STATUS 1 DOWNLOAD_ERROR_MESSAGE)
+    
+    if(NOT DOWNLOAD_ERROR_CODE EQUAL 0)
+        message(FATAL_ERROR "Failed to download Clarius Solum library: ${DOWNLOAD_ERROR_MESSAGE}")
+    endif()
+    
+    # Verify the downloaded file exists and has reasonable size
+    if(NOT EXISTS "${SOLUM_ZIP_PATH}")
+        message(FATAL_ERROR "Downloaded file does not exist: ${SOLUM_ZIP_PATH}")
+    endif()
+    
+    message(STATUS "Successfully downloaded Clarius Solum library to ${SOLUM_ZIP_PATH}")
     # Unzip the file
     execute_process(
         COMMAND unzip solum.zip
