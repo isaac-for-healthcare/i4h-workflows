@@ -20,7 +20,19 @@
 check_conda_env() {
     if [ -z "$CONDA_DEFAULT_ENV" ]; then
         echo "Error: No active conda environment detected"
-        echo "Please activate a conda environment before running this script"
+        echo ""
+        echo "To resolve this, you can either:"
+        echo "1. Install miniconda if you don't have it:"
+        echo "   - Download from: https://docs.conda.io/en/latest/miniconda.html"
+        echo "   - Or run: wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && bash Miniconda3-latest-Linux-x86_64.sh"
+        echo ""
+        echo "2. If conda is already installed, initialize it:"
+        echo "   - Run: conda init"
+        echo ""
+        echo "3. Create and activate a conda environment:"
+        echo "   - Run: conda create -n i4h python=3.10"
+        echo "   - Then: conda activate i4h"
+        echo ""
         exit 1
     fi
     echo "Using conda environment: $CONDA_DEFAULT_ENV"
