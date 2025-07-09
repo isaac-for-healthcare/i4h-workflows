@@ -66,9 +66,11 @@ This command will load the initial state from `data_0.hdf5`, run the simulation 
 
 *Note: Additional arguments are available through the IsaacLab AppLauncher framework.*
 
+---
+
 ## Documentation Links
 
-- [Task setting for the simulation environment](../exts/robotic_us_ext/README.md)
+- [IsaacLab Task Setting](../exts/robotic_us_ext/README.md)
 - [Liver Scan State Machine](./state_machine/README.md)
     - [Data Collection in State Machine](./state_machine/README.md#data-collection)
     - [Data Replay in State Machine](./state_machine/README.md#replay-recorded-trajectories)
