@@ -206,7 +206,6 @@ class SOArmHardwareDriver:
     
     def _data_streaming_loop(self):
         """Data streaming loop (runs in background thread)."""
-        loop_count = 0
         
         while self.running:
             try:
@@ -230,13 +229,6 @@ class SOArmHardwareDriver:
                 
                 # Broadcast to all connected clients
                 self.communication_server.broadcast_data(comm_data)
-                
-                loop_count += 1
-                
-                # Status update every 200 loops (1 second at 200Hz)
-                if loop_count % 200 == 0:
-                    server_info = self.communication_server.get_server_info()
-                    print(f"📡 Data streaming: {loop_count} loops, {server_info['connected_clients']} clients")
                 
                 # 200Hz update rate
                 time.sleep(0.005)

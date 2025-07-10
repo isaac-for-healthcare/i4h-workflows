@@ -34,7 +34,6 @@ Usage:
 """
 
 import argparse
-import numpy as np
 import torch
 
 from isaaclab.app import AppLauncher
@@ -56,11 +55,8 @@ simulation_app = app_launcher.app
 
 import isaaclab.sim as sim_utils
 from isaaclab.scene import InteractiveScene
-from isaaclab.utils import configclass
 import carb
 import omni.appwindow
-import sys
-import os
 
 from simulation.configs.soarm101_robot_cfg import SOARM101_TABLE_SCENE_CFG
 

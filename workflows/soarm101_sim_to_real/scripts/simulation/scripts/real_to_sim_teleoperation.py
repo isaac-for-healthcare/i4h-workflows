@@ -9,11 +9,9 @@ a virtual robot in Isaac Lab simulation.
 """
 
 import argparse
-import sys
 import time
 import math
 import threading
-from typing import Optional, Dict
 import torch
 
 from isaaclab.app import AppLauncher
