@@ -59,6 +59,19 @@ echo "Installing IsaacSim and IsaacLab..."
 bash $PROJECT_ROOT/tools/env_setup/install_isaac.sh
 
 
+# ---- Install lerobot (Common) ----
+echo "Installing lerobot..."
+LEROBOT_DIR=${1:-$PROJECT_ROOT/third_party/lerobot}
+git clone https://github.com/huggingface/lerobot.git $LEROBOT_DIR
+pushd $LEROBOT_DIR
+git checkout 483be9aac217c2d8ef16982490f22b2ad091ab46
+pip install -e ".[feetech]"
+# need to downgrade numpy to 1.26.4
+pip install numpy==1.26.4
+popd
+
+
+
 echo "=========================================="
 echo "Environment setup script finished."
 echo "=========================================="
