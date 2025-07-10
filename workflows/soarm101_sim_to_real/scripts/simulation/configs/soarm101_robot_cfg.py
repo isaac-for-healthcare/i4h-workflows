@@ -38,8 +38,8 @@ SOARM101_CFG = ArticulationCfg(
     ),
     init_state=ArticulationCfg.InitialStateCfg(
         # Position robot on top of the table surface  
-        pos=(0.05, 0.6, 0.0),
-        rot=(1.0, 0.0, 0.0, 0.0),  # Keep robot upright
+        pos=(0.4, 0.1, 0.0),
+        rot=(0.707, 0.0, 0.0, -0.707),  # -90-degree rotation from y-axis to x-axis
         joint_pos={
             "shoulder_pan": 0.030,
             "shoulder_lift": -0.080,
@@ -102,6 +102,21 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
 
     # SO-ARM 101 robot positioned on top of the table
     soarm101 = SOARM101_CFG.replace(prim_path="{ENV_REGEX_NS}/SoArm101")
+
+    # Room Camera - simple camera prim for viewing (not a sensor)
+    room_camera = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/RoomCamera",
+        init_state=AssetBaseCfg.InitialStateCfg(
+            pos=(0.1, 0.05, 0.6),  # Position as specified
+            rot=(0.707, 0.0, 0.0, -0.707),
+        ),
+        spawn=sim_utils.PinholeCameraCfg(
+            focal_length=12.0,
+            focus_distance=100.0,
+            horizontal_aperture=20.955,
+            clipping_range=(0.1, 1.0e5),
+        ),
+    )
 
     # Dome light for proper lighting
     dome_light = AssetBaseCfg(
