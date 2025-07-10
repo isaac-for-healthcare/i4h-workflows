@@ -13,26 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-SO-ARM 101 Teleoperation Script with Table Environment
-
-This script allows keyboard control of the SO-ARM 101 robotic arm on a table.
-The robot is positioned on top of a Seattle Lab Table for realistic interaction.
-
-Keyboard Controls:
-- I/K: shoulder_pan (base rotation)
-- J/L: shoulder_lift (shoulder elevation)
-- U/O: elbow_flex (elbow flexion)
-- Z/X: wrist_flex (wrist flexion)
-- C/V: wrist_roll (wrist rotation)
-- B/N: gripper (gripper open/close)
-- ESC: Exit the application
-- SPACE: Reset to default position
-
-Usage:
-    python teleoperation.py --num_envs 1
-"""
-
 import argparse
 import torch
 

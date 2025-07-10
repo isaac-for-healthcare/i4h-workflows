@@ -13,15 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Scripts Package
-
-Contains execution scripts for SO-ARM 101 simulation:
-- Teleoperation scripts for real-time control
-- Control applications for various scenarios
-- Demonstration scripts for testing
-"""
-
 __all__ = [
     "real_to_sim_teleoperation",
     "teleoperation",

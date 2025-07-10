@@ -19,7 +19,6 @@ import threading
 import argparse
 from typing import Dict, Optional
 
-# LeRobot imports
 from lerobot.common.teleoperators.so101_leader import SO101Leader, SO101LeaderConfig
 from lerobot.common.robots.so101_follower import SO101Follower, SO101FollowerConfig
 

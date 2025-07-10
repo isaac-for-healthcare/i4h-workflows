@@ -13,19 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Simulation Package for SO-ARM 101
-
-This package provides:
-- Communication interfaces for hardware communication
-- Configuration files for robot and environment setup
-- Teleoperation scripts for real-time control
-- Asset files for simulation
-
-Note: Isaac Lab dependencies are imported only when needed,
-not at package level to avoid dependency issues.
-"""
-
 from . import communication
 
 __all__ = [
