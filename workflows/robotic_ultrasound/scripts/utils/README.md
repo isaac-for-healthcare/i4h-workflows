@@ -93,6 +93,6 @@ Each subscriber is implemented as a separate Python thread, allowing asynchronou
 
 ## Documentation Links
 
-- [Sim with DDS](../simulation/environments/README.md)
+- [Simulation with Data Distribution Service (DDS)](../simulation/environments/README.md)
 - [Teleoperation](../simulation/environments/teleoperation/README.md)
 - [Ultrasound Raytracing](../simulation/examples/README.md)

@@ -47,7 +47,7 @@ python -m policy_runner.run_policy --policy gr00tn1
 - Terminal messages will confirm that the policy has loaded and is running.
 - The policy will predict actions and publish them to DDS topics when image feeds are available.
 - When no image feeds are available on DDS, the model will not predict any actions.
-- You can run the simulation with DDS communication by following the [Sim with DDS](../simulation/environments/README.md) guide.
+- You can run the [Simulation with Data Distribution Service (DDS)](../simulation/environments/README.md) to produce the data for the policy to consume in IsaacSim.
 
 ### Command Line Arguments
 
@@ -94,5 +94,5 @@ python -m policy_runner.run_policy --policy gr00tn1
 
 ## Documentation Links
 
-- [Sim with DDS](../simulation/environments/README.md)
+- [Simulation with Data Distribution Service (DDS)](../simulation/environments/README.md)
 - [IsaacLab Task Setting](../simulation/exts/robotic_us_ext/README.md)

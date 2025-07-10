@@ -9,7 +9,7 @@ This folder contains the core simulation infrastructure for robotic ultrasound e
 - **`cosmos_transfer1/`** - Transfer learning pipeline and guided generation components
 - **`teleoperation/`** - Teleoperation agents and control interfaces
 
-## Sim with DDS
+## Simulation with DDS
 
 This script runs the simulation with DDS communication.
 
