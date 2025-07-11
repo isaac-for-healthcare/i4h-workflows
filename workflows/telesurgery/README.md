@@ -85,7 +85,11 @@ export NTP_SERVER_PORT="123"
 
 #### 1️⃣ Build Environment
 ```bash
-cd <path-to-i4h-workflows>
+git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
+cd i4h-workflows
+
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key
 workflows/telesurgery/docker/real.sh build
 ```
 
@@ -134,7 +138,11 @@ python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
 
 #### 1️⃣ Build Environment
 ```bash
-cd <path-to-i4h-workflows>
+git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
+cd i4h-workflows
+
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key
 workflows/telesurgery/docker/sim.sh build
 ```
 
