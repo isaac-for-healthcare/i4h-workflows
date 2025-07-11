@@ -2,4 +2,4 @@
 
 This folder contains the Dockerfile and scripts for building the Telesurgery Docker container.
 
-For instruction how to build and run them, please refer to the [Telesurgery Workflow](../README.md#-running-workflows)
+For instructions on how to build and run the container, please refer to the [Telesurgery Workflow](../README.md#running-workflows).
