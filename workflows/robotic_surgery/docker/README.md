@@ -59,7 +59,9 @@ docker run --name isaac-sim -it --gpus all --rm \
 
 ### 1. Interactive GUI Mode with X11 Forwarding
 
-For interactive development and debugging:
+The command to run the simulation is the same as [Running Workflows](../README.md#-running-workflows) section.
+
+For example,
 
 ```bash
 # Inside the container
@@ -69,11 +71,9 @@ conda activate robotic_surgery
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_psm_sm.py
 ```
 
-Please refer to the [Simulation README](../scripts/simulation/README.md) for more details.
-
 ### 2. Headless Streaming Mode
 
-For remote access:
+For headless streaming server setup, you can use the WebRTC streaming mode, with `livestream` flag.
 
 ```bash
 # Inside the container
