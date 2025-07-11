@@ -158,7 +158,7 @@ python patient/simulation/main.py --encoder nvjpeg
 ![Telesurgery Viewport](../../docs/source/telesurgery_viewport.gif)
 
 > **Note:**
-> You may see "IsaacSim 4.5.0 is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
+> While Isaac Sim is loading, you may see the message "IsaacSim 4.5.0 is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
 
 ##### Surgeon Application
 ```bash
