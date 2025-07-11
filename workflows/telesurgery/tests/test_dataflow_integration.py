@@ -103,7 +103,7 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
         time.sleep(20)
 
         # Check surgeon process log for evidence of received frames
-        with open(self.surgeon_camera_log, "r", encoding="utf-8") as f:
+        with open(self.surgeon_camera_log, encoding="utf-8") as f:
             camera_log = f.read()
         self.assertIn("fps:", camera_log, "Camera data not received on surgeon side")
 
@@ -127,7 +127,7 @@ class TestTelesurgeryDataLoop(unittest.TestCase):
         time.sleep(10)
 
         # Check patient log for evidence of robot control command received
-        with open(self.patient_log, "r", encoding="utf-8") as f:
+        with open(self.patient_log, encoding="utf-8") as f:
             patient_log = f.read()
         self.assertTrue(
             "Update (" in patient_log or "set_mira" in patient_log, "Robot control command not received on patient side"

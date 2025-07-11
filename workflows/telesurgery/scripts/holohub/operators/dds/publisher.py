@@ -48,7 +48,7 @@ class DDSPublisherOp(Operator):
         print(f"Writing data to DDS: {self.dds_topic}:{self.dds_domain_id} => {self.dds_topic_class.__name__}")
 
     def compute(self, op_input, op_output, context):
-        stream = op_input.receive("input")
-        assert isinstance(stream, self.dds_topic_class)
+        o = op_input.receive("input")
+        assert isinstance(o, self.dds_topic_class)
 
-        self.dds_writer.write(stream)
+        self.dds_writer.write(o)
