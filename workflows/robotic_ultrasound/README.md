@@ -89,16 +89,16 @@ The robotic ultrasound workflow requires conda-based environment management due 
 
 Installation reference: [Miniconda Installation Guide](https://www.anaconda.com/docs/getting-started/miniconda/install#quickstart-install-instructions)
 
-#### 1️⃣ Environment Creation
-```bash
-conda create -n robotic_ultrasound python=3.10 -y
-conda activate robotic_ultrasound
-```
-
-#### 2️⃣ Repository Clone & Dependency Installation
+#### 1️⃣ Repository Clone
 ```bash
 git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
+```
+
+#### 2️⃣ Environment Creation & Dependency Installation
+```bash
+conda create -n robotic_ultrasound python=3.10 -y
+conda activate robotic_ultrasound
 bash tools/env_setup_robot_us.sh
 ```
 
