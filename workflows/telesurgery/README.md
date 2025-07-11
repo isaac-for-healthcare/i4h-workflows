@@ -1,25 +1,34 @@
-# Telesurgery Workflow
+# 🌐 Telesurgery Workflow
 
 ![Telesurgery Workflow](../../docs/source/telesurgery_workflow.jpg)
+
+---
+
+## 🔬 Technical Overview
+
 The Telesurgery Workflow is a cutting-edge solution designed for healthcare professionals and researchers working in the field of remote surgical procedures. This workflow provides a comprehensive framework for enabling and analyzing remote surgical operations, leveraging NVIDIA's advanced GPU capabilities to ensure real-time, high-fidelity surgical interactions across distances. It enables surgeons to perform complex procedures remotely, researchers to develop new telemedicine techniques, and medical institutions to expand their reach to underserved areas. By offering a robust platform for remote surgical operations, this workflow helps improve healthcare accessibility, reduce geographical barriers to specialized care, and advance the field of telemedicine.
 
+---
+
+## 📋 Table of Contents
 
 - [Telesurgery Workflow](#telesurgery-workflow)
-  - [Prerequisites](#prerequisites)
+  - [🔍 Prerequisites](#-prerequisites)
     - [System Requirements](#system-requirements)
     - [Common Setup](#common-setup)
-  - [Running the System](#running-the-system)
+  - [⚡ Running Workflows](#-running-workflows)
     - [Real World Environment](#real-world-environment)
     - [Simulation Environment](#simulation-environment)
-  - [Advanced Configuration](#advanced-configuration)
+  - [🔧 Advanced Configuration](#-advanced-configuration)
     - [NTP Server Setup](#ntp-server-setup)
     - [NVIDIA Video Codec Configuration](#advanced-nvidia-video-codec-configuration)
-  - [Troubleshooting](#troubleshooting)
+  - [🛠️ Troubleshooting](#-troubleshooting)
     - [Common Issues](#common-issues)
-  - [Licensing](#licensing)
+  - [📄 Licensing](#-licensing)
 
+---
 
-## Prerequisites
+## 🔍 Prerequisites
 
 ### System Requirements
 
@@ -28,20 +37,22 @@ The Telesurgery Workflow is a cutting-edge solution designed for healthcare prof
 - NVIDIA GPU with compute capability 8.6 and 24GB of memory ([see NVIDIA's compute capability guide](https://developer.nvidia.com/cuda-gpus#compute))
    - GPUs without RT Cores, such as A100 and H100, are not supported
 - 50GB of disk space
-- XBOX Controller or Haply Inverse 3.
+- **XBOX Controller** or **Haply Inverse 3**
 
 
 #### Software Requirements
 - [NVIDIA Driver Version >= 570](https://developer.nvidia.com/cuda-downloads)
 - [CUDA Version >= 12.8](https://developer.nvidia.com/cuda-downloads)
 - Python 3.10
-- [RTI DDS License](https://www.rti.com/free-trial)
 - [Docker](https://docs.docker.com/engine/install/) 28.0.4+
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) 1.17.5+
 
+#### Communication Middleware
+- **RTI Connext Data Distribution Service(DDS)**: Professional or evaluation license ([obtain here](https://www.rti.com/free-trial))
+
 ### Common Setup
 
-#### 1. RTI DDS License Setup
+#### 1️⃣ RTI DDS License Setup
 ```bash
 export RTI_LICENSE_FILE=<full-path-to-rti-license-file>
 # for example
@@ -51,7 +62,7 @@ export RTI_LICENSE_FILE=/home/username/rti/rti_license.dat
 > [!Note]
 > RTI DDS is the common communication package for all scripts. Please refer to [DDS website](https://www.rti.com/products) for registration. You will need to obtain a license file and set the `RTI_LICENSE_FILE` environment variable to its path.
 
-#### 2. Environment Configuration
+#### 2️⃣ Environment Configuration
 When running the Patient and the Surgeon applications on separate systems, export the following environment variables:
 
 ```bash
@@ -66,17 +77,19 @@ export NTP_SERVER_PORT="123"
 > [!Note]
 > For NTP settings and variables, refer to the [NTP (Network Time Protocol) Server](#ntp-server-setup) section for additional details.
 
-## Running the System
+---
+
+## ⚡ Running Workflows
 
 ### Real World Environment
 
-#### 1. Build Environment
+#### 1️⃣ Build Environment
 ```bash
 cd <path-to-i4h-workflows>
 workflows/telesurgery/docker/real.sh build
 ```
 
-#### 2. Running Applications
+#### 2️⃣ Running Applications
 
 ##### Patient Application
 ```bash
@@ -119,13 +132,13 @@ python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
 
 ### Simulation Environment
 
-#### 1. Build Environment
+#### 1️⃣ Build Environment
 ```bash
 cd <path-to-i4h-workflows>
 workflows/telesurgery/docker/sim.sh build
 ```
 
-#### 2. Running Applications
+#### 2️⃣ Running Applications
 
 ##### Patient Application
 ```bash
@@ -139,6 +152,14 @@ python patient/simulation/main.py
 python patient/simulation/main.py --encoder nvjpeg
 ```
 
+**Expected Behavior:**
+- In Isaac Sim, it will display a camera view of a white scene with a suture needle in the center by default.
+- To understand the elements in the scene (e.g. the Mira robot), you can customize the viewport `Camera` to `Perspective` or `Top` view.
+![Telesurgery Viewport](../../docs/source/telesurgery_viewport.gif)
+
+> **Note:**
+> You may see "IsaacSim 4.5.0 is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
+
 ##### Surgeon Application
 ```bash
 # Start the Docker Container
@@ -151,6 +172,9 @@ python surgeon/camera.py --name robot --width 1280 --height 720 2> /dev/null
 python surgeon/camera.py --name robot --width 1280 --height 720 --decoder nvjpeg
 ```
 
+**Expected Behavior:**
+- It will display the camera view of the surgeon's side in HoloViz.
+
 ##### Gamepad Controller Application
 ```bash
 # Start the Docker Container
@@ -160,7 +184,9 @@ workflows/telesurgery/docker/sim.sh run
 python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
 ```
 
-## Advanced Configuration
+---
+
+## 🔧 Advanced Configuration
 
 ### NTP Server Setup
 An NTP (Network Time Protocol) server provides accurate time information to clients over a computer network. NTP is designed to synchronize the clocks of computers to a reference time source, ensuring all devices on the network maintain the same time.
@@ -212,7 +238,9 @@ Adjust the quality of encoded frames using the NVJPEG encoder by editing the [nv
 }
 ```
 
-## Troubleshooting
+---
+
+## 🛠️ Troubleshooting
 
 ### Common Issues
 
@@ -252,6 +280,8 @@ sudo aptitude install nvidia-driver-570-open # Resolve any conflicts
 # hard reboot igx (soft reboot may not work)
 ```
 
-## Licensing
+---
+
+## 📄 Licensing
 
 By using the Telesurgery workflow and NVIDIA Video Codec, you are implicitly agreeing to the [NVIDIA Software License Agreement](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-software-license-agreement/) and [NVIDIA Software Developer License Agreement](https://developer.download.nvidia.com/designworks/DesignWorks_SDKs_Samples_Tools_License_distrib_use_rights_2017_06_13.pdf?t=eyJscyI6InJlZiIsImxzZCI6IlJFRi1zZWFyY2guYnJhdmUuY29tLyJ9). If you do not agree to the EULA, do not run this container.
