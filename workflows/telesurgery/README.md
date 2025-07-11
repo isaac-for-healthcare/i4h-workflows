@@ -48,7 +48,7 @@ The Telesurgery Workflow is a cutting-edge solution designed for healthcare prof
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) 1.17.5+
 
 #### Communication Middleware
-- **RTI Connext Data Distribution Service(DDS)**: Professional or evaluation license ([obtain here](https://www.rti.com/free-trial))
+- **RTI Connext Data Distribution Service (DDS)**: Professional or evaluation license ([obtain here](https://www.rti.com/free-trial))
 
 ### Common Setup
 
