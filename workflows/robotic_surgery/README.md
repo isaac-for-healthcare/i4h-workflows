@@ -74,20 +74,16 @@ The robotic surgery workflow can be installed in a conda-based environment for d
 
 **Prerequisites**: Ensure [Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install) is installed on your system.
 
-#### 1️⃣ Environment Creation
+#### 1️⃣ Repository Clone
 ```bash
-# Create isolated conda environment
-conda create -n robotic_surgery python=3.10 -y
-conda activate robotic_surgery
-```
-
-#### 2️⃣ Repository Clone & Dependency Installation
-```bash
-# Clone the repository
 git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
+```
 
-# Install all dependencies
+#### 2️⃣ Environment Creation & Dependency Installation
+```bash
+conda create -n robotic_surgery python=3.10 -y
+conda activate robotic_surgery
 bash tools/env_setup_robot_surgery.sh
 ```
 
