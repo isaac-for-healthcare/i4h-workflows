@@ -153,7 +153,7 @@ python patient/simulation/main.py --encoder nvjpeg
 ```
 
 **Expected Behavior:**
-- In Isaac Sim, it will display a camera view of a white scene with a suture needle in the center by default.
+- The initial view displayed in Isaac Sim is a suture needle on top of a white, reflective surface.
 - To understand the elements in the scene (e.g. the Mira robot), you can customize the viewport `Camera` to `Perspective` or `Top` view.
 ![Telesurgery Viewport](../../docs/source/telesurgery_viewport.gif)
 
