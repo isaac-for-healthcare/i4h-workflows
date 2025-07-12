@@ -8,11 +8,86 @@
 
 The Telesurgery Workflow is a cutting-edge solution designed for healthcare professionals and researchers working in the field of remote surgical procedures. This workflow provides a comprehensive framework for enabling and analyzing remote surgical operations, leveraging NVIDIA's advanced GPU capabilities to ensure real-time, high-fidelity surgical interactions across distances. It enables surgeons to perform complex procedures remotely, researchers to develop new telemedicine techniques, and medical institutions to expand their reach to underserved areas. By offering a robust platform for remote surgical operations, this workflow helps improve healthcare accessibility, reduce geographical barriers to specialized care, and advance the field of telemedicine.
 
+### Demos
+
+The following GIFs demonstrate the real-world telesurgery workflow performing benchtop tasks:
+<p align="middle">
+  <img src="./docs/images/remote.gif" width="300" />
+  <img src="./docs/images/suturing.gif" width="300" />
+  <img src="./docs/images/cutting.gif" width="300" />
+</p>
+
+- Left: Teleoperation of the MIRA robot using the Haply Inverse3 across San Francisco (surgeon) and Santa Clara (robot)
+- Center: Suturing task in progress
+- Right: Cutting task using a scissor tool
+
+### System Architecture
+
+The telesurgery workflow presented here can be conceptually summarized by the following diagram.
+
+![Telesurgery Diagram](./docs/images/overview.jpg)
+
+- <b>Surgeon Side</b>: Includes the controller and display connected to the workstation.
+- <b>Patient Side</b>: Includes the surgical robot and camera. In real-world workflows, both are physical devices. In simulation, they are virtual.
+
+The surgeon uses the controller to operate the robot remotely. The robot’s actions and environment are captured by a camera and streamed back via DDS to the surgeon’s display in real-time.
+
+### Controllers
+
+Two types of controllers are supported:
+
+- A Microsoft Xbox or compatible controller
+- A Haply Inverse3 device for advanced, intuitive control of the robot (not yet fully supported in simulation)
+
+> [!Note]
+> In simulation mode, use the Xbox controller. Haply Inverse3 support is still under development.
+
+### Robots
+
+This workflow supports the [MIRA robot](https://virtualincision.com/mira/) from Virtual Incision in simulation and in the physical world.
+
+### Cameras
+
+#### Simulation
+For the simulation workflow, there is a virtual camera that is located on the MIRA robot between the left and right arms.
+
+![Camera](./docs/images/camera.jpg)
+
+
+#### Real World
+In the real world workflow, two camera types are currently supported
+
+- Intel RealSense camera (can stream depth instead if supported by camera)
+- cv2-compatible camera such as USB webcams
+
+Future support: NVIDIA Holoscan Sensor Bridge (HSB) for low-latency video streaming.
+
+### Displays
+
+Any display can be used, but for minimal latency, a G-Sync enabled monitor with high refresh rate (e.g., 240Hz) is recommended.
+
+### Machines
+
+The surgeon and patient workstations can be x86_64 Ubuntu systems or IGX devkits. While they may run on the same machine, they are typically separate systems and can be located far apart.
+
+> [!Note]
+> Isaac Sim does not support arm64. The patient system must be x86_64 when running simulation workflows.
+
+### Communication
+
+Below describes the communication systems used between the surgeon and patient machines.
+
+- <b>Control</b>: WebSockets transmit commands from surgeon to robot
+- <b>Video</b>: DDS streams camera output from patient to surgeon
+
+Prior to running, configure the `SURGEON_IP` and `PATIENT_IP` as shown [here](#2-environment-configuration).
+The video is encoded (default: NVIDIA Video Codec), and parameters like bitrate and codec are [configurable](#advanced-nvidia-video-codec-configuration).
+
 ---
 
 ## 📋 Table of Contents
 
-- [Telesurgery Workflow](#telesurgery-workflow)
+- [Telesurgery Workflow](#-telesurgery-workflow)
   - [🔍 Prerequisites](#-prerequisites)
     - [System Requirements](#system-requirements)
     - [Common Setup](#common-setup)
@@ -38,9 +113,14 @@ The Telesurgery Workflow is a cutting-edge solution designed for healthcare prof
    - GPUs without RT Cores, such as A100 and H100, are not supported
 - 50GB of disk space
 - **XBOX Controller** or **Haply Inverse 3**
-
+- **MIRA** robot (if running the physical workflow)
 
 #### Software Requirements
+
+Most of the software requirements below are met by following the [workflow instructions](#-running-workflows).
+For the Docker version and NVIDIA driver version, follow the links below to upgrade.  For upgrading the NVIDIA driver version on an IGX, follow the instructions
+ [here](#update-cuda-driver-on-igx).
+
 - [NVIDIA Driver Version >= 570](https://developer.nvidia.com/cuda-downloads)
 - [CUDA Version >= 12.8](https://developer.nvidia.com/cuda-downloads)
 - Python 3.10
@@ -66,6 +146,11 @@ export RTI_LICENSE_FILE=/home/username/rti/rti_license.dat
 When running the Patient and the Surgeon applications on separate systems, export the following environment variables:
 
 ```bash
+# Starts the SSH agent and adds your private key
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key
+
+# Set IP addresses of patient and surgeon machines
 export PATIENT_IP="<IP Address of the system running the Patient application>"
 export SURGEON_IP="<IP Address of the system running the Surgeon application>"
 
@@ -83,13 +168,18 @@ export NTP_SERVER_PORT="123"
 
 ### Real World Environment
 
+The real world workflow requires a MIRA robot from Virtual Incision.  Once the MIRA robot is up and running, there is an API
+daemon service that will listen in the background for commands sent from the surgeon controller application.  The robot is not
+necessary if you only want to test the video streaming functionality.
+
+For the camera(s) on the patient side, you can plug a Realsense camera or a USB webcam to the patient's workstation
+and place it in the desired location.  The MIRA robot also comes with a camera, and you can interface with it by using an HDMI capture
+card, or HDMI to USB-C capture card.
+
 #### 1️⃣ Build Environment
 ```bash
 git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
-
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key
 workflows/telesurgery/docker/real.sh build
 ```
 
@@ -100,32 +190,29 @@ workflows/telesurgery/docker/real.sh build
 # Start the Docker Container
 workflows/telesurgery/docker/real.sh run
 
-# Using RealSense Camera with NVIDIA H.264 Encoder
-python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720
-
-# Using CV2 Camera with NVIDIA H.264 Encoder
-python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080
-
-# Using RealSense Camera with NVJPEG Encoder
-python patient/physical/camera.py --camera realsense --name room --width 1280 --height 720 --encoder nvjpeg
-
-# Using CV2 Camera with NVJPEG Encoder
-python patient/physical/camera.py --camera cv2 --name robot --width 1920 --height 1080 --encoder nvjpeg
+# Getting video from the camera
+python patient/physical/camera.py --camera [realsense|cv2] --name robot --width 1280 --height 720
 ```
 
 ##### Surgeon Application
+
+There are two applications to start on the surgeon side
+- <b>Viewer</b>: `surgeon/viewer.py` starts the application to receive video stream from the robot's camera
+- <b>Controller</b>: `surgeon/gamepad.py` or `surgeon/haply.py` starts the application to allow the surgeon to control the robot
+
+Each application is started independently, and allows multiple surgeons/users to connect to the robot's camera
+while one surgeon may have control of the robot.
+
+Run the following to receive video stream from the robot camera:
 ```bash
 # Start the Docker Container
 workflows/telesurgery/docker/real.sh run
 
-# Start the Surgeon Application with NVIDIA H.264 Decoder
-python surgeon/camera.py --name [robot|room] --width 1280 --height 720 2> /dev/null
-
-# Run the Surgeon Application with NVJPEG Decoder
-python surgeon/camera.py --name [robot|room] --width 1280 --height 720 --decoder nvjpeg
+# Start the Surgeon Viewer Application
+python surgeon/viewer.py --name robot --width 1280 --height 720 2> /dev/null
 ```
 
-##### Gamepad Controller Application
+Run the following to control the robot using a game controller:
 ```bash
 # Start the Docker Container
 workflows/telesurgery/docker/real.sh run
@@ -134,15 +221,26 @@ workflows/telesurgery/docker/real.sh run
 python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
 ```
 
+Or run the following to control the robot using Haply Inverse3:
+```bash
+# Start the Docker Container
+workflows/telesurgery/docker/real.sh run
+
+# Run the Gamepad Controller Application
+python surgeon/haply.py --api_host ${PATIENT_IP} --api_port 8081
+```
+
 ### Simulation Environment
+
+The simulation workflow runs Isaac Sim on the patient side to simulate and control the robot in a physics-based environment, enabling development, testing, and validation of robot behaviors in realistic scenarios.  In the scene, there is a MIRA robot with a camera located between its left and right arms (see [image](#simulation)).  The video that is streamed over to the surgeon application comes from this camera i.e., the surgeon will only see what is visible from this camera's perspective.
+
+> [!Note]
+> Allow the patient application to fully initialize before starting the surgeon’s viewer to avoid delays, otherwise the viewer application may appear to hang while waiting for a video stream.
 
 #### 1️⃣ Build Environment
 ```bash
 git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
-
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key
 workflows/telesurgery/docker/sim.sh build
 ```
 
@@ -153,37 +251,44 @@ workflows/telesurgery/docker/sim.sh build
 # Start the Docker Container
 workflows/telesurgery/docker/sim.sh run
 
-# Start the Patient Application with NVIDIA H.264 Encoder
+# Start the Patient Application
 python patient/simulation/main.py
-
-# Start the Patient Application with NVJPEG Encoder
-python patient/simulation/main.py --encoder nvjpeg
 ```
 
 **Expected Behavior:**
 - The initial view displayed in Isaac Sim is a suture needle on top of a white, reflective surface.
-- To understand the elements in the scene (e.g. the Mira robot), you can customize the viewport `Camera` to `Perspective` or `Top` view.
+- To understand the elements in the scene (e.g. the MIRA robot), you can customize the viewport `Camera` to `Perspective` or `Top` view.
+
 ![Telesurgery Viewport](../../docs/source/telesurgery_viewport.gif)
 
-> **Note:**
-> While Isaac Sim is loading, you may see the message "IsaacSim 4.5.0 is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
+> [!Note]
+> While Isaac Sim is loading, you may see the message "Isaac Sim is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
 
 ##### Surgeon Application
+
+There are two applications to start on the surgeon side
+- <b>Viewer</b>: `surgeon/viewer.py` starts the application to receive video stream from the robot's camera
+- <b>Controller</b>: `surgeon/gamepad.py` starts the application to allow the surgeon to control the robot
+
+Each application is started independently, and allows multiple surgeons/users to connect to the robot's camera
+while one surgeon may have control of the robot.
+
+Run the following to receive video stream from the robot camera:
 ```bash
 # Start the Docker Container
 workflows/telesurgery/docker/sim.sh run
 
-# Start the Surgeon Application with NVIDIA H.264 Decoder
-python surgeon/camera.py --name robot --width 1280 --height 720 2> /dev/null
-
-# Run the Surgeon Application with NVJPEG Decoder
-python surgeon/camera.py --name robot --width 1280 --height 720 --decoder nvjpeg
+# Start the Surgeon Viewer Application
+python surgeon/viewer.py --name robot --width 1280 --height 720 2> /dev/null
 ```
 
 **Expected Behavior:**
-- It will display the camera view of the surgeon's side in HoloViz.
+- The surgeon sees only what is visible from the camera located on the MIRA robot and does not have access to other views
+- In the initial scene, a suture needle on a white, reflective surface will be visible from the robot camera as shown below
 
-##### Gamepad Controller Application
+![Surgeon View](./docs/images/surgeon_video.jpg)
+
+Run the following to control the robot:
 ```bash
 # Start the Docker Container
 workflows/telesurgery/docker/sim.sh run
@@ -191,6 +296,8 @@ workflows/telesurgery/docker/sim.sh run
 # Run the Gamepad Controller Application
 python surgeon/gamepad.py --api_host ${PATIENT_IP} --api_port 8081
 ```
+
+See [keybindings](./docs/gamepad.md) for how to use the game controller.
 
 ---
 
@@ -278,7 +385,7 @@ Q: I'm getting an error when I start the application with the NVIDIA Video Codec
 # ssh to igx-host to run the following commands
 sudo systemctl isolate multi-user
 
-sudo apt purge nvidia-kernel-*
+sudo apt purge "nvidia-kernel-*"
 sudo add-apt-repository ppa:graphics-drivers/ppa
 sudo apt update
 
