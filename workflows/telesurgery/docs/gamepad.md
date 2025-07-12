@@ -13,7 +13,7 @@ A Python interface for controlling MIRA using a generic gamepad from [Virtual In
 
 - 🎮 Xbox controller support
 - 🤖 Dual-arm control in both Cartesian and Polar modes
-- 🔄 Mode switching with lightring feedback
+- 🔄 Mode switching with light ring feedback
 - 📷 Camera position control
 - 🛠️ Tool roll, grasp, and homing
 
