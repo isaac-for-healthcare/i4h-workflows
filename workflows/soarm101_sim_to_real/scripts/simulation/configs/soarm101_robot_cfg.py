@@ -25,7 +25,9 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 # SO-ARM 101 robot configuration with table environment
 SOARM101_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path="assets/so101_new_calib.usd",
+        usd_path="assets/so101_add_wrist_camera.usd",
+        visible=True,  # Ensure all geometry is visible
+        copy_from_source=True,  # Copy all geometry from source USD file
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
@@ -41,12 +43,12 @@ SOARM101_CFG = ArticulationCfg(
         pos=(0.4, 0.1, 0.0),
         rot=(0.707, 0.0, 0.0, -0.707),  # -90-degree rotation from y-axis to x-axis
         joint_pos={
-            "shoulder_pan": 0.030,
-            "shoulder_lift": -0.080,
-            "elbow_flex": -0.167,
-            "wrist_flex": 0.038,
-            "wrist_roll": -0.066,
-            "gripper": 1.098,
+            "shoulder_pan": 0.0,
+            "shoulder_lift": 0.0,
+            "elbow_flex": 0.0,
+            "wrist_flex": 0.0,
+            "wrist_roll": 0.0,
+            "gripper": 0.0,
         },
         joint_vel={".*": 0.0},
     ),

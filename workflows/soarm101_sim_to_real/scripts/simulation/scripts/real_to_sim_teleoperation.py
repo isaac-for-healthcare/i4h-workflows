@@ -56,14 +56,27 @@ class SimplifiedTeleoperation:
         "gripper": "gripper"
     }
     
+    # Simulation limits (from URDF) - what Isaac Lab expects
     JOINT_LIMITS = {
-        "shoulder_pan": [-1.858, 1.918],
-        "shoulder_lift": [-1.716, 1.556],
-        "elbow_flex": [-1.738, 1.404],
-        "wrist_flex": [-1.587, 1.662],
-        "wrist_roll": [-2.725, 2.593],
-        "gripper": [-0.071, 2.266]
+        "shoulder_pan": [-1.91986, 1.91986],    # Updated to match URDF
+        "shoulder_lift": [-1.74533, 1.74533],   # Updated to match URDF
+        "elbow_flex": [-1.69, 1.69],            # Updated to match URDF
+        "wrist_flex": [-1.65806, 1.65806],      # Updated to match URDF
+        "wrist_roll": [-2.74385, 2.84121],      # Updated to match URDF
+        "gripper": [-0.174533, 1.74533]         # Updated to match URDF
     }
+    
+    # Real robot actual limits (from calibration) - using hardware joint names
+    REAL_ROBOT_ACTUAL_LIMITS_HW = {
+        "shoulder_pan": [-1.745329, 1.738843],  # Actual observed limits
+        "shoulder_lift": [-1.745329, 1.739408],  # Actual observed limits
+        "elbow": [-1.742182, 1.739034],  # Actual observed limits
+        "wrist_1": [-1.740786, 1.745329],  # Actual observed limits
+        "wrist_2": [-1.745329, 1.745329],  # Actual observed limits
+        "gripper": [0.016273, 1.745329],  # Actual observed limits
+    }
+
+    # Real robot values are converted to radians then clamped to simulation limits
     
     def __init__(self, scene, args):
         self.scene = scene
@@ -77,6 +90,41 @@ class SimplifiedTeleoperation:
         self.connected = False
         self.monitor_thread = None
     
+
+    def convert_real_to_sim_range(self, hw_joint_name: str, isaac_joint_name: str, real_value_rad: float) -> float:
+        """
+        Convert real robot joint value (in radians) to simulation range using actual limits.
+        
+        Args:
+            hw_joint_name: Hardware joint name (from calibration)
+            isaac_joint_name: Isaac Lab joint name (for simulation limits)
+            real_value_rad: Joint position from real robot (in radians)
+            
+        Returns:
+            Joint position mapped to simulation range (in radians)
+        """
+        if hw_joint_name in self.REAL_ROBOT_ACTUAL_LIMITS_HW and isaac_joint_name in self.JOINT_LIMITS:
+            # Get limits for this joint
+            real_min, real_max = self.REAL_ROBOT_ACTUAL_LIMITS_HW[hw_joint_name]
+            sim_min, sim_max = self.JOINT_LIMITS[isaac_joint_name]
+            
+            # Clamp real value to actual real robot limits
+            real_value_rad = max(real_min, min(real_max, real_value_rad))
+            
+            # Normalize to [0, 1] using actual real robot range
+            if real_max != real_min:
+                normalized = (real_value_rad - real_min) / (real_max - real_min)
+            else:
+                normalized = 0.5
+            
+            # Map to simulation range
+            sim_value = sim_min + normalized * (sim_max - sim_min)
+            
+            return sim_value
+        else:
+            # Pass through if no conversion available
+            return real_value_rad
+
     def setup_hardware(self):
         """Setup hardware communication."""
         # Import ONLY when needed to avoid circular deps
@@ -132,15 +180,30 @@ class SimplifiedTeleoperation:
         num_envs = self.robot.num_instances
         positions = torch.zeros((num_envs, len(self.JOINT_NAMES)))
         
+
+        
         for hw_joint, isaac_joint in self.JOINT_MAPPING.items():
             if hw_joint in self.latest_data.leader_arm:
-                # Convert degrees to radians
-                angle_deg = self.latest_data.leader_arm[hw_joint]
-                angle_rad = math.radians(angle_deg)
+                raw_value = self.latest_data.leader_arm[hw_joint]
+                
+                # Convert from degrees to radians (no range conversion)
+                if hw_joint == "gripper":
+                    # Gripper uses 0-100 range, convert to radians
+                    # Map 0-100 range to actual robot gripper limits
+                    real_min, real_max = self.REAL_ROBOT_ACTUAL_LIMITS_HW["gripper"]
+                    normalized = raw_value / 100.0
+                    angle_rad = real_min + normalized * (real_max - real_min)
+                else:
+                    # Other joints use degrees, convert to radians
+                    angle_rad = math.radians(raw_value)
+                
+                # Convert from real robot range to simulation range
+                angle_rad_converted = self.convert_real_to_sim_range(hw_joint, isaac_joint, angle_rad)
+                
                 joint_idx = self.JOINT_NAMES.index(isaac_joint)
-                positions[:, joint_idx] = angle_rad
+                positions[:, joint_idx] = angle_rad_converted
         
-        # Apply joint limits
+        # Apply joint limits for safety (should be redundant after conversion)
         for i, joint_name in enumerate(self.JOINT_NAMES):
             if joint_name in self.JOINT_LIMITS:
                 min_limit, max_limit = self.JOINT_LIMITS[joint_name]

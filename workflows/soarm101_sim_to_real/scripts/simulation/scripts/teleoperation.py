@@ -62,15 +62,13 @@ class SoArm101TeleoperationController:
         
         # Current joint positions
         self.current_joint_pos = self.robot.data.default_joint_pos.clone()
-        
-        # Joint limits (based on real robot calibration data with 5% safety margin)
         self.joint_limits = {
-            "shoulder_pan": [-1.858, 1.918],    # Real: [-2.068, 2.128]
-            "shoulder_lift": [-1.716, 1.556],   # Real: [-1.898, 1.738]
-            "elbow_flex": [-1.738, 1.404],      # Real: [-1.913, 1.578]
-            "wrist_flex": [-1.587, 1.662],      # Real: [-1.767, 1.842]
-            "wrist_roll": [-2.725, 2.593],      # Real: [-3.020, 2.888]
-            "gripper": [-0.071, 2.266]           # Real: [-0.071, 2.266]
+            "shoulder_pan": [-1.91986, 1.91986],    # Updated to match URDF
+            "shoulder_lift": [-1.74533, 1.74533],   # Updated to match URDF
+            "elbow_flex": [-1.69, 1.69],            # Updated to match URDF
+            "wrist_flex": [-1.65806, 1.65806],      # Updated to match URDF
+            "wrist_roll": [-2.74385, 2.84121],      # Updated to match URDF
+            "gripper": [-0.174533, 1.74533]         # Updated to match URDF
         }
         
         # Key mapping for joint control
@@ -234,8 +232,10 @@ def main():
             print(f"\r[{count:6d}] {status}", end="", flush=True)
     
     # Clean up keyboard subscription
-    if teleop_controller.keyboard_sub is not None:
-        teleop_controller.keyboard_sub.unsubscribe()
+    if teleop_controller.keyboard_sub is not None and teleop_controller.input_interface is not None:
+        teleop_controller.input_interface.unsubscribe_to_keyboard_events(
+            teleop_controller.keyboard, teleop_controller.keyboard_sub
+        )
 
 
 if __name__ == "__main__":
