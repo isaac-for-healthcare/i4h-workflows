@@ -34,6 +34,7 @@ git checkout 6674e368249472c91382eb54bb8501c94c7f0c56
 sed -i 's/pyav/av/' pyproject.toml
 
 $PYTHON_EXECUTABLE -m pip install -e .
+$PYTHON_EXECUTABLE -m pip install "datasets<4.0.0"
 popd
 
 echo "Lerobot installed successfully!"
