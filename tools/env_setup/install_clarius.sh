@@ -22,7 +22,7 @@ HOLOSCAN_I4H_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../../holoscan_i4
 (
   cd $HOLOSCAN_I4H_ROOT
   cmake . -B build && cmake --build build && cmake --install build
-  
+
   # Check if install folder was created successfully
   if [ -d "install" ]; then
     echo "Successfully built Clarius libs!"
