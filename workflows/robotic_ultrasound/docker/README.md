@@ -35,12 +35,12 @@ docker build --ssh default --no-cache -f workflows/robotic_ultrasound/docker/Doc
 
 ## Running the Container
 
-```sh
+```bash
 # Allow Docker to access X11 display
 xhost +local:docker
 
-# Run container with GUI support in background
-docker run --name isaac-sim -itd --gpus all --rm \
+# Run container with GUI support
+docker run --name isaac-sim -it --gpus all --rm \
     --network=host \
     --runtime=nvidia \
     --entrypoint=bash \
@@ -59,64 +59,22 @@ docker run --name isaac-sim -itd --gpus all --rm \
     -v ~/docker/isaac-sim/documents:/root/Documents:rw \
     -v ~/.cache/i4h-assets:/root/.cache/i4h-assets:rw \
     -v ~/docker/rti:/root/rti:ro \
-    -v ~/raysim:/workspace/i4h-workflows/workflows/robotic_ultrasound/scripts/raysim:ro \
+    -v $(pwd)/workflows/robotic_ultrasound/scripts/raysim:/workspace/i4h-workflows/workflows/robotic_ultrasound/scripts/raysim:ro \
     robotic_us:latest
 ```
 
 ## Running the Simulation
 
-> Multiple terminals are required for running the simulation.
+The command to run the simulation is the same as [Running Workflows](../README.md#running-workflows) section.
 
-### 1. Run Policy
-
-First, start the policy runner in the background. This process will wait for simulation data and provide control commands.
-
-```bash
-docker exec -it isaac-sim bash
+For example,
+```sh
 # Inside the container
 conda activate robotic_ultrasound
-python workflows/robotic_ultrasound/scripts/policy_runner/run_policy.py
+
+# Run simulation with GUI
+(python -m policy_runner.run_policy --policy pi0 & python -m simulation.environments.sim_with_dds --enable_cameras & wait)
 ```
-
-**Note:** The policy runner should be started first since it will continuously run and communicate with the simulation via DDS.
-
-### 2. Run Isaac Sim Simulation
-
-In a separate terminal session, start the main simulation:
-
-```bash
-docker exec -it isaac-sim bash
-# Inside the container, run the simulation
-conda activate robotic_ultrasound
-python workflows/robotic_ultrasound/scripts/simulation/environments/sim_with_dds.py --enable_camera
-```
-
-
-### 3. Ultrasound Raytracing Simulation (Optional)
-
-For realistic ultrasound image generation, you can run the ultrasound raytracing simulator:
-
-```bash
-docker exec -it isaac-sim bash
-# Inside the container, run the ultrasound raytracing simulator
-conda activate robotic_ultrasound
-python workflows/robotic_ultrasound/scripts/simulation/examples/ultrasound_raytracing.py
-```
-
-This will generate and stream ultrasound images via DDS communication.
-
-### 4. Visualization Utility (Optional)
-
-To visualize the ultrasound images and other sensor data, you can use the visualization utility:
-
-```bash
-docker exec -it isaac-sim bash
-# Inside the container, run the visualization utility
-conda activate robotic_ultrasound
-python workflows/robotic_ultrasound/scripts/utils/visualization.py
-```
-
-This utility will display real-time ultrasound images and other sensor data streams.
 
 ## Troubleshooting
 

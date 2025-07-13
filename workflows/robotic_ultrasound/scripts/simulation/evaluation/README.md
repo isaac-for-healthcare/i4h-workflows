@@ -4,6 +4,15 @@ After running simulations and collecting predicted trajectories (e.g., using `si
 
 This script is located at `workflows/robotic_ultrasound/scripts/simulation/evaluation/evaluate_trajectories.py`.
 
+## Quick Start
+
+```sh
+python -m simulation.evaluation.evaluate_trajectories \
+  --data_root /path/to/data \
+  --method-name MyModel \
+  --ps-file-pattern "model_output/preds_{e}.npz" ...
+```
+
 ## Overview
 
 The script performs the following main functions:
@@ -19,10 +28,8 @@ The script performs the following main functions:
 
 ## Usage
 
-Navigate to the `scripts/simulation/evaluation/` folder (or ensure your PYTHONPATH is set correctly if running from elsewhere) and execute:
-
 ```sh
-python evaluate_trajectories.py \
+python -m simulation.evaluation.evaluate_trajectories \
     --data_root /path/to/your/data_and_predictions \
     --method-name WCOS --ps-file-pattern "800/pi0_robot_obs_{e}.npz" --ps-label "With COSMOS" --ps-color "red" \
     --method-name WOCOS --ps-file-pattern "400/pi0_robot_obs_{e}.npz" --ps-label "Without COSMOS" --ps-color "green" \
@@ -55,7 +62,7 @@ Key Command-Line Arguments:
 To evaluate one or more prediction methods, provide their details using the `--method-name`, `--ps-file-pattern`, `--ps-label`, and `--ps-color` arguments. Each of these arguments should be used once for each method you want to compare. For example, to compare two methods "MethodA" and "MethodB":
 
 ```sh
-python evaluate_trajectories.py \
+python -m simulation.evaluation.evaluate_trajectories \
     --method-name MethodA --ps-file-pattern "path/to/methodA/results_{e}.npz" --ps-label "Method A Results" --ps-color "blue" \
     --method-name MethodB --ps-file-pattern "path/to/methodB/results_{e}.npz" --ps-label "Method B Results" --ps-color "green" \
     # ... other arguments like --data_root, --episode etc.
@@ -69,7 +76,9 @@ The script expects predicted trajectory files to be found at `data_root/file_pat
 
 ## Downloading Model Weights
 
-The four policy models discussed in the evaluation (Pi0-400, Pi0-800 w/ cosmos, GR00T-N1-400, and GR00T-N1-800 w/ cosmos) can be obtained using the `i4h_asset_helper` utility. This utility helps manage and download versioned assets.
+We provide the two best-performing relative action space model weights that use Cosmos augmentation: **Pi0-800-rel (w/ cosmos)** and **GR00T-N1-800-rel (w/ cosmos)**. These can be obtained using the `i4h_asset_helper` utility for asset management and download.
+
+If you require access to other model weights (such as absolute action space or non-cosmos variants), please create a ticket or contact us directly.
 
 To integrate these models into your workflow, you would typically define an `Assets` class that inherits from `BaseI4HAssets`, specifying the asset identifiers. Below is an example demonstrating how these might be structured.
 
@@ -77,16 +86,14 @@ To integrate these models into your workflow, you would typically define an `Ass
 from i4h_asset_helper import BaseI4HAssets
 
 class Assets(BaseI4HAssets):
-    Pi0_400 = "Policies/LiverScan/Pi0"
-    Pi0_800 = "Policies/LiverScan/Pi0_Cosmos"
-    GR00TN1_400 = "Policies/LiverScan/GR00TN1"
-    GR00TN1_800 = "Policies/LiverScan/GR00TN1_Cosmos"
+    Pi0_800 = "Policies/LiverScan/Pi0_Cosmos_Rel"
+    GR00TN1_800 = "Policies/LiverScan/GR00TN1_Cosmos_Rel"
 
 my_assets = Assets()
 ```
 
 You can then use these definitions in your scripts to get the local path to the downloaded model files, for example:
-`pi0_400_model = my_assets.Pi0_400`
+`pi0_800_model = my_assets.Pi0_800`
 `gr00t_800_model = my_assets.GR00TN1_800`
 
 ## Understanding the Outputs & Experiment Results Comparison
