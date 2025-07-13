@@ -359,7 +359,7 @@ Adjust the quality of encoded frames using the NVJPEG encoder by editing the [nv
 
 ### Common Issues
 
-#### Docker Build Error
+#### Docker Build Error "empty ssh agent socket"
 Q: I get the following error when building the Docker image:
 ```bash
 ERROR: invalid empty ssh agent socket: make sure SSH_AUTH_SOCK is set
@@ -369,6 +369,21 @@ A: Start the ssh-agent
 ```bash
 eval "$(ssh-agent -s)" && ssh-add
 ```
+
+#### Docker Build Error "Permission denied (publickey)"
+Q: I get the following error when building the Docker image when cloning i4h-asset-catalog
+```
+ => ERROR [stage-0  7/12] RUN --mount=type=ssh     /workspace/isaaclab/_isaac_sim/python.sh -m pip install --no-deps         git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-ca  1.6s
+0.793 Collecting git+ssh://****@github.com/isaac-for-healthcare/i4h-asset-catalog.git@main
+0.793   Cloning ssh://****@github.com/isaac-for-healthcare/i4h-asset-catalog.git (to revision main) to ./pip-req-build-_jfynqqa
+0.801   Running command git clone --filter=blob:none --quiet 'ssh://****@github.com/isaac-for-healthcare/i4h-asset-catalog.git' /tmp/pip-req-build-_jfynqqa
+1.334   git@github.com: Permission denied (publickey).
+1.335   fatal: Could not read from remote repository.
+```
+
+A: Make sure you've added your ssh key using ssh-add. If the error persist, try adding a new ssh key to your GitHub account and ensure
+single sign on is configured for isaac-for-healthcare.
+
 #### Unable to launch the applications when using NVIDIA Video Codec
 
 Q: I'm getting an error when I start the application with the NVIDIA Video Codec.
