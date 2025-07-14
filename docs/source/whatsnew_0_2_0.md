@@ -1,11 +1,11 @@
 # What's New in Isaac for Healthcare Workflows v0.2.0 🎉🎉
 
-- **GR00T N1 policy for the robotic ultrasound workflow**: Integration of NVIDIA's GR00T N1 foundation model into robotic ultrasound workflows with complete training pipeline for multimodal manipulation tasks
-- **Cosmos-transfer1 as augmentation method for policy training**: Training-free guided generation method bridging the perceptual divide between simulated and real-world environments
-- **Telesurgery workflow**: Cutting-edge solution for remote surgical procedures with real-time, high-fidelity surgical interactions across distances
-- **Enhanced utility modules**: Apple Vision Pro teleoperation, Haply Inverse3 controller support, and runtime asset downloading capabilities
+- **GR00T N1 Policy for the Robotic Ultrasound Workflow**: Integration of NVIDIA's GR00T N1 foundation model into robotic ultrasound workflows with complete training pipeline for multimodal manipulation tasks
+- **Cosmos-Transfer1 as Augmentation Method for Policy Training**: Training-free guided generation method bridging the perceptual divide between simulated and real-world environments
+- **Telesurgery Workflow**: Cutting-edge solution for remote surgical procedures with real-time, high-fidelity surgical interactions across distances
+- **Enhanced Utility Modules**: Apple Vision Pro teleoperation, Haply Inverse3 controller support, and runtime asset downloading capabilities
 
-## GR00T N1 policy for the robotic ultrasound workflow
+## GR00T N1 Policy for the Robotic Ultrasound Workflow
 
 ![GR00T N1 policy for the robotic ultrasound workflow](../source/robotic_us_workflow.jpg)
 
@@ -18,7 +18,7 @@ The robotic ultrasound workflow now integrates NVIDIA Isaac GR00T N1 models, ena
 
 Learn more in the [GR00T N1 Training README](../../workflows/robotic_ultrasound/scripts/training/gr00t_n1/README.md) and [Robotic Ultrasound Workflow README](../../workflows/robotic_ultrasound/README.md).
 
-## Cosmos-transfer1 as augmentation method for policy training
+## Cosmos-Transfer1 as Augmentation Method for Policy Training
 
 ![Cosmos-transfer1 as augmentation method for policy training](../source/cosmos_transfer_result.png)
 
@@ -31,7 +31,7 @@ The Cosmos-Transfer1 integration provides a world-to-world transfer model design
 
 Learn more in the [Cosmos-transfer1 README](../../workflows/robotic_ultrasound/scripts/simulation/environments/cosmos_transfer1/README.md).
 
-## Telesurgery workflow
+## Telesurgery Workflow
 
 ![Telesurgery Workflow](../source/telesurgery_workflow.jpg)
 
@@ -45,7 +45,7 @@ The Telesurgery Workflow is a cutting-edge solution designed for healthcare prof
 
 Learn more in the [Telesurgery Workflow README](../../workflows/telesurgery/README.md).
 
-## Enhanced utility modules
+## Enhanced Utility Modules
 
 These modules offer new ways to interact with simulations, manage assets efficiently, and support advanced control methods. Key enhancements include:
 
