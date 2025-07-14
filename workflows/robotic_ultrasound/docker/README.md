@@ -6,7 +6,6 @@ This guide provides instructions for running robotic ultrasound simulations usin
 
 - **Docker Engine**
 - **NVIDIA Docker Runtime**
-- **Git** with SSH key access to private repositories
 - **X11 forwarding** support (for GUI mode)
 - **RTI License**
    - Please refer to the [Environment Setup](../README.md#environment-setup) for instructions to prepare the I4H assets and RTI license locally.
@@ -21,16 +20,7 @@ This guide provides instructions for running robotic ultrasound simulations usin
 # Clone the repository
 git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
-
-# Enable BuildKit
-export DOCKER_BUILDKIT=1
-
-# Set up SSH agent for private repository access
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key path
-
-# Build the Docker image with SSH forwarding
-docker build --ssh default --no-cache -f workflows/robotic_ultrasound/docker/Dockerfile -t robotic_us:latest .
+docker build --no-cache -f workflows/robotic_ultrasound/docker/Dockerfile -t robotic_us:latest .
 ```
 
 ## Running the Container

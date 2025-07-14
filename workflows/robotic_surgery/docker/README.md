@@ -6,7 +6,6 @@ This guide provides instructions for running robotic surgery simulations using D
 
 - **Docker Engine**
 - **NVIDIA Docker Runtime**
-- **Git** with SSH key access to private repositories
 - **X11 forwarding** support (for GUI mode)
 
 ## Build the Docker Image
@@ -16,15 +15,7 @@ This guide provides instructions for running robotic surgery simulations using D
 git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
 
-# Enable BuildKit
-export DOCKER_BUILDKIT=1
-
-# Set up SSH agent for private repository access
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key path
-
-# Build the Docker image with SSH forwarding
-docker build --ssh default -f workflows/robotic_surgery/docker/Dockerfile -t robotic_surgery:latest .
+docker build -f workflows/robotic_surgery/docker/Dockerfile -t robotic_surgery:latest .
 ```
 
 ## Running the Container
