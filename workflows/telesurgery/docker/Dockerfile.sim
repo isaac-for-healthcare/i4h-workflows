@@ -62,7 +62,7 @@ RUN update-alternatives --install /usr/bin/python python $PYTHON_EXECUTABLE 100 
 
 # # Set up the Simulation
 RUN $PYTHON_EXECUTABLE -m pip install --no-deps \
-        https://github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0
+        git+https://github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0
 
 # Install Python dependencies
 COPY workflows/telesurgery/requirements.txt /tmp/requirements.txt
