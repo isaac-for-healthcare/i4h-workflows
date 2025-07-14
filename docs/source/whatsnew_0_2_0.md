@@ -11,11 +11,10 @@
 
 The robotic ultrasound workflow now integrates NVIDIA Isaac GR00T N1 models, enabling advanced multimodal manipulation capabilities for ultrasound scanning tasks. Key features include:
 
-*   **Cross-Embodiment Foundation Model:** Multimodal input processing (language and images) for manipulation tasks across diverse environments and robot platforms.
-*   **Complete Training Pipeline:** End-to-end workflow from data collection through model deployment, including robot trajectory and camera image capture during ultrasound scans.
-*   **LeRobot Format Integration:** Automated conversion from HDF5 simulation data to LeRobot format with GR00T N1-specific feature mapping and modality configuration.
-*   **Liver Scan State Machine:** Specialized data collection implementation that generates training episodes emulating clinical liver ultrasound scanning procedures.
-*   **Fine-tuning & Deployment:** Comprehensive training configuration with checkpoint management and inference deployment capabilities.
+*   **Complete Training Pipeline:** End-to-end workflow from data collection through trained model inference deployment for robotic ultrasound scanning, including robot trajectory and camera image capture during ultrasound scans.
+*   **LeRobot Format Support:** Automated conversion from HDF5 simulation data to LeRobot format with GR00T N1-specific feature mapping and modality configuration.
+*   **Liver Scan State Machine with Replay:** Enhanced state machine implementation with replay functionality to visualize previously recorded HDF5 trajectories.
+*   **Inference Deployment:** Policy evaluation capabilities for running trained models in robotic ultrasound simulation environments.
 
 Learn more in the [GR00T N1 Training README](../../workflows/robotic_ultrasound/scripts/training/gr00t_n1/README.md) and [Robotic Ultrasound Workflow README](../../workflows/robotic_ultrasound/README.md).
 
