@@ -73,11 +73,11 @@ echo "Installing build tools..."
 if [ "$EUID" -ne 0 ]; then
     sudo apt-get install -y cmake
     sudo apt-get update
-    sudo apt-get install -y git build-essential pybind11-dev libxcb-cursor0
+    sudo apt-get install -y git build-essential pybind11-dev libxcb-cursor0 unzip
 else
     apt-get install -y cmake
     apt-get update
-    apt-get install -y git build-essential pybind11-dev libxcb-cursor0
+    apt-get install -y git build-essential pybind11-dev libxcb-cursor0 unzip
 fi
 
 
@@ -135,6 +135,11 @@ bash "$PROJECT_ROOT/tools/env_setup/install_holoscan.sh"
 echo "Installing Cosmos..."
 bash "$PROJECT_ROOT/tools/env_setup/install_cudnn.sh"
 bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
+
+# ---- Install Raysim (Common) ----
+echo "Installing Raysim..."
+bash "$PROJECT_ROOT/tools/env_setup/install_raysim.sh"
+
 
 echo "=========================================="
 echo "Environment setup script finished."
