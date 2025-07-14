@@ -243,7 +243,7 @@ The robotic ultrasound workflow is built on the following dependencies:
 - [Gr00T N1](https://github.com/NVIDIA/Isaac-GR00T)
 - [Cosmos Transfer 1](https://github.com/nvidia-cosmos/cosmos-transfer1/tree/main)
 - [openpi](https://github.com/Physical-Intelligence/openpi) and [lerobot](https://github.com/huggingface/lerobot)
-- [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/v0.2.0rc3/ultrasound-raytracing)
+- [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/v0.2.0/ultrasound-raytracing)
 - [RTI Connext DDS](https://www.rti.com/products)
 
 ### 🐳 Docker Installation Procedures
@@ -308,8 +308,8 @@ Expected PyTorch version conflicts between IsaacLab (2.5.1) and OpenPI (2.6.0) a
 #### 6️⃣ Raytracing Ultrasound Simulator Installation
 
 Choose one of the following options:
-- **(Use pre-built binary)** Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.2.0rc3) and extract to `workflows/robotic_ultrasound/scripts/raysim`.
-- **(Compiling from source)** Install and build following instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/v0.2.0rc3/ultrasound-raytracing#installation) and copy the `raysim` folder to `workflows/robotic_ultrasound/scripts/`.
+- **(Use pre-built binary)** Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.2.0) and extract to `workflows/robotic_ultrasound/scripts/raysim`.
+- **(Compiling from source)** Install and build following instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/v0.2.0/ultrasound-raytracing#installation) and copy the `raysim` folder to `workflows/robotic_ultrasound/scripts/`.
 
 ### 📦 Asset Management
 
