@@ -41,7 +41,7 @@ This repository currently includes three main workflows:
 
 Each workflow provides complete simulation environments, training datasets, pre-trained models, and deployment tools to accelerate your healthcare robotics development.
 
-Please see [What's New](./docs/source/whatsnew_0_1_0.md) for details on our milestone releases.
+Please see [What's New](./docs/source/whatsnew_0_2_0.md) for details on our milestone releases.
 
 ### Tutorials
 
