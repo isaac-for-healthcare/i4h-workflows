@@ -22,7 +22,7 @@ Learn more in the [GR00T N1 Training README](../../workflows/robotic_ultrasound/
 
 ![Cosmos-transfer1 as augmentation method for policy training](../source/cosmos_transfer_result.png)
 
-The Cosmos-Transfer1 integration provides a world-to-world transfer model designed to bridge the perceptual divide between simulated and real-world environments. Key features include:
+The Cosmos-Transfer1 integration provides a world-to-world transfer model designed to bridge the perceptual divide between simulated and real-world environments, serving as a powerful training augmentation method for policy training. Key features include:
 
 *   **Training-free Guided Generation:** Novel method that overcomes unsatisfactory results on unseen healthcare simulation assets by preserving the appearance of phantoms and robotic arms while generating diverse backgrounds.
 *   **Multi-view Video Generation:** Supports generating videos from multiple camera perspectives, leveraging camera information to warp room views to wrist views for comprehensive scene understanding.
