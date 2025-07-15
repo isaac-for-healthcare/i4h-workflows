@@ -31,7 +31,7 @@ function build() {
   if [ -L $SCRIPT_DIR/../../../third_party/IssacLab ]; then
     rm $SCRIPT_DIR/../../../third_party/IssacLab
   fi
-  docker build --ssh default -t $DOCKER_IMAGE -f workflows/telesurgery/docker/Dockerfile.sim .
+  docker build -t $DOCKER_IMAGE -f workflows/telesurgery/docker/Dockerfile.sim .
   download_operators
 }
 
@@ -55,13 +55,11 @@ function run() {
     --ipc=host \
     --network=host \
     --privileged \
-    --volume $SSH_AUTH_SOCK:/ssh-agent \
     -e ACCEPT_EULA=Y \
     -e PRIVACY_CONSENT=Y \
     -e DISPLAY \
     -e XDG_RUNTIME_DIR \
     -e XDG_SESSION_TYPE \
-    -e SSH_AUTH_SOCK=/ssh-agent \
     -e PATIENT_IP="$PATIENT_IP" \
     -e SURGEON_IP="$SURGEON_IP" \
     $OTHER_ARGS \

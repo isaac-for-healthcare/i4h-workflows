@@ -124,15 +124,6 @@ export RTI_LICENSE_FILE=<path-to-your-rti-license-file>
    **Note:** If you have `robotic_surgery` workflow scripts or previous versions of `robotic_ultrasound` workflow scripts in your `PYTHONPATH`, you can reset it to include only the robotic_ultrasound scripts by running `export PYTHONPATH=$(pwd)/workflows/robotic_ultrasound/scripts`
    </details>
 
-#### 4️⃣ Raytracing Ultrasound Simulator Installation
-```bash
-# Download precompiled ray tracing engine
-# FIXME: this https assets will not be available before GA. Alternatively, you can download it from the link below.
-wget https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/download/v0.2.0rc1/raysim-py310-linux-v0.2.0rc1.zip -O workflows/robotic_ultrasound/scripts/raysim.zip
-unzip workflows/robotic_ultrasound/scripts/raysim.zip -d workflows/robotic_ultrasound/scripts/raysim
-rm workflows/robotic_ultrasound/scripts/raysim.zip
-```
-
 
 ✅ **Installation Complete** - Your robotic ultrasound simulation environment is operational.
 
@@ -243,7 +234,7 @@ The robotic ultrasound workflow is built on the following dependencies:
 - [Gr00T N1](https://github.com/NVIDIA/Isaac-GR00T)
 - [Cosmos Transfer 1](https://github.com/nvidia-cosmos/cosmos-transfer1/tree/main)
 - [openpi](https://github.com/Physical-Intelligence/openpi) and [lerobot](https://github.com/huggingface/lerobot)
-- [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/v0.2.0rc3/ultrasound-raytracing)
+- [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/v0.2.0/ultrasound-raytracing)
 - [RTI Connext DDS](https://www.rti.com/products)
 
 ### 🐳 Docker Installation Procedures
@@ -308,8 +299,9 @@ Expected PyTorch version conflicts between IsaacLab (2.5.1) and OpenPI (2.6.0) a
 #### 6️⃣ Raytracing Ultrasound Simulator Installation
 
 Choose one of the following options:
-- **(Use pre-built binary)** Download the pre-release version from [here](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/releases/tag/v0.2.0rc3) and extract to `workflows/robotic_ultrasound/scripts/raysim`.
-- **(Compiling from source)** Install and build following instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/v0.2.0rc3/ultrasound-raytracing#installation) and copy the `raysim` folder to `workflows/robotic_ultrasound/scripts/`.
+- **(Use pre-built binary)** Current [installation script](../../tools/env_setup_robot_us.sh) will download the pre-built binary and install it to `workflows/robotic_ultrasound/scripts/raysim`.
+
+- **(Compiling from source)** Install and build following instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/v0.2.0/ultrasound-raytracing#installation) and copy the `raysim` folder to `workflows/robotic_ultrasound/scripts/`.
 
 ### 📦 Asset Management
 

@@ -72,7 +72,7 @@ Set up your Apple Vision Pro and enable Developer Mode.
 
 On your Mac development machine, clone the [Isaac XR Teleop Sample Client](https://github.com/isaac-sim/isaac-xr-teleop-sample-client-apple) GitHub repository:
 ```bash
-git clone git@github.com:isaac-sim/isaac-xr-teleop-sample-client-apple.git
+git clone https://github.com/isaac-sim/isaac-xr-teleop-sample-client-apple.git
 ```
 
 Follow the repository README document to build the application and deploy to your Apple Vision Pro on the local network.
