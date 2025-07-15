@@ -27,7 +27,6 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y \
         curl \
-        openssh-client \
         cmake \
         wget \
         build-essential \
@@ -45,8 +44,7 @@ RUN apt-get update && \
         gcc-12 \
         g++-12 && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100 && \
-    mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
 
 # Install Holoscan SDK
 WORKDIR /tmp
@@ -63,9 +61,8 @@ RUN update-alternatives --install /usr/bin/python python $PYTHON_EXECUTABLE 100 
     && update-alternatives --install /usr/bin/python3 python3 $PYTHON_EXECUTABLE 100
 
 # # Set up the Simulation
-RUN --mount=type=ssh \
-    $PYTHON_EXECUTABLE -m pip install --no-deps \
-        git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0rc3
+RUN $PYTHON_EXECUTABLE -m pip install --no-deps \
+        git+https://github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0
 
 # Install Python dependencies
 COPY workflows/telesurgery/requirements.txt /tmp/requirements.txt

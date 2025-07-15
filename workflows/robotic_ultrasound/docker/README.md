@@ -6,14 +6,10 @@ This guide provides instructions for running robotic ultrasound simulations usin
 
 - **Docker Engine**
 - **NVIDIA Docker Runtime**
-- **Git** with SSH key access to private repositories
 - **X11 forwarding** support (for GUI mode)
 - **RTI License**
    - Please refer to the [Environment Setup](../README.md#environment-setup) for instructions to prepare the I4H assets and RTI license locally.
    - The license file `rti_license.dat` should be saved in a directory in your host file system, (e.g. `~/docker/rti`), which can be mounted to the docker container.
-- **Ultrasound Raytracing Simulator**
-   - Please refer to the [Environment Setup - Install the raytracing ultrasound simulator](../README.md#install-raytracing-ultrasound-simulator) instructions to set up the raytracing ultrasound simulator locally.
-   - The `raysim` directory should be available on your host file system (e.g., `~/raysim`) to be mounted to the docker container.
 
 ## Build the Docker Image
 
@@ -21,16 +17,7 @@ This guide provides instructions for running robotic ultrasound simulations usin
 # Clone the repository
 git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
-
-# Enable BuildKit
-export DOCKER_BUILDKIT=1
-
-# Set up SSH agent for private repository access
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key path
-
-# Build the Docker image with SSH forwarding
-docker build --ssh default --no-cache -f workflows/robotic_ultrasound/docker/Dockerfile -t robotic_us:latest .
+docker build --no-cache -f workflows/robotic_ultrasound/docker/Dockerfile -t robotic_us:latest .
 ```
 
 ## Running the Container
@@ -59,7 +46,6 @@ docker run --name isaac-sim -it --gpus all --rm \
     -v ~/docker/isaac-sim/documents:/root/Documents:rw \
     -v ~/.cache/i4h-assets:/root/.cache/i4h-assets:rw \
     -v ~/docker/rti:/root/rti:ro \
-    -v $(pwd)/workflows/robotic_ultrasound/scripts/raysim:/workspace/i4h-workflows/workflows/robotic_ultrasound/scripts/raysim:ro \
     robotic_us:latest
 ```
 
@@ -105,7 +91,7 @@ conda activate robotic_ultrasound
 
 - **Policy not responding**: Ensure the policy runner is started before the simulation and is running in the background
 
-- **No ultrasound images**: Verify that the `raysim` directory is properly mounted and the ultrasound raytracing simulator is running
+- **No ultrasound images**: Verify that the ultrasound raytracing simulator is running
 
 - **Display issues**: Make sure `xhost +local:docker` was run before starting the container and the terminal shouldn't be running in a headless mode (e.g. in ssh connection without `-X` option)
 

@@ -40,14 +40,6 @@ RUN apt-get update && \
         libglu1-mesa && \
     rm -rf /var/lib/apt/lists/*
 
-# Add github.com to list of known hosts for git clone with ssh
-# use COPY command instead
-RUN mkdir -p ~/.ssh && \
-    curl --silent https://api.github.com/meta \
-        | jq --raw-output '"github.com "+.ssh_keys[]' >> ~/.ssh/known_hosts
-#RUN mkdir -p ~/.ssh
-#COPY ./github /root/.ssh/known_hosts
-
 # all devices should be visible
 ENV NVIDIA_VISIBLE_DEVICES=all
 # set 'compute' driver cap to use Cuda
@@ -66,8 +58,7 @@ COPY workflows /workspace/i4h-workflows/workflows
 COPY holoscan_i4h /workspace/i4h-workflows/holoscan_i4h
 
 # Install miniconda3 and create robotic_ultrasound
-RUN --mount=type=ssh \
-    mkdir -p ~/miniconda3 && \
+RUN mkdir -p ~/miniconda3 && \
     wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh && \
     bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3 && \
     rm ~/miniconda3/miniconda.sh && \
@@ -75,8 +66,7 @@ RUN --mount=type=ssh \
     conda init --all && \
     conda create -n robotic_ultrasound python=3.10.14 -y
 
-RUN --mount=type=ssh \
-    source ~/miniconda3/bin/activate && \
+RUN source ~/miniconda3/bin/activate && \
     conda activate robotic_ultrasound && \
     cd /workspace/i4h-workflows && \
     BUILD_DOCKER_IMAGE=true bash tools/env_setup_robot_us.sh

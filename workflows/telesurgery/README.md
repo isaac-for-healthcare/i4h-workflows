@@ -146,10 +146,6 @@ export RTI_LICENSE_FILE=/home/username/rti/rti_license.dat
 When running the Patient and the Surgeon applications on separate systems, export the following environment variables:
 
 ```bash
-# Starts the SSH agent and adds your private key
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key
-
 # Set IP addresses of patient and surgeon machines
 export PATIENT_IP="<IP Address of the system running the Patient application>"
 export SURGEON_IP="<IP Address of the system running the Surgeon application>"

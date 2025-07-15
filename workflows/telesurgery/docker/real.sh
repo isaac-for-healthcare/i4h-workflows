@@ -29,7 +29,7 @@ CONTAINER_NAME=telesurgery
 function build() {
   BASE_IMAGE=nvcr.io/nvidia/clara-holoscan/holoscan:v3.2.0-$(get_host_gpu)
   echo "Building Telesurgery Docker Image using ${BASE_IMAGE}"
-  docker build --ssh default \
+  docker build \
     --build-arg BASE_IMAGE=$BASE_IMAGE \
     -t $DOCKER_IMAGE \
     -f workflows/telesurgery/docker/Dockerfile .
@@ -56,13 +56,11 @@ function run() {
     --ipc=host \
     --network=host \
     --privileged \
-    --volume $SSH_AUTH_SOCK:/ssh-agent \
     -e ACCEPT_EULA=Y \
     -e PRIVACY_CONSENT=Y \
     -e DISPLAY \
     -e XDG_RUNTIME_DIR \
     -e XDG_SESSION_TYPE \
-    -e SSH_AUTH_SOCK=/ssh-agent \
     -e PATIENT_IP="$PATIENT_IP" \
     -e SURGEON_IP="$SURGEON_IP" \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
