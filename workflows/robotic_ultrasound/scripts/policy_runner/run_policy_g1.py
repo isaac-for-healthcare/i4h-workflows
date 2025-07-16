@@ -46,7 +46,7 @@ def main():
     parser.add_argument(
         "--task_description",
         type=str,
-        default="Pick up the ultrasound probe.",
+        default="push the probe away.",
         help="Task description for the policy.",
     )
 
@@ -62,7 +62,7 @@ def main():
     gr00tn1_group.add_argument(
         "--data_config",
         type=str,
-        default="unitree_g1",
+        default="unitree_g1_v2",
         help="Data config name for GR00T N1 policy.",
     )
     gr00tn1_group.add_argument(
@@ -133,7 +133,7 @@ def main():
             data_config=args.data_config,
             embodiment_tag=args.embodiment_tag,
             task_description=args.task_description,
-            action_key=["right_arm", "left_arm"]
+            action_key=["action.upper_body", "action.hands"]
         )
 
     if args.rti_license_file is not None:
@@ -149,13 +149,15 @@ def main():
 
         def produce(self, dt: float, sim_time: float):
             r_cam_buffer = np.frombuffer(current_state["room_cam"], dtype=np.uint8)
+            w_cam_buffer = np.frombuffer(current_state["wrist_cam"], dtype=np.uint8)
             room_img = Image.fromarray(r_cam_buffer.reshape(args.height, args.width, 3), "RGB")
+            wrist_img = Image.fromarray(w_cam_buffer.reshape(args.height, args.width, 3), "RGB")
             joint_pos = current_state["joint_pos"]
             actions = policy.infer_g1(
                 room_img=np.array(room_img),
+                wrist_img=np.array(wrist_img),
                 current_state=np.array(joint_pos),
             )
-            print(actions.shape, '********')
             i = FrankaCtrlInput()
             # actions are relative positions, if run with absolute positions, need to add the current joint positions
             # actions shape is (chunk_length, 6), must reshape to (chunk_length * 6,)
@@ -187,6 +189,7 @@ def main():
             current_state["joint_pos"] = o.joints_state_positions
         if (
             current_state["room_cam"] is not None
+            and current_state["wrist_cam"] is not None
             and current_state["joint_pos"] is not None
         ):
             writer.write(0.1, 1.0)
@@ -196,6 +199,7 @@ def main():
             current_state["room_cam"] = current_state["wrist_cam"] = current_state["joint_pos"] = None
 
     SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_room_camera, CameraInfo, 1 / hz).start()
+    SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_wrist_camera, CameraInfo, 1 / hz).start()
     SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_franka_pos, FrankaInfo, 1 / hz).start()
 
 

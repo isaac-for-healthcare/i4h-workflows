@@ -146,6 +146,9 @@ from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401
 
+if args_cli.enable_pinocchio:
+    import robotic_us_ext.tasks.ultrasound.pick
+
 # isort: on
 
 pub_data = {
@@ -268,13 +271,14 @@ def main():
         reset_to_recorded_data = False
 
     infer_r_cam_writer = RoomCamPublisher(topic=args_cli.topic_in_room_camera, domain_id=args_cli.infer_domain_id)
+    infer_w_cam_writer = WristCamPublisher(topic=args_cli.topic_in_wrist_camera, domain_id=args_cli.infer_domain_id)
     infer_pos_writer = PosPublisher(args_cli.infer_domain_id)
     infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, FrankaCtrlInput, 1 / hz)
     infer_reader.start()
     import time
     time.sleep(10)
     # Number of steps played before replanning
-    replan_steps = 5
+    replan_steps = 15
 
     if reset_to_recorded_data:
         total_episodes = validate_hdf5_path(args_cli.hdf5_path)
@@ -307,17 +311,22 @@ def main():
                 for t in range(max_timesteps):
                     # get and publish the current images and joint positions
                     rgb_images, depth_images, _ = capture_camera_images(
-                        env, ["robot_pov_cam"], device=env.unwrapped.device
+                        env, ["robot_pov_cam", "room_camera"], device=env.unwrapped.device
                     )
                     # robot_obs.append(get_robot_obs(env))
                     pub_data["room_cam"], pub_data["room_cam_depth"] = (
                         rgb_images[0, 0, ...].cpu().numpy(),
                         depth_images[0, 0, ...].cpu().numpy(),
                     )
+                    pub_data["wrist_cam"], pub_data["wrist_cam_depth"] = (
+                        rgb_images[0, 1, ...].cpu().numpy(),
+                        depth_images[0, 1, ...].cpu().numpy(),
+                    )
                     pub_data["joint_pos"] = get_joint_states(env)[0]
 
                     if not action_plan:
                         infer_r_cam_writer.write()
+                        infer_w_cam_writer.write()
                         infer_pos_writer.write()
                         
                         ret = None

@@ -15,5 +15,6 @@
 
 """Locomotion environments for legged robots."""
 
-from .approach import *  # noqa
-from .pick import *  # noqa
+import gymnasium as gym
+# from .approach import *  # noqa
+# from .pick import *  # noqa
