@@ -25,12 +25,16 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 # SO-ARM 101 robot configuration with table environment
 SOARM101_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path="assets/so101_add_wrist_camera.usd",
+        usd_path="assets/so101_add_wrist_camera_change_collision.usd",
         visible=True,  # Ensure all geometry is visible
-        copy_from_source=True,  # Copy all geometry from source USD file
+        copy_from_source=False,  # Copy all geometry from source USD file
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
+        ),
+        collision_props=sim_utils.CollisionPropertiesCfg(
+            contact_offset=0.001,    
+            rest_offset=0.0001,      
         ),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=False,
@@ -64,8 +68,8 @@ SOARM101_CFG = ArticulationCfg(
             joint_names_expr=["gripper"],
             effort_limit=12.0,     # REAL ROBOT: Calibrated gripper force
             velocity_limit=16.0,   # REAL ROBOT: Full speed to match hardware
-            stiffness=30.0,        # Moderate stiffness for precise control
-            damping=30.0,          # Stable damping for limited range
+            stiffness=80.0,        # Moderate stiffness for precise control
+            damping=50.0,          # Stable damping for limited range
         ),
     },
 )
@@ -103,20 +107,19 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
     soarm101 = SOARM101_CFG.replace(prim_path="{ENV_REGEX_NS}/SoArm101")
 
     # 🎯 SCISSORS - Simple Static Object (Compatible with Isaac Lab)
-    scissor = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/SurgicalScissor",
+    scissors = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/SurgicalScissors",
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(0.10, 0.0, 0.05),
             rot=(0.707, 0, 0, 0.707),
         ),
         spawn=sim_utils.UsdFileCfg(
-            usd_path="assets/new_surgical_scissor.usd", 
-            scale=(0.008, 0.006, 0.010), 
-            copy_from_source=True,
+            usd_path="assets/SurgicalScissors.usd", 
+            scale=(0.006, 0.006, 0.010), 
             visual_material=sim_utils.PreviewSurfaceCfg(
                 diffuse_color=(0.7, 0.7, 0.75),  # Silver appearance
                 metallic=0.8,
-                roughness=0.2,
+                roughness=0.8,
             ),
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False,
@@ -124,23 +127,23 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
                 solver_position_iteration_count=4,   
             ),
             collision_props=sim_utils.CollisionPropertiesCfg(
-                contact_offset=0.002,    
-                rest_offset=0.0002,      
+                contact_offset=0.001,    
+                rest_offset=0.0001,      
             ),
             mass_props=sim_utils.MassPropertiesCfg(
-                mass=0.2,  
+                mass=0.1,  
             ),
         ),
     )
 
     tray = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/SurgicalInstrumentTray",
+        prim_path="{ENV_REGEX_NS}/SurgicalTray",
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=(0.08,  0.18, 0.032),
+            pos=(0.08,  0.20, 0.035),
             rot=(0.707, 0.0, 0.0, 0.707),  # 90-degree rotation around x-axis
         ),
         spawn=sim_utils.UsdFileCfg(
-            usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/KLT_Bin/small_KLT_visual_collision.usd",
+            usd_path="assets/SurgicalTray.usd",
             scale=(0.75, 0.75, 0.4),  # Make tray 50% smaller in all dimensions
             visual_material=sim_utils.PreviewSurfaceCfg(
                 diffuse_color=(0.7, 0.7, 0.75),  # Silver appearance
@@ -148,11 +151,11 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
                 roughness=0.2,
             ),
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                disable_gravity=False,
+                disable_gravity=True,
                 max_depenetration_velocity=5.0,
             ),
             mass_props=sim_utils.MassPropertiesCfg(
-                mass=1.0,  
+                mass=5.0,  
             ),
         ),
     )
