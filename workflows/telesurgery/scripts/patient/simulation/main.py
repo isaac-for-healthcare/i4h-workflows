@@ -100,14 +100,14 @@ def main():
     def update_arm_joints():
         for i, api in enumerate(left_arm_joint_apis):
             if i == 4:
-                pass
+                api.GetTargetPositionAttr().Set(rotations[0])
             elif i == 5:
                 api.GetTargetPositionAttr().Set(grasps[0] * (20 / 1350))
             else:
                 api.GetTargetPositionAttr().Set(left_pose[i])
         for i, api in enumerate(right_arm_joint_apis):
             if i == 4:
-                pass
+                api.GetTargetPositionAttr().Set(rotations[1])
             elif i == 5:
                 api.GetTargetPositionAttr().Set(-grasps[1] * (40 / 1350))
             else:
@@ -132,6 +132,7 @@ def main():
 
     def on_gamepad_event(message):
         command = message["method"]
+        params = message["params"]
         if command == "set_mira_polar_delta" or command == "set_mira_cartesian_delta":
             for i in range(6):
                 left_pose[i] += message["pose_delta"]["left"][i]
@@ -140,24 +141,26 @@ def main():
                 print(f"Update ({message['method']}):: Left: {left_pose}; Right: {right_pose}")
         elif command == "set_mira_pose":
             for i in range(6):
-                left_pose[i] = message["params"]["left"][i]
-                right_pose[i] = message["params"]["right"][i]
+                left_pose[i] = params["left"][i]
+                right_pose[i] = params["right"][i]
             if args.debug:
                 print(f"Update ({message['method']}):: Left: {left_pose}; Right: {right_pose}")
         elif command == "set_camera_pose_delta":
-            camera_pose[0] += message["params"]["north"]
-            camera_pose[1] += message["params"]["east"]
+            camera_pose[0] += params["north"]
+            camera_pose[1] += params["east"]
             if args.debug:
                 print(f"Update ({message['method']}):: north: {camera_pose[1]} east: {camera_pose[0]}")
         elif command == "set_left_gripper":
-            grasps[0] = message["params"] * 1350
+            grasps[0] = params * 1350
             if args.debug:
                 print(f"Update ({message['method']}):: left-gripper: {grasps[0]}")
         elif command == "set_right_gripper":
-            grasps[1] = message["params"] * 1350
+            grasps[1] = params * 1350
             if args.debug:
                 print(f"Update ({message['method']}):: right-gripper: {grasps[1]}")
-
+        elif command == "set_mira_roll_delta":
+            rotations[0] += params["left"]
+            rotations[1] += params["right"]
 
     from patient.simulation.camera.sensor import CameraEx
 
@@ -170,6 +173,9 @@ def main():
     )
     camera.initialize()
 
+    left_rotation = left_arm_joint_apis[4].GetTargetPositionAttr().Get()
+    right_rotation = right_arm_joint_apis[4].GetTargetPositionAttr().Get()
+    rotations = [left_rotation, right_rotation]
     left_gripper = left_arm_joint_apis[5].GetTargetPositionAttr().Get() * (1350 / 20)
     right_gripper = -right_arm_joint_apis[5].GetTargetPositionAttr().Get() * (1350 / 40)
     grasps = [left_gripper, right_gripper]
