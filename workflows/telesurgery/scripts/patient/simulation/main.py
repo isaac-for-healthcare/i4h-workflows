@@ -16,6 +16,7 @@
 import argparse
 import json
 import os
+import math
 
 from i4h_asset_helper import BaseI4HAssets
 from isaaclab.app import AppLauncher
@@ -40,6 +41,7 @@ def main():
     parser.add_argument("--api_host", type=str, default="0.0.0.0", help="local api server host")
     parser.add_argument("--api_port", type=int, default=8081, help="local api server port")
     parser.add_argument("--timeline_play", type=bool, default=True, help="play the timeline")
+    parser.add_argument("--debug", action='store_true', help="show debug output")
     args = parser.parse_args()
 
     app_launcher = AppLauncher(headless=False)
@@ -51,6 +53,8 @@ def main():
     import omni.usd
     from omni.timeline import get_timeline_interface
     from pxr import UsdPhysics
+    from isaacsim.core.prims import SingleXFormPrim
+    from isaacsim.core.utils.rotations import euler_angles_to_quat
 
     omni.usd.get_context().open_stage(usd_path)
 
@@ -75,7 +79,16 @@ def main():
         f"{right_arm_base}/ASM_R65432/ASM_R6543/ASM_R654/ASM_R65/ASM_R6/RJ6/RJ6_joint",
     ]
     camera_base = f"{robot_usd_root}/C_ASM_6543210"
+    camera_paths = [
+        f"{camera_base}/C_ASM_654321",
+        f"{camera_base}/C_ASM_654321/C_ASM_65432",
+        f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543",
+        f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543/C_ASM_654",
+        f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543/C_ASM_654/C_ASM_65",
+        f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543/C_ASM_654/C_ASM_65/C_ASM_6",
+    ]
     camera_prim_path = f"{camera_base}/C_ASM_654321/C_ASM_65432/C_ASM_6543/C_ASM_654/C_ASM_65/C_ASM_6/Camera_Tip/Camera"
+    max_camera_angle = 70
 
     stage = omni.usd.get_context().get_stage()
     left_arm_joint_apis = [UsdPhysics.DriveAPI.Get(stage.GetPrimAtPath(p), "angular") for p in LJ_PATHS]
@@ -90,20 +103,47 @@ def main():
         for i, api in enumerate(right_arm_joint_apis):
             api.GetTargetPositionAttr().Set(right_pose[i])
 
+    def update_camera_pose():
+        # seems the axis are swapped, match behavior with physical robot
+        east = max(-max_camera_angle, min(max_camera_angle, camera_pose[0]))
+        north = max(-max_camera_angle, min(max_camera_angle, camera_pose[1]))
+        for i in [0]:
+            pos, _ = camera_prims[i].get_local_pose()
+            quat = euler_angles_to_quat([math.pi / 2, 0, -north * math.pi / 180 / 3])
+            camera_prims[i].set_local_pose(translation=pos, orientation=quat)
+        for i in [2, 4]:
+            pos, _ = camera_prims[i].get_local_pose()
+            quat = euler_angles_to_quat([0, -math.pi / 2, -north * math.pi / 180 / 3])
+            camera_prims[i].set_local_pose(translation=pos, orientation=quat)
+        for i in [1, 3, 5]:
+            pos, _ = camera_prims[i].get_local_pose()
+            quat = euler_angles_to_quat([0, math.pi / 2, east * math.pi / 180 / 3])
+            camera_prims[i].set_local_pose(translation=pos, orientation=quat)
+
     def on_gamepad_event(message):
         if message["method"] == "set_mira_polar_delta" or message["method"] == "set_mira_cartesian_delta":
             for i in range(6):
                 left_pose[i] += message["pose_delta"]["left"][i]
                 right_pose[i] += message["pose_delta"]["right"][i]
+            if args.debug:
+                print(f"Update ({message['method']}):: Left: {left_pose}; Right: {right_pose}")
         elif message["method"] == "set_mira_pose":
             for i in range(6):
                 left_pose[i] = message["params"]["left"][i]
                 right_pose[i] = message["params"]["right"][i]
+            if args.debug:
+                print(f"Update ({message['method']}):: Left: {left_pose}; Right: {right_pose}")
+        elif message["method"] == "set_camera_pose_delta":
+            camera_pose[0] += message["params"]["north"]
+            camera_pose[1] += message["params"]["east"]
+            if args.debug:
+                print(f"Update ({message['method']}):: north: {camera_pose[1]} east: {camera_pose[0]}")
 
-        print(f"Update ({message['method']}):: Left: {left_pose}; Right: {right_pose}")
 
     from patient.simulation.camera.sensor import CameraEx
 
+    camera_pose = [0.0, 0.0]
+    camera_prims = [SingleXFormPrim(p) for p in camera_paths]
     camera = CameraEx(
         prim_path=camera_prim_path,
         frequency=args.framerate,
@@ -150,6 +190,7 @@ def main():
             timeline.play()
     while simulation_app.is_running():
         update_arm_joints()
+        update_camera_pose()
         simulation_app.update()
 
     f1.cancel()
