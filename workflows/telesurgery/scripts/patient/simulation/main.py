@@ -99,9 +99,19 @@ def main():
 
     def update_arm_joints():
         for i, api in enumerate(left_arm_joint_apis):
-            api.GetTargetPositionAttr().Set(left_pose[i])
+            if i == 4:
+                pass
+            elif i == 5:
+                api.GetTargetPositionAttr().Set(grasps[0] * (20 / 1350))
+            else:
+                api.GetTargetPositionAttr().Set(left_pose[i])
         for i, api in enumerate(right_arm_joint_apis):
-            api.GetTargetPositionAttr().Set(right_pose[i])
+            if i == 4:
+                pass
+            elif i == 5:
+                api.GetTargetPositionAttr().Set(-grasps[1] * (40 / 1350))
+            else:
+                api.GetTargetPositionAttr().Set(right_pose[i])
 
     def update_camera_pose():
         # seems the axis are swapped, match behavior with physical robot
@@ -121,23 +131,32 @@ def main():
             camera_prims[i].set_local_pose(translation=pos, orientation=quat)
 
     def on_gamepad_event(message):
-        if message["method"] == "set_mira_polar_delta" or message["method"] == "set_mira_cartesian_delta":
+        command = message["method"]
+        if command == "set_mira_polar_delta" or command == "set_mira_cartesian_delta":
             for i in range(6):
                 left_pose[i] += message["pose_delta"]["left"][i]
                 right_pose[i] += message["pose_delta"]["right"][i]
             if args.debug:
                 print(f"Update ({message['method']}):: Left: {left_pose}; Right: {right_pose}")
-        elif message["method"] == "set_mira_pose":
+        elif command == "set_mira_pose":
             for i in range(6):
                 left_pose[i] = message["params"]["left"][i]
                 right_pose[i] = message["params"]["right"][i]
             if args.debug:
                 print(f"Update ({message['method']}):: Left: {left_pose}; Right: {right_pose}")
-        elif message["method"] == "set_camera_pose_delta":
+        elif command == "set_camera_pose_delta":
             camera_pose[0] += message["params"]["north"]
             camera_pose[1] += message["params"]["east"]
             if args.debug:
                 print(f"Update ({message['method']}):: north: {camera_pose[1]} east: {camera_pose[0]}")
+        elif command == "set_left_gripper":
+            grasps[0] = message["params"] * 1350
+            if args.debug:
+                print(f"Update ({message['method']}):: left-gripper: {grasps[0]}")
+        elif command == "set_right_gripper":
+            grasps[1] = message["params"] * 1350
+            if args.debug:
+                print(f"Update ({message['method']}):: right-gripper: {grasps[1]}")
 
 
     from patient.simulation.camera.sensor import CameraEx
@@ -150,6 +169,10 @@ def main():
         resolution=(args.width, args.height),
     )
     camera.initialize()
+
+    left_gripper = left_arm_joint_apis[5].GetTargetPositionAttr().Get() * (1350 / 20)
+    right_gripper = -right_arm_joint_apis[5].GetTargetPositionAttr().Get() * (1350 / 40)
+    grasps = [left_gripper, right_gripper]
 
     # holoscan app in async mode to consume camera source
     from patient.simulation.camera.app import App as CameraApp
