@@ -25,7 +25,7 @@ from simulation.communication.interface import CommunicationInterface, Communica
 class TCPCommunication(CommunicationInterface):
     """TCP client communication implementation."""
     
-    def __init__(self, host: str = "localhost", port: int = 8888, **kwargs):
+    def __init__(self, host: str = "localhost", port: int = 10666, **kwargs):
         """
         Initialize TCP communication.
         

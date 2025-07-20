@@ -1,6 +1,16 @@
-# SO-ARM 101 Simulation Package
+# SO-ARM 101 Simulation
 
 This package provides keyboard and real robot teleoperation for SO-ARM 101 robot simulation.
+
+## Hardware Configuration
+
+For real-world deployments, the SO-ARM 101 robot is equipped with a wrist-mounted camera module and a 3D-printed camera adapter that enables secure attachment to the robot arm. This vision system utilizes components from WOWROBO. For detailed specifications, please refer to the [SO-ARM 101's official hardware recommendations](https://github.com/TheRobotStudio/SO-ARM100/tree/385e8d7c68e24945df6c60d9bd68837a4b7411ae?tab=readme-ov-file#kits).
+
+To maintain simulation accuracy, the corresponding STL geometry files provided by WOWROBO for both the camera module and adapter have been integrated into [the original SO-ARM 101 URDF model](https://github.com/TheRobotStudio/SO-ARM100/blob/385e8d7c68e24945df6c60d9bd68837a4b7411ae/Simulation/SO101/so101_new_calib.urdf).
+
+<div align="center">
+  <img src="images/wowrobo-logo-dark.png" alt="WOWROBO LOGO" width="600">
+</div>
 
 ## Setup
 

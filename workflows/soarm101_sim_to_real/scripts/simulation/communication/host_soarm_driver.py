@@ -242,7 +242,7 @@ def main():
     """Main function."""
     parser = argparse.ArgumentParser(description="SO-ARM Hardware Driver for Isaac Lab")
     parser.add_argument("--host", default="localhost", help="Host address")
-    parser.add_argument("--port", type=int, default=8888, help="Port number")
+    parser.add_argument("--port", type=int, default=10666, help="Port number")
     
     args = parser.parse_args()
     

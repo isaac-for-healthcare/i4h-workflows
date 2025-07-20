@@ -25,7 +25,7 @@ from isaaclab.app import AppLauncher
 parser = argparse.ArgumentParser(description="SO-ARM 101 real-to-sim teleoperation")
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments")
 parser.add_argument("--host", type=str, default="localhost", help="TCP host")
-parser.add_argument("--port", type=int, default=8888, help="TCP port")
+parser.add_argument("--port", type=int, default=10666, help="TCP port")
 parser.add_argument("--update_rate", type=float, default=200.0, help="Update rate Hz")
 
 AppLauncher.add_app_launcher_args(parser)

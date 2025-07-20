@@ -25,7 +25,7 @@ from simulation.communication.interface import CommunicationServer, Communicatio
 class TCPServer(CommunicationServer):
     """TCP server implementation for hardware driver."""
     
-    def __init__(self, host: str = "localhost", port: int = 8888, **kwargs):
+    def __init__(self, host: str = "localhost", port: int = 10666, **kwargs):
         """
         Initialize TCP server.
         
