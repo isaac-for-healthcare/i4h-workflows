@@ -15,8 +15,8 @@
 
 import argparse
 import json
-import os
 import math
+import os
 
 from i4h_asset_helper import BaseI4HAssets
 from isaaclab.app import AppLauncher
@@ -51,10 +51,10 @@ def main():
 
     # Import Isaac/Omni modules after app launch
     import omni.usd
-    from omni.timeline import get_timeline_interface
-    from pxr import UsdPhysics
     from isaacsim.core.prims import SingleXFormPrim
     from isaacsim.core.utils.rotations import euler_angles_to_quat
+    from omni.timeline import get_timeline_interface
+    from pxr import UsdPhysics
 
     omni.usd.get_context().open_stage(usd_path)
 
@@ -134,9 +134,12 @@ def main():
         command = message["method"]
         params = message["params"]
         if command == "set_mira_polar_delta" or command == "set_mira_cartesian_delta":
-            for i in range(6):
-                left_pose[i] += message["pose_delta"]["left"][i]
-                right_pose[i] += message["pose_delta"]["right"][i]
+            # flip direction to match left arm orientation, and align with physical robot
+            params["right"][2] = -params["right"][2]
+            params["right"][0] = -params["right"][0]
+            for i in range(4):
+                left_pose[i] += params["left"][i]
+                right_pose[i] += -params["right"][i]
             if args.debug:
                 print(f"Update ({message['method']}):: Left: {left_pose}; Right: {right_pose}")
         elif command == "set_mira_pose":
