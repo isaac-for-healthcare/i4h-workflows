@@ -252,8 +252,8 @@ python patient/simulation/main.py
 ```
 
 **Expected Behavior:**
-- The initial view displayed in Isaac Sim is a suture needle on top of a white, reflective surface.
-- To understand the elements in the scene (e.g. the MIRA robot), you can customize the viewport `Camera` to `Perspective` or `Top` view.
+- For Patient side, Isaac Sim starts in Perspective view.
+- You can modify the viewport from `Perspective` to `Camera` or `Top` view.
 
 ![Telesurgery Viewport](../../docs/source/telesurgery_viewport.gif)
 
