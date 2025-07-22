@@ -54,6 +54,7 @@ def main():
     from isaacsim.core.prims import SingleXFormPrim
     from isaacsim.core.utils.rotations import euler_angles_to_quat
     from omni.timeline import get_timeline_interface
+    from omni.kit.viewport.utility import get_active_viewport_window
     from pxr import UsdPhysics
 
     omni.usd.get_context().open_stage(usd_path)
@@ -220,6 +221,9 @@ def main():
         timeline = get_timeline_interface()
         if not timeline.is_playing():
             timeline.play()
+
+    # Start patient side in perspective view
+    get_active_viewport_window().viewport_api._hydra_texture.camera_path = "/OmniverseKit_Persp"
     while simulation_app.is_running():
         update_arm_joints()
         update_camera_pose()
