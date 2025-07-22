@@ -7,7 +7,7 @@ This package provides keyboard and real robot teleoperation for SO-ARM 101 robot
 ### 1. Set PYTHONPATH
 
 ```bash
-export PYTHONPATH="/home/mxgu/Workspace/Omniverse/gmx/i4h-workflows/workflows/soarm101_sim_to_real/scripts:$PYTHONPATH"
+export PYTHONPATH="/path/to/i4h-workflows/workflows/soarm101_sim_to_real/scripts:$PYTHONPATH"
 ```
 
 ### 2. For Real Robot Teleoperation
