@@ -53,8 +53,8 @@ def main():
     import omni.usd
     from isaacsim.core.prims import SingleXFormPrim
     from isaacsim.core.utils.rotations import euler_angles_to_quat
-    from omni.timeline import get_timeline_interface
     from omni.kit.viewport.utility import get_active_viewport_window
+    from omni.timeline import get_timeline_interface
     from pxr import UsdPhysics
 
     omni.usd.get_context().open_stage(usd_path)
