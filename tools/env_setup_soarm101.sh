@@ -70,6 +70,13 @@ pip install -e ".[feetech]"
 pip install numpy==1.26.4
 popd
 
+# ---- Install leisaac (Common) ----
+echo "Installing leisaac..."
+LEISAAC_DIR=${1:-$PROJECT_ROOT/third_party/leisaac}
+git clone https://github.com/huggingface/leisaac.git $LEISAAC_DIR
+pushd $LEISAAC_DIR
+pip install -e source/leisaac
+popd
 
 
 echo "=========================================="

@@ -86,3 +86,17 @@ python communication/host_soarm_driver.py --port 8888
 cd i4h-workflows/workflows/soarm101_sim_to_real/scripts/simulation
 python scripts/real_to_sim_teleoperation.py --port 8888
 ```
+
+
+**Record datasets**
+```bash
+python environments/teleoperation_record.py \
+    --task=SO101-Surgery-v0 \
+    --teleop_device=so101leader \
+    --port=/dev/ttyACM1 \
+    --num_envs=1 \
+    --device=cuda \
+    --enable_cameras \
+    --record \
+    --dataset_file=<path_to_save_dataset>
+```

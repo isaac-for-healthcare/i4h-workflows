@@ -25,17 +25,21 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 # SO-ARM 101 robot configuration with table environment
 SOARM101_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path="assets/so101_add_wrist_camera.usd",
+        usd_path="assets/so101_add_wrist_camera_change_collision.usd",
         visible=True,  # Ensure all geometry is visible
-        copy_from_source=True,  # Copy all geometry from source USD file
+        copy_from_source=False,  # Copy all geometry from source USD file
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
         ),
+        collision_props=sim_utils.CollisionPropertiesCfg(
+            contact_offset=0.001,    
+            rest_offset=0.0001,      
+        ),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
             enabled_self_collisions=False,
-            solver_position_iteration_count=4,
-            solver_velocity_iteration_count=0,
+            solver_position_iteration_count=16,
+            solver_velocity_iteration_count=4,
         ),
     ),
     init_state=ArticulationCfg.InitialStateCfg(
@@ -43,12 +47,12 @@ SOARM101_CFG = ArticulationCfg(
         pos=(0.4, 0.1, 0.0),
         rot=(0.707, 0.0, 0.0, -0.707),  # -90-degree rotation from y-axis to x-axis
         joint_pos={
-            "shoulder_pan": 0.0,
-            "shoulder_lift": 0.0,
-            "elbow_flex": 0.0,
-            "wrist_flex": 0.0,
-            "wrist_roll": 0.0,
-            "gripper": 0.0,
+            "shoulder_pan": 0.0,  
+            "shoulder_lift": 0.0,  
+            "elbow_flex": 0.0,    
+            "wrist_flex": 0.0,     
+            "wrist_roll": 0.0,    
+            "gripper": 0.0,     
         },
         joint_vel={".*": 0.0},
     ),
@@ -58,18 +62,17 @@ SOARM101_CFG = ArticulationCfg(
             effort_limit=5.2,
             velocity_limit=6.28,
             stiffness=80.0,
-            damping=8.0,
+            damping=20.0,
         ),
         "gripper": ImplicitActuatorCfg(
             joint_names_expr=["gripper"],
-            effort_limit=5.2,
-            velocity_limit=6.28,
-            stiffness=80.0,
-            damping=8.0,
+            effort_limit=12.0,     # REAL ROBOT: Calibrated gripper force
+            velocity_limit=16.0,   # REAL ROBOT: Full speed to match hardware
+            stiffness=80.0,        # Moderate stiffness for precise control
+            damping=50.0,          # Stable damping for limited range
         ),
     },
 )
-
 
 @configclass
 class SoArm101TableSceneCfg(InteractiveSceneCfg):
@@ -94,16 +97,68 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False,
                 max_depenetration_velocity=5.0,
-                solver_position_iteration_count=16,
-                solver_velocity_iteration_count=1,
-                max_angular_velocity=1000.0,
-                max_linear_velocity=1000.0,
+                solver_position_iteration_count=4,
+                solver_velocity_iteration_count=0,
             ),
         ),
     )
 
     # SO-ARM 101 robot positioned on top of the table
     soarm101 = SOARM101_CFG.replace(prim_path="{ENV_REGEX_NS}/SoArm101")
+
+    # 🎯 SCISSORS - Simple Static Object (Compatible with Isaac Lab)
+    scissors = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/SurgicalScissors",
+        init_state=AssetBaseCfg.InitialStateCfg(
+            pos=(0.10, 0.0, 0.05),
+            rot=(0.707, 0, 0, 0.707),
+        ),
+        spawn=sim_utils.UsdFileCfg(
+            usd_path="assets/SurgicalScissors.usd", 
+            scale=(0.006, 0.006, 0.010), 
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.7, 0.7, 0.75),  # Silver appearance
+                metallic=0.8,
+                roughness=0.8,
+            ),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                disable_gravity=False,
+                max_depenetration_velocity=5.0,
+                solver_position_iteration_count=4,   
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(
+                contact_offset=0.001,    
+                rest_offset=0.0001,      
+            ),
+            mass_props=sim_utils.MassPropertiesCfg(
+                mass=0.1,  
+            ),
+        ),
+    )
+
+    tray = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/SurgicalTray",
+        init_state=AssetBaseCfg.InitialStateCfg(
+            pos=(0.08,  0.20, 0.035),
+            rot=(0.707, 0.0, 0.0, 0.707),  # 90-degree rotation around x-axis
+        ),
+        spawn=sim_utils.UsdFileCfg(
+            usd_path="assets/SurgicalTray.usd",
+            scale=(0.75, 0.75, 0.4),  # Make tray 50% smaller in all dimensions
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.7, 0.7, 0.75),  # Silver appearance
+                metallic=0.8,
+                roughness=0.2,
+            ),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                disable_gravity=True,
+                max_depenetration_velocity=5.0,
+            ),
+            mass_props=sim_utils.MassPropertiesCfg(
+                mass=5.0,  
+            ),
+        ),
+    )
 
     # Room Camera - simple camera prim for viewing (not a sensor)
     room_camera = AssetBaseCfg(
