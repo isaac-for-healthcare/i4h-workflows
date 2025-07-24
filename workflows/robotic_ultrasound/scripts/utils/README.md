@@ -7,10 +7,10 @@ The utilities in this directory support the robotic ultrasound simulation pipeli
 
 ## Usage
 
-To run the visualization, please move to the current [`utils` folder](./) and execute:
+To run the visualization:
 
 ```bash
-python visualization.py
+python -m utils.visualization
 ```
 
 This will open a GUI that displays multiple real-time feeds:
@@ -88,3 +88,11 @@ Each subscriber is implemented as a separate Python thread, allowing asynchronou
   - Try using different domain IDs for each topic to avoid conflicts
   - Add a short delay (time.sleep) after initialization to ensure publishers and subscribers are properly established
   - Check network connectivity if running across multiple machines
+
+---
+
+## Documentation Links
+
+- [Simulation with Data Distribution Service (DDS)](../simulation/environments/README.md)
+- [Teleoperation](../simulation/environments/teleoperation/README.md)
+- [Ultrasound Raytracing](../simulation/examples/README.md)

@@ -26,7 +26,6 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y \
         curl \
-        openssh-client \
         cmake \
         wget \
         build-essential \
@@ -44,8 +43,7 @@ RUN apt-get update && \
         gcc-12 \
         g++-12 && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100 && \
-    mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
 
 ENV PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 ENV LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
