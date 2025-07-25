@@ -40,7 +40,7 @@ def main():
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        default="/home/mxgu/Workspace/Omniverse/gmx/Isaac-GR00T/checkpoints/so101_sim_scissors_finetune_30k/checkpoint-30000",
+        default="checkpoints/so101_sim_scissors_finetune_30k/checkpoint-30000",
         help="checkpoint path. Default will use the policy model in the downloaded assets.",
     )
     parser.add_argument(
