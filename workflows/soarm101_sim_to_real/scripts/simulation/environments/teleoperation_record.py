@@ -18,18 +18,20 @@
 
 """Launch Isaac Sim Simulator first."""
 import multiprocessing
+
 if multiprocessing.get_start_method() != "spawn":
     multiprocessing.set_start_method("spawn",force=True)
 import argparse
 
 from isaaclab.app import AppLauncher
 
+
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Keyboard teleoperation for Isaac Lab environments.")
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to simulate.")
-parser.add_argument("--teleop_device", type=str, default="keyboard", choices=['keyboard', 'so101leader'], help="Device for interacting with environment")
+parser.add_argument("--teleop_device", type=str, default="so101leader", choices=['keyboard', 'so101leader'], help="Device for interacting with environment")
 parser.add_argument("--port", type=str, default='/dev/ttyACM0', help="Port for the teleop device:so101leader, default is /dev/ttyACM0")
-parser.add_argument("--task", type=str, default=None, help="Name of the task.")
+parser.add_argument("--task", type=str, default="SO101-Scrub-Nurse-v0", help="Name of the task.")
 parser.add_argument("--sensitivity", type=float, default=1.0, help="Sensitivity factor.")
 
 # recorder_parameter
@@ -37,6 +39,9 @@ parser.add_argument("--record", action="store_true", default=False, help="whethe
 parser.add_argument("--step_hz", type=int, default=60, help="Environment stepping rate in Hz.")
 parser.add_argument("--dataset_file", type=str, default="./datasets/dataset.hdf5", help="File path to export recorded demos.")
 parser.add_argument("--num_demos", type=int, default=0, help="Number of demonstrations to record. Set to 0 for infinite.")
+parser.add_argument("--print_data", action="store_true", default=False, help="Print detailed recorded data during teleoperation")
+parser.add_argument("--print_frequency", type=int, default=20, help="Print data every N steps when --print_data is enabled")
+parser.add_argument("--monitor_hdf5", action="store_true", default=False, help="Monitor HDF5 data being written (slower)")
 
 parser.add_argument("--recalibrate", action="store_true", default=False, help="recalibrate SO101-Leader")
 
@@ -53,15 +58,20 @@ simulation_app = app_launcher.app
 
 import os
 import time
-import torch
+
 import gymnasium as gym
-
+import torch
 from isaaclab.envs import ManagerBasedRLEnv
-from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab.managers import TerminationTermCfg
-
+from isaaclab_tasks.utils import parse_env_cfg
 from leisaac.devices import Se3Keyboard, SO101Leader
 from leisaac.enhance.managers import StreamingRecorderManager
+
+# Import task module to register SO101-Scrub-Nurse-v0 environment
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+import task
+
 
 class RateLimiter:
     """Convenience class for enforcing rates in loops."""
@@ -90,6 +100,7 @@ class RateLimiter:
             while self.last_time < time.time():
                 self.last_time += self.sleep_duration
 
+
 def main():
     """Running keyboard teleoperation with Isaac Lab manipulation environment."""
 
@@ -107,8 +118,6 @@ def main():
     # modify configuration
     if hasattr(env_cfg.terminations, "time_out"):
         env_cfg.terminations.time_out = None
-    # if hasattr(env_cfg.recorders, "success"):
-    #     env_cfg.recorders.success = None
     if args_cli.record:
         env_cfg.recorders.dataset_export_dir_path = output_dir
         env_cfg.recorders.dataset_filename = output_file_name
@@ -133,7 +142,7 @@ def main():
         teleop_interface = SO101Leader(env, port=args_cli.port, recalibrate=args_cli.recalibrate)
     else:
         raise ValueError(
-            f"Invalid device interface '{args_cli.teleop_device}'. Supported: 'keyboard', 'vr', 'so101leader'."
+            f"Invalid device interface '{args_cli.teleop_device}'. Supported: 'keyboard', 'so101leader'."
         )
 
     # add teleoperation key for env reset
@@ -159,15 +168,31 @@ def main():
     # reset environment
     env.reset()
     teleop_interface.reset()
+    
+    # Force robot to zero pose 
+    def manual_reset_robot_pose(env, joint_positions=[0.0, -1.6, 1.4, 1.5, -1.8, 0.0]):
+        robot = env.scene["robot"]
+        target_positions = torch.tensor([joint_positions], device=robot.device, dtype=torch.float32)
+        target_velocities = torch.zeros_like(target_positions)
+        robot.write_joint_state_to_sim(target_positions, target_velocities)
+        # Step simulation to apply changes
+        for _ in range(5):
+            env.sim.step()
+        return robot.data.joint_pos[0].cpu().numpy()
+    
+    # Apply manual reset
+    actual_positions = manual_reset_robot_pose(env)
 
     current_recorded_demo_count = 0
 
     start_record_state = False
+    step_counter = 0  # Add step counter for detailed logging
 
     # simulate environment
     while simulation_app.is_running():
         # run everything in inference mode
         with torch.inference_mode():
+            # get actions from teleop interface
             actions = teleop_interface.advance()
             if should_reset_task_success:
                 print("Task Success!!!")
@@ -178,6 +203,13 @@ def main():
             if should_reset_recording_instance:
                 env.reset()
                 should_reset_recording_instance = False
+                step_counter = 0  # Reset step counter
+                
+                # MANUAL RESET: Force robot to surgical pose when R/N is pressed
+                actual_positions = manual_reset_robot_pose(env)
+                print(f"🔍 ROBOT POSITIONS AFTER MANUAL RESET (R/N): {actual_positions[:6]}")
+                # print(f"Expected: [0.0, -1.7, 1.5, 1.6, -1.7, 0.0]")
+
                 if start_record_state == True:
                     if args_cli.record:
                         print("Stop Recording!!!")
@@ -199,8 +231,10 @@ def main():
                 if start_record_state == False:
                     if args_cli.record:
                         print("Start Recording!!!")
-                    start_record_state = True
+                    start_record_state = True              
+                
                 env.step(actions)
+     
             if rate_limiter:
                 rate_limiter.sleep(env)
 

@@ -14,29 +14,28 @@
 # limitations under the License.
 
 import os
-from typing import Any
-import isaaclab.sim as sim_utils
-from isaaclab.assets import AssetBaseCfg, RigidObjectCfg, ArticulationCfg
-from isaaclab.sensors import  TiledCameraCfg
-from isaaclab.utils import configclass
-from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 # Import the base robot configuration
 from dataclasses import MISSING
+from typing import Any
+
 # from . import mdp
 import isaaclab.envs.mdp as mdp
+import isaaclab.sim as sim_utils
 import torch
-
-from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg as RecordTerm
+from isaaclab.actuators import ImplicitActuatorCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
+from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg as RecordTerm
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.actuators import ImplicitActuatorCfg
+from isaaclab.sensors import TiledCameraCfg
+from isaaclab.utils import configclass
+from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 from leisaac.devices.action_process import init_action_cfg, preprocess_device_action
-
 
 ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
 
@@ -84,7 +83,7 @@ SOARM101_CFG = ArticulationCfg(
         "gripper": ImplicitActuatorCfg(
             joint_names_expr=["gripper"],
             effort_limit=12.0,   
-            velocity_limit=16.0,   
+            velocity_limit=31.4,   
             stiffness=80.0,       
             damping=50.0,         
         ),
@@ -106,7 +105,7 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
 
     wrist = TiledCameraCfg(
         prim_path="{ENV_REGEX_NS}/robot/gripper/wrist_camera",
-        offset=TiledCameraCfg.OffsetCfg(pos=(-0.001, 0.15, -0.04), rot=(-0.404379, -0.912179, -0.0451242, 0.0486914), convention="ros"), # wxyz
+        offset=TiledCameraCfg.OffsetCfg(pos=(-0.0025, 0.15, -0.042), rot=(0.403750, 0.908425, 0.062612, -0.088482), convention="ros"), # wxyz
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=12.0,
@@ -122,7 +121,7 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
 
     room:TiledCameraCfg = TiledCameraCfg(
         prim_path="{ENV_REGEX_NS}/room_camera",
-        offset=TiledCameraCfg.OffsetCfg(pos=(0.05, 0.1, 0.6), rot=(0.0, 0.7071, -0.7071, 0.0), convention="ros"),
+        offset=TiledCameraCfg.OffsetCfg(pos=(0.1, 0.08, 0.58), rot=(0.0, 0.7071, -0.7071, 0.0), convention="ros"),
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(
             focal_length=12.0,
@@ -139,12 +138,12 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
     table = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Table",
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=(-0.4,-0.1, 0.0),  # Table at origin
+            pos=(0.0, -0.1, 0.0),  # Table at origin
             rot=(1.0, 0.0, 0.0, 0.0),  # Keep table upright
         ),
         spawn=sim_utils.UsdFileCfg(
             usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table_instanceable.usd",
-            scale=(1.90, 1.90, 1.0), 
+            scale=(1.0, 2.0, 1.0), 
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False,
                 max_depenetration_velocity=5.0,
@@ -157,26 +156,26 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
     scissors = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/SurgicalScissors",
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(-0.02, 0.05, 0.00),
+            pos=(0.07, 0.07, 0.00),
             rot=(0.707, 0, 0, 0.707),
         ),
         spawn=sim_utils.UsdFileCfg(
             usd_path=os.path.join(ASSETS_DIR, "SurgicalScissors.usd"), 
-            scale=(0.006, 0.006, 0.010), 
-            visual_material=sim_utils.PreviewSurfaceCfg(
-                diffuse_color=(0.4, 0.4, 0.4),
-                metallic=0.8,
-                roughness=0.3,
-            ),
+            scale=(0.006, 0.0065, 0.012), 
+            # visual_material=sim_utils.PreviewSurfaceCfg(
+            #     diffuse_color=(0.45, 0.45, 0.45),
+            #     metallic=0.75,
+            #     roughness=0.30,
+            # ),
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False,
-                max_depenetration_velocity=5.0,
-                solver_position_iteration_count=4,   
+                # max_depenetration_velocity=5.0,
+                # solver_position_iteration_count=4,   
             ),
-            collision_props=sim_utils.CollisionPropertiesCfg(
-                contact_offset=0.005,    
-                rest_offset=0.001,      
-            ),
+            # collision_props=sim_utils.CollisionPropertiesCfg(
+            #     contact_offset=0.005,    
+            #     rest_offset=0.001,      
+            # ),
             mass_props=sim_utils.MassPropertiesCfg(
                 mass=0.1,  
             ),
@@ -186,16 +185,16 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
     tray = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/SurgicalTray",
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.0,  0.25, 0.012),
+            pos=(0.06,  0.3, 0.012),
             rot=(0.5, 0.5, 0.5, 0.5),  
         ),
         spawn=sim_utils.UsdFileCfg(
             usd_path=os.path.join(ASSETS_DIR, "SurgicalTray.usd"),
-            scale=(0.75, 0.75, 0.4), 
+            scale=(0.7, 0.75, 0.18), 
             visual_material=sim_utils.PreviewSurfaceCfg(
-                diffuse_color=(0.4, 0.4, 0.4), # Silver appearance
+                diffuse_color=(0.5, 0.5, 0.5), # Silver appearance
                 metallic=0.8,
-                roughness=0.15,
+                roughness=0.25,
             ),
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False,  
@@ -249,7 +248,7 @@ class EventCfg:
         },
     )
     # reset to default scene
-    reset_all = EventTerm(func=mdp.reset_scene_to_default, mode="reset")
+    reset_all = EventTerm(func=mdp.reset_scene_to_default, mode="reset")  
     
     # Reset scissors to initial position
     reset_scissors = EventTerm(
@@ -305,13 +304,14 @@ class TerminationsCfg:
     """Configuration for the termination"""
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
 
-    success = DoneTerm(func=mdp.task_done, params={
-        "oranges_cfg": [SceneEntityCfg("Orange001"), SceneEntityCfg("Orange002"), SceneEntityCfg("Orange003")],
-        "plate_cfg": SceneEntityCfg("Plate")
-    })
+    # success = DoneTerm(func=mdp.task_done, params={
+    #     "scissors_cfg": SceneEntityCfg("scissors"),
+    #     "tray_cfg": SceneEntityCfg("tray")
+    # })
+    # Note: Using manual success termination via 'N' key in teleoperation instead
 
 @configclass
-class SurgeryEnvCfg(ManagerBasedRLEnvCfg):
+class ScrubNurseEnvCfg(ManagerBasedRLEnvCfg):
     """Configuration for the pick orange environment."""
 
     scene: SoArm101TableSceneCfg = SoArm101TableSceneCfg(env_spacing=4.0)
