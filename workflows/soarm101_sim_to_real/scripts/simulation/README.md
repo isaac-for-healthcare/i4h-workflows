@@ -81,7 +81,7 @@ python scripts/real_to_sim_teleoperation.py --port 8888
 **Record datasets**
 ```bash
 python environments/teleoperation_record.py \
-    --task=SO101-Surgery-v0 \
+    --task=SO101-Scrub-Nurse-v0 \
     --teleop_device=so101leader \
     --port=/dev/ttyACM1 \
     --num_envs=1 \
@@ -89,4 +89,21 @@ python environments/teleoperation_record.py \
     --enable_cameras \
     --record \
     --dataset_file=<path_to_save_dataset>
+```
+
+**Replay datasets**
+```bash
+python environments/replay_soarm101_recording.py <path_to_save_dataset> --enable_cameras
+```
+
+**Validate by DDS**
+```bash
+python policy_runner/run_policy.py \
+    --ckpt_path=<path_to_checkpoints_folder> \
+    --task_description="Grip the scissors and put it into the tray" \
+    --policy=gr00tn1.5 
+```
+
+```bash
+python environments/sim_with_dds.py --enable_cameras
 ```

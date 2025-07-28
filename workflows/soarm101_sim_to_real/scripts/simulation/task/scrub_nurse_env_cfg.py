@@ -32,7 +32,7 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sensors import TiledCameraCfg
+from isaaclab.sensors import TiledCameraCfg, CameraCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 from leisaac.devices.action_process import init_action_cfg, preprocess_device_action
@@ -49,7 +49,7 @@ SOARM101_CFG = ArticulationCfg(
             disable_gravity=False,
         ),
         collision_props=sim_utils.CollisionPropertiesCfg(
-            contact_offset=0.01,    
+            contact_offset=0.005,    
             rest_offset=0.001,      
         ),
         articulation_props=sim_utils.ArticulationRootPropertiesCfg(
@@ -68,7 +68,7 @@ SOARM101_CFG = ArticulationCfg(
             "elbow_flex": 0.0,    
             "wrist_flex": 0.0,     
             "wrist_roll": 0.0,    
-            "gripper": 0.0,     
+            "gripper": 0.0,       
         },
         joint_vel={".*": 0.0},
     ),
@@ -85,7 +85,7 @@ SOARM101_CFG = ArticulationCfg(
             effort_limit=12.0,   
             velocity_limit=31.4,   
             stiffness=80.0,       
-            damping=50.0,         
+            damping=10.0,         
         ),
     },
 )
@@ -103,28 +103,30 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
 
     robot = SOARM101_CFG.replace(prim_path="{ENV_REGEX_NS}/robot")
 
-    wrist = TiledCameraCfg(
-        prim_path="{ENV_REGEX_NS}/robot/gripper/wrist_camera",
-        offset=TiledCameraCfg.OffsetCfg(pos=(-0.0025, 0.15, -0.042), rot=(0.403750, 0.908425, 0.062612, -0.088482), convention="ros"), # wxyz
+    wrist = CameraCfg(
+        prim_path="{ENV_REGEX_NS}/robot/gripper/visuals/pcb_board_36x36/Camera",
+        # prim_path="{ENV_REGEX_NS}/robot/gripper/wrist_camera",
+        # offset=CameraCfg.OffsetCfg(pos=(-0.001, 0.15, -0.045), rot=(0.403750, 0.908425, 0.062612, -0.088482), convention="ros"), # wxyz
         data_types=["rgb"],
-        spawn=sim_utils.PinholeCameraCfg(
-            focal_length=12.0,
-            focus_distance=100.0,
-            horizontal_aperture=20.955,
-            clipping_range=(0.1, 1.0e5),
-            lock_camera=True
-        ),
+        # spawn=sim_utils.PinholeCameraCfg(
+        #     focal_length=12.0,
+        #     focus_distance=100.0,
+        #     horizontal_aperture=20.955,
+        #     clipping_range=(0.1, 1.0e5),
+        #     lock_camera=True
+        # ),
+        spawn=None,
         width=640,
         height=480,
         update_period=1 / 30.0, # 30FPS
     )
 
     room:TiledCameraCfg = TiledCameraCfg(
-        prim_path="{ENV_REGEX_NS}/room_camera",
-        offset=TiledCameraCfg.OffsetCfg(pos=(0.1, 0.08, 0.58), rot=(0.0, 0.7071, -0.7071, 0.0), convention="ros"),
+        prim_path="{ENV_REGEX_NS}/RoomCamera",
+        offset=TiledCameraCfg.OffsetCfg(pos=(0.12, 0.08, 0.5), rot=(0.0, 0.7071, -0.7071, 0.0), convention="ros"),
         data_types=["rgb"],
         spawn=sim_utils.PinholeCameraCfg(
-            focal_length=12.0,
+            focal_length=16.0,
             focus_distance=100.0,
             horizontal_aperture=20.955,
             clipping_range=(0.1, 1.0e5),
@@ -156,7 +158,7 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
     scissors = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/SurgicalScissors",
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.07, 0.07, 0.00),
+            pos=(0.12, -0.02, 0.0),
             rot=(0.707, 0, 0, 0.707),
         ),
         spawn=sim_utils.UsdFileCfg(
@@ -172,10 +174,10 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
                 # max_depenetration_velocity=5.0,
                 # solver_position_iteration_count=4,   
             ),
-            # collision_props=sim_utils.CollisionPropertiesCfg(
-            #     contact_offset=0.005,    
-            #     rest_offset=0.001,      
-            # ),
+            collision_props=sim_utils.CollisionPropertiesCfg(
+                contact_offset=0.005,    
+                rest_offset=0.001,      
+            ),
             mass_props=sim_utils.MassPropertiesCfg(
                 mass=0.1,  
             ),
@@ -185,12 +187,12 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
     tray = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/SurgicalTray",
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(0.06,  0.3, 0.012),
+            pos=(0.12,  0.25, 0.012),
             rot=(0.5, 0.5, 0.5, 0.5),  
         ),
         spawn=sim_utils.UsdFileCfg(
             usd_path=os.path.join(ASSETS_DIR, "SurgicalTray.usd"),
-            scale=(0.7, 0.75, 0.18), 
+            scale=(0.7, 0.7, 0.18), 
             visual_material=sim_utils.PreviewSurfaceCfg(
                 diffuse_color=(0.5, 0.5, 0.5), # Silver appearance
                 metallic=0.8,
@@ -225,7 +227,6 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
     )
 
 
-
 @configclass
 class ActionsCfg:
     """Configuration for the actions."""
@@ -250,24 +251,35 @@ class EventCfg:
     # reset to default scene
     reset_all = EventTerm(func=mdp.reset_scene_to_default, mode="reset")  
     
-    # Reset scissors to initial position
+    # Reset scissors with small randomization
     reset_scissors = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
-            "pose_range": {},  # No randomization, just reset to initial position
-            "velocity_range": {},
+            "pose_range": {
+                "x": (-0.015, 0.015),  # ±2cm in X
+                "y": (-0.01, 0.015),  # ±2cm in Y  
+                "z": (-0.0, 0.0),  
+                "roll": (-0.0, 0.0),    
+                "pitch": (-0.0, 0.0),   
+                "yaw": (-0.15, 0.15),     
+            },
+            "velocity_range": { },
             "asset_cfg": SceneEntityCfg("scissors"),
         },
     )
     
-    # Reset tray to initial position  
+    # Reset tray with small randomization  
     reset_tray = EventTerm(
         func=mdp.reset_root_state_uniform,
         mode="reset",
         params={
-            "pose_range": {},  # No randomization, just reset to initial position
-            "velocity_range": {},
+            "pose_range": {
+                "x": (-0.015, 0.005), 
+                "y": (-0.005, 0.015),  
+                "z": (0.00, 0.00), 
+            },
+            "velocity_range": { },
             "asset_cfg": SceneEntityCfg("tray"),
         },
     )

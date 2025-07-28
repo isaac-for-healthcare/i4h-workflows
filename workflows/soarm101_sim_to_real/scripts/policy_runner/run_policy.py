@@ -128,7 +128,7 @@ def main():
         os.environ["RTI_LICENSE_FILE"] = args.rti_license_file
 
 
-    hz = 30
+    hz = 60
 
     class PolicyPublisher(Publisher):
         def __init__(self, topic: str, domain_id: int):
@@ -147,7 +147,7 @@ def main():
                 wrist_img=np.array(wrist_img),
                 current_state=np.array(joint_pos[:6]),
             )
-            # print(f"Actions: {actions}")
+            # print(f"Actions: {actions * np.pi / 180}")
             i = SOARM101CtrlInput()
             
             # if run with absolute positions, need to add the current joint positions

@@ -39,10 +39,6 @@ parser.add_argument("--record", action="store_true", default=False, help="whethe
 parser.add_argument("--step_hz", type=int, default=60, help="Environment stepping rate in Hz.")
 parser.add_argument("--dataset_file", type=str, default="./datasets/dataset.hdf5", help="File path to export recorded demos.")
 parser.add_argument("--num_demos", type=int, default=0, help="Number of demonstrations to record. Set to 0 for infinite.")
-parser.add_argument("--print_data", action="store_true", default=False, help="Print detailed recorded data during teleoperation")
-parser.add_argument("--print_frequency", type=int, default=20, help="Print data every N steps when --print_data is enabled")
-parser.add_argument("--monitor_hdf5", action="store_true", default=False, help="Monitor HDF5 data being written (slower)")
-
 parser.add_argument("--recalibrate", action="store_true", default=False, help="recalibrate SO101-Leader")
 
 # append AppLauncher cli args
@@ -186,7 +182,6 @@ def main():
     current_recorded_demo_count = 0
 
     start_record_state = False
-    step_counter = 0  # Add step counter for detailed logging
 
     # simulate environment
     while simulation_app.is_running():
@@ -203,7 +198,6 @@ def main():
             if should_reset_recording_instance:
                 env.reset()
                 should_reset_recording_instance = False
-                step_counter = 0  # Reset step counter
                 
                 # MANUAL RESET: Force robot to surgical pose when R/N is pressed
                 actual_positions = manual_reset_robot_pose(env)

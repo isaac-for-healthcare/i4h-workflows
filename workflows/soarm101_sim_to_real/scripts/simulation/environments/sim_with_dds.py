@@ -29,7 +29,6 @@ from isaaclab.app import AppLauncher
 from simulation.environments.state_machine.utils import (
     capture_camera_images,
     get_joint_states,
-    get_robot_obs,
     validate_hdf5_path,
 )
 
@@ -123,8 +122,40 @@ pub_data = {
     "wrist_cam": None,
     "joint_pos": None,
 }
-hz = 30
+hz = 60
 
+ISAACLAB_JOINT_POS_LIMIT_RANGE = [
+    (-110.0, 110.0),
+    (-100.0, 100.0),
+    (-100.0, 90.0),
+    (-95.0, 95.0),
+    (-160.0, 160.0),
+    (-10, 100.0),
+]
+LEROBOT_JOINT_POS_LIMIT_RANGE = [
+    (-100, 100),
+    (-100, 100),
+    (-100, 100),
+    (-100, 100),
+    (-100, 100),
+    (0, 100),
+]
+
+def preprocess_joint_pos(joint_pos: np.ndarray) -> np.ndarray:
+    joint_pos  = joint_pos / np.pi * 180
+    for i in range(6):
+        isaaclab_min, isaaclab_max = ISAACLAB_JOINT_POS_LIMIT_RANGE[i]
+        lerobot_min, lerobot_max = LEROBOT_JOINT_POS_LIMIT_RANGE[i]
+        joint_pos[:, i] = (joint_pos[:, i] - isaaclab_min) / (isaaclab_max - isaaclab_min) * (lerobot_max - lerobot_min) + lerobot_min
+    return joint_pos
+
+def postprocess_joint_pos(joint_pos: np.ndarray) -> np.ndarray:
+    for i in range(6):
+        isaaclab_min, isaaclab_max = ISAACLAB_JOINT_POS_LIMIT_RANGE[i]
+        lerobot_min, lerobot_max = LEROBOT_JOINT_POS_LIMIT_RANGE[i]
+        joint_pos[:, i] = (joint_pos[:, i] - lerobot_min) / (lerobot_max - lerobot_min) * (isaaclab_max - isaaclab_min) + isaaclab_min
+    joint_pos = joint_pos / 180 * np.pi
+    return joint_pos
 
 class RoomCamPublisher(Publisher):
     def __init__(self, topic: str, domain_id: int, rgb: bool = True):
@@ -216,7 +247,7 @@ def main():
             raise ValueError("RTI license file must be an existing absolute path.")
         os.environ["RTI_LICENSE_FILE"] = args_cli.rti_license_file
 
-    max_timesteps = 500
+    max_timesteps = 1000
     action_dim = 6
 
     reset_to_recorded_data = False
@@ -252,10 +283,14 @@ def main():
 
                     pub_data["room_cam"], = (rgb_images[0, 0, ...].cpu().numpy(),)
                     pub_data["wrist_cam"], = (rgb_images[0, 1, ...].cpu().numpy(),)
-                    pub_data["joint_pos"] = get_joint_states(env)[0]
-                    # print(f"pub data joint_pos: {pub_data['joint_pos']}")
-                    
-                    robot_obs.append(get_robot_obs(env))
+                    joint_pos = get_joint_states(env)[0]
+                    # print(f"pub data joint_pos: {joint_pos}")
+
+                    if joint_pos.ndim == 1:
+                        joint_pos = joint_pos.reshape(1, -1)
+                    processed_joint_pos = preprocess_joint_pos(joint_pos) # rads to degrees
+                    pub_data["joint_pos"] = processed_joint_pos.flatten()
+                    # print(f"pub data joint_pos: {pub_data['joint_pos']}") # should equal to current joint pos in policy runner
 
                     if not action_plan:
                         # publish the images and joint positions when run policy inference
@@ -276,9 +311,14 @@ def main():
                         # print(f"Action plan size: {len(action_plan)}")
 
                     action = action_plan.popleft()
-                    action = action.astype(np.float32) * np.pi / 180.0
+                    # Ensure action is 2D for postprocess_joint_pos function
+                    if action.ndim == 1:
+                        action = action.reshape(1, -1)
+                    action = postprocess_joint_pos(action)
+                    # Flatten back to 1D for torch tensor conversion
+                    action = action.flatten().astype(np.float32) 
                     action = torch.tensor(action, device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
-                    # print(f"Action: {action}")
+                    print(f"Action: {action}")    
                     obs, rew, terminated, truncated, info_ = env.step(action)
 
                 env.reset()

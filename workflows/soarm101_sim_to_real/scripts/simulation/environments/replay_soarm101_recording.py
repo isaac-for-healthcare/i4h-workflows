@@ -17,6 +17,7 @@ from isaaclab.app import AppLauncher
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 import task
+
 # Add argparse arguments
 parser = argparse.ArgumentParser(description="Replay SoArm101 recorded demonstrations")
 parser.add_argument("dataset_file", type=str, default="", help="Path to the recorded HDF5 dataset file")
@@ -37,12 +38,7 @@ parser.add_argument(
     default=None,
     help="Action key to use from dataset (default: 'actions')"
 )
-parser.add_argument(
-    "--print_frequency", 
-    type=int, 
-    default=20,
-    help="Print action data every N steps (default: 20)"
-)
+
 
 # Append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
@@ -176,8 +172,6 @@ def main():
 
     # Parse environment configuration
     env_cfg = parse_env_cfg(env_name, device=args_cli.device, num_envs=num_envs)
-    
-    # Apply teleop configuration for proper initialization
     env_cfg.use_teleop_device("so101leader")
     
     # Disable recorders and terminations for replay
@@ -186,7 +180,6 @@ def main():
 
     # Create environment
     env = gym.make(env_name, cfg=env_cfg).unwrapped
-    print(f"Action printing every {args_cli.print_frequency} steps")
 
     # Reset environment once
     env.reset()
@@ -234,9 +227,7 @@ def main():
                     if action.dim() == 1:
                         action = action.unsqueeze(0)
                           
-                    # Step environment
                     obs, rewards, terminated, truncated, info = env.step(action)
-
                     rate_limiter.sleep(env)
                     
                     
