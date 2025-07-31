@@ -128,7 +128,7 @@ For the Docker version and NVIDIA driver version, follow the links below to upgr
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) 1.17.5+
 
 #### Communication Middleware
-- **RTI Connext Data Distribution Service (DDS)**: Professional or evaluation license ([obtain here](https://www.rti.com/free-trial))
+- **RTI Connext Data Distribution Service (DDS)**: [RTI Connext Express](https://content.rti.com/l/983311/2025-07-08/q5x1n8) to provide access to the DDS. To obtain a license/activation key, please [click here](https://content.rti.com/l/983311/2025-07-25/q6729c). Please see the [usage rules](https://www.rti.com/products/connext-express) for Connext Express.
 
 ### Common Setup
 
