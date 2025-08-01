@@ -79,7 +79,7 @@ This physics-based approach enables the generation of highly realistic synthetic
 - **Conda**: Miniconda or Anaconda ([installation guide](https://www.anaconda.com/docs/getting-started/miniconda/install))
 
 #### Communication Middleware
-- **RTI Connext DDS**: Professional or evaluation license ([obtain here](https://www.rti.com/free-trial))
+- **RTI Connext Data Distribution Service (DDS)**: [RTI Connext Express](https://content.rti.com/l/983311/2025-07-08/q5x1n8) to provide access to the DDS. To obtain a license/activation key, please [click here](https://content.rti.com/l/983311/2025-07-25/q6729c). Please see the [usage rules](https://www.rti.com/products/connext-express) for Connext Express.
 
 ---
 
@@ -261,7 +261,7 @@ Install CUDA from [NVIDIA CUDA Quick Start Guide](https://docs.nvidia.com/cuda/c
 ```
 
 #### 3️⃣ RTI DDS License Configuration
-1. Register at [RTI Website](https://www.rti.com/products)
+1. Obtain a license/activation key, please [click here](https://content.rti.com/l/983311/2025-07-25/q6729c)
 2. Download license file
 3. Configure environment variable:
 ```bash
