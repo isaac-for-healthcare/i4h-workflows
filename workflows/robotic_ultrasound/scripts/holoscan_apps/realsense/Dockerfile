@@ -29,3 +29,4 @@ RUN apt update \
 
 # Add schemas directory to PYTHONPATH to enable importing operators
 ENV PYTHONPATH=$PYTHONPATH:/workspace/holohub:/workspace/holohub/workflows/robotic_ultrasound/scripts
+ENV RTI_LICENSE_FILE=/workspace/holohub/rti_license.dat

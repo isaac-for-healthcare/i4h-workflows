@@ -45,3 +45,4 @@ RUN pip install rti.connext Pillow
 ENV PYTHONPATH=$PYTHONPATH:/workspace/holohub:/workspace/holohub/workflows/robotic_ultrasound/scripts
 ENV PYTHONPATH=$PYTHONPATH:/workspace/holohub/build/clarius_solum/holoscan_i4h/operators/clarius_solum
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/workspace/holohub/build/clarius_solum/_deps/clarius_solum-src
+ENV RTI_LICENSE_FILE=/workspace/holohub/rti_license.dat
