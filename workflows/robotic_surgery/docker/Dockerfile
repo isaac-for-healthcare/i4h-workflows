@@ -61,6 +61,7 @@ RUN mkdir -p ~/miniconda3 && \
     bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3 && \
     rm ~/miniconda3/miniconda.sh && \
     source ~/miniconda3/bin/activate && \
+    conda tos accept && \
     conda init --all && \
     conda create -n robotic_surgery python=3.10.14 -y
 
