@@ -1,0 +1,10 @@
+SimpleITK
+numpy
+vtk
+monai
+trimesh
+matplotlib
+usd-core
+nibabel
+itk
+scipy

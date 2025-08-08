@@ -73,7 +73,7 @@ python -m monai.bundle run --config_file configs/inference_all.json
 
 Install Slicer SDK or another application to view the CT data and labelmap.
 
-![MAISI_CT_data](images/Slicer_view_SDG.png)
+![MAISI_CT_data](../../../docs/source/Slicer_view_SDG.png)
 
 ---
 
@@ -115,11 +115,30 @@ The tool implements the complete conversion workflow:
 
 ## 🛠️ Setup NRRD to USD Converter Tool
 
-To set up the environment and install all required dependencies for the CT-to-USD conversion workflow, run the following commands in your terminal.
+This project includes an `environment.yml` file for easy conda environment setup. To set up the environment and install all required dependencies for the CT-to-USD conversion workflow, you have two options:
+
+### Option 1: Use Existing i4h-workflows Conda Environment
+
+If you already have the i4h-workflows conda environment set up, you can install the dependencies directly:
 
 ```bash
-cd tutorials/assets/CT_to_USD && uv sync
+# Activate the existing i4h environment
+conda activate i4h
+
+# Install dependencies from requirements.txt
+pip install -r requirements.txt
 ```
+
+### Option 2: Create a New Dedicated Conda Environment
+
+Create a dedicated environment for the CT-to-USD converter:
+
+```bash
+# Create and activate new environment
+conda env create -f environment.yml
+conda activate ct-to-usd-converter
+```
+
 
 
 ### 1️⃣ **NRRD to NIfTI Conversion**
@@ -146,8 +165,13 @@ cd tutorials/assets/CT_to_USD && uv sync
 
 **Basic Command:**
 ```bash
-uv run python utils/converter.py /path/to/your/ct_folder
+# Make sure your conda environment is activated first
+conda activate ct-to-usd-converter  # or conda activate i4h
+
+# Then run the converter
+python utils/converter.py /path/to/your/ct_folder
 ```
+
 
 ### 📁 Output Structure
 

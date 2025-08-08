@@ -26,20 +26,14 @@ vtk.vtkOutputWindow().SetGlobalWarningDisplay(0)  # Suppress VTK warnings
 # Set environment for headless rendering if no display is available
 if not os.environ.get("DISPLAY"):
     os.environ["DISPLAY"] = ":0"
-try:
-    from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
-    PXR_AVAILABLE = True
-except ImportError:
-    PXR_AVAILABLE = False
-    print("Warning: pxr module not available. USD conversion will not work.")
-    print("To install USD, try: conda install -c conda-forge usd")
 import colorsys
 import random
 
 import matplotlib.pyplot as plt
 import numpy as np
 import trimesh
+from pxr import Gf, Sdf, Usd, UsdGeom, UsdShade
 
 
 def convert_to_mesh(
@@ -209,10 +203,6 @@ def convert_mesh_to_usd(input_file, output_file):
     """
     convert a mesh file to USD format
     """
-    if not PXR_AVAILABLE:
-        print("Error: pxr module not available. Cannot convert to USD format.")
-        print("To install USD, try: conda install -c conda-forge usd")
-        return
 
     # Load the mesh
     mesh = trimesh.load(input_file)

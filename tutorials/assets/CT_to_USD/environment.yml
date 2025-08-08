@@ -1,0 +1,12 @@
+name: ct-to-usd-converter
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - scipy
+  - matplotlib
+  - pip
+  - pip:
+    - -r requirements.txt
