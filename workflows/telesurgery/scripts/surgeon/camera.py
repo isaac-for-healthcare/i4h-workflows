@@ -96,13 +96,13 @@ class App(Application):
             self.add_flow(dds, split_op, {("output", "input")})
             self.add_flow(split_op, merge_op, {("output", "input")})
             self.add_flow(split_op, decoder_op, {("image", "input")})
-            if self.is_3d_input:
-                self.add_flow(decoder_op, merge_side_by_side_op, {("output", "image")})
-                self.add_flow(merge_side_by_side_op, merge_op, {("output", "image")})
-            else:
-                self.add_flow(decoder_op, merge_op, {("output", "image")})
+            self.add_flow(decoder_op, merge_op, {("output", "image")})
             self.add_flow(merge_op, stats, {("output", "input")})
-            self.add_flow(decoder_op, viz, {("output", "receivers")})
+            if self.is_3d_input:
+                self.add_flow(decoder_op, merge_side_by_side_op, {("output", "input")})
+                self.add_flow(merge_side_by_side_op, viz, {("output", "receivers")})
+            else:
+                self.add_flow(decoder_op, viz, {("output", "receivers")})
         else:
             self.add_flow(dds, decoder_op, {("output", "input")})
             self.add_flow(decoder_op, stats, {("output", "input")})
