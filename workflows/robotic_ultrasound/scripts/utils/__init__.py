@@ -12,20 +12,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from i4h_asset_helper import BaseI4HAssets
-
-
-class Assets(BaseI4HAssets):
-    """Assets manager for the robotic ultrasound workflow."""
-
-    basic = "Test/basic.usda"
-    panda = "Robots/Franka/Collected_panda_assembly/panda_assembly.usda"
-    phantom = "Props/ABDPhantom/phantom.usda"
-    table_with_cover = "Props/VentionTableWithBlackCover/table_with_cover.usd"
-    policy_ckpt = "Policies/LiverScan/Pi0_Cosmos_Rel"
-    organs = "Props/ABDPhantom/Organs"
-
-
-# singleton object for the assets
-robotic_ultrasound_assets = Assets()

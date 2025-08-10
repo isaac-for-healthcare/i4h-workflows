@@ -1,36 +1,39 @@
-# Simulation LiveStream from Remote Docker Container
+# Robotic Ultrasound Docker Container
 
-This document describes how to run the simulation in a remote docker container and stream the simulation to a local machine.
+This guide provides instructions for running robotic ultrasound simulations using Docker containers with Isaac Sim.
 
 ## Prerequisites
 
-Please refer to [Livestream Clients Guide in Isaac Sim](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/manual_livestream_clients.html#isaac-sim-short-webrtc-streaming-client) and download [Isaac Sim WebRTC Streaming Client](https://docs.isaacsim.omniverse.nvidia.com/latest/installation/download.html#isaac-sim-latest-release)
+- **Docker Engine**
+- **NVIDIA Docker Runtime**
+- **X11 forwarding** support (for GUI mode)
+- **RTI License**
+   - Please refer to the [Environment Setup](../README.md#environment-setup) for instructions to prepare the I4H assets and RTI license locally.
+   - The license file `rti_license.dat` should be saved in a directory in your host file system, (e.g. `~/docker/rti`), which can be mounted to the docker container.
 
-## Build Docker Image
+## Build the Docker Image
 
-To build the docker image, you will need to set up the SSH agent and add your SSH key to the agent, so that the docker build process can access the private repository.
-
-```bash
-export DOCKER_BUILDKIT=1
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519  # Replace with your SSH key
-docker build --ssh default -f workflows/robotic_ultrasound/docker/Dockerfile -t robot_us:latest .
+```sh
+# Clone the repository
+git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
+cd i4h-workflows
+docker build --no-cache -f workflows/robotic_ultrasound/docker/Dockerfile -t robotic_us:latest .
 ```
 
-## Prepare the RTI License Locally
-
-Please refer to the [Environment Setup](../README.md#environment-setup) for instructions to prepare the I4H assets and RTI license locally.
-
-The license file `rti_license.dat` should be saved in a directory in your host file system, (e.g. `~/docker/rti`), which can be mounted to the docker container.
-
-## Run the Container
-
-Since we need to run multiple instances (policy runner, simulation, etc.), we need to use `-d` to run the container in detached mode.
+## Running the Container
 
 ```bash
+# Allow Docker to access X11 display
 xhost +local:docker
-docker run --name isaac-sim --entrypoint bash -itd --runtime=nvidia --gpus all -e "ACCEPT_EULA=Y" --rm --network=host \
+
+# Run container with GUI support
+docker run --name isaac-sim -it --gpus all --rm \
+    --network=host \
+    --runtime=nvidia \
+    --entrypoint=bash \
     -e DISPLAY=$DISPLAY \
+    -e "OMNI_KIT_ACCEPT_EULA=Y" \
+    -e "ACCEPT_EULA=Y" \
     -e "PRIVACY_CONSENT=Y" \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
@@ -43,23 +46,68 @@ docker run --name isaac-sim --entrypoint bash -itd --runtime=nvidia --gpus all -
     -v ~/docker/isaac-sim/documents:/root/Documents:rw \
     -v ~/.cache/i4h-assets:/root/.cache/i4h-assets:rw \
     -v ~/docker/rti:/root/rti:ro \
-    robot_us:latest
+    robotic_us:latest
 ```
 
-### Run Policy
+## Running the Simulation
 
-```bash
-docker exec -it isaac-sim bash
-# Inside the container, run the policy
-python policy_runner/run_policy.py
+The command to run the simulation is the same as [Running Workflows](../README.md#running-workflows) section.
+
+For example,
+```sh
+# Inside the container
+conda activate robotic_ultrasound
+
+# Run simulation with GUI
+(python -m policy_runner.run_policy --policy pi0 & python -m simulation.environments.sim_with_dds --enable_cameras & wait)
 ```
 
-The policy runner will be running in an environment managed by `uv` located in `/workspace/openpi/.venv`.
+## Troubleshooting
 
-### Run Simulation
+### GPU Device Errors
+
+- **"Failed to create any GPU devices" or "omni.gpu_foundation_factory.plugin" errors**: This indicates GPU device access issues. Try these fixes in order:
+
+  **Verify NVIDIA drivers and container toolkit installation**:
+     ```bash
+     # Check NVIDIA driver
+     nvidia-smi
+
+     # Check Docker can access GPU
+     docker run --rm --gpus all --runtime=nvidia nvidia/cuda:12.8.1-devel-ubuntu24.04 nvidia-smi
+     ```
+   If the `--runtime=nvidia` is not working, you can try to configure Docker daemon for NVIDIA runtime. The file should contain the following content:
+     ```json
+      {
+         "default-runtime": "nvidia",
+         "runtimes": {
+            "nvidia": {
+                  "path": "nvidia-container-runtime",
+                  "runtimeArgs": []
+            }
+         }
+      }
+     ```
+
+- **Policy not responding**: Ensure the policy runner is started before the simulation and is running in the background
+
+- **No ultrasound images**: Verify that the ultrasound raytracing simulator is running
+
+- **Display issues**: Make sure `xhost +local:docker` was run before starting the container and the terminal shouldn't be running in a headless mode (e.g. in ssh connection without `-X` option)
+
+- **Missing assets**: Verify that the I4H assets and RTI license are properly mounted and accessible
+
+### Verification Commands
+
+After applying fixes, test with these commands:
 
 ```bash
-docker exec -it isaac-sim bash
-# Inside the container, run the simulation
-python simulation/environments/sim_with_dds.py --enable_camera --livestream 2
+# Test basic GPU access
+docker run --rm --gpus all nvidia/cuda:12.0-base-ubuntu20.04 nvidia-smi
+
+# Test Vulkan support
+docker run --rm --gpus all -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY robotic_us:latest vulkaninfo
+
+# Test OpenGL support
+docker run --rm --gpus all -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=$DISPLAY robotic_us:latest glxinfo | head -20
 ```

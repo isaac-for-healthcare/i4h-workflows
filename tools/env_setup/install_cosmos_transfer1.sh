@@ -31,7 +31,7 @@ if [ -d "$COSMOS_TRANSFER_DIR" ]; then
     echo "Cosmos Transfer directory already exists at $COSMOS_TRANSFER_DIR. Skipping clone."
 else
     echo "Cloning Cosmos Transfer repository into $COSMOS_TRANSFER_DIR..."
-    git clone git@github.com:nvidia-cosmos/cosmos-transfer1.git "$COSMOS_TRANSFER_DIR"
+    git clone https://github.com/nvidia-cosmos/cosmos-transfer1.git "$COSMOS_TRANSFER_DIR"
 fi
 
 pushd "$COSMOS_TRANSFER_DIR"

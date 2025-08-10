@@ -35,7 +35,7 @@ mkdir -p "$PROJECT_ROOT/third_party"
 # ---- Install IsaacSim ----
 echo "Installing IsaacSim..."
 pip install 'isaacsim[all,extscache]==4.5.0' \
-    git+ssh://git@github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0rc1 \
+    git+https://github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0 \
     --extra-index-url https://pypi.nvidia.com
 
 ISAACLAB_DIR="$PROJECT_ROOT/third_party/IsaacLab"
@@ -44,7 +44,7 @@ if [ -d "$ISAACLAB_DIR" ]; then
     echo "IsaacLab directory already exists at $ISAACLAB_DIR. Skipping clone. Will use existing."
 else
     echo "Cloning IsaacLab repository into $ISAACLAB_DIR..."
-    git clone -b v2.1.0 git@github.com:isaac-sim/IsaacLab.git "$ISAACLAB_DIR"
+    git clone -b v2.1.0 https://github.com/isaac-sim/IsaacLab.git "$ISAACLAB_DIR"
 fi
 
 # ---- Apply events_random_texture.patch patch to IsaacLab ----
@@ -84,5 +84,8 @@ pushd "$ISAACLAB_DIR"
 echo "Installing IsaacLab ..."
 yes Yes | ./isaaclab.sh --install
 popd
+
+# ---- Apply dependency package version patch ----
+pip install 'warp-lang==1.7.2'
 
 echo "IsaacSim and dependencies installed successfully!"

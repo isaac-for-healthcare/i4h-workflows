@@ -17,24 +17,26 @@
 
 set -e
 
+echo "Installing Raysim..."
+
 # Get the parent directory of the current script
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
-# Allow setting the python in PYTHON_EXECUTABLE
-PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE:-python}
 
-LEROBOT_DIR=${1:-$PROJECT_ROOT/third_party/lerobot}
+if [ -d "$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim" ]; then
+    echo "Raysim already installed. Skipping installation."
+    exit 0
+fi
 
-echo "Installing lerobot..."
-git clone https://github.com/huggingface/lerobot.git $LEROBOT_DIR
-pushd $LEROBOT_DIR
-git checkout 6674e368249472c91382eb54bb8501c94c7f0c56
+echo "Downloading Raysim..."
 
-# Update pyav dependency in pyproject.toml
-sed -i 's/pyav/av/' pyproject.toml
+wget https://github.com/isaac-for-healthcare/i4h-asset-catalog/releases/download/v0.2.0/raysim-py310-linux-v0.2.0.zip \
+    -O $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim.zip
 
-$PYTHON_EXECUTABLE -m pip install -e .
-$PYTHON_EXECUTABLE -m pip install "datasets<4.0.0"
-popd
+echo "Unzipping Raysim..."
 
-echo "Lerobot installed successfully!"
+unzip $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim.zip -d $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim
+
+rm $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim.zip
+
+echo "Raysim installed successfully."
