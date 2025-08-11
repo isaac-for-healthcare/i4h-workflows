@@ -22,7 +22,7 @@ from holohub.operators.nvidia_video_codec.utils.merge_side_by_side import MergeS
 from holohub.operators.nvjpeg.decoder import NVJpegDecoderOp
 from holohub.operators.stats import CameraStreamStats
 from holohub.operators.to_viz import CameraStreamToViz
-from holoscan.core import Application, MetadataPolicy
+from holoscan.core import Application, MetadataPolicy, Tracker
 from holoscan.operators.holoviz import HolovizOp
 from holoscan.resources import RMMAllocator, UnboundedAllocator
 from schemas.camera_stream import CameraStream
@@ -90,6 +90,7 @@ class App(Application):
             width=self.width,
             height=self.height,
             framebuffer_srgb=self.srgb,
+            use_exclusive_display=self.use_exclusive_display,
         )
 
         if self.decoder == "nvc":
@@ -121,6 +122,9 @@ def main():
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
     parser.add_argument("--srgb", type=bool, default=True, help="framebuffer srgb for viz")
     parser.add_argument("--is_3d_input", type=bool, default=False, help="is 3d input")
+    parser.add_argument("--use_exclusive_display", type=bool, default=False, help="use exclusive display")
+    parser.add_argument("--tracking_mode", type=bool, default=False, help="tracking mode")
+    parser.add_argument("--tracking_file", type=str, default="", help="tracking file")
 
     args = parser.parse_args()
     app = App(
@@ -131,8 +135,16 @@ def main():
         dds_topic=args.topic if args.topic else f"telesurgery/{args.name}_camera/rgb",
         srgb=args.srgb,
         is_3d_input=args.is_3d_input,
+        use_exclusive_display=args.use_exclusive_display,
     )
-    app.run()
+
+    if args.tracking_mode:
+        with Tracker(app, filename=args.tracking_file) as tracker:
+            app.run()
+            tracker.print()
+
+    else:
+        app.run()
 
 
 if __name__ == "__main__":

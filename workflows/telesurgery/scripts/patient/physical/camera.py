@@ -334,6 +334,8 @@ def main():
     infiniband_devices = hololink.infiniband_devices()
     parser.add_argument("--ibv-name", default=infiniband_devices[0], help="IBV device to use")
     parser.add_argument("--ibv-port", type=int, default=1, help="Port number of IBV device")
+    parser.add_argument("--tracking_mode", type=bool, default=False, help="tracking mode")
+    parser.add_argument("--tracking_file", type=str, default="", help="tracking file")
 
     args = parser.parse_args()
 
@@ -432,7 +434,12 @@ def main():
             hsb_camera.configure(hsb_camera_mode)
             hsb_camera.set_digital_gain_reg(0x4)
 
-    app.run()
+    if args.tracking_mode:
+        with Tracker(app, filename=args.tracking_file) as tracker:
+            app.run()
+            tracker.print()
+    else:
+        app.run()
 
     if hsb_hololink is not None:
         hsb_hololink.stop()
