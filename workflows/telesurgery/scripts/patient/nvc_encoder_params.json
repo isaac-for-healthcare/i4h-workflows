@@ -3,6 +3,6 @@
     "preset": "P3",
     "bitrate": 30000000,
     "frame_rate": 60,
-    "rate_control_mode": 2,
+    "rate_control_mode": 1,
     "multi_pass_encoding": 0
 }
