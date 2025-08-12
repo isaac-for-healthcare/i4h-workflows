@@ -40,6 +40,7 @@ class App(Application):
         dds_topic,
         srgb=True,
         is_3d_input=False,
+        use_exclusive_display=False,
     ):
         self.width = width
         self.height = height
@@ -48,7 +49,7 @@ class App(Application):
         self.dds_topic = dds_topic
         self.srgb = srgb
         self.is_3d_input = is_3d_input
-
+        self.use_exclusive_display = use_exclusive_display
         super().__init__()
 
     def compose(self):
