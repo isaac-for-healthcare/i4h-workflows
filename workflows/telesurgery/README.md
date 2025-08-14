@@ -55,12 +55,13 @@ For the simulation workflow, there is a virtual camera that is located on the MI
 
 
 #### Real World
-In the real world workflow, two camera types are currently supported
+In the real world workflow, four camera types are currently supported
 
 - Intel RealSense camera (can stream depth instead if supported by camera)
 - cv2-compatible camera such as USB webcams
+- [Holoscan Sensor Bridge](https://www.nvidia.com/en-us/technologies/holoscan-sensor-bridge/)(HSB) reference board with imx_274 camera
+- [YUAN-HSB](https://www.yuan.com.tw/newscontent/163) with HDMI video streaming input
 
-Future support: NVIDIA Holoscan Sensor Bridge (HSB) for low-latency video streaming.
 
 ### Displays
 
@@ -114,6 +115,7 @@ The video is encoded (default: NVIDIA Video Codec), and parameters like bitrate 
 - 50GB of disk space
 - **XBOX Controller** or **Haply Inverse 3**
 - **MIRA** robot (if running the physical workflow)
+- **HSB or YUAN HSB** board (if running with HSB) (see [HSB guide](https://docs.nvidia.com/holoscan/sensor-bridge/latest/index.html) for how to bring up)
 
 #### Software Requirements
 
@@ -178,6 +180,8 @@ git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
 workflows/telesurgery/docker/real.sh build
 ```
+> [!Note]
+> Need to set the `HSB_REPO_URL` and `HBS_BRANCH` environment variables to `https://github.com/DavidSu-Yuan/holoscan-sensor-bridge.git` and `v2.2.0-EA` when using YUAN HSB.
 
 #### 2️⃣ Running Applications
 
@@ -187,7 +191,7 @@ workflows/telesurgery/docker/real.sh build
 workflows/telesurgery/docker/real.sh run
 
 # Getting video from the camera
-python patient/physical/camera.py --camera [realsense|cv2] --name robot --width 1280 --height 720
+python patient/physical/camera.py --camera [realsense|cv2|hsb|yuan_hsb] --name robot --width <width> --height <height>
 ```
 
 ##### Surgeon Application
@@ -205,7 +209,7 @@ Run the following to receive video stream from the robot camera:
 workflows/telesurgery/docker/real.sh run
 
 # Start the Surgeon Viewer Application
-python surgeon/viewer.py --name robot --width 1280 --height 720 2> /dev/null
+python surgeon/viewer.py --name robot --width <width>> --height <height> 2> /dev/null
 ```
 
 Run the following to control the robot using a game controller:
