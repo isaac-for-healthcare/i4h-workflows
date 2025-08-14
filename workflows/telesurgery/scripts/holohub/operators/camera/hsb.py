@@ -23,7 +23,21 @@ from schemas.camera_stream import CameraStream
 
 
 class HSBToCameraStreamOp(Operator):
+    """
+
+    This operator is used to convert HSB received data to CameraStream schema.
+    It is used to convert HSB data to CameraStream schema.
+    """
+
     def __init__(self, fragment, width, height, is_nvc, *args, **kwargs):
+        """
+        Initialize the HSBToCameraStreamOp operator.
+
+        Parameters:
+        - width (int): Width of the camera stream.
+        - height (int): Height of the camera stream.
+        - is_nvc (bool): Whether the data is for nvcodec, this will be used to add alpha channel to the data.
+        """
         self.width = width
         self.height = height
         self.is_nvc = is_nvc
