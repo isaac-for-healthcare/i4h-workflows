@@ -15,7 +15,6 @@
 
 import cupy as cp
 from holoscan.core import Operator
-from schemas.camera_stream import CameraStream
 
 
 class MergeSideBySideOp(Operator):
@@ -23,6 +22,7 @@ class MergeSideBySideOp(Operator):
     Holoscan Operator to merge an up-down image in a CameraStream to a line-by-line image.
     The top half of the image is for the left eye and the bottom half is the right eye.
     """
+
     def _merge_side_by_side(self, img):
         """
         Merge an up-down image (up|down) into a line-by-line (interleaved) image using CuPy.

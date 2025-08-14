@@ -16,8 +16,8 @@
 import argparse
 import ctypes
 import json
-import os
 import logging
+import os
 
 import hololink
 from cuda import cuda
@@ -179,26 +179,30 @@ class App(Application):
                 name="pool",
                 # storage_type of 1 is device memory
                 storage_type=1,
-                block_size=self.hsb_camera._width * 3
-                * ctypes.sizeof(ctypes.c_uint8)
-                * self.hsb_camera._height,
+                block_size=self.hsb_camera._width * 3 * ctypes.sizeof(ctypes.c_uint8) * self.hsb_camera._height,
                 num_blocks=4 if not self.is_3d_input else 9,
             )
-            if not self.is_3d_input: # No 3D format convert
+            if not self.is_3d_input:  # No 3D format convert
                 hdmi_converter_operator = hololink.operators.HDMIConverterOp(
                     self,
                     name="hdmi_converter",
                     allocator=hdmi_converter_pool,
-                    cuda_device_ordinal=self.hsb_cuda_device_ordinal)
-            else: # Convert from line_by_line to side_by_side_half
-                output_3d_format = hololink.operators.HDMIConverterOp.Video3DFormat.TOP_AND_BOTTOM if self.convert_3d_to_2d_mode == 0 else hololink.operators.HDMIConverterOp.Video3DFormat.SIDE_BY_SIDE_HALF
+                    cuda_device_ordinal=self.hsb_cuda_device_ordinal,
+                )
+            else:  # Convert from line_by_line to side_by_side_half
+                output_3d_format = (
+                    hololink.operators.HDMIConverterOp.Video3DFormat.TOP_AND_BOTTOM
+                    if self.convert_3d_to_2d_mode == 0
+                    else hololink.operators.HDMIConverterOp.Video3DFormat.SIDE_BY_SIDE_HALF
+                )
                 hdmi_converter_operator = hololink.operators.HDMIConverterOp(
                     self,
                     name="hdmi_converter",
                     allocator=hdmi_converter_pool,
                     cuda_device_ordinal=self.hsb_cuda_device_ordinal,
                     input_3d_format=hololink.operators.HDMIConverterOp.Video3DFormat.LINE_BY_LINE,
-                    output_3d_format=output_3d_format)
+                    output_3d_format=output_3d_format,
+                )
 
             self.hsb_camera.configure_converter(hdmi_converter_operator)
 
@@ -216,7 +220,9 @@ class App(Application):
                 hololink_channel=self.hsb_hololink_channel,
                 device=self.hsb_camera,
             )
-            source = HSBToCameraStreamOp(self, name="hsb", width=self.width, height=self.height, is_nvc = self.encoder == "nvc")
+            source = HSBToCameraStreamOp(
+                self, name="hsb", width=self.width, height=self.height, is_nvc=self.encoder == "nvc"
+            )
 
             self.add_flow(receiver_operator, hdmi_converter_operator, {("output", "input")})
             self.add_flow(hdmi_converter_operator, source, {("output", "input")})

@@ -41,7 +41,7 @@ def main():
     parser.add_argument("--api_host", type=str, default="0.0.0.0", help="local api server host")
     parser.add_argument("--api_port", type=int, default=8081, help="local api server port")
     parser.add_argument("--timeline_play", type=bool, default=True, help="play the timeline")
-    parser.add_argument("--debug", action='store_true', help="show debug output")
+    parser.add_argument("--debug", action="store_true", help="show debug output")
     args = parser.parse_args()
 
     app_launcher = AppLauncher(headless=False)

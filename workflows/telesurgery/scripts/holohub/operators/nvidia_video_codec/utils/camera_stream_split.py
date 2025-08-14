@@ -19,6 +19,7 @@ import rti.connextdds
 from holoscan.core import Operator, Tensor
 from schemas.camera_stream import CameraStream
 
+
 class CameraStreamSplitOp(Operator):
     """Operator to split a camera stream into two streams."""
 
