@@ -83,16 +83,25 @@ class App(Application):
 
         stats = CameraStreamStats(self, name="stats", interval_ms=1000)
         stream_to_viz = CameraStreamToViz(self)
-        viz = HolovizOp(
-            self,
-            allocator=UnboundedAllocator(self, name="pool"),
-            name="holoviz",
-            window_title="Camera",
-            width=self.width,
-            height=self.height,
-            framebuffer_srgb=self.srgb,
-            use_exclusive_display=self.use_exclusive_display,
-        )
+        if self.use_exclusive_display:
+            viz = HolovizOp(
+                self,
+                name="holoviz",
+                window_title="Camera",
+                vsync=True,
+                fullscreen=True,
+                use_exclusive_display=True,
+            )
+        else:
+            viz = HolovizOp(
+                self,
+                allocator=UnboundedAllocator(self, name="pool"),
+                name="holoviz",
+                window_title="Camera",
+                width=self.width,
+                height=self.height,
+                framebuffer_srgb=self.srgb,
+            )
 
         if self.decoder == "nvc":
             self.add_flow(dds, split_op, {("output", "input")})
