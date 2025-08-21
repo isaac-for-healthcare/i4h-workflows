@@ -21,10 +21,27 @@ python convert_hdf5_to_lerobot.py /path/to/your/data \
     [--repo_id REPO_ID] [--task_prompt TASK_PROMPT] [--image_shape IMAGE_SHAPE]
 
 The resulting dataset will get saved to the $LEROBOT_HOME directory.
+
+For GR00T N1 datasets, the script automatically reorganizes videos into the expected folder structure:
+├─meta
+│ ├─episodes.jsonl
+│ ├─modality.json # -> GR00T LeRobot specific
+│ ├─info.json
+│ └─tasks.jsonl
+├─videos
+│ └─chunk-000
+│   └─observation.images.room
+│     └─episode_000000.mp4
+│   └─observation.images.wrist
+│     └─episode_000000.mp4
+└─data
+  └─chunk-000
+    └─episode_000000.parquet
 """
 
 import argparse
 import glob
+import json
 import os
 import re
 import shutil
@@ -35,6 +52,219 @@ import numpy as np
 import tqdm
 from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME, LeRobotDataset
 from PIL import Image
+
+
+def reorganize_videos_for_gr00t(dataset_path):
+    """
+    Reorganizes video files to match the expected GR00T folder structure.
+
+    Expected structure:
+    videos/chunk-000/observation.images.room/episode_XXXXXX.mp4
+    videos/chunk-000/observation.images.wrist/episode_XXXXXX.mp4
+
+    Parameters:
+    - dataset_path: Path to the dataset directory
+    """
+    videos_dir = dataset_path / "videos"
+    if not videos_dir.exists():
+        print("No videos directory found, skipping reorganization.")
+        return
+
+    # Find all chunk directories
+    chunk_dirs = [d for d in videos_dir.iterdir() if d.is_dir() and d.name.startswith("chunk-")]
+
+    for chunk_dir in chunk_dirs:
+        print(f"Reorganizing videos in {chunk_dir}")
+
+        # First, let's see what the current structure looks like
+        print(f"Current structure in {chunk_dir}:")
+        for item in chunk_dir.iterdir():
+            print(f"  {item.name}")
+
+        # Find all video files recursively in the chunk directory
+        video_files = list(chunk_dir.rglob("*.mp4"))
+        print(f"Found {len(video_files)} video files")
+
+        # Group videos by episode number
+        episode_videos = {}
+        for video_file in video_files:
+            # Extract episode number from filename
+            episode_match = re.search(r"episode_(\d+)\.mp4", video_file.name)
+            if not episode_match:
+                print(f"Warning: Could not parse episode number from {video_file.name}")
+                continue
+
+            episode_num = episode_match.group(1)
+            if episode_num not in episode_videos:
+                episode_videos[episode_num] = []
+            episode_videos[episode_num].append(video_file)
+
+        # For each episode, organize the videos by feature type
+        for episode_num, videos in episode_videos.items():
+            print(f"Processing episode {episode_num} with {len(videos)} videos")
+
+            # Sort videos to ensure consistent ordering (room first, wrist second)
+            videos.sort()
+
+            # Map videos to feature keys
+            feature_mapping = {0: "observation.images.room", 1: "observation.images.wrist"}
+
+            for i, video_file in enumerate(videos):
+                if i in feature_mapping:
+                    feature_key = feature_mapping[i]
+
+                    # Create the feature directory
+                    feature_dir = chunk_dir / feature_key
+                    feature_dir.mkdir(exist_ok=True)
+
+                    # Move the video file to the correct location
+                    target_path = feature_dir / f"episode_{int(episode_num):06d}.mp4"
+                    if video_file != target_path:
+                        shutil.move(str(video_file), str(target_path))
+                        print(f"Moved {video_file.name} to {target_path}")
+                else:
+                    print(f"Warning: No feature mapping for video {i} in episode {episode_num}")
+
+        # Clean up any empty directories that might be left behind
+        for item in chunk_dir.iterdir():
+            if item.is_dir() and not any(item.iterdir()):
+                try:
+                    item.rmdir()
+                    print(f"Removed empty directory: {item}")
+                except OSError:
+                    pass  # Directory might not be empty or might have hidden files
+
+
+def update_episode_metadata_for_gr00t(dataset_path):
+    """
+    Updates the episodes.jsonl file to reflect the correct video paths after reorganization.
+
+    Parameters:
+    - dataset_path: Path to the dataset directory
+    """
+    episodes_file = dataset_path / "meta" / "episodes.jsonl"
+    if not episodes_file.exists():
+        print("No episodes.jsonl file found, skipping metadata update.")
+        return
+
+    # Read all episodes
+    episodes = []
+    with open(episodes_file, "r") as f:
+        for line in f:
+            episodes.append(json.loads(line.strip()))
+
+    # Update video paths for each episode
+    updated_episodes = []
+    for i, episode in enumerate(episodes):
+        # Try to get episode_id, but fall back to using the index if it's empty
+        episode_id = episode.get("episode_id", "")
+        if episode_id:
+            # Try to extract episode number from episode_id
+            episode_num = episode_id.replace("episode_", "")
+            try:
+                episode_num = int(episode_num)
+            except ValueError:
+                # If conversion fails, use the index
+                episode_num = i
+        else:
+            # If episode_id is empty, use the index
+            episode_num = i
+
+        # Update video paths to match the new structure
+        video_paths = {}
+        for feature_key in ["observation.images.room", "observation.images.wrist"]:
+            video_path = f"videos/chunk-000/{feature_key}/episode_{episode_num:06d}.mp4"
+            # Extract the short name for the video_paths dict
+            if "room" in feature_key:
+                video_paths["room"] = video_path
+            elif "wrist" in feature_key:
+                video_paths["wrist"] = video_path
+
+        # Update the episode data
+        episode["video_paths"] = video_paths
+        updated_episodes.append(episode)
+
+    # Write the updated episodes back
+    with open(episodes_file, "w") as f:
+        for episode in updated_episodes:
+            f.write(json.dumps(episode) + "\n")
+
+    print(f"✅ Updated episode metadata in {episodes_file}")
+
+
+def verify_gr00t_folder_structure(dataset_path):
+    """
+    Verifies that the dataset has the correct GR00T folder structure.
+
+    Parameters:
+    - dataset_path: Path to the dataset directory
+    """
+    print("\n🔍 Verifying GR00T folder structure...")
+
+    # Check for required directories
+    required_dirs = ["meta", "videos", "data"]
+    for dir_name in required_dirs:
+        dir_path = dataset_path / dir_name
+        if not dir_path.exists():
+            print(f"❌ Missing required directory: {dir_name}")
+            return False
+        else:
+            print(f"✅ Found directory: {dir_name}")
+
+    # Check for required meta files
+    meta_files = ["episodes.jsonl", "modality.json", "info.json", "tasks.jsonl"]
+    for file_name in meta_files:
+        file_path = dataset_path / "meta" / file_name
+        if not file_path.exists():
+            print(f"❌ Missing required meta file: {file_name}")
+            return False
+        else:
+            print(f"✅ Found meta file: {file_name}")
+
+    # Check video structure
+    videos_dir = dataset_path / "videos"
+    chunk_dirs = [d for d in videos_dir.iterdir() if d.is_dir() and d.name.startswith("chunk-")]
+
+    if not chunk_dirs:
+        print("❌ No chunk directories found in videos/")
+        return False
+
+    for chunk_dir in chunk_dirs:
+        print(f"📁 Checking chunk directory: {chunk_dir.name}")
+
+        # Check for feature directories
+        feature_dirs = ["observation.images.room", "observation.images.wrist"]
+        for feature_dir_name in feature_dirs:
+            feature_dir = chunk_dir / feature_dir_name
+            if not feature_dir.exists():
+                print(f"❌ Missing feature directory: {feature_dir_name}")
+                return False
+
+            # Check for video files
+            video_files = list(feature_dir.glob("*.mp4"))
+            if not video_files:
+                print(f"❌ No video files found in {feature_dir_name}")
+                return False
+
+            print(f"✅ Found {len(video_files)} videos in {feature_dir_name}")
+
+    # Check data structure
+    data_dir = dataset_path / "data"
+    data_chunk_dirs = [d for d in data_dir.iterdir() if d.is_dir() and d.name.startswith("chunk-")]
+
+    if not data_chunk_dirs:
+        print("❌ No chunk directories found in data/")
+        return False
+
+    for chunk_dir in data_chunk_dirs:
+        parquet_files = list(chunk_dir.glob("*.parquet"))
+        if not parquet_files:
+            print(f"❌ No parquet files found in {chunk_dir.name}")
+            return False
+        print(f"✅ Found {len(parquet_files)} parquet files in {chunk_dir.name}")
+
+    print("✅ GR00T folder structure verification completed successfully!")
+    return True
 
 
 class BaseFeatureDict:
@@ -352,6 +582,7 @@ def main(
     include_depth: bool = False,
     include_seg: bool = False,
     run_compute_stats: bool = False,
+    skip_video_reorganization: bool = False,
     **dataset_config_kwargs,
 ):
     """
@@ -465,6 +696,35 @@ def main(
     # Consolidate the dataset, skip computing stats since we will do that later
     dataset.consolidate(run_compute_stats=run_compute_stats)
 
+    # Post-process the info.json file to add the required "info" key with "video.fps" for GR00T compatibility
+    if isinstance(feature_builder, GR00TN1FeatureDict):
+        info_path = final_output_path / "meta" / "info.json"
+        with open(info_path, "r") as f:
+            info_data = json.load(f)
+
+        # Get the fps from the root level
+        fps = info_data.get("fps", 30)
+
+        # Add "info" key with "video.fps" to each video feature
+        for feature_key, feature_data in info_data["features"].items():
+            if "images" in feature_key:  # This is a video feature
+                feature_data["info"] = {"video.fps": fps}
+
+        # Write the modified info.json back
+        with open(info_path, "w") as f:
+            json.dump(info_data, f, indent=4)
+
+        print(f"✅ Added GR00T-compatible video metadata to {info_path}")
+
+    # Reorganize videos for GR00T datasets
+    if isinstance(feature_builder, GR00TN1FeatureDict) and not skip_video_reorganization:
+        print("\n🔄 Reorganizing videos for GR00T compatibility...")
+        reorganize_videos_for_gr00t(final_output_path)
+        update_episode_metadata_for_gr00t(final_output_path)
+        verify_gr00t_folder_structure(final_output_path)
+    elif isinstance(feature_builder, GR00TN1FeatureDict) and skip_video_reorganization:
+        print("\n⚠️ Skipping video reorganization (debug mode)")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert HDF5 files to LeRobot format")
@@ -515,6 +775,11 @@ if __name__ == "__main__":
         default=False,
         help="Run compute stats (true/false)",
     )
+    parser.add_argument(
+        "--skip_video_reorganization",
+        action="store_true",
+        help="Skip video reorganization for GR00T datasets (for debugging)",
+    )
 
     args = parser.parse_args()
 
@@ -542,4 +807,5 @@ if __name__ == "__main__":
         include_depth=args.include_depth,
         include_seg=args.include_seg,
         run_compute_stats=args.run_compute_stats,
+        skip_video_reorganization=args.skip_video_reorganization,
     )
