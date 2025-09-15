@@ -35,7 +35,7 @@ wget https://github.com/isaac-for-healthcare/i4h-asset-catalog/releases/download
 
 echo "Unzipping Raysim..."
 
-unzip $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim.zip -d $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim
+unzip $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim.zip -d $PROJECT_ROOT/workflows/robotic_ultrasound/scripts
 
 rm $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim.zip
 
