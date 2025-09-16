@@ -54,7 +54,7 @@ python -m policy_runner.run_policy --policy gr00tn1
 | Argument | Type | Default | Description | Policy Support |
 |----------|------|---------|-------------|----------------|
 | `--policy` | str | "pi0" | Policy type to use (choices: pi0, gr00tn1) | Both |
-| `--ckpt_path` | str | robot_us_assets.policy_ckpt | Checkpoint path for the policy model | Both |
+| `--ckpt_path` | str | "nvidia/Liver_Scan_Pi0_Cosmos_Rel" | Checkpoint path or HF repo id for the policy model | Both |
 | `--task_description` | str | "Perform a liver ultrasound." | Task description text prompt for the policy | Both |
 | `--chunk_length` | int | 50 | Length of the action chunk inferred by the policy | Both |
 | `--repo_id` | str | "i4h/sim_liver_scan" | LeRobot repo ID for dataset normalization | PI0 only |

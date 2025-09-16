@@ -92,4 +92,47 @@ sed -i \
     -e 's/^# import s3transfer\.futures as s3_transfer_futures/import s3transfer.futures as s3_transfer_futures/' \
     -e 's/^# from types_boto3_s3\.service_resource import ObjectSummary/from types_boto3_s3.service_resource import ObjectSummary/' \
     "$file_path_revert"
+
+if $PYTHON_EXECUTABLE -m pip show isaacsim >/dev/null 2>&1; then
+    # Version pinning to allow pi0 policy only work with isaacsim 4.5.0
+    # Version 5.0.0 should not need to pin these dependencies
+    $PYTHON_EXECUTABLE -m pip install \
+        "aiobotocore==2.23.0" \
+        "botocore==1.38.27" \
+        "boto3==1.38.27" \
+        "botocore-stubs==1.38.46" \
+        "types-boto3==1.38.27" \
+        "types-boto3-s3==1.38.44" \
+        "s3transfer==0.13.0" \
+        "types-s3transfer==0.13.0" \
+        "pydantic==2.9.2"
+
+    echo "isaacsim found. Adding DEFAULT_CHECKSUM_ALGORITHM='crc32' to botocore httpchecksum.py..."
+
+    # Get the isaacsim installation path
+    ISAACSIM_LOCATION=$($PYTHON_EXECUTABLE -m pip show isaacsim | grep "Location:" | cut -d' ' -f2)
+    ISAACSIM_DIR="$ISAACSIM_LOCATION/isaacsim"
+
+    # Find the botocore httpchecksum.py file
+    HTTPCHECKSUM_FILE=$(find "$ISAACSIM_DIR" -name "httpchecksum.py" -path "*/botocore/*" 2>/dev/null | head -1)
+
+    if [ -n "$HTTPCHECKSUM_FILE" ] && [ -f "$HTTPCHECKSUM_FILE" ]; then
+        echo "Found botocore httpchecksum.py at: $HTTPCHECKSUM_FILE"
+
+        # Check if DEFAULT_CHECKSUM_ALGORITHM is already defined
+        if ! grep -q "DEFAULT_CHECKSUM_ALGORITHM" "$HTTPCHECKSUM_FILE"; then
+            echo "Adding DEFAULT_CHECKSUM_ALGORITHM='crc32' to httpchecksum.py..."
+            # Append the line to the end of the file
+            echo "DEFAULT_CHECKSUM_ALGORITHM='crc32'" >> "$HTTPCHECKSUM_FILE"
+            echo "Successfully added DEFAULT_CHECKSUM_ALGORITHM='crc32'"
+        else
+            echo "DEFAULT_CHECKSUM_ALGORITHM already exists in httpchecksum.py"
+        fi
+    else
+        echo "Warning: Could not find botocore httpchecksum.py file in isaacsim installation"
+    fi
+else
+    echo "isaacsim not found. Skipping DEFAULT_CHECKSUM_ALGORITHM setup."
+fi
+
 echo "PI0 Dependencies installed."

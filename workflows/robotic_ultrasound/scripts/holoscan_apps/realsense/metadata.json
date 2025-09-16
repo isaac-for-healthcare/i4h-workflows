@@ -1,0 +1,26 @@
+{
+	"application": {
+		"name": "realsense",
+		"authors": [
+			{
+				"name": "Holoscan Team",
+				"affiliation": "NVIDIA"
+			}
+		],
+		"dockerfile": "workflows/robotic_ultrasound/scripts/holoscan_apps/realsense/Dockerfile",
+		"language": "Python",
+		"version": "1.0",
+		"changelog": {
+			"1.0": "Initial Release"
+		},
+		"platforms": ["x86_64", "aarch64"],
+		"tags": ["Isaac4Healthcare", "Robotics"],
+		"ranking": 0,
+		"dependencies": {
+		},
+		"run": {
+			"command": "python camera.py",
+			"workdir": "holohub_app_source"
+		}
+	}
+}

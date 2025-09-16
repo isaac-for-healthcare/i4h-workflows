@@ -28,7 +28,7 @@ from simulation.environments.state_machine.utils import (
     get_joint_states,
     get_robot_obs,
 )
-from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from simulation.utils.common import resolve_checkpoint_path
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="This script evaluate the pi0 model in a single-arm manipulator.")
@@ -45,7 +45,7 @@ parser.add_argument(
 parser.add_argument(
     "--ckpt_path",
     type=str,
-    default=robot_us_assets.policy_ckpt,
+    default="nvidia/Liver_Scan_Pi0_Cosmos_Rel",
     help="checkpoint path. Default to use policy checkpoint in the latest assets.",
 )
 parser.add_argument(
@@ -59,16 +59,19 @@ parser.add_argument(
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
 args_cli = parser.parse_args()
+args_cli.ckpt_path = resolve_checkpoint_path(args_cli.ckpt_path)
 
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
-from policy_runner.pi0.runners import PI0PolicyRunner  # noqa: F401
 
 simulation_app = app_launcher.app
 reset_flag = False
 
 # isort: off
 from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
+
+# This is to avoid boto3 conflict with app launcher
+from policy_runner.pi0.runners import PI0PolicyRunner
 
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401

@@ -23,7 +23,7 @@ from dds.schemas.franka_ctrl import FrankaCtrlInput
 from dds.schemas.franka_info import FrankaInfo
 from dds.subscriber import SubscriberWithCallback
 from PIL import Image
-from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from simulation.utils.common import resolve_checkpoint_path
 
 current_state = {
     "room_cam": None,
@@ -40,8 +40,8 @@ def main():
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        default=robot_us_assets.policy_ckpt,
-        help="checkpoint path. Default will use the policy model in the downloaded assets.",
+        default="nvidia/Liver_Scan_Pi0_Cosmos_Rel",
+        help="Checkpoint path or HF repo id for the policy model.",
     )
     parser.add_argument(
         "--task_description",
@@ -112,6 +112,7 @@ def main():
         help="Length of the action chunk inferred by the policy.",
     )
     args = parser.parse_args()
+    args.ckpt_path = resolve_checkpoint_path(args.ckpt_path)
 
     if args.policy == "pi0":
         from policy_runner.pi0.runners import PI0PolicyRunner

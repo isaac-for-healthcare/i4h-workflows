@@ -16,18 +16,4 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(holoscan-i4h)
-
-set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/../install")
-
-set(LIB_DIR "${CMAKE_BINARY_DIR}/lib")
-set(INCLUDE_DIR "${CMAKE_BINARY_DIR}/include")
-
-file(MAKE_DIRECTORY ${INCLUDE_DIR})
-file(MAKE_DIRECTORY ${LIB_DIR})
-
 add_subdirectory(operators)
-
-message("install: ${CMAKE_INSTALL_PREFIX}")
-
-install(DIRECTORY ${LIB_DIR}/ DESTINATION lib)
-install(DIRECTORY ${INCLUDE_DIR}/ DESTINATION include)

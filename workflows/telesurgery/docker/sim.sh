@@ -24,7 +24,7 @@ source $SCRIPT_DIR/../scripts/env.sh
 source $SCRIPT_DIR/utils.sh
 
 HOLOHUB_DIR=$SCRIPT_DIR/../scripts/holohub
-DOCKER_IMAGE=telesurgery:0.2
+DOCKER_IMAGE=telesurgery:0.3
 CONTAINER_NAME=telesurgery-sim
 
 function build() {

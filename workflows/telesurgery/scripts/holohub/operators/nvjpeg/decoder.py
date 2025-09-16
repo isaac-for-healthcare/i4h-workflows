@@ -15,6 +15,7 @@
 
 import time
 
+import numpy as np
 from holoscan.core import Operator
 from holoscan.core._core import OperatorSpec
 from nvjpeg import NvJpeg
@@ -35,7 +36,6 @@ class NVJpegDecoderOp(Operator):
     def setup(self, spec: OperatorSpec):
         spec.input("input")
         spec.output("output")
-        spec.output("camera")
 
     def start(self):
         self.nvjpeg = NvJpeg()
@@ -47,7 +47,9 @@ class NVJpegDecoderOp(Operator):
         start = time.time()
         if not self.skip:
             stream.data = self.nvjpeg.decode(stream.data)
+        else:
+            stream.data = np.frombuffer(stream.data, dtype=np.uint8).reshape(
+                stream.height, stream.width, 1 if stream.type == 1 else 4
+            )
         stream.decode_latency = (time.time() - start) * 1000
-
         op_output.emit(stream, "output")
-        op_output.emit({"image": stream.data}, "camera")

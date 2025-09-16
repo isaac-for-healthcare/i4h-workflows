@@ -13,5 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(clarius_cast)
-add_subdirectory(clarius_solum)
+add_holohub_operator(clarius_cast)
+add_holohub_operator(clarius_solum)

@@ -5,7 +5,7 @@ based on 3D meshes. The simulator uses Holoscan framework and DDS communication 
 
 ## Quick Start
 
-Please ensure you have the [NVIDIA OptiX Raytracing with Python Bindings](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/blob/v0.2.0rc1/ultrasound-raytracing/README.md) to setup the `raysim` module correctly.
+Please ensure you have the [NVIDIA OptiX Raytracing with Python Bindings](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/blob/v0.3.0/ultrasound-raytracing/README.md) to setup the `raysim` module correctly.
 
 ```bash
 python -m simulation.examples.ultrasound_raytracing

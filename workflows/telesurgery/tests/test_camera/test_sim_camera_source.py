@@ -19,7 +19,7 @@ import time
 import unittest
 
 import numpy as np
-from holohub.operators.camera.sim import IsaacSimCameraSourceOp
+from holohub.operators.camera.sim import IsaacSimToCameraStreamOp
 from holoscan.conditions import CountCondition
 from holoscan.core import Application, Operator, OperatorSpec
 
@@ -47,7 +47,7 @@ class TestSimCameraSourceApplication(Application):
 
     def compose(self):
         print("compose")
-        self.sim_camera_source_op = IsaacSimCameraSourceOp(
+        self.sim_camera_source_op = IsaacSimToCameraStreamOp(
             self, name="sim_camera_source_op", width=self.width, height=self.height, count=CountCondition(self, 1)
         )
         assertion_op = AssertionOp(

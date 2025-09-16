@@ -84,7 +84,7 @@ fi
 # ---- Install necessary dependencies (Common) ----
 echo "Installing necessary dependencies..."
 pip install rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui==2.0.0 \
-    setuptools==75.8.0 pydantic==2.10.6 matplotlib scipy\
+    setuptools==75.8.0 matplotlib scipy\
     --extra-index-url https://pypi.nvidia.com
 
 

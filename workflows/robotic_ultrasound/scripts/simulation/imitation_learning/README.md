@@ -24,7 +24,7 @@ python -m simulation.imitation_learning.pi0_policy.eval --enable_cameras
 | `--disable_fabric` | flag | False | Disable fabric and use USD I/O operations |
 | `--num_envs` | int | 1 | Number of environments to spawn |
 | `--task` | str | "Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0" | Name of the task |
-| `--ckpt_path` | str | robot_us_assets.policy_ckpt | Checkpoint path. Default to use policy checkpoint in the latest assets |
+| `--ckpt_path` | str | "nvidia/Liver_Scan_Pi0_Cosmos_Rel" | Checkpoint path or HF repo id for the policy model |
 | `--repo_id` | str | "i4h/sim_liver_scan" | The LeRobot repo id for the dataset norm |
 
 *Note: Additional arguments are available through the IsaacLab AppLauncher framework.*

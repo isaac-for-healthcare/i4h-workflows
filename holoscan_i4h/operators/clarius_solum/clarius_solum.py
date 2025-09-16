@@ -15,7 +15,6 @@
 
 import ctypes
 import os
-import sys
 from io import BytesIO
 from time import sleep
 
@@ -26,13 +25,8 @@ from dds.schemas.usp_data import UltraSoundProbeData
 from holoscan.core import Operator, OperatorSpec
 from PIL import Image
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-holoscan_i4h_dir = f"{script_dir}/../../"
-
 # load the libsolum.so shared library
-libsolum_handle = ctypes.CDLL(f"{holoscan_i4h_dir}/install/lib/clarius_solum/libsolum.so", ctypes.RTLD_GLOBAL)._handle
-
-sys.path.append(f"{holoscan_i4h_dir}/install/lib/clarius_solum")
+libsolum_handle = ctypes.CDLL("libsolum.so", ctypes.RTLD_GLOBAL)._handle
 import pysolum
 
 # Is probe connected

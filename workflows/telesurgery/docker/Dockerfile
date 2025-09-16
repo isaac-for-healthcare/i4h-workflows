@@ -16,8 +16,19 @@
 # limitations under the License.
 
 ARG BASE_IMAGE=nvcr.io/nvidia/clara-holoscan/holoscan:v3.2.0-dgpu
-FROM $BASE_IMAGE
 
+# HSB Build
+FROM $BASE_IMAGE AS hsbbuild
+ARG HSB_REPO_URL
+ENV HSB_REPO_URL=${HSB_REPO_URL:-https://github.com/nvidia-holoscan/holoscan-sensor-bridge.git}
+ARG HSB_BRANCH
+ENV HSB_BRANCH=${HSB_BRANCH:-2.2.0-EA}
+
+RUN git clone --branch ${HSB_BRANCH} --single-branch  ${HSB_REPO_URL} /opt/hololink
+RUN cd /opt/hololink/python  && $INSTALL_ENVIRONMENT pip3 wheel -v .
+
+# Main Docker
+FROM $BASE_IMAGE
 WORKDIR /workspace
 # Install uv using curl for openpi
 RUN apt-get update && \
@@ -56,8 +67,17 @@ RUN python3 -m pip install "numpy<2.0.0" \
 RUN mkdir -p /root/rti
 ENV PATH=/isaac-sim/kit/python/bin/:/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
 ENV LD_LIBRARY_PATH=/opt/nvidia/holoscan/lib/:/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
-ENV LD_LIBRARY_PATH=/workspace/i4h-workflows/workflows/telesurgery/scripts/holohub/operators/nvidia_video_codec/libs:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=\
+/workspace/i4h-workflows/workflows/telesurgery/scripts/holohub/operators/camera/aja_source/lib:\
+/workspace/i4h-workflows/workflows/telesurgery/scripts/holohub/operators/nvidia_video_codec/libs:\
+$LD_LIBRARY_PATH
+
 ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat
 ENV PYTHONPATH=/workspace/i4h-workflows/workflows/telesurgery/scripts
 
 WORKDIR /workspace/i4h-workflows/workflows/telesurgery/scripts
+
+COPY --from=hsbbuild /opt/hololink/python/hololink-*.whl /tmp/wheel/
+RUN WHEEL=$(find /tmp/wheel -type f -name "hololink-*.whl") && pip3 install ${WHEEL}
+
+RUN pip uninstall cuda-python -y && pip install cuda-python==12.9.0

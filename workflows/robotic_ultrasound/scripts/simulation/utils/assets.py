@@ -23,7 +23,6 @@ class Assets(BaseI4HAssets):
     panda = "Robots/Franka/Collected_panda_assembly/panda_assembly.usda"
     phantom = "Props/ABDPhantom/phantom.usda"
     table_with_cover = "Props/VentionTableWithBlackCover/table_with_cover.usd"
-    policy_ckpt = "Policies/LiverScan/Pi0_Cosmos_Rel"
     organs = "Props/ABDPhantom/Organs"
 
 

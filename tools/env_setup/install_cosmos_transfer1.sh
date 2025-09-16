@@ -40,6 +40,7 @@ git submodule update --init --recursive
 $PYTHON_EXECUTABLE -m pip install -r requirements.txt
 MAX_JOBS=2 $PYTHON_EXECUTABLE -m pip install --no-build-isolation transformer-engine[pytorch]==1.12.0
 $PYTHON_EXECUTABLE -m pip install tensorstore==0.1.74
+$PYTHON_EXECUTABLE -m pip install git+https://github.com/facebookresearch/segment-anything.git
 
 $PYTHON_EXECUTABLE scripts/test_environment.py
 popd

@@ -30,7 +30,7 @@ function download_operators() {
 
   if [ ! -d "$HOLOHUB_DIR/operators/nvidia_video_codec/libs" ]; then
     echo "Downloading NVIDIA Video Codec Operators"
-    curl -L -o $VIDEO_CODEC_FILENAME "https://edge.urm.nvidia.com:443/artifactory/sw-holoscan-cli-generic/holohub/operators/$FILE_NAME"
+    curl -L -o $VIDEO_CODEC_FILENAME "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/holohub/operators/$FILE_NAME"
     unzip -o -q $VIDEO_CODEC_FILENAME -d $UNZIP_DIR
     rm $VIDEO_CODEC_FILENAME
     mv $UNZIP_DIR/$(uname -p)/* $HOLOHUB_DIR/operators/nvidia_video_codec

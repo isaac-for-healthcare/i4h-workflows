@@ -1,0 +1,5 @@
+struct SOARM101CtrlInput {
+  sequence<double> joint_positions;
+  sequence<double> joint_velocities;
+  sequence<double> joint_efforts;
+};

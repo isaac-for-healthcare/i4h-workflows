@@ -8,6 +8,14 @@
 
 The Robotic Surgery Workflow is a comprehensive solution designed for healthcare professionals and researchers working in the field of robotic-assisted surgery. This workflow provides a robust framework for simulating, training, and analyzing robotic surgical procedures in a virtual environment. It leverages NVIDIA's ray tracing capabilities to create highly realistic surgical simulations, enabling surgeons to practice complex procedures, researchers to develop new surgical techniques, and medical institutions to enhance their training programs. By offering a safe, controlled environment for surgical practice and research, this workflow helps improve surgical outcomes, reduce training costs, and advance the field of robotic surgery.
 
+### 🎯 Isaac Sim/Lab Integration
+
+This workflow is built on **NVIDIA Isaac Sim** and **NVIDIA Isaac Lab**. When you run the workflow scripts, Isaac Sim/Lab provides:
+
+- **🤖 Robot Physics**: Accurate dynamics simulation of surgical robots including joint mechanics and collision detection
+- **📸 RTX Rendering**: Real-time ray tracing for photorealistic visualization of surgical scenes
+- **🔧 Interactive Control**: Real-time robot manipulation through state machines, reinforcement learning, or direct control
+
 The framework supports multiple surgical robots and tasks:
 
 - **dVRK (da Vinci Research Kit)**: Patient Side Manipulator (PSM) for minimally invasive surgery.
@@ -126,9 +134,15 @@ conda activate robotic_surgery
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_psm_sm.py
 ```
 
-**Expected Behavior:**
-- Isaac Sim launches with dVRK PSM simulation
-- PSM arm moves to predefined target poses
+**What Happens in Isaac Sim:**
+- **🚀 Scene Launch**: Isaac Sim opens a 3D virtual environment with a dVRK Patient Side Manipulator
+- **🎯 State Machine Control**: The robot arm autonomously moves through predefined goal poses using a GPU-accelerated state machine
+- **👀 Visual Feedback**: Watch the PSM arm reach different positions in real-time with accurate physics simulation
+
+**How to Interact with Isaac Sim:**
+- **🖱️ Camera Control**: Use mouse to orbit, pan, and zoom around the surgical scene
+- **⏸️ Pause/Play**: Press spacebar to pause/resume the simulation
+- **🔍 Inspect Objects**: Click on robot components (`Stage` -> `World` -> `envs` -> `env_0` -> `Robot`) to view properties and joint information
 
 > **⏳ First Run Loading Time**: Initial simulation loading takes 5-10 minutes for asset download and scene initialization. Isaac Sim may appear frozen with no console progress indication - this is normal behavior.
 
@@ -138,10 +152,14 @@ conda activate robotic_surgery
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/lift_needle_sm.py
 ```
 
-**Expected Behavior:**
-- Isaac Sim launches with robotic surgery simulation
-- Surgical simulation with needle manipulation
-- Precise grasping and lifting operations
+**What Happens in Isaac Sim:**
+- **🦾 Robot Manipulation**: The dVRK PSM approaches, grasps, and lifts the needle with precise position control
+- **⚙️ Physics Simulation**: Rigid-body collision and contact response between gripper jaws and needle
+- **🎯 Task Execution**: State machine guides the robot through: rest → approach above → approach → grasp → lift sequences
+
+**Key Isaac Sim Features Demonstrated:**
+- **🔧 Collision Detection**: Real-time collision checking between robot and objects
+- **🧮 GPU Acceleration**: High-frequency physics simulation for smooth robot motion
 
 #### 🧠 Reinforcement Learning Training
 ```bash
@@ -153,10 +171,11 @@ python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learni
 python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Reach-PSM-Play-v0
 ```
 
-**Expected Behavior:**
-- RSL-RL agent training with GPU acceleration
-- TensorBoard logging for training progress monitoring
-- Trained model evaluation in simulation environment
+**What Happens in Isaac Sim:**
+- **🏭 Parallel Environments**: Isaac Lab creates multiple identical surgical environments running simultaneously
+- **🧠 AI Learning**: Neural network policies learn surgical tasks by trial and error across thousands of simulated attempts
+- **📊 Real-Time Analytics**: Isaac Lab provides reward signals, robot observations, and task success metrics to the learning algorithm
+- **🎮 Policy Evaluation**: In play mode, watch the trained AI perform surgical tasks with learned precision and efficiency
 
 ---
 
@@ -178,13 +197,35 @@ python workflows/robotic_surgery/scripts/simulation/scripts/reinforcement_learni
 
 ### 🎓 Understanding the Workflow Architecture
 
+When you run workflow scripts, here's how they integrate with Isaac Sim:
+
 ```
-Isaac Sim Environment
-├── Robots (dVRK PSM, STAR)
-├── Surgical Instruments (needles, pegs, operating room equipment)
-├── Anatomical Models (organs)
-└── Control Systems (state machines, RL)
+📦 Workflow Script Launch
+    ↓
+🚀 Isaac Sim Initialization
+    ├── 🌍 World Creation (Physics Scene)
+    ├── 🤖 Robot Loading (USD Assets)
+    └── 🏥 Environment Setup (Operating Room)
+    ↓
+⚙️ Simulation Loop
+    ├── 🧠 Control Logic (State Machine/RL Policy)
+    ├── 🔄 Physics Step (Robot Dynamics)
+    └── 🎯 Task Evaluation (Success Metrics)
 ```
+
+**Core Isaac Sim Components:**
+
+- **🌍 World**: The physics environment where all simulation occurs
+- **🤖 Articulations**: Robot models with joints, links, and physics properties
+- **🎭 Prims**: Individual objects in the scene (needles, tables, organs)
+- **⚙️ Controllers**: State machines, RL policies, or direct control interfaces
+
+**Script-to-Simulation Flow:**
+1. **Script Launch**: Python script imports Isaac Lab and initializes `SimulationApp`
+2. **Scene Building**: Assets are loaded and positioned in 3D space
+3. **Physics Setup**: Collision detection, dynamics, and material properties are configured
+4. **Control Loop**: Script continuously sends commands to robots and receives feedback
+5. **Visualization**: Isaac Sim renders the scene in real-time with RTX ray tracing
 
 ---
 
@@ -249,7 +290,7 @@ Assets are automatically downloaded when running workflows for the first time.
 
 #### Manual Asset Retrieval
 ```bash
-# Download all assets (65GB, 30-60 minutes)
+# Download all assets (2.7GB)
 i4h-asset-retrieve
 ```
 

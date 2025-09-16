@@ -21,65 +21,28 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(pybind11 REQUIRED)
 pybind11_add_module(pysolum pysolum.cpp)
 
-set(LIB_DIR "${CMAKE_BINARY_DIR}/lib")
-set(INCLUDE_DIR "${CMAKE_BINARY_DIR}/include")
-
 execute_process(
-    COMMAND lsb_release -sr
+    COMMAND bash -c "cat /etc/lsb-release | grep DISTRIB_RELEASE | cut -d= -f2"
     OUTPUT_VARIABLE UBUNTU_VERSION
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-# Download Clarius library and header files
-if(NOT EXISTS "${LIB_DIR}/clarius_solum/libsolum.so")
-    set(SOLUM_URL "https://github.com/clariusdev/solum/releases/download/v12.0.2/solum-12.0.2-linux.x86_64-gcc_ubuntu_${UBUNTU_VERSION}.zip")
-    set(SOLUM_ZIP_PATH "${LIB_DIR}/clarius_solum/solum.zip")
-
-    message(STATUS "Downloading Clarius Solum library from: ${SOLUM_URL}")
-
-    # Download the zip file with error checking
-    file(DOWNLOAD
-        "${SOLUM_URL}"
-        "${SOLUM_ZIP_PATH}"
-        STATUS DOWNLOAD_STATUS
-        TIMEOUT 600
-        SHOW_PROGRESS
+include(FetchContent)
+FetchContent_Declare(
+        clarius_solum
+        URL "https://github.com/clariusdev/solum/releases/download/v12.0.2/solum-12.0.2-linux.x86_64-gcc_ubuntu_${UBUNTU_VERSION}.zip"
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
-
-    # Check download status
-    list(GET DOWNLOAD_STATUS 0 DOWNLOAD_ERROR_CODE)
-    list(GET DOWNLOAD_STATUS 1 DOWNLOAD_ERROR_MESSAGE)
-
-    if(NOT DOWNLOAD_ERROR_CODE EQUAL 0)
-        message(FATAL_ERROR "Failed to download Clarius Solum library: ${DOWNLOAD_ERROR_MESSAGE}")
-    endif()
-
-    # Verify the downloaded file exists and has reasonable size
-    if(NOT EXISTS "${SOLUM_ZIP_PATH}")
-        message(FATAL_ERROR "Downloaded file does not exist: ${SOLUM_ZIP_PATH}")
-    endif()
-
-    message(STATUS "Successfully downloaded Clarius Solum library to ${SOLUM_ZIP_PATH}")
-    # Unzip the file
-    execute_process(
-        COMMAND unzip solum.zip
-        WORKING_DIRECTORY ${LIB_DIR}/clarius_solum
-    )
-    execute_process(COMMAND rm ${LIB_DIR}/clarius_solum/solum.zip)
-endif()
-
-if(NOT EXISTS "${INCLUDE_DIR}/solum/solum.h")
-    execute_process(COMMAND rm -rf "${INCLUDE_DIR}/solum")
-    message("mv ${LIB_DIR}/clarius_solum/solum ${INCLUDE_DIR}/")
-    file(MAKE_DIRECTORY ${INCLUDE_DIR}/solum)
-    execute_process(COMMAND mv "${LIB_DIR}/clarius_solum/solum" "${INCLUDE_DIR}/")
-endif()
-
+FetchContent_MakeAvailable(clarius_solum)
 
 # Header files
-target_include_directories(pysolum PRIVATE "${INCLUDE_DIR}/")
+target_include_directories(pysolum PRIVATE "${clarius_solum_SOURCE_DIR}")
 
-# Place lib in lib/ folder
-set_target_properties(pysolum PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${LIB_DIR}/clarius_solum"
-)
+# Installation
+install(DIRECTORY ${clarius_solum_SOURCE_DIR}/solum
+        DESTINATION include)
+
+install(FILES
+        ${clarius_solum_SOURCE_DIR}/libsolum.so
+        DESTINATION lib/clarius_solum)
+install(TARGETS pysolum DESTINATION lib/clarius_solum)

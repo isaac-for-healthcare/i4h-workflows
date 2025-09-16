@@ -1,30 +1,25 @@
 # Holoscan Apps
 This folder contains Holoscan applications for robotic ultrasound.
 
-## Building the applications
+## Running Applications
 
-Run the following command to build the Holoscan SDK applications.
+Each application can be run using the i4h script. The script builds operators as needed and uses the docker environment to pull the dependencies.
 
-```
-cmake -B build -S .
-cmake --build build
-```
-
-## Running the applications
-
-After building the applications, you can run them with the instructions below.
-
-### RealSense Camera
-```
-python3 holoscan_apps/realsense/camera.py
-```
+Here's how to run each application:
 
 ### Clarius Cast
-```
-phthon3 holoscan_apps/clarius_cast/clarius_cast.py
+```bash
+./i4h run clarius_cast
 ```
 
-### Clarius Solumn
+### Clarius Solum
+```bash
+./i4h run clarius_solum
 ```
-python3 holoscan_apps/clarius_solumn/clarius_solumn.py
+
+### RealSense
+```bash
+./i4h run realsense
 ```
+
+Note: Make sure you have the required dependencies installed and the appropriate hardware connected before running these applications. The applications may require specific configuration files or environment variables to be set up properly.
