@@ -14,9 +14,9 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.20)
-project(clarius_solum)
+project(holoscan_apps)
 
 set(PYBIND11_PYTHON_VERSION 3.10)
 
-add_subdirectory(clarius_cast)
-add_subdirectory(clarius_solum)
+add_holohub_application(clarius_cast DEPENDS OPERATORS clarius_cast)
+add_holohub_application(clarius_solum DEPENDS OPERATORS clarius_solum)

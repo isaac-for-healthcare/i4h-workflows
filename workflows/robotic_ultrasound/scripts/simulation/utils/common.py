@@ -17,6 +17,7 @@ import os
 from importlib.util import module_from_spec, spec_from_file_location
 
 import numpy as np
+from huggingface_hub import snapshot_download
 from simulation.configs.config import Config
 
 
@@ -74,3 +75,43 @@ def get_exp_config(name: str, configs_path: str | None = None) -> Config:
 
     spec.loader.exec_module(module)
     return module.config
+
+
+def resolve_checkpoint_path(ckpt_path: str) -> str:
+    """Resolve checkpoint path - handle both local paths and HuggingFace repo IDs.
+
+    Args:
+        ckpt_path: Either a local file/directory path or a HuggingFace repository ID
+
+    Returns:
+        str: Local path to the checkpoint (either the original local path or
+             the downloaded HF repo path)
+
+    Examples:
+        >>> resolve_checkpoint_path("/path/to/local/checkpoint")
+        "/path/to/local/checkpoint"
+
+        >>> resolve_checkpoint_path("nvidia/Liver_Scan_Pi0_Cosmos_Rel")
+        "/home/user/.cache/huggingface/hub/models--nvidia--Liver_Scan_Pi0_Cosmos_Rel/..."
+    """
+    # Check if it's a local path that exists
+    if os.path.exists(ckpt_path):
+        return ckpt_path
+
+    # Check if it's an absolute path that might not exist yet (but we should respect it)
+    if os.path.isabs(ckpt_path):
+        return ckpt_path
+
+    # Check if it looks like a HuggingFace repo ID (contains forward slash)
+    if "/" in ckpt_path and not ckpt_path.startswith("./") and not ckpt_path.startswith("../"):
+        try:
+            print(f"Downloading checkpoint from HuggingFace Hub: {ckpt_path}")
+            return snapshot_download(repo_id=ckpt_path)
+        except Exception as e:
+            # If HF download fails, treat it as a local path anyway
+            print(f"Warning: Failed to download from HuggingFace Hub: {e}")
+            print(f"Treating '{ckpt_path}' as local path")
+            return ckpt_path
+
+    # Default: treat as local path
+    return ckpt_path

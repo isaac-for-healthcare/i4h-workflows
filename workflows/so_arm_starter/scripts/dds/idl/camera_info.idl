@@ -1,0 +1,8 @@
+struct CameraInfo {
+  double focal_len;
+  int64 stream_id;
+  int64 frame_num;
+  int64 width;
+  int64 height;
+  sequence <octet> data;
+};

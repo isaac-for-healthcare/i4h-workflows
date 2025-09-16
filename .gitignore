@@ -211,9 +211,12 @@ wandb/
 # Third party
 third_party/
 
+
 # third-party files
 holoscan_i4h/install
 holoscan_i4h/build
+build/
+install/
 
 # Raytracing Ultrasound Simulator
 workflows/robotic_ultrasound/scripts/raysim
@@ -221,6 +224,16 @@ workflows/robotic_ultrasound/scripts/raysim
 # Bring Your Own XR
 openxr/
 
-# Ignore Holohub CLI
-cmake
+# Holohub CLI
 utilities
+cmake
+.local
+
+# TensorRT
+*.engine
+*.onnx
+**/gr00t_engines/*
+**/gr00t_onnx/*
+
+# Dev container
+.devcontainer/

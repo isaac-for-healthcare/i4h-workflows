@@ -26,6 +26,7 @@ from datetime import datetime
 WORKFLOWS = [
     "robotic_ultrasound",
     "robotic_surgery",
+    "so_arm_starter",
 ]
 
 
@@ -245,6 +246,8 @@ def run_tests_with_coverage(workflow_name, skip_xvfb, timeout=1200):
                     "coverage",
                     "run",
                     "--parallel-mode",
+                    "--source",
+                    os.path.join(project_root, "scripts"),
                     "-m",
                     "unittest",
                     test_path,

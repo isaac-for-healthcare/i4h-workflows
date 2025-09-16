@@ -35,7 +35,7 @@ mkdir -p "$PROJECT_ROOT/third_party"
 # ---- Install IsaacSim ----
 echo "Installing IsaacSim..."
 pip install 'isaacsim[all,extscache]==4.5.0' \
-    git+https://github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0 \
+    git+https://github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.3.0 \
     --extra-index-url https://pypi.nvidia.com
 
 ISAACLAB_DIR="$PROJECT_ROOT/third_party/IsaacLab"

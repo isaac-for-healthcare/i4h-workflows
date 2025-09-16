@@ -354,6 +354,10 @@ def main():
                         ret = None
                         while ret is None:
                             ret = infer_reader.read_data()
+                            # Re-publish camera data while waiting
+                            infer_r_cam_writer.write()
+                            infer_w_cam_writer.write()
+                            infer_pos_writer.write()
                         o: FrankaCtrlInput = ret
                         action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(-1, action_dim)
                         action_plan.extend(action_chunk[:replan_steps])

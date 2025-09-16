@@ -55,12 +55,12 @@ For the simulation workflow, there is a virtual camera that is located on the MI
 
 
 #### Real World
-In the real world workflow, two camera types are currently supported
+In the real world workflow, the following camera types are supported
 
+- NVIDIA Holoscan Sensor Bridge (HSB) for ultra-low latency video
+- AJA capture card
 - Intel RealSense camera (can stream depth instead if supported by camera)
 - cv2-compatible camera such as USB webcams
-
-Future support: NVIDIA Holoscan Sensor Bridge (HSB) for low-latency video streaming.
 
 ### Displays
 
@@ -113,7 +113,9 @@ The video is encoded (default: NVIDIA Video Codec), and parameters like bitrate 
    - GPUs without RT Cores, such as A100 and H100, are not supported
 - 50GB of disk space
 - **XBOX Controller** or **Haply Inverse 3**
-- **MIRA** robot (if running the physical workflow)
+- **MIRA** robot if running the physical workflow
+- **HSB or YUAN HSB** board if using with HSB as camera.  See [HSB guide](https://docs.nvidia.com/holoscan/sensor-bridge/latest/index.html) for how to setup the HSB board.
+- **AJA** capture card if using AJA as camera.  See [AJA setup](https://docs.nvidia.com/holoscan/sdk-user-guide/aja_setup.html) for how to install the card and build & load AJA drivers.  You can find the `aja_build.sh` script [here](https://raw.githubusercontent.com/nvidia-holoscan/holohub/refs/heads/main/utilities/aja_build.sh).
 
 #### Software Requirements
 
@@ -165,12 +167,16 @@ export NTP_SERVER_PORT="123"
 ### Real World Environment
 
 The real world workflow requires a MIRA robot from Virtual Incision.  Once the MIRA robot is up and running, there is an API
-daemon service that will listen in the background for commands sent from the surgeon controller application.  The robot is not
+daemon service that will listen in the background for commands sent from the surgeon's controller application.  The robot is not
 necessary if you only want to test the video streaming functionality.
 
-For the camera(s) on the patient side, you can plug a Realsense camera or a USB webcam to the patient's workstation
-and place it in the desired location.  The MIRA robot also comes with a camera, and you can interface with it by using an HDMI capture
-card, or HDMI to USB-C capture card.
+For the camera(s) connected to the patient workstation, there are several options to choose from:
+* USB webcam
+* Realsense webcam (optionally provides depth if supported by the camera)
+* HDMI cameras using an HDMI capture card or HDMI-to-USBC capture card
+* HDMI cameras via AJA capture card
+* imx274 camera via Holoscan Sensor Bridge (HSB) for ultra-low latency
+* [YUAN-HSB](https://www.yuan.com.tw/newscontent/163) with HDMI video streaming input
 
 #### 1️⃣ Build Environment
 ```bash
@@ -178,6 +184,8 @@ git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
 workflows/telesurgery/docker/real.sh build
 ```
+> [!Note]
+> Need to set the `HSB_REPO_URL` and `HBS_BRANCH` environment variables to `https://github.com/DavidSu-Yuan/holoscan-sensor-bridge.git` and `v2.2.0-EA` when using YUAN HSB.
 
 #### 2️⃣ Running Applications
 
@@ -187,7 +195,7 @@ workflows/telesurgery/docker/real.sh build
 workflows/telesurgery/docker/real.sh run
 
 # Getting video from the camera
-python patient/physical/camera.py --camera [realsense|cv2] --name robot --width 1280 --height 720
+python patient/physical/camera.py --camera [imx274|aja|yuan_hsb|realsense|cv2] --name robot --width <width> --height <height>
 ```
 
 ##### Surgeon Application
@@ -205,7 +213,7 @@ Run the following to receive video stream from the robot camera:
 workflows/telesurgery/docker/real.sh run
 
 # Start the Surgeon Viewer Application
-python surgeon/viewer.py --name robot --width 1280 --height 720 2> /dev/null
+python surgeon/viewer.py --name robot --width <width> --height <height> 2> /dev/null
 ```
 
 Run the following to control the robot using a game controller:
@@ -252,8 +260,8 @@ python patient/simulation/main.py
 ```
 
 **Expected Behavior:**
-- The initial view displayed in Isaac Sim is a suture needle on top of a white, reflective surface.
-- To understand the elements in the scene (e.g. the MIRA robot), you can customize the viewport `Camera` to `Perspective` or `Top` view.
+- For Patient side, Isaac Sim starts in Perspective view.
+- You can modify the viewport from `Perspective` to `Camera` or `Top` view.
 
 ![Telesurgery Viewport](../../docs/source/telesurgery_viewport.gif)
 

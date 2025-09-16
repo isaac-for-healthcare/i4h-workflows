@@ -187,13 +187,9 @@ def nii_to_mesh(input_nii_path, output_nii_path, output_obj_path):
     # Convert to numpy array and ensure proper data type
     # This creates a copy of the data in memory, preserving the original file
     if hasattr(orig_seg, "numpy"):
-        orig_seg_array = (
-            orig_seg.numpy().copy()
-        )  # Explicit copy to ensure no reference to original
+        orig_seg_array = orig_seg.numpy().copy()  # Explicit copy to ensure no reference to original
     else:
-        orig_seg_array = np.array(
-            orig_seg
-        ).copy()  # Explicit copy to ensure no reference to original
+        orig_seg_array = np.array(orig_seg).copy()  # Explicit copy to ensure no reference to original
 
     # Store original data for verification that it wasn't modified
     original_data_backup = orig_seg_array.copy()
@@ -239,9 +235,7 @@ def nii_to_mesh(input_nii_path, output_nii_path, output_obj_path):
 
     # Verify that original data was not modified
     if not np.array_equal(orig_seg_array, original_data_backup):
-        raise RuntimeError(
-            "CRITICAL ERROR: Original segmentation data was modified during processing!"
-        )
+        raise RuntimeError("CRITICAL ERROR: Original segmentation data was modified during processing!")
 
     # Check if any labels were found and processed
     if np.sum(all_organ > 0) == 0:
@@ -335,9 +329,7 @@ def _process_single_file(input_filepath, output_dir=None):
         # Already in NIfTI format, use directly
         nifti_path = input_filepath
     else:
-        raise ValueError(
-            f"Unsupported file format: {file_extension}. Supported formats: .nrrd, .nii.gz"
-        )
+        raise ValueError(f"Unsupported file format: {file_extension}. Supported formats: .nrrd, .nii.gz")
 
     # Convert NIfTI to mesh
     nii_to_mesh(nifti_path, nii_dir, obj_dir)
@@ -353,9 +345,7 @@ def _process_single_file(input_filepath, output_dir=None):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Convert medical imaging files (NRRD/NIfTI) to USD format"
-    )
+    parser = argparse.ArgumentParser(description="Convert medical imaging files (NRRD/NIfTI) to USD format")
     parser.add_argument(
         "input_path",
         help="Path to input file or directory containing medical imaging files",

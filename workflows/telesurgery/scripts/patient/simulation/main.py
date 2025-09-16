@@ -41,7 +41,7 @@ def main():
     parser.add_argument("--api_host", type=str, default="0.0.0.0", help="local api server host")
     parser.add_argument("--api_port", type=int, default=8081, help="local api server port")
     parser.add_argument("--timeline_play", type=bool, default=True, help="play the timeline")
-    parser.add_argument("--debug", action='store_true', help="show debug output")
+    parser.add_argument("--debug", action="store_true", help="show debug output")
     args = parser.parse_args()
 
     app_launcher = AppLauncher(headless=False)
@@ -53,6 +53,7 @@ def main():
     import omni.usd
     from isaacsim.core.prims import SingleXFormPrim
     from isaacsim.core.utils.rotations import euler_angles_to_quat
+    from omni.kit.viewport.utility import get_active_viewport_window
     from omni.timeline import get_timeline_interface
     from pxr import UsdPhysics
 
@@ -190,16 +191,19 @@ def main():
         encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvjpeg_encoder_params.json")
     elif args.encoder == "nvc" and args.encoder_params is None:
         encoder_params = os.path.join(os.path.dirname(os.path.dirname(__file__)), "nvc_encoder_params.json")
-    elif os.path.isfile(args.encoder_params):
+    elif args.encoder_params and os.path.isfile(args.encoder_params):
         encoder_params = args.encoder_params
     else:
         encoder_params = json.loads(args.encoder_params) if args.encoder_params else {}
 
+    if isinstance(encoder_params, str):
+        if os.path.isfile(encoder_params):
+            with open(encoder_params) as f:
+                encoder_params = json.load(f)
+        else:
+            print(f"Ignoring non existing file: {encoder_params}")
+            encoder_params = {}
     print(f"Encoder params: {encoder_params}")
-
-    if os.path.isfile(encoder_params):
-        with open(encoder_params) as f:
-            encoder_params = json.load(f)
 
     camera_app = CameraApp(
         width=args.width,
@@ -220,6 +224,9 @@ def main():
         timeline = get_timeline_interface()
         if not timeline.is_playing():
             timeline.play()
+
+    # Start patient side in perspective view
+    get_active_viewport_window().viewport_api._hydra_texture.camera_path = "/OmniverseKit_Persp"
     while simulation_app.is_running():
         update_arm_joints()
         update_camera_pose()

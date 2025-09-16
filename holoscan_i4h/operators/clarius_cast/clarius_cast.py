@@ -15,7 +15,6 @@
 
 import ctypes
 import os
-import sys
 from io import BytesIO
 
 import holoscan
@@ -25,15 +24,11 @@ from dds.schemas.usp_data import UltraSoundProbeData
 from holoscan.core import Operator, OperatorSpec
 from PIL import Image
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-holoscan_i4h_dir = f"{script_dir}/../../"
-
 # load the libcast.so shared library
-libcast_handle = ctypes.CDLL(f"{holoscan_i4h_dir}/install/lib/clarius_cast/libcast.so", ctypes.RTLD_GLOBAL)._handle
+libcast_handle = ctypes.CDLL("libcast.so", ctypes.RTLD_GLOBAL)._handle
 # load the pyclariuscast.so shared library
-ctypes.cdll.LoadLibrary(f"{holoscan_i4h_dir}/install/lib/clarius_cast/pyclariuscast.so")
+ctypes.cdll.LoadLibrary("pyclariuscast.so")
 
-sys.path.append(f"{holoscan_i4h_dir}/install/lib/clarius_cast")
 import pyclariuscast
 
 # The current image

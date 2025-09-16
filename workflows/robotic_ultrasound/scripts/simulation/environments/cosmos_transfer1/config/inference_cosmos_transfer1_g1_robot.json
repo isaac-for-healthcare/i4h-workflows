@@ -1,0 +1,12 @@
+{
+    "prompt": "A sterile, clinical laboratory environment. A humanoid robot methodically scans a prone form on a medical table. The room is filled with the subtle hum of advanced medical equipment—monitors displaying complex waveforms, diagnostic tools neatly arranged, and ventilation systems maintaining a pristine atmosphere. The scene is static, emphasizing precision and control. Focus is on the robotic arm’s deliberate movements as it traverses the surface, searching with focused intent. The overall mood is one of quiet, technological advancement, and rigorous scientific procedure.",
+    "input_video_path" : "../../../../tutorials/assets/cosmos_transfer1/resources/humanoid_input_video.mp4",
+    "depth": {
+        "control_weight": 0.5,
+        "input_control": "../../../../tutorials/assets/cosmos_transfer1/resources/depth_input_control.mp4"
+    },
+    "seg": {
+        "control_weight": 0.5,
+        "input_control": "../../../../tutorials/assets/cosmos_transfer1/resources/seg_input_control.mp4"
+    }
+}

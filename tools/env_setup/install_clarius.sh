@@ -17,11 +17,13 @@
 
 set -e
 
-HOLOSCAN_I4H_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../../holoscan_i4h && pwd)"
+I4H_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
 (
-  cd $HOLOSCAN_I4H_ROOT
-  cmake . -B build && cmake --build build && cmake --install build
+  # Install i4h CLI components
+  cd $I4H_ROOT
+  ./i4h list
+  rm -rf build && rm -rf install && cmake . -B build -DOP_clarius_cast=ON -DOP_clarius_solum=ON && cmake --build build && cmake --install build --prefix ${I4H_ROOT}/install
 
   # Check if install folder was created successfully
   if [ -d "install" ]; then

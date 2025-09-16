@@ -17,6 +17,14 @@ The workflow features a state-of-the-art ultrasound sensor simulation that lever
 
 This physics-based approach enables the generation of highly realistic synthetic ultrasound images that closely match real-world data, making it ideal for training AI models and validating autonomous scanning algorithms. The workflow supports multiple AI policies (PI0, GR00T N1) and can be deployed using NVIDIA Holoscan for clinical applications, providing a complete pipeline from simulation to real-world deployment.
 
+### 🎯 Isaac Sim/Lab Integration
+
+This workflow is built on **NVIDIA Isaac Sim** and **NVIDIA Isaac Lab**. When you run the workflow scripts, Isaac Sim/Lab provides:
+
+- **🤖 Robot Physics**: Accurate Franka arm dynamics with precise end-effector control for ultrasound probe manipulation
+- **🔧 Real-Time Control**: Live robot control through AI policies, teleoperation, or automated scanning protocols
+- **📊 Sensor Integration**: Multi-modal data streams including RGB cameras, depth sensing, and ultrasound B-mode imaging
+
 ---
 
 ## 📋 Table of Contents
@@ -56,7 +64,7 @@ This physics-based approach enables the generation of highly realistic synthetic
 - **NVIDIA Driver**: ≥555.x (RTX ray tracing API support)
 - **CUDA Toolkit**: ≥12.6 (OptiX 8.x compatibility)
 - **Memory Requirements**: ≥24GB GPU memory, ≥64GB system RAM
-- **Storage**: ≥100GB NVMe SSD (asset caching and simulation data)
+- **Storage**: ≥100GB NVMe SSD (asset caching and model downloading)
 
    <details>
    <summary>🔍 Driver Version Validation</summary>
@@ -139,10 +147,17 @@ conda activate robotic_ultrasound
 (python -m policy_runner.run_policy --policy pi0 & python -m simulation.environments.sim_with_dds --enable_cameras & wait)
 ```
 
-**Expected Behavior:**
-- Isaac Sim physics simulation with Franka robotic arm.
-- PI0 policy inference pipeline processing visual input streams.
-- DDS-based communication for real-time control commands and sensor feedback.
+**What Happens in Isaac Sim:**
+- **🏥 Medical Scene**: Isaac Sim creates a space with Franka robotic arm positioned next to a hospital bed with patient model
+- **🧠 AI Policy Control**: Gr00t or PI0 neural network processes real-time visual input to autonomously control ultrasound scanning motions
+- **📡 DDS Communication**: Real-time data exchange between AI policy and robot simulation via distributed messaging
+- **📸 Multi-Camera Setup**: Multiple RGB cameras provide different viewpoints of the scanning procedure
+
+**How to Interact with Isaac Sim:**
+- **🖱️ Scene Navigation**: Use mouse controls to orbit around the phantom and robot for different viewing angles
+- **⏸️ Simulation Control**: Spacebar to pause/resume the autonomous scanning sequence
+- **📊 Real-Time Monitoring**: Observe robot joint states, camera feeds, and policy decisions in the GUI
+- **🔍 Component Inspection**: Click on robot links (under `Stage` -> `World` -> `envs` -> `env_0` -> `Robot`) to view detailed properties
 
 > **Note:**
 > You may see "IsaacSim 4.5.0 is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
@@ -160,10 +175,15 @@ python -m utils.visualization & \
 wait)
 ```
 
-**Expected Behavior:**
-- Full autonomous robotic ultrasound scanning pipeline.
-- Real-time physics-based ultrasound image synthesis via GPU ray tracing.
-- Multi-modal sensor data visualization (RGB cameras + ultrasound B-mode).
+**What Happens in Isaac Sim:**
+- **🤖 Autonomous Scanning**: AI-controlled robot performs systematic ultrasound examination of patient anatomy
+- **📊 Real-Time B-Mode**: Live ultrasound images generated based on simulated acoustic reflections and tissue properties
+- **🎭 Multi-Modal Fusion**: Simultaneous RGB camera feeds and ultrasound imaging for comprehensive scene understanding
+
+**Key Isaac Sim Technologies:**
+- **⚡ RTX Ray Tracing**: Hardware-accelerated acoustic wave simulation through complex tissue geometries
+- **🔄 Synchronized Simulation**: Coordinated robot motion, phantom scanning, and ultrasound image generation
+- **📈 Performance Monitoring**: Real-time FPS, physics step timing, and ray tracing performance metrics
 
 #### 🎮 Manual Teleoperation Interface
 ```bash
@@ -174,12 +194,16 @@ python workflows/robotic_ultrasound/scripts/utils/visualization.py & \
 wait)
 ```
 
-**Expected Behavior:**
-- Direct SE(3) pose control via keyboard/SpaceMouse/gamepad input.
-- Real-time ultrasound image generation during manual scanning.
-- Multi-camera visualization with synchronized ultrasound feedback.
+**What Happens in Isaac Sim:**
+- **🎮 Manual Control**: Direct 6-DOF (position + orientation) control of the ultrasound probe via keyboard, SpaceMouse, or gamepad
+- **🩻 Live Ultrasound Feedback**: Real-time B-mode images update as you manually scan different anatomical regions
+- **📸 Multi-Camera Views**: Observe your scanning technique from multiple camera perspectives simultaneously
+- **🔧 Interactive Physics**: Feel realistic probe-to-phantom contact detection and constraints during manual scanning
 
-**Control Mapping**: Reference [Teleoperation Documentation](./scripts/simulation/environments/teleoperation/README.md#keyboard-controls)
+**Isaac Sim Control Features:**
+- **⌨️ Keyboard Mapping**: Reference [Teleoperation Documentation](./scripts/simulation/environments/teleoperation/README.md#keyboard-controls)
+- **🖱️ 3D Mouse Support**: Direct SE(3) control for intuitive ultrasound probe manipulation
+- **📊 Real-Time Feedback**: Live visualization of probe position, camera feed, and ultrasound image
 
 > 🔄 **Process Termination**: Use `Ctrl+C` followed by `bash workflows/robotic_ultrasound/reset.sh` to cleanly terminate all distributed processes.
 
@@ -211,6 +235,44 @@ wait)
 | **📡 Communication** | [dds/publisher.py](scripts/dds/publisher.py) | Data streaming | DDS data publishing utilities | [DDS README](scripts/dds/README.md) | DDS license | Continuous |
 | **📡 Communication** | [dds/subscriber.py](scripts/dds/subscriber.py) | Data reception | DDS data subscription utilities | [DDS README](scripts/dds/README.md) | DDS license | Continuous |
 
+### 🎓 Understanding the Isaac Sim Workflow Architecture
+
+When you run robotic ultrasound workflow scripts, here's how they integrate with Isaac Sim:
+
+```
+📦 Workflow Script Launch
+    ↓
+🚀 Isaac Sim Initialization
+    ├── 🌍 Medical Scene Creation (Patient Room)
+    ├── 🤖 Franka Robot Loading (7-DOF Arm + Ultrasound Probe)
+    ├── 🏥 Environment Setup (Hospital Bed, Patient Model)
+    └── 📸 Sensor Configuration (RGB Cameras, Ultrasound Transducer)
+    ↓
+⚙️ Simulation Loop
+    ├── 🧠 Control Logic (AI Policy/Teleoperation/State Machine)
+    ├── 🔄 Physics Step (Robot Dynamics + Phantom Scanning)
+    ├── 🩻 Ultrasound Ray Tracing (Acoustic Wave Simulation)
+    ├── 📊 Sensor Updates (Camera Feeds + B-Mode Images)
+    └── 📡 DDS Communication (Real-Time Data Streaming)
+```
+
+**Core Isaac Sim Components for Ultrasound:**
+
+- **🌍 World**: Medical environment with realistic patient room and equipment
+- **🤖 Franka Articulation**: 7-DOF robotic arm with precise end-effector control
+- **🩻 Ultrasound Simulator**: GPU-accelerated acoustic ray tracing for B-mode image generation
+- **📸 Multi-Camera System**: RGB and depth cameras for visual feedback and policy input
+- **📡 DDS Integration**: Real-time communication between simulation and AI policies
+- **🔧 Interactive Controls**: Teleoperation interfaces for manual probe control
+
+**Script-to-Simulation Flow:**
+1. **Isaac Sim Launch**: Python script initializes simulation app with medical environment
+2. **Robot & Patient Setup**: Franka arm, ultrasound probe, and patient anatomy are loaded
+3. **Sensor Configuration**: Cameras and ultrasound transducer are positioned and calibrated
+4. **Control Mode Selection**: AI policy, teleoperation, or automated scanning is activated
+5. **Real-Time Loop**: Robot moves probe, ultrasound images generate, data streams via DDS
+6. **Visualization**: Multi-modal rendering shows robot motion, phantom scanning, and ultrasound images
+
 ---
 
 ## 🔧 Detailed Setup Instructions
@@ -224,7 +286,7 @@ wait)
 - **Operating System**: Ubuntu 22.04 LTS / 24.04 LTS (x86_64)
 - **GPU Architecture**: NVIDIA RTX/GeForce RTX/Quadro RTX with RT Cores
 - **Memory Requirements**: ≥24GB GPU memory, ≥64GB system RAM
-- **Storage**: ≥100GB NVMe SSD (asset caching and simulation data)
+- **Storage**: ≥500GB NVMe SSD (asset caching, simulation data and model weights)
 
 ### 🏗️ Framework Architecture Dependencies
 
@@ -234,7 +296,7 @@ The robotic ultrasound workflow is built on the following dependencies:
 - [Gr00T N1](https://github.com/NVIDIA/Isaac-GR00T)
 - [Cosmos Transfer 1](https://github.com/nvidia-cosmos/cosmos-transfer1/tree/main)
 - [openpi](https://github.com/Physical-Intelligence/openpi) and [lerobot](https://github.com/huggingface/lerobot)
-- [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/v0.2.0/ultrasound-raytracing)
+- [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/v0.3.0/ultrasound-raytracing)
 - [RTI Connext DDS](https://www.rti.com/products)
 
 ### 🐳 Docker Installation Procedures
@@ -301,7 +363,7 @@ Expected PyTorch version conflicts between IsaacLab (2.5.1) and OpenPI (2.6.0) a
 Choose one of the following options:
 - **(Use pre-built binary)** Current [installation script](../../tools/env_setup_robot_us.sh) will download the pre-built binary and install it to `workflows/robotic_ultrasound/scripts/raysim`.
 
-- **(Compiling from source)** Install and build following instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/v0.2.0/ultrasound-raytracing#installation) and copy the `raysim` folder to `workflows/robotic_ultrasound/scripts/`.
+- **(Compiling from source)** Install and build following instructions in [Raytracing Ultrasound Simulator](https://github.com/isaac-for-healthcare/i4h-sensor-simulation/tree/v0.3.0/ultrasound-raytracing#bare-metal-installation) and copy the `raysim` folder to `workflows/robotic_ultrasound/scripts/`.
 
 ### 📦 Asset Management
 
@@ -315,8 +377,16 @@ i4h-asset-retrieve
 ```
 
 **Asset Storage**: `~/.cache/i4h-assets/<sha256>/`
-**Total Size**: ~65GB (incremental download)
-**Reference**: [Asset Catalog Documentation](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.2.0rc1/docs/catalog_helper.md)
+**Total Size**: 2.7GB (asset, incremental download)
+**Reference**: [Asset Catalog Documentation](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.3.0/docs/catalog_helper.md)
+
+#### Model Management
+
+There are two models in the workflow available on Hugging Face:
+- [GR00T N1 with Cosmos](https://huggingface.co/nvidia/Liver_Scan_Gr00t_Cosmos_Rel)
+- [PI0 with Cosmos](https://huggingface.co/nvidia/Liver_Scan_Pi0_Cosmos_Rel)
+
+Model retrieval is done automatically when running the workflow. You can also download the models manually from Hugging Face.
 
 ### 🔧 Environment Configuration
 
@@ -350,6 +420,10 @@ isaaclab 0.34.9 requires torch==2.5.1, but you have torch 2.6.0 which is incompa
 #### 🔗 Module Import Resolution
 **Symptoms**: `ModuleNotFoundError` or `Error while finding module specification for 'xxx'` during script execution
 **Resolution**: Verify `PYTHONPATH` includes both `scripts/` directory and repository root.
+
+#### 🔧 PI0 model fails to load
+**Symptoms**: When using the PI0 policy for the scanning task, the model fails to load, or Isaac Sim appears stuck on the loading screen.
+**Resolution**: Verify that your machine can reach Google APIs (`googleapis.com`). Although the model is hosted on Hugging Face, additional files are fetched from Google during initialization.
 
 ### 🆘 Support Resources
 

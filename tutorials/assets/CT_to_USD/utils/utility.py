@@ -249,15 +249,11 @@ def convert_mesh_to_usd(input_file, output_file):
                 shader.CreateIdAttr("UsdPreviewSurface")
 
                 # Set the random color
-                shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(
-                    Gf.Vec3f(r, g, b)
-                )
+                shader.CreateInput("diffuseColor", Sdf.ValueTypeNames.Color3f).Set(Gf.Vec3f(r, g, b))
                 shader.CreateInput("roughness", Sdf.ValueTypeNames.Float).Set(0.4)
 
                 # Connect shader to material
-                material_output = material.CreateOutput(
-                    "surface", Sdf.ValueTypeNames.Token
-                )
+                material_output = material.CreateOutput("surface", Sdf.ValueTypeNames.Token)
                 shader_output = shader.CreateOutput("surface", Sdf.ValueTypeNames.Token)
                 material_output.ConnectToSource(shader_output)
 
@@ -265,9 +261,7 @@ def convert_mesh_to_usd(input_file, output_file):
                 UsdShade.MaterialBindingAPI(usd_mesh).Bind(material)
 
                 # Set vertex positions
-                usd_mesh.GetPointsAttr().Set(
-                    [Gf.Vec3f(*vertex) for vertex in geometry.vertices]
-                )
+                usd_mesh.GetPointsAttr().Set([Gf.Vec3f(*vertex) for vertex in geometry.vertices])
 
                 # Set face indices and counts
                 face_vertex_indices = geometry.faces.flatten().tolist()
@@ -278,9 +272,7 @@ def convert_mesh_to_usd(input_file, output_file):
 
                 # Optionally, set normals
                 if geometry.vertex_normals is not None:
-                    usd_mesh.GetNormalsAttr().Set(
-                        [Gf.Vec3f(*normal) for normal in geometry.vertex_normals]
-                    )
+                    usd_mesh.GetNormalsAttr().Set([Gf.Vec3f(*normal) for normal in geometry.vertex_normals])
                     usd_mesh.SetNormalsInterpolation("vertex")
 
     else:
@@ -299,9 +291,7 @@ def convert_mesh_to_usd(input_file, output_file):
 
         # Optionally, set normals
         if mesh.vertex_normals is not None:
-            usd_mesh.GetNormalsAttr().Set(
-                [Gf.Vec3f(*normal) for normal in mesh.vertex_normals]
-            )
+            usd_mesh.GetNormalsAttr().Set([Gf.Vec3f(*normal) for normal in mesh.vertex_normals])
             usd_mesh.SetNormalsInterpolation("vertex")
 
     # Save the USD file

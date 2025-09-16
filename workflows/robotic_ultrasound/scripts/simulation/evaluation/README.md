@@ -76,25 +76,7 @@ The script expects predicted trajectory files to be found at `data_root/file_pat
 
 ## Downloading Model Weights
 
-We provide the two best-performing relative action space model weights that use Cosmos augmentation: **Pi0-800-rel (w/ cosmos)** and **GR00T-N1-800-rel (w/ cosmos)**. These can be obtained using the `i4h_asset_helper` utility for asset management and download.
-
-If you require access to other model weights (such as absolute action space or non-cosmos variants), please create a ticket or contact us directly.
-
-To integrate these models into your workflow, you would typically define an `Assets` class that inherits from `BaseI4HAssets`, specifying the asset identifiers. Below is an example demonstrating how these might be structured.
-
-```python
-from i4h_asset_helper import BaseI4HAssets
-
-class Assets(BaseI4HAssets):
-    Pi0_800 = "Policies/LiverScan/Pi0_Cosmos_Rel"
-    GR00TN1_800 = "Policies/LiverScan/GR00TN1_Cosmos_Rel"
-
-my_assets = Assets()
-```
-
-You can then use these definitions in your scripts to get the local path to the downloaded model files, for example:
-`pi0_800_model = my_assets.Pi0_800`
-`gr00t_800_model = my_assets.GR00TN1_800`
+We provide the two best-performing relative action space model weights that use Cosmos augmentation: **nvidia/Liver_Scan_Pi0_Cosmos_Rel** and **nvidia/Liver_Scan_Gr00t_Cosmos_Rel** on Hugging Face. If you require access to other model weights (such as absolute action space or non-cosmos variants), please create a ticket or contact us directly.
 
 ## Understanding the Outputs & Experiment Results Comparison
 

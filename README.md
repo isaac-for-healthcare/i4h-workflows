@@ -33,22 +33,29 @@ This repository contains **healthcare robotics workflows** - complete, end-to-en
 Workflows are comprehensive reference implementations that showcase the complete development pipeline from simulation to real-world deployment. Each workflow includes digital twin environments, AI model training capabilities, and deployment frameworks for specific healthcare robotics applications.
 
 ### Available Workflows
-This repository currently includes three main workflows:
+This repository currently includes four main workflows:
 
 - **[Robotic Surgery](./workflows/robotic_surgery/README.md)** - Physics-based surgical robot simulation framework with photorealistic rendering for developing autonomous surgical skills. Supports da Vinci Research Kit (dVRK), dual-arm configurations, and STAR surgical arms. This workflow enables researchers and medical device companies to train AI models for surgical assistance, validate robot behaviors safely, and accelerate development through GPU-parallelized reinforcement learning. Includes pre-built surgical subtasks like suture needle manipulation and precise reaching tasks.
 - **[Robotic Ultrasound](./workflows/robotic_ultrasound/README.md)** - Comprehensive autonomous ultrasound imaging system featuring physics-accurate sensor simulation through GPU-accelerated raytracing technology that models ultrasound wave propagation, tissue interactions, and acoustic properties in real-time. The raytracing ultrasound simulator generates photorealistic B-mode images by simulating acoustic wave physics, enabling synthetic data generation for training AI models without requiring physical ultrasound hardware. Supports multiple AI policies (PI0, GR00T N1), distributed communication via RTI DDS, and Holoscan deployment for clinical applications. This workflow enables medical imaging researchers, ultrasound device manufacturers, and healthcare AI developers to train robotic scanning protocols, validate autonomous imaging algorithms, and accelerate development through GPU-accelerated simulation before clinical deployment.
 - **[Telesurgery](./workflows/telesurgery/README.md)** - Real-time remote surgical operations framework supporting both simulated and physical environments with low-latency video streaming, haptic feedback, and distributed control systems. This workflow features H.264/HEVC hardware-accelerated video encoding, RTI DDS communication, cross-platform deployment (x86/AARCH64), and seamless sim-to-real transition. Designed for surgical robotics companies, medical device manufacturers, and telemedicine providers to develop remote surgical capabilities, validate teleoperation systems, and deploy scalable telesurgery solutions across different network conditions.
+- **[SO-ARM Starter](./workflows/so_arm_starter/README.md)** - Surgical assistant robotics system featuring SO-ARM101 manipulator control with complete data collection, policy training, and deployment pipeline. Implements GR00T N1.5 diffusion policy for autonomous surgical instrument handling, precise tool positioning, and workspace organization using dual RGB camera streams (640x480@30fps room/wrist views) and 6-DOF joint state feedback. Features physics-based simulation environments, imitation learning from both real-world and simulated demonstrations, real-time policy inference generating 16-step action sequences, and RTI DDS middleware for distributed robot communication.
 
 Each workflow provides complete simulation environments, training datasets, pre-trained models, and deployment tools to accelerate your healthcare robotics development.
 
-Please see [What's New](./docs/source/whatsnew_0_2_0.md) for details on our milestone releases.
+Please see [What's New](./docs/source/whatsnew_0_3_0.md) for details on our milestone releases.
 
 ### Tutorials
 
 Get started with our comprehensive tutorials that guide you through key aspects of the framework:
-- [Bring your own patient](./tutorials/assets/bring_your_own_patient/README.md)
-- [Bring your own robot](./tutorials/assets/bring_your_own_robot)
-- [Bring your own xr](./tutorials/assets/bring_your_own_xr)
+
+#### Tutorials
+- [Bring Your Own Patient](./tutorials/assets/bring_your_own_patient/README.md)
+- [Medical Data Conversion (CT-to-USD)](./tutorials/assets/CT_to_USD/README.md)
+- [Bring Your Own Robot](./tutorials/assets/bring_your_own_robot/)
+- [Bring Your Own Operating Room](./tutorials/assets/bring_your_own_or/README.md)
+- [Bring Your Own XR Device](./tutorials/assets/bring_your_own_xr/README.md)
+- [Sim2Real Transition](./tutorials/sim2real/README.md)
+- [Telesurgery Latency Benchmarking](./tutorials/benchmarking/telesurgery_latency_benchmarking.md)
 
 ## Repository Structure
 
@@ -59,6 +66,7 @@ i4h-workflows/
 │   ├── assets/             # Asset-related tutorials
 │   └── sim2real/           # Sim2Real transition tutorials
 ├── workflows/            # Main workflow implementations
+│   ├── so_arm_starter/     # SO-ARM Starter workflow
 │   ├── robotic_surgery/    # Robotic surgery workflow
 │   ├── robotic_ultrasound/ # Robotic ultrasound workflow
 │   └── telesurgery/        # Telesurgery workflow

@@ -22,7 +22,7 @@ from holoscan.core._core import OperatorSpec
 from schemas.camera_stream import CameraStream
 
 
-class CV2VideoCaptureOp(Operator):
+class CV2ToCameraStreamOp(Operator):
     """
     Operator to capture video using OpenCV.
     Captures RGB frames.

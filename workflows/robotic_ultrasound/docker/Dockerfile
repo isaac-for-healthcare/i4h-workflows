@@ -17,6 +17,11 @@
 
 FROM nvidia/cuda:12.8.1-devel-ubuntu24.04
 
+# Optional PyPI mirror configuration
+ARG PIP_INDEX_URL
+ARG PIP_EXTRA_INDEX_URL
+ARG PIP_TRUSTED_HOST
+
 SHELL ["/bin/bash", "-c"]
 
 # Install all packages in a single layer to avoid caching issues
@@ -56,6 +61,8 @@ COPY tools /workspace/i4h-workflows/tools
 COPY tutorials /workspace/i4h-workflows/tutorials
 COPY workflows /workspace/i4h-workflows/workflows
 COPY holoscan_i4h /workspace/i4h-workflows/holoscan_i4h
+COPY i4h /workspace/i4h-workflows/i4h
+COPY CMakeLists.txt /workspace/i4h-workflows/CMakeLists.txt
 
 # Install miniconda3 and create robotic_ultrasound
 RUN mkdir -p ~/miniconda3 && \
@@ -72,5 +79,6 @@ RUN source ~/miniconda3/bin/activate && \
     cd /workspace/i4h-workflows && \
     BUILD_DOCKER_IMAGE=true bash tools/env_setup_robot_us.sh
 
-ENV PYTHONPATH=/workspace/i4h-workflows/workflows/robotic_ultrasound/scripts
+ENV PYTHONPATH=/workspace/i4h-workflows/workflows/robotic_ultrasound/scripts:/workspace/i4h-workflows/install/lib/clarius_solum:/workspace/i4h-workflows/install/lib/clarius_cast
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/workspace/i4h-workflows/install/lib/clarius_solum:/workspace/i4h-workflows/install/lib/clarius_cast
 ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat

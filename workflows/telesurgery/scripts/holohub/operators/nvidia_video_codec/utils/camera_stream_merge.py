@@ -21,19 +21,25 @@ from schemas.camera_stream import CameraStream
 class CameraStreamMergeOp(Operator):
     """Operator to merge a camera stream into a single stream."""
 
+    def __init__(self, fragment, for_encoder=True, *args, **kwargs):
+        self.for_encoder = for_encoder
+
+        super().__init__(fragment, *args, **kwargs)
+
     def setup(self, spec):
-        spec.input("metadata")
-        spec.input("camera")
+        spec.input("input")
+        spec.input("image")
         spec.output("output")
 
     def compute(self, op_input, op_output, context):
-        stream = op_input.receive("metadata")
-        camera = op_input.receive("camera")
+        stream = op_input.receive("input")
+        camera_tensor = op_input.receive("image")[""]
         assert isinstance(stream, CameraStream)
 
-        camera_tensor = camera[""]
-
-        stream.data = cp.asarray(camera_tensor).get().tobytes()
-        stream.encode_latency = self.metadata.get("video_encoder_encode_latency_ms", 0)
-        stream.compress_ratio = self.metadata.get("video_encoder_compress_ratio", 0)
+        if self.for_encoder:
+            stream.data = cp.asarray(camera_tensor).get().tobytes()
+            stream.encode_latency = self.metadata.get("video_encoder_encode_latency_ms", 0)
+            stream.compress_ratio = self.metadata.get("video_encoder_compress_ratio", 0)
+        else:
+            stream.decode_latency = self.metadata.get("video_decoder_decode_latency_ms", 0)
         op_output.emit(stream, "output")

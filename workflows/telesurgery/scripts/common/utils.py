@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import distutils
 import os
 
 import ntplib
@@ -37,5 +36,12 @@ def get_ntp_offset(
         return 0
 
 
-def strtobool(s):
-    return False if s is None else s if isinstance(s, bool) else bool(distutils.util.strtobool(s))
+def strtobool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("y", "yes", "on", "1", "true", "t"):
+        return True
+    elif v.lower() in ("n", "no", "off", "0", "false", "f"):
+        return False
+    else:
+        raise ValueError(f"Invalid truth value: {v}")

@@ -17,41 +17,25 @@
 cmake_minimum_required(VERSION 3.20)
 project(clarius_cast)
 
-set(LIB_DIR "${CMAKE_BINARY_DIR}/lib")
-set(INCLUDE_DIR "${CMAKE_BINARY_DIR}/include")
-
 execute_process(
-    COMMAND lsb_release -sr
+    COMMAND bash -c "cat /etc/lsb-release | grep DISTRIB_RELEASE | cut -d= -f2"
     OUTPUT_VARIABLE UBUNTU_VERSION
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-# Download Clarius library and header files
-if(NOT EXISTS "${LIB_DIR}/clarius_cast/libcast.so")
-    file(MAKE_DIRECTORY ${LIB_DIR}/clarius_cast)
-    file(DOWNLOAD
-        "https://github.com/clariusdev/cast/releases/download/v12.0.2/cast-12.0.2-linux.x86_64-gcc_ubuntu_${UBUNTU_VERSION}.zip"
-         "${LIB_DIR}/clarius_cast/cast.zip"
-         )
-    # Unzip the file
-    execute_process(
-        COMMAND unzip cast.zip
-        WORKING_DIRECTORY ${LIB_DIR}/clarius_cast
+include(FetchContent)
+FetchContent_Declare(
+        clarius_cast
+        URL "https://github.com/clariusdev/cast/releases/download/v12.0.2/cast-12.0.2-linux.x86_64-gcc_ubuntu_${UBUNTU_VERSION}.zip"
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
+FetchContent_MakeAvailable(clarius_cast)
 
-    # Header files are included in the zip file
-    execute_process(COMMAND rm -rf "${INCLUDE_DIR}/cast")
-    message("mv ${LIB_DIR}/clarius_cast/cast ${INCLUDE_DIR}/")
-    execute_process(COMMAND mv "${LIB_DIR}/clarius_cast/cast" "${INCLUDE_DIR}/")
+# Installation
+install(DIRECTORY ${clarius_cast_SOURCE_DIR}/cast
+        DESTINATION include)
 
-    # Use python3.10 library
-    execute_process(
-        COMMAND mv "${LIB_DIR}/clarius_cast/python310/pyclariuscast.so" "${LIB_DIR}/clarius_cast"
-    )
-
-    # Cleanup
-    execute_process(
-        COMMAND bash -c "rm -rf ${LIB_DIR}/clarius_cast/python* ${LIB_DIR}/clarius_cast/cast.zip"
-    )
-
-endif()
+install(FILES
+        ${clarius_cast_SOURCE_DIR}/libcast.so
+        ${clarius_cast_SOURCE_DIR}/python310/pyclariuscast.so
+        DESTINATION lib/clarius_cast)

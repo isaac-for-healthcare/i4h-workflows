@@ -214,6 +214,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(
             control_input: Resized video mask
         """
         video_path = input_path
+
         frames = np.load(video_path)
         if "arr_0" in frames:
             frames = frames["arr_0"]
@@ -411,15 +412,16 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(
 
         log.info(f"control_input shape: {B, C, T, H, W}")
         log.info(f"control_weight shape: {control_weight.shape}")
+        video_mask = None
         if x0_spatial_condtion is not None:
             video_mask = self.read_and_resize_numpy_mask(
                 x0_spatial_condtion["x0_mask_path"], foreground_label=x0_spatial_condtion["foreground_label"], h=H, w=W
             )
             sigma_threshold = x0_spatial_condtion["sigma_threshold"]
 
-        assert (
-            T == video_mask.shape[2] == input_video.shape[2]
-        ), f"T: {T} != video_mask.shape[2]: {video_mask.shape[2]} != input_video.shape[2]: {input_video.shape[2]}"
+            assert (
+                T == video_mask.shape[2] == input_video.shape[2]
+            ), f"T: {T} != video_mask.shape[2]: {video_mask.shape[2]} != input_video.shape[2]: {input_video.shape[2]}"
 
         if (T - self.num_input_frames) % num_new_generated_frames != 0:  # pad duplicate frames at the end
             pad_t = num_new_generated_frames - ((T - self.num_input_frames) % num_new_generated_frames)
@@ -476,7 +478,7 @@ class DiffusionControl2WorldGenerationPipelineWithGuidance(
                     }
 
                 if self.sigma_max >= 80:
-                    log.info("sigma_max is greater than 80, using None for x_sigma_max")
+                    log.info("sigma_max is equal or greater than 80, using None for x_sigma_max")
                     x_sigma_max = None
 
             else:

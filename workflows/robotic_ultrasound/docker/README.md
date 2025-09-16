@@ -17,6 +17,7 @@ This guide provides instructions for running robotic ultrasound simulations usin
 # Clone the repository
 git clone https://github.com/isaac-for-healthcare/i4h-workflows.git
 cd i4h-workflows
+# Build the Docker image with no cache to ensure fresh build
 docker build --no-cache -f workflows/robotic_ultrasound/docker/Dockerfile -t robotic_us:latest .
 ```
 
@@ -45,6 +46,7 @@ docker run --name isaac-sim -it --gpus all --rm \
     -v ~/docker/isaac-sim/data:/root/.local/share/ov/data:rw \
     -v ~/docker/isaac-sim/documents:/root/Documents:rw \
     -v ~/.cache/i4h-assets:/root/.cache/i4h-assets:rw \
+    -v ~/.cache/huggingface:/root/.cache/huggingface:rw \
     -v ~/docker/rti:/root/rti:ro \
     robotic_us:latest
 ```

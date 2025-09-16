@@ -23,17 +23,49 @@ source $SCRIPT_DIR/../scripts/env.sh
 source $SCRIPT_DIR/utils.sh
 
 HOLOHUB_DIR=$SCRIPT_DIR/../scripts/holohub
-DOCKER_IMAGE=telesurgery:0.2
+DOCKER_IMAGE=telesurgery:0.3
 CONTAINER_NAME=telesurgery
+
+function build_operators() {
+  if [ ! -d "$HOLOHUB_DIR/operators/camera/aja_source/lib" ]; then
+      echo "Building aja_source Operator..."
+  else
+      return 0
+  fi
+
+  docker run --rm -ti \
+    --runtime=nvidia \
+    --gpus all \
+    --entrypoint "/bin/bash" \
+    --ipc=host \
+    --network=host \
+    --privileged \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v $HOME/.Xauthority:/root/.Xauthority \
+    -v /dev:/dev \
+    -v $(pwd):/workspace/i4h-workflows \
+    $DOCKER_IMAGE \
+    -c '
+        rm -rf /workspace/i4h-workflows/workflows/telesurgery/scripts/build &&
+        mkdir -p /workspace/i4h-workflows/workflows/telesurgery/scripts/build &&
+        cd /workspace/i4h-workflows/workflows/telesurgery/scripts/build &&
+        cmake .. -DCMAKE_C_COMPILER=/usr/bin/gcc-11 -DCMAKE_CXX_COMPILER=/usr/bin/g++-11 -G Ninja
+        cmake --build . -j`nproc`
+        cmake --install .
+    '
+}
 
 function build() {
   BASE_IMAGE=nvcr.io/nvidia/clara-holoscan/holoscan:v3.2.0-$(get_host_gpu)
   echo "Building Telesurgery Docker Image using ${BASE_IMAGE}"
   docker build \
     --build-arg BASE_IMAGE=$BASE_IMAGE \
+    --build-arg HSB_REPO_URL=$HSB_REPO_URL \
+    --build-arg HSB_BRANCH=$HSB_BRANCH \
     -t $DOCKER_IMAGE \
     -f workflows/telesurgery/docker/Dockerfile .
   download_operators
+  build_operators
 }
 
 function run() {
