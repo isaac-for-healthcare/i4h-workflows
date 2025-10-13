@@ -301,7 +301,7 @@ This pretrained model is specifically trained with:
 
 <img src="../../docs/source/so_arm_starter_real_view.png" alt="Real World Camera View Setup - Required camera positions for model deployment" width="800" style="max-width: 100%; height: auto;">
 
-**To deploy this model in the real world:** please use the consistent prompt and match your camera views to the reference images above, you can verify camera setup using the [LeRobot camera command](../so_arm_starter/README.md#real-so-arm-101-configuration). Captured images will be saved to `~/lerobot/outputs/captured_images`.
+**To deploy this model in the real world:** please use the consistent prompt and match your camera views to the reference images above, you can verify camera setup using the [LeRobot camera command](#real-so-arm-101-configuration). Captured images will be saved to `~/lerobot/outputs/captured_images`.
 
 ## 🛠️ Troubleshooting
 
