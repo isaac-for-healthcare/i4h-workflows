@@ -31,7 +31,7 @@ Currently, the robotic ultrasound workflow uses the assets in [I4H Asset Catalog
 
 If you generate the mesh and USD files from the different source (e.g. mesh from CT scan but USD from public human body 3D model), you need to align the meshes to achieve realistic simulation results.
 
-- USD model follows the [USD convention](ttps://docs.isaacsim.omniverse.nvidia.com/4.5.0/reference_material/reference_conventions.html#usd-axes).
+- USD model follows the [USD convention](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/reference_material/reference_conventions.html#usd-axes).
   - It is the `organ` frame in the [environment configuration file](../../../workflows/robotic_ultrasound/scripts/simulation/exts/robotic_us_ext/robotic_us_ext/tasks/ultrasound/approach/config/franka/franka_manager_rl_env_cfg.py)
 
 - Mesh object for the organs
