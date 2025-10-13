@@ -47,5 +47,4 @@ python -m simulation.environments.sim_with_dds --enable_cameras
 ## Documentation Links
 
 - [IsaacLab Task Setting](../exts/so_arm_starter_ext/README.md)
-- [State Machine Utilities](./state_machine/README.md)
-- [Policy Runner](../policy_runner/README.md)
+- [Policy Runner](../../policy_runner/README.md)

@@ -42,7 +42,7 @@ We provide an implementation in the simulation environment that can generate tra
 See the [simulation README](../../simulation/README.md) for more information on how to collect data in simulation.
 
 **Collect in real world**
-Huggingface **Lerobot** provides workflow to collect dataset in real world, refer to this [repository](https://github.com/huggingface/lerobot/blob/main/src/lerobot/record.py) to get more information.
+Huggingface **Lerobot** provides workflow to collect dataset in real world, refer to the [LeRobot documentation](https://huggingface.co/docs/lerobot/main/en/getting_started_real_world_robot) to get more information.
 
 
 ## 🔄 Data Conversion
