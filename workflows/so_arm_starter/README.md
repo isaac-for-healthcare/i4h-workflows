@@ -93,12 +93,6 @@ The SO‑ARM 101 robot is equipped with a wrist‑mounted camera module and a 3D
 
 For detailed specifications and hardware recommendations, see the official [SO‑ARM 101 hardware recommendations](https://github.com/TheRobotStudio/SO-ARM100/tree/385e8d7c68e24945df6c60d9bd68837a4b7411ae?tab=readme-ov-file#kits).
 
-#### Simulated SO-ARM 101 Configuration
-
-The simulated SO‑ARM 101 model is derived from the
-[original SO‑ARM 101 URDF](https://github.com/TheRobotStudio/SO-ARM100/blob/385e8d7c68e24945df6c60d9bd68837a4b7411ae/Simulation/SO101/so101_new_calib.urdf) and
-augmented with STL geometry provided by [**WOWROBO**](https://wowrobo.com/) for the wrist camera module and its mounting adapter. These assets are consolidated into the single USD file: `SO-ARMDualCamera.usd`.
-
 **Navigate to LeRobot Installation**
 
 Ensure the LeRobot dependency is installed in the correct location: `<path-to-i4h-workflows>/third_party/lerobot`.
@@ -142,6 +136,12 @@ python lerobot/calibrate.py \
 ```
 
 You can replace the `--robot.id` and `--teleop.id` with custom name. For detailed SO-ARM101 assembly and setup instructions, refer to the [LeRobot SO-ARM101 Documentation](https://huggingface.co/docs/lerobot/so101).
+
+#### Simulated SO-ARM 101 Configuration
+
+The simulated SO‑ARM 101 model is derived from the
+[original SO‑ARM 101 URDF](https://github.com/TheRobotStudio/SO-ARM100/blob/385e8d7c68e24945df6c60d9bd68837a4b7411ae/Simulation/SO101/so101_new_calib.urdf) and
+augmented with STL geometry provided by [**WOWROBO**](https://wowrobo.com/) for the wrist camera module and its mounting adapter. These assets are consolidated into the single USD file: `SO-ARMDualCamera.usd`.
 
 ## ⚡ Running Workflows
 
@@ -223,10 +223,7 @@ python /path/to/lerobot/record.py \
 
 Replace `--robot.port`, `--teleop.port` and `--index_or_path` with the appropriate values for your hardware setup (see [Hardware Requirements](#hardware-requirements)). Set `num_episodes` to specify the number of data collection episodes to record. The resulting dataset will be automatically saved to `~/.cache/huggingface/lerobot/{repo-id}`.
 
-For real-world data collection using physical SO-ARM101 hardware, refer to the [LeRobot Data Collection Documentation](https://huggingface.co/docs/lerobot/main/en/getting_started_real_world_robot). This guide provides comprehensive instructions for:
-
-- Setting up SO-ARM101 leader and follower arms for data collection
-- Teleoperation for real-world data collection
+For more details about real-world data collection using physical SO-ARM101 hardware, refer to the [LeRobot Data Collection Documentation](https://huggingface.co/docs/lerobot/main/en/getting_started_real_world_robot).
 
 
 ### 🎯 Phase 2: Model Training
@@ -294,11 +291,21 @@ For policy inference and deployment using trained GR00T models, refer to the [Is
 There is one model in the workflow available on Hugging Face:
 - [SO-ARM Starter GR00T](https://huggingface.co/nvidia/SO_ARM_Starter_Gr00t)
 
-If you want to use the pretrained model, you can download the model manually from Hugging Face.
+If you want to use the pretrained model, you can [download the model manually from Hugging Face](../so_arm_starter/README.md#-running-workflows).
+
+⚠️ **Notice**
+
+This pretrained model is specifically trained with:
+- **Text Prompt**: `Grip the scissors and put it into the tray`
+- **Fixed Camera Views**: wrist camera (left) and room camera (right)
+
+<img src="../../docs/source/so_arm_starter_real_view.png" alt="Real World Camera View Setup - Required camera positions for model deployment" width="800" style="max-width: 100%; height: auto;">
+
+**To deploy this model in the real world:** please use the consistent prompt and match your camera views to the reference images above, you can verify camera setup using the [LeRobot camera command](../so_arm_starter/README.md#real-so-arm-101-configuration). Captured images will be saved to `~/lerobot/outputs/captured_images`.
 
 ## 🛠️ Troubleshooting
 
 - **DDS Connection**: Verify RTI license and domain ID consistency
-- **Hardware Connection**: Check USB permissions and device availability
+- **Hardware Connection**: Check USB permissions, device availability, and camera views
 - **GPU Memory**: Ensure sufficient VRAM for GR00T model inference
 - **Camera Access**: Verify camera permissions and USB connections
