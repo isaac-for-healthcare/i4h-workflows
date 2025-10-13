@@ -44,12 +44,9 @@ docker run --name soarm -it --gpus all --privileged --rm \
     -e "PRIVACY_CONSENT=Y" \
     -e "DISPLAY=$DISPLAY" \
     -e "NVIDIA_VISIBLE_DEVICES=all" \
-    -e "OMNI_SERVER=$OMNI_SERVER" \
-    -e "OMNI_USER=$OMNI_USER" \
-    -e "OMNI_PASS=$OMNI_PASS" \
     -e "NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics,display" \
     -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-    -v ~/$USER/.Xauthority:/root/.Xauthority:rw \
+    -v ~/.Xauthority:/root/.Xauthority:rw \
     -v ~/docker/isaac-sim/cache/kit:/isaac-sim/kit/cache:rw \
     -v ~/docker/isaac-sim/cache/ov:/root/.cache/ov:rw \
     -v ~/docker/isaac-sim/cache/pip:/root/.cache/pip:rw \
