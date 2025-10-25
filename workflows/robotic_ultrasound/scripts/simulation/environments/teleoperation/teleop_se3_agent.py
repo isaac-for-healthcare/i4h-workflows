@@ -117,9 +117,12 @@ from dds.publisher import Publisher  # noqa: F401
 from dds.schemas.camera_info import CameraInfo  # noqa: F401
 from dds.schemas.franka_info import FrankaInfo  # noqa: F401
 from dds.schemas.usp_info import UltraSoundProbeInfo  # noqa: F401
-from isaaclab.devices import Se3Keyboard, Se3SpaceMouse, OpenXRDevice  # noqa: F401
+from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg  # noqa: F401
+from isaaclab.devices import Se3SpaceMouse, Se3SpaceMouseCfg  # noqa: F401
+from isaaclab.devices import OpenXRDevice, OpenXRDeviceCfg  # noqa: F401
 from isaaclab.devices.openxr import XrCfg
-from isaaclab.devices.openxr.retargeters.manipulator import Se3AbsRetargeter, Se3RelRetargeter, GripperRetargeter  # noqa: F401
+from isaaclab.devices.openxr.retargeters.manipulator import Se3AbsRetargeter, Se3RelRetargeter, Se3RelRetargeterCfg  # noqa: F401
+from isaaclab.devices.openxr.retargeters.manipulator import GripperRetargeter, GripperRetargeterCfg  # noqa: F401
 from isaaclab.managers import SceneEntityCfg  # noqa: F401
 from isaaclab.managers import TerminationTermCfg as DoneTerm  # noqa: F401
 from isaaclab_tasks.manager_based.manipulation.lift import mdp  # noqa: F401
@@ -268,24 +271,34 @@ def main():
     # create controller
     if args_cli.teleop_device.lower() == "keyboard":
         teleop_interface = Se3Keyboard(
-            pos_sensitivity=0.05 * args_cli.sensitivity,
-            rot_sensitivity=0.15 * args_cli.sensitivity,
+            Se3KeyboardCfg(
+                pos_sensitivity=0.05 * args_cli.sensitivity,
+                rot_sensitivity=0.15 * args_cli.sensitivity,
+            )
         )
     elif args_cli.teleop_device.lower() == "spacemouse":
         teleop_interface = Se3SpaceMouse(
-            pos_sensitivity=0.05 * args_cli.sensitivity,
-            rot_sensitivity=0.015 * args_cli.sensitivity,
+            Se3SpaceMouseCfg(
+                pos_sensitivity=0.05 * args_cli.sensitivity,
+                rot_sensitivity=0.015 * args_cli.sensitivity,
+            )
         )
     elif args_cli.teleop_device.lower() == "handtracking":
         retargeter_device = Se3RelRetargeter(
-            bound_hand=OpenXRDevice.TrackingTarget.HAND_RIGHT,
-            zero_out_xy_rotation=False,
-            use_wrist_position=True,
-            use_wrist_rotation=True,
-            delta_rot_scale_factor=8.0,
-            delta_pos_scale_factor=8.0,
+            Se3RelRetargeterCfg(
+                bound_hand=OpenXRDevice.TrackingTarget.HAND_RIGHT,
+                zero_out_xy_rotation=False,
+                use_wrist_position=True,
+                use_wrist_rotation=True,
+                delta_rot_scale_factor=8.0,
+                delta_pos_scale_factor=8.0,
+            )
         )
-        grip_retargeter = GripperRetargeter(bound_hand=OpenXRDevice.TrackingTarget.HAND_RIGHT)
+        grip_retargeter = GripperRetargeter(
+            GripperRetargeterCfg(
+                bound_hand=OpenXRDevice.TrackingTarget.HAND_RIGHT,
+            )
+        )
 
         XR_INITIAL_POS = [0.2, 0, -0.2]
         XR_INITIAL_ROT = (0.7, 0.0, 0, -0.7)
@@ -365,8 +378,8 @@ def main():
             continue
 
         with torch.inference_mode():
-            delta_pose, gripper_command = teleop_interface.advance()
-            delta_pose = torch.tensor(delta_pose.astype("float32"), device=env.unwrapped.device).repeat(
+            delta_pose = teleop_interface.advance()
+            delta_pose = delta_pose.to(env.unwrapped.device).repeat(
                 env.unwrapped.num_envs, 1
             )
 

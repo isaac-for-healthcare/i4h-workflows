@@ -72,7 +72,7 @@ RUN mkdir -p ~/miniconda3 && \
     source ~/miniconda3/bin/activate && \
     conda tos accept && \
     conda init --all && \
-    conda create -n robotic_ultrasound python=3.10.14 -y
+    conda create -n robotic_ultrasound python=3.11 -y
 
 RUN source ~/miniconda3/bin/activate && \
     conda activate robotic_ultrasound && \

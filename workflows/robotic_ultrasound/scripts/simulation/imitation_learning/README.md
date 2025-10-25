@@ -14,7 +14,7 @@ python -m simulation.imitation_learning.pi0_policy.eval --enable_cameras
 - IsaacSim window with a Franka robot arm driven by pi0 policy without DDS communication.
 
 > **Note:**
-> You may see "IsaacSim 4.5.0 is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
+> You may see "IsaacSim is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
 > It may take an additional 1 or 2 minutes for the policy to start inferencing, so the robot arm may not move immediately.
 
 ### Command Line Arguments

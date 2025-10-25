@@ -27,8 +27,9 @@ The SO-ARM Starter Workflow addresses the critical need for autonomous surgical 
     - [GR00T N1.5 Training](#gr00t-n15-training)
   - [🚀 Phase 3: GR00T N1.5 Deployment](#-phase-3-gr00t-n15-deployment)
     - [Simulation Deployment](#simulation-deployment)
-    - [Real-world Policy Inference](#real-world-policy-inference)
+    - [Real-world Deployment](#real-world-deployment)
 - [🤖 Model Management](#-model-management)
+- [📊 Latency Benchmarking](#-latency-benchmarking)
 - [🛠️ Troubleshooting](#️-troubleshooting)
 
 ## 🚀 Quick Start
@@ -251,9 +252,6 @@ python -m training.gr00t_n1_5.train \
 ### 🚀 Phase 3: GR00T N1.5 Deployment
 
 #### **Simulation Deployment**
-Enable GR00T N1.5 model inference in simulation:
-- **Step 1**: The policy runner loads the trained model and starts DDS communication
-- **Step 2**: IsaacSim environment connects to the same DDS domain and provides camera feeds and robot state
 
 1️⃣ Run `policy_runner` script to launch a GR00T N1.5 PyTorch model
 ```bash
@@ -279,12 +277,56 @@ python -m policy_runner.run_policy \
 python -m simulation.environments.sim_with_dds --enable_cameras
 ```
 
-#### **Real-world Policy Inference**
+#### **Real-world Deployment**
+##### X86
+For real-world deployment, we use a Holoscan application designed for real-time SO-ARM control. Default use GR00T N1.5 **TensorRT** engine, please refer to the [TensorRT Inference section](../so_arm_starter/scripts/policy_runner/README.md#tensorrt-inference) to convert your TensorRT engines.
 
-For policy inference and deployment using trained GR00T models, refer to the [Isaac GR00T Policy Deployment](https://github.com/NVIDIA/Isaac-GR00T/blob/17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1/getting_started/5_policy_deployment.md). This guide provides comprehensive instructions for:
+This application is specifically **designed for real SO-ARM hardware**, not simulation.
 
-- Loading and running trained GR00T N1.5 models
-- Inference on real-world SO-ARM101 follower arm
+```bash
+python -m holoscan_apps.gr00t_inference_app --config /path/to/soarm_robot_config.yaml
+```
+
+**Note**:
+- This Holoscan app requires a **physical SO-ARM** connected on the configured port.
+- In the [sample config](scripts/holoscan_apps/soarm_robot_config.yaml) the model paths are empty. Set `model_path` (for the downloaded checkpoint or a fine-tuned model) or `trt_engine_path` (for a TensorRT engine) to the actual location with the right `trt` switch
+
+##### Optional Device
+This workflow also supports Jetson Thor, Orin and DGX Spark for real-world deployment within Docker.
+Here are steps for Jetson Thor deployment:
+
+**Build Docker**
+- Jetson Thor
+```bash
+cd ../docker && docker build -t soarm-thor -f thor.Dockerfile . # ~20 minutes
+```
+
+- Jetson Orin
+```bash
+cd ../docker && docker build -t soarm-orin -f orin.Dockerfile . # ~20 minutes
+```
+
+- DGX Spark
+```bash
+cd ../docker && docker build -t soarm-dgx -f dgx.Dockerfile . # ~20 minutes
+```
+
+**Run Container**
+```bash
+cd .. && docker run --rm --privileged -it --runtime nvidia \
+  -e PYTHONPATH=/workspace/scripts \
+  -v /dev:/dev \
+  -v "$PWD":/workspace -w /workspace <image_name>
+```
+
+Refer to [hardware configuration](#real-so-arm-101-configuration) to find SO-ARM hardware port and camera index, `lerobot repo` is installed in `/tmp/lerobot`, and then config `soarm_robot_config.yaml` with your actual robot and model settings.
+
+```bash
+cd /workspace/scripts && python -m holoscan_apps.gr00t_inference_app --config holoscan_apps/soarm_robot_config.yaml
+```
+If SO-ARM recalibration is required on first run, please refer to the [calibration video](https://huggingface.co/docs/lerobot/so101#calibrate) to move each joint.
+
+For more details about policy inference and deployment using trained GR00T models, refer to the [Isaac GR00T Policy Deployment](https://github.com/NVIDIA/Isaac-GR00T/blob/17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1/getting_started/5_policy_deployment.md) and [Orin Deployment](https://github.com/NVIDIA/Isaac-GR00T/tree/d18bfc3a3b4ad6432649e364af2b62f483d7cfee/deployment_scripts#deploy-isaac-gr00t-with-container)
 
 ## 🤖 Model Management
 
@@ -302,6 +344,23 @@ This pretrained model is specifically trained with:
 <img src="../../docs/source/so_arm_starter_real_view.jpg" alt="Real World Camera View Setup - Required camera positions for model deployment" width="800" style="max-width: 100%; height: auto;">
 
 **To deploy this model in the real world:** please use the consistent prompt and match your camera views to the reference images above, you can verify camera setup using the [LeRobot camera command](#real-so-arm-101-configuration). Captured images will be saved to `~/lerobot/outputs/captured_images`.
+
+## 📊 Latency Benchmarking
+
+This section presents inference latency benchmarks for model [SO-ARM Starter GR00T](https://huggingface.co/nvidia/SO_ARM_Starter_Gr00t) across various NVIDIA platforms. All measurements use batch size 1, FP16 precision, dual camera input, and averaged over 100 rounds.
+
+| Platform | Mode | E2E Latency (ms) |
+|----------|------|------------------|
+| **X86_64 + RTX 6000 Ada** | PyTorch | 42.08 ± 0.69 |
+| **X86_64 + RTX 6000 Ada** | TensorRT | 24.54 ± 0.63 |
+| **AGX Orin** | PyTorch | 507.47 ± 5.65 |
+| **AGX Orin** | TensorRT | 359.82 ± 3.37 |
+| **IGX Thor (iGPU)** | PyTorch | 107.85 ± 4.97 |
+| **IGX Thor (iGPU)** | TensorRT | 75.86 ± 8.98 |
+| **AGX Thor** | PyTorch | 109.43 ± 4.59 |
+| **AGX Thor** | TensorRT | 77.91 ± 9.63 |
+| **DGX Spark** | PyTorch | 124.32 ± 4.20 |
+| **DGX Spark** | TensorRT | 114.72 ± 5.34 |
 
 ## 🛠️ Troubleshooting
 

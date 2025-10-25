@@ -34,7 +34,20 @@ jobs:
 
     # This job only runs for pull request comments
     if: |
-         github.event.comment.body == '/build' && (github.actor == 'mingxin-zheng' || github.actor == 'KumoLiu' || github.actor == 'Nic-Ma' || github.actor == 'yiheng-wang-nv' || github.actor == 'NigelNelson' || github.actor == 'jjomier' || github.actor == 'wendell-hom' || github.actor == 'masoudmoghani' || github.actor == 'maximilianofir' || github.actor == 'mahdiazizian')
+         github.event.comment.body == '/build' &&
+         (
+           github.actor == 'mingxin-zheng' ||
+           github.actor == 'KumoLiu' ||
+           github.actor == 'Nic-Ma' ||
+           github.actor == 'yiheng-wang-nv' ||
+           github.actor == 'NigelNelson' ||
+           github.actor == 'jjomier' ||
+           github.actor == 'wendell-hom' ||
+           github.actor == 'masoudmoghani' ||
+           github.actor == 'maximilianofir' ||
+           github.actor == 'mahdiazizian' ||
+           github.actor == 'mimiliaogo'
+         )
 
     steps:
       - name: Check if comment is issued by authorized person

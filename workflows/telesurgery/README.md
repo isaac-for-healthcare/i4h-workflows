@@ -125,7 +125,7 @@ For the Docker version and NVIDIA driver version, follow the links below to upgr
 
 - [NVIDIA Driver Version >= 570](https://developer.nvidia.com/cuda-downloads)
 - [CUDA Version >= 12.8](https://developer.nvidia.com/cuda-downloads)
-- Python 3.10
+- Python 3.11
 - [Docker](https://docs.docker.com/engine/install/) 28.0.4+
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) 1.17.5+
 

@@ -62,7 +62,7 @@ This workflow is built on **NVIDIA Isaac Sim** and **NVIDIA Isaac Lab**. When yo
 #### Driver & System Requirements
 - **Operating System**: Ubuntu 22.04 LTS / 24.04 LTS (x86_64)
 - **NVIDIA Driver**: ≥555.x (RTX ray tracing API support)
-- **CUDA Toolkit**: ≥12.6 (OptiX 8.x compatibility)
+- **CUDA Toolkit**: ≥12.6 (OptiX 8.x compatibility) but < 13.0
 - **Memory Requirements**: ≥24GB GPU memory, ≥64GB system RAM
 - **Storage**: ≥100GB NVMe SSD (asset caching and model downloading)
 
@@ -83,7 +83,7 @@ This workflow is built on **NVIDIA Isaac Sim** and **NVIDIA Isaac Lab**. When yo
    </details>
 
 #### Software Dependencies
-- **Python**: 3.10 (exact version required)
+- **Python**: 3.11 (exact version required)
 - **Conda**: Miniconda or Anaconda ([installation guide](https://www.anaconda.com/docs/getting-started/miniconda/install))
 
 #### Communication Middleware
@@ -105,7 +105,7 @@ cd i4h-workflows
 
 #### 2️⃣ Environment Creation & Dependency Installation
 ```bash
-conda create -n robotic_ultrasound python=3.10 -y
+conda create -n robotic_ultrasound python=3.11 -y
 conda activate robotic_ultrasound
 bash tools/env_setup_robot_us.sh
 ```
@@ -160,7 +160,7 @@ conda activate robotic_ultrasound
 - **🔍 Component Inspection**: Click on robot links (under `Stage` -> `World` -> `envs` -> `env_0` -> `Robot`) to view detailed properties
 
 > **Note:**
-> You may see "IsaacSim 4.5.0 is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
+> You may see "IsaacSim is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
 > It may take an additional 1 or 2 minutes for the policy to start inferencing, so the robot arm may not move immediately.
 
 > ⏳ **Initial Load Time**: First execution may require 10+ minutes for asset download and scene initialization
@@ -337,7 +337,7 @@ wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh
 
 # Create isolated environment
-conda create -n robotic_ultrasound python=3.10 -y
+conda create -n robotic_ultrasound python=3.11 -y
 conda activate robotic_ultrasound
 ```
 

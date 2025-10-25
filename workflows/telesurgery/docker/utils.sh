@@ -24,7 +24,7 @@ function download_operators() {
     return 1
   fi
 
-  local FILE_NAME=holohub_nv_video_codec_operators_0.1.zip
+  local FILE_NAME=$1
   VIDEO_CODEC_FILENAME=/tmp/${FILE_NAME}
   UNZIP_DIR=/tmp/${FILE_NAME%%.*}
 

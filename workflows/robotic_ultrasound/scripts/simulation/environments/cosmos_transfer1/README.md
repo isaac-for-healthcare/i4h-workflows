@@ -11,27 +11,124 @@ This training-free guided generation approach by encoding simulation videos into
 #### Download Cosmos-transfer1 Checkpoints
 The cosmos-transfer1 dependency is already installed after completing the installation steps in [Quick Start](../../../../README.md#-quick-start) section. Please navigate to the third party `cosmos-transfer1` folder and run the following command to download the checkpoints:
 ```sh
-cd third_party/cosmos-transfer1
+# Ensure the current path is the project root directory
+huggingface-cli login
+pushd third_party/cosmos-transfer1
 CUDA_HOME=$CONDA_PREFIX PYTHONPATH=$(pwd) python scripts/download_checkpoints.py --output_dir checkpoints/
+popd
 ```
 
 > **Note:** You need to be logged in to Hugging Face (`huggingface-cli login`) before running the download script. Additionally, for the `meta-llama/Llama-Guard-3-8B` model, you need to request additional access on the [Hugging Face model page](https://huggingface.co/meta-llama/Llama-Guard-3-8B) before you can download it.
+
+<details>
+<summary>Folder Structure of Cosmos-transfer1 Checkpoints</summary>
+
+```sh
+$ tree third_party/cosmos-transfer1/checkpoints/ -L 3
+third_party/cosmos-transfer1/checkpoints/
+├── depth-anything
+│   └── Depth-Anything-V2-Small-hf
+│       ├── config.json
+│       ├── model.safetensors
+│       ├── preprocessor_config.json
+│       └── README.md
+├── facebook
+│   └── sam2-hiera-large
+│       ├── config.json
+│       ├── model.safetensors
+│       ├── preprocessor_config.json
+│       ├── processor_config.json
+│       ├── README.md
+│       ├── sam2_hiera_large.pt
+│       ├── sam2_hiera_l.yaml
+│       └── video_preprocessor_config.json
+├── google-t5
+│   └── t5-11b
+│       ├── config.json
+│       ├── pytorch_model.bin
+│       ├── README.md
+│       ├── spiece.model
+│       ├── tf_model.h5
+│       └── tokenizer.json
+├── IDEA-Research
+│   └── grounding-dino-tiny
+│       ├── added_tokens.json
+│       ├── config.json
+│       ├── model.safetensors
+│       ├── preprocessor_config.json
+│       ├── pytorch_model.bin
+│       ├── README.md
+│       ├── special_tokens_map.json
+│       ├── tokenizer_config.json
+│       ├── tokenizer.json
+│       └── vocab.txt
+├── meta-llama
+│   └── Llama-Guard-3-8B
+│       ├── LICENSE
+│       ├── original
+│       └── README.md
+├── nvidia
+│   ├── Cosmos-Guardrail1
+│   │   ├── blocklist
+│   │   └── README.md
+│   ├── Cosmos-Tokenize1-CV8x8x8-720p
+│   │   ├── autoencoder.jit
+│   │   ├── config.json
+│   │   ├── decoder.jit
+│   │   ├── encoder.jit
+│   │   ├── image_mean_std.pt
+│   │   ├── mean_std.pt
+│   │   ├── model_config.yaml
+│   │   ├── model.pt
+│   │   └── README.md
+│   ├── Cosmos-Transfer1-7B
+│   │   ├── 4kupscaler_control.pt
+│   │   ├── base_model.pt
+│   │   ├── config.json
+│   │   ├── depth_control.pt
+│   │   ├── edge_control_distilled.pt
+│   │   ├── edge_control.pt
+│   │   ├── guardrail
+│   │   ├── keypoint_control.pt
+│   │   ├── README.md
+│   │   ├── seg_control.pt
+│   │   └── vis_control.pt
+│   ├── Cosmos-Transfer1-7B-Sample-AV
+│   │   ├── guardrail
+│   │   └── README.md
+│   └── Cosmos-UpsamplePrompt1-12B-Transfer
+│       ├── consolidated.safetensors
+│       ├── params.json
+│       ├── README.md
+│       ├── seg_upsampler_example.png
+│       └── tekken.json
+└── README.md
+
+21 directories, 57 files
+```
+
+</details>
 
 #### Video Prompt Generation
 We follow the idea in [lucidsim](https://github.com/lucidsim/lucidsim) to first generate batches of meta prompt that contains a very concise description of the potential scene, then instruct the LLM (e.g., [gemma-3-27b-it](https://build.nvidia.com/google/gemma-3-27b-it)) to upsample the meta prompt with detailed descriptions.
 We provide example prompts in [`generated_prompts_two_seperate_views.json`](./config/generated_prompts_two_seperate_views.json).
 
+#### Prepare Source Data
+
+Please follow the [instructions](../state_machine/README.md) to prepare the source data.
+
+By default, the source data directory is `data/hdf5/<date-time>-Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0/` under the project root directory.
+
 #### Running Cosmos-transfer1 + Guided Generation
 
 ```sh
+# Ensure the current path is the project root directory
+export PROJECT_ROOT=$(pwd)
+export CHECKPOINT_DIR="${PROJECT_ROOT}/third_party/cosmos-transfer1/checkpoints"
+export PYTHONPATH="${PROJECT_ROOT}/third_party/cosmos-transfer1:${PROJECT_ROOT}/workflows/robotic_ultrasound/scripts"
 cd workflows/robotic_ultrasound/scripts/simulation/
-export CHECKPOINT_DIR="path to downloaded cosmos-transfer1 checkpoints"
-# Set project root path
-export PROJECT_ROOT="{your path}/i4h-workflows"
-# Set PYTHONPATH
-export PYTHONPATH="$PROJECT_ROOT/third_party/cosmos-transfer1:$PROJECT_ROOT/workflows/robotic_ultrasound/scripts"
-# run bath inference for generation pipeline
-CUDA_HOME=$CONDA_PREFIX python \
+CUDA_HOME=$CONDA_PREFIX torchrun \
+    --nproc_per_node=1 --nnodes=1 \
     -m environments.cosmos_transfer1.transfer \
     --checkpoint_dir $CHECKPOINT_DIR \
     --source_data_dir "Path to source dir of h5 files" \

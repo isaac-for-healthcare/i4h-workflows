@@ -237,3 +237,7 @@ cmake
 
 # Dev container
 .devcontainer/
+
+# License file
+*.lic
+*.dat

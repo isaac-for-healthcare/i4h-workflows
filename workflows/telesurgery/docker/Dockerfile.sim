@@ -15,10 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM nvcr.io/nvidia/isaac-lab:2.1.0
-
-# Fix livestream public endpoint address issue in 2.0.2/2.1.0
-RUN sed -i '/--\/app\/livestream\/publicEndpointAddress=/d' /workspace/isaaclab/source/isaaclab/isaaclab/app/app_launcher.py
+FROM nvcr.io/nvidia/isaac-lab:2.2.0
 
 # Install uv using curl for openpi
 RUN apt-get update && \
@@ -62,7 +59,7 @@ RUN update-alternatives --install /usr/bin/python python $PYTHON_EXECUTABLE 100 
 
 # # Set up the Simulation
 RUN $PYTHON_EXECUTABLE -m pip install --no-deps \
-        git+https://github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.2.0
+        git+https://github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.3.0
 
 # Install Python dependencies
 COPY workflows/telesurgery/requirements.txt /tmp/requirements.txt

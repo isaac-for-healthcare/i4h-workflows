@@ -64,7 +64,8 @@ function build() {
     --build-arg HSB_BRANCH=$HSB_BRANCH \
     -t $DOCKER_IMAGE \
     -f workflows/telesurgery/docker/Dockerfile .
-  download_operators
+  download_operators "holohub_nv_video_codec_operators_0.1.zip"
+
   build_operators
 }
 

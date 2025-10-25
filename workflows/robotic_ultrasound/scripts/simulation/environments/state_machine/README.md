@@ -16,7 +16,7 @@ python -m simulation.environments.state_machine.liver_scan_sm --enable_cameras
 
 **Expected Behavior:**
 - IsaacSim window with a Franka robot arm and a ultrasound probe performing a liver scan.
-- You may see "IsaacSim 4.5.0 is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
+- You may see "IsaacSim is not responding". It can take approximately several minutes to download the assets and models from the internet and load them to the scene. If this is the first time you run the workflow, it can take up to 10 minutes.
 
 ### States Overview
 

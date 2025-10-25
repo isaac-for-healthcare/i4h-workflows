@@ -77,7 +77,7 @@ python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_m
 #### WebRTC Client Setup
 
 1. **Download the Isaac Sim WebRTC Client**:
-   - Visit the [Isaac Sim Download Page](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/installation/download.html)
+   - Visit the [Isaac Sim Download Page](https://docs.isaacsim.omniverse.nvidia.com/5.0.0/installation/download.html)
    - Download the **Isaac Sim WebRTC Streaming Client**
 
 2. **Configure Connection**:

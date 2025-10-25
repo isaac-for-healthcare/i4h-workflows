@@ -49,10 +49,10 @@ setup(
     dependency_links=["https://data.dgl.ai/wheels/torch-2.4/cu121/repo.html"],
     license="MIT",
     include_package_data=True,
-    python_requires=">=3.10",
+    python_requires=">=3.11",
     classifiers=[
         "Natural Language :: English",
-        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Isaac Sim :: 2023.1.1",
         "Isaac Sim :: 4.0.0",
     ],

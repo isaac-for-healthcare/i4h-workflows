@@ -5,13 +5,13 @@ include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
 line_length = 120
-py_version = 310
+py_version = 311
 group_by_package = true
 known_third_party = ["openpi", "i4h_asset_helper"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 exclude = [
   "workflows/telesurgery/cmake/pybind11/"
 ]

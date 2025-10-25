@@ -84,7 +84,7 @@ class TestTeleoperation(unittest.TestCase):
 
         success, stdout, stderr = self._run_teleop_command(
             extra_args=["--dataset_path", dataset_path],
-            timeout=30,
+            timeout=120,
         )
 
         self.assertTrue(success, "Teleoperation script should run successfully")

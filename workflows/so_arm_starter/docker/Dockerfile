@@ -74,7 +74,7 @@ RUN mkdir -p ~/miniconda3 && \
     rm ~/miniconda3/miniconda.sh && \
     export PATH="/root/miniconda3/bin:$PATH" && \
     /root/miniconda3/bin/conda init bash && \
-    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main --channel https://repo.anaconda.com/pkgs/r && \
+    conda tos accept && \
     conda create -n so_arm_starter python=3.11.13 -y
 
 RUN source ~/miniconda3/etc/profile.d/conda.sh && \

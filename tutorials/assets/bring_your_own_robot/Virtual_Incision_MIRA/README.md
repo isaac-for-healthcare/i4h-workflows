@@ -11,8 +11,8 @@ This tutorial shows how to teleoperate the [Virtual Incision MIRA](https://virtu
 **Note**: The setup process takes approximately 30-40 minutes to complete, depending on your system and network connection.
 
 This tutorial requires the following dependencies:
-- [IsaacSim 4.5.0](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/index.html)
-- [IsaacLab 2.1.0](https://isaac-sim.github.io/IsaacLab/v2.1.0/index.html)
+- [IsaacSim 5.0.0](https://docs.isaacsim.omniverse.nvidia.com/5.0.0/index.html)
+- [IsaacLab 2.3.0](https://isaac-sim.github.io/IsaacLab/release/2.3.0/index.html)
 - [i4h_asset_helper](https://github.com/isaac-for-healthcare/i4h-asset-catalog/blob/v0.3.0/docs/catalog_helper.md)
 
 Please ensure these are installed.

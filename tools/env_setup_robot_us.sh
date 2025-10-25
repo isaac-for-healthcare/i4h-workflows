@@ -73,11 +73,11 @@ echo "Installing build tools..."
 if [ "$EUID" -ne 0 ]; then
     sudo apt-get install -y cmake
     sudo apt-get update
-    sudo apt-get install -y git build-essential pybind11-dev libxcb-cursor0 unzip
+    sudo apt-get install -y git build-essential libxcb-cursor0 unzip
 else
     apt-get install -y cmake
     apt-get update
-    apt-get install -y git build-essential pybind11-dev libxcb-cursor0 unzip
+    apt-get install -y git build-essential libxcb-cursor0 unzip
 fi
 
 
@@ -91,17 +91,14 @@ pip install rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui=
 # ---- Install IsaacSim and IsaacLab (Common) ----
 # Check if IsaacLab is already cloned
 echo "Installing IsaacSim and IsaacLab..."
-bash $PROJECT_ROOT/tools/env_setup/install_isaac.sh
 
+bash $PROJECT_ROOT/tools/env_setup/install_isaacsim5.0_isaaclab2.3.sh
 
 # ---- Install Robotic Ultrasound Extensions and Dependencies ----
 echo "Installing Robotic Ultrasound Extensions and Dependencies..."
 bash "$PROJECT_ROOT/tools/env_setup/install_robotic_us_ext.sh"
 
 
-# ---- Install lerobot (Common) ----
-echo "Installing lerobot..."
-bash "$PROJECT_ROOT/tools/env_setup/install_lerobot.sh"
 
 
 # ---- Install PI0 Policy Dependencies (Conditional) ----
@@ -117,14 +114,18 @@ if [[ "$INSTALL_WITH_POLICY" == "gr00tn1" ]]; then
     bash "$PROJECT_ROOT/tools/env_setup/install_gr00tn1.sh"
 fi
 
+# ---- Install lerobot (Common) ----
+echo "Installing lerobot..."
+bash "$PROJECT_ROOT/tools/env_setup/install_lerobot.sh"
+
+# for holoscan and cosmos transfer1, we need to install the following conda packages:
+conda install -c conda-forge ninja libgl ffmpeg 'pybind11>=2.10.0' gcc=12.4.0 gxx=12.4.0 libstdcxx-ng=12.4.0 -y
 
 # ---- Installing Clarius libs ----
 echo "Installing Clarius libs..."
 bash $PROJECT_ROOT/tools/env_setup/install_clarius.sh
 
 
-# for holoscan and cosmos transfer1, we need to install the following conda packages:
-conda install -c conda-forge ninja libgl ffmpeg pybind11 gcc=12.4.0 gxx=12.4.0 libstdcxx-ng=12.4.0 -y
 
 
 # ---- Install Holoscan (Common) ----

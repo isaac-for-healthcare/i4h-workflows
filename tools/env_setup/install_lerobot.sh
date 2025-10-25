@@ -27,8 +27,13 @@ LEROBOT_DIR=${1:-$PROJECT_ROOT/third_party/lerobot}
 
 echo "Installing lerobot..."
 git clone https://github.com/huggingface/lerobot.git $LEROBOT_DIR
+
+# Check out the lerobot commit pinned by OpenPI (`openpi/pyproject.toml`)
+PI0_DIR=${2:-$PROJECT_ROOT/third_party/openpi}
+# Read OpenPI's pyproject.toml and capture the commit SHA from the lerobot `rev` field
+LEROBOT_VERSION=$(grep -oP 'lerobot\s*=\s*{.*?rev\s*=\s*"\K[^"]+' "$PI0_DIR/pyproject.toml")
 pushd $LEROBOT_DIR
-git checkout 6674e368249472c91382eb54bb8501c94c7f0c56
+git checkout $LEROBOT_VERSION
 
 # Update pyav dependency in pyproject.toml
 sed -i 's/pyav/av/' pyproject.toml

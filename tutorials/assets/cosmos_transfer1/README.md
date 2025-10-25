@@ -15,7 +15,7 @@ The `transfer_customized_input.py` script provides a flexible interface for:
 Before using the script, ensure you have:
 1. **Cosmos Transfer1 model checkpoints**
 
-    a. Download Cosmos Transfer1 checkpoints to checkpoint directory (Please follow the [instruction](../../../workflows/robotic_ultrasound/scripts/simulation/environments/cosmos_transfer1/README.md))
+    a. Download Cosmos Transfer1 checkpoints to checkpoint directory (Please follow the [instruction](../../../workflows/robotic_ultrasound/scripts/simulation/environments/cosmos_transfer1/README.md#download-cosmos-transfer1-checkpoints))
 
     b. Download additional SAM checkpoint
     ```bash
@@ -42,6 +42,7 @@ python -m environments.cosmos_transfer1.transfer_customized_input \
     --offload_text_encoder_model \
     --offload_guardrail_models
 ```
+> NOTE: for the `--controlnet_specs` argument, you can use the [inference_cosmos_transfer1_g1_robot.json](../../../workflows/robotic_ultrasound/scripts/simulation/environments/cosmos_transfer1/config/inference_cosmos_transfer1_g1_robot.json) file as an example.
 
 ### Multi-GPU Usage
 

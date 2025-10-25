@@ -50,7 +50,15 @@ pip install rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui=
 # ---- Install IsaacSim and IsaacLab (Common) ----
 # Check if IsaacLab is already cloned
 echo "Installing IsaacSim and IsaacLab..."
-bash $PROJECT_ROOT/tools/env_setup/install_isaacsim5.0_isaaclab2.2.sh
+# Set versions based on architecture
+ARCH=$(uname -m)
+if [ "$ARCH" = "aarch64" ]; then
+    echo "Detected aarch64 architecture. This is for DGX Spark. Use IsaacSim 5.1 and IsaacLab 2.3."
+    bash $PROJECT_ROOT/tools/env_setup/install_isaacsim5.1_isaaclab2.3.sh
+else
+    echo "Detected $ARCH architecture. Use IsaacSim 5.0 and IsaacLab 2.2"
+    bash $PROJECT_ROOT/tools/env_setup/install_isaacsim5.0_isaaclab2.2.sh
+fi
 
 # ---- Install leisaac (Common) ----
 echo "Installing leisaac..."
@@ -78,6 +86,10 @@ bash $PROJECT_ROOT/tools/env_setup/install_so_arm_starter_extensions.sh
 
 # ---- Install tensorrt ----
 bash $PROJECT_ROOT/tools/env_setup/install_tensorrt.sh
+
+# ---- Install Holoscan ----
+bash $PROJECT_ROOT/tools/env_setup/install_holoscan_3.5.0.sh
+
 
 echo "=========================================="
 echo "Environment setup script finished."

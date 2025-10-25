@@ -33,7 +33,9 @@ class CameraEx(Camera):
 
         if self.callback and self._current_frame["rendering_frame"] != self.prev_rendering_frame:
             self.prev_rendering_frame = self._current_frame["rendering_frame"]
-            rgba = self._current_frame["rgba"]
+
+            # rgb annotator is attached to the camera by default in initialize()
+            rgba = self.get_rgba()
 
             if not rgba.shape[0] == 0 and self.callback is not None:
                 self.callback(rgba, self.frame_counter)

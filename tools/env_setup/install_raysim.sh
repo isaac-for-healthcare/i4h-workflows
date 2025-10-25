@@ -17,26 +17,43 @@
 
 set -e
 
-echo "Installing Raysim..."
-
 # Get the parent directory of the current script
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
+ULTRASOUND_RAYTRACING_DIR=${1:-$PROJECT_ROOT/third_party/i4h-sensor-simulation-internal}
 
-if [ -d "$PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim" ]; then
-    echo "Raysim already installed. Skipping installation."
-    exit 0
+
+# Ensure the cuda compiler nvcc is installed
+if ! command -v nvcc &> /dev/null
+then
+    echo "Error: nvcc (CUDA compiler) could not be found. Please install CUDA Toolkit and ensure nvcc is in your PATH."
+    exit 1
+else
+    echo "nvcc found: $(which nvcc)"
+    nvcc --version
 fi
 
-echo "Downloading Raysim..."
 
-wget https://github.com/isaac-for-healthcare/i4h-asset-catalog/releases/download/v0.2.0/raysim-py310-linux-v0.2.0.zip \
-    -O $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim.zip
+echo "Cloning i4h-sensor-simulation repo..."
 
-echo "Unzipping Raysim..."
+if [ -d "$ULTRASOUND_RAYTRACING_DIR" ]; then
+    echo "Ultrasound-raytracing repo already exists at $ULTRASOUND_RAYTRACING_DIR. Skipping clone."
+    exit 1
+else
+    git clone https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git "$ULTRASOUND_RAYTRACING_DIR"
+    pushd "$ULTRASOUND_RAYTRACING_DIR"
+    git checkout v0.4.0
+    popd
+fi
 
-unzip $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim.zip -d $PROJECT_ROOT/workflows/robotic_ultrasound/scripts
 
-rm $PROJECT_ROOT/workflows/robotic_ultrasound/scripts/raysim.zip
+cd $ULTRASOUND_RAYTRACING_DIR/ultrasound-raytracing
+
+export CMAKE_BUILD_PARALLEL_LEVEL=1
+export CXXFLAGS="${CXXFLAGS} -Wno-error=array-bounds"
+CMAKE_ARGS="-DCMAKE_CUDA_ARCHITECTURES=80" pip install -e .
+
+# copy raysim to workflows/robotic_ultrasound/scripts
+cp -r $ULTRASOUND_RAYTRACING_DIR/ultrasound-raytracing/raysim $PROJECT_ROOT/workflows/robotic_ultrasound/scripts
 
 echo "Raysim installed successfully."

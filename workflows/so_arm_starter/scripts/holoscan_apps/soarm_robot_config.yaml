@@ -1,0 +1,36 @@
+# SOAR Robot GR00T Application Configuration
+
+robot:
+  # Robot configuration for SOAR robot
+  type: "so101_follower"
+  port: "/dev/ttyACM1"
+  id: "so101_follower_arm"
+
+  # Camera configuration
+  cameras:
+    wrist:
+      type: "opencv"
+      index_or_path: 0
+      width: 640
+      height: 480
+      fps: 30
+    room:
+      type: "opencv"
+      index_or_path: 2
+      width: 640
+      height: 480
+      fps: 30
+
+gr00t:
+  # Task configuration
+  language_instruction: "Grip the scissors and put it into the tray"
+  action_horizon: 8       # Number of actions to execute from action chunk
+
+  # Model configuration
+  model_path: "" # configure the model path
+  trt_engine_path: "" # configure the tensorrt engine path
+  trt: true # default use tensorrt engine
+
+  # Data configuration
+  data_config: "so100_dualcam"
+  video_keys: ["video.room", "video.wrist"]

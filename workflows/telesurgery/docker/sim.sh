@@ -32,7 +32,7 @@ function build() {
     rm $SCRIPT_DIR/../../../third_party/IssacLab
   fi
   docker build -t $DOCKER_IMAGE -f workflows/telesurgery/docker/Dockerfile.sim .
-  download_operators
+  download_operators "holohub_nv_video_codec_operators_py311.zip"
 }
 
 function run() {
@@ -94,9 +94,9 @@ function init() {
 
   if [ ! -d "/root/.cache/i4h-assets/$ISAAC_ASSET_SHA256_HASH" ]; then
     echo "Please wait while downloading i4h-assets (Props)..."
-    yes Yes | i4h-asset-retrieve --sub-path Props | grep -v "Skipping download"
+    yes Yes | $PYTHON_EXECUTABLE -m i4h_asset_helper.cli --sub-path Props | grep -v "Skipping download"
     echo "Please wait while downloading i4h-assets (Robots)..."
-    yes Yes | i4h-asset-retrieve --sub-path Robots | grep -v "Skipping download"
+    yes Yes | $PYTHON_EXECUTABLE -m i4h_asset_helper.cli --sub-path Robots | grep -v "Skipping download"
   fi
   echo "   Patient IP:       ${PATIENT_IP}"
   echo "   Surgeon IP:       ${SURGEON_IP}"

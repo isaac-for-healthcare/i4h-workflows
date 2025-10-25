@@ -30,10 +30,12 @@ check_nvidia_gpu
 # Check if the third_party directory exists, if yes, then exit
 ensure_fresh_third_party_dir
 
+# Install tools and dependencies
+pip install setuptools==75.8.0 toml==0.10.2
 
 # Run the installation scripts
 echo "Installing IsaacSim and dependencies..."
-bash $PROJECT_ROOT/tools/env_setup/install_isaac.sh
+bash $PROJECT_ROOT/tools/env_setup/install_isaacsim5.0_isaaclab2.3.sh
 
 echo "Installing extensions..."
 bash $PROJECT_ROOT/tools/env_setup/install_robotic_surgery_extensions.sh

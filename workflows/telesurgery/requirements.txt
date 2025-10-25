@@ -17,6 +17,3 @@ websockets
 
 --extra-index-url https://download.pytorch.org/whl/cu124
 torch; platform_machine == 'x86_64'
-
---extra-index-url https://pypi.nvidia.com
-isaacsim[all,extscache]==4.5.0; platform_machine == 'x86_64'

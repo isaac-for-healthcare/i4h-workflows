@@ -72,7 +72,7 @@ The framework supports multiple surgical robots and tasks:
    </details>
 
 #### Software Dependencies
-- **Python**: 3.10 (exact version required)
+- **Python**: 3.11 (exact version required)
 
 ---
 
@@ -90,7 +90,7 @@ cd i4h-workflows
 
 #### 2️⃣ Environment Creation & Dependency Installation
 ```bash
-conda create -n robotic_surgery python=3.10 -y
+conda create -n robotic_surgery python=3.11 -y
 conda activate robotic_surgery
 bash tools/env_setup_robot_surgery.sh
 ```
@@ -237,8 +237,8 @@ When you run workflow scripts, here's how they integrate with Isaac Sim:
 ### 🏗️ Framework Architecture Dependencies
 
 The robotic surgery workflow is built on the following core dependencies:
-- [IsaacSim 4.5.0](https://docs.isaacsim.omniverse.nvidia.com/4.5.0/index.html)
-- [IsaacLab 2.1.0](https://isaac-sim.github.io/IsaacLab/v2.1.0/index.html)
+- [IsaacSim 5.0.0](https://docs.isaacsim.omniverse.nvidia.com/5.0.0/index.html)
+- [IsaacLab 2.3.0](https://isaac-sim.github.io/IsaacLab/release/2.3.0/index.html)
 - [RSL-RL](https://github.com/leggedrobotics/rsl_rl) for reinforcement learning
 
 ### 🐳 Docker Installation Procedures
@@ -264,7 +264,7 @@ bash Miniconda3-latest-Linux-x86_64.sh
 #### 3️⃣ Environment Creation and Setup
 ```bash
 # Create and activate environment
-conda create -n robotic_surgery python=3.10 -y
+conda create -n robotic_surgery python=3.11 -y
 conda activate robotic_surgery
 
 # Clone repository and install dependencies

@@ -70,12 +70,9 @@ class TestRSLRLTrain(unittest.TestCase):
         # check get expected subfolders: git and params
         self.assertTrue(os.path.exists(os.path.join(log_dir, "git")))
         self.assertTrue(os.path.exists(os.path.join(log_dir, "params")))
-        # check get expected files: env.yaml, agent.yaml, env.pkl, agent.pkl in params subfolder
+        # check get expected files: env.yaml, agent.yaml in params subfolder
         self.assertTrue(os.path.exists(os.path.join(log_dir, "params", "env.yaml")))
         self.assertTrue(os.path.exists(os.path.join(log_dir, "params", "agent.yaml")))
-        self.assertTrue(os.path.exists(os.path.join(log_dir, "params", "env.pkl")))
-        self.assertTrue(os.path.exists(os.path.join(log_dir, "params", "agent.pkl")))
-
 
 if __name__ == "__main__":
     unittest.main()
