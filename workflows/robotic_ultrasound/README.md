@@ -87,7 +87,7 @@ This workflow is built on **NVIDIA Isaac Sim** and **NVIDIA Isaac Lab**. When yo
 - **Conda**: Miniconda or Anaconda ([installation guide](https://www.anaconda.com/docs/getting-started/miniconda/install))
 
 #### Communication Middleware
-- **RTI Connext Data Distribution Service (DDS)**: [RTI Connext Express](https://content.rti.com/l/983311/2025-07-08/q5x1n8) to provide access to the DDS. To obtain a license/activation key, please [click here](https://content.rti.com/l/983311/2025-07-25/q6729c). Please see the [usage rules](https://www.rti.com/products/connext-express) for Connext Express.
+- **RTI Connext Data Distribution Service (DDS)**: [RTI Connext](https://content.rti.com/l/983311/2025-07-08/q5x1n8) to provide access to the DDS. To obtain a license/activation key, please [click here](https://content.rti.com/l/983311/2025-07-25/q6729c). Additional information on Connext can be found here: https://www.rti.com/products/third-party-integrations/nvidia.  For any questions, please email evaluations@rti.com
 
 ---
 
