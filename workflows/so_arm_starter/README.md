@@ -193,7 +193,7 @@ python -m simulation.environments.teleoperation_record \
   - **Joint 5 (wrist_roll)**: S (+) / K (-)
   - **Joint 6 (gripper)**: D (+) / L (-)
 
-The way of keyboard control is different from default **Se3Keyboard**, more information please refer to [leisaac source code](https://github.com/LightwheelAI/leisaac/blob/main/source/leisaac/leisaac/devices/keyboard/se3_keyboard.py)
+The way of keyboard control is different from default **Se3Keyboard**, more information please refer to [leisaac source code](https://github.com/LightwheelAI/leisaac/blob/v0.2.0/source/leisaac/leisaac/devices/keyboard/se3_keyboard.py)
 
 #### **Replay Recorded Data**
 Review and validate your collected datasets by replaying them in simulation:
