@@ -63,7 +63,8 @@ fi
 # ---- Install leisaac (Common) ----
 echo "Installing leisaac..."
 LEISAAC_DIR=${1:-$PROJECT_ROOT/third_party/leisaac}
-git clone https://github.com/LightwheelAI/leisaac.git $LEISAAC_DIR
+LEISAAC_VERSION="v0.2.0"
+git clone --branch $LEISAAC_VERSION --depth 1 https://github.com/LightwheelAI/leisaac.git $LEISAAC_DIR
 pushd $LEISAAC_DIR
 pip install -e source/leisaac
 popd
