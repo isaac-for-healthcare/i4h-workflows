@@ -8,8 +8,8 @@ This guide provides instructions for running robotic ultrasound simulations usin
 - **NVIDIA Docker Runtime**
 - **X11 forwarding** support (for GUI mode)
 - **RTI License**
-   - Please refer to the [Environment Setup](../README.md#environment-setup) for instructions to prepare the I4H assets and RTI license locally.
-   - The license file `rti_license.dat` should be saved in a directory in your host file system, (e.g. `~/docker/rti`), which can be mounted to the docker container.
+  - Please refer to the [Environment Setup](../README.md#environment-setup) for instructions to prepare the I4H assets and RTI license locally.
+  - The license file `rti_license.dat` should be saved in a directory in your host file system, (e.g. `~/docker/rti`), which can be mounted to the docker container.
 
 ## Build the Docker Image
 
@@ -56,12 +56,13 @@ docker run --name isaac-sim -it --gpus all --rm \
 The command to run the simulation is the same as [Running Workflows](../README.md#running-workflows) section.
 
 For example,
+
 ```sh
 # Inside the container
 conda activate robotic_ultrasound
 
 # Run simulation with GUI
-(python -m policy_runner.run_policy --policy pi0 & python -m simulation.environments.sim_with_dds --enable_cameras & wait)
+(python -m policy.run_policy --policy pi0 & python -m simulation.environments.sim_with_dds --enable_cameras & wait)
 ```
 
 ## Troubleshooting
@@ -71,6 +72,7 @@ conda activate robotic_ultrasound
 - **"Failed to create any GPU devices" or "omni.gpu_foundation_factory.plugin" errors**: This indicates GPU device access issues. Try these fixes in order:
 
   **Verify NVIDIA drivers and container toolkit installation**:
+
      ```bash
      # Check NVIDIA driver
      nvidia-smi
@@ -78,7 +80,9 @@ conda activate robotic_ultrasound
      # Check Docker can access GPU
      docker run --rm --gpus all --runtime=nvidia nvidia/cuda:12.8.1-devel-ubuntu24.04 nvidia-smi
      ```
+
    If the `--runtime=nvidia` is not working, you can try to configure Docker daemon for NVIDIA runtime. The file should contain the following content:
+
      ```json
       {
          "default-runtime": "nvidia",

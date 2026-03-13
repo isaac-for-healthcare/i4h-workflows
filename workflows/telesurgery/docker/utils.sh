@@ -17,25 +17,20 @@
 
 # Common utility functions for telesurgery workflow
 
-function download_operators() {
-  # Check if HOLOHUB_DIR is set, otherwise try to determine it
-  if [ -z "$HOLOHUB_DIR" ]; then
-    echo "Error: HOLOHUB_DIR is not set"
-    return 1
-  fi
+run_quiet() {
+    local cmd="$1"
+    local output
 
-  local FILE_NAME=$1
-  VIDEO_CODEC_FILENAME=/tmp/${FILE_NAME}
-  UNZIP_DIR=/tmp/${FILE_NAME%%.*}
+    # Capture output and exit code
+    output=$(eval "$cmd" 2>&1)
+    local exit_code=$?
 
-  if [ ! -d "$HOLOHUB_DIR/operators/nvidia_video_codec/libs" ]; then
-    echo "Downloading NVIDIA Video Codec Operators"
-    curl -L -o $VIDEO_CODEC_FILENAME "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/holohub/operators/$FILE_NAME"
-    unzip -o -q $VIDEO_CODEC_FILENAME -d $UNZIP_DIR
-    rm $VIDEO_CODEC_FILENAME
-    mv $UNZIP_DIR/$(uname -p)/* $HOLOHUB_DIR/operators/nvidia_video_codec
-    rm -rf $UNZIP_DIR
-  fi
+    if [ $exit_code -ne 0 ]; then
+        echo "Command failed: $cmd"
+        echo "$output"
+        return $exit_code
+    fi
+    return 0
 }
 
 get_host_gpu() {

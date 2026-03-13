@@ -34,7 +34,8 @@ python -m simulation.environments.replay_recording \
 ```
 
 ## Simulation with DDS
-Before running, deploy your policy with DDS communication via **[policy runner](../../policy_runner/README.md)**
+
+Before running, deploy your policy with DDS communication via **[policy runner](../../policy/README.md)**
 
 Run simulation with DDS communication for deployment testing:
 
@@ -47,4 +48,4 @@ python -m simulation.environments.sim_with_dds --enable_cameras
 ## Documentation Links
 
 - [IsaacLab Task Setting](../exts/so_arm_starter_ext/README.md)
-- [Policy Runner](../../policy_runner/README.md)
+- [Policy Runner](../../policy/README.md)

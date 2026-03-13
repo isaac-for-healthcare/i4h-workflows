@@ -14,7 +14,7 @@ from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.sensors import CameraCfg, FrameTransformerCfg
 from isaaclab.utils import configclass
 from robotic.surgery.tasks.surgical.reach.reach_env_cfg import ReachEnvCfg
-from simulation.utils.assets import robotic_surgery_assets
+from simulation.utils.assets import TABLE_USD
 
 ##
 # Pre-defined configs
@@ -41,7 +41,7 @@ class ECMReachEnvCfg(ReachEnvCfg):
         self.scene.table = AssetBaseCfg(
             prim_path="{ENV_REGEX_NS}/Table",
             spawn=sim_utils.UsdFileCfg(
-                usd_path=robotic_surgery_assets.Table,
+                usd_path=TABLE_USD,
             ),
             init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, -0.457)),
         )

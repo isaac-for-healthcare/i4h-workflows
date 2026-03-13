@@ -33,6 +33,7 @@ INSTALL_REQUIRES = [
     "dgl",
     "onnxruntime-gpu==1.19.0",
     "pynput",
+    "evdev<1.9.3",  # Pin to avoid PEP 639 license format incompatible with setuptools<78
 ]
 
 # Installation operation

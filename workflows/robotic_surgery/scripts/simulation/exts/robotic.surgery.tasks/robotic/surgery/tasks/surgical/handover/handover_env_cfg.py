@@ -19,7 +19,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg, UsdFileCfg
 from isaaclab.utils import configclass
-from simulation.utils.assets import robotic_surgery_assets
+from simulation.utils.assets import TABLE_USD
 
 from . import mdp
 
@@ -48,7 +48,7 @@ class ObjectTableSceneCfg(InteractiveSceneCfg):
     table = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Table",
         init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, -0.457)),
-        spawn=UsdFileCfg(usd_path=robotic_surgery_assets.Table),
+        spawn=UsdFileCfg(usd_path=TABLE_USD),
     )
 
     # plane

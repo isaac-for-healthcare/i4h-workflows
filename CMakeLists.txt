@@ -17,9 +17,9 @@ cmake_minimum_required(VERSION 3.20)
 project(i4h LANGUAGES NONE)
 
 # set CMAKE_MODULE_PATH
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/deps)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/tools/cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/tools/cmake/modules)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/tools/cmake/deps)
 
 # To configure which apps/operators to build
 include(HoloHubConfigHelpers)
@@ -30,5 +30,8 @@ include(CTest)
 # Build the applications
 add_subdirectory(workflows/robotic_ultrasound/scripts/holoscan_apps)
 
+# Workflows
+add_subdirectory(workflows)
+
 # Build the operators
-add_subdirectory(holoscan_i4h)
+add_subdirectory(workflows/robotic_ultrasound/scripts/holoscan_ops)

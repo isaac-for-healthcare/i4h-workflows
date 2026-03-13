@@ -22,7 +22,7 @@ from dds.schemas.camera_info import CameraInfo
 from helpers import requires_rti
 from isaacsim import SimulationApp
 from parameterized import parameterized
-from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from simulation.utils.assets import BASIC_USD
 
 simulation_app = SimulationApp({"headless": True})
 
@@ -35,9 +35,8 @@ class TestCameraBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.test_dir = os.path.dirname(os.path.abspath(__file__))
-        cls.usda_path = robot_us_assets.basic
+        cls.usda_path = BASIC_USD
         cls.camera_prim_path = "/RoomCamera"
-        assert os.path.exists(cls.usda_path), f"basic.usda not found at {cls.usda_path}"
 
     def setUp(self):
         omni.usd.get_context().open_stage(self.usda_path)

@@ -23,6 +23,7 @@ from holohub.operators.nvjpeg.decoder import NVJpegDecoderOp
 from holohub.operators.stats import CameraStreamStats
 from holohub.operators.to_viz import CameraStreamToViz
 from holoscan.core import Application, MetadataPolicy, Tracker
+from holoscan.operators.format_converter import FormatConverterOp
 from holoscan.operators.holoviz import HolovizOp
 from holoscan.resources import RMMAllocator, UnboundedAllocator
 from schemas.camera_stream import CameraStream
@@ -43,6 +44,7 @@ class App(Application):
         is_3d_input=False,
         use_exclusive_display=False,
         vsync=False,
+        upsample=False,
     ):
         self.width = width
         self.height = height
@@ -54,6 +56,7 @@ class App(Application):
         self.is_3d_input = is_3d_input
         self.use_exclusive_display = use_exclusive_display
         self.vsync = vsync
+        self.upsample = upsample
         super().__init__()
 
     def compose(self):
@@ -65,6 +68,11 @@ class App(Application):
             dds_topic_class=CameraStream,
         )
 
+        split_op = CameraStreamSplitOp(self, name="split_op")
+        merge_op = CameraStreamMergeOp(self, name="merge_op", for_encoder=False)
+        merge_op.metadata_policy = MetadataPolicy.UPDATE
+        merge_side_by_side_op = MergeSideBySideOp(self, name="merge_side_by_side_op")
+
         if self.decoder == "nvc":
             from holohub.operators.nvidia_video_codec.nv_video_decoder import NvVideoDecoderOp
 
@@ -74,10 +82,6 @@ class App(Application):
                 cuda_device_ordinal=0,
                 allocator=RMMAllocator(self, name="video_decoder_allocator", device_memory_max_size="50MB"),
             )
-            split_op = CameraStreamSplitOp(self, name="split_op")
-            merge_op = CameraStreamMergeOp(self, name="merge_op", for_encoder=False)
-            merge_op.metadata_policy = MetadataPolicy.UPDATE
-            merge_side_by_side_op = MergeSideBySideOp(self, name="merge_side_by_side_op")
         else:
             decoder_op = NVJpegDecoderOp(
                 self,
@@ -85,7 +89,7 @@ class App(Application):
                 skip=self.decoder != "nvjpeg",
             )
 
-        stats = CameraStreamStats(self, name="stats", interval_ms=1000)
+        stats = CameraStreamStats(self, name="stats", interval_ms=1000, stream_lift=self.upsample)
         stream_to_viz = CameraStreamToViz(self)
 
         viz = HolovizOp(
@@ -101,22 +105,73 @@ class App(Application):
             vsync=self.vsync,
         )
 
+        if self.upsample:
+            from holohub.operators.streamlift.streamlift_upsampler import StreamLiftUpSamplerOp
+
+            stream_lift = StreamLiftUpSamplerOp(
+                self,
+                cuda_device_ordinal=0,
+                name="stream_lift_upsampler",
+                allocator=UnboundedAllocator(self, name="streamlift_pool"),
+            )
+            nv12_to_rgb = FormatConverterOp(
+                self,
+                name="nv12_to_rgb",
+                pool=UnboundedAllocator(self, name="pool"),
+                in_dtype="nv12",
+                out_dtype="rgb888",
+            )
+            rgb_to_rgba = FormatConverterOp(
+                self,
+                name="rgb_to_rgba",
+                pool=UnboundedAllocator(self, name="pool"),
+                in_dtype="rgb888",
+                out_dtype="rgba8888",
+            )
+
         if self.decoder == "nvc":
             self.add_flow(dds, split_op, {("output", "input")})
             self.add_flow(split_op, merge_op, {("output", "input")})
             self.add_flow(split_op, decoder_op, {("image", "input")})
-            self.add_flow(decoder_op, merge_op, {("output", "image")})
-            self.add_flow(merge_op, stats, {("output", "input")})
-            if self.is_3d_input:
-                self.add_flow(decoder_op, merge_side_by_side_op, {("output", "input")})
-                self.add_flow(merge_side_by_side_op, viz, {("output", "receivers")})
+
+            if self.upsample:
+                self.add_flow(decoder_op, nv12_to_rgb, {("output", "source_video")})
+                self.add_flow(nv12_to_rgb, rgb_to_rgba, {("tensor", "source_video")})
+                self.add_flow(rgb_to_rgba, stream_lift, {("tensor", "input")})
+                self.add_flow(stream_lift, merge_op, {("output", "image")})
+                self.add_flow(merge_op, stats, {("output", "input")})
+
+                if self.is_3d_input:
+                    self.add_flow(merge_side_by_side_op, viz, {("output", "receivers")})
+                else:
+                    self.add_flow(stream_lift, viz, {("output", "receivers")})
             else:
-                self.add_flow(decoder_op, viz, {("output", "receivers")})
+                self.add_flow(decoder_op, merge_op, {("output", "image")})
+                self.add_flow(merge_op, stats, {("output", "input")})
+
+                if self.is_3d_input:
+                    self.add_flow(decoder_op, merge_side_by_side_op, {("output", "input")})
+                    self.add_flow(merge_side_by_side_op, viz, {("output", "receivers")})
+                else:
+                    self.add_flow(decoder_op, viz, {("output", "receivers")})
         else:
             self.add_flow(dds, decoder_op, {("output", "input")})
-            self.add_flow(decoder_op, stats, {("output", "input")})
-            self.add_flow(decoder_op, stream_to_viz, {("output", "input")})
-            self.add_flow(stream_to_viz, viz, {("output", "receivers")})
+            if self.upsample:
+                self.add_flow(decoder_op, split_op, {("output", "input")})
+                self.add_flow(split_op, merge_op, {("output", "input")})
+                if self.decoder == "nvjpeg":
+                    self.add_flow(split_op, rgb_to_rgba, {("image", "source_video")})
+                    self.add_flow(rgb_to_rgba, stream_lift, {("tensor", "input")})
+                else:
+                    self.add_flow(split_op, stream_lift, {("image", "input")})
+
+                self.add_flow(stream_lift, merge_op, {("output", "image")})
+                self.add_flow(merge_op, stats, {("output", "input")})
+                self.add_flow(stream_lift, viz, {("output", "receivers")})
+            else:
+                self.add_flow(decoder_op, stats, {("output", "input")})
+                self.add_flow(decoder_op, stream_to_viz, {("output", "input")})
+                self.add_flow(stream_to_viz, viz, {("output", "receivers")})
 
 
 def main():
@@ -135,6 +190,7 @@ def main():
     parser.add_argument("--enable_tracking", action="store_true", help="enable data flow tracking")
     parser.add_argument("--tracking_file", type=str, default="", help="tracking file")
     parser.add_argument("--vsync", action="store_true", help="enable VSync if screen tearing is an issue")
+    parser.add_argument("--upsample", action="store_true", help="upsample to 4k input")
 
     args = parser.parse_args()
     app = App(
@@ -148,6 +204,7 @@ def main():
         is_3d_input=args.is_3d_input,
         use_exclusive_display=args.use_exclusive_display,
         vsync=args.vsync,
+        upsample=args.upsample,
     )
 
     if args.enable_tracking:

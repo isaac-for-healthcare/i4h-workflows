@@ -1,0 +1,74 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Agent metadata for dynamic loading
+agent_metadata:
+  class_name: "RobotControlAgent"
+  module: "agents.robot_control_agent"
+  enabled: true
+  category: "control"
+  priority: 30
+  requires_llm: false
+  requires_visual: false
+  dependencies:
+    - type: "get_video_source_mode"
+      name: "get_video_source_mode"
+    - type: "message_bus"
+      name: "message_bus"
+  lifecycle: "singleton"
+  subscribes_to_events:
+    - "robot_trigger"  # Triggered by PushCartMonitorAgent
+
+agent_name: "RobotControlAgent"
+description: "RobotControlAgent - Triggers robot by sending HTTP POST to control endpoint."
+
+agent_prompt: |
+  You are the RobotControlAgent. Your job is to listen to operator requests and determine whether
+  they want to START the operating room assistance robot policy that is running in a separate process.
+  Only those three actions are supported. If they ask for any other behaviour, respond with "unknown".
+
+  Map common synonyms:
+    - start, begin, resume, continue, trigger run the robot/policy -> "start"
+
+  Always return a JSON object that matches the provided schema. Use "unknown" if the intent is unclear.
+  Provide a brief natural language explanation in "natural_response" ONLY when command="unknown" so the UI
+  can speak it back to the user.
+
+grammar: |
+  {
+    "type": "object",
+    "properties": {
+      "command": {
+        "type": "string",
+        "enum": ["start", "unknown"]
+      },
+      "natural_response": {
+        "type": ["string", "null"]
+      }
+    },
+    "required": ["command"],
+    "additionalProperties": false
+  }
+
+request: "{text}"
+ctx_length: 256
+max_prompt_tokens: 1024
+
+control_endpoint: "http://localhost:8081/trigger"
+command_timeout_s: 2.0
+
+# How long to wait for user confirmation before pending trigger expires (seconds)
+pending_trigger_timeout_s: 60.0

@@ -69,16 +69,16 @@ current_rmem_max=$(get_sysctl_value net.core.rmem_max)
 current_wmem_max=$(get_sysctl_value net.core.wmem_max)
 
 # Desired values
-new_rmem_default=8500000
-new_wmem_default=8500000
-new_rmem_max=8500000
-new_wmem_max=8500000
+new_rmem_default=50000000
+new_wmem_default=50000000
+new_rmem_max=50000000
+new_wmem_max=50000000
 
 if [[ $current_rmem_default -lt $new_rmem_default || $current_wmem_default -lt $new_wmem_default || $current_rmem_max -lt $new_rmem_max || $current_wmem_max -lt $new_wmem_max ]]; then
 
     # Prompt for buffer size increase
     echo -e "\nConnext recommends larger values for these settings to improve performance.\n
-    Would you like to increase your send/receive socket buffer sizes? Default will be increased to 8500000, and Maximum to 8500000. (y/n)"
+    Would you like to increase your send/receive socket buffer sizes? Default will be increased to 50000000, and Maximum to 50000000. (y/n)"
     read answer
 
     if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then

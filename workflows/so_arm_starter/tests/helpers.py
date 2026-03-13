@@ -41,16 +41,28 @@ def requires_so101_hardware(func):
     return skipUnless(SO101_AVAILABLE, "SO-ARM101 hardware is not available or lerobot not properly installed")(func)
 
 
-def requires_isaac_sim(func):
+def requires_isaac_lab(func):
     """Decorator to skip tests if Isaac Sim is not available."""
     try:
-        import omni  # noqa: F401
+        import isaaclab  # noqa: F401
 
-        ISAAC_SIM_AVAILABLE = True
+        ISAAC_LAB_AVAILABLE = True
     except ImportError:
-        ISAAC_SIM_AVAILABLE = False
+        ISAAC_LAB_AVAILABLE = False
 
-    return skipUnless(ISAAC_SIM_AVAILABLE, "Isaac Sim is not available. Please install Isaac Sim 4.5.0 or later")(func)
+    return skipUnless(ISAAC_LAB_AVAILABLE, "Isaac Lab is not available. Please install Isaac Lab")(func)
+
+
+def requires_isaac_gr00t(func):
+    """Decorator to skip tests if Isaac-GR00T is not available."""
+    try:
+        import gr00t  # noqa: F401
+
+        GR00T_AVAILABLE = True
+    except ImportError:
+        GR00T_AVAILABLE = False
+
+    return skipUnless(GR00T_AVAILABLE, "Isaac-GR00T is not available. Please install Isaac-GR00T")(func)
 
 
 def _get_max_gpu_memory_mib():

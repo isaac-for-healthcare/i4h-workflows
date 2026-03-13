@@ -19,7 +19,10 @@ import subprocess
 import sys
 import unittest
 
+from helpers import requires_isaac_lab
 
+
+@requires_isaac_lab
 class TestExtensions(unittest.TestCase):
     """Test cases for Isaac Lab extension validation."""
 
@@ -72,7 +75,16 @@ class TestExtensions(unittest.TestCase):
             self.fail("Extension has no pip packaging files - cannot test pip installation")
 
         # Try pip install in dry-run mode
-        cmd = [sys.executable, "-m", "pip", "install", "--dry-run", "--no-deps", self.so_arm_starter_ext_path]
+        cmd = [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--dry-run",
+            "--no-deps",
+            "--no-build-isolation",
+            self.so_arm_starter_ext_path,
+        ]
 
         print(f"Running pip dry-run: {' '.join(cmd)}")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)

@@ -21,7 +21,7 @@ from dds.publisher import Publisher
 from dds.subscriber import Subscriber
 from isaacsim import SimulationApp
 from parameterized import parameterized
-from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from simulation.utils.assets import BASIC_USD
 
 simulation_app = SimulationApp({"headless": True})
 import omni.usd
@@ -41,8 +41,7 @@ class TestAnnotator(unittest.TestCase):
     def setUpClass(cls):
         """Set up the USD stage with basic.usda file."""
         cls.test_dir = os.path.dirname(os.path.abspath(__file__))
-        cls.basic_usd_path = robot_us_assets.basic
-        assert os.path.exists(cls.basic_usd_path), f"basic.usda not found at {cls.basic_usd_path}"
+        cls.basic_usd_path = BASIC_USD
 
     def setUp(self):
         """Set up test fixtures before each test method."""

@@ -26,6 +26,7 @@ docker build --no-cache -f workflows/so_arm_starter/docker/Dockerfile -t so_arm_
 ## Running the Container
 
 ### Enable X11 Display Access
+
 ```bash
 # Allow Docker containers to access your X11 display
 xhost +local:docker
@@ -59,12 +60,15 @@ docker run --name soarm -it --gpus all --privileged --rm \
     -v /dev:/dev \
     so_arm_starter:latest
 ```
+
 ### Running Workflow
 
 Once inside the container, you can run the SO-ARM Starter workflow. For detailed instructions on running simulation scenarios, training policies, and evaluating models, refer to the [Main Workflow Guide](../README.md#-running-workflows) which contains comprehensive examples and command-line options.
 
 ## Troubleshooting
+
 - If run with error  **`GLIBCXX_3.4.30' not found**, please run
+
 ```bash
 conda install -c conda-forge libgcc-ng=12 libstdcxx-ng=12 -y
 ```

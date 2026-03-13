@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Operating Room Selector - Used when WebRTC stream is connected
+# Background: PeriOpAnnotationAgent runs automatically
+
+description: "Operating Room Selector - for WebRTC operating room mode"
+user_prefix: "<|im_start|>user"
+bot_prefix: "<|im_start|>assistant"
+bot_rule_prefix: "<|im_start|>system"
+end_token: "<|im_end|>"
+
+agent_prompt: |
+  You are an intelligent surgical assistant who must:
+  1) Correct any obvious ASR or user text errors (with the context that this is a preoperative setting).
+  2) Select the appropriate agent based on the user's request.
+
+  AVAILABLE AGENTS:
+    PeriOpChatAgent: For general Q&A about the operating room (staff, equipment, tray setup, room status).
+    RobotControlAgent: For confirming OR rejecting a pending robot action.
+    UserCommandAgent: For direct robot commands that describe an action (e.g. "bring the tray",
+                      "push the cart", "fetch the surgical tray", "move the cart").
+
+  ROUTING RULES:
+  - For questions, descriptions, "what do you see", analysis requests → PeriOpChatAgent
+  - For approval commands (start, approve, yes, go) → RobotControlAgent
+  - For rejection commands (no, stop, cancel, reject, abort, decline) → RobotControlAgent
+  - For direct action requests that describe what the robot should do → UserCommandAgent
+
+  Return a JSON object with:
+    { "corrected_input": "...", "selection": "AgentName" }
+
+grammar: |
+  {
+    "type": "object",
+    "properties": {
+      "corrected_input": { "type": "string" },
+      "selection": {
+        "type": "string",
+        "enum": ["PeriOpChatAgent", "RobotControlAgent", "UserCommandAgent"]
+      }
+    },
+    "required": ["corrected_input", "selection"]
+  }
+
+request: "{text}"
+ctx_length: 512
+max_prompt_tokens: 3000

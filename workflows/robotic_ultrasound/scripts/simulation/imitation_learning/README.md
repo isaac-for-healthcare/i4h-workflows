@@ -11,6 +11,7 @@ python -m simulation.imitation_learning.pi0_policy.eval --enable_cameras
 ```
 
 **Expected Behavior:**
+
 - IsaacSim window with a Franka robot arm driven by pi0 policy without DDS communication.
 
 > **Note:**
@@ -20,7 +21,7 @@ python -m simulation.imitation_learning.pi0_policy.eval --enable_cameras
 ### Command Line Arguments
 
 | Argument | Type | Default | Description |
-|----------|------|---------|-------------|
+| ---------- | ------ | --------- | ------------- |
 | `--disable_fabric` | flag | False | Disable fabric and use USD I/O operations |
 | `--num_envs` | int | 1 | Number of environments to spawn |
 | `--task` | str | "Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0" | Name of the task |

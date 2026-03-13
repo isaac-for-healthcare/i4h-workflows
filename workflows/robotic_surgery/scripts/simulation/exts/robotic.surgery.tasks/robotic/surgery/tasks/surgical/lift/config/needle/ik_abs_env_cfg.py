@@ -13,7 +13,7 @@ from isaaclab.sim.schemas.schemas_cfg import RigidBodyPropertiesCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
 from robotic.surgery.tasks.surgical.lift import mdp
-from simulation.utils.assets import robotic_surgery_assets
+from simulation.utils.assets import NEEDLE_USD, ORGANS_USD
 
 from . import joint_pos_env_cfg
 
@@ -89,7 +89,7 @@ class NeedleLiftOREnvCfg(NeedleLiftEnvCfg):
         self.scene.organs = AssetBaseCfg(
             prim_path="{ENV_REGEX_NS}/Organs",
             init_state=AssetBaseCfg.InitialStateCfg(pos=(0.25, -0.14, -0.85), rot=(0.7071068, 0.0, 0.0, 0.7071068)),
-            spawn=UsdFileCfg(usd_path=robotic_surgery_assets.Organs, scale=(0.01, 0.01, 0.01)),
+            spawn=UsdFileCfg(usd_path=ORGANS_USD, scale=(0.01, 0.01, 0.01)),
         )
 
         # Set Suture Needle as object
@@ -97,7 +97,7 @@ class NeedleLiftOREnvCfg(NeedleLiftEnvCfg):
             prim_path="{ENV_REGEX_NS}/Object",
             init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.015), rot=(1, 0, 0, 0)),
             spawn=UsdFileCfg(
-                usd_path=robotic_surgery_assets.Needle,
+                usd_path=NEEDLE_USD,
                 scale=(0.4, 0.4, 0.4),
                 rigid_props=RigidBodyPropertiesCfg(
                     solver_position_iteration_count=16,

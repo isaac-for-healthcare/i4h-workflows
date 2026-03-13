@@ -1,17 +1,19 @@
 # Sim2Real with Mixed Training Data
 
-<img src="../../docs/source/so_arm_starter_sim2real.gif" alt="Sim2Real with Mixed Training Data" width="1000" style="max-width: 100%; height: auto;">
+![Sim2Real with Mixed Training Data](./docs/images/so_arm_starter_sim2real.gif)
 
 ## Overview
 
 **Sim2Real**: Simulation-to-Real transfer is a technique where models trained in simulated environments are adapted to work in real-world conditions, bridging the gap between virtual training and physical deployment.
 
 **The Problem**: Training robots in the real world is expensive and limited:
+
 - Each real-world trial has costs: materials, time, wear-and-tear, safety risks
 - Real-world data collection is expensive, slow, and limited in quantity and diversity
 - Machine learning approaches typically require large-scale real-world data collection to achieve robust performance across diverse environments
 
 **The Solution**: Combine simulation and real-world data strategically:
+
 - Use simulation for high-volume, diverse training scenarios
 - Use minimal real-world data for authenticity and grounding
 - Train on mixed datasets to achieve robust performance
@@ -47,6 +49,7 @@ Follow the [Running Workflows](./README.md#-running-workflows) guide for complet
 ## Why Sim2Real Works
 
 **Cost and Efficiency Benefits**:
+
 - Limited access to real hardware, operators and environments makes data collection challenging
 - Sim2Real achieves comparable or better quality with limited real-world episodes
 
@@ -57,5 +60,5 @@ For troubleshooting, see [Troubleshooting](./README.md#️-troubleshooting).
 ## Training Overview
 
 | Approach | Sim Data | Real Data | Training | Benefits |
-|----------|----------|-----------|----------|----------|
+| ---------- | ---------- | ----------- | ---------- | ---------- |
 | **Mixed Training** | ~70 episodes | ~10-20 episodes | Combined | More robust |

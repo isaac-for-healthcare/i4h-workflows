@@ -19,9 +19,10 @@ import sys
 import tempfile
 import unittest
 
-from helpers import cleanup_test_files
+from helpers import cleanup_test_files, requires_isaac_lab
 
 
+@requires_isaac_lab
 class TestTeleoperation(unittest.TestCase):
     """Test cases for teleoperation_record.py functionality."""
 

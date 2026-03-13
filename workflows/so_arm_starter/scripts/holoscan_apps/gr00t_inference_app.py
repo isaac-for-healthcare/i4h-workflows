@@ -28,7 +28,7 @@ from holoscan.core import Application
 from holoscan_apps.operators import GR00TInferenceOp, RobotStatusOp
 from lerobot.common.cameras.opencv import OpenCVCameraConfig
 from lerobot.common.robots.so101_follower import SO101FollowerConfig
-from policy_runner.gr00tn1_5.trt.trt_model_forward import setup_tensorrt_engines
+from policy.gr00tn1_5.trt.trt_model_forward import setup_tensorrt_engines
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -104,10 +104,12 @@ class GR00TCyclicApplication(Application):
         modality_config = data_config.modality_config()
         modality_transform = data_config.transform()
 
-        if not os.path.exists(self.config["gr00t"]["model_path"]):
-            logger.error(f"Model path not found: {self.config['gr00t']['model_path']}")
-            model_path = self.config["gr00t"]["model_path"]
-            raise FileNotFoundError(f"Model path not found: {model_path}" f"please configure right path in yaml file")
+        model_path = self.config["gr00t"]["model_path"]
+        if not os.path.exists(model_path):
+            logger.error(f"Model path not found: {model_path}. ")
+            raise FileNotFoundError(
+                f"Model path not found: {model_path}. " f"Please verify your configuration file: {self.config_path}."
+            )
 
         if self.config["gr00t"]["trt"] and not os.path.exists(self.config["gr00t"]["trt_engine_path"]):
             logger.error(f"TensorRT engine path not found: {self.config['gr00t']['trt_engine_path']}")
@@ -136,7 +138,13 @@ class GR00TCyclicApplication(Application):
 
 def main():
     parser = argparse.ArgumentParser(description="GR00T Holoscan Application - Cyclic Data Flow Version")
-    parser.add_argument("--config", required=True, type=str, help="Path to configuration YAML file")
+    parser.add_argument(
+        "--config",
+        required=False,
+        type=str,
+        help="Path to configuration YAML file",
+        default=f"{os.path.dirname(os.path.abspath(__file__))}/soarm_robot_config.yaml",
+    )
 
     args = parser.parse_args()
 

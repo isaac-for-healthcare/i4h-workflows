@@ -47,8 +47,12 @@ fi
 
 
 pushd "$ISAACLAB_DIR"
+echo "Pre-installing flatdict to avoid pip isolated build env issues..."
+pip install --no-build-isolation flatdict==4.0.1
 echo "Installing IsaacLab ..."
 yes Yes | ./isaaclab.sh --install
+echo "Verifying isaaclab core was installed (isaaclab.sh silently swallows failures)..."
+python -c "import isaaclab; print(isaaclab.__file__)"
 popd
 
 

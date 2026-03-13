@@ -46,7 +46,9 @@ jobs:
            github.actor == 'masoudmoghani' ||
            github.actor == 'maximilianofir' ||
            github.actor == 'mahdiazizian' ||
-           github.actor == 'mimiliaogo'
+           github.actor == 'mimiliaogo' ||
+           github.actor == 'mingxueg-nv' ||
+           github.actor == 'tbirdso'
          )
 
     steps:

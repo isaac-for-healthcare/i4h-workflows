@@ -1,0 +1,28 @@
+boto3
+botocore
+holoscan-cu13==3.11.0
+ntplib
+numpy
+opencv-python-headless
+pillow
+pydantic
+pygame
+pyrealsense2
+requests
+rti.connext
+setuptools
+websocket-client
+websocket-server
+websockets
+
+# Torch for GPU acceleration
+torch>=2.9.0
+torchvision
+torchaudio
+--extra-index-url https://download.pytorch.org/whl/cu130
+
+# Enforce numpy<2, cupy<14 to avoid Isaac Sim 5.0 extension compatibility issue
+# https://github.com/isaac-sim/IsaacLab/issues/3312
+# Internal reference: 5946288
+numpy<2.0
+cupy-cuda13x<14

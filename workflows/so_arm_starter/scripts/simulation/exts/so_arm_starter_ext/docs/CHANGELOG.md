@@ -3,6 +3,7 @@
 ## [0.1.0] - 2025-08-01
 
 ### Added
+
 - Initial release of so_arm_starter Extension
 - SOARM101 robot integration
 - Surgical workspace environment (scissors, tray, table)

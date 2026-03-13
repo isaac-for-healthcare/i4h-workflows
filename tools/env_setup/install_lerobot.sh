@@ -42,4 +42,6 @@ $PYTHON_EXECUTABLE -m pip install -e .
 $PYTHON_EXECUTABLE -m pip install "datasets<4.0.0"
 popd
 
+$PYTHON_EXECUTABLE -m pip uninstall cmake -y  # Uninstall cmake installed by lerobot, which will break building egl_probe in isaac lab:
+
 echo "Lerobot installed successfully!"

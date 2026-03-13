@@ -20,7 +20,7 @@ import os
 
 import hololink
 from common.utils import strtobool
-from cuda import cuda
+from cuda.bindings import driver as cuda
 from holohub.operators.camera.aja_source._aja_source import AJASourceOp
 from holohub.operators.camera.cv2 import CV2ToCameraStreamOp
 from holohub.operators.camera.realsense import RealsenseToCameraStreamOp
@@ -62,12 +62,14 @@ class App(Application):
         hsb_ibv_port=None,
         hsb_camera=None,
         show_viz=False,
+        show_stats=False,
         srgb=True,
         rdma=False,
         channel="NTV2_CHANNEL1",
         yuan_4k_video=True,
         is_3d_input=False,
         convert_3d_to_2d_mode=0,
+        downsample=False,
     ):
         self.camera = camera
         self.camera_name = camera_name
@@ -89,12 +91,14 @@ class App(Application):
         self.hsb_ibv_port = hsb_ibv_port
         self.hsb_camera = hsb_camera
         self.show_viz = show_viz
+        self.show_stats = show_stats
         self.srgb = srgb
         self.rdma = rdma
         self.channel = channel
         self.yuan_4k_video = yuan_4k_video
         self.is_3d_input = is_3d_input
         self.convert_3d_to_2d_mode = convert_3d_to_2d_mode
+        self.downsample = downsample if self.width == 3840 and self.height == 2160 else False
 
         super().__init__()
 
@@ -289,6 +293,27 @@ class App(Application):
                 framerate=self.framerate,
             )
 
+        if self.downsample:
+            from holohub.operators.streamlift.streamlift_downsampler import StreamLiftDownSamplerOp
+            from holohub.operators.streamlift.utils import CameraStreamUpdateDimOp
+
+            stream_lift = StreamLiftDownSamplerOp(
+                self,
+                cuda_device_ordinal=0,
+                name="stream_lift_downsampler",
+                allocator=UnboundedAllocator(self, name="streamlift_pool"),
+            )
+            update_dim = CameraStreamUpdateDimOp(
+                self,
+                name="update_dim",
+                width=self.width // 2,
+                height=self.height // 2,
+            )
+
+        split_op = CameraStreamSplitOp(self, name="split_op")
+        merge_op = CameraStreamMergeOp(self, name="merge_op")
+        merge_op.metadata_policy = MetadataPolicy.UPDATE
+
         if self.encoder == "nvc":
             try:
                 from holohub.operators.nvidia_video_codec.nv_video_encoder import NvVideoEncoderOp
@@ -297,8 +322,8 @@ class App(Application):
                     self,
                     name="nvc_encoder",
                     cuda_device_ordinal=0,
-                    width=self.width,
-                    height=self.height,
+                    width=self.width // (2 if self.downsample else 1),
+                    height=self.height // (2 if self.downsample else 1),
                     codec=self.encoder_params.get("codec", "H264"),
                     preset=self.encoder_params.get("preset", "P3"),
                     bitrate=self.encoder_params.get("bitrate", 10000000),
@@ -316,9 +341,6 @@ class App(Application):
             except Exception as e:
                 print(f"Error creating NVC encoder: {e}")
                 raise e
-            split_op = CameraStreamSplitOp(self, name="split_op")
-            merge_op = CameraStreamMergeOp(self, name="merge_op")
-            merge_op.metadata_policy = MetadataPolicy.UPDATE
         else:
             encoder_op = NVJpegEncoderOp(
                 self,
@@ -334,7 +356,7 @@ class App(Application):
             dds_topic=self.dds_topic,
             dds_topic_class=CameraStream,
         )
-        stats = CameraStreamStats(self, name="stats", interval_ms=1000)
+        stats = CameraStreamStats(self, name="stats", interval_ms=1000, stream_lift=self.downsample)
 
         if self.show_viz:
             stream_to_viz = CameraStreamToViz(self)
@@ -346,14 +368,34 @@ class App(Application):
             print("Using NVC encoder with split and merge")
             self.add_flow(source, split_op, {("output", "input")})
             self.add_flow(split_op, merge_op, {("output", "input")})
-            self.add_flow(split_op, encoder_op, {("image", "input")})
-            self.add_flow(encoder_op, merge_op, {("output", "image")})
-            self.add_flow(merge_op, dds, {("output", "input")})
-            self.add_flow(merge_op, stats, {("output", "input")})
+            if self.downsample:
+                self.add_flow(split_op, stream_lift, {("image", "input")})
+                self.add_flow(stream_lift, encoder_op, {("output", "input")})
+                self.add_flow(encoder_op, merge_op, {("output", "image")})
+                self.add_flow(merge_op, update_dim, {("output", "input")})
+                self.add_flow(update_dim, dds, {("output", "input")})
+                if self.show_stats:
+                    self.add_flow(update_dim, stats, {("output", "input")})
+            else:
+                self.add_flow(split_op, encoder_op, {("image", "input")})
+                self.add_flow(encoder_op, merge_op, {("output", "image")})
+                self.add_flow(merge_op, dds, {("output", "input")})
+                if self.show_stats:
+                    self.add_flow(merge_op, stats, {("output", "input")})
         else:
-            self.add_flow(source, encoder_op, {("output", "input")})
+            if self.downsample:
+                self.add_flow(source, split_op, {("output", "input")})
+                self.add_flow(split_op, merge_op, {("output", "input")})
+                self.add_flow(split_op, stream_lift, {("image", "input")})
+                self.add_flow(stream_lift, merge_op, {("output", "image")})
+                self.add_flow(merge_op, update_dim, {("output", "input")})
+                self.add_flow(update_dim, encoder_op, {("output", "input")})
+            else:
+                self.add_flow(source, encoder_op, {("output", "input")})
+
             self.add_flow(encoder_op, dds, {("output", "input")})
-            self.add_flow(encoder_op, stats, {("output", "input")})
+            if self.show_stats:
+                self.add_flow(encoder_op, stats, {("output", "input")})
 
 
 def main():
@@ -380,10 +422,12 @@ def main():
     parser.add_argument("--topic", type=str, default="", help="dds topic name")
     parser.add_argument("--rdma", action="store_true", help="enable rdma for AJA operator")
     parser.add_argument("--show_viz", action="store_true", help="show viz")
+    parser.add_argument("--show_stats", action="store_true", help="show stats")
     parser.add_argument("--srgb", type=strtobool, default=None, help="framebuffer srgb for viz")
     parser.add_argument("--channel", type=str, default="NTV2_CHANNEL1", help="AJA channel to use")
     parser.add_argument("--is_3d_input", action="store_true", help="is 3d input")
     parser.add_argument("--convert_3d_to_2d_mode", type=int, default=0, help="convert 3d to 2d mode")
+    parser.add_argument("--downsample", action="store_true", help="downsample in case of 4k input")
 
     infiniband_devices = hololink.infiniband_devices()
     parser.add_argument("--ibv-name", default=infiniband_devices[0], help="IBV device to use")
@@ -487,12 +531,14 @@ def main():
         hsb_ibv_port=args.ibv_port,
         hsb_camera=hsb_camera,
         show_viz=args.show_viz,
+        show_stats=args.show_stats,
         srgb=srgb,
         rdma=args.rdma,
         channel=args.channel,
         yuan_4k_video=is_4k,
         is_3d_input=args.is_3d_input,
         convert_3d_to_2d_mode=args.convert_3d_to_2d_mode,
+        downsample=args.downsample,
     )
 
     if hololink_channel is not None:

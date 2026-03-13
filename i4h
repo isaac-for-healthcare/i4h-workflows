@@ -15,32 +15,305 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ==============================================================================
+# i4h CLI Wrapper Script - Isaac for Healthcare Workflows
+# ==============================================================================
+#
+# DESCRIPTION:
+#   This script provides a wrapper for the HoloHub CLI tools by automatically
+#   downloading and managing the required utilities from the nvidia-holoscan/holohub
+#   repository.
+#
+# USAGE:
+#   ./i4h [COMMAND] [OPTIONS]
+#
+# FIRST RUN REQUIREMENTS:
+#   - git (for downloading HoloHub tools)
+#   - Internet connection (for initial download and updates)
+#   - Write permissions in CLI_DIR (default: <script_directory>/tools)
+#
+# RUNTIME REQUIREMENTS:
+#   - python3 (>=3.10 for running the CLI)
+#
+# CONFIGURATION:
+#   CLI_DIR - Directory where HoloHub CLI tools will be installed
+#             Default: <script_directory>/tools
+#             Can be overridden by setting environment variable:
+#             export CLI_DIR="/custom/path"
+#
+#   CLI_PINNED_COMMIT - Git commit hash to pin the HoloHub CLI to.
+#                       If not set, uses the 'main' branch.
+#                       Example:
+#                         CLI_PINNED_COMMIT=abc1234 ./i4h list
+#
+#   CLI_FORCE_UPDATE - Set to "1" to force re-download even if CLI exists
+#                      Example:
+#                        CLI_FORCE_UPDATE=1 ./i4h --help
+#
+#   RTI_LICENSE_FILE - Path to RTI DDS license file (required for DDS-based workflows)
+#                      When set and running in Docker mode, the file is mounted into the container.
+#                      If not set, the script will automatically download an evaluation license
+#                      from RTI and store it locally.
+#                      Example:
+#                        export RTI_LICENSE_FILE=/path/to/rti_license.dat
+#
+#   RTI_LICENSE_URL - URL to download the RTI license from (not set by default)
+#                     Only used when RTI_LICENSE_FILE is not set.
+#                     To obtain a license URL, visit: https://content.rti.com/l/983311/2025-07-08/q5x1n8
+#                     Example:
+#                       RTI_LICENSE_URL="https://your-license-url" ./i4h run so_arm_starter
+#
+# EXAMPLES:
+#   ./i4h list                                    # List available workflows
+#   ./i4h modes so_arm_starter                    # List modes of so_arm_starter
+#   ./i4h run so_arm_starter help --local         # Show help for so_arm_starter
+#   ./i4h run so_arm_starter sim_keyboard --local # Run keyboard teleoperation mode
+#   ./i4h env-info                                # List environment variables
+#
+#   # Force update CLI to latest version
+#   CLI_FORCE_UPDATE=1 ./i4h --help
+#
+#   # Pin CLI to specific commit for reproducibility
+#   CLI_PINNED_COMMIT="abc123def456" ./i4h list
+#
+# ==============================================================================
 
-if [ ! -d "${SCRIPT_PATH}/utilities/cli" ]; then
-    git clone --depth 1 --no-checkout https://github.com/nvidia-holoscan/holohub.git ${SCRIPT_PATH}/.tmp-holohub/holohub \
-        && cd ${SCRIPT_PATH}/.tmp-holohub/holohub \
-        && git sparse-checkout init --cone \
-        && git sparse-checkout set utilities/cli utilities/metadata utilities/testing cmake\
-        && git checkout main \
-        && mv ${SCRIPT_PATH}/.tmp-holohub/holohub/utilities ${SCRIPT_PATH} \
-        && mv ${SCRIPT_PATH}/.tmp-holohub/holohub/cmake ${SCRIPT_PATH} \
-        && rm -rf ${SCRIPT_PATH}/.tmp-holohub \
-        && cd ${SCRIPT_PATH}
+set -e
+set -o pipefail
+
+SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TMP_HOLOHUB_DIR=""  # Set dynamically in download_cli to avoid race conditions
+CLI_DIR="${CLI_DIR:-${SCRIPT_PATH}/tools}"
+REPO_URL="${CLI_REPO_URL:-https://github.com/nvidia-holoscan/holohub.git}"
+CLI_PINNED_COMMIT="${CLI_PINNED_COMMIT:-}"  # Empty means use 'main' branch
+
+# Function to cleanup temporary directories
+cleanup_tmp() {
+    if [[ -n "${TMP_HOLOHUB_DIR}" && -d "${TMP_HOLOHUB_DIR}" ]]; then
+        rm -rf "${TMP_HOLOHUB_DIR}"
+    fi
+}
+
+# Function to cleanup temporary directories on error
+cleanup_on_error() {
+    local exit_code=$?
+    cd "${SCRIPT_PATH}" 2>/dev/null || true
+    cleanup_tmp
+    exit "${exit_code}"
+}
+trap cleanup_on_error ERR
+
+download_cli() {
+    echo "Downloading HoloHub CLI tools to ${CLI_DIR}..."
+    echo "  Repository: ${REPO_URL}"
+    if [[ -n "${CLI_PINNED_COMMIT}" ]]; then
+        echo "  Pinned commit: ${CLI_PINNED_COMMIT}"
+    else
+        echo "  Branch: main"
+    fi
+
+    command -v git >/dev/null || { echo "Error: git is required but not installed" >&2; exit 1; }
+
+    # Create a unique temp directory to avoid race conditions with other processes
+    TMP_HOLOHUB_DIR="$(mktemp -d "${SCRIPT_PATH}/.tmp-holohub-XXXXXX")"
+
+    # Remove existing utilities directory for clean install
+    rm -rf "${CLI_DIR}/utilities"
+    rm -rf "${CLI_DIR}/cmake"
+
+    # Clone with blob filtering for minimal download size
+    if [[ -n "${CLI_PINNED_COMMIT}" ]]; then
+        git clone --no-checkout --filter=blob:none "${REPO_URL}" "${TMP_HOLOHUB_DIR}/holohub" || \
+            { echo "Error: Failed to clone HoloHub repository" >&2; cleanup_tmp; exit 1; }
+    else
+        git clone --depth 1 --no-checkout --filter=blob:none "${REPO_URL}" "${TMP_HOLOHUB_DIR}/holohub" || \
+            { echo "Error: Failed to clone HoloHub repository" >&2; cleanup_tmp; exit 1; }
+    fi
+
+    cd "${TMP_HOLOHUB_DIR}/holohub" && \
+        [[ "$(git rev-parse --show-toplevel 2>/dev/null)" == "${TMP_HOLOHUB_DIR}/holohub" ]] || \
+        { echo "Error: Failed to access cloned repository" >&2; cleanup_tmp; exit 1; }
+
+    git sparse-checkout init --cone
+    git sparse-checkout set utilities/cli utilities/metadata utilities/testing cmake
+
+    # Fetch and checkout the pinned commit or main branch
+    if [[ -n "${CLI_PINNED_COMMIT}" ]]; then
+        git fetch --progress origin "${CLI_PINNED_COMMIT}"
+        git -c advice.detachedHead=false checkout "${CLI_PINNED_COMMIT}"
+    else
+        git checkout main
+    fi
+
+    local COMMIT_HASH
+    COMMIT_HASH=$(git rev-parse HEAD 2>/dev/null)
+
+    # Move utilities and cmake to the CLI directory
+    mv "${TMP_HOLOHUB_DIR}/holohub/utilities" "${CLI_DIR}"
+    mv "${TMP_HOLOHUB_DIR}/holohub/cmake" "${CLI_DIR}"
+
+    cd "${SCRIPT_PATH}"
+    cleanup_tmp
+
+    # Store the commit hash for version tracking
+    echo "${COMMIT_HASH}" > "${CLI_DIR}/utilities/cli/.cli_commit_hash"
+    echo "✓ HoloHub CLI downloaded successfully (commit: ${COMMIT_HASH:0:12})"
+}
+
+# Check if CLI needs to be downloaded or force-updated
+if [[ "${CLI_FORCE_UPDATE}" == "1" ]] || [[ ! -d "${CLI_DIR}/utilities/cli" ]]; then
+    download_cli || { echo "Error: Failed to download CLI"; exit 1; }
 fi
 
-# Check if RTI_LICENSE_FILE is set
-if [ -n "$RTI_LICENSE_FILE" ]; then
-    if [ "$1" == "run" ] && [[ ! " $@ " =~ " --local " ]]; then
-      DOCKER_OPTS="--docker-opts=-v ${RTI_LICENSE_FILE}:/workspace/rti_license.dat"
+# ==============================================================================
+# Configure HoloHub environment variables for i4h
+# ==============================================================================
+
+# HOLOHUB_CMD_NAME: Name of the CLI command/script (used for help messages and logging)
+export HOLOHUB_CMD_NAME=${BASH_SOURCE[0]}
+
+# HOLOHUB_ROOT: Root directory of the repository (used as base for all relative paths)
+export HOLOHUB_ROOT=${SCRIPT_PATH}
+
+# HOLOHUB_REPO_PREFIX: Default prefix for container naming
+export HOLOHUB_REPO_PREFIX="i4h_build"
+
+# HOLOHUB_WORKSPACE_NAME: Name of the workspace directory inside the container
+export HOLOHUB_WORKSPACE_NAME="i4h"
+
+# HOLOHUB_BUILD_PARENT_DIR: Parent directory where CMake build artifacts are stored
+export HOLOHUB_BUILD_PARENT_DIR="${HOLOHUB_ROOT}/build"
+
+# HOLOHUB_DEFAULT_IMAGE_FORMAT: Format for container image tags
+export HOLOHUB_DEFAULT_IMAGE_FORMAT="{container_prefix}:main"
+
+# ==============================================================================
+# Handle RTI DDS License - Auto-download if not provided
+# ==============================================================================
+
+RTI_LICENSE_DIR="${SCRIPT_PATH}/rti"
+RTI_LICENSE_DEFAULT_PATH="${RTI_LICENSE_DIR}/rti_license.dat"
+RTI_LICENSE_URL="${RTI_LICENSE_URL:-}"
+
+download_rti_license() {
+    if [[ -z "${RTI_LICENSE_URL}" ]]; then
+        echo "RTI_LICENSE_URL is not set. Cannot download RTI license automatically."
+        echo "Please set RTI_LICENSE_FILE or RTI_LICENSE_URL to provide the license."
+        return 1
+    fi
+
+    echo "Downloading RTI DDS evaluation license..."
+    echo "  URL: ${RTI_LICENSE_URL}"
+
+    # Create directory if it doesn't exist
+    mkdir -p "${RTI_LICENSE_DIR}"
+
+    # Download using curl or wget
+    if command -v curl >/dev/null; then
+        curl -fsSL "${RTI_LICENSE_URL}" -o "${RTI_LICENSE_DEFAULT_PATH}" || \
+            { echo "Error: Failed to download RTI license" >&2; return 1; }
+    elif command -v wget >/dev/null; then
+        wget -q "${RTI_LICENSE_URL}" -O "${RTI_LICENSE_DEFAULT_PATH}" || \
+            { echo "Error: Failed to download RTI license" >&2; return 1; }
+    else
+        echo "Error: curl or wget is required to download RTI license" >&2
+        return 1
+    fi
+
+    echo "✓ RTI license downloaded to ${RTI_LICENSE_DEFAULT_PATH}"
+}
+
+# Auto-download RTI license if not set and not already downloaded
+if [[ -z "${RTI_LICENSE_FILE}" ]]; then
+    if [[ ! -f "${RTI_LICENSE_DEFAULT_PATH}" ]]; then
+        download_rti_license || { echo "Warning: Could not download RTI license. Set RTI_LICENSE_FILE manually if needed."; }
+    fi
+    if [[ -f "${RTI_LICENSE_DEFAULT_PATH}" ]]; then
+        export RTI_LICENSE_FILE="${RTI_LICENSE_DEFAULT_PATH}"
+        echo " > Using auto-downloaded RTI license: ${RTI_LICENSE_FILE}"
     fi
 fi
 
-export HOLOHUB_CMD_NAME=${BASH_SOURCE[0]}
+# ==============================================================================
+# Handle RTI DDS License mounting for Docker containers
+# ==============================================================================
 
-# Only pass DOCKER_OPTS if it's set and not empty
-if [ -n "$DOCKER_OPTS" ]; then
-    PYTHONPATH=${PYTHONPATH}:${SCRIPT_PATH} python3 ${SCRIPT_PATH}/utilities/cli/holohub.py "$@" "$DOCKER_OPTS"
-else
-    PYTHONPATH=${PYTHONPATH}:${SCRIPT_PATH} python3 ${SCRIPT_PATH}/utilities/cli/holohub.py "$@"
+# Default: pass through args as-is; "--docker-opts", "--build-args" updated by merge when needed
+CLI_ARGS=("$@")
+DOCKER_OPTS=""
+
+REQUESTED_LOCAL_MODE="false"
+[[ " $* " =~ " --local " ]] || [[ ${HOLOHUB_BUILD_LOCAL:-0} -eq 1 ]] && REQUESTED_LOCAL_MODE="true"
+
+# --- Define extra docker options to append (e.g. RTI license mount) ---
+EXTRA_DOCKER_RUN_OPTS=""
+RTI_LICENSE_FILE_MOUNT_PATH=${RTI_LICENSE_FILE_MOUNT_PATH:-"/opt/rti/rti_license.dat"}
+if [[ -n "${RTI_LICENSE_FILE}" ]]; then
+    if [[ -f "${RTI_LICENSE_FILE}" ]]; then
+        if ([[ "${1:-}" == "run" ]] && [[ "${REQUESTED_LOCAL_MODE}" == "false" ]]) || \
+            [[ "${1:-}" == "run-container" ]]; then
+            EXTRA_DOCKER_RUN_OPTS="-v ${RTI_LICENSE_FILE}:${RTI_LICENSE_FILE_MOUNT_PATH}:ro"
+            EXTRA_DOCKER_RUN_OPTS="${EXTRA_DOCKER_RUN_OPTS} -e RTI_LICENSE_FILE=${RTI_LICENSE_FILE_MOUNT_PATH}"
+            EXTRA_DOCKER_RUN_OPTS="${EXTRA_DOCKER_RUN_OPTS} -e OMNI_KIT_ACCEPT_EULA=Y -e ACCEPT_EULA=Y"
+            echo " > RTI license file will be mounted at ${RTI_LICENSE_FILE_MOUNT_PATH}"
+        fi
+    else
+        echo " > Warning: RTI_LICENSE_FILE is set but file does not exist: ${RTI_LICENSE_FILE}"
+    fi
 fi
+
+# For SO-ARM Starter Workflow: Find TTY serial devices
+if [[ "${1:-}" == "run" ]] && [[ "${REQUESTED_LOCAL_MODE}" == "false" ]]; then
+    TTY_DEVICES=$(find /dev -maxdepth 1 -name "ttyACM*")
+    for TTY_DEVICE in ${TTY_DEVICES}; do
+        EXTRA_DOCKER_RUN_OPTS="${EXTRA_DOCKER_RUN_OPTS} --device=${TTY_DEVICE}"
+    done
+fi
+
+# --- Merge extra options with any existing --docker-opts and --build-args in "$@" ---
+if [[ -n "${EXTRA_DOCKER_RUN_OPTS}" ]]; then
+    EXISTING_OPTS=""
+    NEW_ARGS=()
+    for arg in "$@"; do
+        if [[ "$arg" == --docker-opts=* ]]; then
+            EXISTING_OPTS="${EXISTING_OPTS} ${arg#--docker-opts=}"
+        else
+            NEW_ARGS+=("$arg")
+        fi
+    done
+    EXISTING_OPTS="${EXISTING_OPTS# }"
+    if [[ -n "${EXTRA_DOCKER_RUN_OPTS}" ]] || [[ -n "${EXISTING_OPTS}" ]]; then
+        if [[ -n "${EXISTING_OPTS}" ]]; then
+            MERGED_OPTS="${EXISTING_OPTS} ${EXTRA_DOCKER_RUN_OPTS}"
+        else
+            MERGED_OPTS="${EXTRA_DOCKER_RUN_OPTS}"
+        fi
+        DOCKER_OPTS="--docker-opts=${MERGED_OPTS}"
+    fi
+    CLI_ARGS=("${NEW_ARGS[@]}")
+fi
+
+# ==============================================================================
+# Run the CLI
+# ==============================================================================
+
+# Version check before running main CLI (if version_check.py exists)
+if [[ -f "${CLI_DIR}/utilities/cli/version_check.py" ]]; then
+    export CLI_PINNED_COMMIT
+    VERSION_CHECK_OUTPUT=$(PYTHONPATH=${PYTHONPATH}:${CLI_DIR} python3 "${CLI_DIR}/utilities/cli/version_check.py" 2>/dev/null) || true
+fi
+
+# Run the main CLI
+CLI_EXIT_CODE=0
+PYTHONPATH=${PYTHONPATH}:${CLI_DIR} \
+    python3 "${CLI_DIR}/utilities/cli/holohub.py" \
+    "${CLI_ARGS[@]}" \
+    ${DOCKER_OPTS:+"${DOCKER_OPTS}"} \
+    || CLI_EXIT_CODE=$?
+
+# Display version check output after CLI execution (if any)
+if [[ -n "${VERSION_CHECK_OUTPUT:-}" ]]; then
+    echo "${VERSION_CHECK_OUTPUT}"
+fi
+
+exit ${CLI_EXIT_CODE}

@@ -15,69 +15,77 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG BASE_IMAGE=nvcr.io/nvidia/clara-holoscan/holoscan:v3.2.0-dgpu
-
-# HSB Build
-FROM $BASE_IMAGE AS hsbbuild
-ARG HSB_REPO_URL
-ENV HSB_REPO_URL=${HSB_REPO_URL:-https://github.com/nvidia-holoscan/holoscan-sensor-bridge.git}
-ARG HSB_BRANCH
-ENV HSB_BRANCH=${HSB_BRANCH:-2.2.0-EA}
-
-RUN git clone --branch ${HSB_BRANCH} --single-branch  ${HSB_REPO_URL} /opt/hololink
-RUN cd /opt/hololink/python  && $INSTALL_ENVIRONMENT pip3 wheel -v .
-
-# Main Docker
+ARG BASE_IMAGE=nvcr.io/nvidia/clara-holoscan/holoscan:v3.11.0-cuda12-dgpu
 FROM $BASE_IMAGE
+
 WORKDIR /workspace
-# Install uv using curl for openpi
+
+# Install build/runtime dependencies
 RUN apt-get update && \
-    apt-get install -y software-properties-common && \
-    add-apt-repository ppa:ubuntu-toolchain-r/test && \
-    apt-get update && \
     apt-get install -y \
-        curl \
-        cmake \
-        wget \
         build-essential \
+        python3-dev \
         pybind11-dev \
         lsb-release \
-        libglib2.0-0 \
-        libdbus-1-3 \
         libopengl0 \
         libxcb-keysyms1 \
         libxcb-cursor0 \
-        ninja-build \
         libgl1-mesa-dev \
         ffmpeg \
+        libavformat-dev \
+        libavcodec-dev \
+        libavutil-dev \
         v4l-utils \
-        gcc-12 \
-        g++-12 && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
+        libusb-1.0-0-dev \
+        libudev-dev \
+        pkg-config \
+        libcurl4-openssl-dev \
+        libyaml-cpp-dev \
+        libgtk-3-dev \
+        libglfw3-dev \
+        libglu1-mesa-dev
 
-ENV PATH=/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
-ENV LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+# HOLOHUB (Holoscan Hub)
+ARG HOLOHUB_REPO_URL=https://github.com/nvidia-holoscan/holohub.git
+ARG HOLOHUB_BRANCH=holoscan-sdk-3.11.0
+RUN git clone --branch $HOLOHUB_BRANCH --depth 1 $HOLOHUB_REPO_URL /opt/nvidia/holohub
 
-COPY workflows/telesurgery/requirements.txt /tmp/requirements.txt
-RUN python3 -m pip install "numpy<2.0.0" \
-    && python3 -m pip install --no-build-isolation pynvjpeg==0.0.13 \
-    && python3 -m pip install -r /tmp/requirements.txt
+# Build librealsense from source
+RUN git clone --branch v2.55.1 --depth 1 https://github.com/IntelRealSense/librealsense.git /tmp/librealsense && \
+    cd /tmp/librealsense && \
+    mkdir build && cd build && \
+    cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_PYTHON_BINDINGS:bool=true \
+        -DPYTHON_EXECUTABLE=/usr/bin/python3 \
+        -DBUILD_EXAMPLES=false \
+        -DBUILD_GRAPHICAL_EXAMPLES=false && \
+    make -j$(nproc) && \
+    make install && \
+    cd / && rm -rf /tmp/librealsense
 
+# Install Python dependencies
+COPY workflows/telesurgery/requirements.cu12.txt /tmp/requirements.txt
+RUN sed -i -e '/pyrealsense2/d' /tmp/requirements.txt
+RUN python3 -m pip install -r /tmp/requirements.txt
+RUN python3 -m pip install --no-build-isolation pynvjpeg==0.0.13 cmake
+
+# HSB (Holoscan Sensor Bridge)
+ARG HSB_REPO_URL=https://github.com/nvidia-holoscan/holoscan-sensor-bridge.git
+ARG HSB_BRANCH=2.5.0
+RUN git clone --branch $HSB_BRANCH --depth 1 $HSB_REPO_URL /opt/nvidia/hsb
+
+# Apply Holoscan SDK 3.11 / CUDA 13 compatibility patch for yuan-hsb fork
+COPY workflows/telesurgery/scripts/yuan_hsb_holoscan311.patch /tmp/yuan_hsb_holoscan311.patch
+RUN if echo "$HSB_REPO_URL" | grep -q "Yuan"; then \
+      cd /opt/nvidia/hsb && git apply /tmp/yuan_hsb_holoscan311.patch && \
+      echo "Applied yuan-hsb Holoscan SDK 3.11 compatibility patch"; \
+    fi
+RUN cd /opt/nvidia/hsb/python && python3 -m pip install -v .
+
+# Environment variables
 RUN mkdir -p /root/rti
-ENV PATH=/isaac-sim/kit/python/bin/:/usr/local/cuda-12.8/bin${PATH:+:${PATH}}
-ENV LD_LIBRARY_PATH=/opt/nvidia/holoscan/lib/:/usr/local/cuda-12.8/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
-ENV LD_LIBRARY_PATH=\
-/workspace/i4h-workflows/workflows/telesurgery/scripts/holohub/operators/camera/aja_source/lib:\
-/workspace/i4h-workflows/workflows/telesurgery/scripts/holohub/operators/nvidia_video_codec/libs:\
-$LD_LIBRARY_PATH
-
 ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat
 ENV PYTHONPATH=/workspace/i4h-workflows/workflows/telesurgery/scripts
 
 WORKDIR /workspace/i4h-workflows/workflows/telesurgery/scripts
-
-COPY --from=hsbbuild /opt/hololink/python/hololink-*.whl /tmp/wheel/
-RUN WHEEL=$(find /tmp/wheel -type f -name "hololink-*.whl") && pip3 install ${WHEEL}
-
-RUN pip uninstall cuda-python -y && pip install cuda-python==12.9.0

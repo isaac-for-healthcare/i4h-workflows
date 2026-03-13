@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Root directory for all data storage
+data_root: "/workspaces"
+
+# Instruction given to the policy in natural language
+language_instruction: "install trocar from box"
+task_index: 0
+
+# Name of the HDF5 file to use for the dataset
+hdf5_name: "demo.hdf5"
+
+# Assemble trocar HDF5 (record_demos_meta_quest.py): obs/robot_joint_state, obs/robot_dex3_joint_state, obs/*_camera, processed_actions
+use_rheo_converter: true
+rheo_action_key: "processed_actions"
+rheo_28d_state_action: true
+rheo_camera_mappings_obs:
+  front_camera: "observation.images.cam_room"
+  left_wrist_camera: "observation.images.cam_left_wrist"
+  right_wrist_camera: "observation.images.cam_right_wrist"
+
+# Gr00t-LeRobot datafield names
+state_name_lerobot: "observation.state"
+action_name_lerobot: "action"
+video_name_lerobot: "observation.images.ego_view"
+
+task_description_lerobot: "annotation.human.task_description"
+
+# Parquet configuration
+chunks_size: 1000
+
+# Video configuration
+fps: 30
+
+# File path templates
+data_path: "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet"
+video_path: "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mp4"
+
+modality_template_path: "scripts/simulation/tasks/assemble_trocar/modality_assemble_trocar.json"
+modality_fname: "modality.json"
+episodes_fname: "episodes.jsonl"
+tasks_fname: "tasks.jsonl"
+info_template_path: "../../third_party/IsaacLab-Arena/isaaclab_arena_gr00t/config/g1/info.json"
+info_fname: "info.json"
+
+# policy specific parameters (gr00t demonstration data stored in lerobot format)
+policy_joints_config_path: "../../third_party/IsaacLab-Arena/isaaclab_arena_gr00t/config/g1/gr00t_43dof_joint_space.yaml"
+robot_type: "unitree_g1"
+
+# Robot simulation specific parameters
+action_joints_config_path: "../../third_party/IsaacLab-Arena/isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml"
+state_joints_config_path: "../../third_party/IsaacLab-Arena/isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml"
+
+# Image configuration (height, width, channels)
+original_image_size: [480, 640, 3]
+target_image_size: [480, 640, 3]

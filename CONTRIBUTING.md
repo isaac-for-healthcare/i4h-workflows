@@ -14,22 +14,25 @@
 
 ### Signing Your Contribution
 
-* We require that all contributors "sign-off" on their commits. This certifies that the contribution is your original work, or you have rights to submit it under the same license, or a compatible license.
+- We require that all contributors "sign-off" on their commits. This certifies that the contribution is your original work, or you have rights to submit it under the same license, or a compatible license.
 
-* Any contribution which contains commits that are not Signed-Off will not be accepted.
+- Any contribution which contains commits that are not Signed-Off will not be accepted.
 
-* To sign off on a commit you simply use the `--signoff` (or `-s`) option when committing your changes:
+- To sign off on a commit you simply use the `--signoff` (or `-s`) option when committing your changes:
+
   ```bash
-  $ git commit -s -m "Add cool feature."
+  git commit -s -m "Add cool feature."
   ```
+
   This will append the following to your commit message:
-  ```
+
+  ```text
   Signed-off-by: Your Name <your@email.com>
   ```
 
-* Full text of the DCO:
+- Full text of the DCO:
 
-  ```
+  ```text
     Developer Certificate of Origin
     Version 1.1
 
@@ -41,7 +44,7 @@
     Everyone is permitted to copy and distribute verbatim copies of this license document, but changing it is not allowed.
   ```
 
-  ```
+  ```text
     Developer's Certificate of Origin 1.1
 
     By making a contribution to this project, I certify that:
@@ -60,18 +63,21 @@
 We use pre-commit hooks to ensure code quality. To set up pre-commit:
 
 1. Install pre-commit:
+
    ```bash
    pip install pre-commit
    ```
 
 2. To check your code before committing:
+
    ```bash
    pre-commit run --all-files
    ```
 
 3. To automatically fix linting and formatting errors:
+
    ```bash
-   pre-commit run -c tools/premerge-autofix.yaml --all-files
+   pre-commit run --all-files
    ```
 
 ## Running Tests

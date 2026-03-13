@@ -1,6 +1,6 @@
-## Troubleshooting DDS Communication
+# Troubleshooting DDS Communication
 
-### Common Issues and Solutions
+## Common Issues and Solutions
 
 - **Connection Problems**:
   - Ensure your RTI license is properly installed and valid
@@ -17,7 +17,6 @@
   - Monitor resource usage and adjust queue sizes accordingly
 
 For comprehensive troubleshooting guidance, refer to the [RTI Connext DDS Getting Started Guide](https://www.rti.com/gettingstarted).
-
 
 ### Discovery Issues
 

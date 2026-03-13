@@ -43,9 +43,17 @@ echo "Patching OpenPI utils.py..."
 sed -i.bak \
     -e 's/opt_state: optax\.OptState/opt_state: Any/' \
     "$utils_path"
-
-# Remove the backup files
 rm "$utils_path.bak"
+
+# Upgrade JAX pin for Blackwell GPU (sm_120) compatibility.
+# OpenPI pins jax==0.5.0 whose XLA/LLVM lacks bf16→f16 codegen for sm_120,
+# causing "LLVM ERROR: Unsupported rounding mode for conversion."
+pyproject_path="$OPENPI_DIR/pyproject.toml"
+echo "Patching OpenPI pyproject.toml (jax 0.5.0 -> 0.5.3 for Blackwell support)..."
+sed -i.bak \
+    -e 's/"jax\[cuda12\]==0\.5\.0"/"jax[cuda12]==0.5.3"/' \
+    "$pyproject_path"
+rm "$pyproject_path.bak"
 
 # Add training script to openpi module
 echo "Copying OpenPI utility scripts..."

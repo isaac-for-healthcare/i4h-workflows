@@ -41,7 +41,7 @@ from isaaclab.utils import configclass
 from isaacsim.core.utils.torch.rotations import euler_angles_to_quats
 from robotic_us_ext.lab_assets.franka import FRANKA_PANDA_HIGH_PD_FORCE_CFG, FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG
 from robotic_us_ext.tasks.ultrasound.approach import mdp
-from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from simulation.utils.assets import PHANTOM_USD, TABLE_WITH_COVER_USD
 
 FRAME_MARKER_SMALL_CFG = FRAME_MARKER_CFG.copy()
 FRAME_MARKER_SMALL_CFG.markers["frame"].scale = (0.10, 0.10, 0.10)
@@ -69,7 +69,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
             pos=[0.4804, 0.02017, -0.84415], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, -90.0]), degrees=True)
         ),
         spawn=sim_utils.UsdFileCfg(
-            usd_path=robot_us_assets.table_with_cover,
+            usd_path=TABLE_WITH_COVER_USD,
             semantic_tags=[("class", "table")],
         ),
     )
@@ -84,7 +84,7 @@ class RoboticSoftCfg(InteractiveSceneCfg):
             pos=[0.6, 0.0, 0.09], rot=euler_angles_to_quats(torch.tensor([0.0, 0.0, 180.0]), degrees=True)
         ),
         spawn=sim_utils.UsdFileCfg(
-            usd_path=robot_us_assets.phantom,
+            usd_path=PHANTOM_USD,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(rigid_body_enabled=True),
             mass_props=sim_utils.MassPropertiesCfg(mass=1000.0),
             collision_props=sim_utils.CollisionPropertiesCfg(),

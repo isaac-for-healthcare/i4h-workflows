@@ -379,9 +379,7 @@ def main():
 
         with torch.inference_mode():
             delta_pose = teleop_interface.advance()
-            delta_pose = delta_pose.to(env.unwrapped.device).repeat(
-                env.unwrapped.num_envs, 1
-            )
+            delta_pose = delta_pose.to(env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
 
             delta_pos = delta_pose[:, :3]
             delta_rot = math_utils.quat_from_euler_xyz(delta_pose[:, 3], delta_pose[:, 4], delta_pose[:, 5])

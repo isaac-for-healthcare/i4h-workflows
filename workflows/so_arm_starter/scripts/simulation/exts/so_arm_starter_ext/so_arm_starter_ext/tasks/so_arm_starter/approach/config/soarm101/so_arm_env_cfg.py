@@ -33,7 +33,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import TiledCameraCfg
 from isaaclab.utils import configclass
 from leisaac.devices.action_process import init_action_cfg, preprocess_device_action
-from simulation.utils.assets import so_arm_starter_assets
+from simulation.utils.assets import SCISSORS_USD, SOARM_USD, TABLE_USD, TRAY_USD
 
 
 def reset_xform_root_pose_uniform(env, env_ids, pose_range, velocity_range, asset_cfg: SceneEntityCfg):
@@ -76,7 +76,7 @@ def reset_xform_root_pose_uniform(env, env_ids, pose_range, velocity_range, asse
 
 SOARM101_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=so_arm_starter_assets.SoArm,
+        usd_path=SOARM_USD,
         visible=True,
         copy_from_source=True,
         activate_contact_sensors=True,
@@ -172,7 +172,7 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
             rot=(0.707, 0.0, 0.0, 0.707),
         ),
         spawn=sim_utils.UsdFileCfg(
-            usd_path=so_arm_starter_assets.Table,
+            usd_path=TABLE_USD,
             copy_from_source=True,
             visible=True,
             scale=(0.7, 0.7, 0.52),
@@ -193,7 +193,7 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
             rot=(0.707, 0, 0, 0.707),
         ),
         spawn=sim_utils.UsdFileCfg(
-            usd_path=so_arm_starter_assets.Scissors,
+            usd_path=SCISSORS_USD,
             scale=(0.006, 0.0065, 0.012),
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 disable_gravity=False,
@@ -215,7 +215,7 @@ class SoArm101TableSceneCfg(InteractiveSceneCfg):
             rot=(0.7071, 0.0, 0.0, 0.7071),
         ),
         spawn=sim_utils.UsdFileCfg(
-            usd_path=so_arm_starter_assets.Tray,
+            usd_path=TRAY_USD,
             scale=(0.7, 0.7, 0.18),
             visual_material=sim_utils.PreviewSurfaceCfg(
                 diffuse_color=(0.5, 0.5, 0.5),  # Silver appearance

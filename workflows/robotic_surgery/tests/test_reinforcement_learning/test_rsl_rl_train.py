@@ -74,5 +74,6 @@ class TestRSLRLTrain(unittest.TestCase):
         self.assertTrue(os.path.exists(os.path.join(log_dir, "params", "env.yaml")))
         self.assertTrue(os.path.exists(os.path.join(log_dir, "params", "agent.yaml")))
 
+
 if __name__ == "__main__":
     unittest.main()

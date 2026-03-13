@@ -95,6 +95,7 @@ python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_m
 ### Common Issues
 
 **Display Issues**:
+
 ```bash
 # Reset X11 permissions
 xhost -local:docker
@@ -103,4 +104,5 @@ xhost +local:docker
 # Check DISPLAY variable
 echo $DISPLAY
 ```
+
 This value should be set for interactive mode.

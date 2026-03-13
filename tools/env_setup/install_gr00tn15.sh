@@ -29,6 +29,43 @@ check_project_root
 echo "--- Installing GR00T N1.5 Policy Dependencies ---"
 
 GR00T_DIR="$PROJECT_ROOT/third_party/Isaac-GR00T"
+DEFAULT_GR00T_COMMIT="17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1"
+
+# Optional args
+# Usage:
+#   ./tools/env_setup/install_gr00tn15.sh [--commit <git-ref>] [-p|--policy-patch]
+# If not provided, uses DEFAULT_GR00T_COMMIT.
+GR00T_COMMIT="$DEFAULT_GR00T_COMMIT"
+APPLY_POLICY_PATCH=false
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --commit|--ref)
+            GR00T_COMMIT="${2:-}"
+            if [[ -z "$GR00T_COMMIT" ]]; then
+                echo "ERROR: $1 requires a value (commit hash / tag / branch)."
+                exit 1
+            fi
+            shift 2
+            ;;
+        -p|--policy-patch|--apply-policy-patch)
+            APPLY_POLICY_PATCH=true
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--commit <git-ref>] [-p|--policy-patch]"
+            echo ""
+            echo "Options:"
+            echo "  --commit, --ref   Git commit hash / tag / branch for Isaac-GR00T (default: $DEFAULT_GR00T_COMMIT)"
+            echo "  -p, --policy-patch  Apply local GR00T policy patch (eagle padding and replace dropout with identity.)"
+            exit 0
+            ;;
+        *)
+            echo "ERROR: Unknown argument: $1"
+            echo "Run '$0 --help' for usage."
+            exit 1
+            ;;
+    esac
+done
 
 if [ -d "$GR00T_DIR" ]; then
     echo "Isaac-GR00T directory already exists at $GR00T_DIR. Using existing clone."
@@ -41,10 +78,24 @@ fi
 
 pushd "$GR00T_DIR"
 
-# checkout to used commit
-git checkout 17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1
+# checkout to desired commit/tag/branch
+echo "Checking out Isaac-GR00T ref: $GR00T_COMMIT"
+git fetch --all --tags --prune
+git checkout "$GR00T_COMMIT"
+
+# Apply optional patch(es)
+if [[ "$APPLY_POLICY_PATCH" == "true" ]]; then
+    PATCH_DIR="$PROJECT_ROOT/tools/env_setup/patches"
+    echo "Applying GR00T policy patch (eagle input padding and replace dropout with identity)..."
+    git apply --check "$PATCH_DIR/gr00t_policy_padding_dropout.patch" 2>/dev/null && \
+        git apply "$PATCH_DIR/gr00t_policy_padding_dropout.patch" || \
+        echo "Patch already applied or not applicable, skipping..."
+else
+    echo "Skipping GR00T policy patch (pass --apply-policy-patch to enable)."
+fi
 
 pip install -e .[base]
+pip3 install torch==2.7.0+cu128 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 popd
 
 
@@ -80,4 +131,5 @@ fi
 echo "GR00T N1.5 Policy Dependencies installed."
 
 # resolve hdf5 to lerobot conflicts
-pip install av==14.4.0
+pip install --upgrade av==16.1.0
+pip install --upgrade 'pyarrow>=17.0.0'

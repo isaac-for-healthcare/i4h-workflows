@@ -12,6 +12,9 @@
         },
         {
             "pattern": "https://developer.nvidia.com/cuda-downloads"
+        },
+        {
+            "pattern": "https://www.omg.org/spec/IDL/"
         }
     ],
     "timeout": "20s",

@@ -72,3 +72,7 @@ ensure_fresh_third_party_dir() {
         echo "Created directory: $THIRDPARTY_DIR"
     fi
 }
+
+clone_if_missing() {
+    [ -d "$1/.git" ] || { git clone "$2" "$1" && cd "$1" && git checkout "$3" && cd -; }
+}

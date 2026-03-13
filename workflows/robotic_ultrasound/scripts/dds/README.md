@@ -1,6 +1,6 @@
-## Troubleshooting DDS Communication
+# Troubleshooting DDS Communication
 
-### Common Issues and Solutions
+## Common Issues and Solutions
 
 - **Connection Problems**:
   - Ensure your RTI license is properly installed and valid

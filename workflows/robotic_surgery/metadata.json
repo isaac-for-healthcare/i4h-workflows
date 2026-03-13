@@ -1,0 +1,125 @@
+{
+  "workflow": {
+    "name": "Robotic Surgery Workflow",
+    "description": "Robotic surgery simulation workflow with state machine control and reinforcement learning for surgical robot training",
+    "authors": [
+      {
+        "name": "Isaac for Healthcare Team",
+        "affiliation": "NVIDIA"
+      }
+    ],
+    "language": "Python",
+    "version": "1.0",
+    "changelog": {
+      "1.0": "Initial Release"
+    },
+    "dockerfile": "workflows/robotic_surgery/docker/Dockerfile",
+    "platforms": ["x86_64"],
+    "requirements": {
+      "packages": [
+        {
+          "name": "Isaac Sim",
+          "author": "NVIDIA",
+          "version": "5.1.0",
+          "url": "https://developer.nvidia.com/isaac-sim"
+        },
+        {
+          "name": "Isaac Lab",
+          "author": "NVIDIA",
+          "version": "2.3.0",
+          "url": "https://isaac-sim.github.io/IsaacLab/"
+        }
+      ]
+    },
+    "default_mode": "reach_psm",
+    "modes": {
+      "reach_psm": {
+        "description": "dVRK PSM reach task using state machine control",
+        "run": {
+          "command": "python scripts/simulation/scripts/environments/state_machine/reach_psm_sm.py",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "reach_dual_psm": {
+        "description": "Dual-arm dVRK PSM coordination using state machine control",
+        "run": {
+          "command": "python scripts/simulation/scripts/environments/state_machine/reach_dual_psm_sm.py",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "reach_star": {
+        "description": "STAR robot reach task using state machine control",
+        "run": {
+          "command": "python scripts/simulation/scripts/environments/state_machine/reach_star_sm.py",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "lift_needle": {
+        "description": "Suture needle lifting and manipulation task",
+        "run": {
+          "command": "python scripts/simulation/scripts/environments/state_machine/lift_needle_sm.py",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "lift_needle_organs": {
+        "description": "Needle lifting in a realistic operating room with organs",
+        "run": {
+          "command": "python scripts/simulation/scripts/environments/state_machine/lift_needle_organs_sm.py",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "lift_block": {
+        "description": "Peg transfer block lifting surgical training task",
+        "run": {
+          "command": "python scripts/simulation/scripts/environments/state_machine/lift_block_sm.py",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "train_rl": {
+        "description": "Train reinforcement learning agent for surgical tasks (default: PSM reach, override with --run-args='--task Isaac-Lift-Needle-PSM-IK-Rel-v0')",
+        "run": {
+          "command": "python scripts/simulation/scripts/reinforcement_learning/rsl_rl/train.py --task Isaac-Reach-PSM-v0 --headless",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "play_rl": {
+        "description": "Evaluate trained RL agent in simulation (default: PSM reach, override with --run-args)",
+        "run": {
+          "command": "python scripts/simulation/scripts/reinforcement_learning/rsl_rl/play.py --task Isaac-Reach-PSM-Play-v0",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      }
+    },
+    "run": {
+      "command": "python scripts/simulation/scripts/environments/state_machine/reach_psm_sm.py",
+      "workdir": "holohub_app_source",
+      "env": {
+        "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+      }
+    }
+  }
+}

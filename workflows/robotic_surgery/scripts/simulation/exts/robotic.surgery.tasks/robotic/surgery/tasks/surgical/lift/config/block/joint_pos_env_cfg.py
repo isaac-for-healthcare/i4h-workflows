@@ -10,7 +10,7 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
 from robotic.surgery.tasks.surgical.lift import mdp
 from robotic.surgery.tasks.surgical.lift.lift_env_cfg import LiftEnvCfg
-from simulation.utils.assets import robotic_surgery_assets
+from simulation.utils.assets import BLOCK_USD
 
 ##
 # Pre-defined configs
@@ -56,7 +56,7 @@ class BlockLiftEnvCfg(LiftEnvCfg):
             prim_path="{ENV_REGEX_NS}/Object",
             init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.025), rot=(1, 0, 0, 0)),
             spawn=UsdFileCfg(
-                usd_path=robotic_surgery_assets.Block,
+                usd_path=BLOCK_USD,
                 scale=(0.011, 0.011, 0.011),
                 rigid_props=RigidBodyPropertiesCfg(
                     solver_position_iteration_count=16,

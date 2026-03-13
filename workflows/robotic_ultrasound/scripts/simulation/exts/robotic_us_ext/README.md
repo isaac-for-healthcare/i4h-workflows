@@ -8,11 +8,11 @@ These tasks are detected by the `gym.register` function in the [robotic_us_ext/\
 These registered tasks are then further defined in the [environment configuration file](robotic_us_ext/tasks/ultrasound/approach/config/franka/franka_manager_rl_env_cfg.py).
 
 Available tasks:
+
 - `Isaac-Teleop-Torso-FrankaUsRs-IK-RL-Rel-v0`: FrankaUsRs with relative actions
 - `Isaac-Reach-Torso-FrankaUsRs-IK-RL-Abs-v0` : FrankaUsRs with absolute actions
 
 Currently there are these robot configurations that can be used in various tasks
-
 
 | Robot name                                 | task             | applications          |
 |----------                                  |---------         |----------             |

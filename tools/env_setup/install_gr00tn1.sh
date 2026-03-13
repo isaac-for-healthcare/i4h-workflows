@@ -52,10 +52,17 @@ else
     echo "pyav already updated to av or not found in Isaac-GR00T's pyproject.toml."
 fi
 
+# Bump torch/torchvision for Blackwell GPU support
+echo "Patching Isaac-GR00T pyproject.toml (torch 2.5.1 -> 2.8.0 for Blackwell support)..."
+sed -i \
+    -e 's/"torch==2\.5\.1"/"torch==2.8.0"/' \
+    -e 's/"torchvision==0\.20\.1"/"torchvision==0.23.0"/' \
+    pyproject.toml
+
 pip install -e .[base]
 pip install transformers==4.45.2
 popd
 
-pip install --no-build-isolation flash-attn==2.7.1.post4
+pip install --no-build-isolation --no-cache-dir flash-attn==2.8.3
 
 echo "GR00T N1 Policy Dependencies installed."

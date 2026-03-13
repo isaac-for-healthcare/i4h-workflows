@@ -1,0 +1,263 @@
+{
+  "workflow": {
+    "name": "SO-ARM Starter Workflow",
+    "description": "Autonomous surgical assistance workflow for SO-ARM101 robotic arm with GR00T N1.5 policy",
+    "authors": [
+      {
+        "name": "Isaac for Healthcare Team",
+        "affiliation": "NVIDIA"
+      }
+    ],
+    "language": "Python",
+    "version": "1.0",
+    "changelog": {
+      "1.0": "Initial Release"
+    },
+    "dockerfile": "workflows/so_arm_starter/docker/Dockerfile",
+    "platforms": ["x86_64"],
+    "tags": ["Isaac4Healthcare", "Robotics", "GR00T", "Surgical Assistance", "SO-ARM101"],
+    "ranking": 1,
+    "requirements": {
+      "packages": [
+        {
+          "name": "RTI Connext DDS",
+          "author": "Real-Time Innovations",
+          "license": "Evaluation",
+          "url": "https://www.rti.com/free-trial"
+        },
+        {
+          "name": "Isaac Sim",
+          "author": "NVIDIA",
+          "version": "5.0",
+          "url": "https://developer.nvidia.com/isaac-sim"
+        }
+      ]
+    },
+    "default_mode": "sim_keyboard",
+    "modes": {
+      "find_ports": {
+        "description": "Find SO-ARM101 USB ports",
+        "build": {
+          "docker_build_args": ["--target=gr00t_installer"]
+        },
+        "run": {
+          "command": "python -m lerobot.find_port",
+          "workdir": "holohub_app_source",
+          "docker_run_args": [
+            "--privileged",
+            "--group-add dialout"
+          ]
+        }
+      },
+      "find_cameras": {
+        "description": "Find available camera indices",
+        "build": {
+          "docker_build_args": ["--target=gr00t_installer"]
+        },
+        "run": {
+          "command": "python -m lerobot.find_cameras opencv",
+          "workdir": "holohub_app_source",
+          "docker_run_args": [
+            "--privileged",
+            "--group-add dialout"
+          ]
+        }
+      },
+      "calibrate_follower": {
+        "description": "Calibrate SO-ARM101 follower arm (requires --run-args='--robot.port=/dev/ttyUSBx')",
+        "build": {
+          "docker_build_args": ["--target=gr00t_installer"]
+        },
+        "run": {
+          "command": "python -m lerobot.calibrate --robot.type=so101_follower --robot.id=so101_follower_arm",
+          "workdir": "holohub_app_source",
+          "docker_run_args": [
+            "--privileged",
+            "--group-add dialout"
+          ]
+        }
+      },
+      "calibrate_leader": {
+        "description": "Calibrate SO-ARM101 leader arm (requires --run-args='--teleop.port=/dev/ttyUSBx')",
+        "build": {
+          "docker_build_args": ["--target=gr00t_installer"]
+        },
+        "run": {
+          "command": "python -m lerobot.calibrate --teleop.type=so101_leader --teleop.id=so101_leader_arm",
+          "workdir": "holohub_app_source",
+          "docker_run_args": [
+            "--privileged",
+            "--group-add dialout"
+          ]
+        }
+      },
+      "download_model": {
+        "description": "Download pretrained SO-ARM Starter model (override with --run-args='--local-dir /path')",
+        "build": {
+          "docker_build_args": ["--target=gr00t_installer"]
+        },
+        "run": {
+          "command": "huggingface-cli download nvidia/SO_ARM_Starter_Gr00t --local-dir <holohub_root>/.cache/huggingface/so_arm_starter_gr00t",
+          "workdir": "holohub_app_source"
+        }
+      },
+      "login_hf": {
+        "description": "Log in to Hugging Face (stores credentials in ~/.cache/huggingface)",
+        "build": {
+          "docker_build_args": ["--target=gr00t_installer"]
+        },
+        "run": {
+          "command": "huggingface-cli login",
+          "workdir": "holohub_app_source"
+        }
+      },
+      "sim_teleop": {
+        "description": "Collect training data in Isaac Sim with leader arm teleoperation",
+        "build": {
+          "docker_build_args": ["--target=isaaclab_installer"]
+        },
+        "run": {
+          "command": "python -m simulation.environments.teleoperation_record --enable_cameras --record",
+          "workdir": "holohub_app_source",
+          "docker_run_args": [
+            "--privileged",
+            "--group-add dialout"
+          ],
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "sim_keyboard": {
+        "description": "Collect training data in Isaac Sim with keyboard teleoperation (no hardware required)",
+        "build": {
+          "docker_build_args": ["--target=isaaclab_installer"]
+        },
+        "run": {
+          "command": "python -m simulation.environments.teleoperation_record --enable_cameras --record --teleop_device=keyboard",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "teleop_real": {
+        "description": "Collect training data in Isaac Sim with real-to-real teleoperation (requires --run-args='--port=/dev/ttyUSBx')",
+        "build": {
+          "docker_build_args": ["--target=gr00t_installer"]
+        },
+        "run": {
+          "command": "python -m lerobot.record --robot.type=so101_follower --robot.cameras='{wrist: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, room: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30}}' --robot.id=so101_follower_arm --teleop.type=so101_leader --teleop.id=so101_leader_arm --dataset.push_to_hub=false --play_sounds=false",
+          "workdir": "holohub_app_source",
+          "docker_run_args": [
+            "--privileged",
+            "--group-add dialout"
+          ]
+        }
+      },
+      "replay": {
+        "description": "Replay recorded datasets in simulation (requires --run-args='--dataset_path=/path/to/data.hdf5')",
+        "build": {
+          "docker_build_args": ["--target=isaaclab_installer"]
+        },
+        "run": {
+          "command": "python -m simulation.environments.replay_recording --enable_cameras",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "convert": {
+        "description": "Convert HDF5 data to LeRobot format (requires --run-args with paths)",
+        "build": {
+          "docker_build_args": ["--target=gr00t_installer"]
+        },
+        "run": {
+          "command": "python -m training.hdf5_to_lerobot",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "train": {
+        "description": "Train GR00T N1.5 model on collected data",
+        "build": {
+          "docker_build_args": ["--target=gr00t_installer"]
+        },
+        "run": {
+          "command": "python -m training.gr00t_n1_5.train",
+          "workdir": "holohub_app_source",
+          "docker_run_args": ["--shm-size=16g"],
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "sim_env": {
+        "description": "Launch Isaac Sim environment with DDS communication for policy deployment",
+        "build": {
+          "docker_build_args": ["--target=isaaclab_installer"],
+          "cmake_options": [
+            "-DI4H_DOWNLOAD_DATA=OFF"
+          ]
+        },
+        "run": {
+          "command": "python -m simulation.environments.sim_with_dds --enable_cameras",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "policy": {
+        "description": "Run GR00T N1.5 policy inference for Isaac Sim (uses downloaded model by default, override with --run-args)",
+        "build": {
+          "docker_build_args": [
+            "--target=gr00t_installer"
+          ],
+          "cmake_options": [
+            "-DI4H_DOWNLOAD_DATA=ON"
+          ]
+        },
+        "run": {
+          "command": "python -m policy.run_policy --ckpt_path=<holohub_root>/.cache/huggingface/so_arm_starter_gr00t --task_description='Grip the scissors and put it into the tray'",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "real_deploy": {
+        "description": "Deploy trained model to real SO-ARM101 hardware using Holoscan",
+        "build": {
+          "docker_build_args": [
+            "--target=gr00t_installer"
+          ],
+          "cmake_options": [
+            "-DI4H_DOWNLOAD_DATA=ON"
+          ]
+        },
+        "run": {
+          "command": "python -m holoscan_apps.gr00t_inference_app",
+          "workdir": "holohub_app_source",
+          "docker_run_args": [
+            "--privileged",
+            "--group-add dialout"
+          ],
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      }
+    },
+    "run": {
+      "command": "python -m simulation.environments.teleoperation_record --enable_cameras --teleop_device=keyboard",
+      "workdir": "holohub_app_source",
+      "env": {
+        "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+      }
+    }
+  }
+}

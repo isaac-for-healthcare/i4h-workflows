@@ -75,7 +75,7 @@ kill_process_tree() {
 }
 
 # Kill specific processes and their children
-kill_process_tree "policy_runner.run_policy" "policy runner"
+kill_process_tree "policy.run_policy" "policy runner"
 kill_process_tree "simulation.environments.sim_with_dds" "simulation with DDS"
 kill_process_tree "simulation.examples.ultrasound_raytracing" "ultrasound raytracing"
 kill_process_tree "utils.visualization" "visualization"
@@ -84,13 +84,13 @@ kill_process_tree "isaac-sim" "Isaac Sim"
 # Double-check for any remaining processes
 echo ""
 echo "Double-checking for any remaining processes..."
-remaining=$(ps aux | grep -E "(policy_runner.run_policy|simulation.environments.sim_with_dds|simulation.examples.ultrasound_raytracing|utils.visualization|isaac-sim)" | grep -v grep | grep -v "kill_all_processes.sh")
+remaining=$(ps aux | grep -E "(policy.run_policy|simulation.environments.sim_with_dds|simulation.examples.ultrasound_raytracing|utils.visualization|isaac-sim)" | grep -v grep | grep -v "kill_all_processes.sh")
 
 if [ ! -z "$remaining" ]; then
     echo "Found remaining processes:"
     echo "$remaining"
     echo "Force killing any stragglers..."
-    pkill -9 -f "policy_runner.run_policy" 2>/dev/null
+    pkill -9 -f "policy.run_policy" 2>/dev/null
     pkill -9 -f "simulation.environments.sim_with_dds" 2>/dev/null
     pkill -9 -f "simulation.examples.ultrasound_raytracing" 2>/dev/null
     pkill -9 -f "utils.visualization" 2>/dev/null

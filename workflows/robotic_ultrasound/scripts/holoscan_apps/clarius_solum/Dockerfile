@@ -43,6 +43,6 @@ RUN pip install rti.connext Pillow
 
 # Add schemas directory to PYTHONPATH to enable importing operators
 ENV PYTHONPATH=$PYTHONPATH:/workspace/holohub:/workspace/holohub/workflows/robotic_ultrasound/scripts
-ENV PYTHONPATH=$PYTHONPATH:/workspace/holohub/build/clarius_solum/holoscan_i4h/operators/clarius_solum
+ENV PYTHONPATH=$PYTHONPATH:/workspace/holohub/build/clarius_solum/holoscan_ops/operators/clarius_solum
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/workspace/holohub/build/clarius_solum/_deps/clarius_solum-src
 ENV RTI_LICENSE_FILE=/workspace/rti_license.dat

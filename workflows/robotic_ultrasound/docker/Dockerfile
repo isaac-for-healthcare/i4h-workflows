@@ -26,7 +26,7 @@ SHELL ["/bin/bash", "-c"]
 
 # Install all packages in a single layer to avoid caching issues
 RUN apt-get update && \
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
         wget \
         curl \
         jq \
@@ -58,26 +58,37 @@ ENV NVIDIA_DRIVER_CAPABILITIES=graphics,video,compute,utility,display
 WORKDIR /workspace/i4h-workflows
 
 COPY tools /workspace/i4h-workflows/tools
-COPY tutorials /workspace/i4h-workflows/tutorials
 COPY workflows /workspace/i4h-workflows/workflows
-COPY holoscan_i4h /workspace/i4h-workflows/holoscan_i4h
 COPY i4h /workspace/i4h-workflows/i4h
 COPY CMakeLists.txt /workspace/i4h-workflows/CMakeLists.txt
 
-# Install miniconda3 and create robotic_ultrasound
-RUN mkdir -p ~/miniconda3 && \
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh && \
-    bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3 && \
-    rm ~/miniconda3/miniconda.sh && \
-    source ~/miniconda3/bin/activate && \
+RUN mkdir -p /opt/miniconda3 && \
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /opt/miniconda3/miniconda.sh && \
+    bash /opt/miniconda3/miniconda.sh -b -u -p /opt/miniconda3 && \
+    rm /opt/miniconda3/miniconda.sh && \
+    source /opt/miniconda3/bin/activate && \
     conda tos accept && \
     conda init --all && \
-    conda create -n robotic_ultrasound python=3.11 -y
+    conda create -n robotic_ultrasound python=3.11 -y && \
+    chmod -R a+rX /opt/miniconda3
 
-RUN source ~/miniconda3/bin/activate && \
+ENV PATH="/opt/miniconda3/envs/robotic_ultrasound/bin:/opt/miniconda3/bin:$PATH"
+ENV CONDA_DEFAULT_ENV=robotic_ultrasound
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    source /opt/miniconda3/bin/activate && \
     conda activate robotic_ultrasound && \
     cd /workspace/i4h-workflows && \
-    BUILD_DOCKER_IMAGE=true bash tools/env_setup_robot_us.sh
+    BUILD_DOCKER_IMAGE=true bash tools/env_setup_robot_us.sh && \
+    chmod -R a+rX /opt/miniconda3
+# Fix: tensorstore 0.1.81 requires ml_dtypes.float8_e3m4 (added in 0.5.0),
+# but openpi pins ml_dtypes 0.2.0 via tensorflow. --no-deps avoids pulling
+# in newer numpy/jax/jaxlib that would break other packages.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    source /opt/miniconda3/bin/activate && \
+    conda activate robotic_ultrasound && \
+    pip install --no-deps "ml_dtypes>=0.5.0,<1.0" && \
+    chmod -R a+rX /opt/miniconda3
 
 ENV PYTHONPATH=/workspace/i4h-workflows/workflows/robotic_ultrasound/scripts:/workspace/i4h-workflows/install/lib/clarius_solum:/workspace/i4h-workflows/install/lib/clarius_cast
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/workspace/i4h-workflows/install/lib/clarius_solum:/workspace/i4h-workflows/install/lib/clarius_cast

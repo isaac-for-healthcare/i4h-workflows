@@ -20,9 +20,10 @@ import tempfile
 import unittest
 
 import h5py
-from helpers import cleanup_test_files, create_dummy_hdf5_files, requires_isaac_sim
+from helpers import cleanup_test_files, create_dummy_hdf5_files, requires_isaac_lab
 
 
+@requires_isaac_lab
 class TestReplayRecording(unittest.TestCase):
     """Test cases for replay_recording.py functionality."""
 
@@ -128,7 +129,6 @@ class TestReplayRecording(unittest.TestCase):
             f"Success: {success}, stdout: {stdout[:200]}, stderr: {stderr[:200]}",
         )
 
-    @requires_isaac_sim
     def test_with_isaacsim_environment(self):
         """Test replay with actual Isaac Sim environment (requires Isaac Sim)."""
         dataset_path = os.path.join(self.main_hdf5_dir, "data_0.hdf5")

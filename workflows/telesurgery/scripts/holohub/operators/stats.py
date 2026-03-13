@@ -24,16 +24,18 @@ from schemas.camera_stream import CameraStream
 class CameraStreamStats(Operator):
     """A operator that takes CameraStream input and produces stats."""
 
-    def __init__(self, fragment, interval_ms, *args, **kwargs):
+    def __init__(self, fragment, interval_ms, stream_lift=False, *args, **kwargs):
         self.prev_ts = 0
         self.interval_ms = interval_ms
+        self.stream_lift = stream_lift
 
         self.sync_offset_time = get_ntp_offset()
-        self.prev_ts = 0
         self.time_diff = []
         self.time_encode = []
         self.time_decode = []
         self.compress_ratio = []
+        self.stream_lift_down = []
+        self.stream_lift_up = []
         super().__init__(fragment, *args, **kwargs)
 
     def setup(self, spec: OperatorSpec):
@@ -48,6 +50,8 @@ class CameraStreamStats(Operator):
         self.time_encode.append(stream.encode_latency)
         self.time_decode.append(stream.decode_latency)
         self.compress_ratio.append(stream.compress_ratio)
+        self.stream_lift_down.append(self.metadata.get("streamlift_down_total_latency_ms", 0))
+        self.stream_lift_up.append(self.metadata.get("streamlift_up_total_latency_ms", 0))
 
         if ts - self.prev_ts > self.interval_ms:
             f1 = len(self.time_diff)
@@ -60,16 +64,22 @@ class CameraStreamStats(Operator):
             c1 = np.mean(self.compress_ratio)
             s1 = stream.width * stream.height * (4 if stream.type == 2 else 1)
 
+            sl1 = np.mean(self.stream_lift_down)
+            sl2 = np.mean(self.stream_lift_up)
+
             # Print the results
             print(
                 f"fps: {f1:02d}, "
-                f"min: {l1:02d}, max: {l2:03d}, avg: {l3:03d}, "
-                f"encode: {e1:02.2f}, decode: {d1:02.2f}, "
-                f"compress: {c1:03.1f}x, size: {s1:,}"
+                + f"min: {l1:02d}, max: {l2:03d}, avg: {l3:03d}, "
+                + (f"down: {sl1:02.2f}, up: {sl2:02.2f}, " if self.stream_lift else "")
+                + f"encode: {e1:02.2f}, decode: {d1:02.2f}, "
+                + f"compress: {c1:03.1f}x, size: {s1:,}"
             )
 
             self.time_diff.clear()
             self.time_encode.clear()
             self.time_decode.clear()
             self.compress_ratio.clear()
+            self.stream_lift_down.clear()
+            self.stream_lift_up.clear()
             self.prev_ts = ts

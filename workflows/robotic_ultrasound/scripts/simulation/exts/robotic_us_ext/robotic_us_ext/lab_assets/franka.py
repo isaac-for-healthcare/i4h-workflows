@@ -36,7 +36,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
-from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from simulation.utils.assets import PANDA_USD
 
 ##
 # Configuration
@@ -169,7 +169,7 @@ FRANKA_PANDA_REALSENSE_CFG.actuators["panda_forearm"].damping = 80.0
 FRANKA_PANDA_REALSENSE_ULTRASOUND_CFG = NOHAND_FRANKA_PANDA.copy()
 # local filepath
 spawn = sim_utils.UsdFileCfg(
-    usd_path=robot_us_assets.panda,
+    usd_path=PANDA_USD,
     activate_contact_sensors=True,
     rigid_props=sim_utils.RigidBodyPropertiesCfg(
         disable_gravity=True,

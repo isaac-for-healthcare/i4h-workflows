@@ -15,16 +15,19 @@
 
 from i4h_asset_helper import BaseI4HAssets
 
+ASSET_PATH = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.5.0/132c82d/"
+
+BASIC_USD = ASSET_PATH + "Test/basic.usda"
+PANDA_USD = ASSET_PATH + "Robots/Franka/Collected_panda_assembly/panda_assembly.usda"
+PHANTOM_USD = ASSET_PATH + "Props/ABDPhantom/phantom.usda"
+TABLE_WITH_COVER_USD = ASSET_PATH + "Props/VentionTable/BlackCover/table_with_cover.usd"
+
 
 class Assets(BaseI4HAssets):
-    """Assets manager for the robotic ultrasound workflow."""
+    """Assets manager for folder-based assets that require download."""
 
-    basic = "Test/basic.usda"
-    panda = "Robots/Franka/Collected_panda_assembly/panda_assembly.usda"
-    phantom = "Props/ABDPhantom/phantom.usda"
-    table_with_cover = "Props/VentionTableWithBlackCover/table_with_cover.usd"
     organs = "Props/ABDPhantom/Organs"
 
 
-# singleton object for the assets
+# singleton used for folder assets (e.g. organs) that go through BaseI4HAssets download logic
 robotic_ultrasound_assets = Assets()

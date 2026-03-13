@@ -13,23 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from i4h_asset_helper import BaseI4HAssets
+ASSET_PATH = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.5.0/132c82d/"
 
-
-class Assets(BaseI4HAssets):
-    """Assets manager for the robotic surgery workflow."""
-
-    dVRK_ECM = "Robots/dVRK/ECM/ecm.usd"
-    dVRK_PSM = "Robots/dVRK/PSM/psm.usd"
-    STAR = "Robots/STAR/star.usd"
-    Board = "Props/Board/board.usd"
-    Block = "Props/PegBlock/block.usd"
-    Needle = "Props/SutureNeedle/needle.usd"
-    Needle_SDF = "Props/SutureNeedle/needle_sdf.usd"
-    SuturePad = "Props/SuturePad/suture_pad.usd"
-    Table = "Props/Table/table.usd"
-    Organs = "Props/Organs/organs.usd"
-
-
-# singleton object for the assets
-robotic_surgery_assets = Assets()
+DVRK_ECM_USD = ASSET_PATH + "Robots/dVRK/ECM/ecm.usd"
+DVRK_PSM_USD = ASSET_PATH + "Robots/dVRK/PSM/psm.usd"
+STAR_USD = ASSET_PATH + "Robots/STAR/star.usd"
+BOARD_USD = ASSET_PATH + "Props/Board/board.usd"
+BLOCK_USD = ASSET_PATH + "Props/PegBlock/block.usd"
+NEEDLE_USD = ASSET_PATH + "Props/SutureNeedle/needle.usd"
+NEEDLE_SDF_USD = ASSET_PATH + "Props/SutureNeedle/needle_sdf.usd"
+SUTURE_PAD_USD = ASSET_PATH + "Props/SuturePad/suture_pad.usd"
+TABLE_USD = ASSET_PATH + "Props/Table/table.usd"
+ORGANS_USD = ASSET_PATH + "Props/Organs/organs.usd"

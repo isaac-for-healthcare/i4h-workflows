@@ -10,7 +10,7 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
 from robotic.surgery.tasks.surgical.handover import mdp
 from robotic.surgery.tasks.surgical.handover.handover_env_cfg import HandoverEnvCfg
-from simulation.utils.assets import robotic_surgery_assets
+from simulation.utils.assets import NEEDLE_SDF_USD
 
 ##
 # Pre-defined configs
@@ -81,7 +81,7 @@ class NeedleHandoverEnvCfg(HandoverEnvCfg):
             prim_path="{ENV_REGEX_NS}/Object",
             init_state=RigidObjectCfg.InitialStateCfg(pos=(-0.05, 0.0, 0.015), rot=(0, 0, 0, 1)),
             spawn=UsdFileCfg(
-                usd_path=robotic_surgery_assets.Needle_SDF,
+                usd_path=NEEDLE_SDF_USD,
                 scale=(0.4, 0.4, 0.4),
                 rigid_props=RigidBodyPropertiesCfg(
                     solver_position_iteration_count=16,

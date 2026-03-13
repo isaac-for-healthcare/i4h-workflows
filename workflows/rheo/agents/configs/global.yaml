@@ -1,0 +1,15 @@
+# Agent Plugin Global Configuration
+# This file is used when running agents as a standalone module for benchmarking
+# When used as a plugin, the main configs/global.yaml takes precedence
+
+model_name: "models/llm/Qwen2.5-VL-7B-Surg-CholecT50/"
+served_model_name: "surgical-vlm"
+llm_url: "http://127.0.0.1:8000/v1"
+personnel:
+  surgeon: "Dr. Alice"
+  assistant: "Mr. Scrub Tech"
+  anaesthetist: "Dr. Bob"
+
+# From the original agent system:
+excluded_agents:
+  - OperatingRoomAnnotationAgent

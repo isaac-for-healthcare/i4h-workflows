@@ -17,7 +17,7 @@ Reference: https://github.com/med-air/SurRoL
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
-from simulation.utils.assets import robotic_surgery_assets
+from simulation.utils.assets import DVRK_PSM_USD
 
 ##
 # Configuration
@@ -25,7 +25,7 @@ from simulation.utils.assets import robotic_surgery_assets
 
 PSM_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=robotic_surgery_assets.dVRK_PSM,
+        usd_path=DVRK_PSM_USD,
         activate_contact_sensors=False,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,

@@ -35,7 +35,7 @@ pip install setuptools==75.8.0 toml==0.10.2
 
 # Run the installation scripts
 echo "Installing IsaacSim and dependencies..."
-bash $PROJECT_ROOT/tools/env_setup/install_isaacsim5.0_isaaclab2.3.sh
+bash $PROJECT_ROOT/tools/env_setup/install_isaacsim5.1_isaaclab2.3.sh
 
 echo "Installing extensions..."
 bash $PROJECT_ROOT/tools/env_setup/install_robotic_surgery_extensions.sh

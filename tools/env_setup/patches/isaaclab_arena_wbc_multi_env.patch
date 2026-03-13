@@ -1,0 +1,612 @@
+diff --git a/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/utils/p_controller.py b/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/utils/p_controller.py
+index 2a13bb4..63a8a6e 100644
+--- a/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/utils/p_controller.py
++++ b/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/utils/p_controller.py
+@@ -47,59 +47,86 @@ class PController:
+         self._min_vel = min_vel
+         self._max_vel = max_vel
+         self._num_envs = num_envs
+-        self._inplace_turning_flag = inplace_turning_flag
+-        self._navigation_step_counter = 0
++        self._inplace_turning_flag = torch.full(
++            (self._num_envs,),
++            bool(inplace_turning_flag),
++            dtype=torch.bool,
++        )
++        self._navigation_step_counter = torch.zeros(self._num_envs, dtype=torch.int64)
+
+     @property
+-    def inplace_turning_flag(self) -> bool:
++    def inplace_turning_flag(self) -> torch.Tensor:
+         return self._inplace_turning_flag
+
+     @property
+-    def navigation_step_counter(self) -> int:
++    def navigation_step_counter(self) -> torch.Tensor:
+         return self._navigation_step_counter
+
+-    def set_navigation_step_counter(self, navigation_step_counter: int) -> None:
+-        self._navigation_step_counter = navigation_step_counter
+-
+-    def set_inplace_turning_flag(self, inplace_turning_flag: bool) -> None:
+-        self._inplace_turning_flag = inplace_turning_flag
++    def set_navigation_step_counter(self, navigation_step_counter: int | torch.Tensor) -> None:
++        if isinstance(navigation_step_counter, torch.Tensor):
++            self._navigation_step_counter = navigation_step_counter.to(dtype=torch.int64)
++        else:
++            self._navigation_step_counter = torch.full(
++                (self._num_envs,),
++                int(navigation_step_counter),
++                dtype=torch.int64,
++            )
++
++    def set_inplace_turning_flag(self, inplace_turning_flag: bool | torch.Tensor) -> None:
++        if isinstance(inplace_turning_flag, torch.Tensor):
++            self._inplace_turning_flag = inplace_turning_flag.to(dtype=torch.bool)
++        else:
++            self._inplace_turning_flag = torch.full(
++                (self._num_envs,),
++                bool(inplace_turning_flag),
++                dtype=torch.bool,
++            )
++
++    def _expand_target_xy(self, target_xy: torch.Tensor, device: torch.device) -> torch.Tensor:
++        if not isinstance(target_xy, torch.Tensor):
++            target_xy = torch.tensor(target_xy, device=device)
++        target_xy = target_xy.to(device=device)
++        if target_xy.ndim == 1:
++            target_xy = target_xy.unsqueeze(0).expand(self._num_envs, -1)
++        return target_xy
++
++    def _expand_target_heading(self, target_heading: torch.Tensor, device: torch.device) -> torch.Tensor:
++        if not isinstance(target_heading, torch.Tensor):
++            target_heading = torch.tensor(target_heading, device=device)
++        target_heading = target_heading.to(device=device)
++        if target_heading.ndim == 0:
++            target_heading = target_heading.expand(self._num_envs)
++        return target_heading
+
+     def get_pos_diff(
+         self, target_xy: torch.Tensor, current_xy: torch.Tensor
+     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+         """Get the position difference between the target and current position."""
+-        # NOTE(xinjieyao, 2025-09-24): only developed for single env as Mimic runs in single env mode
+-        assert (
+-            current_xy.shape[0] == self._num_envs
+-        ), f"Current position shape must be {self._num_envs}, got {current_xy.shape[0]}"
+-        dx = target_xy[0] - current_xy[:, 0]
+-        dy = target_xy[1] - current_xy[:, 1]
++        target_xy = self._expand_target_xy(target_xy, current_xy.device)
++        dx = target_xy[:, 0] - current_xy[:, 0]
++        dy = target_xy[:, 1] - current_xy[:, 1]
+         distance_error = torch.sqrt(dx**2 + dy**2)
+         return dx, dy, distance_error
+
+     def get_heading_diff(self, target_heading: torch.Tensor, current_heading: torch.Tensor) -> torch.Tensor:
+         """Get the heading difference between the target and current heading."""
+-        # NOTE(xinjieyao, 2025-09-24): only developed for single env as Mimic runs in single env mode
+-        assert (
+-            current_heading.shape[0] == self._num_envs
+-        ), f"Current heading shape must be {self._num_envs}, got {current_heading.shape[0]}"
++        target_heading = self._expand_target_heading(target_heading, current_heading.device)
+         heading_error = math_utils.wrap_to_pi(target_heading - math_utils.wrap_to_pi(current_heading))
+         return heading_error
+
+-    def check_xy_within_threshold(self, target_xy: torch.Tensor, current_xy: torch.Tensor) -> bool:
++    def check_xy_within_threshold(self, target_xy: torch.Tensor, current_xy: torch.Tensor) -> torch.Tensor:
+         dx, dy, distance_error = self.get_pos_diff(target_xy, current_xy)
+         return distance_error < self._distance_error_threshold
+
+-    def check_heading_within_threshold(self, target_heading: torch.Tensor, current_heading: torch.Tensor) -> bool:
++    def check_heading_within_threshold(self, target_heading: torch.Tensor, current_heading: torch.Tensor) -> torch.Tensor:
+         heading_error = self.get_heading_diff(target_heading, current_heading)
+         return torch.abs(heading_error) < self._heading_diff_threshold
+
+     def turning_p_controller(self, target_heading: torch.Tensor, current_heading: torch.Tensor) -> torch.Tensor:
+         """P-controller for (theoretically) in-place turning."""
+-        heading_error = math_utils.wrap_to_pi(target_heading - current_heading)
++        heading_error = self.get_heading_diff(target_heading, current_heading)
+         angular_velocity = self._kp_angular_turning_only * heading_error
+-        ang_vel = max(min(angular_velocity[0], self._max_vel), self._min_vel)
+-        return ang_vel
++        return torch.clamp(angular_velocity, self._min_vel, self._max_vel)
+
+     def navigation_p_controller(
+         self, target_xy: torch.Tensor, current_xy: torch.Tensor, current_theta: torch.Tensor
+@@ -127,10 +154,9 @@ class PController:
+         # --- Angular Velocity Control (P-only) ---
+         angular_velocity = self._kp_angular * angle_error
+
+-        # NOTE(xinjieyao, 2025-09-24): only developed for single env as Mimic runs in single env mode
+-        lin_vel_x = max(min(vx[0], self._max_vel), self._min_vel)
+-        lin_vel_y = max(min(vy[0], self._max_vel), self._min_vel)
+-        ang_vel = max(min(angular_velocity[0], self._max_vel), self._min_vel)
++        lin_vel_x = torch.clamp(vx, self._min_vel, self._max_vel)
++        lin_vel_y = torch.clamp(vy, self._min_vel, self._max_vel)
++        ang_vel = torch.clamp(angular_velocity, self._min_vel, self._max_vel)
+         return lin_vel_x, lin_vel_y, ang_vel
+
+     def run_p_controller(
+@@ -141,29 +167,40 @@ class PController:
+         current_xy: torch.Tensor,
+     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+         """Run the P-controller for navigatiion and/or turning."""
++        device = current_heading.device
++        inplace_turning_flag = self._inplace_turning_flag.to(device=device)
+
+-        lin_vel_x = 0.0
+-        lin_vel_y = 0.0
+-        ang_vel = 0.0
++        lin_vel_x = torch.zeros(self._num_envs, device=device)
++        lin_vel_y = torch.zeros(self._num_envs, device=device)
++        ang_vel = torch.zeros(self._num_envs, device=device)
+
+         xy_reached = self.check_xy_within_threshold(target_xy, current_xy)
+         heading_reached = self.check_heading_within_threshold(target_heading, current_heading)
+-        if not xy_reached and not self.inplace_turning_flag:
+-            lin_vel_x, lin_vel_y, ang_vel = self.navigation_p_controller(target_xy, current_xy, current_heading)
+-        # Assuming the robot is already at the target xy, then only turn to the target heading, maybe causing infinite loops (xy <-> turning)
+-        elif not heading_reached:
+-            ang_vel = self.turning_p_controller(target_heading, current_heading)
+-        # if both are reached, stop the robot
+-        else:
+-            return 0, 0, 0
+-
+-        self._navigation_step_counter += 1
+-
+-        if lin_vel_x > 0.005 and lin_vel_x < 0.1:
+-            lin_vel_x = 0.1
+-        if lin_vel_y > 0.005 and lin_vel_y < 0.1:
+-            lin_vel_y = 0.1
+-        if ang_vel > 0.005 and ang_vel < 0.1:
+-            ang_vel = 0.1
++        nav_mask = (~xy_reached) & (~inplace_turning_flag)
++        turn_mask = (~heading_reached) & (~nav_mask)
++
++        if nav_mask.any():
++            nav_lin_x, nav_lin_y, nav_ang = self.navigation_p_controller(target_xy, current_xy, current_heading)
++            lin_vel_x = torch.where(nav_mask, nav_lin_x, lin_vel_x)
++            lin_vel_y = torch.where(nav_mask, nav_lin_y, lin_vel_y)
++            ang_vel = torch.where(nav_mask, nav_ang, ang_vel)
++        if turn_mask.any():
++            turn_ang = self.turning_p_controller(target_heading, current_heading)
++            ang_vel = torch.where(turn_mask, turn_ang, ang_vel)
++
++        update_mask = nav_mask | turn_mask
++        if update_mask.any():
++            self._navigation_step_counter = self._navigation_step_counter.to(device=device)
++            self._navigation_step_counter[update_mask] += 1
++
++        lin_vel_x = torch.where(
++            (lin_vel_x > 0.005) & (lin_vel_x < 0.1), torch.full_like(lin_vel_x, 0.1), lin_vel_x
++        )
++        lin_vel_y = torch.where(
++            (lin_vel_y > 0.005) & (lin_vel_y < 0.1), torch.full_like(lin_vel_y, 0.1), lin_vel_y
++        )
++        ang_vel = torch.where(
++            (ang_vel > 0.005) & (ang_vel < 0.1), torch.full_like(ang_vel, 0.1), ang_vel
++        )
+
+         return lin_vel_x, lin_vel_y, ang_vel
+diff --git a/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_pink_action.py b/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_pink_action.py
+index 9d668a7..84d3a04 100644
+--- a/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_pink_action.py
++++ b/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_pink_action.py
+@@ -64,8 +64,6 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
+         """
+         super().__init__(cfg, env)
+
+-        assert self.num_envs == 1, "PINK controller currently only supports single environment"
+-
+         self.navigation_p_controller = PController(
+             distance_error_threshold=self.cfg.distance_error_threshold,
+             heading_diff_threshold=self.cfg.heading_diff_threshold,
+@@ -80,10 +78,12 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
+         )
+
+         # Mimic navigation P-controller variables
+-        self._is_navigating = False
+-        self._navigation_goal_reached = False
+-        self._navigation_step_counter = 0
+-        self._num_navigation_subgoals_reached = -1
++        self._is_navigating = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
++        self._navigation_goal_reached = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
++        self._navigation_step_counter = torch.zeros(self.num_envs, dtype=torch.int64, device=self.device)
++        self._num_navigation_subgoals_reached = torch.full(
++            (self.num_envs,), -1, dtype=torch.int64, device=self.device
++        )
+         self._navigate_cmd = torch.zeros([self.num_envs, 3], device=self.device)
+         self._torso_orientation_rpy_cmd = torch.zeros([self.num_envs, 3], device=self.device)
+
+@@ -96,13 +96,13 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
+     # Properties.
+     # """
+     @property
+-    def is_navigating(self) -> bool:
+-        """Get the is navigating flag."""
++    def is_navigating(self) -> torch.Tensor:
++        """Get the is navigating flags (per env)."""
+         return self._is_navigating
+
+     @property
+-    def navigation_goal_reached(self) -> bool:
+-        """Get the navigation goal reached tensor."""
++    def navigation_goal_reached(self) -> torch.Tensor:
++        """Get the navigation goal reached flags (per env)."""
+         return self._navigation_goal_reached
+
+     @property
+@@ -213,38 +213,48 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
+         **************************************************
+         """
+         # Extract upper body left/right arm pos/quat from actions
+-        left_arm_pos = actions_clone[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX].squeeze(0).cpu()
+-        left_arm_quat = actions_clone[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX].squeeze(0).cpu()
+-        right_arm_pos = actions_clone[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX].squeeze(0).cpu()
+-        right_arm_quat = actions_clone[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX].squeeze(0).cpu()
+-
+-        # Convert from pos/quat to 4x4 transform matrix
+-        # Scipy requires quat xyzw, IsaacLab uses wxyz so a conversion is needed
+-        left_arm_quat = np.roll(left_arm_quat, -1)
+-        right_arm_quat = np.roll(right_arm_quat, -1)
+-        left_rotmat = R.from_quat(left_arm_quat).as_matrix()
+-        right_rotmat = R.from_quat(right_arm_quat).as_matrix()
+-
+-        left_arm_pose = np.eye(4)
+-        left_arm_pose[:3, :3] = left_rotmat
+-        left_arm_pose[:3, 3] = left_arm_pos
+-
+-        right_arm_pose = np.eye(4)
+-        right_arm_pose[:3, :3] = right_rotmat
+-        right_arm_pose[:3, 3] = right_arm_pos
++        left_arm_pos = actions_clone[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX].cpu().numpy()
++        left_arm_quat = actions_clone[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX].cpu().numpy()
++        right_arm_pos = actions_clone[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX].cpu().numpy()
++        right_arm_quat = actions_clone[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX].cpu().numpy()
+
+         # Extract left/right hand state from actions
+-        left_hand_state = actions_clone[:, LEFT_HAND_STATE_IDX].squeeze(0).cpu()
+-        right_hand_state = actions_clone[:, RIGHT_HAND_STATE_IDX].squeeze(0).cpu()
+-
+-        # Assemble data format for running IK
+-        body_data = {LEFT_WRIST_LINK_NAME: left_arm_pose, RIGHT_WRIST_LINK_NAME: right_arm_pose}
++        left_hand_state = actions_clone[:, LEFT_HAND_STATE_IDX].cpu().numpy()
++        right_hand_state = actions_clone[:, RIGHT_HAND_STATE_IDX].cpu().numpy()
++
++        target_robot_joints_list = []
++        for env_index in range(self.num_envs):
++            # Reset IK configuration to default before each env's solve to avoid cross-contamination
++            self.upperbody_controller.body_ik_solver.reset_configuration()
++
++            # Convert from pos/quat to 4x4 transform matrix
++            # Scipy requires quat xyzw, IsaacLab uses wxyz so a conversion is needed
++            left_arm_quat_env = np.roll(left_arm_quat[env_index], -1)
++            right_arm_quat_env = np.roll(right_arm_quat[env_index], -1)
++            left_rotmat = R.from_quat(left_arm_quat_env).as_matrix()
++            right_rotmat = R.from_quat(right_arm_quat_env).as_matrix()
++
++            left_arm_pose = np.eye(4)
++            left_arm_pose[:3, :3] = left_rotmat
++            left_arm_pose[:3, 3] = left_arm_pos[env_index]
++
++            right_arm_pose = np.eye(4)
++            right_arm_pose[:3, :3] = right_rotmat
++            right_arm_pose[:3, 3] = right_arm_pos[env_index]
++
++            # Assemble data format for running IK
++            body_data = {LEFT_WRIST_LINK_NAME: left_arm_pose, RIGHT_WRIST_LINK_NAME: right_arm_pose}
++
++            # Run IK (single-env per loop)
++            target_robot_joints = self.compute_upperbody_joint_positions(
++                body_data, left_hand_state[env_index], right_hand_state[env_index]
++            )
++            target_robot_joints_list.append(target_robot_joints)
+
+-        # Run IK
+-        target_robot_joints = self.compute_upperbody_joint_positions(body_data, left_hand_state, right_hand_state)
++        target_robot_joints = np.stack(target_robot_joints_list, axis=0)
+
+         # Reformat the joint position tensor to the correct order for G1 upper body
+-        target_upper_body_joints = target_robot_joints[self.robot_model.get_joint_group_indices("upper_body")]
++        target_upper_body_joints = target_robot_joints[:, self.robot_model.get_joint_group_indices("upper_body")]
+
+         """
+         **************************************************
+@@ -257,80 +267,87 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
+         torso_orientation_rpy_cmd = self.get_torso_orientation_rpy_cmd_from_actions(actions_clone)
+
+         if self.cfg.use_p_control:
+-            if not self._is_navigating and self._navigation_goal_reached:
+-                self._navigation_goal_reached = False
++            reset_goal_mask = (~self._is_navigating) & self._navigation_goal_reached
++            if reset_goal_mask.any():
++                self._navigation_goal_reached[reset_goal_mask] = False
+
+             # Set flag for mimic to indicate that the robot has entered a navigation segment
+-            if not self._is_navigating and (np.abs(navigate_cmd) > NAVIGATE_THRESHOLD).any():
+-                self._is_navigating = True
+-                self._navigation_step_counter = 0
++            start_nav_mask = (~self._is_navigating) & (
++                torch.abs(navigate_cmd).max(dim=1).values > NAVIGATE_THRESHOLD
++            )
++            if start_nav_mask.any():
++                self._is_navigating[start_nav_mask] = True
++                self._navigation_step_counter[start_nav_mask] = 0
+                 self.navigation_p_controller.set_navigation_step_counter(self._navigation_step_counter)
+
+             # Start applying navigation P-controller if conditions are met
+-            if self._is_navigating:
++            if self._is_navigating.any():
+                 assert self.cfg.navigation_subgoals is not None
+                 assert len(self.cfg.navigation_subgoals) > 0
++                was_navigating_mask = self._is_navigating.clone()
++
++                num_subgoals = len(self.cfg.navigation_subgoals)
++                subgoal_targets = torch.tensor(
++                    [subgoal[0] for subgoal in self.cfg.navigation_subgoals],
++                    device=self.device,
++                    dtype=torch.float,
++                )
++                subgoal_turning_flags = torch.tensor(
++                    [subgoal[1] for subgoal in self.cfg.navigation_subgoals],
++                    device=self.device,
++                    dtype=torch.bool,
++                )
++                next_subgoal_idx = (self._num_navigation_subgoals_reached + 1).clamp(max=num_subgoals - 1)
++                target_xy_heading = subgoal_targets[next_subgoal_idx]
++                inplace_turning_flag = subgoal_turning_flags[next_subgoal_idx]
++                self.navigation_p_controller.set_inplace_turning_flag(inplace_turning_flag)
++
++                target_xy = target_xy_heading[:, :2]
++                target_heading = target_xy_heading[:, 2]
++                current_xy = self._asset.data.root_link_pos_w[:, :2]
++                current_heading = self._asset.data.heading_w
++
++                computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = self.navigation_p_controller.run_p_controller(
++                    target_heading=target_heading,
++                    current_heading=current_heading,
++                    target_xy=target_xy,
++                    current_xy=current_xy,
++                )
+                 self._navigation_step_counter = self.navigation_p_controller.navigation_step_counter
+
+-                # No more subgoals to navigate to, stop navigation
+-                if (
+-                    self._num_navigation_subgoals_reached == len(self.cfg.navigation_subgoals) - 1
+-                ) or self._navigation_step_counter > self.cfg.max_navigation_steps:
+-                    computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = 0, 0, 0
+-                    self._is_navigating = False
+-                    self._navigation_goal_reached = True
+-                else:
+-                    target_xy_heading = self.cfg.navigation_subgoals[self._num_navigation_subgoals_reached + 1][0]
+-                    self.navigation_p_controller.set_inplace_turning_flag(
+-                        self.cfg.navigation_subgoals[self._num_navigation_subgoals_reached + 1][1]
+-                    )
++                last_subgoal_mask = self._num_navigation_subgoals_reached == (num_subgoals - 1)
++                stop_nav_mask = self._is_navigating & (
++                    last_subgoal_mask | (self._navigation_step_counter > self.cfg.max_navigation_steps)
++                )
+
+-                    target_xy = torch.tensor(target_xy_heading[:2])
+-                    target_heading = torch.tensor(target_xy_heading[2])
+-                    current_xy = self._asset.data.root_link_pos_w
+-                    current_heading = self._asset.data.heading_w
++                check_xy_reached = self.navigation_p_controller.check_xy_within_threshold(target_xy, current_xy)
++                check_heading_reached = self.navigation_p_controller.check_heading_within_threshold(
++                    target_heading, current_heading
++                )
++                reached_goal_mask = self._is_navigating & check_xy_reached & check_heading_reached
++                reached_turn_mask = self._is_navigating & check_heading_reached & inplace_turning_flag
+
+-                    check_xy_reached = self.navigation_p_controller.check_xy_within_threshold(target_xy, current_xy)
+-                    check_heading_reached = self.navigation_p_controller.check_heading_within_threshold(
+-                        target_heading, current_heading
++                completed_mask = stop_nav_mask | reached_goal_mask | reached_turn_mask
++                if completed_mask.any():
++                    computed_lin_vel_x = torch.where(
++                        completed_mask, torch.zeros_like(computed_lin_vel_x), computed_lin_vel_x
+                     )
++                    computed_lin_vel_y = torch.where(
++                        completed_mask, torch.zeros_like(computed_lin_vel_y), computed_lin_vel_y
++                    )
++                    computed_ang_vel = torch.where(
++                        completed_mask, torch.zeros_like(computed_ang_vel), computed_ang_vel
++                    )
++                    self._is_navigating[completed_mask] = False
++                    self._navigation_goal_reached[completed_mask] = True
++
++                increment_subgoal_mask = reached_goal_mask | reached_turn_mask
++                if increment_subgoal_mask.any():
++                    self._num_navigation_subgoals_reached[increment_subgoal_mask] += 1
+
+-                    if check_xy_reached and check_heading_reached:
+-                        self._num_navigation_subgoals_reached += 1
+-                        computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = 0, 0, 0
+-
+-                        self._is_navigating = False
+-                        self._navigation_goal_reached = True
+-
+-                    # only turing in place, but may be deviated from the command xy position
+-                    elif check_heading_reached and self.navigation_p_controller.inplace_turning_flag:
+-                        computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = 0, 0, 0
+-
+-                        self._num_navigation_subgoals_reached += 1
+-                        self._is_navigating = False
+-                        self._navigation_goal_reached = True
+-
+-                    else:
+-
+-                        computed_lin_vel_x, computed_lin_vel_y, computed_ang_vel = (
+-                            self.navigation_p_controller.run_p_controller(
+-                                target_heading=target_heading,
+-                                current_heading=current_heading,
+-                                target_xy=target_xy,
+-                                current_xy=current_xy,
+-                            )
+-                        )
+-                        # get single value out from the tensor
+-                        if isinstance(computed_lin_vel_x, torch.Tensor):
+-                            computed_lin_vel_x = computed_lin_vel_x.item()
+-                        if isinstance(computed_lin_vel_y, torch.Tensor):
+-                            computed_lin_vel_y = computed_lin_vel_y.item()
+-                        if isinstance(computed_ang_vel, torch.Tensor):
+-                            computed_ang_vel = computed_ang_vel.item()
+-
+-                navigate_cmd[:, 0] = computed_lin_vel_x
+-                navigate_cmd[:, 1] = computed_lin_vel_y
+-                navigate_cmd[:, 2] = computed_ang_vel
++                navigate_cmd[was_navigating_mask, 0] = computed_lin_vel_x[was_navigating_mask]
++                navigate_cmd[was_navigating_mask, 1] = computed_lin_vel_y[was_navigating_mask]
++                navigate_cmd[was_navigating_mask, 2] = computed_ang_vel[was_navigating_mask]
+
+         self._navigate_cmd = navigate_cmd.clone()
+
+@@ -359,4 +376,18 @@ class G1DecoupledWBCPinkAction(G1DecoupledWBCJointAction):
+         Args:
+             env_ids: A list of environment IDs to reset. If None, all environments are reset.
+         """
+-        self._raw_actions[env_ids] = torch.zeros(self.action_dim, device=self.device)
++        if env_ids is None:
++            env_ids = slice(None)
++
++        # Reset tensor values with proper type-safe assignments
++        self._raw_actions[env_ids] = 0.0
++        self._processed_actions[env_ids] = 0.0
++        self._is_navigating[env_ids] = 0  # Use 0 instead of False for bool tensors
++        self._navigation_goal_reached[env_ids] = 0
++        self._navigation_step_counter[env_ids] = 0
++        self._num_navigation_subgoals_reached[env_ids] = -1
++        self._navigate_cmd[env_ids] = 0.0
++        self._torso_orientation_rpy_cmd[env_ids] = 0.0
++        self.navigation_p_controller.set_navigation_step_counter(self._navigation_step_counter)
++        # Reset WBC policy state for the specified envs
++        self.wbc_policy.lower_body_policy.reset(env_ids)
+diff --git a/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/policy/g1_homie_policy.py b/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/policy/g1_homie_policy.py
+index b90c3c0..a7e0324 100644
+--- a/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/policy/g1_homie_policy.py
++++ b/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/policy/g1_homie_policy.py
+@@ -58,28 +58,29 @@ class G1HomiePolicyV2(WBCPolicy):
+         self.yaw_cmd = self.config["rpy_cmd"][2]
+         self.gait_indices = torch.zeros((self.num_envs, 1), dtype=torch.float32)
+
+-    def reset(self, env_ids: torch.Tensor):
+-        """Reset the policy.
++    def reset(self, env_ids: torch.Tensor | None = None):
++        """Reset the policy for specified environments.
+
+         Args:
+-            env_ids: The environment ids to reset
++            env_ids: The environment ids to reset. If None, reset all envs.
+         """
+-        self.gait_indices = torch.zeros((self.num_envs, 1), dtype=torch.float32)
+-        # Initialize observation history buffer
+-        self.observation = None
+-        self.obs_history = collections.deque(maxlen=self.config["obs_history_len"])
+-        self.obs_buffer = np.zeros((self.num_envs, self.config["num_obs"]), dtype=np.float32)
++        if env_ids is None:
++            # Reset all envs
++            env_ids_list = list(range(self.num_envs))
++        else:
++            env_ids_list = env_ids.tolist() if isinstance(env_ids, torch.Tensor) else list(env_ids)
+
+-        # Initialize state variables
+-        self.use_policy_action = True
+-        self.action = np.zeros((self.num_envs, self.config["num_actions"]), dtype=np.float32)
+-        self.target_dof_pos = self.config["default_angles"].copy()
+-        self.cmd = self.config["cmd_init"].copy()
+-        self.height_cmd = self.config["height_cmd"]
+-        self.freq_cmd = self.config["freq_cmd"]
+-        self.roll_cmd = self.config["rpy_cmd"][0]
+-        self.pitch_cmd = self.config["rpy_cmd"][1]
+-        self.yaw_cmd = self.config["rpy_cmd"][2]
++        # Reset only specified env_ids
++        for env_id in env_ids_list:
++            self.gait_indices[env_id] = 0.0
++            self.action[env_id] = 0.0
++            self.obs_buffer[env_id] = 0.0
++
++        # Clear observation history in the deque for reset envs
++        # We do this by zeroing out the rows for reset envs in each history entry
++        for i, hist_obs in enumerate(self.obs_history):
++            for env_id in env_ids_list:
++                hist_obs[env_id] = 0.0
+
+     def load_onnx_policy(self, model_path: str) -> Callable[[torch.Tensor], torch.Tensor]:
+         """Load the ONNX policy from the model path.
+@@ -235,17 +236,29 @@ class G1HomiePolicyV2(WBCPolicy):
+         if self.obs_tensor is None:
+             raise ValueError("No observation set. Call set_observation() first.")
+
+-        # Run policy inference
++        # Run policy inference with per-env policy selection
+         with torch.no_grad():
+-            # Select appropriate policy based on command magnitude
+-            if np.linalg.norm(self.cmd) < 0.05:
+-                # Use standing policy for small commands
+-                policy = self.policy_1
+-            else:
+-                # Use walking policy for movement commands
+-                policy = self.policy_2
+-
+-            self.action = policy(self.obs_tensor).detach().numpy()
++            # Compute per-env command norms for policy selection
++            cmd_norms = np.linalg.norm(self.cmd, axis=1)  # Shape: (num_envs,)
++            standing_mask = cmd_norms < 0.05  # Envs that should use standing policy
++            walking_mask = ~standing_mask  # Envs that should use walking policy
++
++            # Initialize output action array
++            self.action = np.zeros((self.num_envs, self.config["num_actions"]), dtype=np.float32)
++
++            # Run standing policy for envs with small commands
++            if np.any(standing_mask):
++                standing_indices = np.where(standing_mask)[0]
++                standing_obs = self.obs_tensor[standing_indices]
++                standing_actions = self.policy_1(standing_obs).detach().numpy()
++                self.action[standing_indices] = standing_actions
++
++            # Run walking policy for envs with movement commands
++            if np.any(walking_mask):
++                walking_indices = np.where(walking_mask)[0]
++                walking_obs = self.obs_tensor[walking_indices]
++                walking_actions = self.policy_2(walking_obs).detach().numpy()
++                self.action[walking_indices] = walking_actions
+
+         # Transform action to target_dof_pos
+         assert self.use_policy_action
+diff --git a/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/g1_wbc_upperbody_ik/g1_wbc_upperbody_controller.py b/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/g1_wbc_upperbody_ik/g1_wbc_upperbody_controller.py
+index 109c223..4abb362 100644
+--- a/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/g1_wbc_upperbody_ik/g1_wbc_upperbody_controller.py
++++ b/isaaclab_arena_g1/g1_whole_body_controller/wbc_policy/g1_wbc_upperbody_ik/g1_wbc_upperbody_controller.py
+@@ -163,6 +163,16 @@ class G1BodyIKSolver:
+         for task in self.tasks.values():
+             task.set_target_from_configuration(self.configuration)
+
++    def reset_configuration(self):
++        """Reset the IK configuration to the default pose.
++
++        This should be called before solving IK for each environment to avoid
++        cross-contamination of state between environments.
++        """
++        self.configuration.q = self.robot.q_default.copy()
++        self.configuration.update()
++        self.robot.cache_forward_kinematics(self.configuration.q)
++
+     def __call__(self, target_pose: dict):
+         for link_name, pose in target_pose.items():
+             if link_name not in self.tasks:
+diff --git a/isaaclab_arena_g1/g1_env/mdp/g1_events.py b/isaaclab_arena_g1/g1_env/mdp/g1_events.py
+--- a/isaaclab_arena_g1/g1_env/mdp/g1_events.py
++++ b/isaaclab_arena_g1/g1_env/mdp/g1_events.py
+@@ -27,7 +27,8 @@ def reset_decoupled_wbc_pink_policy(env: ManagerBasedEnv, env_ids: torch.Tensor)
+     policy = env.action_manager.get_term("g1_action").get_wbc_policy
+     policy.lower_body_policy.reset(env_ids)
+
+-    # Reset P-controller
+-    env.action_manager.get_term("g1_action")._is_navigating = False
+-    env.action_manager.get_term("g1_action")._navigation_goal_reached = False
+-    env.action_manager.get_term("g1_action")._num_navigation_subgoals_reached = -1
++    # Reset P-controller (use tensor indexing for multi-env support)
++    action_term = env.action_manager.get_term("g1_action")
++    action_term._is_navigating[env_ids] = 0
++    action_term._navigation_goal_reached[env_ids] = 0
++    action_term._num_navigation_subgoals_reached[env_ids] = -1

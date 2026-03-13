@@ -37,7 +37,7 @@ class CameraStreamMergeOp(Operator):
         assert isinstance(stream, CameraStream)
 
         if self.for_encoder:
-            stream.data = cp.asarray(camera_tensor).get().tobytes()
+            stream.data = cp.asarray(camera_tensor).get()
             stream.encode_latency = self.metadata.get("video_encoder_encode_latency_ms", 0)
             stream.compress_ratio = self.metadata.get("video_encoder_compress_ratio", 0)
         else:

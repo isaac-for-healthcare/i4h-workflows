@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Agent metadata for dynamic loading
+# PeriOpAnnotationAgent - Background annotation for operating room scenes
+agent_metadata:
+  name: "PeriOpAnnotationAgent"
+  class_name: "PeriOpAnnotationAgent"
+  module: "agents.peri_op_annotation_agent"
+  enabled: true
+  category: "background"
+  priority: 50
+  requires_llm: true
+  requires_visual: true
+  dependencies:
+    - type: "get_latest_frame"
+      name: "get_latest_frame"
+    - type: "on_annotation_callback"
+      name: "on_annotation_callback"
+    - type: "get_video_source_mode"
+      name: "get_video_source_mode"
+    - type: "get_session_id"
+      name: "get_session_id"
+  lifecycle: "background"
+
+agent_name: "PeriOpAnnotationAgent"
+description: "Background annotation agent for operating room / peri-operative scenes."
+
+# Background processing interval (seconds)
+time_step_seconds: 10
+
+# Output directory for annotations
+annotation_output_dir: annotations
+
+
+ctx_length: 512
+max_prompt_tokens: 3000
+temperature: 0.0
+
+# Grammar for structured output
+grammar: |
+  {
+    "type": "object",
+    "properties": {
+      "surgical_tray": {
+        "type": "boolean"
+      },
+      "case_cart": {
+        "type": "boolean"
+      },
+      "visible_instruments": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": ["Plastic Trocar", "Needle", "Drainage Tube", "Syringe", "Laparoscope"]
+        }
+      }
+    },
+    "required": ["surgical_tray", "case_cart", "visible_instruments"],
+    "additionalProperties": false
+  }
+
+prompt_presets:
+  - text: "Analyze the attached surgical image and return ONLY a JSON object with EXACTLY these keys: surgical_tray (boolean), case_cart (boolean), visible_instruments (array). surgical_tray is true if a metal container with a PERFORATED surface and a lid with green label is visible. case_cart is true if a silver-gray wheeled metal cart is visible. visible_instruments is an array containing any of [Plastic Trocar, Needle, Drainage Tube, Syringe, Laparoscope]. Plastic trocar is a purple structure with a tapered purple tube and a white and black cap with a visible dividing line. Needle is a very thin, straight element enclosed within matte plastic tube, which has a connector at one end, often blue or white. Drainage Tube is a soft, curvy plastic tube with green and blue valves. Syringe means the syringe barrel is visible. Laparoscope is a long thin straight metallic rod with a handle, which is typically slightly thicker but much shorter than the shaft. DO NOT HALLUCINATE ANY INSTRUMENTS THAT ARE NOT VISIBLE and mistake the background such as surgical bed or light as the surgical instruments."

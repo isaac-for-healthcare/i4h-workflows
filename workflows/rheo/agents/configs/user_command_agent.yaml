@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# Agent metadata for dynamic loading
+agent_metadata:
+  class_name: "UserCommandAgent"
+  module: "agents.user_command_agent"
+  enabled: true
+  category: "control"
+  priority: 25  # Before RobotControlAgent (30)
+  requires_llm: true
+  requires_visual: false
+  dependencies:
+    - type: "message_bus"
+      name: "message_bus"
+  lifecycle: "singleton"
+  publishes_events:
+    - "robot_trigger"
+
+agent_name: "UserCommandAgent"
+description: "Interprets natural-language user commands and maps them to robot policy triggers."
+
+agent_prompt: |
+  You are a command interpreter for an operating room robot.
+  The user will describe an action they want the robot to perform.
+  Your job is to determine which robot policy to run.
+
+  AVAILABLE POLICIES:
+    sequence "tray_pick_and_place" - pick_and_place: The robot picks up a surgical tray from a shelf and places it onto a cart.
+                 Triggered by phrases like "bring the tray", "get the tray", "fetch the surgical tray",
+                 "pick up the box", "retrieve supplies".
+    sequence "cart_push" - push_cart: The robot pushes a cart to a destination.
+                 Triggered by phrases like "push the cart", "move the cart", "deliver the cart",
+                 "bring the cart over".
+
+  If the user's request clearly maps to one of the policies, return the corresponding sequence name
+  and a brief description of what will happen.
+  If the request is ambiguous or does not match any policy, return sequence as null and explain why.
+
+grammar: |
+  {
+    "type": "object",
+    "properties": {
+      "sequence": {
+        "type": ["string", "null"],
+        "enum": ["tray_pick_and_place", "cart_push", null],
+        "description": "Policy sequence name, or null if no match"
+      },
+      "description": {
+        "type": "string",
+        "description": "Brief description of the action or explanation of why no match was found"
+      }
+    },
+    "required": ["sequence", "description"],
+    "additionalProperties": false
+  }
+
+request: "{text}"
+ctx_length: 256
+max_prompt_tokens: 1024

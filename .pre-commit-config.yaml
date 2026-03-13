@@ -4,6 +4,7 @@ ci:
   autoupdate_schedule: quarterly
 
 repos:
+  # pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
@@ -11,25 +12,41 @@ repos:
       - id: trailing-whitespace
       - id: check-yaml
       - id: end-of-file-fixer
+        exclude: '\.svg$'
       - id: mixed-line-ending
+  # ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.5.2
     hooks:
-      - id: ruff
-        entry: ruff check
+      - id: ruff-format
         exclude: |
             (?x)^(
                 workflows/telesurgery/cmake/pybind11/__init__.py
             )$
+      - id: ruff
+        args: [--fix]
+        exclude: |
+            (?x)^(
+                workflows/telesurgery/cmake/pybind11/__init__.py
+            )$
+  # isort
   - repo: https://github.com/pycqa/isort
     rev: 6.0.0
     hooks:
       - id: isort
         name: isort (python)
-        args: [--check-only]
+  # codespell
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.6
     hooks:
       - id: codespell
+        exclude: '\.svg$'
         additional_dependencies:
         - tomli
+  # markdownlint
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.47.0
+    hooks:
+      - id: markdownlint
+        args: [--fix, --config, .markdownlint.yaml]
+        files: ^.*\.md$

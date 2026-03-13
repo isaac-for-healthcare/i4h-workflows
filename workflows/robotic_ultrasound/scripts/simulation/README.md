@@ -1,6 +1,7 @@
 # I4H Simulation for Robotic Ultrasound
 
 This folder contains the scripts to run the simulation in the IsaacSim environment.
+
 - [IsaacLab Task Setting](./exts/robotic_us_ext/README.md)
 - [PI0 Policy Evaluation in IsaacSim](./imitation_learning/README.md)
 - [Simulation with Data Distribution Service (DDS)](./environments/README.md)
@@ -13,4 +14,4 @@ This folder contains the scripts to run the simulation in the IsaacSim environme
 
 ## Documentation Links
 
-- [Policy Runner with DDS](../policy_runner/README.md)
+- [Policy Runner with DDS](../policy/README.md)

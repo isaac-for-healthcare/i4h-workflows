@@ -7,6 +7,7 @@ We provide examples on hand-crafted state machines for the robotic surgery envir
 ### dVRK-PSM Reach
 
 Drive the da Vinci Research Kit (dVRK) Patient Side Manipulator (PSM) to reach a desired pose:
+
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_psm_sm.py
 ```
@@ -14,6 +15,7 @@ python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_m
 ### Dual-arm dVRK-PSM Reach
 
 Drive the dual-arm dVRK-PSM to reach a desired pose:
+
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_dual_psm_sm.py
 ```
@@ -21,6 +23,7 @@ python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_m
 ### STAR Reach
 
 Drive the STAR arm to reach a desired pose:
+
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/reach_star_sm.py
 ```
@@ -28,6 +31,7 @@ python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_m
 ### Suture Needle Lift
 
 Lift a suture needle to a desired pose:
+
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/lift_needle_sm.py
 ```
@@ -35,6 +39,7 @@ python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_m
 ### Organs Suture Needle Lift
 
 Lift a suture needle from an organ to a desired pose in the operating room:
+
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/lift_needle_organs_sm.py
 ```
@@ -42,6 +47,7 @@ python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_m
 ### Peg Block Lift
 
 Lift a peg block to a desired pose:
+
 ```bash
 python workflows/robotic_surgery/scripts/simulation/scripts/environments/state_machine/lift_block_sm.py
 ```

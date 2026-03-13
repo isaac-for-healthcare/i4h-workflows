@@ -1,0 +1,236 @@
+{
+  "workflow": {
+    "name": "Robotic Ultrasound Workflow",
+    "description": "Autonomous ultrasound imaging workflow with physics-accurate ray tracing simulation for training and deploying robotic ultrasound systems",
+    "authors": [
+      {
+        "name": "Isaac for Healthcare Team",
+        "affiliation": "NVIDIA"
+      }
+    ],
+    "language": "Python",
+    "version": "1.0",
+    "changelog": {
+      "1.0": "Initial Release"
+    },
+    "dockerfile": "workflows/robotic_ultrasound/docker/Dockerfile",
+    "ranking": 1,
+    "requirements": {
+      "packages": [
+        {
+          "name": "RTI Connext DDS",
+          "author": "Real-Time Innovations",
+          "license": "Evaluation",
+          "url": "https://www.rti.com/free-trial"
+        },
+        {
+          "name": "Isaac Sim",
+          "author": "NVIDIA",
+          "version": "5.1.0",
+          "url": "https://developer.nvidia.com/isaac-sim"
+        },
+        {
+          "name": "Isaac Lab",
+          "author": "NVIDIA",
+          "version": "2.3.0",
+          "url": "https://isaac-sim.github.io/IsaacLab/"
+        }
+      ]
+    },
+    "default_mode": "full_pipeline",
+    "modes": {
+      "pi0_policy": {
+        "description": "Run PI0 policy only (single process for debugging, requires sim_env running separately)",
+        "run": {
+          "command": "python -m policy.run_policy --policy pi0 --ckpt_path=nvidia/Liver_Scan_Pi0_Cosmos_Rel",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "gr00tn1_policy": {
+        "description": "Run GR00T N1 policy only (single process for debugging, requires sim_env running separately)",
+        "run": {
+          "command": "python -m policy.run_policy --policy gr00tn1 --ckpt_path=nvidia/Liver_Scan_Gr00t_Cosmos_Rel --chunk_length=16",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "sim_env": {
+        "description": "Launch Isaac Sim environment with DDS communication (single process for debugging)",
+        "run": {
+          "command": "python -m simulation.environments.sim_with_dds --enable_cameras",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "policy_with_sim": {
+        "description": "Run PI0 policy with simulation (simple pipeline without ultrasound/visualization)",
+        "run": {
+          "command": "bash -c '(python -m policy.run_policy --policy pi0 --ckpt_path=nvidia/Liver_Scan_Pi0_Cosmos_Rel & python -m simulation.environments.sim_with_dds --enable_cameras & wait)'",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "gr00tn1_with_sim": {
+        "description": "Run GR00T N1 policy with simulation (simple pipeline without ultrasound/visualization)",
+        "run": {
+          "command": "bash -c '(python -m policy.run_policy --policy gr00tn1 --ckpt_path=nvidia/Liver_Scan_Gr00t_Cosmos_Rel --chunk_length=16 & python -m simulation.environments.sim_with_dds --enable_cameras & wait)'",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "full_pipeline": {
+        "description": "Run complete pipeline with PI0 policy, simulation, ultrasound raytracing, and visualization",
+        "run": {
+          "command": "bash -c '(python -m policy.run_policy --policy pi0 --ckpt_path=nvidia/Liver_Scan_Pi0_Cosmos_Rel & python -m simulation.environments.sim_with_dds --enable_cameras & python -m simulation.examples.ultrasound_raytracing & python -m utils.visualization & wait)'",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "teleop_keyboard": {
+        "description": "Manual teleoperation with keyboard control",
+        "run": {
+          "command": "python -m simulation.environments.teleoperation.teleop_se3_agent --enable_cameras",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "teleop_with_ultrasound": {
+        "description": "Manual teleoperation with ultrasound imaging and visualization",
+        "run": {
+          "command": "bash -c '(python -m simulation.examples.ultrasound_raytracing & python -m simulation.environments.teleoperation.teleop_se3_agent --enable_cameras & python -m utils.visualization & wait)'",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "state_machine_scan": {
+        "description": "Automated liver scanning using state machine",
+        "run": {
+          "command": "python -m simulation.environments.state_machine.liver_scan_sm --enable_cameras",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "replay": {
+        "description": "Replay recorded robot trajectories (requires --run-args='/path/to/recording.hdf5')",
+        "run": {
+          "command": "python -m simulation.environments.state_machine.replay_recording",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "convert_hdf5": {
+        "description": "Convert HDF5 data to LeRobot format (requires --run-args with paths)",
+        "run": {
+          "command": "python -m training.convert_hdf5_to_lerobot",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "train_pi0": {
+        "description": "Train PI0 imitation learning model on collected data",
+        "run": {
+          "command": "python -m training.pi_zero.train",
+          "workdir": "holohub_app_source",
+          "docker_run_args": ["--shm-size=16g"],
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "train_gr00tn1": {
+        "description": "Train GR00T N1 foundation model on collected data",
+        "run": {
+          "command": "python -m training.gr00t_n1.train",
+          "workdir": "holohub_app_source",
+          "docker_run_args": ["--shm-size=16g"],
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "evaluate": {
+        "description": "Evaluate policy trajectories (requires --run-args with paths)",
+        "run": {
+          "command": "python -m simulation.evaluation.evaluate_trajectories",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "visualization": {
+        "description": "Launch visualization window for camera feeds and ultrasound images",
+        "run": {
+          "command": "python -m utils.visualization",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "clarius_cast": {
+        "description": "Hardware-in-the-loop with Clarius Cast ultrasound probe (requires --run-args='--config=/path/to/config.yaml')",
+        "run": {
+          "command": "python -m holoscan_apps.clarius_cast.clarius_cast",
+          "workdir": "holohub_app_source",
+          "docker_run_args": ["--privileged", "-v", "/dev:/dev"],
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "clarius_solum": {
+        "description": "Hardware-in-the-loop with Clarius Solum ultrasound probe (requires --run-args='--config=/path/to/config.yaml')",
+        "run": {
+          "command": "python -m holoscan_apps.clarius_solum.clarius_solum",
+          "workdir": "holohub_app_source",
+          "docker_run_args": ["--privileged", "-v", "/dev:/dev"],
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      },
+      "realsense": {
+        "description": "Hardware-in-the-loop with Intel RealSense depth camera (requires --run-args='--config=/path/to/config.yaml')",
+        "run": {
+          "command": "python -m holoscan_apps.realsense.camera",
+          "workdir": "holohub_app_source",
+          "docker_run_args": ["--privileged", "-v", "/dev:/dev"],
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+          }
+        }
+      }
+    },
+    "run": {
+      "command": "bash -c '(python -m policy.run_policy --policy pi0 --ckpt_path=nvidia/Liver_Scan_Pi0_Cosmos_Rel & python -m simulation.environments.sim_with_dds --enable_cameras & python -m simulation.examples.ultrasound_raytracing & python -m utils.visualization & wait)'",
+      "workdir": "holohub_app_source",
+      "env": {
+        "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+      }
+    }
+  }
+}

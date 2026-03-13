@@ -24,15 +24,31 @@ source $SCRIPT_DIR/../scripts/env.sh
 source $SCRIPT_DIR/utils.sh
 
 HOLOHUB_DIR=$SCRIPT_DIR/../scripts/holohub
-DOCKER_IMAGE=telesurgery:0.3
+DOCKER_IMAGE=telesurgery-sim:0.3
 CONTAINER_NAME=telesurgery-sim
 
 function build() {
-  if [ -L $SCRIPT_DIR/../../../third_party/IssacLab ]; then
-    rm $SCRIPT_DIR/../../../third_party/IssacLab
+  echo "Building Telesurgery Docker Image using ${BASE_IMAGE:-default}"
+
+  local BUILD_ARGS=""
+  if [ -n "$BASE_IMAGE" ]; then
+    BUILD_ARGS="$BUILD_ARGS --build-arg BASE_IMAGE=$BASE_IMAGE"
   fi
-  docker build -t $DOCKER_IMAGE -f workflows/telesurgery/docker/Dockerfile.sim .
-  download_operators "holohub_nv_video_codec_operators_py311.zip"
+  if [ -n "$HOLOHUB_REPO_URL" ]; then
+    BUILD_ARGS="$BUILD_ARGS --build-arg HOLOHUB_REPO_URL=$HOLOHUB_REPO_URL"
+  fi
+  if [ -n "$HOLOHUB_BRANCH" ]; then
+    BUILD_ARGS="$BUILD_ARGS --build-arg HOLOHUB_BRANCH=$HOLOHUB_BRANCH"
+  fi
+  # if [ -n "$HSB_REPO_URL" ]; then
+  #   BUILD_ARGS="$BUILD_ARGS --build-arg HSB_REPO_URL=$HSB_REPO_URL"
+  # fi
+  # if [ -n "$HSB_BRANCH" ]; then
+  #   BUILD_ARGS="$BUILD_ARGS --build-arg HSB_BRANCH=$HSB_BRANCH"
+  # fi
+
+  echo "BUILD_ARGS: $BUILD_ARGS"
+  docker build $BUILD_ARGS -t $DOCKER_IMAGE -f workflows/telesurgery/docker/Dockerfile.sim .
 }
 
 function run() {
@@ -55,6 +71,7 @@ function run() {
     --ipc=host \
     --network=host \
     --privileged \
+    --ulimit stack=33554432 \
     -e ACCEPT_EULA=Y \
     -e PRIVACY_CONSENT=Y \
     -e DISPLAY \
@@ -89,8 +106,8 @@ function enter() {
 
 function init() {
   echo "Initializing Telesurgery environment ..."
-  mkdir -p $SCRIPT_DIR/../../../third_party
-  ln -s /workspace/isaaclab /workspace/i4h-workflows/third_party/IssacLab
+  # mkdir -p $SCRIPT_DIR/../../../third_party
+  # ln -s /workspace/isaaclab /workspace/i4h-workflows/third_party/IssacLab
 
   if [ ! -d "/root/.cache/i4h-assets/$ISAAC_ASSET_SHA256_HASH" ]; then
     echo "Please wait while downloading i4h-assets (Props)..."
@@ -101,6 +118,9 @@ function init() {
   echo "   Patient IP:       ${PATIENT_IP}"
   echo "   Surgeon IP:       ${SURGEON_IP}"
   echo "   DDS Discovery IP: ${NDDS_DISCOVERY_PEERS}"
+
+  echo "Building Local Holohub Operators..."
+  /workspace/i4h-workflows/workflows/telesurgery/scripts/holohub/operators/build.sh
 }
 
 $@

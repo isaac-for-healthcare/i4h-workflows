@@ -16,7 +16,7 @@ Reference: https://github.com/SamuelSchmidgall/SurgicalGym
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation import ArticulationCfg
-from simulation.utils.assets import robotic_surgery_assets
+from simulation.utils.assets import STAR_USD
 
 ##
 # Configuration
@@ -24,7 +24,7 @@ from simulation.utils.assets import robotic_surgery_assets
 
 STAR_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=robotic_surgery_assets.STAR,
+        usd_path=STAR_USD,
         activate_contact_sensors=False,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,

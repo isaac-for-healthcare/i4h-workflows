@@ -20,7 +20,7 @@ set -e
 # Get the parent directory of the current script
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
 
-ULTRASOUND_RAYTRACING_DIR=${1:-$PROJECT_ROOT/third_party/i4h-sensor-simulation-internal}
+ULTRASOUND_RAYTRACING_DIR=${1:-$PROJECT_ROOT/third_party/i4h-sensor-simulation}
 
 
 # Ensure the cuda compiler nvcc is installed

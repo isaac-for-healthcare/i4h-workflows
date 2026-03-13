@@ -21,10 +21,10 @@ from simulation.configs.config import (
     UltraSoundConfig,
     WristCameraConfig,
 )
-from simulation.utils.assets import robotic_ultrasound_assets as robot_us_assets
+from simulation.utils.assets import BASIC_USD
 
 config = Config(
-    main_usd_path=robot_us_assets.basic,
+    main_usd_path=BASIC_USD,
     room_camera=RoomCameraConfig(prim_path="/RoomCamera", enabled=True),
     wrist_camera=WristCameraConfig(prim_path="/Franka/panda_hand/geometry/realsense/realsense_camera", enabled=True),
     franka=FrankaConfig(prim_path="/Franka", ik=False, auto_pos=False, enabled=True),

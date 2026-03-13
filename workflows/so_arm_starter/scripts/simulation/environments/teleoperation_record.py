@@ -14,14 +14,27 @@
 # limitations under the License.
 
 
-import multiprocessing
-
-if multiprocessing.get_start_method() != "spawn":
-    multiprocessing.set_start_method("spawn", force=True)
 import argparse
+import multiprocessing
+import os
+import time
+from dataclasses import dataclass
+from enum import Enum
+
+import torch
+
+# Try using fork method instead of spawn to avoid the bootstrap issue
+try:
+    multiprocessing.set_start_method("fork", force=True)
+except RuntimeError:
+    # If fork is not available (Windows), fallback to spawn
+    if multiprocessing.get_start_method() != "spawn":
+        multiprocessing.set_start_method("spawn", force=True)
+
 
 import so_arm_starter_ext  # noqa: F401
 from isaaclab.app import AppLauncher
+from util import resolve_recording_path
 
 # add argparse arguments
 parser = argparse.ArgumentParser(description="Keyboard teleoperation for Isaac Lab environments.")
@@ -42,11 +55,15 @@ parser.add_argument(
 parser.add_argument("--task", type=str, default="Isaac-SOARM101-v0", help="Name of the task.")
 parser.add_argument("--sensitivity", type=float, default=1.0, help="Sensitivity factor for teleoperation.")
 
-# recorder_parameter
+# recorder_parameter: default output dir is repo_dir/data/so_arm_starter/recordings
 parser.add_argument("--record", action="store_true", default=False, help="whether to enable record function")
 parser.add_argument("--step_hz", type=int, default=60, help="Environment stepping rate in Hz.")
 parser.add_argument(
-    "--dataset_path", type=str, default="./datasets/test_data.hdf5", help="Path to export recorded dataset."
+    "--dataset_path",
+    type=resolve_recording_path,
+    default="recording.hdf5",
+    help="Path to export recorded dataset. Provide an absolute path or else a"
+    "relative path under the 'data/so_arm_starter/recordings' directory. Default: 'recording.hdf5'.",
 )
 parser.add_argument(
     "--num_demos", type=int, default=0, help="Number of demonstrations to record. Set to 0 for infinite."
@@ -62,13 +79,7 @@ app_launcher_args = vars(args_cli)
 app_launcher = AppLauncher(app_launcher_args)
 simulation_app = app_launcher.app
 
-import os
-import time
-from dataclasses import dataclass
-from enum import Enum
-
 import gymnasium as gym
-import torch
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import TerminationTermCfg
 from isaaclab_tasks.utils import parse_env_cfg
@@ -163,9 +174,10 @@ def main():
     # get directory path and file name (without extension) from cli arguments
     output_dir = os.path.dirname(args_cli.dataset_path)
     output_file_name = os.path.splitext(os.path.basename(args_cli.dataset_path))[0]
+
     # create directory if it does not exist
     if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
 
     env_cfg = parse_env_cfg(args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs)
     env_cfg.use_teleop_device(args_cli.teleop_device)

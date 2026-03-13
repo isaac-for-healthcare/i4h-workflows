@@ -15,13 +15,18 @@
 
 import argparse
 import os
+import sys
+
+# Ensure scripts directory is on PYTHONPATH so holoscan_ops is importable
+_scripts_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _scripts_dir not in sys.path:
+    sys.path.insert(0, _scripts_dir)
 
 from holoscan.core import Application
 from holoscan.operators import HolovizOp
 from holoscan.resources import UnboundedAllocator
-
-from holoscan_i4h.operators.clarius_solum.clarius_solum import ClariusSolumOp
-from holoscan_i4h.operators.no_op.no_op import NoOp
+from holoscan_ops.operators.clarius_solum.clarius_solum import ClariusSolumOp
+from holoscan_ops.operators.no_op.no_op import NoOp
 
 
 class ClariusSolumApp(Application):

@@ -1,0 +1,477 @@
+SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Patch: Upgrade yuan-hsb (holoscan-sensor-bridge v2.2.0-EA) for
+       Holoscan SDK 3.11 / CUDA 13 compatibility.
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index de8dad9..3fbb201 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -30,41 +30,16 @@ project(hololink
+
+ include(CTest)
+
+-# Find Holoscan
+-find_package(holoscan 0.6 REQUIRED CONFIG PATHS "/opt/nvidia/holoscan")
+-
+-# Find pybind11
+-find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+-
+-set(HOLOSCAN_SDK_VERSION "$ENV{HOLOSCAN_SDK_VERSION}")
+-set(HOLOSCAN_SDK_VERSION_EXPECTED "3.2.0")
++# To discover our custom CMake modules (must be before find_package(holoscan))
++list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+
+-if(NOT HOLOSCAN_SDK_VERSION VERSION_EQUAL HOLOSCAN_SDK_VERSION_EXPECTED)
+-  message(FATAL_ERROR "Expected Holoscan version ${HOLOSCAN_SDK_VERSION_EXPECTED} but found ${HOLOSCAN_SDK_VERSION}, please check pybind11 version of the Holoscan SDK and update here if needed")
+-endif()
++# Find globally required dependencies
++# fmt must be available before find_package(holoscan) since holoscan 3.11
++# declares fmt::fmt-header-only as a transitive dependency
++include(hololink_deps/fmt)
+
+-# We fetch pybind11 since we need the same version as the Holoscan SDK
+-# and it's not necessarily available on all the platforms
+-include(FetchContent)
+-FetchContent_Declare(pybind11
+-  GIT_REPOSITORY https://github.com/pybind/pybind11
+-  GIT_TAG v2.11.1
+-  GIT_SHALLOW TRUE
+-)
+-FetchContent_MakeAvailable(pybind11)
+-
+-# We fetch googletest since we need the same version as the Holoscan SDK.
+-# As recommended by the user guide (https://google.github.io/googletest/quickstart-cmake.html),
+-# we use Git commit hash of the GoogleTest version to use the same version as the Holoscan SDK.
+-# (https://github.com/google/googletest/releases/tag/release-1.12.1)
+-FetchContent_Declare(
+-  googletest
+-  URL https://github.com/google/googletest/archive/58d77fa8070e8cec2dc1ed015d66b454c8d78850.zip
+-)
+-FetchContent_MakeAvailable(googletest)
+-
+-# add CMAKE_MODULE_PATH for pybind11_add_hololink_module
+-list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
++# Find Holoscan (3.6+ for SDK 3.11 compatibility)
++find_package(holoscan 3.6 REQUIRED CONFIG PATHS "/opt/nvidia/holoscan")
+
+ # enabled trace and debug log messages in debug build only
+ if(CMAKE_BUILD_TYPE STREQUAL "Release")
+@@ -80,6 +55,7 @@ endif()
+ add_subdirectory(src)
+
+ if(HOLOLINK_BUILD_TESTS)
++  include(hololink_deps/gtest)
+   add_subdirectory(tests)
+ endif()
+
+@@ -87,8 +63,16 @@ if(HOLOLINK_BUILD_PYTHON)
+   add_subdirectory(python)
+ endif()
+
+-add_subdirectory(examples)
+-add_subdirectory(scripts)
++# Examples and scripts are optional (disabled by default for pip wheel builds)
++option(HOLOLINK_BUILD_EXAMPLES "Build Hololink Examples" OFF)
++option(HOLOLINK_BUILD_SCRIPTS "Build Hololink Scripts" OFF)
++
++if(HOLOLINK_BUILD_EXAMPLES)
++  add_subdirectory(examples)
++endif()
++if(HOLOLINK_BUILD_SCRIPTS)
++  add_subdirectory(scripts)
++endif()
+
+ # Add packaging
+ include(cmake/HololinkCPack.cmake)
+diff --git a/cmake/hololink_deps/fmt.cmake b/cmake/hololink_deps/fmt.cmake
+new file mode 100644
+index 0000000..bb88e4c
+--- /dev/null
++++ b/cmake/hololink_deps/fmt.cmake
+@@ -0,0 +1,58 @@
++# fmt dependency setup (header-only).
++#
++# Ensures the fmt::fmt-header-only target is available by finding a pre-installed
++# version (either via CMake config or header discovery).
++
++include_guard(GLOBAL)
++set(HOLOLINK_FMT_VERSION "10.1.1")
++
++# Already exists?
++if(TARGET fmt::fmt-header-only)
++  return()
++endif()
++
++# Try CMake config package
++find_package(fmt ${HOLOLINK_FMT_VERSION} QUIET CONFIG)
++if(fmt_FOUND)
++  message(STATUS "Found fmt: (version ${HOLOLINK_FMT_VERSION})")
++  return()
++endif()
++
++# Find via path discovery
++set(_fmt_hint_paths
++  /opt/nvidia/holoscan
++  ${CMAKE_PREFIX_PATH}
++  $ENV{CMAKE_PREFIX_PATH}
++  /usr
++  /usr/local
++)
++unset(FMT_INCLUDE_DIR CACHE)
++find_path(FMT_INCLUDE_DIR
++  NAMES fmt/format.h
++  PATHS ${_fmt_hint_paths}
++  PATH_SUFFIXES include
++  NO_DEFAULT_PATH
++  DOC "Path to directory containing fmt/format.h"
++)
++
++# Create imported interface target from path if found
++if(FMT_INCLUDE_DIR)
++  message(STATUS "Found fmt: ${FMT_INCLUDE_DIR}")
++  add_library(fmt::fmt-header-only INTERFACE IMPORTED)
++  set_target_properties(fmt::fmt-header-only PROPERTIES
++    INTERFACE_INCLUDE_DIRECTORIES "${FMT_INCLUDE_DIR}"
++    INTERFACE_COMPILE_DEFINITIONS "FMT_HEADER_ONLY=1"
++  )
++  return()
++endif()
++
++# Fetch as last resort
++message(STATUS "fmt: Fetching v${HOLOLINK_FMT_VERSION}")
++include(FetchContent)
++FetchContent_Declare(
++  fmt_src
++  GIT_REPOSITORY https://github.com/fmtlib/fmt.git
++  GIT_TAG        ${HOLOLINK_FMT_VERSION}
++  GIT_SHALLOW    TRUE
++)
++FetchContent_MakeAvailable(fmt_src)
+diff --git a/cmake/hololink_deps/gtest.cmake b/cmake/hololink_deps/gtest.cmake
+new file mode 100644
+index 0000000..4c47b0c
+--- /dev/null
++++ b/cmake/hololink_deps/gtest.cmake
+@@ -0,0 +1,31 @@
++# GoogleTest dependency setup.
++#
++# Ensures the GTest::gtest target is available by either finding a pre-installed
++# version or fetching it via FetchContent.
++
++include_guard(GLOBAL)
++set(HOLOLINK_GTEST_VERSION "1.17.0")
++
++# Already exists?
++if(TARGET GTest::gtest)
++  return()
++endif()
++
++# Find via cmake config
++find_package(GTest ${HOLOLINK_GTEST_VERSION} QUIET CONFIG)
++if(GTest_FOUND)
++  message(STATUS "Found GTest: (version ${HOLOLINK_GTEST_VERSION})")
++  return()
++endif()
++
++# Fetch
++message(STATUS "GTest: Fetching v${HOLOLINK_GTEST_VERSION}")
++include(FetchContent)
++FetchContent_Declare(googletest
++  GIT_REPOSITORY https://github.com/google/googletest.git
++  GIT_TAG v${HOLOLINK_GTEST_VERSION}
++  GIT_SHALLOW TRUE
++)
++set(BUILD_GMOCK ON CACHE BOOL "" FORCE)
++set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
++FetchContent_MakeAvailable(googletest)
+diff --git a/cmake/hololink_deps/pybind11.cmake b/cmake/hololink_deps/pybind11.cmake
+new file mode 100644
+index 0000000..ca48242
+--- /dev/null
++++ b/cmake/hololink_deps/pybind11.cmake
+@@ -0,0 +1,29 @@
++# pybind11 dependency setup.
++#
++# Ensures the pybind11::pybind11 target is available by either finding a
++# pre-installed version or fetching it via FetchContent.
++
++include_guard(GLOBAL)
++set(HOLOLINK_PYBIND11_VERSION "2.13.6")
++
++# Already exists?
++if(TARGET pybind11::pybind11)
++  return()
++endif()
++
++# Find via cmake config
++find_package(pybind11 ${HOLOLINK_PYBIND11_VERSION} QUIET CONFIG)
++if(pybind11_FOUND)
++  message(STATUS "Found pybind11: (version ${HOLOLINK_PYBIND11_VERSION})")
++  return()
++endif()
++
++# Fetch
++message(STATUS "pybind11: Fetching v${HOLOLINK_PYBIND11_VERSION}")
++include(FetchContent)
++FetchContent_Declare(pybind11
++  GIT_REPOSITORY https://github.com/pybind/pybind11
++  GIT_TAG v${HOLOLINK_PYBIND11_VERSION}
++  GIT_SHALLOW TRUE
++)
++FetchContent_MakeAvailable(pybind11)
+diff --git a/cmake/pybind11_add_hololink_module.cmake b/cmake/pybind11_add_hololink_module.cmake
+index f75bd1d..ec85deb 100644
+--- a/cmake/pybind11_add_hololink_module.cmake
++++ b/cmake/pybind11_add_hololink_module.cmake
+@@ -13,6 +13,10 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+
++# Find python-dev and pybind11
++find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
++include(hololink_deps/pybind11)
++
+ # Helper function to generate pybind11 operator modules
+ function(pybind11_add_hololink_module)
+     cmake_parse_arguments(MODULE                # PREFIX
+@@ -33,6 +37,7 @@ function(pybind11_add_hololink_module)
+     target_link_libraries(${target_name}
+         PRIVATE
+             holoscan::core
++            holoscan::pybind11
+             ${MODULE_CPP_CMAKE_TARGET}
+     )
+
+diff --git a/python/hololink/operators/CMakeLists.txt b/python/hololink/operators/CMakeLists.txt
+index 732a7c3..1e33f4b 100644
+--- a/python/hololink/operators/CMakeLists.txt
++++ b/python/hololink/operators/CMakeLists.txt
+@@ -19,7 +19,8 @@ if(DEFINED ENV{CONTAINER_TYPE} AND "$ENV{CONTAINER_TYPE}" STREQUAL "igpu")
+ endif()
+ add_subdirectory(audio_packetizer)
+ add_subdirectory(csi_to_bayer)
+-add_subdirectory(hdmi_converter)
++# hdmi_converter skipped: pre-compiled .a is ABI-incompatible with SDK 3.11
++# add_subdirectory(hdmi_converter)
+ add_subdirectory(image_processor)
+ add_subdirectory(iq_dec)
+ add_subdirectory(iq_enc)
+diff --git a/python/hololink/sensors/CMakeLists.txt b/python/hololink/sensors/CMakeLists.txt
+index 57554b9..b626194 100644
+--- a/python/hololink/sensors/CMakeLists.txt
++++ b/python/hololink/sensors/CMakeLists.txt
+@@ -16,7 +16,8 @@
+ include(pybind11_add_hololink_module)
+
+ add_subdirectory(camera)
+-add_subdirectory(hdmi_source)
++# hdmi_source skipped: pre-compiled .a is ABI-incompatible with SDK 3.11
++# add_subdirectory(hdmi_source)
+
+ pybind11_add_hololink_module(
+     CPP_CMAKE_TARGET hololink_sensor
+diff --git a/python/setup.py b/python/setup.py
+index 8e45b09..c09ffe0 100644
+--- a/python/setup.py
++++ b/python/setup.py
+@@ -48,7 +48,7 @@ setuptools.setup(
+         "hololink/hololink_core",
+         "hololink/operators",
+         "hololink/sensors",
+-        "hololink/sensors/hdmi_source",
++        # "hololink/sensors/hdmi_source",  # excluded: pre-compiled .a ABI-incompatible
+         "hololink/sensors/camera",
+         "hololink/sensors/camera/imx274",
+         "hololink/sensors/imx274",
+@@ -79,8 +79,8 @@ setuptools.setup(
+         "build_ext": cmake_build_extension.BuildExtension,
+     },
+     install_requires=[
+-        "cuda-python==12.9.0",
+-        "nvtx==0.2.13",
++        "cuda-python",
++        "nvtx",
+     ],
+     entry_points={
+         "console_scripts": [
+diff --git a/src/hololink/common/CMakeLists.txt b/src/hololink/common/CMakeLists.txt
+index 7b0c8e1..c961cfc 100644
+--- a/src/hololink/common/CMakeLists.txt
++++ b/src/hololink/common/CMakeLists.txt
+@@ -13,6 +13,7 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+
++find_package(ibverbs REQUIRED)
+
+ add_library(hololink STATIC
+   gui_renderer.cpp
+@@ -28,6 +29,13 @@ target_include_directories(hololink
+     $<INSTALL_INTERFACE:src>
+   )
+
++# Handle CUDA::nvtx3 vs CUDA::nvToolsExt (nvtx3 in CUDA 12+ / 13+)
++if(TARGET CUDA::nvtx3)
++  set(CUDA_NVTX_TARGET CUDA::nvtx3)
++else()
++  set(CUDA_NVTX_TARGET CUDA::nvToolsExt)
++endif()
++
+ target_link_libraries(hololink
+   PRIVATE
+     holoscan::core
+@@ -35,11 +43,13 @@ target_link_libraries(hololink
+     # Required by the gui_renderer
+     holoscan::viz
+     holoscan::viz::imgui
++    ${ibverbs_LIBRARIES}
+   PUBLIC
+     hololink::core
+     CUDA::cuda_driver
+-    CUDA::nvToolsExt
+     CUDA::nvrtc
++    ${CUDA_NVTX_TARGET}
++    fmt::fmt-header-only
+   )
+
+ # Installation of the hololink library
+diff --git a/src/hololink/common/cuda_error.hpp b/src/hololink/common/cuda_error.hpp
+index 21fade0..594f3ce 100644
+--- a/src/hololink/common/cuda_error.hpp
++++ b/src/hololink/common/cuda_error.hpp
+@@ -78,18 +78,24 @@ inline const char* cufftGetErrorString(cufftResult result)
+         return "CUFFT_INVALID_SIZE";
+     case CUFFT_UNALIGNED_DATA:
+         return "CUFFT_UNALIGNED_DATA";
++#if CUFFT_VERSION < 12000
+     case CUFFT_INCOMPLETE_PARAMETER_LIST:
+         return "CUFFT_INCOMPLETE_PARAMETER_LIST";
++#endif
+     case CUFFT_INVALID_DEVICE:
+         return "CUFFT_INVALID_DEVICE";
++#if CUFFT_VERSION < 12000
+     case CUFFT_PARSE_ERROR:
+         return "CUFFT_PARSE_ERROR";
++#endif
+     case CUFFT_NO_WORKSPACE:
+         return "CUFFT_NO_WORKSPACE";
+     case CUFFT_NOT_IMPLEMENTED:
+         return "CUFFT_NOT_IMPLEMENTED";
++#if CUFFT_VERSION < 12000
+     case CUFFT_LICENSE_ERROR:
+         return "CUFFT_LICENSE_ERROR";
++#endif
+     case CUFFT_NOT_SUPPORTED:
+         return "CUFFT_NOT_SUPPORTED";
+     }
+diff --git a/src/hololink/core/CMakeLists.txt b/src/hololink/core/CMakeLists.txt
+index c8ddd01..0ed3f7c 100644
+--- a/src/hololink/core/CMakeLists.txt
++++ b/src/hololink/core/CMakeLists.txt
+@@ -32,9 +32,9 @@ add_library(hololink::core ALIAS hololink_core)
+ set_property(TARGET hololink_core PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+ target_link_libraries(hololink_core
+-  PRIVATE
+-    holoscan::core
+-  )
++  PUBLIC
++    fmt::fmt-header-only
++)
+
+ target_include_directories(hololink_core
+   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../..
+diff --git a/src/hololink/core/logging_internal.hpp b/src/hololink/core/logging_internal.hpp
+index b703f56..a788729 100644
+--- a/src/hololink/core/logging_internal.hpp
++++ b/src/hololink/core/logging_internal.hpp
+@@ -28,6 +28,13 @@
+ #include <fmt/format.h>
+ #include <fmt/ranges.h>
+
++#if FMT_VERSION >= 110000
++namespace fmt {
++template <typename Char>
++using buffer_context = buffered_context<Char>;
++}
++#endif
++
+ /**
+  * @brief Formatter for Metadata
+  *
+diff --git a/src/hololink/core/nvtx_trace.hpp b/src/hololink/core/nvtx_trace.hpp
+index 52851fe..138ca2d 100644
+--- a/src/hololink/core/nvtx_trace.hpp
++++ b/src/hololink/core/nvtx_trace.hpp
+@@ -20,7 +20,7 @@
+ #ifndef HOLOLINK_NVTX_TRACE_H
+ #define HOLOLINK_NVTX_TRACE_H 1
+
+-#include "nvToolsExt.h"
++#include <nvtx3/nvToolsExt.h>
+ #include <pthread.h>
+
+ namespace hololink::core {
+diff --git a/src/hololink/operators/CMakeLists.txt b/src/hololink/operators/CMakeLists.txt
+index 73a1473..7b32816 100644
+--- a/src/hololink/operators/CMakeLists.txt
++++ b/src/hololink/operators/CMakeLists.txt
+@@ -49,7 +49,8 @@ if(DEFINED ENV{CONTAINER_TYPE} AND "$ENV{CONTAINER_TYPE}" STREQUAL "igpu")
+ endif()
+ add_subdirectory(audio_packetizer)
+ add_subdirectory(csi_to_bayer)
+-add_subdirectory(hdmi_converter)
++# hdmi_converter skipped: pre-compiled .a is ABI-incompatible with SDK 3.11
++# add_subdirectory(hdmi_converter)
+ add_subdirectory(image_processor)
+ add_subdirectory(iq_dec)
+ add_subdirectory(iq_enc)
+diff --git a/src/hololink/operators/sig_gen/CMakeLists.txt b/src/hololink/operators/sig_gen/CMakeLists.txt
+index a3273e4..550ddd9 100644
+--- a/src/hololink/operators/sig_gen/CMakeLists.txt
++++ b/src/hololink/operators/sig_gen/CMakeLists.txt
+@@ -39,7 +39,9 @@ target_compile_options(sig_gen PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
+                       --relocatable-device-code=true
+                       >)
+
+-target_compile_definitions(sig_gen PUBLIC CUDA_TOOLKIT_INCLUDE_PATH="${CUDAToolkit_INCLUDE_DIRS}")
++# If CUDA has multiple include dirs, use the first.
++list(GET CUDAToolkit_INCLUDE_DIRS 0 CUDA_TOOLKIT_INCLUDE_PATH)
++target_compile_definitions(sig_gen PUBLIC CUDA_TOOLKIT_INCLUDE_PATH="${CUDA_TOOLKIT_INCLUDE_PATH}")
+
+ target_link_libraries(sig_gen
+   PRIVATE
+diff --git a/src/hololink/sensors/CMakeLists.txt b/src/hololink/sensors/CMakeLists.txt
+index 1bb1737..1e46311 100644
+--- a/src/hololink/sensors/CMakeLists.txt
++++ b/src/hololink/sensors/CMakeLists.txt
+@@ -34,7 +34,6 @@ target_link_libraries(hololink_sensor
+   PUBLIC
+     fmt::fmt-header-only
+     hololink::core
+-    GXF::logger
+     holoscan::core
+ )
+
+@@ -42,4 +41,5 @@ target_link_libraries(hololink_sensor
+
+ # Add sensor implementation subdirectories
+ add_subdirectory(camera)
+-add_subdirectory(hdmi_source)
+\ No newline at end of file
++# hdmi_source skipped: pre-compiled .a is ABI-incompatible with SDK 3.11
++# add_subdirectory(hdmi_source)

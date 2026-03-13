@@ -92,34 +92,24 @@ pip install rti.connext==7.3.0 pyrealsense2==2.55.1.6486 toml==0.10.2 dearpygui=
 # Check if IsaacLab is already cloned
 echo "Installing IsaacSim and IsaacLab..."
 
-bash $PROJECT_ROOT/tools/env_setup/install_isaacsim5.0_isaaclab2.3.sh
+bash $PROJECT_ROOT/tools/env_setup/install_isaacsim5.1_isaaclab2.3.sh
 
 # ---- Install Robotic Ultrasound Extensions and Dependencies ----
 echo "Installing Robotic Ultrasound Extensions and Dependencies..."
 bash "$PROJECT_ROOT/tools/env_setup/install_robotic_us_ext.sh"
 
+echo "Installing PI0 Policy Dependencies..."
+bash "$PROJECT_ROOT/tools/env_setup/install_pi0.sh"
 
-
-
-# ---- Install PI0 Policy Dependencies (Conditional) ----
-if [[ "$INSTALL_WITH_POLICY" == "pi0" ]]; then
-    echo "Installing PI0 Policy Dependencies..."
-    bash "$PROJECT_ROOT/tools/env_setup/install_pi0.sh"
-fi
-
-
-# ---- Install GR00T N1 Policy Dependencies (Conditional) ----
-if [[ "$INSTALL_WITH_POLICY" == "gr00tn1" ]]; then
-    echo "Installing GR00T N1 Policy Dependencies (delegating to script)..."
-    bash "$PROJECT_ROOT/tools/env_setup/install_gr00tn1.sh"
-fi
+echo "Installing GR00T N1 Policy Dependencies (delegating to script)..."
+bash "$PROJECT_ROOT/tools/env_setup/install_gr00tn1.sh"
 
 # ---- Install lerobot (Common) ----
 echo "Installing lerobot..."
 bash "$PROJECT_ROOT/tools/env_setup/install_lerobot.sh"
 
-# for holoscan and cosmos transfer1, we need to install the following conda packages:
-conda install -c conda-forge ninja libgl ffmpeg 'pybind11>=2.10.0' gcc=12.4.0 gxx=12.4.0 libstdcxx-ng=12.4.0 -y
+# for holoscan, we need to install the following conda packages:
+conda install -c conda-forge 'pybind11>=2.10.0' gcc=12.4.0 gxx=12.4.0 libstdcxx-ng=12.4.0 -y
 
 # ---- Installing Clarius libs ----
 echo "Installing Clarius libs..."
@@ -132,13 +122,8 @@ bash $PROJECT_ROOT/tools/env_setup/install_clarius.sh
 echo "Installing Holoscan..."
 bash "$PROJECT_ROOT/tools/env_setup/install_holoscan.sh"
 
-# ---- Install Cosmos (Common) ----
-echo "Installing Cosmos..."
-bash "$PROJECT_ROOT/tools/env_setup/install_cudnn.sh"
-bash "$PROJECT_ROOT/tools/env_setup/install_cosmos_transfer1.sh"
-
 # ---- Install Raysim (Common) ----
-echo "Installing Raysim..."
+echo "Skipping Raysim installation..."
 bash "$PROJECT_ROOT/tools/env_setup/install_raysim.sh"
 
 

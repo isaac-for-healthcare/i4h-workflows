@@ -21,6 +21,7 @@ import h5py
 import numpy as np
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from tqdm import tqdm
+from util import resolve_recording_path
 
 """NOTE: Please use the environment of lerobot."""
 
@@ -122,9 +123,9 @@ def parse_args():
     )
     parser.add_argument(
         "--hdf5_path",
-        type=str,
-        default="./datasets/dataset.hdf5",
-        help="Path to the HDF5 file (default: ./datasets/dataset.hdf5)",
+        type=resolve_recording_path,
+        default="dataset.hdf5",
+        help="Path to the HDF5 file (default: dataset.hdf5)",
     )
     parser.add_argument("--robot_type", type=str, default="so101_follower", help="Robot type (default: so101_follower)")
     parser.add_argument("--fps", type=int, default=30, help="Frames per second (default: 30)")

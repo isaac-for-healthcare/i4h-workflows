@@ -3,7 +3,7 @@
 robot:
   # Robot configuration for SOAR robot
   type: "so101_follower"
-  port: "/dev/ttyACM1"
+  port: "/dev/ttyACM0"
   id: "so101_follower_arm"
 
   # Camera configuration
@@ -27,9 +27,9 @@ gr00t:
   action_horizon: 8       # Number of actions to execute from action chunk
 
   # Model configuration
-  model_path: "" # configure the model path
+  model_path: "/workspace/i4h/.cache/huggingface/so_arm_starter_gr00t" # configure the model path
   trt_engine_path: "" # configure the tensorrt engine path
-  trt: true # default use tensorrt engine
+  trt: false # default use tensorrt engine
 
   # Data configuration
   data_config: "so100_dualcam"

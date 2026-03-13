@@ -13,17 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from i4h_asset_helper import BaseI4HAssets
+ASSET_PATH = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.5.0/132c82d/"
 
-
-class Assets(BaseI4HAssets):
-    """Assets manager for the robotic surgery workflow."""
-
-    SoArm = "Robots/SO-ARM/SO-ARMDualCamera.usd"
-    Table = "Props/Tables/Table.usd"
-    Scissors = "Props/SurgicalInstruments/SurgicalScissors.usd"
-    Tray = "Props/SurgicalInstruments/SurgicalTray.usd"
-
-
-# singleton object for the assets
-so_arm_starter_assets = Assets()
+SOARM_USD = ASSET_PATH + "Robots/SO-ARM/SO-ARMDualCamera.usd"
+TABLE_USD = ASSET_PATH + "Props/Table/table.usd"
+SCISSORS_USD = ASSET_PATH + "Props/SurgicalInstruments/SurgicalScissors.usd"
+TRAY_USD = ASSET_PATH + "Props/SurgicalInstruments/SurgicalTray.usd"

@@ -1,0 +1,22 @@
+boto3
+botocore
+holoscan-cu12==3.11.0
+ntplib
+numpy
+opencv-python-headless
+pillow
+pydantic
+pygame
+pyrealsense2
+requests
+rti.connext
+setuptools
+websocket-client
+websocket-server
+websockets
+
+# Torch for GPU acceleration
+torch>=2.9.0
+torchvision
+torchaudio
+--extra-index-url https://download.pytorch.org/whl/cu128

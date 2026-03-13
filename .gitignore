@@ -135,6 +135,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+!**/config/env/
 
 
 # Training data
@@ -213,16 +214,13 @@ third_party/
 
 
 # third-party files
-holoscan_i4h/install
-holoscan_i4h/build
+workflows/robotic_ultrasound/scripts/holoscan_ops/install
+workflows/robotic_ultrasound/scripts/holoscan_ops/build
 build/
 install/
 
 # Raytracing Ultrasound Simulator
 workflows/robotic_ultrasound/scripts/raysim
-
-# Bring Your Own XR
-openxr/
 
 # Holohub CLI
 utilities
@@ -238,6 +236,12 @@ cmake
 # Dev container
 .devcontainer/
 
-# License file
+# License files
 *.lic
 *.dat
+rti/
+
+.bash_history
+.python_history
+.nv
+.keras

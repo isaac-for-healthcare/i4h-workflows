@@ -18,12 +18,10 @@ import json
 import math
 import os
 
-from i4h_asset_helper import BaseI4HAssets
 from isaaclab.app import AppLauncher
 
-
-class Assets(BaseI4HAssets):
-    MIRA_ARM = "Robots/MIRA/mira-bipo-size-experiment-smoothing.usd"
+ASSET_PATH = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.5.0/132c82d/"
+MIRA_ARM_USD = ASSET_PATH + "Robots/MIRA/mira-bipo-size-experiment-smoothing.usd"
 
 
 def main():
@@ -46,8 +44,7 @@ def main():
 
     app_launcher = AppLauncher(headless=False)
     simulation_app = app_launcher.app
-    my_assets = Assets()
-    usd_path = my_assets.MIRA_ARM
+    usd_path = MIRA_ARM_USD
 
     # Import Isaac/Omni modules after app launch
     import omni.usd

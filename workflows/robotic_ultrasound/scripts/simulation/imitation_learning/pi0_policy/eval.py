@@ -71,7 +71,7 @@ reset_flag = False
 from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
 
 # This is to avoid boto3 conflict with app launcher
-from policy_runner.pi0.runners import PI0PolicyRunner
+from policy.pi0.runners import PI0PolicyRunner
 
 # Import extensions to set up environment tasks
 from robotic_us_ext import tasks  # noqa: F401

@@ -15,4 +15,4 @@ jobs:
 
       - name: Run copyright check
         run: |
-          bash tools/check_missing_license.sh
+          bash .github/check_missing_license.sh

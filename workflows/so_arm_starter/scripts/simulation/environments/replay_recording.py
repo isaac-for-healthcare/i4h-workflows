@@ -28,10 +28,13 @@ import gymnasium as gym
 import so_arm_starter_ext  # noqa: F401
 import torch
 from isaaclab.app import AppLauncher
+from util import resolve_recording_path
 
 # Add argparse arguments
 parser = argparse.ArgumentParser(description="Replay SO-ARM101 recorded demonstrations")
-parser.add_argument("--dataset_path", type=str, required=True, help="Path to the recorded HDF5 dataset")
+parser.add_argument(
+    "--dataset_path", type=resolve_recording_path, required=True, help="Path to the recorded HDF5 dataset"
+)
 parser.add_argument("--task", type=str, default="Isaac-SOARM101-v0", help="Name of the task")
 parser.add_argument(
     "--teleop_device",
@@ -144,6 +147,17 @@ def get_action_from_episode(episode_data, action_key="actions", step_index=None)
         return episode_data.get_next_action()
 
 
+def has_data(obj):
+    """Recursively check if a dict has any non-empty leaf values."""
+    if obj is None:
+        return False
+    if isinstance(obj, dict):
+        if not obj:  # empty dict
+            return False
+        return any(has_data(v) for v in obj.values())
+    return True  # non-dict, non-None value found
+
+
 @torch.inference_mode()
 def main():
     """Main function for replaying SO-ARM101 demonstrations."""
@@ -211,8 +225,15 @@ def main():
             # FIXME(Mingxue): how to fix scissors and tray position into recorded state in replay?
             initial_state = episode_data.get_initial_state()
             print(f"initial_state: {initial_state}")
-            if initial_state:
-                env.reset_to(initial_state, torch.tensor([0], device=env.device), is_relative=True)
+
+            # Check if initial_state has actual data (not just empty nested dicts)
+            if initial_state and has_data(initial_state):
+                try:
+                    env.reset_to(initial_state, torch.tensor([0], device=env.device), is_relative=True)
+                    print("Successfully restored initial state")
+                except Exception as e:
+                    print(f"Warning: Could not restore initial state: {e}")
+                    print("Continuing with default reset...")
 
             episode_data.next_action_index = 0
             episode_step = 0

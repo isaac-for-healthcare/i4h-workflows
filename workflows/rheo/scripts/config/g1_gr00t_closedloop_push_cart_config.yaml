@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+model_path: /models/GR00T-N1.6-Rheo-Sim-PushCart
+
+# If use tensorrt mode, set up `trt_engine_path` as `/path/to/dit_model_bf16.trt`.
+trt_engine_path: null
+
+language_instruction: "Go to the left side of the cart, turn around to face the cart, grasp the cart handles with both hands, and push the cart forward to the destination."
+
+action_horizon: 16
+embodiment_tag: new_embodiment
+video_backend: decord
+data_config: unitree_g1_sim_wbc
+
+policy_joints_config_path: ../../third_party/IsaacLab-Arena/isaaclab_arena_gr00t/config/g1/gr00t_43dof_joint_space.yaml
+action_joints_config_path: ../../third_party/IsaacLab-Arena/isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
+state_joints_config_path: ../../third_party/IsaacLab-Arena/isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
+
+action_chunk_length: 16
+
+pov_cam_name_sim: "robot_head_cam_rgb"
+
+task_mode_name: g1_locomanipulation

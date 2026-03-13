@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import hashlib
-import importlib
 import os
 import pathlib
 import signal
@@ -46,18 +45,6 @@ def get_md5_checksum(output_dir, model_name, md5_checksum_lookup):
 def requires_rti(func):
     RTI_AVAILABLE = bool(os.getenv("RTI_LICENSE_FILE") and os.path.exists(os.getenv("RTI_LICENSE_FILE")))
     return skipUnless(RTI_AVAILABLE, "RTI Connext DDS is not installed or license not found")(func)
-
-
-def requires_cosmos_transfer1(func):
-    # check if cosmos-transfer1 is installed
-    spec = importlib.util.find_spec("cosmos_transfer1")
-    COSMOS_TRANSFER1_AVAILABLE = spec is not None
-    return skipUnless(
-        COSMOS_TRANSFER1_AVAILABLE,
-        "cosmos-transfer1 is not installed. "
-        "Please install it using "
-        "`python tools/install_deps.py --workflow robotic_ultrasound/cosmos_transfer1`",
-    )(func)
 
 
 def _get_max_gpu_memory_mib():

@@ -32,11 +32,13 @@ if [ -z "${RTI_LICENSE_FILE}" ]; then
   export RTI_LICENSE_FILE=$ENV_SCRIPT_DIR/dds/rti_license.dat
 fi
 
-# Python Path
-export PYTHONPATH=$ENV_SCRIPT_DIR:$PYTHONPATH
-export LD_LIBRARY_PATH=$ENV_SCRIPT_DIR/holohub/operators/nvidia_video_codec/lib:$LD_LIBRARY_PATH
-# Optional: NTP Server to capture time diff between 2 nodes
+# Operators Path (versioned by Python version to support multiple containers)
+_PY_TAG=$(python3 -c 'import sys; print(f"py{sys.version_info.major}{sys.version_info.minor}")')
+export LD_LIBRARY_PATH=$ENV_SCRIPT_DIR/holohub/operators/streamlift/lib/$_PY_TAG:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$ENV_SCRIPT_DIR/holohub/operators/nvidia_video_codec/lib/$_PY_TAG:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$ENV_SCRIPT_DIR/holohub/operators/camera/aja_source/lib/$_PY_TAG:$LD_LIBRARY_PATH
 
+# Optional: NTP Server to capture time diff between 2 nodes
 if [ ! -z "${NTP_SERVER_HOST}" ] && [ ! -z "${NTP_SERVER_PORT}" ]; then
   export NTP_SERVER_HOST="${NTP_SERVER_HOST}"
   export NTP_SERVER_PORT="${NTP_SERVER_PORT}"

@@ -46,9 +46,20 @@ fi
 
 
 pushd "$ISAACLAB_DIR"
+echo "Pre-installing flatdict to avoid pip isolated build env issues..."
+pip install --no-build-isolation flatdict==4.0.1
 echo "Installing IsaacLab ..."
 yes Yes | ./isaaclab.sh --install
+echo "Verifying isaaclab core was installed (isaaclab.sh silently swallows failures)..."
+python -c "import isaaclab; print(isaaclab.__file__)"
 popd
 
+# Remove top-level import of omni.log
+sed -i '/^[[:space:]]*import omni\.log[[:space:]]*$/d' "$ISAACLAB_DIR/source/isaaclab/isaaclab/utils/math.py"
+
+# Insert an indented local import immediately before each usage of omni.log.warn(
+# This preserves the leading whitespace so the inserted import lives inside the function body
+sed -i -E 's/^([[:space:]]*)omni\.log\.warn\(/\1import omni.log\
+\1omni.log.warn(/g' "$ISAACLAB_DIR/source/isaaclab/isaaclab/utils/math.py"
 
 echo "IsaacSim and dependencies installed successfully!"

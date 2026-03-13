@@ -1,0 +1,65 @@
+diff --git a/gr00t/model/policy.py b/gr00t/model/policy.py
+index e73f261..9fa6e8c 100644
+--- a/gr00t/model/policy.py
++++ b/gr00t/model/policy.py
+@@ -28,6 +28,7 @@ from gr00t.data.embodiment_tags import EmbodimentTag
+ from gr00t.data.schema import DatasetMetadata
+ from gr00t.data.transform.base import ComposedModalityTransform
+ from gr00t.model.gr00t_n1 import GR00T_N1_5
++import torch.nn as nn
+
+ COMPUTE_DTYPE = torch.bfloat16
+
+@@ -178,6 +179,21 @@ class Gr00tPolicy(BasePolicy):
+                 obs_copy[k] = np.array(v)
+
+         normalized_input = self.apply_transforms(obs_copy)
++        for key in normalized_input:
++            if normalized_input[key].dtype == torch.float32:
++                normalized_input[key] = normalized_input[key].to(torch.bfloat16)
++        normalized_input["eagle_input_ids"] = torch.nn.functional.pad(
++            normalized_input["eagle_input_ids"],
++            pad=(0, 850 - normalized_input["eagle_input_ids"].shape[-1]),
++            mode="constant",
++            value=0,
++        )
++        normalized_input["eagle_attention_mask"] = torch.nn.functional.pad(
++            normalized_input["eagle_attention_mask"],
++            pad=(0, 850 - normalized_input["eagle_attention_mask"].shape[-1]),
++            mode="constant",
++            value=0,
++        )
+         normalized_action = self._get_action_from_normalized_input(normalized_input)
+         unnormalized_action = self._get_unnormalized_action(normalized_action)
+
+@@ -272,10 +288,30 @@ class Gr00tPolicy(BasePolicy):
+             model.action_horizon = expected_action_horizon
+             model.config.action_head_cfg["action_horizon"] = expected_action_horizon
+
++        self._replace_dropout_with_identity(model)
++
+         model.to(device=self.device)  # type: ignore
+
+         self.model = model
+
++    def _replace_dropout_with_identity(self, model):
++        """
++        Find all dropout layers and replace them with nn.Identity()
++        """
++        for name, module in list(model.named_modules()):
++            if isinstance(
++                module,
++                (nn.Dropout, nn.Dropout1d, nn.Dropout2d, nn.Dropout3d, nn.AlphaDropout),
++            ):
++                if "." in name:
++                    parent_name = name.rsplit(".", 1)[0]
++                    child_name = name.rsplit(".", 1)[1]
++                    parent_module = dict(model.named_modules())[parent_name]
++                else:
++                    parent_module = model
++                    child_name = name
++                setattr(parent_module, child_name, nn.Identity())
++
+     def _load_metadata(self, exp_cfg_dir: Path):
+         """Load the transforms for the model."""
+         # Load metadata for normalization stats

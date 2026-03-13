@@ -186,17 +186,6 @@ def _setup_test_env(project_root, tests_dir):
     return env
 
 
-def _setup_test_cosmos_transfer1_env(project_root, workflow_root, tests_dir):
-    """Helper function to setup test environment for cosmos-transfer1"""
-    env = _setup_test_env(workflow_root, tests_dir)
-    pythonpath = [
-        os.path.join(project_root, "third_party", "cosmos-transfer1"),
-    ]
-    env["PYTHONPATH"] = ":".join(pythonpath) + ":" + env["PYTHONPATH"]
-    env["DEBUG_GENERATION"] = "1"
-    return env
-
-
 def run_tests_with_coverage(workflow_name, skip_xvfb, timeout=1200):
     """Run all unittest cases with coverage reporting"""
     print(f"Starting test run for workflow: {workflow_name}")
@@ -236,6 +225,9 @@ def run_tests_with_coverage(workflow_name, skip_xvfb, timeout=1200):
                 ]
             # TODO: move these tests to integration tests
             elif "test_sim_with_dds" in test_path or "test_policy" in test_path or "test_gr00t_training" in test_path:
+                continue
+            elif "test_pi0_training" in test_path:
+                # FIXME(mingxinz): CI network connectivity issue, skip this test for now.
                 continue
             elif "test_integration" in test_path:
                 continue
@@ -296,14 +288,17 @@ def run_integration_tests(workflow_name, timeout=1200):
         env = _setup_test_env(project_root, tests_dir)
 
         for test_path in tests:
+            # Skip specific integration tests
+            if "test_integration_pi0_eval" in test_path:
+                # FIXME(mingxinz): CI network connectivity issue, skip this test for now.
+                continue
+
             cmd = [
                 sys.executable,
                 "-m",
                 "unittest",
                 test_path,
             ]
-            if "cosmos_transfer1" in test_path:
-                env = _setup_test_cosmos_transfer1_env(os.getcwd(), project_root, tests_dir)
 
             if not _run_test_process(cmd, env, test_path):
                 all_tests_passed = False

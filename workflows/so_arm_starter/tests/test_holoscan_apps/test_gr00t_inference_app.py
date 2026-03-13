@@ -18,11 +18,26 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import holoscan_apps.gr00t_inference_app as appmod
-from holoscan_apps.gr00t_inference_app import GR00TCyclicApplication
-from holoscan_apps.operators import GR00TInferenceOp, RobotStatusOp
+from helpers import requires_isaac_gr00t
+
+# Only import gr00t-dependent modules when gr00t is available (avoids ImportError when skipping)
+try:
+    import gr00t  # noqa: F401
+except ImportError:
+    gr00t = None
+
+if gr00t is not None:
+    import holoscan_apps.gr00t_inference_app as appmod
+    from holoscan_apps.gr00t_inference_app import GR00TCyclicApplication
+    from holoscan_apps.operators import GR00TInferenceOp, RobotStatusOp
+else:
+    appmod = None
+    GR00TCyclicApplication = None
+    GR00TInferenceOp = None
+    RobotStatusOp = None
 
 
+@requires_isaac_gr00t
 class TestGR00TInferenceApp(unittest.TestCase):
     def setUp(self) -> None:
         # Create a temporary config.yaml for each test

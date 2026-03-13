@@ -17,11 +17,16 @@
 
 FROM nvidia/cuda:12.8.1-devel-ubuntu24.04
 
+# Optional PyPI mirror configuration
+ARG PIP_INDEX_URL
+ARG PIP_EXTRA_INDEX_URL
+ARG PIP_TRUSTED_HOST
+
 SHELL ["/bin/bash", "-c"]
 
 # Install all packages in a single layer to avoid caching issues
 RUN apt-get update && \
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
         wget \
         curl \
         jq \
@@ -56,19 +61,23 @@ COPY tools /workspace/i4h-workflows/tools
 COPY workflows /workspace/i4h-workflows/workflows
 
 # Install miniconda3 and create robotic_surgery
-RUN mkdir -p ~/miniconda3 && \
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh && \
-    bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3 && \
-    rm ~/miniconda3/miniconda.sh && \
-    source ~/miniconda3/bin/activate && \
+RUN mkdir -p /opt/miniconda3 && \
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /opt/miniconda3/miniconda.sh && \
+    bash /opt/miniconda3/miniconda.sh -b -u -p /opt/miniconda3 && \
+    rm /opt/miniconda3/miniconda.sh && \
+    source /opt/miniconda3/bin/activate && \
     conda tos accept && \
     conda init --all && \
-    conda create -n robotic_surgery python=3.11 -y
+    conda create -n robotic_surgery python=3.11 -y && \
+    chmod -R a+rX /opt/miniconda3
 
-RUN source ~/miniconda3/bin/activate && \
+ENV PATH="/opt/miniconda3/envs/robotic_surgery/bin:/opt/miniconda3/bin:$PATH"
+ENV CONDA_DEFAULT_ENV=robotic_surgery
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    source /opt/miniconda3/bin/activate && \
     conda activate robotic_surgery && \
     cd /workspace/i4h-workflows && \
     BUILD_DOCKER_IMAGE=true bash tools/env_setup_robot_surgery.sh
 
 ENV PYTHONPATH=/workspace/i4h-workflows/workflows/robotic_surgery/scripts
-ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat

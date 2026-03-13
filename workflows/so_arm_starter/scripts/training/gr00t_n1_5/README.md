@@ -23,12 +23,14 @@ This workflow enables you to:
 ## 🛠️ Installation
 
 First, install the necessary environment and dependencies using our [provided script](../../../../../tools/env_setup_so_arm_starter.sh):
+
 ```bash
 # Install environment with dependencies
 ./tools/env_setup_so_arm_starter.sh
 ```
 
 This script:
+
 - Clones Isaac-GR00T repository
 - Installs LeRobot and other dependencies
 
@@ -44,13 +46,12 @@ See the [simulation README](../../simulation/README.md) for more information on 
 **Collect in real world**
 Huggingface **Lerobot** provides workflow to collect dataset in real world, refer to the [LeRobot documentation](https://huggingface.co/docs/lerobot/main/en/getting_started_real_world_robot) to get more information.
 
-
 ## 🔄 Data Conversion
 
 GR00T-N1.5 uses the **LeRobot** data format for training. If you use dataset in simulation, you need to convert data format before training.
 To facilitate this, we provide a script that converts your HDF5 data into the required format. The script is located at:
 
-```
+```text
 workflows/so_arm_starter/scripts/training/hdf5_to_lerobot.py
 ```
 
@@ -67,8 +68,9 @@ The converted dataset will be saved in `~/.cache/huggingface/lerobot/<repo_id>`.
 ## 🚀 Running Training
 
 To start training with a GR00T-N1.5:
+
 ```bash
-python -m gr00t_n1_5/train \
+python -m gr00t_n1_5.train \
    --dataset-path <path_to_your_lerobot_dataset> \
    --num-gpus 1 \
    --batch-size 32 \
@@ -77,6 +79,7 @@ python -m gr00t_n1_5/train \
    --save-steps 2000 \
    --data-config <your_data_config_type>
 ```
+
 ## References
 
 - **NVIDIA Isaac GR00T N1.5**: For more information on the GR00T N1.5 foundation model, refer to [Isaac-GR00T](https://github.com/NVIDIA/Isaac-GR00T).

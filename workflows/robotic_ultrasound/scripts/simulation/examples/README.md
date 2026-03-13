@@ -12,11 +12,10 @@ python -m simulation.examples.ultrasound_raytracing
 ```
 
 **Expected Behavior:**
+
 - Terminal messages showing the progress of the simulation, e.g. `[info] Timing Simulation took 1.389568 ms`.
 
-
 To visualize the ultrasound images, please check out the [Visualization Utility](../../utils/README.md), but it's not recommended to use it without [moving the probe with robotic arm](../../../README.md#policy--ultrasound-simulation), which receives `topic_ultrasound_info` from the scripts such as [sim_with_dds.py](../environments/sim_with_dds.py) or [Tele-op](../environments/teleoperation/teleop_se3_agent.py).
-
 
 ## Configuration
 
@@ -47,7 +46,7 @@ Optionally, the simulator supports customization through JSON configuration file
 ### Probe Parameters
 
 | Parameter | Description | Default Value |
-|-----------|-------------|---------------|
+| ----------- | ------------- | --------------- |
 | num_elements | Number of elements in the ultrasound probe | 256 |
 | sector_angle | Beam sector angle in degrees | 73.0 |
 | radius | Radius of the ultrasound probe in mm | 45.0 |
@@ -61,7 +60,7 @@ Optionally, the simulator supports customization through JSON configuration file
 ### Simulation Parameters
 
 | Parameter | Description | Default Value |
-|-----------|-------------|---------------|
+| ----------- | ------------- | --------------- |
 | conv_psf | Whether to use convolution point spread function | true |
 | buffer_size | Size of the simulation buffer | 4096 |
 | t_far | Maximum time/distance for ray tracing (in units relevant to the simulation) | 180.0 |
@@ -86,7 +85,7 @@ You only need to specify the parameters you want to change - any omitted paramet
 ## Command Line Arguments
 
 | Argument | Description | Default Value |
-|----------|-------------|---------------|
+| ---------- | ------------- | --------------- |
 | --domain_id | Domain ID for DDS communication | 0 |
 | --height | Input image height | 224 |
 | --width | Input image width | 224 |
