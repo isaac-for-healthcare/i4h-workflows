@@ -445,7 +445,7 @@ After fine-tuning or reinforcement learning, you can evaluate the success rate o
 
 ### SimReady Assets
 
-The SimReady Assets in this workflow are powered by [LightWheel](https://lightwheel.ai/). Please refer to the [Isaac for Healthcare Asset Catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog) for details.
+The SimReady Assets in this workflow are powered by [Lightwheel](https://lightwheel.ai/). Please refer to the [Isaac for Healthcare Asset Catalog](https://github.com/isaac-for-healthcare/i4h-asset-catalog) for details.
 
 ### RL Training Framework
 
