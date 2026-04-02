@@ -17,7 +17,7 @@ ASSET_PATH = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/As
 
 # Scenes
 MAIN_BACKGROUND_USD = ASSET_PATH + "Props/Rheo/main_new_light.usd"
-TROCAR_ASSEMBLY_SCENE_USD = ASSET_PATH + "Props/Lightwheel/scene03.usd"
+TROCAR_ASSEMBLY_SCENE_USD = ASSET_PATH + "Props/LightWheel/scene03.usd"
 
 # Robots
 UNITREE_G1_29DOF_BASE_FIX_USD = (
@@ -32,19 +32,19 @@ SCISSORS_USD = ASSET_PATH + "Props/SurgicalInstruments/SurgicalScissors.usd"
 # Please be noted that these assets are under Attribution-NonCommercial 4.0 International License.
 # Check the license details by replacing the usd file base name with "LICENSE.txt"
 
-PLATE_USD = ASSET_PATH + "Props/Lightwheel/Assets/Plate001/plate001.usd"
-TROCAR_USD = ASSET_PATH + "Props/Lightwheel/Assets/Trocar002/Trocar002.usd"
-TROCAR_XFORM_WO_USD = ASSET_PATH + "Props/Lightwheel/Assets/Trocar002/Trocar002-xform-wo.usd"
-NEEDLE_USD = ASSET_PATH + "Props/Lightwheel/Assets/PneumoperitoneumNeedle001/PneumoperitoneumNeedle001.usd"
-PUNCTURE_DEVICE_USD = ASSET_PATH + "Props/Lightwheel/Assets/PunctureDevice002/PunctureDevice002.usd"
+PLATE_USD = ASSET_PATH + "Props/LightWheel/Assets/Plate001/plate001.usd"
+TROCAR_USD = ASSET_PATH + "Props/LightWheel/Assets/Trocar002/Trocar002.usd"
+TROCAR_XFORM_WO_USD = ASSET_PATH + "Props/LightWheel/Assets/Trocar002/Trocar002-xform-wo.usd"
+NEEDLE_USD = ASSET_PATH + "Props/LightWheel/Assets/PneumoperitoneumNeedle001/PneumoperitoneumNeedle001.usd"
+PUNCTURE_DEVICE_USD = ASSET_PATH + "Props/LightWheel/Assets/PunctureDevice002/PunctureDevice002.usd"
 PUNCTURE_DEVICE_XFORM_USD = (
     ASSET_PATH
-    + "Props/Lightwheel/Assets/DisposableLaparoscopicPunctureDevice001/DisposableLaparoscopicPunctureDevice005-xform.usd"  # noqa: E501
+    + "Props/LightWheel/Assets/DisposableLaparoscopicPunctureDevice001/DisposableLaparoscopicPunctureDevice005-xform.usd"  # noqa: E501
 )
-TUBE_USD = ASSET_PATH + "Props/Lightwheel/Assets/DrainageTube002/DrainageTube003.usd"
+TUBE_USD = ASSET_PATH + "Props/LightWheel/Assets/DrainageTube002/DrainageTube003.usd"
 
-TWEEZERS_USD = ASSET_PATH + "Props/Lightwheel/Assets/SurgicalTweezers/AngledTweezers001.usd"
-TRAY_USD = ASSET_PATH + "Props/Lightwheel/Assets/SurgicalTray006/SurgicalTray006.usd"
-TRAY_NO_LID_USD = ASSET_PATH + "Props/Lightwheel/Assets/SurgicalTrayNoLid006/SurgicalTrayNoLid006.usd"
-TRAY_TROCAR_ASSEMBLY_USD = ASSET_PATH + "Props/Lightwheel/Assets/SurgicalTray001/SurgicalTray001.usd"
-CART_USD = ASSET_PATH + "Props/Lightwheel/Assets/Cart003/Cart003.usd"
+TWEEZERS_USD = ASSET_PATH + "Props/LightWheel/Assets/SurgicalTweezers/AngledTweezers001.usd"
+TRAY_USD = ASSET_PATH + "Props/LightWheel/Assets/SurgicalTray006/SurgicalTray006.usd"
+TRAY_NO_LID_USD = ASSET_PATH + "Props/LightWheel/Assets/SurgicalTrayNoLid006/SurgicalTrayNoLid006.usd"
+TRAY_TROCAR_ASSEMBLY_USD = ASSET_PATH + "Props/LightWheel/Assets/SurgicalTray001/SurgicalTray001.usd"
+CART_USD = ASSET_PATH + "Props/LightWheel/Assets/Cart003/Cart003.usd"
