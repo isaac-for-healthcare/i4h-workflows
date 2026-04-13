@@ -53,7 +53,7 @@ class TrocarG1MotionControllerGripperRetargeterCfg(G1TriHandUpperBodyMotionContr
 
 
 class TableclothG1MotionControllerGripperRetargeter(G1TriHandUpperBodyMotionControllerGripperRetargeter):
-    """Use neutral wrist orientation targets for tablecloth teleoperation."""
+    """Retarget tablecloth teleop while preserving controller wrist rotation."""
 
     def retarget(self, data: dict) -> torch.Tensor:
         left_controller_data = data.get(DeviceBase.TrackingTarget.CONTROLLER_LEFT, np.array([]))
@@ -82,12 +82,11 @@ class TableclothG1MotionControllerGripperRetargeter(G1TriHandUpperBodyMotionCont
         return torch.cat([gripper_tensor, left_wrist_tensor, right_wrist_tensor])
 
     def _retarget_abs(self, wrist: np.ndarray) -> np.ndarray:
-        # For tablecloth teleop, position accuracy matters more than wrist pose.
-        # Keep the controller position directly and use an identity wrist target
-        # in wxyz order so the IK is not forced into a bad orientation.
-        wrist_pos = wrist[:3].astype(np.float32, copy=True)
-        wrist_quat_wxyz = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32)
-        return np.concatenate([wrist_pos, wrist_quat_wxyz])
+        # The upstream OpenXR/IsaacLab path now uses xyzw quaternions, while the
+        # legacy G1 WBC action pipeline still expects wrist actions in wxyz.
+        retargeted_wrist = super()._retarget_abs(wrist).copy()
+        retargeted_wrist[3:] = np.roll(retargeted_wrist[3:], 1)
+        return retargeted_wrist
 
 
 @dataclass

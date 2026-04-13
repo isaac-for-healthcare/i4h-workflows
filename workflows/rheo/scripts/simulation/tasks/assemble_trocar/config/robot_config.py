@@ -82,6 +82,38 @@ DEFAULT_JOINT_POS: Dict[str, float] = {
     "right_hand_middle_1_joint": 40.0 * np.pi / 180.0,
     "right_hand_thumb_1_joint": 0.0,
     "right_hand_thumb_2_joint": 0.0,
+
+    # # arms
+    # "left_shoulder_pitch_joint": 0.0,
+    # "left_shoulder_roll_joint": 0.0,
+    # "left_shoulder_yaw_joint": 0.0,
+    # "left_elbow_joint": 0.0,
+    # "left_wrist_roll_joint": 0.0,
+    # "left_wrist_pitch_joint": 0.0,
+    # "left_wrist_yaw_joint": 0.0,
+    # "right_shoulder_pitch_joint": 0.0,
+    # "right_shoulder_roll_joint": 0.0,
+    # "right_shoulder_yaw_joint": 0.0,
+    # "right_elbow_joint": 0.0,
+    # "right_wrist_roll_joint": 0.0,
+    # "right_wrist_pitch_joint": 0.0,
+    # "right_wrist_yaw_joint": 0.0,
+    # # dex3 hands (left)
+    # "left_hand_index_0_joint": 0,
+    # "left_hand_middle_0_joint": 0,
+    # "left_hand_thumb_0_joint": 0.0,
+    # "left_hand_index_1_joint": 0,
+    # "left_hand_middle_1_joint": 0,
+    # "left_hand_thumb_1_joint": 0.0,
+    # "left_hand_thumb_2_joint": 0.0,
+    # # dex3 hands (right)
+    # "right_hand_index_0_joint": 0,
+    # "right_hand_middle_0_joint": 0,
+    # "right_hand_thumb_0_joint": 0.0,
+    # "right_hand_index_1_joint": 0,
+    # "right_hand_middle_1_joint": 0,
+    # "right_hand_thumb_1_joint": 0.0,
+    # "right_hand_thumb_2_joint": 0.0,
 }
 
 

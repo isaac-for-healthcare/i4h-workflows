@@ -9,8 +9,12 @@ from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_action import G1
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.action_constants import (
     LEFT_WRIST_POS_END_IDX,
     LEFT_WRIST_POS_START_IDX,
+    LEFT_WRIST_QUAT_END_IDX,
+    LEFT_WRIST_QUAT_START_IDX,
     RIGHT_WRIST_POS_END_IDX,
     RIGHT_WRIST_POS_START_IDX,
+    RIGHT_WRIST_QUAT_END_IDX,
+    RIGHT_WRIST_QUAT_START_IDX,
 )
 from teleop_devices.motion_controllers import MotionControllersTeleopDevice
 
@@ -58,6 +62,13 @@ class G1SpreadTableclothFixedLegsWBCPinkAction(G1DecoupledWBCPinkAction):
 
         left_wrist_pos_w = actions_fixed[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX]
         right_wrist_pos_w = actions_fixed[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX]
+        left_wrist_quat_w = actions_fixed[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX]
+        right_wrist_quat_w = actions_fixed[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX]
+
+        # The G1 WBC action buffer still stores wrist quaternions as wxyz, but
+        # IsaacLab quaternion math utilities now operate on xyzw.
+        left_wrist_quat_w_xyzw = math_utils.convert_quat(left_wrist_quat_w, to="xyzw")
+        right_wrist_quat_w_xyzw = math_utils.convert_quat(right_wrist_quat_w, to="xyzw")
 
         actions_fixed[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX] = math_utils.quat_apply_inverse(
             root_quat_w,
@@ -66,6 +77,20 @@ class G1SpreadTableclothFixedLegsWBCPinkAction(G1DecoupledWBCPinkAction):
         actions_fixed[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX] = math_utils.quat_apply_inverse(
             root_quat_w,
             right_wrist_pos_w - root_pos_w,
+        )
+        left_wrist_quat_b_xyzw = math_utils.quat_mul(
+            math_utils.quat_inv(root_quat_w),
+            left_wrist_quat_w_xyzw,
+        )
+        right_wrist_quat_b_xyzw = math_utils.quat_mul(
+            math_utils.quat_inv(root_quat_w),
+            right_wrist_quat_w_xyzw,
+        )
+        actions_fixed[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX] = math_utils.convert_quat(
+            left_wrist_quat_b_xyzw, to="wxyz"
+        )
+        actions_fixed[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX] = math_utils.convert_quat(
+            right_wrist_quat_b_xyzw, to="wxyz"
         )
 
         nav_start = -self.navigate_cmd_dim - self.base_height_cmd_dim - self.torso_orientation_rpy_cmd_dim

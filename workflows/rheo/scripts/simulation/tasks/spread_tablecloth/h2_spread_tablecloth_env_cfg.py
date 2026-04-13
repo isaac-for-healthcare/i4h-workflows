@@ -33,11 +33,16 @@ from simulation.tasks.spread_tablecloth.config import G1RobotPresets, CameraPres
 
 
 TABLE_USD_PATH = (
-    "/workspaces/surgery-room-dev-internal/assets/Assets/Assets/Table256/Table256.usd"
+    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Table256/Table256.usd"
 )
 TABLECLOTH_USD_PATH = (
-    "/workspaces/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold/Cloth_Out_Test.usd"
+    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold/Cloth_Out_Test.usd"
 )
+TABLE_POS = (-0.50, 0.0, 0.385*0.9)
+TABLE_ROT = (0.0, 0.0, 0.7071, 0.7071)
+TABLE_SCALE = (0.6, 0.6, 0.9)
+TABLE_TOP_SIZE = (1.2, 0.6, 0.04)
+TABLE_TOP_POS = (-0.50, 0.0, 0.78*0.9)
 
 # G1 29 DOF body + Dex3 hands.
 joint_names = [
@@ -96,39 +101,62 @@ class SpreadTableclothSceneCfg(InteractiveSceneCfg):
     )
 
     robot: ArticulationCfg = G1RobotPresets.g1_29dof_dex3_base_fix(
-        init_pos=(-0.85, 0.0, 0.80), init_rot=(0.0, 0.0, 0.0, 1.0)
+        init_pos=(-0.95, 0.0, 0.80), init_rot=(0.0, 0.0, 0.0, 1.0)
     )
 
     front_camera = CameraPresets.g1_front_camera(focal_length=10.5)
 
     table = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Table",
-        init_state=AssetBaseCfg.InitialStateCfg(pos=(-0.40, 0.0, 0.385), rot=(0.0, 0.0, 0.7071, 0.7071)),
+        init_state=AssetBaseCfg.InitialStateCfg(pos=TABLE_POS, rot=TABLE_ROT),
         spawn=sim_utils.UsdFileCfg(
             usd_path=TABLE_USD_PATH,
-            scale=(1.0, 1.0, 1.1),
+            scale=TABLE_SCALE,
+            # The table USD ships with convex mesh colliders that are not
+            # compatible with GPU cloth contact, so keep it visual-only.
+            collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=False),
+        ),
+    )
+    table_top_collider = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/TableTopCollider",
+        init_state=AssetBaseCfg.InitialStateCfg(pos=TABLE_TOP_POS, rot=TABLE_ROT),
+        spawn=sim_utils.CuboidCfg(
+            size=TABLE_TOP_SIZE,
+            collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=True),
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.55, 0.55, 0.55),
+            ),
         ),
     )
 
-    tablecloth = DeformableObjectCfg(
+    tablecloth: DeformableObjectCfg = DeformableObjectCfg(
         prim_path="{ENV_REGEX_NS}/Tablecloth",
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=(-0.45, 0.0, 0.85),
-            rot=(0.0, 0.0, 1.0, 0.0),
+            pos=(-0.65, 0.0, 0.72),
+            rot=(0.0, 0.0, 0.0, 1.0),
         ),
         spawn=sim_utils.UsdFileCfg(
-                usd_path=TABLECLOTH_USD_PATH,
-                # deformable_props=DeformableBodyPropertiesCfg(disable_gravity=False),
-                physics_material=SurfaceDeformableBodyMaterialCfg(
-                    density=100.0,
-                    youngs_modulus=1e4,
-                    poissons_ratio=0.4,
-                    surface_stretch_stiffness=1.0,
-                    surface_shear_stiffness=1.0,
-                    surface_bend_stiffness=0.01,
-                ),
+            usd_path=TABLECLOTH_USD_PATH,
+            # deformable_props=DeformableBodyPropertiesCfg(disable_gravity=False),
+            physics_material=SurfaceDeformableBodyMaterialCfg(
+                density=100.0,
+                youngs_modulus=5e5,
+                poissons_ratio=0.1,
+                surface_stretch_stiffness=1.0,
+                surface_shear_stiffness=5000,
+                surface_bend_stiffness=1,
+            ),
         ),
     )
+
+    # tablecloth = AssetBaseCfg(
+    #     prim_path="{ENV_REGEX_NS}/Tablecloth",
+    #     init_state=AssetBaseCfg.InitialStateCfg(
+    #         pos=(-0.65, 0.0, 2.20),
+    #         rot=(0.0, 0.0, 1.0, 0.0),
+    #     ),
+    #     spawn=sim_utils.UsdFileCfg(usd_path=TABLECLOTH_USD_PATH),
+    # )
 
     light = AssetBaseCfg(
         prim_path="/World/light",
