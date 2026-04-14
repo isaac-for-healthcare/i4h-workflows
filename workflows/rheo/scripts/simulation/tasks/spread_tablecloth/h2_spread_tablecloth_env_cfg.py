@@ -36,7 +36,10 @@ TABLE_USD_PATH = (
     "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Table256/Table256.usd"
 )
 TABLECLOTH_USD_PATH = (
-    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold/Cloth_Out_Test.usd"
+    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold02/Cloth_fold02.usd"
+)
+SCENE_USD_PATH = (
+    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/scene05.usd"
 )
 TABLE_POS = (-0.50, 0.0, 0.385*0.9)
 TABLE_ROT = (0.0, 0.0, 0.7071, 0.7071)
@@ -95,44 +98,57 @@ joint_names = [
 class SpreadTableclothSceneCfg(InteractiveSceneCfg):
     """Scene configuration for the spread_tablecloth task (G1 robot + table + lights)."""
 
-    ground = AssetBaseCfg(
-        prim_path="/World/GroundPlane",
-        spawn=sim_utils.GroundPlaneCfg(),
-    )
-
     robot: ArticulationCfg = G1RobotPresets.g1_29dof_dex3_base_fix(
         init_pos=(-0.95, 0.0, 0.80), init_rot=(0.0, 0.0, 0.0, 1.0)
     )
 
     front_camera = CameraPresets.g1_front_camera(focal_length=10.5)
 
-    table = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/Table",
-        init_state=AssetBaseCfg.InitialStateCfg(pos=TABLE_POS, rot=TABLE_ROT),
+    scene = AssetBaseCfg(
+        prim_path="/World/envs/env_.*/Scene",
         spawn=sim_utils.UsdFileCfg(
-            usd_path=TABLE_USD_PATH,
-            scale=TABLE_SCALE,
-            # The table USD ships with convex mesh colliders that are not
-            # compatible with GPU cloth contact, so keep it visual-only.
-            collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=False),
+            usd_path=SCENE_USD_PATH,
+        ),
+        init_state=AssetBaseCfg.InitialStateCfg(
+            pos=(0.9, -2.5, 0.0),
+            rot=(0.0, 0.0, 0.0, 1.0),
         ),
     )
-    table_top_collider = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/TableTopCollider",
-        init_state=AssetBaseCfg.InitialStateCfg(pos=TABLE_TOP_POS, rot=TABLE_ROT),
-        spawn=sim_utils.CuboidCfg(
-            size=TABLE_TOP_SIZE,
-            collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=True),
-            visual_material=sim_utils.PreviewSurfaceCfg(
-                diffuse_color=(0.55, 0.55, 0.55),
-            ),
-        ),
-    )
+
+
+    # ground = AssetBaseCfg(
+    #     prim_path="/World/GroundPlane",
+    #     spawn=sim_utils.GroundPlaneCfg(),
+    # )
+
+    # table = AssetBaseCfg(
+    #     prim_path="{ENV_REGEX_NS}/Table",
+    #     init_state=AssetBaseCfg.InitialStateCfg(pos=TABLE_POS, rot=TABLE_ROT),
+    #     spawn=sim_utils.UsdFileCfg(
+    #         usd_path=TABLE_USD_PATH,
+    #         scale=TABLE_SCALE,
+    #         # The table USD ships with convex mesh colliders that are not
+    #         # compatible with GPU cloth contact, so keep it visual-only.
+    #         collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=False),
+    #     ),
+    # )
+    # table_top_collider = AssetBaseCfg(
+    #     prim_path="{ENV_REGEX_NS}/TableTopCollider",
+    #     init_state=AssetBaseCfg.InitialStateCfg(pos=TABLE_TOP_POS, rot=TABLE_ROT),
+    #     spawn=sim_utils.CuboidCfg(
+    #         size=TABLE_TOP_SIZE,
+    #         collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=True),
+    #         visual_material=sim_utils.PreviewSurfaceCfg(
+    #             diffuse_color=(0.55, 0.55, 0.55),
+    #         ),
+    #     ),
+    # )
+
 
     tablecloth: DeformableObjectCfg = DeformableObjectCfg(
         prim_path="{ENV_REGEX_NS}/Tablecloth",
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=(-0.65, 0.0, 0.72),
+            pos=(-0.65, 0.0, 0.81),
             rot=(0.0, 0.0, 0.0, 1.0),
         ),
         spawn=sim_utils.UsdFileCfg(
@@ -255,9 +271,12 @@ class G1SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
         """Post initialization."""
         self.decimation = 4
         self.episode_length_s = 30.0
-        self.sim.dt = 1 / 200
+        self.sim.dt = 1 / 120
         self.sim.render_interval = self.decimation
-        self.sim.physics = PhysxCfg(bounce_threshold_velocity=0.01)
+        self.sim.physics = PhysxCfg(
+            bounce_threshold_velocity=0.01,
+            gpu_max_deformable_surface_contacts=2**23,
+        )
 
 
 # Backward-compatible alias for any old imports.

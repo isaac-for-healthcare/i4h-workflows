@@ -1,155 +1,169 @@
-import isaaclab.utils.math as math_utils
-from isaaclab.devices.openxr.xr_cfg import XrAnchorRotationMode, XrCfg
-from isaaclab.managers import EventTermCfg
-from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
-from isaaclab.utils import configclass
-from isaaclab.utils.array import convert_to_torch
-from isaaclab_arena_g1.g1_env.mdp import g1_events as g1_events_mdp
-from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_action import G1DecoupledWBCPinkAction
-from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.action_constants import (
-    LEFT_WRIST_POS_END_IDX,
-    LEFT_WRIST_POS_START_IDX,
-    LEFT_WRIST_QUAT_END_IDX,
-    LEFT_WRIST_QUAT_START_IDX,
-    RIGHT_WRIST_POS_END_IDX,
-    RIGHT_WRIST_POS_START_IDX,
-    RIGHT_WRIST_QUAT_END_IDX,
-    RIGHT_WRIST_QUAT_START_IDX,
-)
-from teleop_devices.motion_controllers import MotionControllersTeleopDevice
+import tempfile
 
-from isaaclab_arena_g1.g1_env.mdp.actions.g1_decoupled_wbc_pink_action_cfg import (  # isort: skip
-    G1DecoupledWBCPinkActionCfg,
-)
+from isaaclab.actuators import ImplicitActuatorCfg
+from isaaclab.assets import ArticulationCfg
+from isaaclab.controllers.pink_ik import FrameTaskCfg, NullSpacePostureTaskCfg, PinkIKControllerCfg
+from isaaclab.devices.openxr.xr_cfg import XrAnchorRotationMode, XrCfg
+from isaaclab.envs.mdp.actions.pink_actions_cfg import PinkInverseKinematicsActionCfg
+from isaaclab.managers import ActionTermCfg
+from isaaclab.utils import configclass
+from isaaclab_assets.robots.unitree import G1_INSPIRE_FTP_CFG
 
 from .h2_spread_tablecloth_env_cfg import G1SpreadTableclothEnvCfg
 
-
-class G1SpreadTableclothFixedLegsWBCPinkAction(G1DecoupledWBCPinkAction):
-    """Spread-tablecloth teleop action with lower body fixed in a standing pose."""
-
-    _FIXED_LEG_WAIST_JOINTS = (
-        "left_hip_pitch_joint",
-        "left_hip_roll_joint",
-        "left_hip_yaw_joint",
-        "left_knee_joint",
-        "left_ankle_pitch_joint",
-        "left_ankle_roll_joint",
-        "right_hip_pitch_joint",
-        "right_hip_roll_joint",
-        "right_hip_yaw_joint",
-        "right_knee_joint",
-        "right_ankle_pitch_joint",
-        "right_ankle_roll_joint",
-        "waist_yaw_joint",
-        "waist_roll_joint",
-        "waist_pitch_joint",
-    )
-    _FIXED_BASE_HEIGHT_CMD = 0.765
-
-    def __init__(self, cfg, env):
-        super().__init__(cfg, env)
-        joint_names = self._asset.data.joint_names
-        self._fixed_leg_waist_joint_ids = [joint_names.index(name) for name in self._FIXED_LEG_WAIST_JOINTS]
-
-    def process_actions(self, actions):
-        actions_fixed = actions.clone()
-
-        # Convert XR wrist positions from world frame into the robot root frame
-        # expected by the upper-body PINK IK controller.
-        root_pos_w = convert_to_torch(self._asset.data.root_link_pos_w, device=self.device)
-        root_quat_w = convert_to_torch(self._asset.data.root_link_quat_w, device=self.device)
-
-        left_wrist_pos_w = actions_fixed[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX]
-        right_wrist_pos_w = actions_fixed[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX]
-        left_wrist_quat_w = actions_fixed[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX]
-        right_wrist_quat_w = actions_fixed[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX]
-
-        # The G1 WBC action buffer still stores wrist quaternions as wxyz, but
-        # IsaacLab quaternion math utilities now operate on xyzw.
-        left_wrist_quat_w_xyzw = math_utils.convert_quat(left_wrist_quat_w, to="xyzw")
-        right_wrist_quat_w_xyzw = math_utils.convert_quat(right_wrist_quat_w, to="xyzw")
-
-        actions_fixed[:, LEFT_WRIST_POS_START_IDX:LEFT_WRIST_POS_END_IDX] = math_utils.quat_apply_inverse(
-            root_quat_w,
-            left_wrist_pos_w - root_pos_w,
-        )
-        actions_fixed[:, RIGHT_WRIST_POS_START_IDX:RIGHT_WRIST_POS_END_IDX] = math_utils.quat_apply_inverse(
-            root_quat_w,
-            right_wrist_pos_w - root_pos_w,
-        )
-        left_wrist_quat_b_xyzw = math_utils.quat_mul(
-            math_utils.quat_inv(root_quat_w),
-            left_wrist_quat_w_xyzw,
-        )
-        right_wrist_quat_b_xyzw = math_utils.quat_mul(
-            math_utils.quat_inv(root_quat_w),
-            right_wrist_quat_w_xyzw,
-        )
-        actions_fixed[:, LEFT_WRIST_QUAT_START_IDX:LEFT_WRIST_QUAT_END_IDX] = math_utils.convert_quat(
-            left_wrist_quat_b_xyzw, to="wxyz"
-        )
-        actions_fixed[:, RIGHT_WRIST_QUAT_START_IDX:RIGHT_WRIST_QUAT_END_IDX] = math_utils.convert_quat(
-            right_wrist_quat_b_xyzw, to="wxyz"
-        )
-
-        nav_start = -self.navigate_cmd_dim - self.base_height_cmd_dim - self.torso_orientation_rpy_cmd_dim
-        nav_end = -self.base_height_cmd_dim - self.torso_orientation_rpy_cmd_dim
-        base_start = -self.base_height_cmd_dim - self.torso_orientation_rpy_cmd_dim
-        base_end = -self.torso_orientation_rpy_cmd_dim
-        torso_start = -self.torso_orientation_rpy_cmd_dim
-
-        actions_fixed[:, nav_start:nav_end] = 0.0
-        actions_fixed[:, base_start:base_end] = self._FIXED_BASE_HEIGHT_CMD
-        actions_fixed[:, torso_start:] = 0.0
-
-        super().process_actions(actions_fixed)
-        self._processed_actions[:, self._fixed_leg_waist_joint_ids] = 0.0
-
-
-@configclass
-class G1SpreadTableclothFixedLegsWBCPinkActionCfg(G1DecoupledWBCPinkActionCfg):
-    """Config for spread-tablecloth teleop action with fixed lower body."""
-
-    class_type: type[ActionTerm] = G1SpreadTableclothFixedLegsWBCPinkAction
+INSPIRE_HAND_JOINT_NAMES = [
+    "L_index_proximal_joint",
+    "L_middle_proximal_joint",
+    "L_pinky_proximal_joint",
+    "L_ring_proximal_joint",
+    "L_thumb_proximal_yaw_joint",
+    "R_index_proximal_joint",
+    "R_middle_proximal_joint",
+    "R_pinky_proximal_joint",
+    "R_ring_proximal_joint",
+    "R_thumb_proximal_yaw_joint",
+    "L_index_intermediate_joint",
+    "L_middle_intermediate_joint",
+    "L_pinky_intermediate_joint",
+    "L_ring_intermediate_joint",
+    "L_thumb_proximal_pitch_joint",
+    "R_index_intermediate_joint",
+    "R_middle_intermediate_joint",
+    "R_pinky_intermediate_joint",
+    "R_ring_intermediate_joint",
+    "R_thumb_proximal_pitch_joint",
+    "L_thumb_intermediate_joint",
+    "R_thumb_intermediate_joint",
+    "L_thumb_distal_joint",
+    "R_thumb_distal_joint",
+]
 
 
 @configclass
 class TeleopActionsCfg:
-    """23-D WBC+PINK action for Meta Quest teleoperation."""
+    """38-D PINK IK action for Meta Quest teleoperation with Inspire hand."""
 
-    g1_action: ActionTermCfg = G1SpreadTableclothFixedLegsWBCPinkActionCfg(asset_name="robot", joint_names=[".*"])
+    pink_ik_cfg: ActionTermCfg = PinkInverseKinematicsActionCfg(
+        pink_controlled_joint_names=[
+            ".*_shoulder_pitch_joint",
+            ".*_shoulder_roll_joint",
+            ".*_shoulder_yaw_joint",
+            ".*_elbow_joint",
+            ".*_wrist_yaw_joint",
+            ".*_wrist_roll_joint",
+            ".*_wrist_pitch_joint",
+        ],
+        hand_joint_names=INSPIRE_HAND_JOINT_NAMES,
+        target_eef_link_names={
+            "left_wrist": "left_wrist_yaw_link",
+            "right_wrist": "right_wrist_yaw_link",
+        },
+        asset_name="robot",
+        controller=PinkIKControllerCfg(
+            articulation_name="robot",
+            base_link_name="pelvis",
+            num_hand_joints=24,
+            show_ik_warnings=True,
+            fail_on_joint_limit_violation=False,
+            variable_input_tasks=[
+                FrameTaskCfg(
+                    frame="g1_29dof_rev_1_0_left_wrist_yaw_link",
+                    position_cost=8.0,
+                    orientation_cost=2.0,
+                    lm_damping=10,
+                    gain=0.5,
+                ),
+                FrameTaskCfg(
+                    frame="g1_29dof_rev_1_0_right_wrist_yaw_link",
+                    position_cost=8.0,
+                    orientation_cost=2.0,
+                    lm_damping=10,
+                    gain=0.5,
+                ),
+                NullSpacePostureTaskCfg(
+                    cost=0.5,
+                    lm_damping=1,
+                    controlled_frames=[
+                        "g1_29dof_rev_1_0_left_wrist_yaw_link",
+                        "g1_29dof_rev_1_0_right_wrist_yaw_link",
+                    ],
+                    controlled_joints=[
+                        "left_shoulder_pitch_joint",
+                        "left_shoulder_roll_joint",
+                        "left_shoulder_yaw_joint",
+                        "right_shoulder_pitch_joint",
+                        "right_shoulder_roll_joint",
+                        "right_shoulder_yaw_joint",
+                        "waist_yaw_joint",
+                        "waist_pitch_joint",
+                        "waist_roll_joint",
+                    ],
+                    gain=0.3,
+                ),
+            ],
+            fixed_input_tasks=[],
+        ),
+        enable_gravity_compensation=False,
+    )
 
 
 @configclass
 class G1SpreadTableclothTeleopEnvCfg(G1SpreadTableclothEnvCfg):
-    """Meta Quest teleoperation variant of the spread-tablecloth environment."""
+    """Meta Quest teleoperation variant with G1 29DOF + Inspire hand.
+
+    Uses PINK IK for arm control and direct trigger-based Inspire hand open/close.
+    """
 
     actions: TeleopActionsCfg = TeleopActionsCfg()
 
     xr: XrCfg = XrCfg(
         anchor_pos=(0.0, 0.0, -1.0),
-        anchor_rot=(0.70711, 0.0, 0.0, -0.70711),
+        anchor_rot=(0.0, 0.0, 0.0, 1.0),
     )
 
     def __post_init__(self):
         super().__post_init__()
 
+        self.scene.robot = G1_INSPIRE_FTP_CFG.replace(
+            prim_path="/World/envs/env_.*/Robot",
+            init_state=ArticulationCfg.InitialStateCfg(
+                pos=(-0.95, 0.0, 0.80),
+                rot=(0.0, 0.0, 0.0, 1.0),
+                joint_pos={
+                    ".*_hip_pitch_joint": -0.05,
+                    ".*_knee_joint": 0.2,
+                    ".*_ankle_pitch_joint": -0.15,
+                    "waist_.*": 0.0,
+                    ".*_shoulder_pitch_joint": 0.0,
+                    ".*_shoulder_roll_joint": 0.0,
+                    ".*_shoulder_yaw_joint": 0.0,
+                    ".*_elbow_joint": -0.3,
+                    ".*_wrist_.*_joint": 0.0,
+                    ".*_thumb_.*": 0.0,
+                    ".*_index_.*": 0.0,
+                    ".*_middle_.*": 0.0,
+                    ".*_ring_.*": 0.0,
+                    ".*_pinky_.*": 0.0,
+                },
+                joint_vel={".*": 0.0},
+            ),
+        )
+
+        # Lock waist with very high stiffness to prevent shaking
+        self.scene.robot.actuators["waist"] = ImplicitActuatorCfg(
+            joint_names_expr=["waist_.*_joint"],
+            effort_limit=1000.0,
+            velocity_limit=0.0,
+            stiffness=10000.0,
+            damping=10000.0,
+        )
+
         self.sim.render_interval = 2
         self.episode_length_s = 300.0
 
-        self.events.reset_wbc_policy = EventTermCfg(
-            func=g1_events_mdp.reset_decoupled_wbc_pink_policy,
-            mode="reset",
-        )
+        self.actions.pink_ik_cfg.controller.usd_path = self.scene.robot.spawn.usd_path
+        self.actions.pink_ik_cfg.controller.urdf_output_dir = tempfile.gettempdir()
 
         self.xr.anchor_prim_path = "/World/envs/env_0/Robot/pelvis"
         self.xr.fixed_anchor_height = True
         self.xr.anchor_rotation_mode = XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED
-
-        mc = MotionControllersTeleopDevice(sim_device=self.sim.device)
-        self.teleop_devices = mc.get_teleop_device_cfg(
-            xr_cfg=self.xr,
-            use_trocar_retargeter=False,
-            use_tablecloth_retargeter=True,
-        )
