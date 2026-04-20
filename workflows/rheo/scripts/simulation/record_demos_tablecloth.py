@@ -510,7 +510,28 @@ def main() -> None:
         print("[XR] Reset requested")
 
     keyboard_controls = KeyboardControls()
-    teleop_interface = DirectOpenXRPinkIKDevice(getattr(env_cfg, "xr", None), sim_device=args_cli.device)
+
+    use_isaac_teleop = hasattr(env_cfg, "isaac_teleop") and env_cfg.isaac_teleop is not None
+    isaac_teleop_device = None
+
+    if use_isaac_teleop:
+        from isaaclab_teleop import create_isaac_teleop_device
+
+        teleop_callbacks = {
+            "START": request_start,
+            "STOP": request_save,
+            "RESET": request_reset,
+        }
+        isaac_teleop_device = create_isaac_teleop_device(
+            env_cfg.isaac_teleop,
+            sim_device=args_cli.device,
+            callbacks=teleop_callbacks,
+        )
+        teleop_interface = None
+        print("[TELEOP] Using IsaacTeleop pipeline (AVP hand tracking)")
+    else:
+        teleop_interface = DirectOpenXRPinkIKDevice(getattr(env_cfg, "xr", None), sim_device=args_cli.device)
+        print("[TELEOP] Using DirectOpenXR pipeline (Quest controllers)")
 
     target = args_cli.num_demos if args_cli.num_demos > 0 else "\u221e"
     label_text = f"Ready. Left X or keyboard B to start demo 1/{target}"
@@ -522,14 +543,20 @@ def main() -> None:
             subtask_label = ui.Label("")
             instruction_display.set_labels(subtask_label, demo_label)
 
-    try:
+    def _run_loop():
+        nonlocal start_requested, save_requested, reset_requested
+        nonlocal teleop_active, recording_active, current_demo_count
+
         last_no_action_log_time = 0.0
         first_action_logged = False
         zero_action_logged = False
 
         def reset_teleop():
             nonlocal first_action_logged, zero_action_logged
-            teleop_interface.reset()
+            if isaac_teleop_device is not None:
+                isaac_teleop_device.reset()
+            if teleop_interface is not None:
+                teleop_interface.reset()
             first_action_logged = False
             zero_action_logged = False
 
@@ -558,8 +585,11 @@ def main() -> None:
                 if keyboard_controls.consume_reset():
                     request_reset()
 
-                action = teleop_interface.advance()
-                teleop_interface.poll_buttons(request_start, request_save, request_reset)
+                if isaac_teleop_device is not None:
+                    action = isaac_teleop_device.advance()
+                else:
+                    action = teleop_interface.advance()
+                    teleop_interface.poll_buttons(request_start, request_save, request_reset)
 
                 if start_requested:
                     start_requested = False
@@ -575,11 +605,11 @@ def main() -> None:
                 if teleop_active and action is None:
                     now = time.time()
                     if now - last_no_action_log_time > 2.0:
-                        left_seen, right_seen = teleop_interface.controller_presence()
-                        print(
-                            "[XR] Waiting for teleop action: "
-                            f"left_controller={left_seen} right_controller={right_seen}"
-                        )
+                        if teleop_interface is not None:
+                            left_seen, right_seen = teleop_interface.controller_presence()
+                            print(f"[XR] Waiting for teleop action: left_controller={left_seen} right_controller={right_seen}")
+                        else:
+                            print("[XR] Waiting for IsaacTeleop action (start AR and connect headset)")
                         last_no_action_log_time = now
 
                 if teleop_active and action is not None and not first_action_logged:
@@ -611,20 +641,7 @@ def main() -> None:
                     elif action.shape[0] > expected_dim:
                         action = action[:expected_dim]
 
-                    if teleop_interface._diag_frame <= 10 or (teleop_interface._diag_frame % 300 == 0):
-                        import warp as wp
-                        all_jpos = wp.to_torch(env.unwrapped.scene["robot"].data.joint_pos)[0].cpu()
-                        print(f"[IK-diag] frame={teleop_interface._diag_frame} action wrists L={[f'{v:.3f}' for v in action[:7].cpu().tolist()]} R={[f'{v:.3f}' for v in action[7:14].cpu().tolist()]}")
-                        shoulder_names = [n for n in env.unwrapped.scene["robot"].data.joint_names if "shoulder" in n or "elbow" in n or "wrist" in n]
-                        shoulder_ids = [env.unwrapped.scene["robot"].data.joint_names.index(n) for n in shoulder_names]
-                        print(f"[IK-diag] arm joints BEFORE: {dict(zip(shoulder_names, [f'{all_jpos[i].item():.4f}' for i in shoulder_ids]))}")
-
                     env.step(action.repeat(env.num_envs, 1))
-
-                    if teleop_interface._diag_frame <= 10 or (teleop_interface._diag_frame % 300 == 0):
-                        import warp as wp
-                        all_jpos = wp.to_torch(env.unwrapped.scene["robot"].data.joint_pos)[0].cpu()
-                        print(f"[IK-diag] arm joints AFTER:  {dict(zip(shoulder_names, [f'{all_jpos[i].item():.4f}' for i in shoulder_ids]))}")
                 else:
                     env.sim.render()
 
@@ -664,11 +681,18 @@ def main() -> None:
                 if rate_limiter:
                     rate_limiter.sleep(env)
 
+    try:
+        if isaac_teleop_device is not None:
+            with isaac_teleop_device:
+                _run_loop()
+        else:
+            _run_loop()
     except KeyboardInterrupt:
         print("\n[INFO] Recording interrupted by user")
     finally:
         keyboard_controls.close()
-        teleop_interface.close()
+        if teleop_interface is not None:
+            teleop_interface.close()
         env.close()
 
     print(f"Done \u2014 {current_demo_count} demos \u2192 {os.path.abspath(args_cli.dataset_file)}")
