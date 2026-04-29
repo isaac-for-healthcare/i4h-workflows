@@ -135,3 +135,49 @@ class CameraPresets:
         }
         params.update(overrides)
         return CameraBaseCfg.get_camera_config(**params)
+
+    @classmethod
+    def left_inspire_wrist_camera(cls, **overrides) -> CameraCfg:
+        """left wrist camera configuration (Inspire hand)
+
+        Mirrors `tasks/common_config/camera_configs.py::left_inspire_wrist_camera`
+        in unitree_sim_isaaclab so the two repos share identical extrinsics.
+        """
+        params = {
+            "prim_path": "/World/envs/env_.*/Robot/left_hand_camera_base_link/left_wrist_camera",
+            "height": 480,
+            "width": 640,
+            "update_period": 0.02,
+            "data_types": ["rgb"],
+            "focal_length": 12.0,
+            "focus_distance": 400.0,
+            "horizontal_aperture": 20.0,
+            "clipping_range": (0.1, 1.0e5),
+            "pos_offset": (-0.04012, -0.07441, 0.15711),
+            "rot_offset": (0.86024, 0.0424, 0.50809, 0.00539),
+        }
+        params.update(overrides)
+        return CameraBaseCfg.get_camera_config(**params)
+
+    @classmethod
+    def right_inspire_wrist_camera(cls, **overrides) -> CameraCfg:
+        """right wrist camera configuration (Inspire hand)
+
+        Mirrors `tasks/common_config/camera_configs.py::right_inspire_wrist_camera`
+        in unitree_sim_isaaclab so the two repos share identical extrinsics.
+        """
+        params = {
+            "prim_path": "/World/envs/env_.*/Robot/right_hand_camera_base_link/right_wrist_camera",
+            "height": 480,
+            "width": 640,
+            "update_period": 0.02,
+            "data_types": ["rgb"],
+            "focal_length": 12.0,
+            "focus_distance": 400.0,
+            "horizontal_aperture": 20.0,
+            "clipping_range": (0.1, 1.0e5),
+            "pos_offset": (-0.04012, 0.07441, 0.15711),
+            "rot_offset": (0.86024, 0.0424, 0.50809, 0.00539),
+        }
+        params.update(overrides)
+        return CameraBaseCfg.get_camera_config(**params)

@@ -119,7 +119,7 @@ DEFAULT_JOINT_POS: Dict[str, float] = {
 
 G129_CFG_WITH_DEX3_BASE_FIX = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
-        usd_path=UNITREE_G1_29DOF_BASE_FIX_USD,
+        usd_path="/home/mxgu/Workspace/Omniverse/gmx/g1-29dof-inspire-base-fix-usd/g1_29dof_with_inspire_rev_1_0.usd",
         activate_contact_sensors=True,
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
@@ -347,6 +347,11 @@ class G1RobotPresets:
         cls,
         init_pos: Tuple[float, float, float] = (-0.15, 0.0, 0.76),
         init_rot: Tuple[float, float, float, float] = (0.7071, 0, 0, 0.7071),
+        custom_joint_pos: Optional[Dict[str, float]] = None,
     ) -> ArticulationCfg:
         """pick-place task configuration - dex3 hand"""
-        return make_g1_29dof_dex3_cfg(init_pos=init_pos, init_rot=init_rot)
+        return make_g1_29dof_dex3_cfg(
+            init_pos=init_pos,
+            init_rot=init_rot,
+            custom_joint_pos=custom_joint_pos,
+        )

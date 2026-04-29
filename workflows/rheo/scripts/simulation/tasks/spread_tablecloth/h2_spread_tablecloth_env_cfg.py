@@ -36,10 +36,10 @@ TABLE_USD_PATH = (
     "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Table256/Table256.usd"
 )
 TABLECLOTH_USD_PATH = (
-    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold02/Cloth_fold02.usd"
+    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold06/Cloth_fold10.usd"
 )
 SCENE_USD_PATH = (
-    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/scene05.usd"
+    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/scene04.usd"
 )
 TABLE_POS = (-0.50, 0.0, 0.385*0.9)
 TABLE_ROT = (0.0, 0.0, 0.7071, 0.7071)
@@ -98,11 +98,35 @@ joint_names = [
 class SpreadTableclothSceneCfg(InteractiveSceneCfg):
     """Scene configuration for the spread_tablecloth task (G1 robot + table + lights)."""
 
+    # Match the pickplace_surgical_g1_29dof_inspire pose exactly.
+    # The underlying `DEFAULT_JOINT_POS` in assemble_trocar/config/robot_config.py
+    # bakes non-zero values into all arm joints (e.g. left_shoulder_pitch=-0.755),
+    # so we override every arm joint here, mirroring pickplace's
+    # `G129_CFG_WITH_INSPIRE_HAND` (all 0) + its custom_joint_pos.
     robot: ArticulationCfg = G1RobotPresets.g1_29dof_dex3_base_fix(
-        init_pos=(-0.95, 0.0, 0.80), init_rot=(0.0, 0.0, 0.0, 1.0)
+        init_pos=(-0.95, 0.0, 0.80),
+        init_rot=(0.0, 0.0, 0.0, 1.0),
+        custom_joint_pos={
+            "left_shoulder_pitch_joint": -0.3,
+            "left_shoulder_roll_joint": 0.5,
+            "left_shoulder_yaw_joint": 0.0,
+            "left_elbow_joint": -0.5,
+            "left_wrist_roll_joint": 0.0,
+            "left_wrist_pitch_joint": 0.0,
+            "left_wrist_yaw_joint": 0.0,
+            "right_shoulder_pitch_joint": -0.3,
+            "right_shoulder_roll_joint": -0.5,
+            "right_shoulder_yaw_joint": 0.0,
+            "right_elbow_joint": -0.5,
+            "right_wrist_roll_joint": 0.0,
+            "right_wrist_pitch_joint": 0.0,
+            "right_wrist_yaw_joint": 0.0,
+        },
     )
 
     front_camera = CameraPresets.g1_front_camera(focal_length=10.5)
+    left_wrist_camera = CameraPresets.left_inspire_wrist_camera()
+    right_wrist_camera = CameraPresets.right_inspire_wrist_camera()
 
     scene = AssetBaseCfg(
         prim_path="/World/envs/env_.*/Scene",
@@ -116,36 +140,7 @@ class SpreadTableclothSceneCfg(InteractiveSceneCfg):
     )
 
 
-    # ground = AssetBaseCfg(
-    #     prim_path="/World/GroundPlane",
-    #     spawn=sim_utils.GroundPlaneCfg(),
-    # )
-
-    # table = AssetBaseCfg(
-    #     prim_path="{ENV_REGEX_NS}/Table",
-    #     init_state=AssetBaseCfg.InitialStateCfg(pos=TABLE_POS, rot=TABLE_ROT),
-    #     spawn=sim_utils.UsdFileCfg(
-    #         usd_path=TABLE_USD_PATH,
-    #         scale=TABLE_SCALE,
-    #         # The table USD ships with convex mesh colliders that are not
-    #         # compatible with GPU cloth contact, so keep it visual-only.
-    #         collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=False),
-    #     ),
-    # )
-    # table_top_collider = AssetBaseCfg(
-    #     prim_path="{ENV_REGEX_NS}/TableTopCollider",
-    #     init_state=AssetBaseCfg.InitialStateCfg(pos=TABLE_TOP_POS, rot=TABLE_ROT),
-    #     spawn=sim_utils.CuboidCfg(
-    #         size=TABLE_TOP_SIZE,
-    #         collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=True),
-    #         visual_material=sim_utils.PreviewSurfaceCfg(
-    #             diffuse_color=(0.55, 0.55, 0.55),
-    #         ),
-    #     ),
-    # )
-
-
-    tablecloth: DeformableObjectCfg = DeformableObjectCfg(
+    cloth: DeformableObjectCfg = DeformableObjectCfg(
         prim_path="{ENV_REGEX_NS}/Tablecloth",
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(-0.65, 0.0, 0.81),
@@ -217,6 +212,14 @@ class ObservationsCfg:
             func=base_mdp.image,
             params={"sensor_cfg": SceneEntityCfg("front_camera"), "data_type": "rgb", "normalize": False},
         )
+        left_wrist_camera = ObsTerm(
+            func=base_mdp.image,
+            params={"sensor_cfg": SceneEntityCfg("left_wrist_camera"), "data_type": "rgb", "normalize": False},
+        )
+        right_wrist_camera = ObsTerm(
+            func=base_mdp.image,
+            params={"sensor_cfg": SceneEntityCfg("right_wrist_camera"), "data_type": "rgb", "normalize": False},
+        )
 
         def __post_init__(self):
             self.concatenate_terms = False
@@ -234,9 +237,24 @@ class TerminationsCfg:
 
 @configclass
 class EventCfg:
-    """Event configuration for scene reset."""
+    """Event configuration for scene reset.
+
+    Mirrors the pickplace_surgical_g1_29dof_inspire setup: in addition to the
+    native `reset_scene_to_default`, we explicitly reset the inner rigid body
+    (`Cloth_In002`) embedded inside the deformable cloth USD, otherwise it
+    drifts upward across resets / penetrates the cloth.
+    """
 
     reset_scene = EventTermCfg(func=base_mdp.reset_scene_to_default, mode="reset")
+
+    reset_cloth_inner = EventTermCfg(
+        func=mdp.reset_cloth_inner,
+        mode="reset",
+        params={
+            "cloth_asset_name": "tablecloth",
+            "inner_rel_path": "Cloth_In002/Cloth_In002",
+        },
+    )
 
 
 @configclass
@@ -275,7 +293,7 @@ class G1SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.render_interval = self.decimation
         self.sim.physics = PhysxCfg(
             bounce_threshold_velocity=0.01,
-            gpu_max_deformable_surface_contacts=2**23,
+            # gpu_max_deformable_surface_contacts=2**25,
         )
 
 

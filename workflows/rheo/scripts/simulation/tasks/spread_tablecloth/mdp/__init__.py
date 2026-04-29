@@ -17,6 +17,7 @@
 
 from isaaclab.envs.mdp import JointPositionActionCfg, time_out
 
+from .cloth_inner_reset import reset_cloth_inner
 from .events import reset_robot_to_default_joint_positions
 from .observations import get_robot_joint_states
 
@@ -25,4 +26,5 @@ __all__ = [
     "time_out",
     "get_robot_joint_states",
     "reset_robot_to_default_joint_positions",
+    "reset_cloth_inner",
 ]

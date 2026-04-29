@@ -15,7 +15,7 @@
 
 import gymnasium as gym
 
-from . import g1_assemble_trocar_env_cfg, g1_assemble_trocar_teleop_env_cfg
+from . import g1_assemble_trocar_env_cfg
 
 gym.register(
     id="Isaac-Assemble-Trocar-G129-Dex3-Joint",
@@ -35,12 +35,25 @@ gym.register(
     disable_env_checker=True,
 )
 
+# Teleop cfg depends on third-party packages (isaaclab_arena, teleop_devices)
+# that may fail to import in some environments. Make the registration best-effort
+# so that tasks which only need the base env cfg (e.g. spread_tablecloth cross-importing
+# camera/robot config) still work.
+try:
+    from . import g1_assemble_trocar_teleop_env_cfg
 
-gym.register(
-    id="Isaac-Assemble-Trocar-G129-Dex3-Teleop",
-    entry_point="isaaclab.envs:ManagerBasedRLEnv",
-    kwargs={
-        "env_cfg_entry_point": g1_assemble_trocar_teleop_env_cfg.G1AssembleTrocarTeleopEnvCfg,
-    },
-    disable_env_checker=True,
-)
+    gym.register(
+        id="Isaac-Assemble-Trocar-G129-Dex3-Teleop",
+        entry_point="isaaclab.envs:ManagerBasedRLEnv",
+        kwargs={
+            "env_cfg_entry_point": g1_assemble_trocar_teleop_env_cfg.G1AssembleTrocarTeleopEnvCfg,
+        },
+        disable_env_checker=True,
+    )
+except Exception as _e:
+    import warnings
+
+    warnings.warn(
+        f"[assemble_trocar] Skipping teleop env registration due to import error: {_e}",
+        RuntimeWarning,
+    )
