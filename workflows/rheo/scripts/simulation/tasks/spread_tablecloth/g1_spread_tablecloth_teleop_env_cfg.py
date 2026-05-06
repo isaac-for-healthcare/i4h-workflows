@@ -339,10 +339,6 @@ class G1SpreadTableclothTeleopEnvCfg(G1SpreadTableclothEnvCfg):
         self.xr.fixed_anchor_height = True
         self.xr.anchor_rotation_mode = XrAnchorRotationMode.FOLLOW_PRIM_SMOOTHED
 
-        # ``pipeline_builder`` is a no-arg callable returning an
-        # ``OutputCombiner``.  This task is hand-tracking only — see the
-        # module-level comment.  ``xr_cfg=self.xr`` shares the same cfg
-        # instance the XR bridge sees above.
         self.isaac_teleop = IsaacTeleopCfg(
             pipeline_builder=_build_g1_inspire_tablecloth_pipeline,
             sim_device=self.sim.device,

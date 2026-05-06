@@ -36,7 +36,7 @@ TABLE_USD_PATH = (
     "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Table256/Table256.usd"
 )
 TABLECLOTH_USD_PATH = (
-    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold06/Cloth_fold10.usd"
+    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold05/Cloth_fold06.usd"
 )
 SCENE_USD_PATH = (
     "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/scene04.usd"
@@ -159,15 +159,6 @@ class SpreadTableclothSceneCfg(InteractiveSceneCfg):
             ),
         ),
     )
-
-    # tablecloth = AssetBaseCfg(
-    #     prim_path="{ENV_REGEX_NS}/Tablecloth",
-    #     init_state=AssetBaseCfg.InitialStateCfg(
-    #         pos=(-0.65, 0.0, 2.20),
-    #         rot=(0.0, 0.0, 1.0, 0.0),
-    #     ),
-    #     spawn=sim_utils.UsdFileCfg(usd_path=TABLECLOTH_USD_PATH),
-    # )
 
     light = AssetBaseCfg(
         prim_path="/World/light",
