@@ -29,14 +29,20 @@ from simulation.tasks.spread_tablecloth import mdp
 from isaaclab_physx.assets import DeformableObject, DeformableObjectCfg
 from isaaclab_physx.sim import DeformableBodyPropertiesCfg, SurfaceDeformableBodyMaterialCfg
 
-from simulation.tasks.spread_tablecloth.config import G1RobotPresets, CameraPresets  # isort: skip
+from simulation.tasks.spread_tablecloth.config import (  # isort: skip
+    CameraPresets,
+    G1RobotPresets,
+    SPREAD_TABLECLOTH_CUSTOM_JOINT_POS,
+    SPREAD_TABLECLOTH_INIT_POS,
+    SPREAD_TABLECLOTH_INIT_ROT,
+)
 
 
 TABLE_USD_PATH = (
     "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Table256/Table256.usd"
 )
 TABLECLOTH_USD_PATH = (
-    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold05/Cloth_fold06.usd"
+    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold06/Cloth_fold13.usd"
 )
 SCENE_USD_PATH = (
     "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/scene04.usd"
@@ -47,7 +53,7 @@ TABLE_SCALE = (0.6, 0.6, 0.9)
 TABLE_TOP_SIZE = (1.2, 0.6, 0.04)
 TABLE_TOP_POS = (-0.50, 0.0, 0.78*0.9)
 
-# G1 29 DOF body + Dex3 hands.
+# G1 29 DOF body + Inspire hands.
 joint_names = [
     "left_hip_pitch_joint",
     "right_hip_pitch_joint",
@@ -78,50 +84,40 @@ joint_names = [
     "right_wrist_roll_joint",
     "right_wrist_pitch_joint",
     "right_wrist_yaw_joint",
-    "left_hand_thumb_0_joint",
-    "left_hand_thumb_1_joint",
-    "left_hand_thumb_2_joint",
-    "left_hand_middle_0_joint",
-    "left_hand_middle_1_joint",
-    "left_hand_index_0_joint",
-    "left_hand_index_1_joint",
-    "right_hand_thumb_0_joint",
-    "right_hand_thumb_1_joint",
-    "right_hand_thumb_2_joint",
-    "right_hand_middle_0_joint",
-    "right_hand_middle_1_joint",
-    "right_hand_index_0_joint",
-    "right_hand_index_1_joint",
+    "L_index_proximal_joint",
+    "L_index_intermediate_joint",
+    "L_middle_proximal_joint",
+    "L_middle_intermediate_joint",
+    "L_pinky_proximal_joint",
+    "L_pinky_intermediate_joint",
+    "L_ring_proximal_joint",
+    "L_ring_intermediate_joint",
+    "L_thumb_proximal_yaw_joint",
+    "L_thumb_proximal_pitch_joint",
+    "L_thumb_intermediate_joint",
+    "L_thumb_distal_joint",
+    "R_index_proximal_joint",
+    "R_index_intermediate_joint",
+    "R_middle_proximal_joint",
+    "R_middle_intermediate_joint",
+    "R_pinky_proximal_joint",
+    "R_pinky_intermediate_joint",
+    "R_ring_proximal_joint",
+    "R_ring_intermediate_joint",
+    "R_thumb_proximal_yaw_joint",
+    "R_thumb_proximal_pitch_joint",
+    "R_thumb_intermediate_joint",
+    "R_thumb_distal_joint",
 ]
 
 @configclass
 class SpreadTableclothSceneCfg(InteractiveSceneCfg):
     """Scene configuration for the spread_tablecloth task (G1 robot + table + lights)."""
 
-    # Match the pickplace_surgical_g1_29dof_inspire pose exactly.
-    # The underlying `DEFAULT_JOINT_POS` in assemble_trocar/config/robot_config.py
-    # bakes non-zero values into all arm joints (e.g. left_shoulder_pitch=-0.755),
-    # so we override every arm joint here, mirroring pickplace's
-    # `G129_CFG_WITH_INSPIRE_HAND` (all 0) + its custom_joint_pos.
-    robot: ArticulationCfg = G1RobotPresets.g1_29dof_dex3_base_fix(
-        init_pos=(-0.95, 0.0, 0.80),
-        init_rot=(0.0, 0.0, 0.0, 1.0),
-        custom_joint_pos={
-            "left_shoulder_pitch_joint": -0.3,
-            "left_shoulder_roll_joint": 0.5,
-            "left_shoulder_yaw_joint": 0.0,
-            "left_elbow_joint": -0.5,
-            "left_wrist_roll_joint": 0.0,
-            "left_wrist_pitch_joint": 0.0,
-            "left_wrist_yaw_joint": 0.0,
-            "right_shoulder_pitch_joint": -0.3,
-            "right_shoulder_roll_joint": -0.5,
-            "right_shoulder_yaw_joint": 0.0,
-            "right_elbow_joint": -0.5,
-            "right_wrist_roll_joint": 0.0,
-            "right_wrist_pitch_joint": 0.0,
-            "right_wrist_yaw_joint": 0.0,
-        },
+    robot: ArticulationCfg = G1RobotPresets.g1_29dof_inspire_base_fix(
+        init_pos=SPREAD_TABLECLOTH_INIT_POS,
+        init_rot=SPREAD_TABLECLOTH_INIT_ROT,
+        custom_joint_pos=SPREAD_TABLECLOTH_CUSTOM_JOINT_POS,
     )
 
     front_camera = CameraPresets.g1_front_camera(focal_length=10.5)
@@ -174,7 +170,7 @@ class SpreadTableclothSceneCfg(InteractiveSceneCfg):
 ##
 @configclass
 class ActionsCfg:
-    """Direct joint angle control for G1 (29 DOF + Dex3 hands)."""
+    """Direct joint angle control for G1 (29 DOF + Inspire hands)."""
 
     joint_pos = mdp.JointPositionActionCfg(
         asset_name="robot",

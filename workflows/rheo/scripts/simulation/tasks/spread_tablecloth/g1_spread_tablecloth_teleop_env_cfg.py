@@ -8,8 +8,14 @@ from isaaclab.envs.mdp.actions.pink_actions_cfg import PinkInverseKinematicsActi
 from isaaclab.managers import ActionTermCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR, retrieve_file_path
-from isaaclab_assets.robots.unitree import G1_INSPIRE_FTP_CFG
 
+from .config import (
+    DEFAULT_JOINT_POS,
+    G129_CFG_WITH_INSPIRE_HAND,
+    SPREAD_TABLECLOTH_CUSTOM_JOINT_POS,
+    SPREAD_TABLECLOTH_INIT_POS,
+    SPREAD_TABLECLOTH_INIT_ROT,
+)
 from .h2_spread_tablecloth_env_cfg import G1SpreadTableclothEnvCfg
 
 # IsaacTeleop-native cfgs. Follow the upstream IsaacLab G1 Inspire example
@@ -52,12 +58,6 @@ INSPIRE_HAND_JOINT_NAMES = [
 # IsaacTeleop action-tensor layout for the hand-tracking pipeline.  Retargeter
 # outputs are flattened through a TensorReorderer so the downstream
 # PinkInverseKinematicsActionCfg sees a single fixed 38-D action tensor.
-#
-# This task is **hand-tracking only**, mirroring the upstream IsaacLab pattern
-# (``pickplace_unitree_g1_inspire_hand_env_cfg.py``): one task ID = one
-# IsaacTeleop pipeline.  If you need a Quest motion-controller variant, copy
-# this file to ``g1_spread_tablecloth_teleop_controller_env_cfg.py`` and
-# register a separate task ID.
 # ---------------------------------------------------------------------------
 _LEFT_EE_ELEMENTS = [
     "l_pos_x", "l_pos_y", "l_pos_z", "l_quat_x", "l_quat_y", "l_quat_z", "l_quat_w",
@@ -233,14 +233,14 @@ class TeleopActionsCfg:
             fail_on_joint_limit_violation=False,
             variable_input_tasks=[
                 FrameTaskCfg(
-                    frame="g1_29dof_rev_1_0_left_wrist_yaw_link",
+                    frame="g1_29dof_with_hand_rev_1_0_left_wrist_yaw_link",
                     position_cost=8.0,
                     orientation_cost=2.0,
                     lm_damping=10,
                     gain=0.5,
                 ),
                 FrameTaskCfg(
-                    frame="g1_29dof_rev_1_0_right_wrist_yaw_link",
+                    frame="g1_29dof_with_hand_rev_1_0_right_wrist_yaw_link",
                     position_cost=8.0,
                     orientation_cost=2.0,
                     lm_damping=10,
@@ -250,8 +250,8 @@ class TeleopActionsCfg:
                     cost=0.5,
                     lm_damping=1,
                     controlled_frames=[
-                        "g1_29dof_rev_1_0_left_wrist_yaw_link",
-                        "g1_29dof_rev_1_0_right_wrist_yaw_link",
+                        "g1_29dof_with_hand_rev_1_0_left_wrist_yaw_link",
+                        "g1_29dof_with_hand_rev_1_0_right_wrist_yaw_link",
                     ],
                     controlled_joints=[
                         "left_shoulder_pitch_joint",
@@ -293,27 +293,15 @@ class G1SpreadTableclothTeleopEnvCfg(G1SpreadTableclothEnvCfg):
     def __post_init__(self):
         super().__post_init__()
 
-        self.scene.robot = G1_INSPIRE_FTP_CFG.replace(
+        _joint_pos = DEFAULT_JOINT_POS.copy()
+        _joint_pos.update(SPREAD_TABLECLOTH_CUSTOM_JOINT_POS)
+
+        self.scene.robot = G129_CFG_WITH_INSPIRE_HAND.replace(
             prim_path="/World/envs/env_.*/Robot",
             init_state=ArticulationCfg.InitialStateCfg(
-                pos=(-0.95, 0.0, 0.80),
-                rot=(0.0, 0.0, 0.0, 1.0),
-                joint_pos={
-                    ".*_hip_pitch_joint": -0.05,
-                    ".*_knee_joint": 0.2,
-                    ".*_ankle_pitch_joint": -0.15,
-                    "waist_.*": 0.0,
-                    ".*_shoulder_pitch_joint": 0.0,
-                    ".*_shoulder_roll_joint": 0.0,
-                    ".*_shoulder_yaw_joint": 0.0,
-                    ".*_elbow_joint": -0.3,
-                    ".*_wrist_.*_joint": 0.0,
-                    ".*_thumb_.*": 0.0,
-                    ".*_index_.*": 0.0,
-                    ".*_middle_.*": 0.0,
-                    ".*_ring_.*": 0.0,
-                    ".*_pinky_.*": 0.0,
-                },
+                pos=SPREAD_TABLECLOTH_INIT_POS,
+                rot=SPREAD_TABLECLOTH_INIT_ROT,
+                joint_pos=_joint_pos,
                 joint_vel={".*": 0.0},
             ),
         )

@@ -69,7 +69,8 @@ def _build_hold_pose_action(env: gym.Env) -> torch.Tensor:
 
 
 def main():
-    task_name = "Isaac-Spread-Tablecloth-G129-Inspire-Teleop"
+    # task_name = "Isaac-Spread-Tablecloth-G129-Inspire-Teleop"
+    task_name = "Isaac-Spread-Tablecloth-G129-Inspire-Joint"
 
     env_cfg = parse_env_cfg(
         task_name, device=args_cli.device, num_envs=args_cli.num_envs,
@@ -102,16 +103,19 @@ def main():
     step = 0
     loop_start = time.perf_counter()
     env.reset()
-    while simulation_app.is_running() and step < args_cli.num_steps:
-        t0 = time.perf_counter()
-        with torch.inference_mode():
-            obs, reward, terminated, truncated, info = env.step(hold_action)
-        step += 1
-        dt = time.perf_counter() - t0
+    try:
+        while simulation_app.is_running() and step < args_cli.num_steps:
+            t0 = time.perf_counter()
+            with torch.inference_mode():
+                obs, reward, terminated, truncated, info = env.step(hold_action)
+            step += 1
+            dt = time.perf_counter() - t0
 
-        if step <= 10 or step % 50 == 0:
-            elapsed = time.perf_counter() - loop_start
-            print(f"[STEP {step:5d}] dt={dt*1000:7.1f} ms  total={elapsed:6.1f} s", flush=True)
+            if step <= 10 or step % 50 == 0:
+                elapsed = time.perf_counter() - loop_start
+                print(f"[STEP {step:5d}] dt={dt*1000:7.1f} ms  total={elapsed:6.1f} s", flush=True)
+    except (ReferenceError, RuntimeError):
+        print(f"[INFO]: Simulation shut down after {step} steps.")
 
     env.close()
     simulation_app.close()
