@@ -16,7 +16,7 @@ from .config import (
     SPREAD_TABLECLOTH_INIT_POS,
     SPREAD_TABLECLOTH_INIT_ROT,
 )
-from .h2_spread_tablecloth_env_cfg import G1SpreadTableclothEnvCfg
+from .g1_spread_tablecloth_env_cfg import G1SpreadTableclothEnvCfg
 
 # IsaacTeleop-native cfgs. Follow the upstream IsaacLab G1 Inspire example
 # (pickplace_unitree_g1_inspire_hand_env_cfg.py): use a single XrCfg from

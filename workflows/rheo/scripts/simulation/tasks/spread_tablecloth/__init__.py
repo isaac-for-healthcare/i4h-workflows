@@ -15,7 +15,11 @@
 
 import gymnasium as gym
 
-from . import g1_spread_tablecloth_teleop_env_cfg, h2_spread_tablecloth_env_cfg
+from . import (
+    g1_spread_tablecloth_teleop_env_cfg,
+    h2_spread_tablecloth_env_cfg,
+    h2_spread_tablecloth_teleop_env_cfg,
+)
 
 gym.register(
     id="Isaac-Spread-Tablecloth-G129-Inspire-Joint",
@@ -31,6 +35,15 @@ gym.register(
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
     kwargs={
         "env_cfg_entry_point": g1_spread_tablecloth_teleop_env_cfg.G1SpreadTableclothTeleopEnvCfg,
+    },
+    disable_env_checker=True,
+)
+
+gym.register(
+    id="Isaac-Spread-Tablecloth-H2-Sharpa-Teleop",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    kwargs={
+        "env_cfg_entry_point": h2_spread_tablecloth_teleop_env_cfg.H2SpreadTableclothTeleopEnvCfg,
     },
     disable_env_checker=True,
 )

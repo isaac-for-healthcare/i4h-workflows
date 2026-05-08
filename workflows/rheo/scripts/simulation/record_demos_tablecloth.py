@@ -285,13 +285,14 @@ def run(env, success_term, rate_limiter, use_isaac_teleop: bool) -> int:
         print("[R] Reset")
 
     def loop():
-        nonlocal pend_start, pend_save, pend_reset
+        nonlocal pend_start, pend_save, pend_reset, success_steps
 
         full_reset()
         print(f"\nReady — target: {target} demos  |  B=start  S=save  R=reset\n")
 
         if use_isaac_teleop:
             from isaaclab_teleop import poll_control_events
+        prev_should_reset = False
 
         try:
             with torch.inference_mode():
@@ -302,12 +303,14 @@ def run(env, success_term, rate_limiter, use_isaac_teleop: bool) -> int:
 
                     if use_isaac_teleop:
                         ctrl = poll_control_events(teleop)
-                        if ctrl.is_active is True and not teleop_active:
-                            pend_start = True
-                        elif ctrl.is_active is False and teleop_active:
+                        if ctrl.is_active is not None:
+                            if ctrl.is_active and not teleop_active:
+                                pend_start = True
+                            elif not ctrl.is_active and teleop_active:
+                                pend_reset = True
+                        if ctrl.should_reset and not prev_should_reset:
                             pend_reset = True
-                        if ctrl.should_reset:
-                            pend_reset = True
+                        prev_should_reset = ctrl.should_reset
 
                     if pend_start:
                         pend_start = pend_save = pend_reset = False

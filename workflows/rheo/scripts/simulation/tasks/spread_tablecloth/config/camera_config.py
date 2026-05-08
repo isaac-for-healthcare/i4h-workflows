@@ -86,53 +86,28 @@ class CameraPresets:
     """Camera preset configuration collection."""
 
     @classmethod
+    def h2_front_camera(cls, **overrides) -> CameraCfg:
+        """H2 front camera on head_yaw_link, looking ~45 deg down at the table.
+
+        H2 Sharpa Wave hands have no wrist cameras; only this head camera
+        is available.
+        """
+        params = {
+            "prim_path": "/World/envs/env_.*/Robot/head_yaw_link/RobotHeadCam",
+        }
+        params.update(overrides)
+        return CameraBaseCfg.get_camera_config(**params)
+
+    @classmethod
     def g1_front_camera(cls, **overrides) -> CameraCfg:
-        """Front camera configuration."""
+        """G1 front camera (mounted on d435_link by default)."""
         params = {"focal_length": 12.0}
         params.update(overrides)
         return CameraBaseCfg.get_camera_config(**params)
 
     @classmethod
-    def left_dex3_wrist_camera(cls, **overrides) -> CameraCfg:
-        """Left wrist camera configuration (Dex3 hand)."""
-        params = {
-            "prim_path": "/World/envs/env_.*/Robot/left_hand_camera_base_link/left_wrist_camera",
-            "height": 480,
-            "width": 640,
-            "update_period": 0.02,
-            "data_types": ["rgb"],
-            "focal_length": 12.0,
-            "focus_distance": 400.0,
-            "horizontal_aperture": 20.0,
-            "clipping_range": (0.1, 1.0e5),
-            "pos_offset": (-0.04012, -0.07441, 0.15711),
-            "rot_offset": (0.00539, 0.86024, 0.0424, 0.50809),
-        }
-        params.update(overrides)
-        return CameraBaseCfg.get_camera_config(**params)
-
-    @classmethod
-    def right_dex3_wrist_camera(cls, **overrides) -> CameraCfg:
-        """Right wrist camera configuration (Dex3 hand)."""
-        params = {
-            "prim_path": "/World/envs/env_.*/Robot/right_hand_camera_base_link/right_wrist_camera",
-            "height": 480,
-            "width": 640,
-            "update_period": 0.02,
-            "data_types": ["rgb"],
-            "focal_length": 12.0,
-            "focus_distance": 400.0,
-            "horizontal_aperture": 20.0,
-            "clipping_range": (0.1, 1.0e5),
-            "pos_offset": (-0.04012, 0.07441, 0.15711),
-            "rot_offset": (0.00539, 0.86024, 0.0424, 0.50809),
-        }
-        params.update(overrides)
-        return CameraBaseCfg.get_camera_config(**params)
-
-    @classmethod
     def left_inspire_wrist_camera(cls, **overrides) -> CameraCfg:
-        """Left wrist camera configuration (Inspire hand)."""
+        """Left wrist camera (G1 + Inspire hand)."""
         params = {
             "prim_path": "/World/envs/env_.*/Robot/left_hand_camera_base_link/left_wrist_camera",
             "height": 480,
@@ -151,7 +126,7 @@ class CameraPresets:
 
     @classmethod
     def right_inspire_wrist_camera(cls, **overrides) -> CameraCfg:
-        """Right wrist camera configuration (Inspire hand)."""
+        """Right wrist camera (G1 + Inspire hand)."""
         params = {
             "prim_path": "/World/envs/env_.*/Robot/right_hand_camera_base_link/right_wrist_camera",
             "height": 480,

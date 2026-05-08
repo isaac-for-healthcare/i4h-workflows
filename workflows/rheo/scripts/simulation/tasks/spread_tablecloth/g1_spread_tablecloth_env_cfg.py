@@ -128,7 +128,7 @@ class SpreadTableclothSceneCfg(InteractiveSceneCfg):
         prim_path="/World/envs/env_.*/Scene",
         spawn=sim_utils.UsdFileCfg(
             usd_path=SCENE_USD_PATH,
-            scale= (1.0, 1.0, 1.3),
+            scale= (1.0, 1.0, 1.4),
         ),
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(0.9, -2.5, 0.0),
@@ -140,7 +140,7 @@ class SpreadTableclothSceneCfg(InteractiveSceneCfg):
     cloth: DeformableObjectCfg = DeformableObjectCfg(
         prim_path="{ENV_REGEX_NS}/Tablecloth",
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=(-0.65, 0.0, 1.0),
+            pos=(-0.65, 0.0, 1.07),
             rot=(0.0, 0.0, 0.0, 1.0),
         ),
         spawn=sim_utils.UsdFileCfg(
@@ -284,6 +284,3 @@ class G1SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
             # gpu_max_deformable_surface_contacts=2**25,
         )
 
-
-# Backward-compatible alias for any old imports.
-H2SpreadTableclothEnvCfg = G1SpreadTableclothEnvCfg
