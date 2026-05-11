@@ -314,8 +314,7 @@ class G1SpreadTableclothTeleopEnvCfg(G1SpreadTableclothEnvCfg):
             stiffness=10000.0,
             damping=10000.0,
         )
-
-        self.sim.render_interval = 4
+        
         self.episode_length_s = 300.0
 
         self.actions.pink_ik_cfg.controller.usd_path = self.scene.robot.spawn.usd_path

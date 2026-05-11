@@ -378,7 +378,6 @@ class H2SpreadTableclothTeleopEnvCfg(G1SpreadTableclothEnvCfg):
         self.scene.left_wrist_camera = None
         self.scene.right_wrist_camera = None
 
-        self.sim.render_interval = 4
         self.episode_length_s = 300.0
 
         h2_urdf_path = _resolve_h2_urdf_path()

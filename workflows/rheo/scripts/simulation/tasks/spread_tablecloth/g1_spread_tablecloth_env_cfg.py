@@ -239,7 +239,7 @@ class EventCfg:
         func=mdp.reset_cloth_inner,
         mode="reset",
         params={
-            "cloth_asset_name": "tablecloth",
+            "cloth_asset_name": "cloth",
             "inner_rel_path": "Cloth_In002/Cloth_In002",
         },
     )
@@ -278,7 +278,7 @@ class G1SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
         self.decimation = 4
         self.episode_length_s = 30.0
         self.sim.dt = 1 / 120
-        self.sim.render_interval = self.decimation
+        self.sim.render_interval = 2
         self.sim.physics = PhysxCfg(
             bounce_threshold_velocity=0.01,
             # gpu_max_deformable_surface_contacts=2**25,
