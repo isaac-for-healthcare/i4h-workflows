@@ -229,16 +229,14 @@ def run(env, success_term, rate_limiter, use_isaac_teleop: bool) -> int:
     success_steps = 0
     teleop_active = False
     recording = False
-    pend_start = pend_save = pend_reset = False
+    should_reset = False
+    kb_override = False
     target = args_cli.num_demos or "inf"
 
-    def _on_start():
-        nonlocal pend_start; pend_start = True  # noqa: E702
+    def _noop_cb():
+        pass
 
-    def _on_stop():
-        nonlocal pend_reset; pend_reset = True  # noqa: E702
-
-    teleop = _create_teleop({"R": _on_stop, "START": _on_start, "STOP": _on_stop, "RESET": _on_stop}, use_isaac_teleop)
+    teleop = _create_teleop({"R": _noop_cb, "START": _noop_cb, "STOP": _noop_cb, "RESET": _noop_cb}, use_isaac_teleop)
     kb = KeyboardControls()
 
     label = f"Ready. Press B to start demo 1/{target}"
@@ -249,84 +247,86 @@ def run(env, success_term, rate_limiter, use_isaac_teleop: bool) -> int:
             demo_lbl = ui.Label(label)
             display.set_labels(ui.Label(""), demo_lbl)
 
-    def full_reset():
-        nonlocal success_steps
-        env.sim.reset(); env.reset(); teleop.reset(); env.recorder_manager.reset()
+    def handle_reset():
+        nonlocal success_steps, should_reset, teleop_active, recording, kb_override
+        env.sim.reset()
+        env.reset()
+        teleop.reset()
+        env.recorder_manager.reset()
         success_steps = 0
+        teleop_active = False
+        recording = False
+        should_reset = False
+        kb_override = False
 
-    def do_start():
-        nonlocal teleop_active, recording, label
-        full_reset()
+    def do_begin():
+        nonlocal teleop_active, recording, label, kb_override
+        handle_reset()
         teleop_active = recording = True
+        kb_override = True
         label = f"Recording demo {demo_count + 1}/{target}"
         display.show_demo(label)
         print(f"[B] Recording demo {demo_count + 1}")
 
     def do_save():
-        nonlocal demo_count, teleop_active, recording, label
+        nonlocal demo_count, label
         if not recording:
             return
         env.recorder_manager.record_pre_reset([0], force_export_or_skip=False)
         env.recorder_manager.set_success_to_episodes([0], torch.tensor([[True]], dtype=torch.bool, device=env.device))
         env.recorder_manager.export_episodes([0])
         demo_count += 1
-        teleop_active = recording = False
         print(f"[S] Demo {demo_count} saved")
-        full_reset()
+        handle_reset()
         label = f"Ready. Press B to start demo {demo_count + 1}/{target}"
         display.show_demo(label)
 
-    def do_reset():
-        nonlocal teleop_active, recording, label
-        teleop_active = recording = False
-        full_reset()
+    def do_discard():
+        nonlocal label
+        handle_reset()
         label = f"Ready. Press B to start demo {demo_count + 1}/{target}"
         display.show_demo(label)
         print("[R] Reset")
 
     def loop():
-        nonlocal pend_start, pend_save, pend_reset, success_steps
+        nonlocal should_reset, teleop_active, success_steps, kb_override
 
-        full_reset()
+        handle_reset()
         print(f"\nReady — target: {target} demos  |  B=start  S=save  R=reset\n")
 
         if use_isaac_teleop:
             from isaaclab_teleop import poll_control_events
-        prev_should_reset = False
 
         try:
             with torch.inference_mode():
                 while simulation_app.is_running():
-                    if kb.consume("start"):  pend_start = True   # noqa: E701
-                    if kb.consume("save"):   pend_save = True    # noqa: E701
-                    if kb.consume("reset"):  pend_reset = True   # noqa: E701
+                    kb_begin = kb.consume("start")
+                    kb_save = kb.consume("save")
+                    kb_reset = kb.consume("reset")
 
-                    if use_isaac_teleop:
+                    action = teleop.advance()
+
+                    if use_isaac_teleop and not kb_override:
                         ctrl = poll_control_events(teleop)
                         if ctrl.is_active is not None:
-                            if ctrl.is_active and not teleop_active:
-                                pend_start = True
-                            elif not ctrl.is_active and teleop_active:
-                                pend_reset = True
-                        if ctrl.should_reset and not prev_should_reset:
-                            pend_reset = True
-                        prev_should_reset = ctrl.should_reset
+                            teleop_active = ctrl.is_active
+                        if ctrl.should_reset:
+                            should_reset = True
 
-                    if pend_start:
-                        pend_start = pend_save = pend_reset = False
-                        do_start()
-                    if pend_save:
-                        pend_save = pend_reset = False
+                    if kb_save:
                         do_save()
                         if args_cli.num_demos > 0 and demo_count >= args_cli.num_demos:
                             break
                         continue
-                    if pend_reset:
-                        pend_reset = False
-                        do_reset()
+
+                    if kb_begin:
+                        do_begin()
                         continue
 
-                    action = teleop.advance()
+                    if kb_reset or should_reset:
+                        do_discard()
+                        continue
+
                     if action is None:
                         env.sim.render()
                         continue
