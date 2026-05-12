@@ -47,11 +47,11 @@ TABLECLOTH_USD_PATH = (
 SCENE_USD_PATH = (
     "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/scene04.usd"
 )
-TABLE_POS = (-0.50, 0.0, 0.385*1.4)
+TABLE_POS = (-0.50, 0.0, 0.385*0.9)
 TABLE_ROT = (0.0, 0.0, 0.7071, 0.7071)
 TABLE_SCALE = (0.6, 0.6, 0.9)
 TABLE_TOP_SIZE = (1.2, 0.6, 0.04)
-TABLE_TOP_POS = (-0.50, 0.0, 0.78*1.4)
+TABLE_TOP_POS = (-0.50, 0.0, 0.78*0.9)
 
 # G1 29 DOF body + Inspire hands.
 joint_names = [
@@ -128,7 +128,7 @@ class SpreadTableclothSceneCfg(InteractiveSceneCfg):
         prim_path="/World/envs/env_.*/Scene",
         spawn=sim_utils.UsdFileCfg(
             usd_path=SCENE_USD_PATH,
-            scale= (1.0, 1.0, 1.4),
+            scale= (1.0, 1.0, 1.0),
         ),
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(0.9, -2.5, 0.0),
@@ -140,7 +140,7 @@ class SpreadTableclothSceneCfg(InteractiveSceneCfg):
     cloth: DeformableObjectCfg = DeformableObjectCfg(
         prim_path="{ENV_REGEX_NS}/Tablecloth",
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=(-0.65, 0.0, 1.07),
+            pos=(-0.65, 0.0, 0.78),
             rot=(0.0, 0.0, 0.0, 1.0),
         ),
         spawn=sim_utils.UsdFileCfg(

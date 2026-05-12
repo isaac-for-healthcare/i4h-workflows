@@ -22,31 +22,19 @@ is fixed.
 
 import os
 
-import isaaclab.envs.mdp as base_mdp
-from isaaclab.assets import ArticulationCfg
 from isaaclab.controllers.pink_ik import FrameTaskCfg, NullSpacePostureTaskCfg, PinkIKControllerCfg
 from isaaclab.envs.mdp.actions.pink_actions_cfg import PinkInverseKinematicsActionCfg
 from isaaclab.managers import ActionTermCfg
-from isaaclab.managers import ObservationGroupCfg as ObsGroup
-from isaaclab.managers import ObservationTermCfg as ObsTerm
-from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 
 from isaaclab_teleop.isaac_teleop_cfg import IsaacTeleopCfg
 from isaaclab_teleop.xr_cfg import XrAnchorRotationMode, XrCfg
 
 from .config import (
-    CameraPresets,
-    H2_DEFAULT_JOINT_POS,
-    H2_SHARPA_CFG,
     H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER,
-    H2_SPREAD_TABLECLOTH_CUSTOM_JOINT_POS,
-    H2_SPREAD_TABLECLOTH_INIT_POS,
-    H2_SPREAD_TABLECLOTH_INIT_ROT,
     _resolve_h2_urdf_path,
 )
-from .h2_spread_tablecloth_env_cfg import G1SpreadTableclothEnvCfg
-from simulation.tasks.spread_tablecloth import mdp
+from .h2_spread_tablecloth_env_cfg import H2SpreadTableclothEnvCfg
 
 # ---------------------------------------------------------------------------
 # Sharpa Wave hand joint names (per-hand, in URDF order for DexPilot)
@@ -238,35 +226,6 @@ def _build_h2_sharpa_tablecloth_pipeline():
 
 
 # ---------------------------------------------------------------------------
-# H2 observation config (no wrist cameras — H2 only has a head camera)
-# ---------------------------------------------------------------------------
-@configclass
-class H2ObservationsCfg:
-    """Observation configuration for H2 spread-tablecloth teleop."""
-
-    @configclass
-    class PolicyCfg(ObsGroup):
-        robot_joint_state = ObsTerm(func=mdp.get_robot_joint_states)
-
-        def __post_init__(self):
-            self.enable_corruption = False
-            self.concatenate_terms = False
-
-    @configclass
-    class CameraImagesCfg(ObsGroup):
-        front_camera = ObsTerm(
-            func=base_mdp.image,
-            params={"sensor_cfg": SceneEntityCfg("front_camera"), "data_type": "rgb", "normalize": False},
-        )
-
-        def __post_init__(self):
-            self.concatenate_terms = False
-
-    policy: PolicyCfg = PolicyCfg()
-    camera_images: CameraImagesCfg = CameraImagesCfg()
-
-
-# ---------------------------------------------------------------------------
 # PinkIK action config for H2 (58D)
 # ---------------------------------------------------------------------------
 @configclass
@@ -342,16 +301,15 @@ class H2TeleopActionsCfg:
 # Env config
 # ---------------------------------------------------------------------------
 @configclass
-class H2SpreadTableclothTeleopEnvCfg(G1SpreadTableclothEnvCfg):
+class H2SpreadTableclothTeleopEnvCfg(H2SpreadTableclothEnvCfg):
     """OpenXR teleop variant with H2 + Sharpa Wave dexterous hands.
 
-    Inherits scene (table, cloth, lights) and MDP (observations, terminations,
-    events) from the base G1 spread-tablecloth config.  Replaces the robot
-    articulation with H2 and the action config with 58D PinkIK.
+    Inherits the H2-specific scene (H2 robot, front camera only, no wrist
+    cameras) and MDP from H2SpreadTableclothEnvCfg.  Replaces the action
+    config with 58D PinkIK for teleop.
     """
 
     actions: H2TeleopActionsCfg = H2TeleopActionsCfg()
-    observations: H2ObservationsCfg = H2ObservationsCfg()
 
     xr: XrCfg = XrCfg(
         anchor_pos=(0.0, 0.0, -1.0),
@@ -360,23 +318,6 @@ class H2SpreadTableclothTeleopEnvCfg(G1SpreadTableclothEnvCfg):
 
     def __post_init__(self):
         super().__post_init__()
-
-        _joint_pos = H2_DEFAULT_JOINT_POS.copy()
-        _joint_pos.update(H2_SPREAD_TABLECLOTH_CUSTOM_JOINT_POS)
-
-        self.scene.robot = H2_SHARPA_CFG.replace(
-            prim_path="/World/envs/env_.*/Robot",
-            init_state=ArticulationCfg.InitialStateCfg(
-                pos=H2_SPREAD_TABLECLOTH_INIT_POS,
-                rot=H2_SPREAD_TABLECLOTH_INIT_ROT,
-                joint_pos=_joint_pos,
-                joint_vel={".*": 0.0},
-            ),
-        )
-
-        self.scene.front_camera = CameraPresets.h2_front_camera(focal_length=10.5)
-        self.scene.left_wrist_camera = None
-        self.scene.right_wrist_camera = None
 
         self.episode_length_s = 300.0
 

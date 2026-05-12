@@ -69,7 +69,8 @@ def _build_hold_pose_action(env: gym.Env) -> torch.Tensor:
 
 
 def main():
-    task_name = "Isaac-Spread-Tablecloth-G129-Inspire-Teleop"
+    # task_name = "Isaac-Spread-Tablecloth-G129-Inspire-Teleop"
+    task_name = "Isaac-Spread-Tablecloth-H2-Sharpa-Teleop"
 
     env_cfg = parse_env_cfg(
         task_name, device=args_cli.device, num_envs=args_cli.num_envs,

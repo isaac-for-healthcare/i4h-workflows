@@ -13,9 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""H2 + Sharpa Wave base environment configuration for the spread-tablecloth task.
+
+This is the H2-specific base config.  It defines:
+  - H2SpreadTableclothSceneCfg  (H2 robot, front camera only, no wrist cameras)
+  - H2SpreadTableclothEnvCfg    (env-level MDP wiring)
+
+The teleop variant (H2SpreadTableclothTeleopEnvCfg) inherits from this and
+adds PinkIK actions + IsaacTeleop XR configuration.
+"""
+
 import isaaclab.envs.mdp as base_mdp
 import isaaclab.sim as sim_utils
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg
+from isaaclab.assets import AssetBaseCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg, ViewerCfg
 from isaaclab.managers import EventTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -24,37 +34,30 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils import configclass
+from isaaclab_physx.assets import DeformableObjectCfg
 from isaaclab_physx.physics import PhysxCfg
+from isaaclab_physx.sim import SurfaceDeformableBodyMaterialCfg
 from simulation.tasks.spread_tablecloth import mdp
-from isaaclab_physx.assets import DeformableObject, DeformableObjectCfg
-from isaaclab_physx.sim import DeformableBodyPropertiesCfg, SurfaceDeformableBodyMaterialCfg
 
 from simulation.tasks.spread_tablecloth.config import (  # isort: skip
     CameraPresets,
-    G1RobotPresets,
-    SPREAD_TABLECLOTH_CUSTOM_JOINT_POS,
-    SPREAD_TABLECLOTH_INIT_POS,
-    SPREAD_TABLECLOTH_INIT_ROT,
+    H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER,
+    H2_SPREAD_TABLECLOTH_CUSTOM_JOINT_POS,
+    H2_SPREAD_TABLECLOTH_INIT_POS,
+    H2_SPREAD_TABLECLOTH_INIT_ROT,
+    H2RobotPresets,
 )
 
 
-TABLE_USD_PATH = (
-    "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Table256/Table256.usd"
-)
 TABLECLOTH_USD_PATH = (
     "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold06/Cloth_fold13.usd"
 )
 SCENE_USD_PATH = (
     "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/scene04.usd"
 )
-TABLE_POS = (-0.50, 0.0, 0.385*1.4)
-TABLE_ROT = (0.0, 0.0, 0.7071, 0.7071)
-TABLE_SCALE = (0.6, 0.6, 0.9)
-TABLE_TOP_SIZE = (1.2, 0.6, 0.04)
-TABLE_TOP_POS = (-0.50, 0.0, 0.78*1.4)
 
-# G1 29 DOF body + Inspire hands.
-joint_names = [
+# H2 body joints + Sharpa Wave hand joints (in PhysX BFS articulation order).
+h2_joint_names = [
     "left_hip_pitch_joint",
     "right_hip_pitch_joint",
     "left_hip_roll_joint",
@@ -70,6 +73,8 @@ joint_names = [
     "waist_yaw_joint",
     "waist_roll_joint",
     "waist_pitch_joint",
+    "head_pitch_joint",
+    "head_yaw_joint",
     "left_shoulder_pitch_joint",
     "left_shoulder_roll_joint",
     "left_shoulder_yaw_joint",
@@ -84,51 +89,29 @@ joint_names = [
     "right_wrist_roll_joint",
     "right_wrist_pitch_joint",
     "right_wrist_yaw_joint",
-    "L_index_proximal_joint",
-    "L_index_intermediate_joint",
-    "L_middle_proximal_joint",
-    "L_middle_intermediate_joint",
-    "L_pinky_proximal_joint",
-    "L_pinky_intermediate_joint",
-    "L_ring_proximal_joint",
-    "L_ring_intermediate_joint",
-    "L_thumb_proximal_yaw_joint",
-    "L_thumb_proximal_pitch_joint",
-    "L_thumb_intermediate_joint",
-    "L_thumb_distal_joint",
-    "R_index_proximal_joint",
-    "R_index_intermediate_joint",
-    "R_middle_proximal_joint",
-    "R_middle_intermediate_joint",
-    "R_pinky_proximal_joint",
-    "R_pinky_intermediate_joint",
-    "R_ring_proximal_joint",
-    "R_ring_intermediate_joint",
-    "R_thumb_proximal_yaw_joint",
-    "R_thumb_proximal_pitch_joint",
-    "R_thumb_intermediate_joint",
-    "R_thumb_distal_joint",
-]
+] + H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER
+
 
 @configclass
-class SpreadTableclothSceneCfg(InteractiveSceneCfg):
-    """Scene configuration for the spread_tablecloth task (G1 robot + table + lights)."""
+class H2SpreadTableclothSceneCfg(InteractiveSceneCfg):
+    """Scene configuration for the H2 spread-tablecloth task.
 
-    robot: ArticulationCfg = G1RobotPresets.g1_29dof_inspire_base_fix(
-        init_pos=SPREAD_TABLECLOTH_INIT_POS,
-        init_rot=SPREAD_TABLECLOTH_INIT_ROT,
-        custom_joint_pos=SPREAD_TABLECLOTH_CUSTOM_JOINT_POS,
+    H2 robot + head-mounted front camera only (no wrist cameras).
+    """
+
+    robot = H2RobotPresets.h2_sharpa_base_fix(
+        init_pos=H2_SPREAD_TABLECLOTH_INIT_POS,
+        init_rot=H2_SPREAD_TABLECLOTH_INIT_ROT,
+        custom_joint_pos=H2_SPREAD_TABLECLOTH_CUSTOM_JOINT_POS,
     )
 
-    front_camera = CameraPresets.g1_front_camera(focal_length=10.5)
-    left_wrist_camera = CameraPresets.left_inspire_wrist_camera()
-    right_wrist_camera = CameraPresets.right_inspire_wrist_camera()
+    front_camera = CameraPresets.h2_front_camera(focal_length=10.5)
 
     scene = AssetBaseCfg(
         prim_path="/World/envs/env_.*/Scene",
         spawn=sim_utils.UsdFileCfg(
             usd_path=SCENE_USD_PATH,
-            scale= (1.0, 1.0, 1.3),
+            scale=(1.0, 1.0, 1.3),
         ),
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(0.9, -2.5, 0.0),
@@ -136,16 +119,14 @@ class SpreadTableclothSceneCfg(InteractiveSceneCfg):
         ),
     )
 
-
     cloth: DeformableObjectCfg = DeformableObjectCfg(
         prim_path="{ENV_REGEX_NS}/Tablecloth",
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=(-0.65, 0.0, 1.0),
+            pos=(-0.50, 0.0, 1.0),
             rot=(0.0, 0.0, 0.0, 1.0),
         ),
         spawn=sim_utils.UsdFileCfg(
             usd_path=TABLECLOTH_USD_PATH,
-            # deformable_props=DeformableBodyPropertiesCfg(disable_gravity=False),
             physics_material=SurfaceDeformableBodyMaterialCfg(
                 density=100.0,
                 youngs_modulus=5e5,
@@ -170,12 +151,12 @@ class SpreadTableclothSceneCfg(InteractiveSceneCfg):
 # MDP settings
 ##
 @configclass
-class ActionsCfg:
-    """Direct joint angle control for G1 (29 DOF + Inspire hands)."""
+class H2ActionsCfg:
+    """Direct joint angle control for H2 + Sharpa Wave hands."""
 
     joint_pos = mdp.JointPositionActionCfg(
         asset_name="robot",
-        joint_names=joint_names,
+        joint_names=h2_joint_names,
         scale=1.0,
         use_default_offset=False,
         preserve_order=True,
@@ -183,8 +164,11 @@ class ActionsCfg:
 
 
 @configclass
-class ObservationsCfg:
-    """Observation configuration for the spread_tablecloth task."""
+class H2ObservationsCfg:
+    """Observation configuration for the H2 spread-tablecloth task.
+
+    Only front_camera — H2 has no wrist cameras.
+    """
 
     @configclass
     class PolicyCfg(ObsGroup):
@@ -200,14 +184,6 @@ class ObservationsCfg:
             func=base_mdp.image,
             params={"sensor_cfg": SceneEntityCfg("front_camera"), "data_type": "rgb", "normalize": False},
         )
-        left_wrist_camera = ObsTerm(
-            func=base_mdp.image,
-            params={"sensor_cfg": SceneEntityCfg("left_wrist_camera"), "data_type": "rgb", "normalize": False},
-        )
-        right_wrist_camera = ObsTerm(
-            func=base_mdp.image,
-            params={"sensor_cfg": SceneEntityCfg("right_wrist_camera"), "data_type": "rgb", "normalize": False},
-        )
 
         def __post_init__(self):
             self.concatenate_terms = False
@@ -217,21 +193,15 @@ class ObservationsCfg:
 
 
 @configclass
-class TerminationsCfg:
+class H2TerminationsCfg:
     """Termination conditions — only time-out for now."""
 
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
 
 
 @configclass
-class EventCfg:
-    """Event configuration for scene reset.
-
-    Mirrors the pickplace_surgical_g1_29dof_inspire setup: in addition to the
-    native `reset_scene_to_default`, we explicitly reset the inner rigid body
-    (`Cloth_In002`) embedded inside the deformable cloth USD, otherwise it
-    drifts upward across resets / penetrates the cloth.
-    """
+class H2EventCfg:
+    """Event configuration for scene reset."""
 
     reset_scene = EventTermCfg(func=base_mdp.reset_scene_to_default, mode="reset")
 
@@ -246,14 +216,10 @@ class EventCfg:
 
 
 @configclass
-class G1SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
-    """Unitree G1 robot spread tablecloth environment configuration.
+class H2SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
+    """Unitree H2 + Sharpa Wave spread-tablecloth environment configuration."""
 
-    Inherits from ManagerBasedRLEnvCfg, defines all configuration parameters
-    for the spread_tablecloth environment.
-    """
-
-    scene: SpreadTableclothSceneCfg = SpreadTableclothSceneCfg(
+    scene: H2SpreadTableclothSceneCfg = H2SpreadTableclothSceneCfg(
         num_envs=1,
         env_spacing=6.0,
         replicate_physics=False,
@@ -265,10 +231,10 @@ class G1SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
         cam_prim_path="/OmniverseKit_Persp",
     )
 
-    observations: ObservationsCfg = ObservationsCfg()
-    actions: ActionsCfg = ActionsCfg()
-    terminations: TerminationsCfg = TerminationsCfg()
-    events: EventCfg = EventCfg()
+    observations: H2ObservationsCfg = H2ObservationsCfg()
+    actions: H2ActionsCfg = H2ActionsCfg()
+    terminations: H2TerminationsCfg = H2TerminationsCfg()
+    events: H2EventCfg = H2EventCfg()
     commands = None
     rewards = None
     curriculum = None
@@ -281,9 +247,4 @@ class G1SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.render_interval = 2
         self.sim.physics = PhysxCfg(
             bounce_threshold_velocity=0.01,
-            # gpu_max_deformable_surface_contacts=2**25,
         )
-
-
-# Backward-compatible alias for any old imports.
-H2SpreadTableclothEnvCfg = G1SpreadTableclothEnvCfg
