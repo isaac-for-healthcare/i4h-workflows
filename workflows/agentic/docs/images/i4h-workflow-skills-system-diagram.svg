@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820" role="img" aria-labelledby="title desc">
+  <title id="title">i4h Workflow Skills System Diagram</title>
+  <desc id="desc">A high-level diagram showing how users can choose and combine i4h workflow skills.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#3B4A5A" />
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.14" />
+    </filter>
+    <style>
+      .bg { fill: #F7F9FC; }
+      .lane { fill: #FFFFFF; stroke: #D9E2EC; stroke-width: 1.5; rx: 18; filter: url(#shadow); }
+      .box { fill: #FFFFFF; stroke: #B8C7D9; stroke-width: 1.5; rx: 14; filter: url(#shadow); }
+      .primary { fill: #EAF3FF; stroke: #5B8DEF; }
+      .env { fill: #F1EEFF; stroke: #7D68D8; }
+      .data { fill: #EEF8F2; stroke: #52A66A; }
+      .policy { fill: #FFF7E6; stroke: #E6A23C; }
+      .verify { fill: #FDEDEE; stroke: #D96872; }
+      .title { font: 700 28px Arial, sans-serif; fill: #172B4D; }
+      .subtitle { font: 400 16px Arial, sans-serif; fill: #52616F; }
+      .lane-title { font: 700 17px Arial, sans-serif; fill: #243B53; }
+      .text { font: 600 15px Arial, sans-serif; fill: #172B4D; }
+      .small { font: 400 13px Arial, sans-serif; fill: #52616F; }
+      .arrow { stroke: #3B4A5A; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .optional { stroke: #778899; stroke-width: 2; fill: none; marker-end: url(#arrow); stroke-dasharray: 6 5; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1200" height="820" />
+
+  <text class="title" x="60" y="54">How Users Can Use The i4h Workflow Skills</text>
+  <text class="subtitle" x="60" y="82">Start with a goal, choose the matching skill, then continue through data, training, and validation as needed.</text>
+
+  <rect class="box primary" x="430" y="110" width="340" height="115" />
+  <text class="text" x="600" y="152" text-anchor="middle">User Goal</text>
+  <text class="small" x="485" y="178">• Setup Simulation Workflow</text>
+  <text class="small" x="485" y="200">• Create Task, Record Dataset, Train Policy</text>
+
+  <rect class="lane" x="55" y="255" width="240" height="410" />
+  <text class="lane-title" x="88" y="290">Discover + Prepare</text>
+
+  <rect class="box primary" x="85" y="325" width="180" height="90" />
+  <text class="text" x="175" y="358" text-anchor="middle">Overview</text>
+  <text class="small" x="175" y="383" text-anchor="middle">i4h-workflow</text>
+
+  <rect class="box primary" x="85" y="480" width="180" height="90" />
+  <text class="text" x="175" y="513" text-anchor="middle">Setup</text>
+  <text class="small" x="175" y="538" text-anchor="middle">i4h-workflow-setup</text>
+
+  <rect class="lane" x="340" y="255" width="240" height="410" />
+  <text class="lane-title" x="373" y="290">Shape The Environment</text>
+
+  <rect class="box env" x="370" y="325" width="180" height="90" />
+  <text class="text" x="460" y="358" text-anchor="middle">Create Env</text>
+  <text class="small" x="460" y="383" text-anchor="middle">i4h-workflow-create</text>
+
+  <rect class="box env" x="370" y="480" width="180" height="90" />
+  <text class="text" x="460" y="513" text-anchor="middle">Modify Env</text>
+  <text class="small" x="460" y="538" text-anchor="middle">i4h-workflow-scene-edit</text>
+
+  <rect class="lane" x="625" y="255" width="240" height="410" />
+  <text class="lane-title" x="658" y="290">Create A Dataset</text>
+
+  <rect class="box data" x="655" y="305" width="180" height="82" />
+  <text class="text" x="745" y="337" text-anchor="middle">Record</text>
+  <text class="small" x="745" y="362" text-anchor="middle">teleop / policy rollout</text>
+
+  <rect class="box data" x="655" y="420" width="180" height="82" />
+  <text class="text" x="745" y="452" text-anchor="middle">Inspect + Expand</text>
+  <text class="small" x="745" y="477" text-anchor="middle">replay, mimic, transfer</text>
+
+  <rect class="box data" x="655" y="535" width="180" height="82" />
+  <text class="text" x="745" y="567" text-anchor="middle">Label + Convert</text>
+  <text class="small" x="745" y="592" text-anchor="middle">annotate, convert, visualize</text>
+
+  <rect class="lane" x="910" y="255" width="240" height="410" />
+  <text class="lane-title" x="943" y="290">Train + Evaluate</text>
+
+  <rect class="box policy" x="940" y="345" width="180" height="90" />
+  <text class="text" x="1030" y="378" text-anchor="middle">Finetune</text>
+  <text class="small" x="1030" y="403" text-anchor="middle">i4h-workflow-finetune</text>
+
+  <rect class="box verify" x="940" y="500" width="180" height="90" />
+  <text class="text" x="1030" y="533" text-anchor="middle">Validate</text>
+  <text class="small" x="1030" y="558" text-anchor="middle">i4h-workflow-validate</text>
+
+  <rect class="box verify" x="430" y="690" width="340" height="100" />
+  <text class="text" x="600" y="718" text-anchor="middle">One-Shot Smoke Path</text>
+  <text class="small" x="485" y="747">• i4h-workflow-e2e</text>
+  <text class="small" x="485" y="771">• Full Chain With Default Smoke Settings</text>
+
+  <path class="arrow" d="M510 200 C430 230, 260 250, 175 325" />
+  <path class="arrow" d="M600 200 C575 235, 500 260, 460 325" />
+  <path class="arrow" d="M690 200 C740 240, 745 260, 745 305" />
+  <path class="arrow" d="M760 200 C900 240, 1010 270, 1030 345" />
+
+  <path class="arrow" d="M175 415 L175 480" />
+  <path class="arrow" d="M265 525 C315 525, 325 370, 370 370" />
+  <path class="arrow" d="M550 370 C600 370, 610 345, 655 345" />
+  <path class="optional" d="M460 480 C565 480, 575 430, 655 430" />
+  <path class="arrow" d="M745 387 L745 420" />
+  <path class="arrow" d="M745 502 L745 535" />
+  <path class="arrow" d="M835 576 C885 576, 900 390, 940 390" />
+  <path class="arrow" d="M1030 435 L1030 500" />
+
+  <path class="optional" d="M600 225 L600 690" />
+</svg>

@@ -1,0 +1,65 @@
+diff --git a/source/leisaac/leisaac/enhance/datasets/hdf5_dataset_file_handler.py b/source/leisaac/leisaac/enhance/datasets/hdf5_dataset_file_handler.py
+index 72c583a..cb06142 100644
+--- a/source/leisaac/leisaac/enhance/datasets/hdf5_dataset_file_handler.py
++++ b/source/leisaac/leisaac/enhance/datasets/hdf5_dataset_file_handler.py
+@@ -2,6 +2,8 @@ import enum
+ import copy
+ import h5py
+ import os
++import numpy as np
++import torch
+
+ from concurrent.futures import ThreadPoolExecutor
+
+@@ -60,6 +62,38 @@ class StreamingHDF5DatasetFileHandler(HDF5DatasetFileHandler):
+             return funture.result() if write_mode == StreamWriteMode.LAST else funture
+
+         def _do_write_episode(self, h5_episode_group: h5py.Group, episode: EpisodeData):
++            def to_numpy(value):
++                """Convert value to a NumPy array on CPU in a safe way (handles nested structures)."""
++                if isinstance(value, torch.Tensor):
++                    return value.detach().cpu().numpy()
++                if isinstance(value, np.ndarray):
++                    return value
++                if isinstance(value, (list, tuple)):
++                    converted = []
++                    for item in value:
++                        if isinstance(item, torch.Tensor):
++                            converted.append(item.detach().cpu().numpy())
++                        elif isinstance(item, (list, tuple)):
++                            converted.append(to_numpy(item))
++                        else:
++                            converted.append(item)
++                    try:
++                        return np.array(converted)
++                    except Exception:
++                        return np.array(converted, dtype=object)
++                if hasattr(value, "cpu") and callable(getattr(value, "cpu")):
++                    try:
++                        return value.detach().cpu().numpy() if hasattr(value, "detach") else value.cpu().numpy()
++                    except Exception:
++                        if hasattr(value, "numpy"):
++                            return value.numpy()
++                if hasattr(value, "numpy") and callable(getattr(value, "numpy")):
++                    try:
++                        return value.numpy()
++                    except Exception:
++                        pass
++                return np.array(value)
++
+             def create_dataset_helper(group, key, value):
+                 """Helper method to create dataset that contains recursive dict objects."""
+                 if isinstance(value, dict):
+@@ -70,7 +104,11 @@ class StreamingHDF5DatasetFileHandler(HDF5DatasetFileHandler):
+                     for sub_key, sub_value in value.items():
+                         create_dataset_helper(key_group, sub_key, sub_value)
+                 else:
+-                    data = value.cpu().numpy()
++                    try:
++                        data = to_numpy(value)
++                    except Exception as e:
++                        print(f"[WARN] Could not convert key '{key}' to numpy: {e}")
++                        return
+                     if key not in group:
+                         dataset = group.create_dataset(
+                             key,

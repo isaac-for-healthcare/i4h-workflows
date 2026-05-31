@@ -4,3 +4,11 @@ MD013:
   line_length: 800
   code_block_line_length: 800
   heading_line_length: 800
+# MD060 (table-column-style) is a newer, purely-cosmetic rule about table pipe
+# spacing; it fires on many pre-existing tables across the repo. Disable it
+# rather than churn every table.
+MD060: false
+# Allow <br> for line breaks inside table cells (no Markdown alternative).
+MD033:
+  allowed_elements:
+    - br

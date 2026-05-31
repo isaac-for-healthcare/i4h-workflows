@@ -63,6 +63,10 @@
 #                     Example:
 #                       RTI_LICENSE_URL="https://your-license-url" ./i4h run so_arm_starter
 #
+#   HF_TOKEN / HUGGING_FACE_HUB_TOKEN - Hugging Face access token for gated models.
+#                     When set and running in Docker mode, the variable is passed
+#                     through to the container.
+#
 # EXAMPLES:
 #   ./i4h list                                    # List available workflows
 #   ./i4h modes so_arm_starter                    # List modes of so_arm_starter
@@ -85,7 +89,7 @@ SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TMP_HOLOHUB_DIR=""  # Set dynamically in download_cli to avoid race conditions
 CLI_DIR="${CLI_DIR:-${SCRIPT_PATH}/tools}"
 REPO_URL="${CLI_REPO_URL:-https://github.com/nvidia-holoscan/holohub.git}"
-CLI_PINNED_COMMIT="${CLI_PINNED_COMMIT:-}"  # Empty means use 'main' branch
+CLI_PINNED_COMMIT="${CLI_PINNED_COMMIT:-f7e791dac061e01c560d3a2c5b7da82350915b69}"
 
 # Function to cleanup temporary directories
 cleanup_tmp() {
@@ -262,6 +266,16 @@ if [[ -n "${RTI_LICENSE_FILE}" ]]; then
     fi
 fi
 
+if ([[ "${1:-}" == "run" ]] && [[ "${REQUESTED_LOCAL_MODE}" == "false" ]]) || \
+    [[ "${1:-}" == "run-container" ]]; then
+    if [[ -n "${HF_TOKEN:-}" ]]; then
+        EXTRA_DOCKER_RUN_OPTS="${EXTRA_DOCKER_RUN_OPTS} -e HF_TOKEN"
+    fi
+    if [[ -n "${HUGGING_FACE_HUB_TOKEN:-}" ]]; then
+        EXTRA_DOCKER_RUN_OPTS="${EXTRA_DOCKER_RUN_OPTS} -e HUGGING_FACE_HUB_TOKEN"
+    fi
+fi
+
 # For SO-ARM Starter Workflow: Find TTY serial devices
 if [[ "${1:-}" == "run" ]] && [[ "${REQUESTED_LOCAL_MODE}" == "false" ]]; then
     TTY_DEVICES=$(find /dev -maxdepth 1 -name "ttyACM*")
@@ -271,6 +285,7 @@ if [[ "${1:-}" == "run" ]] && [[ "${REQUESTED_LOCAL_MODE}" == "false" ]]; then
 fi
 
 # --- Merge extra options with any existing --docker-opts and --build-args in "$@" ---
+EXTRA_DOCKER_RUN_OPTS="${EXTRA_DOCKER_RUN_OPTS# }"
 if [[ -n "${EXTRA_DOCKER_RUN_OPTS}" ]]; then
     EXISTING_OPTS=""
     NEW_ARGS=()

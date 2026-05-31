@@ -1,0 +1,11 @@
+# This directory is not a single uv project — each sub-component
+# (arena, policy) is its own uv project. This file holds shared dev settings.
+
+[project]
+name = "i4h-agentic-workflow"
+version = "0.1.0"
+description = "Unified agentic Arena + GR00T policy workflow (scissor + locomanip + trocar)."
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 120

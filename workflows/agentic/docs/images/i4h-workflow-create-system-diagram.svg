@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="860" viewBox="0 0 1200 860" role="img" aria-labelledby="title desc">
+  <title id="title">i4h Workflow Create System Diagram</title>
+  <desc id="desc">A high-level diagram showing how the i4h workflow create skill turns a user prompt into a validated Robot simulation environment.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#3B4A5A" />
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.14" />
+    </filter>
+    <style>
+      .bg { fill: #F7F9FC; }
+      .lane { fill: #FFFFFF; stroke: #D9E2EC; stroke-width: 1.5; rx: 18; filter: url(#shadow); }
+      .box { fill: #FFFFFF; stroke: #B8C7D9; stroke-width: 1.5; rx: 14; filter: url(#shadow); }
+      .primary { fill: #EAF3FF; stroke: #5B8DEF; }
+      .validate { fill: #FFF7E6; stroke: #E6A23C; }
+      .ready { fill: #EAF7EE; stroke: #52A66A; }
+      .fix { fill: #FDEDEE; stroke: #D96872; }
+      .title { font: 700 28px Arial, sans-serif; fill: #172B4D; }
+      .subtitle { font: 400 16px Arial, sans-serif; fill: #52616F; }
+      .lane-title { font: 700 17px Arial, sans-serif; fill: #243B53; }
+      .text { font: 600 15px Arial, sans-serif; fill: #172B4D; }
+      .small { font: 400 13px Arial, sans-serif; fill: #52616F; }
+      .arrow { stroke: #3B4A5A; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .loop { stroke: #D96872; stroke-width: 2.2; fill: none; marker-end: url(#arrow); stroke-dasharray: 6 5; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1200" height="860" />
+
+  <text class="title" x="60" y="54">What Happens When The i4h Workflow-Create Skill Runs?</text>
+  <text class="subtitle" x="60" y="82">Example Prompt: Create A New Surgical Tool Sorting Environment Using The G1 Robot.</text>
+
+  <rect class="lane" x="50" y="115" width="220" height="610" />
+  <text class="lane-title" x="82" y="150">1. Understand</text>
+
+  <rect class="box primary" x="80" y="180" width="160" height="82" />
+  <text class="text" x="160" y="212" text-anchor="middle">User Request</text>
+  <text class="small" x="160" y="235" text-anchor="middle">New Robot Task</text>
+
+  <rect class="box" x="80" y="315" width="160" height="120" />
+  <text class="text" x="160" y="346" text-anchor="middle">Interpret Task</text>
+  <text class="small" x="160" y="371" text-anchor="middle">Robot</text>
+  <text class="small" x="160" y="392" text-anchor="middle">Objects</text>
+  <text class="small" x="160" y="413" text-anchor="middle">Success Rule</text>
+
+  <rect class="box" x="80" y="495" width="160" height="110" />
+  <text class="text" x="160" y="527" text-anchor="middle">Choose Templates</text>
+  <text class="small" x="160" y="552" text-anchor="middle">Similar Task</text>
+  <text class="small" x="160" y="573" text-anchor="middle">matching Robot</text>
+
+  <rect class="lane" x="315" y="115" width="250" height="610" />
+  <text class="lane-title" x="347" y="150">2. Build</text>
+
+  <rect class="box" x="350" y="185" width="180" height="110" />
+  <text class="text" x="440" y="218" text-anchor="middle">Simulation Scene</text>
+  <text class="small" x="440" y="243" text-anchor="middle">Robot, table</text>
+  <text class="small" x="440" y="264" text-anchor="middle">Tools, Trays, Cameras</text>
+
+  <rect class="box" x="350" y="355" width="180" height="110" />
+  <text class="text" x="440" y="388" text-anchor="middle">Task Logic</text>
+  <text class="small" x="440" y="413" text-anchor="middle">Reset Behavior</text>
+  <text class="small" x="440" y="434" text-anchor="middle">Pass/Fail Checks</text>
+
+  <rect class="box" x="350" y="525" width="180" height="110" />
+  <text class="text" x="440" y="558" text-anchor="middle">Runtime Bridge</text>
+  <text class="small" x="440" y="583" text-anchor="middle">Observations</text>
+  <text class="small" x="440" y="604" text-anchor="middle">Actions And Recording</text>
+
+  <rect class="lane" x="610" y="115" width="250" height="610" />
+  <text class="lane-title" x="642" y="150">3. Connect</text>
+
+  <rect class="box" x="645" y="185" width="180" height="110" />
+  <text class="text" x="735" y="218" text-anchor="middle">Register Env</text>
+  <text class="small" x="735" y="243" text-anchor="middle">Name And Aliases</text>
+  <text class="small" x="735" y="264" text-anchor="middle">CLI discovery</text>
+
+  <rect class="box" x="645" y="355" width="180" height="110" />
+  <text class="text" x="735" y="388" text-anchor="middle">Add Config</text>
+  <text class="small" x="735" y="413" text-anchor="middle">Cameras, Task Text</text>
+  <text class="small" x="735" y="434" text-anchor="middle">Policy And Dataset Defaults</text>
+
+  <rect class="box" x="645" y="525" width="180" height="110" />
+  <text class="text" x="735" y="558" text-anchor="middle">Wire Policy</text>
+  <text class="small" x="735" y="583" text-anchor="middle">Backend Registry</text>
+  <text class="small" x="735" y="604" text-anchor="middle">Dispatcher Routing</text>
+
+  <rect class="lane" x="905" y="115" width="245" height="610" />
+  <text class="lane-title" x="937" y="150">4. Validate</text>
+
+  <rect class="box validate" x="940" y="180" width="175" height="100" />
+  <text class="text" x="1027.5" y="213" text-anchor="middle">Dry Runs</text>
+  <text class="small" x="1027.5" y="238" text-anchor="middle">Env List</text>
+  <text class="small" x="1027.5" y="259" text-anchor="middle">Arena And Policy</text>
+
+  <rect class="box validate" x="940" y="335" width="175" height="125" />
+  <text class="text" x="1027.5" y="370" text-anchor="middle">Visual Annotation</text>
+  <text class="small" x="1027.5" y="395" text-anchor="middle">Run Sim Briefly</text>
+  <text class="small" x="1027.5" y="416" text-anchor="middle">Capture Camera Frames</text>
+  <text class="small" x="1027.5" y="437" text-anchor="middle">VLM Or Agent Review</text>
+
+  <rect class="box fix" x="940" y="515" width="175" height="100" />
+  <text class="text" x="1027.5" y="548" text-anchor="middle">Fix If Needed</text>
+  <text class="small" x="1027.5" y="573" text-anchor="middle">Camera, Assets</text>
+  <text class="small" x="1027.5" y="594" text-anchor="middle">Layout, Overlap</text>
+
+  <rect class="box ready" x="480" y="735" width="240" height="120" />
+  <text class="text" x="600" y="763" text-anchor="middle">Environment Ready</text>
+  <text class="small" x="525" y="792">• Record</text>
+  <text class="small" x="525" y="816">• Replay + Inspect</text>
+  <text class="small" x="525" y="840">• Convert, Train, Evaluate</text>
+
+  <path class="arrow" d="M160 262 L160 315" />
+  <path class="arrow" d="M160 435 L160 495" />
+  <path class="arrow" d="M240 550 C280 550, 300 240, 350 240" />
+  <path class="arrow" d="M530 240 L645 240" />
+  <path class="arrow" d="M530 410 L645 410" />
+  <path class="arrow" d="M530 580 L645 580" />
+  <path class="arrow" d="M825 240 L940 230" />
+  <path class="arrow" d="M825 410 L940 397" />
+  <path class="arrow" d="M825 580 L940 565" />
+  <path class="arrow" d="M1027 280 L1027 335" />
+  <path class="arrow" d="M1027 460 L1027 515" />
+  <path class="loop" d="M940 565 C880 680, 520 700, 440 635" />
+  <path class="arrow" d="M1027 615 C1027 750, 770 780, 720 785" />
+</svg>

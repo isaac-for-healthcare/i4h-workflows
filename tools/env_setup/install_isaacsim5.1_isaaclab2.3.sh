@@ -35,6 +35,10 @@ pip install "isaacsim[all,extscache]==5.1.0" \
     git+https://github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.3.0 \
     --extra-index-url https://pypi.nvidia.com
 
+# Accept the Omniverse Kit EULA non-interactively so headless/CI runs don't hang
+export OMNI_KIT_ACCEPT_EULA=Y
+python -c "import isaacsim" 2>/dev/null || true
+
 ISAACLAB_DIR="$PROJECT_ROOT/third_party/IsaacLab"
 
 if [ -d "$ISAACLAB_DIR" ]; then
@@ -47,6 +51,7 @@ fi
 
 pushd "$ISAACLAB_DIR"
 echo "Pre-installing flatdict to avoid pip isolated build env issues..."
+# flatdict 4.0.1 uses pkg_resources which was removed in setuptools>=82;
 pip install --no-build-isolation flatdict==4.0.1
 echo "Installing IsaacLab ..."
 yes Yes | ./isaaclab.sh --install

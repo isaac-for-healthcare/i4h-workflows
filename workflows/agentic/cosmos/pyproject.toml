@@ -1,0 +1,41 @@
+[project]
+name = "i4h-agentic-cosmos"
+version = "0.1.0"
+description = "Agentic HDF5 visual expansion adapter for NVIDIA Cosmos."
+requires-python = ">=3.11"
+dependencies = [
+    "i4h-agentic-common",
+    "h5py>=3.10",
+    "imageio>=2.34",
+    "imageio-ffmpeg>=0.5",
+    "numpy>=1.26,<3",
+    "tqdm>=4.66",
+]
+
+[project.scripts]
+i4h-agentic-cosmos-export = "cosmos.export:main"
+i4h-agentic-cosmos-run = "cosmos.run:main"
+i4h-agentic-cosmos-import = "cosmos.importer:main"
+i4h-agentic-cosmos-expand = "cosmos.expand:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cosmos"]
+
+[tool.uv.sources]
+i4h-agentic-common = { path = "../common", editable = true }
+
+[tool.uv]
+environments = ["sys_platform == 'linux'"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["common", "cosmos"]

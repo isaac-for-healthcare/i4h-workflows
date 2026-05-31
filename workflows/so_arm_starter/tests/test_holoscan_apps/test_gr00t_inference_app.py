@@ -64,15 +64,10 @@ robot:
       fps: 30
 
 gr00t:
-  host: "localhost"
-  port: 5555
   language_instruction: "Pick up the scissors"
   action_horizon: 8
   model_path: "/tmp/model"
-  trt_engine_path: "/tmp/engines"
-  data_config: "so100_dualcam"
-  video_keys: ["video.room", "video.wrist"]
-  trt: true
+  embodiment_tag: "new_embodiment"
 			""".strip()
         )
         # Use a real Application fragment for operator construction
@@ -120,17 +115,31 @@ gr00t:
 
     def test_create_gr00t_policy(self):
         app = GR00TCyclicApplication(config_path=str(self.config_path))
+        mock_policy_instance = MagicMock()
+        mock_policy_instance.language_key = "task_description"
         with (
-            patch.object(appmod, "Gr00tPolicy", autospec=True) as MockPolicy,
-            patch.object(appmod, "setup_tensorrt_engines") as mock_setup,
+            patch.object(appmod, "Gr00tPolicy", return_value=mock_policy_instance) as MockPolicy,
             patch("os.path.exists", return_value=True),
         ):
             policy = app.create_gr00t_policy()
             MockPolicy.assert_called_once()
-            mock_setup.assert_called_once()
-            args, _ = mock_setup.call_args
-            self.assertIs(args[0], policy)
-            self.assertEqual(args[1], "/tmp/engines")
+            self.assertIsInstance(policy, appmod._N17PolicyAdapter)
+
+    def test_create_gr00t_policy_with_trt(self):
+        app = GR00TCyclicApplication(config_path=str(self.config_path))
+        app.config["gr00t"]["trt_engine_path"] = "/tmp/engines"
+        app.config["gr00t"]["trt_mode"] = "n17_full_pipeline"
+        mock_policy_instance = MagicMock()
+        mock_policy_instance.language_key = "task_description"
+        with (
+            patch.object(appmod, "Gr00tPolicy", return_value=mock_policy_instance) as MockPolicy,
+            patch.object(appmod, "setup_tensorrt_engines") as mock_setup_trt,
+            patch("os.path.exists", return_value=True),
+        ):
+            policy = app.create_gr00t_policy()
+            MockPolicy.assert_called_once()
+            mock_setup_trt.assert_called_once_with(mock_policy_instance, "/tmp/engines", "n17_full_pipeline")
+            self.assertIsInstance(policy, appmod._N17PolicyAdapter)
 
 
 if __name__ == "__main__":

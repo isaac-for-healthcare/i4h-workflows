@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-labelledby="title desc">
+  <title id="title">i4h Workflow End-to-End System Diagram</title>
+  <desc id="desc">A high-level diagram showing how the i4h workflow e2e skill runs the Full Smoke Pipeline for an environment.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#3B4A5A" />
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.14" />
+    </filter>
+    <style>
+      .bg { fill: #F7F9FC; }
+      .lane { fill: #FFFFFF; stroke: #D9E2EC; stroke-width: 1.5; rx: 18; filter: url(#shadow); }
+      .box { fill: #FFFFFF; stroke: #B8C7D9; stroke-width: 1.5; rx: 14; filter: url(#shadow); }
+      .primary { fill: #EAF3FF; stroke: #5B8DEF; }
+      .data { fill: #EEF8F2; stroke: #52A66A; }
+      .gate { fill: #FFF7E6; stroke: #E6A23C; }
+      .train { fill: #F1EEFF; stroke: #7D68D8; }
+      .report { fill: #FDEDEE; stroke: #D96872; }
+      .title { font: 700 28px Arial, sans-serif; fill: #172B4D; }
+      .subtitle { font: 400 16px Arial, sans-serif; fill: #52616F; }
+      .lane-title { font: 700 17px Arial, sans-serif; fill: #243B53; }
+      .text { font: 600 15px Arial, sans-serif; fill: #172B4D; }
+      .small { font: 400 13px Arial, sans-serif; fill: #52616F; }
+      .arrow { stroke: #3B4A5A; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .artifact { stroke: #52A66A; stroke-width: 2; fill: none; marker-end: url(#arrow); stroke-dasharray: 6 5; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1200" height="900" />
+
+  <text class="title" x="60" y="54">What Happens When The i4h Workflow-E2E Skill Runs?</text>
+  <text class="subtitle" x="60" y="82">Example Prompt: Run The Full End-To-End Smoke Pipeline For Scissor Pick-And-Place.</text>
+
+  <rect class="lane" x="45" y="120" width="245" height="565" />
+  <text class="lane-title" x="78" y="155">1. Prepare Run</text>
+
+  <rect class="box primary" x="80" y="185" width="175" height="90" />
+  <text class="text" x="167.5" y="219" text-anchor="middle">User Request</text>
+  <text class="small" x="167.5" y="244" text-anchor="middle">Full Smoke Pipeline</text>
+
+  <rect class="box" x="80" y="335" width="175" height="115" />
+  <text class="text" x="167.5" y="368" text-anchor="middle">Prerequisite</text>
+  <text class="small" x="167.5" y="393" text-anchor="middle">Stages</text>
+  <text class="small" x="167.5" y="414" text-anchor="middle">Config Values</text>
+  <text class="small" x="167.5" y="435" text-anchor="middle">Monitoring Log</text>
+
+  <rect class="box" x="80" y="510" width="175" height="115" />
+  <text class="text" x="167.5" y="543" text-anchor="middle">Setup Workspace</text>
+  <text class="small" x="167.5" y="568" text-anchor="middle">Component Envs</text>
+  <text class="small" x="167.5" y="589" text-anchor="middle">Run Directory</text>
+  <text class="small" x="167.5" y="610" text-anchor="middle">Cleanup Traps</text>
+
+  <rect class="lane" x="330" y="120" width="245" height="565" />
+  <text class="lane-title" x="363" y="155">2. Build Dataset</text>
+
+  <rect class="box data" x="365" y="185" width="175" height="105" />
+  <text class="text" x="452.5" y="219" text-anchor="middle">Record Episodes</text>
+  <text class="small" x="452.5" y="244" text-anchor="middle">Start Policy</text>
+  <text class="small" x="452.5" y="265" text-anchor="middle">Save HDF5 Demos</text>
+
+  <rect class="box data" x="365" y="350" width="175" height="105" />
+  <text class="text" x="452.5" y="384" text-anchor="middle">Expand Demos</text>
+  <text class="small" x="452.5" y="409" text-anchor="middle">Mimic Variants</text>
+  <text class="small" x="452.5" y="430" text-anchor="middle">More Samples</text>
+
+  <rect class="box gate" x="365" y="515" width="175" height="125" />
+  <text class="text" x="452.5" y="548" text-anchor="middle">Annotation</text>
+  <text class="small" x="452.5" y="573" text-anchor="middle">Annotate Episodes</text>
+  <text class="small" x="452.5" y="594" text-anchor="middle">Filter Successes</text>
+  <text class="small" x="452.5" y="615" text-anchor="middle">Stop If None Pass</text>
+
+  <rect class="lane" x="615" y="120" width="245" height="565" />
+  <text class="lane-title" x="648" y="155">3. Inspect + Convert</text>
+
+  <rect class="box gate" x="650" y="185" width="175" height="105" />
+  <text class="text" x="737.5" y="219" text-anchor="middle">Replay Sample</text>
+  <text class="small" x="737.5" y="244" text-anchor="middle">Random Filtered Demo</text>
+  <text class="small" x="737.5" y="265" text-anchor="middle">Visual Sanity Check</text>
+
+  <rect class="box data" x="650" y="350" width="175" height="105" />
+  <text class="text" x="737.5" y="384" text-anchor="middle">Convert Dataset</text>
+  <text class="small" x="737.5" y="409" text-anchor="middle">HDF5 to LeRobot</text>
+  <text class="small" x="737.5" y="430" text-anchor="middle">Video + Metadata</text>
+
+  <rect class="box data" x="650" y="515" width="175" height="105" />
+  <text class="text" x="737.5" y="548" text-anchor="middle">Open Visualizer</text>
+  <text class="small" x="737.5" y="573" text-anchor="middle">Browse Episodes</text>
+  <text class="small" x="737.5" y="594" text-anchor="middle">Inspect Videos</text>
+
+  <rect class="lane" x="900" y="120" width="245" height="565" />
+  <text class="lane-title" x="933" y="155">4. Train + Verify</text>
+
+  <rect class="box train" x="935" y="185" width="175" height="115" />
+  <text class="text" x="1022.5" y="219" text-anchor="middle">Finetune</text>
+  <text class="small" x="1022.5" y="244" text-anchor="middle">Short Training Run</text>
+  <text class="small" x="1022.5" y="265" text-anchor="middle">New Checkpoint</text>
+
+  <rect class="box train" x="935" y="365" width="175" height="115" />
+  <text class="text" x="1022.5" y="399" text-anchor="middle">Validate Checkpoint</text>
+  <text class="small" x="1022.5" y="424" text-anchor="middle">Record Rollouts</text>
+  <text class="small" x="1022.5" y="445" text-anchor="middle">Compare Outcome</text>
+
+  <rect class="box report" x="935" y="545" width="175" height="115" />
+  <text class="text" x="1022.5" y="579" text-anchor="middle">Write Summary</text>
+  <text class="small" x="1022.5" y="604" text-anchor="middle">completed Stages</text>
+  <text class="small" x="1022.5" y="625" text-anchor="middle">Artifacts And Logs</text>
+
+  <rect class="box data" x="355" y="745" width="490" height="140" />
+  <text class="text" x="600" y="773" text-anchor="middle">Run Artifacts</text>
+  <text class="small" x="410" y="802">• HDF5 Data</text>
+  <text class="small" x="410" y="826">• Annotations + Filtered Demos</text>
+  <text class="small" x="410" y="850">• LeRobot Dataset + Visualizer State</text>
+  <text class="small" x="410" y="874">• Checkpoint + Logs</text>
+
+  <path class="arrow" d="M167 275 L167 335" />
+  <path class="arrow" d="M167 450 L167 510" />
+  <path class="arrow" d="M255 567 C300 567, 315 237, 365 237" />
+  <path class="arrow" d="M452 290 L452 350" />
+  <path class="arrow" d="M452 455 L452 515" />
+  <path class="arrow" d="M540 577 C590 577, 600 237, 650 237" />
+  <path class="arrow" d="M737 290 L737 350" />
+  <path class="arrow" d="M737 455 L737 515" />
+  <path class="arrow" d="M825 567 C875 567, 885 242, 935 242" />
+  <path class="arrow" d="M1022 300 L1022 365" />
+  <path class="arrow" d="M1022 480 L1022 545" />
+
+  <path class="artifact" d="M167 625 C167 735, 420 755, 455 755" />
+  <path class="artifact" d="M452 640 C452 710, 520 735, 560 745" />
+  <path class="artifact" d="M737 620 C737 710, 690 735, 650 745" />
+  <path class="artifact" d="M1022 660 C1022 740, 860 765, 845 775" />
+</svg>

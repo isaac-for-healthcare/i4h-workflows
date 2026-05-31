@@ -211,6 +211,11 @@ wandb/
 
 # Third party
 third_party/
+**/third_party
+!workflows/agentic/third_party/
+workflows/agentic/third_party/*
+!workflows/agentic/third_party/.gitignore
+.claude/scheduled_tasks.lock
 
 
 # third-party files
@@ -232,6 +237,7 @@ cmake
 *.onnx
 **/gr00t_engines/*
 **/gr00t_onnx/*
+**/trt_engines/
 
 # Dev container
 .devcontainer/
@@ -245,3 +251,6 @@ rti/
 .python_history
 .nv
 .keras
+
+# Sandbox-fallback state for the lerobot-viz launcher
+.lerobot-viz/

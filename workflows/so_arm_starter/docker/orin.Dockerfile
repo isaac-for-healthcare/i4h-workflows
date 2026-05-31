@@ -22,6 +22,7 @@ RUN apt-get update && \
       python3 \
       python3-pip \
       python3-dev \
+      python3-venv \
       libsm6 \
       libxext6 \
       libhdf5-serial-dev \
@@ -37,77 +38,60 @@ RUN apt-get update && \
       cmake \
       nasm \
       git \
-      patch \
+      curl \
+      ffmpeg \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
 WORKDIR /workspace
 
-# So Python finds decord (and other --user installs) from later steps and at runtime
-ENV PYTHONUSERBASE=/root/.local
+ARG I4H_ROOT=/opt/i4h-workflows
 
-# Install cuDSS (CUDA Direct Solver library for dense and sparse linear systems)
-RUN wget https://developer.download.nvidia.com/compute/cudss/0.6.0/local_installers/cudss-local-tegra-repo-ubuntu2204-0.6.0_0.6.0-1_arm64.deb && \
-    dpkg -i cudss-local-tegra-repo-ubuntu2204-0.6.0_0.6.0-1_arm64.deb && \
-    cp /var/cudss-local-tegra-repo-ubuntu2204-0.6.0/cudss-*-keyring.gpg /usr/share/keyrings/ && \
-    chmod 777 /tmp && \
-    apt-get update && \
-    apt-get -y install cudss && \
-    rm -f cudss-local-tegra-repo-ubuntu2204-0.6.0_0.6.0-1_arm64.deb && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-get clean
-
-ARG GR00T_COMMIT=aa6441feb4f08233d55cbfd2082753cdc01fa676
-COPY workflows/so_arm_starter/docker/orin.patch /tmp/orin.patch
-RUN cd /tmp && \
-    git clone https://github.com/NVIDIA/Isaac-GR00T.git Isaac-GR00T && \
-    cd Isaac-GR00T && \
+# Clone GR00T and use its own Orin install script
+ARG GR00T_COMMIT=4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e
+RUN apt-get update && apt-get install -y --no-install-recommends git-lfs && rm -rf /var/lib/apt/lists/* && \
+    git lfs install && \
+    git clone https://github.com/NVIDIA/Isaac-GR00T.git ${I4H_ROOT}/third_party/Isaac-GR00T && \
+    cd ${I4H_ROOT}/third_party/Isaac-GR00T && \
     git checkout ${GR00T_COMMIT} && \
-    patch -Np1 -i /tmp/orin.patch && \
-    export PIP_INDEX_URL=https://pypi.jetson-ai-lab.io/jp6/cu126 && \
-    export PIP_EXTRA_INDEX_URL=https://pypi.org/simple && \
-    export PIP_TRUSTED_HOST=pypi.jetson-ai-lab.io && \
-    pip3 install --upgrade pip setuptools && \
-    pip3 install -e .[orin]
+    git lfs pull
 
+# Install GR00T via its Orin install_deps.sh (uses uv + platform-specific pyproject.toml)
+ENV DOCKER_CONTAINER=1
+ENV UV_PROJECT_ENVIRONMENT=/opt/gr00t-venv
+RUN cd ${I4H_ROOT}/third_party/Isaac-GR00T && \
+    bash scripts/deployment/orin/install_deps.sh
 
-RUN pip3 install "git+https://github.com/facebookresearch/pytorch3d.git" --no-build-isolation
+# Activate the venv by default
+ENV VIRTUAL_ENV=/opt/gr00t-venv
+ENV PATH="$VIRTUAL_ENV/bin:/usr/local/cuda/bin:$PATH"
+ENV TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
+ENV CUDA_HOME=/usr/local/cuda-12.6
+ENV CUDA_PATH=/usr/local/cuda-12.6
+ENV CPATH="/usr/local/cuda-12.6/include:${CPATH:-}"
+ENV C_INCLUDE_PATH="/usr/local/cuda-12.6/include:${C_INCLUDE_PATH:-}"
+ENV CPLUS_INCLUDE_PATH="/usr/local/cuda-12.6/include:${CPLUS_INCLUDE_PATH:-}"
+ENV LD_LIBRARY_PATH="/usr/local/cuda-12.6/lib64:$VIRTUAL_ENV/lib/python3.10/site-packages/torch/lib:$VIRTUAL_ENV/lib/python3.10/site-packages/nvidia/cu12/lib:$VIRTUAL_ENV/lib/python3.10/site-packages/nvidia/cudss/lib:${LD_LIBRARY_PATH:-}"
 
-# Build and install decord
-RUN git clone --depth 1 --branch n4.4.2 https://github.com/FFmpeg/FFmpeg.git ffmpeg && \
-    cd ffmpeg && \
-    ./configure --enable-shared --enable-pic --prefix=/usr && \
-    make -j$(nproc) && \
-    make install && \
-    cd .. && \
-    git clone --recursive https://github.com/dmlc/decord && \
-    cd decord && \
-    mkdir build && cd build && \
-    cmake .. -DCMAKE_BUILD_TYPE=Release && \
-    make && \
-    cd ../python && \
-    python3 setup.py install --user && \
-    rm -rf ffmpeg decord
+# Ensure pip is available in the venv
+RUN /opt/gr00t-venv/bin/python3 -m ensurepip --upgrade && \
+    /opt/gr00t-venv/bin/python3 -m pip install --upgrade pip
 
 # Install lerobot
+ARG LEROBOT_VERSION=483be9aac217c2d8ef16982490f22b2ad091ab46
 RUN cd /tmp && \
     git clone https://github.com/huggingface/lerobot.git && \
     cd lerobot && \
-    git checkout 483be9aac217c2d8ef16982490f22b2ad091ab46 && \
-    pip install -e ".[feetech]"
+    git checkout ${LEROBOT_VERSION} && \
+    /opt/gr00t-venv/bin/python3 -m pip install -e ".[feetech]"
 
-RUN CAMERA_FILE=$(python3 -c "import lerobot.common.cameras.opencv.camera_opencv as m; import os; print(os.path.dirname(m.__file__))")/camera_opencv.py && \
+# Patch lerobot camera_opencv.py to set MJPEG format
+RUN CAMERA_FILE=$(/opt/gr00t-venv/bin/python3 -c "import lerobot.common.cameras.opencv.camera_opencv as m; import os; print(os.path.dirname(m.__file__))")/camera_opencv.py && \
     sed -i '/self._configure_capture_settings()/i\        self.videocapture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('\''M'\'', '\''J'\'', '\''P'\'', '\''G'\''))' "$CAMERA_FILE"
 
-RUN pip3 uninstall -y torch torchvision && \
-    pip3 install --index-url=https://pypi.jetson-ai-lab.io/jp6/cu126 torch==2.8.0 torchvision==0.23.0
-
-RUN pip3 install "numpy<2.0"
-RUN pip3 install holoscan-cu12==3.7.0 && \
-    # Run Holoscan SDK post-install setup
-    python3 -c "pass"
-
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/root/.local/decord/:/usr/local/lib/python3.10/dist-packages/torch/lib
+RUN /opt/gr00t-venv/bin/python3 -m pip install "numpy<2.0"
+RUN /opt/gr00t-venv/bin/python3 -m pip install holoscan-cu12==3.7.0 && \
+    /opt/gr00t-venv/bin/python3 -c "pass"
 
 ##################################################################
 # Error if attempting to use an unsupported mode on this platform

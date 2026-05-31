@@ -1,0 +1,38 @@
+[project]
+name = "i4h-agentic-annotator"
+version = "0.1.0"
+description = "OpenVLLM/Qwen visual task verifier for agentic offline recordings and live Zenoh camera streams."
+requires-python = ">=3.11, <3.12"
+dependencies = [
+    "i4h-agentic-common",
+    "h5py>=3.10",
+    "numpy>=1.23.5,<2",
+    "openai>=1.59",
+    "Pillow>=10.0",
+    "PyYAML>=6.0",
+]
+
+[project.scripts]
+i4h-agentic-annotator = "annotator.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["annotator"]
+
+[tool.uv.sources]
+i4h-agentic-common = { path = "../common", editable = true }
+
+[tool.uv]
+environments = ["sys_platform == 'linux'"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["annotator"]

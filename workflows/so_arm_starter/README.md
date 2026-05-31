@@ -4,7 +4,7 @@
 
 ## 🔬 Overview
 
-The SO-ARM Starter Workflow demonstrates autonomous surgical instrument handling with the [SO-ARM101 robotic arm](https://huggingface.co/docs/lerobot/en/so101) and an [NVIDIA GR00T N1.5 vision-language policy](https://developer.nvidia.com/isaac/gr00t). You can collect teleoperation data in [NVIDIA Isaac Sim](https://developer.nvidia.com/isaac/sim) or on real hardware, train or fine-tune the policy on your data, and then deploy to simulation or a physical SO-ARM101.
+The SO-ARM Starter Workflow demonstrates autonomous surgical instrument handling with the [SO-ARM101 robotic arm](https://huggingface.co/docs/lerobot/en/so101) and an [NVIDIA GR00T N1.7 vision-language policy](https://developer.nvidia.com/isaac/gr00t). You can collect teleoperation data in [NVIDIA Isaac Sim](https://developer.nvidia.com/isaac/sim) or on real hardware, train or fine-tune the policy on your data, and then deploy to simulation or a physical SO-ARM101.
 
 The SO-ARM Starter workflow consists of three main phases: data collection, model training, and policy deployment. Each phase can be run independently or as part of a complete pipeline.
 
@@ -90,6 +90,19 @@ sudo ufw allow in proto udp to 239.255.0.1 port 7400:7401
 sudo ufw allow out proto udp to 239.255.0.1 port 7400:7401
 ```
 
+### Hugging Face Authentication
+
+The GR00T N1.7 model depends on gated repositories on Hugging Face (e.g., `nvidia/Cosmos-Reason2-2B`). Before running any of the policy-loading modes (`policy`, `real_deploy`):
+
+1. Request access at <https://huggingface.co/nvidia/Cosmos-Reason2-2B> (typically approved instantly).
+2. Create a [Hugging Face access token](https://huggingface.co/settings/tokens) and export it on the host:
+
+```bash
+export HF_TOKEN="hf_your_token_here"
+```
+
+The `./i4h run` commands further below forward `HF_TOKEN` into the container via `--docker-opts="-e HF_TOKEN=$HF_TOKEN"`. Use **double quotes** so `$HF_TOKEN` is expanded by the host shell. For `real_deploy`, the mode's default `--privileged --group-add dialout` must be re-included on the same flag, otherwise the CLI overrides them.
+
 ### Enable SO-ARM101 Serial Communication
 
 > [!NOTE]
@@ -109,7 +122,7 @@ sudo chmod 666 </dev/ttyUSB1>
 
 ### Set up the Real Scene (Optional)
 
-If deploying the pre-trained GR00T N1.5 policy on real SO-ARM101 hardware, please set up the physical scene to match the training environment as shown below, with the wrist camera view matching the left image and room camera view matching the right image.
+If deploying the pre-trained GR00T N1.7 policy on real SO-ARM101 hardware, please set up the physical scene to match the training environment as shown below, with the wrist camera view matching the left image and room camera view matching the right image.
 
 ![Real World Camera View Setup - Required camera positions for model deployment](./docs/images/so_arm_starter_real_view.jpg)
 
@@ -121,7 +134,7 @@ Run the following command to capture and review images from each camera:
 
 ## 🤖 Quick Start: Deploy the Default Policy in Simulation
 
-In this guide we run the simulated SO-ARM101 in the default demo simulation environment with our pre-trained GR00T N1.5 model to "pick and place" surgical instruments on a table.
+In this guide we run the simulated SO-ARM101 in the default demo simulation environment with our pre-trained GR00T N1.7 model to "pick and place" surgical instruments on a table.
 
 > [!NOTE]
 > First-time setup with `./i4h run` may take up to one hour.
@@ -137,14 +150,14 @@ This starts Isaac Sim with the robot scene. Keep this terminal running.
 ### Step 2: Run the Policy (New Terminal)
 
 ```bash
-./i4h run so_arm_starter policy
+./i4h run so_arm_starter policy --docker-opts="-e HF_TOKEN=$HF_TOKEN"
 ```
 
 You should now see the simulated robot arm moving to pick the surgical scissors and place them in the tray.
 
 ## 🤖 Quick Start: Deploy the Default Policy to Real SO-ARM Hardware
 
-In this guide we run our pre-trained GR00T N1.5 model with the physical SO-ARM101 follower arm to "pick and place" real surgical instruments.
+In this guide we run our pre-trained GR00T N1.7 model with the physical SO-ARM101 follower arm to "pick and place" real surgical instruments.
 
 The pre-trained model is trained with the following parameters:
 
@@ -154,7 +167,8 @@ The pre-trained model is trained with the following parameters:
 First, update [`soarm_robot_config.yaml`](../../workflows/so_arm_starter/scripts/holoscan_apps/soarm_robot_config.yaml) with the serial port for your SO-ARM 101 follower arm. Then, run the pre-trained policy to drive the SO-ARM follower arm via serial communications:
 
 ```bash
-./i4h run so_arm_starter real_deploy
+./i4h run so_arm_starter real_deploy \
+    --docker-opts="--privileged --group-add dialout -e HF_TOKEN=$HF_TOKEN"
 ```
 
 ## Guide: Collect Data with SO-ARM101 Leader or Keyboard
@@ -259,7 +273,7 @@ chown $(id -u):$(id -g) path/to/my_demo.hdf5
 
 ### Run GPU-based Fine-Tuning
 
-Run the following command to use your teleoperation data to fine-tune the GR00T N1.5 pre-trained model:
+Run the following command to use your teleoperation data to fine-tune the GR00T N1.7 pre-trained model:
 
 ```bash
 ./i4h run so_arm_starter train --run-args="\
@@ -290,7 +304,9 @@ Launch the simulation environment:
 Run the policy in another terminal or process:
 
 ```bash
-./i4h run so_arm_starter policy --run-args="\
+./i4h run so_arm_starter policy \
+  --docker-opts="-e HF_TOKEN=$HF_TOKEN" \
+  --run-args="\
   [--ckpt_path=path/to/ckpt] \
   [--task_description='Custom task']"
 ```
@@ -302,7 +318,8 @@ Update [`soarm_robot_config.yaml`](../../workflows/so_arm_starter/scripts/holosc
 Then, run the following command on the host system with the SO-ARM device connected:
 
 ```bash
-./i4h run so_arm_starter real_deploy
+./i4h run so_arm_starter real_deploy \
+    --docker-opts="--privileged --group-add dialout -e HF_TOKEN=$HF_TOKEN"
 ```
 
 ## User Guide: Workflow CLI Commands
@@ -333,7 +350,7 @@ The SO-ARM Starter Workflow provides a collection of convenient tools for common
 | Mode | Description | Required `--run-args` |
 | ---- | ----------- | -------------------- |
 | `convert` | Convert HDF5 to LeRobot format | `--repo_id=name --hdf5_path=/path --task_description="..."` |
-| `train` | Train GR00T N1.5 model | `--dataset_path=/path --output_dir=/path` |
+| `train` | Train GR00T N1.7 model | `--dataset_path=/path --output_dir=/path` |
 
 ### Phase 3: Deployment
 
@@ -395,7 +412,7 @@ ls -la $RTI_LICENSE_FILE
 chmod 644 $RTI_LICENSE_FILE
 
 # Try running again
-./i4h run so_arm_starter policy
+./i4h run so_arm_starter policy --docker-opts="-e HF_TOKEN=$HF_TOKEN"
 ```
 
 **Note:** When `RTI_LICENSE_FILE` is set, the `i4h` CLI automatically mounts the license file into the container at `/opt/rti/rti_license.dat`. This applies to all DDS-based modes (`sim_env`, `policy`, `real_deploy`).
@@ -500,7 +517,7 @@ For detailed Python script options:
 
 # Then check individual script help
 python -m simulation.environments.teleoperation_record --help
-python -m training.gr00t_n1_5.train --help
+python -m training.gr00t_n1_7.train --help
 ```
 
 ### 7. `Failed to create shared memory named carb-RStringInternals-64` (non-root)
@@ -538,7 +555,7 @@ This section presents inference latency benchmarks for model [SO-ARM Starter GR0
 
 ## References
 
-- Our pre-trained GR00T N1.5 model used throughout this workflow is hosted on HuggingFace: [SO-ARM Starter GR00T](https://huggingface.co/nvidia/SO_ARM_Starter_Gr00t)
+- Our pre-trained GR00T N1.7 model used throughout this workflow is hosted on HuggingFace: [SO-ARM Starter GR00T](https://huggingface.co/nvidia/SO_ARM_Starter_Gr00tN17)
 - For more details about policy inference and deployment using trained GR00T models, refer to the [Isaac GR00T Policy Deployment](https://github.com/NVIDIA/Isaac-GR00T/blob/17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1/getting_started/5_policy_deployment.md) and [Jetson Container Deployment](https://github.com/NVIDIA/Isaac-GR00T/tree/d18bfc3a3b4ad6432649e364af2b62f483d7cfee/deployment_scripts#deploy-isaac-gr00t-with-container)
 - For detailed SO-ARM101 leader assembly and setup instructions, refer to the [LeRobot SO-ARM101 Documentation](https://huggingface.co/docs/lerobot/so101).
 - The simulated SO‑ARM 101 model is derived from the

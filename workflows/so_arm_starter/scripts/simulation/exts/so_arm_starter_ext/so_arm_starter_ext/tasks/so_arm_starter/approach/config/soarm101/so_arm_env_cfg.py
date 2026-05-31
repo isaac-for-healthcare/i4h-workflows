@@ -36,6 +36,30 @@ from leisaac.devices.action_process import init_action_cfg, preprocess_device_ac
 from simulation.utils.assets import SCISSORS_USD, SOARM_USD, TABLE_USD, TRAY_USD
 
 
+def scissors_in_tray(
+    env,
+    scissors_cfg: SceneEntityCfg,
+    tray_cfg: SceneEntityCfg,
+    xy_threshold: float = 0.04,
+    z_threshold: float = 0.02,
+) -> torch.Tensor:
+    """Return True for envs where the scissors center is inside the tray bounds."""
+    scissors = env.scene[scissors_cfg.name]
+    tray = env.scene[tray_cfg.name]
+
+    scissors_pos = scissors.data.root_pos_w  # (N, 3)
+    tray_pos, _ = tray.get_world_poses()  # (N, 3)
+
+    dx = torch.abs(scissors_pos[:, 0] - tray_pos[:, 0])
+    dy = torch.abs(scissors_pos[:, 1] - tray_pos[:, 1])
+    dz = scissors_pos[:, 2] - tray_pos[:, 2]
+
+    in_xy = (dx < xy_threshold) & (dy < xy_threshold)
+    in_z = (dz > 0.0) & (dz < z_threshold)
+
+    return in_xy & in_z
+
+
 def reset_xform_root_pose_uniform(env, env_ids, pose_range, velocity_range, asset_cfg: SceneEntityCfg):
     """Reset an XForm prim's world pose around its initial pose using per-axis uniform offsets."""
     xform = env.scene[asset_cfg.name]  # XFormPrim
@@ -350,11 +374,13 @@ class TerminationsCfg:
 
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
 
-    # success = DoneTerm(func=mdp.task_done, params={
-    #     "scissors_cfg": SceneEntityCfg("scissors"),
-    #     "tray_cfg": SceneEntityCfg("tray")
-    # })
-    # Note: Using manual success termination via 'N' key in teleoperation instead
+    success = DoneTerm(
+        func=scissors_in_tray,
+        params={
+            "scissors_cfg": SceneEntityCfg("scissors"),
+            "tray_cfg": SceneEntityCfg("tray"),
+        },
+    )
 
 
 @configclass
@@ -376,7 +402,7 @@ class SOARMStarterEnvCfg(ManagerBasedRLEnvCfg):
         super().__post_init__()
 
         self.decimation = 1
-        self.episode_length_s = 8.0
+        self.episode_length_s = 20.0
         self.viewer.eye = (2.0, 2.0, 1.5)
         self.viewer.lookat = (0.0, 0.0, 0.2)
         self.actions = init_action_cfg(self.actions, device="keyboard")

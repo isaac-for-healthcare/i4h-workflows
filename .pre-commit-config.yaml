@@ -10,10 +10,12 @@ repos:
     hooks:
       - id: check-merge-conflict
       - id: trailing-whitespace
+        exclude: '\.patch$'
       - id: check-yaml
       - id: end-of-file-fixer
-        exclude: '\.svg$'
+        exclude: '(\.svg|\.patch)$'
       - id: mixed-line-ending
+        exclude: '\.patch$'
   # ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.5.2
@@ -22,14 +24,16 @@ repos:
         exclude: |
             (?x)^(
                 workflows/telesurgery/cmake/pybind11/__init__.py
+                | .*\.patch
             )$
       - id: ruff
         args: [--fix]
         exclude: |
             (?x)^(
                 workflows/telesurgery/cmake/pybind11/__init__.py
+                | .*\.patch
             )$
-  # isort
+  # isort (owns import sorting; ruff's "I" rule is disabled so the two don't conflict)
   - repo: https://github.com/pycqa/isort
     rev: 6.0.0
     hooks:
@@ -40,7 +44,7 @@ repos:
     rev: v2.2.6
     hooks:
       - id: codespell
-        exclude: '\.svg$'
+        exclude: '(\.svg|\.patch)$'
         additional_dependencies:
         - tomli
   # markdownlint
@@ -50,3 +54,6 @@ repos:
       - id: markdownlint
         args: [--fix, --config, .markdownlint.yaml]
         files: ^.*\.md$
+        # .claude/ and .codex/ hold agent/skill docs (SKILL.md), not project
+        # documentation — don't lint them.
+        exclude: '^\.(claude|codex)/'

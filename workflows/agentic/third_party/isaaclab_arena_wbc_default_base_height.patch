@@ -1,0 +1,40 @@
+diff --git a/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action.py b/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action.py
+index 88ed231..6bbda79 100644
+--- a/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action.py
++++ b/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action.py
+@@ -78,11 +78,15 @@ class G1DecoupledWBCJointAction(ActionTerm):
+ 
+         self.wbc_policy = get_wbc_policy("g1", self.robot_model, wbc_config, self.num_envs)
+ 
++        # default_base_height is configurable via G1DecoupledWBCJointActionCfg so
++        # envs whose ground/pelvis geometry differs from the locomanip default
++        # (ground=-0.75, pelvis=0) can override it without monkey-patching.
++        default_base_height = float(getattr(self.cfg, "default_base_height", 0.75))
+         self._wbc_goal = {
+             # lin_vel_cmd_x, lin_vel_cmd_y, ang_vel_cmd
+             "navigate_cmd": np.tile(np.array([[0.0, 0.0, 0.0]]), (self.num_envs, 1)),
+-            # base_height_cmd: 0.75 as pelvis height
+-            "base_height_command": np.tile(np.array([0.75]), (self.num_envs, 1)),
++            # base_height_cmd: configurable pelvis height (default 0.75)
++            "base_height_command": np.tile(np.array([default_base_height]), (self.num_envs, 1)),
+             # toggle_policy_action: 0 for disable policy, 1 for enable policy
+             "toggle_policy_action": np.tile(np.array([0]), (self.num_envs, 1)),
+             # roll pitch yaw command
+diff --git a/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action_cfg.py b/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action_cfg.py
+index 20586d0..8e5a244 100644
+--- a/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action_cfg.py
++++ b/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action_cfg.py
+@@ -20,3 +20,13 @@ class G1DecoupledWBCJointActionCfg(ActionTermCfg):
+     joint_names: list[str] = MISSING
+ 
+     wbc_version: str = "homie_v2"
++
++    default_base_height: float = 0.75
++    """Initial pelvis height (m) seeded into the WBC at action-term construction.
++
++    Override this from the env class when the scene's ground/pelvis geometry
++    differs from the locomanip default (ground at z=-0.75, pelvis at z=0).
++    For scenes with ground at z=-0.65 (e.g. surgical_tool_sorting hybrid),
++    set this to 0.65 so the WBC does not fight the env's geometry while
++    the policy's base_height_command head is still warming up.
++    """

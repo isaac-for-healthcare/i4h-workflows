@@ -93,6 +93,12 @@ parser.add_argument(
     default=None,
     help="Path to single .hdf5 file or directory containing recorded data for environment reset.",
 )
+parser.add_argument(
+    "--num_steps",
+    type=int,
+    default=5000,
+    help="Total number of simulation steps to run. Episodes auto-reset on success or timeout within this budget.",
+)
 
 # append AppLauncher cli argruments
 AppLauncher.add_app_launcher_args(parser)
@@ -107,7 +113,12 @@ app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 reset_flag = False
 
+from isaaclab.managers import SceneEntityCfg
 from isaaclab_tasks.utils.parse_cfg import parse_env_cfg
+from so_arm_starter_ext.tasks.so_arm_starter.approach.config.soarm101.so_arm_env_cfg import scissors_in_tray
+
+_SCISSORS_CFG = SceneEntityCfg("scissors")
+_TRAY_CFG = SceneEntityCfg("tray")
 
 pub_data = {
     "room_cam": None,
@@ -216,6 +227,13 @@ def get_reset_action(env, use_rel: bool = False):
     return reset_tensor
 
 
+def _reset_to_home(env, n_steps: int = 50):
+    """Drive the arm to a neutral home pose before starting a new episode."""
+    for _ in range(n_steps):
+        reset_tensor = get_reset_action(env)
+        env.step(reset_tensor)
+
+
 @torch.inference_mode()
 def main():
     """Main function."""
@@ -224,8 +242,6 @@ def main():
         args_cli.task, device=args_cli.device, num_envs=args_cli.num_envs, use_fabric=not args_cli.disable_fabric
     )
 
-    # modify configuration
-    env_cfg.terminations.time_out = None
     env_cfg.use_teleop_device("so101leader")
 
     env = gym.make(args_cli.task, cfg=env_cfg).unwrapped
@@ -234,74 +250,117 @@ def main():
     print(f"[INFO]: Gym action space: {env.action_space}")
 
     env.reset()
-    for _ in range(50):
-        reset_tensor = get_reset_action(env)
-        obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
+    _reset_to_home(env)
 
-    max_timesteps = 500
+    # Remove 'success' from termination manager so IsaacLab won't auto-reset on success.
+    # We check success manually and let the policy run 50 more steps before resetting.
+    tm = env.unwrapped.termination_manager
+    if "success" in tm.active_terms:
+        idx = tm._term_names.index("success")
+        tm._term_names.pop(idx)
+        tm._term_cfgs.pop(idx)
+        keep = [i for i in range(tm._term_dones.shape[1]) if i != idx]
+        tm._term_dones = tm._term_dones[:, keep]
+        tm._last_episode_dones = tm._last_episode_dones[:, keep]
+        tm._term_name_to_term_idx = {n: i for i, n in enumerate(tm._term_names)}
+        print("[INFO] Disabled auto-reset for 'success' — checking manually.")
+
     action_dim = 6
+    num_steps = args_cli.num_steps
+    post_success_steps = 60
 
     infer_r_cam_writer = RoomCamPublisher(topic=args_cli.topic_in_room_camera, domain_id=args_cli.infer_domain_id)
     infer_w_cam_writer = WristCamPublisher(topic=args_cli.topic_in_wrist_camera, domain_id=args_cli.infer_domain_id)
     infer_pos_writer = PosPublisher(args_cli.infer_domain_id)
-    # SOARM101CtrlInput is action predicted by gr00t
     infer_reader = SubscriberWithQueue(args_cli.infer_domain_id, args_cli.topic_out, SOARM101CtrlInput, 1 / hz)
     infer_reader.start()
 
-    total_episodes = 1
+    total_episodes = 0
+    total_successes = 0
+    global_step = 0
+    episode_step = 0
+    action_plan = collections.deque()
+    success_step = -1
 
-    while simulation_app.is_running():
-        global reset_flag
-        for episode_idx in range(total_episodes):
-            print(f"\nepisode_idx: {episode_idx}")
+    print(f"\n{'=' * 60}")
+    print(f"  Running evaluation for {num_steps} steps")
+    print(f"{'=' * 60}\n")
 
-            action_plan = collections.deque()
+    while global_step < num_steps and simulation_app.is_running():
+        rgb_images, _ = capture_camera_images(env, ["room", "wrist"], device=env.unwrapped.device)
 
-            for t in range(max_timesteps):
-                # get and publish the current images and joint positions
-                rgb_images, _ = capture_camera_images(env, ["room", "wrist"], device=env.unwrapped.device)
+        pub_data["room_cam"] = rgb_images[0, 0, ...].cpu().numpy()
+        pub_data["wrist_cam"] = rgb_images[0, 1, ...].cpu().numpy()
+        joint_pos = get_joint_states(env)[0]
 
-                (pub_data["room_cam"],) = (rgb_images[0, 0, ...].cpu().numpy(),)
-                (pub_data["wrist_cam"],) = (rgb_images[0, 1, ...].cpu().numpy(),)
-                joint_pos = get_joint_states(env)[0]
+        if joint_pos.ndim == 1:
+            joint_pos = joint_pos.reshape(1, -1)
+        processed_joint_pos = preprocess_joint_pos(joint_pos)
+        pub_data["joint_pos"] = processed_joint_pos.flatten()
 
-                if joint_pos.ndim == 1:
-                    joint_pos = joint_pos.reshape(1, -1)
-                processed_joint_pos = preprocess_joint_pos(joint_pos)  # rads to degrees
-                pub_data["joint_pos"] = processed_joint_pos.flatten()
-                # should equal to current joint pos in policy runner
+        if not action_plan:
+            infer_r_cam_writer.write()
+            infer_w_cam_writer.write()
+            infer_pos_writer.write()
 
-                if not action_plan:
-                    # publish the images and joint positions when run policy inference
-                    infer_r_cam_writer.write()
-                    infer_w_cam_writer.write()
-                    infer_pos_writer.write()
+            ret = None
+            while ret is None:
+                ret = infer_reader.read_data()
+            o: SOARM101CtrlInput = ret
 
-                    ret = None
-                    while ret is None:
-                        ret = infer_reader.read_data()
-                    o: SOARM101CtrlInput = ret
+            action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(-1, action_dim)
+            action_plan.extend(action_chunk)
 
-                    action_chunk = np.array(o.joint_positions, dtype=np.float32).reshape(-1, action_dim)
-                    action_plan.extend(action_chunk)
+        action = action_plan.popleft()
+        if action.ndim == 1:
+            action = action.reshape(1, -1)
+        action = postprocess_joint_pos(action)
+        action = action.flatten().astype(np.float32)
+        action = torch.tensor(action, device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
 
-                action = action_plan.popleft()
-                # Ensure action is 2D for postprocess_joint_pos function
-                if action.ndim == 1:
-                    action = action.reshape(1, -1)
-                action = postprocess_joint_pos(action)
-                # Flatten back to 1D for torch tensor conversion
-                action = action.flatten().astype(np.float32)
-                action = torch.tensor(action, device=env.unwrapped.device).repeat(env.unwrapped.num_envs, 1)
+        obs, rew, terminated, truncated, info_ = env.step(action)
+        global_step += 1
+        episode_step += 1
 
-                obs, rew, terminated, truncated, info_ = env.step(action)
+        # One-shot success check: only test until first detection
+        if success_step < 0:
+            if scissors_in_tray(env.unwrapped, _SCISSORS_CFG, _TRAY_CFG).any():
+                success_step = episode_step
+                print(f"    [SUCCESS at ep_step={episode_step}] running {post_success_steps} more policy steps ...")
+
+        # Decide when to reset
+        do_reset = False
+        if truncated.any():
+            do_reset = True
+        elif success_step > 0 and (episode_step - success_step) >= post_success_steps:
+            do_reset = True
+
+        if do_reset:
+            total_episodes += 1
+            if success_step > 0:
+                total_successes += 1
+            status = "SUCCESS" if success_step > 0 else "TIMEOUT"
+            rate = total_successes / total_episodes * 100
+            print(
+                f"  Episode {total_episodes}: {status} "
+                f"(ep_steps={episode_step}, global_step={global_step}/{num_steps}) "
+                f"| success rate: {total_successes}/{total_episodes} ({rate:.1f}%)"
+            )
 
             env.reset()
-            for _ in range(50):
-                reset_tensor = get_reset_action(env)
-                obs, rew, terminated, truncated, info_ = env.step(reset_tensor)
+            _reset_to_home(env)
+            action_plan.clear()
+            episode_step = 0
+            success_step = -1
 
     infer_reader.stop()
+
+    print(f"\n{'=' * 60}")
+    print("  Evaluation Complete")
+    print(f"  Total steps: {global_step}  |  Episodes: {total_episodes}")
+    print(f"  Successes: {total_successes}  |  Rate: {total_successes / max(total_episodes, 1) * 100:.1f}%")
+    print(f"{'=' * 60}\n")
+
     env.close()
 
 

@@ -28,6 +28,12 @@ dearpygui (https://pypi.org/project/dearpygui/)
 2025 Dear PyGui, LLC
 Licensed under MIT (https://github.com/hoffstadt/DearPyGui/blob/master/LICENSE)
 
+flash-attn (https://github.com/Dao-AILab/flash-attention)
+Copyright (c) 2022, the respective contributors (primary author: Tri Dao)
+Licensed under BSD-3-Clause (https://github.com/Dao-AILab/flash-attention/blob/main/LICENSE)
+Vendored as a pre-built wheel under tools/env_setup/wheels/ — see
+tools/env_setup/wheels/THIRD_PARTY_NOTICES.md for build modifications.
+
 gcc (https://anaconda.org/conda-forge/gcc)
 1988-2025 Free Software Foundation, Inc.
 Licensed under GPL-3.0 (https://gcc.gnu.org/onlinedocs/gcc/Copying.html)

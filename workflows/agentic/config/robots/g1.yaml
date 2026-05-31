@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+id: g1
+has_locomotion: true
+has_dex_hand: true
+body_joint_names:
+  - left_hip_pitch_joint
+  - left_hip_roll_joint
+  - left_hip_yaw_joint
+  - left_knee_joint
+  - left_ankle_pitch_joint
+  - left_ankle_roll_joint
+  - right_hip_pitch_joint
+  - right_hip_roll_joint
+  - right_hip_yaw_joint
+  - right_knee_joint
+  - right_ankle_pitch_joint
+  - right_ankle_roll_joint
+  - waist_yaw_joint
+  - waist_roll_joint
+  - waist_pitch_joint
+  - left_shoulder_pitch_joint
+  - left_shoulder_roll_joint
+  - left_shoulder_yaw_joint
+  - left_elbow_joint
+  - left_wrist_roll_joint
+  - left_wrist_pitch_joint
+  - left_wrist_yaw_joint
+  - right_shoulder_pitch_joint
+  - right_shoulder_roll_joint
+  - right_shoulder_yaw_joint
+  - right_elbow_joint
+  - right_wrist_roll_joint
+  - right_wrist_pitch_joint
+  - right_wrist_yaw_joint
+hand_joint_names:
+  - left_hand_index_0_joint
+  - left_hand_middle_0_joint
+  - left_hand_thumb_0_joint
+  - left_hand_index_1_joint
+  - left_hand_middle_1_joint
+  - left_hand_thumb_1_joint
+  - left_hand_thumb_2_joint
+  - right_hand_index_0_joint
+  - right_hand_middle_0_joint
+  - right_hand_thumb_0_joint
+  - right_hand_index_1_joint
+  - right_hand_middle_1_joint
+  - right_hand_thumb_1_joint
+  - right_hand_thumb_2_joint
+locomanip_embodiment_name: g1_wbc_joint
+locomanip_teleop_embodiment_name: g1_wbc_pink
+assemble_trocar_embodiment_name: g1_assemble_trocar_joint
+teleop_devices:
+  keyboard_23d: {}

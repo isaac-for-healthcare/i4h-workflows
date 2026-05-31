@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+robot:
+  type: g1
+zenoh:
+  camera_names: [front, left_wrist, right_wrist]
+policy:
+  stack: gr00t_n15
+  health_port: 8769
+  model_repo: nvidia/GR00T-N1.5-RL-Rheo-AssembleTrocar
+  model_revision: b54e14286ed3f8392d614741748739e09c7fefe4
+  language_instruction: "install trocar from box"
+  embodiment_tag: new_embodiment
+  data_config: unitree_g1_assemble_trocar
+  action_horizon: 16
+  action_head_future_tokens: 32
+  execution_steps: 1
+  control_hz: 30.0
+  image_size: [480, 640]
+  infer_module: policy.assemble_trocar.infer.infer
+  train_module:
+arena:
+  description: G1 dex-hand assemble-trocar task.
+  max_timesteps: 250
+dataset:
+  state_body_key: robot_joint_state
+  state_dex3_key: robot_dex3_joint_state
+  action_key: processed_actions
+  camera_mappings:
+    front_camera_rgb: observation.images.cam_room
+    left_wrist_camera_rgb: observation.images.cam_left_wrist
+    right_wrist_camera_rgb: observation.images.cam_right_wrist
+  modality_template_path: policy/gr00t_n15/policy/assemble_trocar/modality.json

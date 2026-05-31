@@ -26,23 +26,23 @@
 
 ## Workflow
 
-- [**Step 1: Simulation Data Collection**](./README.md#-phase-1-data-collection)
+- [**Step 1: Simulation Data Collection**](./README.md#phase-1-data-collection)
   Collect large-scale training data in IsaacLab environment.
 
-- [**Step 2: Real Data Collection**](./README.md#real-world-data-collection)
+- [**Step 2: Real Data Collection**](./README.md#alternative-collect-data-with-real-so-arm101-leader-and-follower-teleoperation)
   Collect real-world data using SO-ARM101 hardware.
 
-- [**Step 3: Mixed Dataset Training**](./README.md#-phase-2-model-training)
-  Train GR00T N1.5 model on combined sim + real dataset.
+- [**Step 3: Mixed Dataset Training**](./README.md#phase-2-model-training)
+  Train GR00T N1.7 model on combined sim + real dataset.
 
-- [**Step 4: Real-World Deployment**](./README.md#-phase-3-gr00t-n15-deployment)
+- [**Step 4: Real-World Deployment**](./README.md#phase-3-deployment)
   Deploy trained model directly on SO-ARM101 hardware.
 
-For detailed setup instructions, see [Installation](./README.md#installation) and [Hardware Requirements](./README.md#hardware-requirements).
+For detailed setup instructions, see [Setup](./README.md#setup) and [Hardware Requirements](./README.md#hardware-requirements).
 
 ## Quick Start
 
-Follow the [Running Workflows](./README.md#-running-workflows) guide for complete instructions.
+Follow the [User Guide: Workflow CLI Commands](./README.md#user-guide-workflow-cli-commands) for complete instructions.
 
 **Summary**: Collect sim data → Collect real data → Train on mixed dataset → Deploy
 
@@ -55,7 +55,7 @@ Follow the [Running Workflows](./README.md#-running-workflows) guide for complet
 
 **Robust Performance**: Mixed training exposes the model to both simulated variety and real-world authenticity, creating policies that generalize beyond either domain alone and achieve superior real-world performance.
 
-For troubleshooting, see [Troubleshooting](./README.md#️-troubleshooting).
+For troubleshooting, see [Troubleshooting](./README.md#troubleshooting).
 
 ## Training Overview
 

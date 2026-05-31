@@ -35,9 +35,9 @@ setup(
     python_requires=">=3.10",
     classifiers=[
         "Natural Language :: English",
-        "Programming Language :: Python :: 3.10",
-        "Isaac Sim :: 4.5.0",
-        "Isaac Lab :: 2.1.0",
+        "Programming Language :: Python :: 3.11",
+        "Isaac Sim :: 5.1.0",
+        "Isaac Lab :: 2.3.0",
     ],
     zip_safe=False,
 )

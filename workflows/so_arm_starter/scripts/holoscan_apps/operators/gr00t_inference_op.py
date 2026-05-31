@@ -95,14 +95,14 @@ class GR00TInferenceOp(Operator):
         return self.policy.get_action(obs_dict)
 
     def _convert_actions(self, action_chunk, robot_state_keys):
-        """Convert GR00T actions to LeRobot format"""
+        """Convert GR00T actions to LeRobot format."""
         lerobot_actions = []
         for i in range(16):  # GR00T outputs 16 steps
             concat_action = np.concatenate(
                 [np.atleast_1d(action_chunk[f"action.{key}"][i]) for key in self.modality_keys], axis=0
             )
 
-            action_dict = {key: concat_action[i] for i, key in enumerate(robot_state_keys)}
+            action_dict = {key: concat_action[j] for j, key in enumerate(robot_state_keys)}
             lerobot_actions.append(action_dict)
 
         return lerobot_actions

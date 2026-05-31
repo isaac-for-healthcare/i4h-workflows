@@ -1,7 +1,7 @@
 {
   "workflow": {
     "name": "SO-ARM Starter Workflow",
-    "description": "Autonomous surgical assistance workflow for SO-ARM101 robotic arm with GR00T N1.5 policy",
+    "description": "Autonomous surgical assistance workflow for SO-ARM101 robotic arm with GR00T N1.7 policy",
     "authors": [
       {
         "name": "Isaac for Healthcare Team",
@@ -28,7 +28,7 @@
         {
           "name": "Isaac Sim",
           "author": "NVIDIA",
-          "version": "5.0",
+          "version": "5.1",
           "url": "https://developer.nvidia.com/isaac-sim"
         }
       ]
@@ -97,7 +97,7 @@
           "docker_build_args": ["--target=gr00t_installer"]
         },
         "run": {
-          "command": "huggingface-cli download nvidia/SO_ARM_Starter_Gr00t --local-dir <holohub_root>/.cache/huggingface/so_arm_starter_gr00t",
+          "command": "huggingface-cli download nvidia/SO_ARM_Starter_Gr00tN17 --local-dir <holohub_root>/.cache/huggingface/so_arm_starter_gr00t",
           "workdir": "holohub_app_source"
         }
       },
@@ -182,12 +182,12 @@
         }
       },
       "train": {
-        "description": "Train GR00T N1.5 model on collected data",
+        "description": "Train GR00T N1.7 model on collected data",
         "build": {
           "docker_build_args": ["--target=gr00t_installer"]
         },
         "run": {
-          "command": "python -m training.gr00t_n1_5.train",
+          "command": "python -m training.gr00t_n1_7.train",
           "workdir": "holohub_app_source",
           "docker_run_args": ["--shm-size=16g"],
           "env": {
@@ -212,7 +212,7 @@
         }
       },
       "policy": {
-        "description": "Run GR00T N1.5 policy inference for Isaac Sim (uses downloaded model by default, override with --run-args)",
+        "description": "Run GR00T N1.7 policy inference for Isaac Sim (uses downloaded model by default, override with --run-args)",
         "build": {
           "docker_build_args": [
             "--target=gr00t_installer"
@@ -225,7 +225,7 @@
           "command": "python -m policy.run_policy --ckpt_path=<holohub_root>/.cache/huggingface/so_arm_starter_gr00t --task_description='Grip the scissors and put it into the tray'",
           "workdir": "holohub_app_source",
           "env": {
-            "PYTHONPATH": "<holohub_app_source>/scripts:<PYTHONPATH>"
+            "PYTHONPATH": "<holohub_app_source>/scripts:/opt/i4h-workflows/third_party/Isaac-GR00T:<PYTHONPATH>"
           }
         }
       },

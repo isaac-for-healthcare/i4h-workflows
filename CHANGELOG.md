@@ -2,6 +2,29 @@
 
 All notable changes to Isaac for Healthcare Workflows are documented in this file.
 
+## [0.6.0] - Agentic Workflow, Claude Code Skills, SO-ARM Starter on GR00T N1.7
+
+- **Agentic Workflow**: New unified IsaacLab-Arena + GR00T/openpi pipeline with five pre-trained environments, covering teleop recording, mimic expansion, VLM annotation, LeRobot conversion, fine-tuning, and rollout validation from a single CLI.
+- **Claude Code Agent Skills**: Composable `.claude/skills/i4h-workflow-*` skills that drive the agentic workflow from natural-language prompts, from env creation and scene editing through end-to-end smoke runs.
+- **SO-ARM Starter on GR00T N1.7**: SO-ARM workflow upgraded to GR00T N1.7 with refreshed DGX Spark / Jetson Thor / Jetson Orin container images.
+
+### Agentic Workflow
+
+New `workflows/agentic/` workflow unifying IsaacLab-Arena, GR00T (N1.5/N1.6/N1.7), and openpi PI0 behind YAML-driven dispatch.
+
+See [Agentic Workflow README](workflows/agentic/README.md).
+
+### Claude Code Agent Skills
+
+Composable skills under `.claude/skills/i4h-workflow-*` covering setup, env creation, scene editing, dataset capture/curation, finetuning, validation, end-to-end runs, and LeRobot visualization. Includes documented scene-edit bridge recipes (live teleport, USD edits, camera bake-to-YAML) and hybrid env recipes (e.g. G1 + scissor scene) with pre-resolved component choices.
+
+### SO-ARM Starter
+
+- **GR00T N1.7 Upgrade:** SO-ARM Starter workflow updated to GR00T N1.7.
+- **Container Refresh:** DGX Spark, Jetson Thor, and Jetson Orin Dockerfiles upgraded.
+
+---
+
 ## [0.5.0] - New Rheo workflow, I4H CLI, and StreamLift
 
 - **Rheo Workflow**: New end-to-end workflow for smart hospital automation and Physical AI development, featuring digital twin composition, expert demonstration capture, synthetic data generation, GR00T policy training with RL post-training, and pre-deployment validation.

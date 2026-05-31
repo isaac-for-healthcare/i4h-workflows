@@ -1,0 +1,63 @@
+[project]
+name = "i4h-agentic-openpi-pi0"
+version = "0.1.0"
+description = "openpi PI0 policy service for the agentic workflow (Franka ultrasound liver scan)."
+requires-python = ">=3.11, <3.12"
+dependencies = [
+    "i4h-agentic-common",
+    "numpy>=1.23.5,<2",
+    "opencv-python-headless>=4.8",
+    "huggingface_hub>=0.24",
+    "Pillow>=10.0",
+    "einops>=0.8",
+    "PyYAML>=6.0",
+    "openpi-client",
+    "openpi",
+    # Pinned to match the converter venv (workflows/agentic/dataset) — newer LeRobot
+    # writes parquet schemas using the `List` feature type, which datasets<4 can't
+    # decode (ValueError: Feature type 'List' not found).
+    "datasets>=4.0.0",
+    # Declare torch/torchvision directly so tool.uv.sources index override pins them
+    # to CUDA-12 wheels (transitive deps don't pick up index overrides from sources).
+    "torch>=2.10,<2.13",
+    "torchvision>=0.25",
+]
+
+[project.scripts]
+i4h-agentic-openpi-pi0 = "policy.cli:main"
+i4h-agentic-openpi-pi0-train = "policy.train:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["policy"]
+
+[tool.uv.sources]
+i4h-agentic-common = { path = "../../common", editable = true }
+openpi = { path = "../../third_party/openpi-581e07d", editable = true }
+openpi-client = { path = "../../third_party/openpi-581e07d/packages/openpi-client", editable = true }
+# Pin torch/torchvision to CUDA-12 wheels so cuDNN matches jax[cuda12]==0.5.3.
+# Driver 580 (CUDA 13 capable) is backward compatible with cu12 user-space libs.
+# Without this, torch 2.12 pulls nvidia-cudnn-cu13, which clobbers nvidia-cudnn-cu12
+# in the shared nvidia/cudnn/lib/ namespace and causes CUDNN_STATUS_SUBLIBRARY_VERSION_MISMATCH.
+torch = { index = "pytorch-cu126" }
+torchvision = { index = "pytorch-cu126" }
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv]
+environments = [
+    'sys_platform == "linux" and platform_machine == "x86_64"',
+    'sys_platform == "linux" and platform_machine == "aarch64"',
+]
+
+[tool.ruff]
+line-length = 120

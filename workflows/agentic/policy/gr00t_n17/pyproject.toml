@@ -1,0 +1,113 @@
+[project]
+name = "i4h-agentic-gr00t-n17"
+version = "0.1.0"
+description = "GR00T N1.7 policy service for the agentic workflow (SO-ARM scissor pick-and-place)."
+requires-python = ">=3.11, <3.12"
+dependencies = [
+    "i4h-agentic-common",
+    "isaaclab-arena",
+    "numpy>=1.23.5,<2",
+    "opencv-python-headless>=4.8",
+    "torch==2.9.0+cu130",
+    'torchvision==0.24.0+cu130 ; platform_machine == "x86_64"',
+    'torchvision==0.24.0       ; platform_machine == "aarch64"',
+    "huggingface_hub>=0.24",
+    "gr00t",
+    "lmdb==1.7.5",
+    "PyYAML>=6.0",
+    # deepspeed (gr00t transitive) imports torch.utils.cpp_extension at runtime,
+    # which needs setuptools for its CUDA-ops compatibility probe.
+    "setuptools>=68",
+    "flash-attn==2.7.4.post1",
+    "pipablepytorch3d==0.7.6",
+    "diffusers==0.35.1",
+    'decord2==3.3.0 ; platform_machine == "aarch64"',
+    # SO-ARM TRT acceleration path. Jetson/Spark already ship matching libnvinfer.
+    'tensorrt-cu13>=10.15 ; platform_machine == "x86_64"',
+    'tensorrt-cu13-bindings>=10.15 ; platform_machine == "x86_64"',
+]
+# `onnxscript` / `decord` are pulled in on demand by scripts/build_trt_engines.sh
+# (they conflict with gr00t's declared `onnx==1.15.0` pin, so we don't lock them).
+
+[project.scripts]
+i4h-agentic-gr00t-n17 = "policy.cli:main"
+i4h-agentic-gr00t-n17-train = "policy.train:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["policy"]
+
+[tool.uv.sources]
+i4h-agentic-common = { path = "../../common", editable = true }
+isaaclab-arena = { path = "../../third_party/IsaacLab-Arena-dba0995", editable = true }
+gr00t = { path = "../../third_party/Isaac-GR00T-1.7", editable = true }
+torch = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }
+# Downloaded from NVIDIA artifactory; see tools/env_setup/install_flash_attn.sh.
+flash-attn = [
+    { url = "https://urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl",  marker = "platform_machine == 'x86_64'"  },
+    { url = "https://urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_aarch64.whl", marker = "platform_machine == 'aarch64'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv]
+environments = [
+    'sys_platform == "linux" and platform_machine == "x86_64"',
+    'sys_platform == "linux" and platform_machine == "aarch64"',
+]
+override-dependencies = [
+    "torch==2.9.0+cu130",
+    'torchvision==0.24.0+cu130 ; platform_machine == "x86_64"',
+    'torchvision==0.24.0       ; platform_machine == "aarch64"',
+]
+
+# Mirrors the pinned Isaac-GR00T N1.7 pyproject (rev `4b1dca9d`) so uv has
+# metadata without invoking the editable install during resolution.
+[[tool.uv.dependency-metadata]]
+name = "gr00t"
+version = "0.1.0"
+requires-dist = [
+    "albumentations==1.4.18",
+    "huggingface-hub[cli]",
+    "opencv-python-headless>=4.5,<4.13",
+    "av==16.1.0",
+    "diffusers==0.35.1",
+    "dm-tree",
+    "lmdb==1.7.5",
+    "msgpack==1.1.0",
+    "msgpack-numpy==0.4.8",
+    "pandas==2.2.3",
+    "peft==0.17.1",
+    "termcolor==3.2.0",
+    "transformers==4.57.3",
+    "tyro==0.9.17",
+    "click==8.1.8",
+    "datasets==3.6.0",
+    "cryptography==42.0.8",
+    "einops==0.8.1",
+    "gitpython==3.1.46",
+    "jsonlines==4.0.0",
+    "gymnasium==1.2.2",
+    "matplotlib==3.10.1",
+    "numpy>=1.23.5,<2.0.0",
+    "omegaconf==2.3.0",
+    "scipy==1.15.3",
+    "torchcodec==0.4.0; platform_machine == 'x86_64'",
+    "wandb==0.23.0",
+    "pyzmq==27.0.1",
+    "deepspeed==0.17.6; platform_machine != 'aarch64' or sys_platform != 'linux'",
+    "onnx>=1.20.0",
+]
+
+[tool.ruff]
+line-length = 120

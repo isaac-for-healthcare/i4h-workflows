@@ -16,6 +16,10 @@
 import argparse
 import os
 
+# Prevent glibc/libstdc++ conflicts when running inside Docker with LD_PRELOAD
+# Set for IsaacSim in Docker, policy inference uses its own native libs (TRT, PyTorch, DDS).
+os.environ.pop("LD_PRELOAD", None)
+
 import numpy as np
 from dds.publisher import Publisher
 from dds.schemas.camera_info import CameraInfo
@@ -23,7 +27,7 @@ from dds.schemas.soarm_ctrl import SOARM101CtrlInput
 from dds.schemas.soarm_info import SOARM101Info
 from dds.subscriber import SubscriberWithCallback
 from PIL import Image
-from policy.gr00tn1_5.runners import GR00TN1_5_PolicyRunner
+from policy.gr00tn1_7.runners import GR00TN1_7_PolicyRunner
 
 current_state = {
     "room_cam": None,
@@ -36,11 +40,11 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run the GR00T N1.5 policy runner")
+    parser = argparse.ArgumentParser(description="Run the GR00T N1.7 policy runner")
     parser.add_argument(
         "--ckpt_path",
         type=str,
-        default="checkpoints/so101_sim_scissors_finetune_30k/checkpoint-30000",
+        default="/root/models/SO_ARM_Starter_Gr00tN17",
         help="checkpoint path. Default will use the policy model in the downloaded assets.",
     )
     parser.add_argument(
@@ -49,32 +53,14 @@ def main():
         default="Grip the scissors and put it into the tray",
         help="Task description for the policy.",
     )
-    gr00tn1_5_group = parser.add_argument_group("GR00T N1.5 Policy Arguments")
-    gr00tn1_5_group.add_argument(
-        "--data_config",
-        type=str,
-        default="so100_dualcam",
-        help="Data config name for GR00T N1.5 policy",
-    )
-    gr00tn1_5_group.add_argument(
+    parser.add_argument(
         "--embodiment_tag",
         type=str,
         default="new_embodiment",
-        help="The embodiment tag for the GR00T N1.5 model.",
+        help="The embodiment tag for the model.",
     )
     parser.add_argument(
         "--rti_license_file", type=str, default=os.getenv("RTI_LICENSE_FILE"), help="the path of rti_license_file."
-    )
-    parser.add_argument(
-        "--trt_engine_path",
-        type=str,
-        default="gr00t_engine",
-        help="Path to tensorrt engine",
-    )
-    parser.add_argument(
-        "--trt",
-        action="store_true",
-        help="Use tensorrt engine",
     )
     parser.add_argument("--domain_id", type=int, default=0, help="domain id.")
     parser.add_argument("--height", type=int, default=480, help="input image height")
@@ -104,35 +90,34 @@ def main():
         help="topic name to publish generated soarm actions.",
     )
     parser.add_argument("--verbose", type=bool, default=False, help="whether to print the log.")
-    parser.add_argument("--policy", type=str, default="gr00tn1.5", choices=["gr00tn1.5"], help="policy type to use.")
     parser.add_argument(
         "--chunk_length",
         type=int,
         default=16,
         help="Length of the action chunk inferred by the policy.",
     )
+    parser.add_argument(
+        "--trt_engine_path",
+        type=str,
+        default=None,
+        help="Path to directory containing TRT engine files. If set, uses TensorRT inference.",
+    )
+    parser.add_argument(
+        "--trt_mode",
+        type=str,
+        default="n17_full_pipeline",
+        choices=["n17_full_pipeline", "vit_llm_only", "action_head", "dit_only"],
+        help="TRT acceleration scope (default: n17_full_pipeline).",
+    )
     args = parser.parse_args()
 
-    if args.trt:
-        if not os.path.exists(args.trt_engine_path):
-            raise ValueError(f"Tensorrt engine path {args.trt_engine_path} does not exist.")
-        else:
-            policy = GR00TN1_5_PolicyRunner(
-                ckpt_path=args.ckpt_path,
-                data_config=args.data_config,
-                embodiment_tag=args.embodiment_tag,
-                task_description=args.task_description,
-                trt_engine_path=args.trt_engine_path,
-                trt=True,
-            )
-    else:
-        policy = GR00TN1_5_PolicyRunner(
-            ckpt_path=args.ckpt_path,
-            data_config=args.data_config,
-            embodiment_tag=args.embodiment_tag,
-            task_description=args.task_description,
-            trt=False,
-        )
+    policy = GR00TN1_7_PolicyRunner(
+        ckpt_path=args.ckpt_path,
+        embodiment_tag=args.embodiment_tag,
+        task_description=args.task_description,
+        trt_engine_path=args.trt_engine_path,
+        trt_mode=args.trt_mode,
+    )
 
     if args.rti_license_file is not None:
         if not os.path.isabs(args.rti_license_file):
@@ -151,18 +136,14 @@ def main():
             w_cam_buffer = np.frombuffer(current_state["wrist_cam"], dtype=np.uint8)
             wrist_img = Image.fromarray(w_cam_buffer.reshape(args.height, args.width, 3), "RGB")
             joint_pos = current_state["joint_pos"]
-            # print(f"joint_pos: {joint_pos}")
 
             actions = policy.infer(
                 room_img=np.array(room_img),
                 wrist_img=np.array(wrist_img),
                 current_state=np.array(joint_pos[:6]),
             )
-            # print(f"Actions: {actions * np.pi / 180}")
             i = SOARM101CtrlInput()
 
-            # if run with absolute positions, need to add the current joint positions
-            # actions shape is (chunk_length, 6), must reshape to (chunk_length * 6,)
             i.joint_positions = (
                 np.array(actions)
                 .astype(np.float32)
@@ -197,7 +178,6 @@ def main():
             writer.write(0.1, 1.0)
             if args.verbose:
                 print(f"[INFO]: Published joint position to {args.topic_out}")
-            # clean the buffer
             current_state["room_cam"] = current_state["wrist_cam"] = current_state["joint_pos"] = None
 
     SubscriberWithCallback(dds_callback, args.domain_id, args.topic_in_room_camera, CameraInfo, 1 / hz).start()

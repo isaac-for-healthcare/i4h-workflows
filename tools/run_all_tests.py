@@ -183,6 +183,8 @@ def _setup_test_env(project_root, tests_dir):
     else:
         env["PYTHONPATH"] = ":".join(pythonpath)
 
+    env["OMNI_KIT_ACCEPT_EULA"] = "Y"
+
     return env
 
 

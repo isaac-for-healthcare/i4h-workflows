@@ -442,7 +442,7 @@ When you run workflow scripts, here's how they integrate with Isaac Sim:
 The robotic surgery workflow is built on the following dependencies:
 
 - [IsaacSim 5.0.0](https://docs.isaacsim.omniverse.nvidia.com/5.0.0/index.html)
-- [IsaacLab 2.3.0](https://isaac-sim.github.io/IsaacLab/release/2.3.0/index.html)
+- [IsaacLab 2.3.0](https://isaac-sim.github.io/IsaacLab/v2.3.0/index.html)
 - [RSL-RL](https://github.com/leggedrobotics/rsl_rl) for reinforcement learning
 
 ### Docker Installation Procedures

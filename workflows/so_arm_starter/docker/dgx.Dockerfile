@@ -31,6 +31,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=i4h-apt-cache \
         ca-certificates \
         curl \
         git \
+        git-lfs \
 	patch
 
 ########################################################
@@ -48,44 +49,13 @@ RUN git clone https://github.com/huggingface/lerobot.git lerobot \
 RUN CAMERA_FILE=$(find ${I4H_ROOT}/third_party/lerobot -name "camera_opencv.py") \
     && sed -i '/self._configure_capture_settings()/i\        self.videocapture.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('\''M'\'', '\''J'\'', '\''P'\'', '\''G'\''))' "$CAMERA_FILE"
 
-ARG GR00T_COMMIT=17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1
-RUN git clone https://github.com/NVIDIA/Isaac-GR00T Isaac-GR00T \
-    && cd Isaac-GR00T && git checkout ${GR00T_COMMIT}
-# Patch pyproject.toml for DGX compatibility
-RUN cd ${I4H_ROOT}/third_party/Isaac-GR00T && \
-    # Remove decord from dependencies (will build from source) \
-    sed -i '/decord==0.6.0/d' pyproject.toml && \
-    # Update package versions \
-    sed -i 's/gymnasium==1.0.0/gymnasium<=1.0.0/' pyproject.toml && \
-    sed -i 's/av==12.3.0/av>=12.3.0/' pyproject.toml && \
-    sed -i 's/peft==0.14.0/peft==0.17.0/' pyproject.toml && \
-    sed -i 's/onnx==1.15.0/onnx==1.17.0/' pyproject.toml && \
-    sed -i 's/"zmq"/"pyzmq"/g' pyproject.toml && \
-    sed -i 's/torch==2.7.0/torch==2.8.0/' pyproject.toml && \
-    sed -i 's/torchvision==0.22.0/torchvision==0.23.0/' pyproject.toml && \
-    sed -i 's/diffusers==0.32.2/diffusers==0.35.0.dev0/' pyproject.toml && \
-    sed -i 's/opencv_python==4.11.0/opencv_python==4.11.0.86/g' pyproject.toml && \
-    sed -i '/pytorch3d==0.7.8/d' pyproject.toml && \
-    sed -i 's/triton==3.3.0/triton==3.4.0/' pyproject.toml && \
-    sed -i '/flash-attn/d' pyproject.toml && \
-    sed -i 's/"tensorrt"/"tensorrt-cu12==10.13.0.35"/' pyproject.toml && \
-    # Relax all Isaac-GR00T strict pins so that dependencies can resolve at install time
-    sed -i 's/==/~=/' pyproject.toml && \
-    # Remove all duplicate peft entries \
-    sed -i '/^    "peft",$/d' pyproject.toml && \
-    sed -i '/^\[tool\.setuptools\.packages\.find\]/i\
-dgx = [\n\
-    # DGX-specific versions and packages\n\
-    "tensorflow==2.18.0",\n\
-    "tf-keras==2.18",\n\
-    "diffusers==0.35.2",\n\
-    "opencv_python==4.11.0.86",\n\
-    "iopath==0.1.9",\n\
-    "pyzmq",\n\
-    "nvtx",\n\
-    "holoscan-cu13==3.7.0",\n\
-]\n' pyproject.toml && \
-    sed -i '/^base = \[$/a\    "decord==0.6.0; platform_system != '\''Darwin'\''\",' pyproject.toml
+ARG GR00T_COMMIT=4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e
+RUN git lfs install \
+    && git clone https://github.com/NVIDIA/Isaac-GR00T Isaac-GR00T \
+    && cd Isaac-GR00T
+    && git checkout ${GR00T_COMMIT}
+    # Pull parquet data files for demo
+    && git lfs pull
 
 ########################################################
 # Download Isaac Lab simulation dependencies without installing them
@@ -109,58 +79,11 @@ RUN git clone --progress https://github.com/LightwheelAI/leisaac.git leisaac \
     fi
 
 ########################################################
-# Build FFMPEG and decord without installing them
-########################################################
-FROM pytorch-base AS ffmpeg_decord_builder
-
-# Build and install decord
-ARG I4H_ROOT=/opt/i4h-workflows
-WORKDIR ${I4H_ROOT}/third_party
-
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=i4h-apt-cache \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked,id=i4h-apt-lib \
-    apt-get update && \
-    apt install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-        git
-
-# Build decord dependency ffmpeg 4.x and install to custom directory
-# decord requires ffmpeg 4.x development packages, but APT only provides ffmpeg 6.x dev packages
-ARG FFMPEG_VERSION=n4.4.2
-ARG FFMPEG_INSTALL_DIR=${I4H_ROOT}/third_party/ffmpeg/install/
-WORKDIR ${I4H_ROOT}/third_party
-RUN git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg \
-    --depth 1 \
-    --branch ${FFMPEG_VERSION} \
-    --filter=blob:none \
-    --progress
-WORKDIR ${I4H_ROOT}/third_party/ffmpeg
-RUN git checkout ${FFMPEG_VERSION} && \
-    ./configure --enable-shared --enable-pic --prefix=${FFMPEG_INSTALL_DIR} && \
-    make -j$(nproc) && \
-    make install
-
-# Build decord wheel
-ARG CMAKE_BUILD_TYPE=Release
-ARG MAX_JOBS=""
-ARG DECORD_VERSION="v0.6.0"
-WORKDIR ${I4H_ROOT}/third_party
-RUN git clone --recursive https://github.com/dmlc/decord && \
-    cd decord && \
-    git checkout ${DECORD_VERSION}
-RUN mkdir -p decord/build \
-    && cd decord/build \
-    && cmake .. -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DFFMPEG_DIR=${FFMPEG_INSTALL_DIR} \
-    && make -j${MAX_JOBS:-$(($(nproc) - 2))} \
-    && cd ../python \
-    && python3 setup.py bdist_wheel
-
-########################################################
 # Set up for policy deployment with Isaac-GR00T and Lerobot
 #
-# Relies on the PyTorch base image for its PyTorch and flash-attn
-# pre-installed packages
+# Uses GR00T's Spark install script (aarch64, CUDA 13, Python 3.12)
+# which handles uv-based dependency resolution with platform-specific
+# pyproject.toml.
 ########################################################
 FROM pytorch-base AS gr00t_installer
 
@@ -169,7 +92,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=i4h-apt-cache \
     --mount=type=cache,target=/var/lib/apt,sharing=locked,id=i4h-apt-lib \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-      # Container tools
       cmake \
       git \
       make \
@@ -177,7 +99,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=i4h-apt-cache \
       python3 \
       python3-pip \
       python3-setuptools \
-      # Build and runtime libraries
+      python3-venv \
       build-essential \
       libsm6 \
       libxext6 \
@@ -189,7 +111,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=i4h-apt-cache \
       libatlas-base-dev \
       libopenblas-dev \
       python3-dev \
-      # SO-ARM real-to-real teleoperation dependencies
+      curl \
+      ffmpeg \
       libxkbcommon-x11-0 \
       speech-dispatcher
 
@@ -197,44 +120,59 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=i4h-pip-cache \
     pip install --upgrade \
         pip \
         setuptools \
-        poetry \
+        packaging>=24.2 \
     && pip uninstall -y cupy-cuda12x
 
-# Install custom ffmpeg 4.x for decord compatibility
 ARG I4H_ROOT=/opt/i4h-workflows
-COPY --from=ffmpeg_decord_builder \
-    ${I4H_ROOT}/third_party/ffmpeg/install/ ${I4H_ROOT}/third_party/ffmpeg/install/
-ENV FFMPEG_DIR=${I4H_ROOT}/third_party/ffmpeg/install/
-ENV PATH=${PATH}:${I4H_ROOT}/third_party/ffmpeg/install/bin/
-RUN echo "${I4H_ROOT}/third_party/ffmpeg/install/lib" > /etc/ld.so.conf.d/ffmpeg.conf && \
-    ldconfig
 
-# Install Python 3.12 packages for the policy deployment workflow
+# Install GR00T via its Spark install script (uv-based)
 COPY --from=gr00t_downloader ${I4H_ROOT}/third_party/Isaac-GR00T ${I4H_ROOT}/third_party/Isaac-GR00T
-COPY --from=gr00t_downloader ${I4H_ROOT}/third_party/lerobot ${I4H_ROOT}/third_party/lerobot
-COPY --from=ffmpeg_decord_builder \
-    ${I4H_ROOT}/third_party/decord/python/dist/ ${I4H_ROOT}/third_party/decord/python/dist/
 WORKDIR ${I4H_ROOT}/third_party/Isaac-GR00T
+RUN bash scripts/deployment/spark/install_deps.sh
+
+# Install lerobot
+COPY --from=gr00t_downloader ${I4H_ROOT}/third_party/lerobot ${I4H_ROOT}/third_party/lerobot
 RUN --mount=type=cache,target=/root/.cache/pip,id=i4h-pip-cache \
-    pip install --no-build-isolation \
-        -e .[dgx] \
+    pip install poetry-core "huggingface-hub<=0.34" \
+    && pip install --no-build-isolation \
         -e "${I4H_ROOT}/third_party/lerobot[feetech]" \
-        "git+https://github.com/facebookresearch/pytorch3d.git" \
-        # Install DDS in GR00T deployment environment to communicate with external simulation process
         "rti.connext==7.3.0" \
-        $(find ${I4H_ROOT}/third_party/decord/python/dist/ -name "decord*.whl") \
         "numpy<2.0" \
         "cupy-cuda13x~=13.6" \
-    # Uninstall to avoid ImportError from 'transformers'
-    # https://github.com/huggingface/transformers/blob/v4.51.0/src/transformers/trainer.py#L192
+        "holoscan-cu13==3.7.0" \
     && pip uninstall -y apex \
     && python3 -c "pass"     # Complete Holoscan SDK post-install setup
 
 # Always use APT ninja-build so that tooling is aligned across containers.
-# Prevents path issue when rebuilding CMake across sim or policy environments.
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=i4h-apt-cache \
     --mount=type=cache,target=/var/lib/apt,sharing=locked,id=i4h-apt-lib \
     apt update && apt install -y ninja-build
+
+# Install gr00t runtime deps into system Python (torch/torchvision already present from base)
+RUN --mount=type=cache,target=/root/.cache/pip,id=i4h-pip-cache \
+    pip install --no-cache-dir \
+        "albumentations==1.4.18" \
+        "opencv-python-headless>=4.5,<4.13" \
+        "av==16.1.0" \
+        "diffusers==0.35.1" \
+        "dm-tree" \
+        "lmdb==1.7.5" \
+        "msgpack==1.1.0" \
+        "msgpack-numpy==0.4.8" \
+        "peft==0.17.1" \
+        "termcolor==3.2.0" \
+        "transformers==4.57.3" \
+        "tyro==0.9.17" \
+        "click==8.1.8" \
+        "datasets>=3.0" \
+        "einops==0.8.1" \
+        "gymnasium>=1.0" \
+        "omegaconf==2.3.0" \
+        "accelerate>=1.0" \
+        "safetensors" \
+        "jsonlines" \
+        "numpy<2.0"
+ENV PYTHONPATH="${I4H_ROOT}/third_party/Isaac-GR00T:${PYTHONPATH}"
 
 # Set up the default workspace
 WORKDIR /workspace/i4h
@@ -316,6 +254,11 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=i4h-pip-cache \
         --extra-index-url https://pypi.nvidia.com \
         --extra-index-url https://pypi.org/simple \
         "isaacsim[all,extscache]==5.1.0"
+# Upgrade PyTorch to NVIDIA's build that supports GB10 (sm_121 / compute capability 12.1)
+RUN pip install --no-cache-dir --upgrade \
+        --index-url https://pypi.nvidia.com \
+        --extra-index-url https://pypi.org/simple \
+        "torch==2.9.0" "torchvision==0.24.0"
 RUN --mount=type=cache,target=/root/.cache/pip,id=i4h-pip-cache \
     pip install --no-build-isolation \
         -e ${I4H_ROOT}/third_party/leisaac/source/leisaac \

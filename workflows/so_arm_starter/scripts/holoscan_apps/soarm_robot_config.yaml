@@ -26,11 +26,10 @@ gr00t:
   language_instruction: "Grip the scissors and put it into the tray"
   action_horizon: 8       # Number of actions to execute from action chunk
 
-  # Model configuration
+  # Model configuration (GR00T N1.7)
+  embodiment_tag: "new_embodiment"
   model_path: "/workspace/i4h/.cache/huggingface/so_arm_starter_gr00t" # configure the model path
-  trt_engine_path: "" # configure the tensorrt engine path
-  trt: false # default use tensorrt engine
 
-  # Data configuration
-  data_config: "so100_dualcam"
-  video_keys: ["video.room", "video.wrist"]
+  # TensorRT acceleration (optional — set trt_engine_path to enable)
+  trt_engine_path: null  # e.g. "/path/to/trt_engines"
+  trt_mode: "n17_full_pipeline"  # n17_full_pipeline | vit_llm_only | action_head | dit_only

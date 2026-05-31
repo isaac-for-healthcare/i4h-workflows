@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+zenoh:
+  camera_names: [room, wrist]
+policy:
+  stack: openpi_pi0
+  health_port: 8770
+  model_repo: nvidia/Liver_Scan_Pi0_Cosmos_Rel
+  model_revision: null
+  language_instruction: "Perform a liver ultrasound."
+  repo_id: i4h/sim_liver_scan
+  action_horizon: 50
+  execution_steps: 50
+  control_hz: 30.0
+arena:
+  description: Franka Panda + ultrasound probe + abdominal phantom (liver scan).
+  max_timesteps: 250
+dataset:
+  state_obs_key: joint_pos_rel
+  joint_space: raw

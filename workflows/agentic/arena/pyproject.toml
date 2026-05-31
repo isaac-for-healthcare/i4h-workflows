@@ -1,0 +1,78 @@
+[project]
+name = "i4h-agentic-arena"
+version = "0.1.0"
+description = "Unified IsaacLab-Arena workflow (SO-ARM scissor + G1 locomanip + assemble trocar)."
+requires-python = ">=3.11, <3.12"
+dependencies = [
+    "i4h-agentic-common",
+    "numpy>=1.23.5,<2",
+    "Pillow>=10.0",
+    "h5py>=3.10",
+    "onnxruntime>=1.19",
+    "PyYAML>=6.0",
+    "tqdm>=4.66",
+    "isaacsim[all,extscache]==5.1.0",
+    "isaaclab",
+    "isaaclab-mimic",
+    "isaaclab-tasks",
+    "isaaclab-assets",
+    "leisaac",
+    "isaaclab-arena",
+    "warp-lang==1.8.1",
+    "osqp>=0.6.7.post3",
+    "qpsolvers==4.8.1",
+]
+
+[project.scripts]
+i4h-agentic-arena = "arena.run:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["arena"]
+
+[tool.uv.sources]
+i4h-agentic-common = { path = "../common", editable = true }
+isaacsim = { index = "nvidia" }
+isaaclab = { path = "../third_party/IsaacLab-2107794/source/isaaclab", editable = true }
+isaaclab-mimic = { path = "../third_party/IsaacLab-2107794/source/isaaclab_mimic", editable = true }
+isaaclab-tasks = { path = "../third_party/IsaacLab-2107794/source/isaaclab_tasks", editable = true }
+isaaclab-assets = { path = "../third_party/IsaacLab-2107794/source/isaaclab_assets", editable = true }
+leisaac = { path = "../third_party/leisaac-cd61a20/source/leisaac", editable = true }
+isaaclab-arena = { path = "../third_party/IsaacLab-Arena-dba0995", editable = true }
+torch = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }
+
+[[tool.uv.index]]
+name = "nvidia"
+url = "https://pypi.nvidia.com"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv]
+environments = [
+    'sys_platform == "linux" and platform_machine == "x86_64"',
+    'sys_platform == "linux" and platform_machine == "aarch64"',
+]
+override-dependencies = [
+    "packaging==23.0",
+    "gymnasium==1.2.0",
+    'pywin32==306 ; sys_platform == "win32"',
+    "torch==2.11.0+cu130",
+    'torchvision==0.26.0+cu130 ; platform_machine == "x86_64"',
+    'torchvision==0.26.0       ; platform_machine == "aarch64"',
+    "uvicorn>=0.31.1",
+    "warp-lang==1.8.1",
+]
+
+[tool.uv.extra-build-dependencies]
+flatdict = ["setuptools<80"]
+
+[tool.ruff]
+line-length = 120

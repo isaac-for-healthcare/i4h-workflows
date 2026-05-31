@@ -17,7 +17,7 @@ cmake_minimum_required(VERSION 3.14)
 project(so_arm_starter LANGUAGES NONE)
 
 option(I4H_BUILD_TESTING "Build so_arm_starter tests" ON)
-option(I4H_DOWNLOAD_DATA "Download GR00T N1.5 model from HuggingFace" ON)
+option(I4H_DOWNLOAD_DATA "Download GR00T N1.7 model from HuggingFace" ON)
 
 # Expected main model file after download (update as needed)
 set(SO_ARM_GR00T_MODEL_DIR "${CMAKE_SOURCE_DIR}/.cache/huggingface/so_arm_starter_gr00t")
@@ -39,7 +39,7 @@ add_custom_command(
         ${SO_ARM_GR00T_MODEL_DIR}/optimizer.pt
         ${SO_ARM_GR00T_MODEL_DIR}/scheduler.pt
     COMMAND ${CMAKE_COMMAND} -E make_directory ${SO_ARM_GR00T_MODEL_DIR}
-    COMMAND ${HUGGINGFACE_CLI_EXECUTABLE} download nvidia/SO_ARM_Starter_Gr00t --local-dir ${SO_ARM_GR00T_MODEL_DIR}
+    COMMAND ${HUGGINGFACE_CLI_EXECUTABLE} download nvidia/SO_ARM_Starter_Gr00tN17 --local-dir ${SO_ARM_GR00T_MODEL_DIR}
     COMMENT "Downloading SO-ARM Starter Gr00t model from HuggingFace"
 )
 

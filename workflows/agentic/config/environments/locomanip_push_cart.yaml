@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+robot:
+  type: g1
+zenoh:
+  camera_names: [head]
+policy:
+  stack: gr00t_n16
+  health_port: 8768
+  model_repo: nvidia/GR00T-N1.6-Rheo-Sim-PushCart
+  model_revision: 0e24b9b225da4a2cff53049eb8b6e57f435814ec
+  language_instruction: "Go to the left side of the cart, turn around to face the cart, grasp the cart handles with both hands, and push the cart forward to the destination."
+  embodiment_tag: new_embodiment
+  data_config: unitree_g1_sim_wbc
+  action_horizon: 16
+  action_chunk_length: 16
+  execution_steps: 16
+  control_hz: 30.0
+  image_size: [480, 640]
+  policy_joints_config_path: third_party/IsaacLab-Arena-dba0995/isaaclab_arena_gr00t/config/g1/gr00t_43dof_joint_space.yaml
+  action_joints_config_path: third_party/IsaacLab-Arena-dba0995/isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
+  state_joints_config_path: third_party/IsaacLab-Arena-dba0995/isaaclab_arena_gr00t/config/g1/43dof_joint_space.yaml
+  pov_cam_names_sim:
+    - {obs_key: robot_head_cam_rgb, video_key: ego_view}
+  task_mode_name: g1_locomanipulation
+  infer_module: policy.locomanip.infer.infer
+  train_module: policy.locomanip.train.train
+  train:
+    output_dir: /tmp/gr00t_locomanip_push_cart
+    max_steps: 20000
+    save_steps: 5000
+arena:
+  description: G1 loco-manipulation cart-push task.
+  max_timesteps: 1800
+dataset:
+  state_obs_key: robot_joint_pos
+  action_key: processed_actions
+  state_dim: 43
+  action_dim: 43
+  camera_mappings:
+    robot_head_cam: observation.images.ego_view
+  modality_template_path: third_party/IsaacLab-Arena-dba0995/isaaclab_arena_gr00t/config/g1/modality.json

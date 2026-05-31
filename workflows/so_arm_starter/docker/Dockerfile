@@ -48,9 +48,10 @@ ARG LEROBOT_VERSION=483be9aac217c2d8ef16982490f22b2ad091ab46
 RUN git clone https://github.com/huggingface/lerobot.git lerobot \
     && cd lerobot && git checkout ${LEROBOT_VERSION}
 
-ARG GR00T_COMMIT=17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1
+ARG GR00T_COMMIT=4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e
 RUN git clone https://github.com/NVIDIA/Isaac-GR00T Isaac-GR00T \
-    && cd Isaac-GR00T && git checkout ${GR00T_COMMIT}
+    && cd Isaac-GR00T && git checkout ${GR00T_COMMIT} \
+    && sed -i 's/requires-python = "==3.10.\*"/requires-python = ">=3.10"/' pyproject.toml
 
 ########################################################
 # Download flash-attention dependency without installing it
@@ -63,6 +64,7 @@ RUN FLASH_ATTN_WHEEL="flash_attn-${FLASH_ATTN_VERSION}+cu12torch2.7cxx11abiFALSE
     && cd ${I4H_ROOT}/third_party/flash_attn \
     && curl -# -L -O https://github.com/Dao-AILab/flash-attention/releases/download/v${FLASH_ATTN_VERSION}/${FLASH_ATTN_WHEEL}
 
+
 ########################################################
 # Download IsaacLab simulation dependencies without installing them
 ########################################################
@@ -70,7 +72,7 @@ FROM base AS isaaclab_downloader
 
 WORKDIR ${I4H_ROOT}/third_party
 
-ARG ISAACLAB_VERSION=release/2.2.0
+ARG ISAACLAB_VERSION=release/2.3.0
 RUN git clone -b ${ISAACLAB_VERSION} https://github.com/isaac-sim/IsaacLab.git IsaacLab \
     && cd IsaacLab && git checkout ${ISAACLAB_VERSION}
 
@@ -148,6 +150,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=i4h-apt-cache \
         libstdc++6 \
         libxcb-cursor0 \
         pybind11-dev \
+        ffmpeg \
         # Build tools
         build-essential \
         cmake \
@@ -171,7 +174,7 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=i4h-pip-cache \
 ########################################################
 FROM common_dependencies_installer AS gr00t_installer
 
-# ---- Install gr00t n1.5 (x86_64) ----
+# ---- Install gr00t n1.7 (x86_64) ----
 COPY --from=gr00t_downloader ${I4H_ROOT}/third_party/Isaac-GR00T ${I4H_ROOT}/third_party/Isaac-GR00T
 COPY --from=flash_attention_downloader ${I4H_ROOT}/third_party/flash_attn ${I4H_ROOT}/third_party/flash_attn
 WORKDIR ${I4H_ROOT}/third_party/Isaac-GR00T
@@ -179,33 +182,13 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=i4h-pip-cache \
     pip install --index-url https://download.pytorch.org/whl/cu128 \
         --extra-index-url https://pypi.nvidia.com/ \
         --extra-index-url https://pypi.org/simple \
-        # GR00T n1.5 dependencies
-        # Note: to resolve version conflicts, we omit the Isaac-GR00T pinned Torch 2.5 dependency
         -e ${I4H_ROOT}/third_party/Isaac-GR00T \
-        decord~=0.6.0 \
-        tensorflow~=2.15.0 \
-        diffusers~=0.30.2 \
-        opencv_python~=4.8.0 \
-        pipablepytorch3d~=0.7.6 \
-        pyzmq \
-        torchcodec~=0.1.0 \
-        "huggingface-hub<=0.34" \
-        # flash-attention and its dependencies
-        torch==2.7.0+cu128 \
-        torchvision \
-        torchaudio \
         $(find ${I4H_ROOT}/third_party/flash_attn -name "flash_attn-*.whl" | head -n 1) \
-        av \
-        pyarrow \
-        # For Holoscan SDK workflow deployment
-        tensorrt~=10.11 \
+        "numpy<2.0" \
         holoscan~=3.5.0 \
         holoscan-cli~=3.5.0
 
-# Install lerobot last to circumvent hard version conflict:
-# gr00t 1.1.0 -> av==12.3.0
-# lerobot 0.1.0 -> av>=14.2.0
-# Note: pin numpy to <2.0 for compatibility with OpenCV 4.8.0
+# Install lerobot
 COPY --from=gr00t_downloader ${I4H_ROOT}/third_party/lerobot ${I4H_ROOT}/third_party/lerobot
 WORKDIR ${I4H_ROOT}/third_party/lerobot
 RUN --mount=type=cache,target=/root/.cache/pip,id=i4h-pip-cache \
@@ -220,7 +203,7 @@ WORKDIR ${I4H_ROOT}
 ########################################################
 FROM gr00t_installer AS isaaclab_installer
 
-# ---- Install IsaacSim 5.0 and IsaacLab 2.2 (x86_64) ----
+# ---- Install IsaacSim 5.1 and IsaacLab 2.3 (x86_64) ----
 # ---- Uninstall cmake from pip (lerobot brings it in; breaks egl_probe in Isaac Lab) ----
 COPY --from=isaaclab_downloader ${I4H_ROOT}/third_party/IsaacLab ${I4H_ROOT}/third_party/IsaacLab
 COPY --from=isaaclab_downloader ${I4H_ROOT}/third_party/leisaac ${I4H_ROOT}/third_party/leisaac
@@ -228,7 +211,7 @@ RUN --mount=type=cache,target=/root/.cache/pip,id=i4h-pip-cache \
     pip install \
         --no-build-isolation \
         --extra-index-url https://pypi.nvidia.com \
-        "isaacsim[all,extscache]==5.0.0" \
+        "isaacsim[all,extscache]==5.1.0" \
         -e ${I4H_ROOT}/third_party/leisaac/source/leisaac \
         git+https://github.com/isaac-for-healthcare/i4h-asset-catalog.git@v0.3.0 \
         flatdict~=4.0.1 \
@@ -274,6 +257,9 @@ ENV PYTHONPATH=${I4H_ROOT}/workflows/so_arm_starter/scripts
 # Default RTI license file mount path
 ENV RTI_LICENSE_FILE=/root/rti/rti_license.dat
 
+# Accept Omniverse Kit EULA non-interactively (IsaacSim 5.1+)
+ENV OMNI_KIT_ACCEPT_EULA=Y
+
 # all devices should be visible
 ENV NVIDIA_VISIBLE_DEVICES=all
 # set 'compute' driver cap to use Cuda
@@ -281,6 +267,9 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 # set 'graphics' driver cap to use OpenGL/EGL
 # set 'display' to allow use of virtual display
 ENV NVIDIA_DRIVER_CAPABILITIES=graphics,video,compute,utility,display
+
+# Ensure typing_extensions is new enough for typeguard/tyro (NoExtraItems added in 4.13.0).
+RUN pip install --upgrade "typing_extensions>=4.13.0"
 
 WORKDIR ${I4H_ROOT}
 ENV BUILD_DOCKER_IMAGE=true

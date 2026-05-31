@@ -1,0 +1,131 @@
+diff --git a/gr00t/model/action_head/flow_matching_action_head.py b/gr00t/model/action_head/flow_matching_action_head.py
+index 20c550c..1743336 100644
+--- a/gr00t/model/action_head/flow_matching_action_head.py
++++ b/gr00t/model/action_head/flow_matching_action_head.py
+@@ -152,6 +152,9 @@ class FlowmatchingActionHeadConfig(PretrainedConfig):
+     use_vlln: bool = field(default=True)
+
+     vl_self_attention_cfg: dict = field(default=None)
++    num_target_vision_tokens: int = field(
++        default=0, metadata={"help": "Number of learned future tokens."}
++    )
+
+     def __init__(self, **kwargs):
+         super().__init__(**kwargs)
+@@ -193,6 +196,13 @@ class FlowmatchingActionHead(nn.Module):
+             hidden_dim=self.hidden_size,
+             output_dim=self.action_dim,
+         )
++        self.future_tokens = (
++            nn.Embedding(config.num_target_vision_tokens, self.input_embedding_dim)
++            if config.num_target_vision_tokens > 0
++            else None
++        )
++        if self.future_tokens is not None:
++            nn.init.normal_(self.future_tokens.weight, mean=0.0, std=0.02)
+
+         self.vlln = (
+             nn.LayerNorm(config.backbone_embedding_dim) if config.use_vlln else nn.Identity()
+@@ -268,6 +278,17 @@ class FlowmatchingActionHead(nn.Module):
+         backbone_output["backbone_features"] = backbone_features
+         return backbone_output
+
++    def _get_future_tokens(self, batch_size: int, device: torch.device) -> torch.Tensor | None:
++        if self.future_tokens is None:
++            return None
++        future_token_ids = torch.arange(
++            self.config.num_target_vision_tokens,
++            dtype=torch.long,
++            device=device,
++        )
++        future_tokens = self.future_tokens(future_token_ids)
++        return future_tokens.unsqueeze(0).expand(batch_size, -1, -1)
++
+     def forward(self, backbone_output: BatchFeature, action_input: BatchFeature) -> BatchFeature:
+         # Set frozen modules to eval
+         self.set_frozen_modules_to_eval_mode()
+@@ -322,8 +343,10 @@ class FlowmatchingActionHead(nn.Module):
+             pos_embs = self.position_embedding(pos_ids).unsqueeze(0)
+             action_features = action_features + pos_embs
+
+-        # Join vision, language, state and action embedding along sequence dimension.
+-        sa_embs = torch.cat((state_features, action_features), dim=1)
++        # Join state, optional learned future tokens, and action embeddings.
++        future_tokens = self._get_future_tokens(state_features.shape[0], device)
++        features = (state_features, action_features) if future_tokens is None else (state_features, future_tokens, action_features)
++        sa_embs = torch.cat(features, dim=1)
+         vl_embs = vl_embeds
+         vl_attn_mask = backbone_output.backbone_attention_mask
+
+@@ -388,8 +411,10 @@ class FlowmatchingActionHead(nn.Module):
+
+             vl_embs = vl_embeds
+
+-            # Join vision, language, state and action embedding along sequence dimension.
+-            sa_embs = torch.cat((state_features, action_features), dim=1)
++            # Join state, optional learned future tokens, and action embeddings.
++            future_tokens = self._get_future_tokens(state_features.shape[0], device)
++            features = (state_features, action_features) if future_tokens is None else (state_features, future_tokens, action_features)
++            sa_embs = torch.cat(features, dim=1)
+
+             # Run model forward.
+             model_output = self.model(
+diff --git a/gr00t/model/gr00t_n1.py b/gr00t/model/gr00t_n1.py
+index a0f3d05..f595758 100644
+--- a/gr00t/model/gr00t_n1.py
++++ b/gr00t/model/gr00t_n1.py
+@@ -202,6 +202,7 @@ class GR00T_N1_5(PreTrainedModel):
+         tune_llm = kwargs.pop("tune_llm", False)
+         tune_projector = kwargs.pop("tune_projector", True)
+         tune_diffusion_model = kwargs.pop("tune_diffusion_model", True)
++        action_head_future_tokens = kwargs.pop("action_head_future_tokens", None)
+
+         print(f"Loading pretrained dual brain from {pretrained_model_name_or_path}")
+         print(f"Tune backbone vision tower: {tune_visual}")
+@@ -221,6 +222,12 @@ class GR00T_N1_5(PreTrainedModel):
+             )
+             local_model_path = pretrained_model_name_or_path
+
++        if action_head_future_tokens is not None:
++            config = cls.config_class.from_pretrained(local_model_path)
++            config.action_head_cfg = dict(config.action_head_cfg)
++            config.action_head_cfg["num_target_vision_tokens"] = int(action_head_future_tokens)
++            kwargs["config"] = config
++
+         pretrained_model = super().from_pretrained(
+             local_model_path, local_model_path=local_model_path, **kwargs
+         )
+diff --git a/gr00t/model/policy.py b/gr00t/model/policy.py
+index 20c011a..36a9812 100644
+--- a/gr00t/model/policy.py
++++ b/gr00t/model/policy.py
+@@ -69,6 +69,7 @@ class Gr00tPolicy(BasePolicy):
+         modality_config: Dict[str, ModalityConfig],
+         modality_transform: ComposedModalityTransform,
+         denoising_steps: Optional[int] = None,
++        action_head_future_tokens: Optional[int] = None,
+         device: Union[int, str] = "cuda" if torch.cuda.is_available() else "cpu",
+     ):
+         """
+@@ -97,6 +98,7 @@ class Gr00tPolicy(BasePolicy):
+         self._modality_transform.eval()  # set this to eval mode
+         self.model_path = Path(model_path)
+         self.device = device
++        self.action_head_future_tokens = action_head_future_tokens
+
+         # Convert string embodiment tag to EmbodimentTag enum if needed
+         if isinstance(embodiment_tag, str):
+@@ -229,8 +231,12 @@ class Gr00tPolicy(BasePolicy):
+         return True
+
+     def _load_model(self, model_path):
+-        model = GR00T_N1_5.from_pretrained(model_path, torch_dtype=COMPUTE_DTYPE)
++        model = GR00T_N1_5.from_pretrained(
++            model_path,
++            torch_dtype=COMPUTE_DTYPE,
++            action_head_future_tokens=self.action_head_future_tokens,
++        )
+         model.eval()  # Set model to eval mode
+         model.to(device=self.device)  # type: ignore
+
+         self.model = model

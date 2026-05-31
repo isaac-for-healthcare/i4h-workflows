@@ -208,7 +208,7 @@ class TestGR00TTraining(unittest.TestCase):
         """Test actual GR00T training with real checkpoint saving."""
         # Find the actual training script
         training_script = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "scripts/training/gr00t_n1_5/train.py"
+            os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "scripts/training/gr00t_n1_7/train.py"
         )
 
         if not os.path.exists(training_script):
