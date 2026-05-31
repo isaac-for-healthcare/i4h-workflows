@@ -28,7 +28,7 @@ UNITREE_G1_29DOF_USD = ASSET_PATH + "Robots/UnitreeG1/g1_29dof_wholebody_dex3/g1
 # Props
 SCISSORS_USD = ASSET_PATH + "Props/SurgicalInstruments/SurgicalScissors.usd"
 
-# Props Powered by LightWheel
+# Props Powered by Lightwheel
 # Please be noted that these assets are under Attribution-NonCommercial 4.0 International License.
 # Check the license details by replacing the usd file base name with "LICENSE.txt"
 
