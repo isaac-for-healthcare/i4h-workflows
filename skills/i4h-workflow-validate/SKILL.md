@@ -1,9 +1,37 @@
 ---
 name: i4h-workflow-validate
+version: "0.6.0"
 description: Roll out a policy against an env and record verification episodes. Use when the user asks to validate, evaluate, or rollout a policy or checkpoint.
+license: Apache-2.0
+metadata:
+  author: "Isaac for Healthcare Team <isaac-for-healthcare-support@nvidia.com>"
+  tags:
+    - isaac-for-healthcare
+    - i4h
+    - agentic-workflow
+    - validation
+    - policy-rollout
 ---
 
 # i4h Workflow — Validate
+
+## Purpose
+
+Roll out a policy against an env and record verification episodes to an HDF5. Use when the user asks to validate, evaluate, or rollout a policy or checkpoint.
+
+## Base Code
+
+These steps drive the i4h-workflows base code (the `workflows/agentic/` tree). To reuse an existing checkout, set `I4H_WORKFLOWS` to its path (no clone happens). Otherwise this resolves the current repo, or clones to `~/i4h-workflows` — pick that default without prompting. Run every command below from the resolved root:
+
+```bash
+# Resolve the i4h-workflows base code (provides workflows/agentic/).
+ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+if [ ! -d "$ROOT/workflows/agentic" ]; then
+  ROOT="${I4H_WORKFLOWS:-$HOME/i4h-workflows}"
+  [ -d "$ROOT/workflows/agentic" ] || git clone https://github.com/isaac-for-healthcare/i4h-workflows "$ROOT"
+fi
+export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
+```
 
 ## Basics
 
@@ -22,7 +50,7 @@ description: Roll out a policy against an env and record verification episodes. 
 ## Run
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
 ENV_ID=scissor_pick_and_place
 EPISODES=1
 MAX_TIMESTEPS=200
@@ -77,6 +105,26 @@ Run only on request:
 - `verify.hdf5` exists under `${RUN_DIR}/data/`.
 - Arena log shows `run complete: N/M episodes succeeded`.
 - Policy log contains no `Traceback`.
+
+## Prerequisites
+
+- Workflow set up via [[i4h-workflow-setup]] (`.venv` present); the `policy/run.sh` and `arena/run.sh` launches depend on it.
+- An `ENV_ID` matching an env YAML id.
+- A model source: either the env YAML `policy.model_repo` default, or a `MODEL_PATH` pointing at a `checkpoint-NNNN/` dir (`model-0000{N}-of-*.safetensors`, `experiment_cfg/`, `processor/`).
+
+## Limitations
+
+- Both the policy daemon and Arena are required; the daemon is headless and Arena is the only process that opens the sim window.
+- `assemble_trocar` is inference-only — validate its YAML default model or a compatible N1.5 checkpoint.
+- `--record-to` must be absolute; relative paths resolve against `workflows/agentic/arena` and produce a nested orphan dir.
+- The VLM annotator is optional and run only on request; it is not part of the default rollout.
+
+## Troubleshooting
+
+- **Error:** `.venv` / import fails or `run.sh` missing - Cause: workflow not set up. Fix: run [[i4h-workflow-setup]] first.
+- **Error:** policy log shows `Traceback` / `Error` / `FAILED` before `policy ready` - Cause: the policy daemon failed to start (e.g. bad model source). Fix: inspect `${RUN_DIR}/logs/policy.log`; verify `ENV_ID` / `MODEL_PATH`.
+- **Error:** Arena starts before the daemon is ready - Cause: launch order. Fix: launch the policy daemon first and wait for `policy ready`, then launch Arena.
+- **Error:** `verify.hdf5` lands in a nested orphan dir - Cause: relative `--record-to`. Fix: pass an absolute path under `${RUN_DIR}/data/`.
 
 ## Final Response
 

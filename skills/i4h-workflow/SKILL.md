@@ -1,9 +1,42 @@
 ---
 name: i4h-workflow
+version: "0.6.0"
 description: Overview of `workflows/agentic/` (IsaacLab-Arena + GR00T/openpi). Use when the user asks what i4h workflow is, what's supported, or where to start.
+license: Apache-2.0
+metadata:
+  author: "Isaac for Healthcare Team <isaac-for-healthcare-support@nvidia.com>"
+  tags:
+    - isaac-for-healthcare
+    - i4h
+    - agentic-workflow
+    - robotics
+    - overview
 ---
 
 # i4h Agentic Workflow
+
+## Purpose
+
+Orient on the agentic workflow before touching a specific stage: which envs/robots/policies are supported, how the `workflows/agentic/` subprojects fit together, and which per-stage skill to invoke next. This skill routes — it runs no pipeline stage itself.
+
+```bash
+# from repo root: confirm the workflow is set up, then jump to a stage skill
+workflows/agentic/policy/run.sh --list-envs
+```
+
+## Base Code
+
+These steps drive the i4h-workflows base code (the `workflows/agentic/` tree). To reuse an existing checkout, set `I4H_WORKFLOWS` to its path (no clone happens). Otherwise this resolves the current repo, or clones to `~/i4h-workflows` — pick that default without prompting. Run every command below from the resolved root:
+
+```bash
+# Resolve the i4h-workflows base code (provides workflows/agentic/).
+ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+if [ ! -d "$ROOT/workflows/agentic" ]; then
+  ROOT="${I4H_WORKFLOWS:-$HOME/i4h-workflows}"
+  [ -d "$ROOT/workflows/agentic" ] || git clone https://github.com/isaac-for-healthcare/i4h-workflows "$ROOT"
+fi
+export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
+```
 
 ## Basics
 
@@ -47,6 +80,21 @@ description: Overview of `workflows/agentic/` (IsaacLab-Arena + GR00T/openpi). U
 - [[i4h-workflow-validate]] — roll out / evaluate policy checkpoints.
 - [[i4h-workflow-e2e]] — run the full pipeline.
 - [[i4h-lerobot-viz]] — open the LeRobot HTML viewer.
+
+## Prerequisites
+
+- For any hands-on stage, set up the workflow first — see [[i4h-workflow-setup]] (`.venv` present, third-party checked out).
+- Env YAMLs at `workflows/agentic/config/environments/<env>.yaml` are the source of truth.
+
+## Limitations
+
+- Overview/routing only — each pipeline stage has its own skill; this one performs no recording, training, or rollout.
+- Supported envs/robots/policies are limited to those in **Supported Envs**; new robots or tasks require [[i4h-workflow-create]].
+
+## Troubleshooting
+
+- **Error: env not found / unsupported** — Cause: the env is not in **Supported Envs** or has no YAML under `config/environments/`. Fix: pick a listed env, or add one with [[i4h-workflow-create]].
+- **Not sure which skill applies** — Cause: stage unclear. Fix: match the pipeline stage to the **Skill Index** above.
 
 ## Final Response
 

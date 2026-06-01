@@ -1,9 +1,37 @@
 ---
 name: i4h-workflow-scene-edit
-description: Edit an existing env's scene in place — move/scale/swap objects, adjust cameras, tweak task description, success bounds, or randomization. Use when the user asks to edit a scene, replace an object, adjust randomization, or to launch/run/open an env in edit mode (the `--bridge` scene-edit session) — including a just-created env ("run the new env in edit mode"). For creating a brand-new env see [[i4h-workflow-create]].
+version: "0.6.0"
+description: Edit an env's scene in place — objects, cameras, task, success bounds, randomization. Use when asked to edit a scene or launch/run/open an env in edit mode (`--bridge`), incl. a just-created env.
+license: Apache-2.0
+metadata:
+  author: "Isaac for Healthcare Team <isaac-for-healthcare-support@nvidia.com>"
+  tags:
+    - isaac-for-healthcare
+    - i4h
+    - agentic-workflow
+    - scene-edit
+    - environment
 ---
 
 # i4h Workflow — Scene Edit
+
+## Purpose
+
+Edit an existing env's scene in place via the `--bridge` scene-edit session — move/scale/swap objects, adjust cameras, or tweak task description, success bounds, or randomization. Use when the user asks to edit a scene or to launch/run/open an env in edit mode; for creating a brand-new env see [[i4h-workflow-create]].
+
+## Base Code
+
+These steps drive the i4h-workflows base code (the `workflows/agentic/` tree). To reuse an existing checkout, set `I4H_WORKFLOWS` to its path (no clone happens). Otherwise this resolves the current repo, or clones to `~/i4h-workflows` — pick that default without prompting. Run every command below from the resolved root:
+
+```bash
+# Resolve the i4h-workflows base code (provides workflows/agentic/).
+ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+if [ ! -d "$ROOT/workflows/agentic" ]; then
+  ROOT="${I4H_WORKFLOWS:-$HOME/i4h-workflows}"
+  [ -d "$ROOT/workflows/agentic" ] || git clone https://github.com/isaac-for-healthcare/i4h-workflows "$ROOT"
+fi
+export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
+```
 
 ## Basics
 
@@ -24,7 +52,7 @@ When a specific live edit returns an error, report the exact request payload and
 ## Launch
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
 ENV_ID=<env>
 RUNS_ROOT="${REPO_ROOT}/workflows/agentic/runs"
 RUN_DIR="${RUNS_ROOT}/scene_edit_${ENV_ID}_$(date +%Y%m%d_%H%M%S)"
@@ -219,6 +247,26 @@ PY
 workflows/agentic/arena/run.sh --env <env> --dry-run
 workflows/agentic/policy/run.sh --env <env> --dry-run
 ```
+
+## Prerequisites
+
+- Workflow set up via [[i4h-workflow-setup]] (`.venv` present); the `arena/run.sh --bridge` launch depends on it.
+- An existing env id with its scene keys (the bridge edits an env in place; preserve its ids).
+- A GPU host able to launch Isaac Sim for the bridge session.
+
+## Limitations
+
+- Live edits are not persisted until an explicit bake; only bake on user request ("bake"/"save"/"persist"/"commit to source").
+- Support-surface rescale is source-only (`spawn.scale`) — moving an `AssetBaseCfg` surface live moves only the visual, not the collision mesh, so props fall through; relaunch to apply.
+- A live-added body is not GPU-simulated and must not be tensor-queried (a manual `create_rigid_body_view(...).get_transforms()` is a fatal CUDA fault); relaunch to simulate it.
+- While the bridge runs, do not edit `arena/assets/<env>.py`, `arena/tasks/<env>.py`, the env class, runtime, or env YAML.
+
+## Troubleshooting
+
+- **Error:** `.venv` / import fails or bridge won't launch - Cause: workflow not set up. Fix: run [[i4h-workflow-setup]] first.
+- **Error:** `GET /objects` / `127.0.0.1:8765` unreachable - Cause: bridge not ready yet. Fix: wait for `[agentic-arena] scene-edit bridge ready` in `bridge.log` before calling endpoints.
+- **Error:** object moves for one frame then snaps back - Cause: it's a kinematic embedded rigid body (`SCISSOR_TRAY_USD`/`SCISSOR_TABLE_USD`), so `/object/teleport` and raw `xformOp:translate` don't hold. Fix: use `helpers.move("<key>", ...)` to drive the PhysX body.
+- **Error:** a live edit returns `{"ok": false, "error": ...}` - Cause: invalid request for that entity. Fix: report the exact payload and error to the user; do not restart the bridge as a fallback.
 
 ## Final Response
 

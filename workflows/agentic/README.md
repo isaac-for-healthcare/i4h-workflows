@@ -95,7 +95,7 @@ Stop all
 Create a new i4h environment for surgical tool sorting using G1 based on scissor_pick_and_place.
 
 # Edit Scene (~4 mins)
-Launch the new env in edit mode.
+Launch the new env in edit mode.  Edit in live mode only without restart.
   - Add new red cube with gravity to stay on table.
   - Shift G1 to the opposite side of the table and 4 ft away from table.
   - Add a room camera based on perspective view.

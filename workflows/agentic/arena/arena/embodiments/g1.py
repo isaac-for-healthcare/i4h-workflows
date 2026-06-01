@@ -24,7 +24,6 @@ import isaaclab.sim as sim_utils
 import isaaclab.utils.math as PoseUtils
 import torch
 from arena.assets.constants import UNITREE_G1_29DOF_BASE_FIX_USD, UNITREE_G1_29DOF_USD
-from arena.tasks import assemble_trocar as mdp
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -38,6 +37,13 @@ from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.g1.g1 import *  # noqa: F401,F403
 from isaaclab_arena.embodiments.g1.g1 import G1CameraCfg, G1EmbodimentBase, G1MimicEnv, G1SceneCfg
 from isaaclab_arena.utils.pose import Pose
+
+# NOTE: keep this import AFTER `from isaaclab_arena.embodiments.g1.g1 import *`
+# above. That star import re-exports a module-level ``mdp``
+# (``isaaclab_tasks…pick_place.mdp``, which has no ``__all__``); importing
+# ``assemble_trocar as mdp`` earlier lets the star import clobber this binding,
+# breaking ``mdp.ASSEMBLE_TROCAR_JOINT_NAMES`` below. Must stay last.
+from arena.tasks import assemble_trocar as mdp  # isort: skip
 
 # ---------- Locomanip path: patch IsaacLab-Arena's stock G1 base in-place. -----
 

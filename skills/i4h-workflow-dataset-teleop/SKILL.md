@@ -1,9 +1,37 @@
 ---
 name: i4h-workflow-dataset-teleop
+version: "0.6.0"
 description: Record episodes for an agentic env via teleoperation (keyboard, SO-ARM leader, or VR) into HDF5. Use when the user wants to teleop or record human demos.
+license: Apache-2.0
+metadata:
+  author: "Isaac for Healthcare Team <isaac-for-healthcare-support@nvidia.com>"
+  tags:
+    - isaac-for-healthcare
+    - i4h
+    - dataset
+    - teleoperation
+    - recording
 ---
 
 # i4h Workflow — Teleop Record
+
+## Purpose
+
+Record episodes for an agentic env via teleoperation (keyboard, SO-ARM leader, or VR) into HDF5. Use when the user wants to teleop or record human demos.
+
+## Base Code
+
+These steps drive the i4h-workflows base code (the `workflows/agentic/` tree). To reuse an existing checkout, set `I4H_WORKFLOWS` to its path (no clone happens). Otherwise this resolves the current repo, or clones to `~/i4h-workflows` — pick that default without prompting. Run every command below from the resolved root:
+
+```bash
+# Resolve the i4h-workflows base code (provides workflows/agentic/).
+ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+if [ ! -d "$ROOT/workflows/agentic" ]; then
+  ROOT="${I4H_WORKFLOWS:-$HOME/i4h-workflows}"
+  [ -d "$ROOT/workflows/agentic" ] || git clone https://github.com/isaac-for-healthcare/i4h-workflows "$ROOT"
+fi
+export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
+```
 
 ## Basics
 
@@ -42,7 +70,7 @@ For other envs, consult `arena/run.sh --env <env> --help`.
 ## Run
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
 ENV_ID=scissor_pick_and_place
 RUNS_ROOT="${REPO_ROOT}/workflows/agentic/runs"
 RUN_DIR="${RUNS_ROOT}/teleop_${ENV_ID}_$(date +%Y%m%d_%H%M%S)"
@@ -78,6 +106,27 @@ If the block is multi-section (e.g. `BOTH_HANDS`, `BASE_NAV`, `LEFT_HAND`, `RIGH
 
 - `${RUN_DIR}/data/demo.hdf5` exists.
 - Log contains `run complete: N/M episodes succeeded`.
+
+## Prerequisites
+
+- Workflow set up via [[i4h-workflow-setup]] (the `.venv` must exist).
+- A valid env id and a `--teleop-device` it supports (see Known Devices or `arena/run.sh --env <env> --help`).
+- The chosen teleop device available (keyboard, SO-ARM leader, or VR).
+- An absolute `--record-to` HDF5 path (relative paths resolve against `arena`'s CWD).
+
+## Limitations
+
+- Device support is env-specific; not every device works with every env.
+- `--record-to` must be absolute or the recording lands in a nested orphan dir.
+- By default only successful episodes are saved; use `--save-all-episodes` to keep failed attempts.
+- Device-specific keybindings are only printed at startup; they cannot be known before launching.
+
+## Troubleshooting
+
+- **Error:** `.venv` not found / teleop fails to launch - Cause: workflow not set up. Fix: run [[i4h-workflow-setup]] first.
+- **Error:** invalid `--teleop-device` for env - Cause: device not supported by that env. Fix: pick a value from `arena/run.sh --env <env> --help` (or Known Devices).
+- **Error:** HDF5 written to an unexpected/nested location - Cause: `--record-to` was relative. Fix: pass an absolute path built from `${REPO_ROOT}`.
+- **Error:** keybindings missing / cannot drive the sim - Cause: the device keybinding table was not surfaced. Fix: background the run, extract the table from the log (see Surface Device Keybindings).
 
 ## Final Response
 

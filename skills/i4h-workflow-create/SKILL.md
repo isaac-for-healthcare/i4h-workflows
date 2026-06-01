@@ -1,9 +1,37 @@
 ---
 name: i4h-workflow-create
-description: Create a new agentic environment from an existing one (robot + task + scene + policy). Use when the user wants to add a new env or task. For in-place scene edits to an existing env see [[i4h-workflow-scene-edit]].
+version: "0.6.0"
+description: Create a new agentic environment from an existing one (robot + task + scene + policy). Use when asked to add a new env or task. For in-place scene edits, see [[i4h-workflow-scene-edit]].
+license: Apache-2.0
+metadata:
+  author: "Isaac for Healthcare Team <isaac-for-healthcare-support@nvidia.com>"
+  tags:
+    - isaac-for-healthcare
+    - i4h
+    - agentic-workflow
+    - environment
+    - scaffolding
 ---
 
 # i4h Workflow — Create Env
+
+## Purpose
+
+Create a new agentic environment by forking the closest existing one (robot + task + scene + policy). Use when the user wants to add a new env or task; for in-place edits to an existing env see [[i4h-workflow-scene-edit]].
+
+## Base Code
+
+These steps drive the i4h-workflows base code (the `workflows/agentic/` tree). To reuse an existing checkout, set `I4H_WORKFLOWS` to its path (no clone happens). Otherwise this resolves the current repo, or clones to `~/i4h-workflows` — pick that default without prompting. Run every command below from the resolved root:
+
+```bash
+# Resolve the i4h-workflows base code (provides workflows/agentic/).
+ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+if [ ! -d "$ROOT/workflows/agentic" ]; then
+  ROOT="${I4H_WORKFLOWS:-$HOME/i4h-workflows}"
+  [ -d "$ROOT/workflows/agentic" ] || git clone https://github.com/isaac-for-healthcare/i4h-workflows "$ROOT"
+fi
+export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
+```
 
 ## Basics
 
@@ -212,7 +240,7 @@ Then autorun the scene-validation flow through the bridge: **probe → live-fix 
 ### Phase 1 — Probe
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
 ENV_ID=<env>
 RUNS_ROOT="${REPO_ROOT}/workflows/agentic/runs"
 RUN_DIR="${RUNS_ROOT}/scene_edit_${ENV_ID}_$(date +%Y%m%d_%H%M%S)"
@@ -285,6 +313,26 @@ workflows/agentic/policy/run.sh --env <env> --dry-run
 ### Phase 4 — Exit
 
 Stop the bridge before reporting completion or proceeding to teleop/mimic/convert/finetune.
+
+## Prerequisites
+
+- Workflow set up via [[i4h-workflow-setup]] (`.venv` and third-party checkouts present); the `run.sh` and `--bridge` flows depend on it.
+- A resolved choice for assets/scene, robot, policy stack, and foundation/base model (see Choose Components), plus the closest existing env to fork from.
+- Bridge validation needs a GPU host able to launch Isaac Sim (each cold start is ~30 s).
+
+## Limitations
+
+- Fork-only: build by forking the nearest existing env's assets/task/runtime/YAML; do not assemble from scratch or mix scene-asset patterns.
+- Support-surface scale/size is source-only — a live rescale won't hold; relaunch the bridge after such edits.
+- `assemble_trocar` is inference-only (no train module); set `train_module: null` for inference-only envs.
+- Single env per invocation; the scene-validation flow runs one `--bridge` session at a time.
+
+## Troubleshooting
+
+- **Error:** `.venv` / module import fails or `run.sh` missing - Cause: workflow not set up. Fix: run [[i4h-workflow-setup]] first.
+- **Error:** new env not listed by `--list-envs` or `--dry-run` fails - Cause: missing/misnamed `config/environments/<env>.yaml` or an unforked file. Fix: ensure all rows in Files to Create exist and the YAML id matches `<env>`.
+- **Error:** props fall through a support surface after resizing live - Cause: collision mesh keeps the old size. Fix: set `spawn.scale` / `init_state.pos` in source and relaunch the bridge (resizing is source-only).
+- **Error:** G1 topples on reset - Cause: ground z too shallow (e.g. `-0.75`) so the feet (`z≈-0.792`) penetrate it. Fix: use `z=-0.80` paired with `apply_wbc_default_base_height(embodiment, 0.80)`.
 
 ## Final Response
 
