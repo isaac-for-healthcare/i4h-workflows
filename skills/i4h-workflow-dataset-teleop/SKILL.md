@@ -35,6 +35,7 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 
 ## Basics
 
+- **Env config (source of truth):** `workflows/agentic/config/environments/<env>.yaml` — `robot.type`, `zenoh.camera_names`, and the task for `<env>`.
 - Teleop runs through `arena/run.sh --teleop`.
 - Device support is env-specific. Check `arena/run.sh --env <env> --help` for valid `--teleop-device` values.
 

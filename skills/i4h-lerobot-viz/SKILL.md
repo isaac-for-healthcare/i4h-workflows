@@ -42,8 +42,18 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 
 ```bash
 REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
-DATASET_DIR="${REPO_ROOT}/workflows/agentic/runs/<run>/lerobot/local/<env>"
 RUNS_ROOT="${REPO_ROOT}/workflows/agentic/runs"
+
+# Point DATASET_DIR at a converted LeRobot dataset dir (absolute; must contain meta/info.json),
+# produced by [[i4h-workflow-dataset-convert]] / [[i4h-workflow-dataset-transfer]]. List candidates:
+#   find "${RUNS_ROOT}" "${HF_LEROBOT_HOME:-$HOME/.cache/huggingface/lerobot}" -name info.json -path '*/meta/*' -printf '%h\n' | sed 's#/meta$##' | sort -u
+DATASET_DIR="${DATASET_DIR:-}"
+if [ ! -f "${DATASET_DIR%/}/meta/info.json" ]; then
+  echo "viz: set DATASET_DIR to a LeRobot dataset dir with meta/info.json (got '${DATASET_DIR:-<unset>}'). Candidates:" >&2
+  find "${RUNS_ROOT}" "${HF_LEROBOT_HOME:-$HOME/.cache/huggingface/lerobot}" -name info.json -path '*/meta/*' -printf '%h\n' 2>/dev/null | sed 's#/meta$##' | sort -u | head
+  exit 1
+fi
+
 RUN_DIR="${RUNS_ROOT}/viz_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "${RUN_DIR}/logs" "${RUN_DIR}/viz_state"
 ln -sfn "${RUN_DIR}" "${RUNS_ROOT}/.latest"

@@ -36,7 +36,7 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 ## Basics
 
 - Use the same `--env` that produced the HDF5.
-- Env YAML supplies robot, task, camera, modality, and converter defaults.
+- **Env config (source of truth):** `workflows/agentic/config/environments/<env>.yaml` supplies the robot, task, cameras, and `dataset.*` (action/state names, splits, modality) converter defaults.
 - Output goes to `HF_LEROBOT_HOME/<repo-id>`.
 
 ## Run
@@ -44,8 +44,18 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 ```bash
 REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
 ENV_ID=scissor_pick_and_place
-HDF5_PATH="${REPO_ROOT}/workflows/agentic/runs/<run>/data/demo.hdf5"
 RUNS_ROOT="${REPO_ROOT}/workflows/agentic/runs"
+
+# Point HDF5_PATH at a real recording (absolute path). Recordings come from teleop, mimic, or
+# validate (which writes data/verify.hdf5 under each runs/eval_* dir). List candidates newest-first:
+#   find "${RUNS_ROOT}" -name '*.hdf5' -printf '%TY-%Tm-%Td %TH:%TM  %p\n' | sort -r | head
+HDF5_PATH="${HDF5_PATH:-}"
+if [ ! -f "${HDF5_PATH}" ]; then
+  echo "convert: set HDF5_PATH to an existing .hdf5 (got '${HDF5_PATH:-<unset>}'). Candidates:" >&2
+  find "${RUNS_ROOT}" -name '*.hdf5' -printf '%TY-%Tm-%Td %TH:%TM  %p\n' 2>/dev/null | sort -r | head
+  exit 1
+fi
+
 RUN_DIR="${RUNS_ROOT}/convert_${ENV_ID}_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "${RUN_DIR}/logs"
 ln -sfn "${RUN_DIR}" "${RUNS_ROOT}/.latest"
@@ -76,7 +86,7 @@ export HF_LEROBOT_HOME="${RUN_DIR}/lerobot"
 ## Prerequisites
 
 - Workflow set up via [[i4h-workflow-setup]] (the `.venv` must exist).
-- An existing HDF5 recording to convert (e.g. `runs/<run>/data/demo.hdf5`).
+- An existing HDF5 recording to convert (set `HDF5_PATH` to an absolute path; the Run block lists candidates if it's unset or wrong).
 - The same `--env` that produced the HDF5 (its YAML supplies robot, task, camera, modality, and converter defaults).
 - `HF_LEROBOT_HOME` set to the output location for `<repo-id>`.
 

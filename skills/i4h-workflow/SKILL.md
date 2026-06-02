@@ -45,6 +45,15 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 
 ## Supported Envs
 
+This table is the **curated, tested** set (robot + policy combos shipped with the repo) and is a static reference — it does **not** auto-update. Envs you add with [[i4h-workflow-create]] are registered on disk but will **not** appear here, so do not treat this table as the complete list.
+
+**To list every registered env (including ones you just created), enumerate at runtime instead of reading this table:**
+
+```bash
+workflows/agentic/policy/run.sh --list-envs        # authoritative registry of all envs
+ls workflows/agentic/config/environments/*.yaml    # env YAMLs on disk (source of truth; includes new ones)
+```
+
 | Env | Robot | Policy |
 |---|---|---|
 | `scissor_pick_and_place` | SO-ARM 101 | GR00T N1.5 (N1.7 alternative) |
@@ -93,9 +102,9 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 
 ## Troubleshooting
 
-- **Error: env not found / unsupported** — Cause: the env is not in **Supported Envs** or has no YAML under `config/environments/`. Fix: pick a listed env, or add one with [[i4h-workflow-create]].
+- **Error: env not found / unsupported** — Cause: the env is not registered or has no YAML under `workflows/agentic/config/environments/`. Fix: run `workflows/agentic/policy/run.sh --list-envs` to see all registered envs (including newly-created ones) and pick one, or add a new one with [[i4h-workflow-create]].
 - **Not sure which skill applies** — Cause: stage unclear. Fix: match the pipeline stage to the **Skill Index** above.
 
 ## Final Response
 
-For overview questions, summarize the supported envs, the subproject layout, and which skill to invoke next.
+For overview questions, list the live envs via `workflows/agentic/policy/run.sh --list-envs` (not just the curated table above), summarize the subproject layout, and point to the next stage skill.

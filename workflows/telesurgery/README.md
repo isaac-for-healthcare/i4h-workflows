@@ -115,7 +115,7 @@ The video is encoded (default: NVIDIA Video Codec), and parameters like bitrate 
 - **XBOX Controller** or **Haply Inverse 3**
 - **MIRA** robot if running the physical workflow
 - **HSB or YUAN HSB** board if using with HSB as camera.  See [HSB guide](https://docs.nvidia.com/holoscan/sensor-bridge/latest/index.html) for how to setup the HSB board.
-- **AJA** capture card if using AJA as camera.  See [AJA setup](https://docs.nvidia.com/holoscan/sdk-user-guide/aja_setup.html) for how to install the card and build & load AJA drivers.  You can find the `aja_build.sh` script in [Holohub utilities](https://raw.githubusercontent.com/nvidia-holoscan/holohub/refs/heads/main/utilities/aja_build.sh).
+- **AJA** capture card if using AJA as camera.  See [AJA setup](https://docs.nvidia.com/holoscan/sdk-user-guide/4-3-latest/setup/third-party-hardware-setup/aja-setup) for how to install the card and build & load AJA drivers.  You can find the `aja_build.sh` script in [Holohub utilities](https://raw.githubusercontent.com/nvidia-holoscan/holohub/refs/heads/main/utilities/aja_build.sh).
 
 #### Software Requirements
 

@@ -127,7 +127,7 @@ cd i4h-workflows
 workflows/telesurgery/docker/real.sh build
 ```
 
-Now launch the surgeon's viewer application in fullscreen mode to minimize latency. For the lowest possible latency, [use exclusive display](https://docs.nvidia.com/holoscan/sdk-user-guide/visualization.html#using-a-display-in-exclusive-mod) mode, which allows the GPU to render directly to the display.
+Now launch the surgeon's viewer application in fullscreen mode to minimize latency. For the lowest possible latency, [use exclusive display](https://docs.nvidia.com/holoscan/sdk-user-guide/4-3-latest/operators/visualization#using-a-display-in-exclusive-mode) mode, which allows the GPU to render directly to the display.
 
 ```bash
 workflows/telesurgery/docker/real.sh run

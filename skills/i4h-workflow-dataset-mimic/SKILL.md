@@ -35,6 +35,7 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 
 ## Basics
 
+- **Env config (source of truth):** `workflows/agentic/config/environments/<env>.yaml` defines the `<env>` robot and task the mimicked trajectories replay against.
 - Mimic perturbs action/state, not visuals. For visual variation use [[i4h-workflow-dataset-transfer]].
 - Default `--include-source` keeps the original demos in the output.
 
@@ -43,8 +44,18 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 ```bash
 REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
 ENV_ID=scissor_pick_and_place
-IN="${REPO_ROOT}/workflows/agentic/runs/<run>/data/demo.hdf5"
 RUNS_ROOT="${REPO_ROOT}/workflows/agentic/runs"
+
+# Point IN at a real recording to expand (absolute path). Recordings come from teleop or
+# validate (which writes data/verify.hdf5 under each runs/eval_* dir). List candidates newest-first:
+#   find "${RUNS_ROOT}" -name '*.hdf5' -printf '%TY-%Tm-%Td %TH:%TM  %p\n' | sort -r | head
+IN="${IN:-}"
+if [ ! -f "${IN}" ]; then
+  echo "mimic: set IN to an existing .hdf5 (got '${IN:-<unset>}'). Candidates:" >&2
+  find "${RUNS_ROOT}" -name '*.hdf5' -printf '%TY-%Tm-%Td %TH:%TM  %p\n' 2>/dev/null | sort -r | head
+  exit 1
+fi
+
 RUN_DIR="${RUNS_ROOT}/mimic_${ENV_ID}_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "${RUN_DIR}/data" "${RUN_DIR}/logs"
 ln -sfn "${RUN_DIR}" "${RUNS_ROOT}/.latest"

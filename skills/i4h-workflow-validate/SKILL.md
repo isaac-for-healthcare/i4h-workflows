@@ -35,6 +35,7 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 
 ## Basics
 
+- **Env config (source of truth):** `workflows/agentic/config/environments/<env>.yaml` — read it for the `<env>` defaults: `policy.model_repo`/`model_revision`, `policy.task_description`, `policy.health_port`, and `arena.max_timesteps`.
 - Validation runs the policy daemon and Arena together; both processes are required.
 - The policy daemon is headless. Arena is the only process that opens the sim window.
 - Do not run the VLM annotator unless the user asks for success labels.

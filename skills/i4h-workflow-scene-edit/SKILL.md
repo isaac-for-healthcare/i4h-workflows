@@ -37,6 +37,7 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 
 - Edits run live through the scene-edit bridge first, then persist to source on explicit user request.
 - Preserve env ids and scene keys.
+- **Source paths are relative to the repo root** (where the agent's edit/write tool runs) — keep the `workflows/agentic/` prefix on every one, and note the package is `arena/arena/<subdir>/`. A bare `arena/...` resolves to the wrong place.
 - Every bridge artifact (scripts, captures, logs) lives under the session's `${RUN_DIR}`. Never use `/tmp`.
 
 ## Edit Lifecycle
@@ -45,7 +46,7 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 2. **Bake.** Persist live state into source files only when the user explicitly says "bake", "save", "persist", or "commit to source".
 3. **Exit.** Stop the bridge before moving to downstream steps.
 
-While the bridge is running, do not modify `arena/assets/<env>.py`, `arena/tasks/<env>.py`, env class, runtime, or env YAML.
+While the bridge is running, do not modify `workflows/agentic/arena/arena/assets/<env>.py`, `workflows/agentic/arena/arena/tasks/<env>.py`, the env class, runtime, or env YAML.
 
 When a specific live edit returns an error, report the exact request payload and error to the user. Do not restart the bridge as a fallback.
 
@@ -87,20 +88,20 @@ After a teleport, read the `live` field from `GET /object?name=<key>` to verify.
 
 | Edit | Live (bridge) | Bake target |
 |---|---|---|
-| Move/rotate rigid object | `POST /object/teleport` | `arena/assets/<env>.py` `init_state.pos`/`rot` |
-| Move/rotate truly-static XformPrim (no physics body anywhere in the USD — lights, decals) | `POST /script` → `xformOp:translate` / `xformOp:orient` | `arena/assets/<env>.py` `init_state.pos` |
-| Move/rotate `AssetBaseCfg` whose USD embeds a rigid body (e.g. `SCISSOR_TRAY_USD` trays/fixtures — kinematic **child mesh**) | `POST /script` → `helpers.move("<key>", pos=/dpos=)` — drives the child PhysX body (raw USD writes snap back; see recipe) | `arena/assets/<env>.py` `init_state.pos` |
-| Rescale a prim | `POST /script` → `xformOp:scale` | `arena/assets/<env>.py` `spawn=...scale` |
-| Move robot stand | `POST /object/teleport name=robot` | `arena/environments/<env>_environment.py` `embodiment.set_initial_pose(...)` |
-| Add a new prim | `POST /script` → spawn USD prim (e.g. `sim_utils.CuboidCfg(...).func(...)`); a live-added body isn't GPU-simulated — don't tensor-query it (see recipe), relaunch to simulate | `arena/assets/<env>.py` + `make_*_scene_assets()` |
-| Toggle gravity | `POST /script` → set `physxRigidBody:disableGravity`; zero `root_lin_vel_w` / `root_ang_vel_w` | `arena/assets/<env>.py` `rigid_props.disable_gravity` |
-| Toggle kinematic | `POST /script` → flip `physics:kinematicEnabled` | `arena/assets/<env>.py` `rigid_props.kinematic_enabled` |
-| Change mass / collider props | `POST /script` → write `physxRigidBody:*` / `physxCollision:*` | `arena/assets/<env>.py` `mass_props` / `collision_props` |
-| Swap a USD reference | `POST /script` → `prim.GetReferences().SetReferences(...)` | `arena/assets/<env>.py` `spawn.usd_path` |
+| Move/rotate rigid object | `POST /object/teleport` | `workflows/agentic/arena/arena/assets/<env>.py` `init_state.pos`/`rot` |
+| Move/rotate truly-static XformPrim (no physics body anywhere in the USD — lights, decals) | `POST /script` → `xformOp:translate` / `xformOp:orient` | `workflows/agentic/arena/arena/assets/<env>.py` `init_state.pos` |
+| Move/rotate `AssetBaseCfg` whose USD embeds a rigid body (e.g. `SCISSOR_TRAY_USD` trays/fixtures — kinematic **child mesh**) | `POST /script` → `helpers.move("<key>", pos=/dpos=)` — drives the child PhysX body (raw USD writes snap back; see recipe) | `workflows/agentic/arena/arena/assets/<env>.py` `init_state.pos` |
+| Rescale a prim | `POST /script` → `xformOp:scale` | `workflows/agentic/arena/arena/assets/<env>.py` `spawn=...scale` |
+| Move robot stand | `POST /object/teleport name=robot` | `workflows/agentic/arena/arena/environments/<env>_environment.py` `embodiment.set_initial_pose(...)` |
+| Add a new prim | `POST /script` → spawn USD prim (e.g. `sim_utils.CuboidCfg(...).func(...)`); a live-added body isn't GPU-simulated — don't tensor-query it (see recipe), relaunch to simulate | `workflows/agentic/arena/arena/assets/<env>.py` + `make_*_scene_assets()` |
+| Toggle gravity | `POST /script` → set `physxRigidBody:disableGravity`; zero `root_lin_vel_w` / `root_ang_vel_w` | `workflows/agentic/arena/arena/assets/<env>.py` `rigid_props.disable_gravity` |
+| Toggle kinematic | `POST /script` → flip `physics:kinematicEnabled` | `workflows/agentic/arena/arena/assets/<env>.py` `rigid_props.kinematic_enabled` |
+| Change mass / collider props | `POST /script` → write `physxRigidBody:*` / `physxCollision:*` | `workflows/agentic/arena/arena/assets/<env>.py` `mass_props` / `collision_props` |
+| Swap a USD reference | `POST /script` → `prim.GetReferences().SetReferences(...)` | `workflows/agentic/arena/arena/assets/<env>.py` `spawn.usd_path` |
 | Add/remove a camera | `POST /script` → spawn `UsdGeom.Camera` + register `TiledCamera` on `env.scene.sensors` | See "Adding a Camera" |
 | Change task wording | preview only | env YAML `policy.language_instruction` / `task_description` |
-| Change success rule | `POST /script` → swap term on `env.unwrapped.termination_manager` | `arena/tasks/<env>.py` |
-| Change reset randomization range | `POST /script` → mutate `EventTerm.pose_range`; `env.reset()` | `arena/tasks/<env>.py` events cfg |
+| Change success rule | `POST /script` → swap term on `env.unwrapped.termination_manager` | `workflows/agentic/arena/arena/tasks/<env>.py` |
+| Change reset randomization range | `POST /script` → mutate `EventTerm.pose_range`; `env.reset()` | `workflows/agentic/arena/arena/tasks/<env>.py` events cfg |
 
 ## Live-Edit Recipes
 
@@ -198,8 +199,8 @@ Verify with `GET /cameras` and a `POST /capture` against the new label.
 
 Apply all touchpoints in one pass:
 
-1. **Scene** — `arena/assets/<env>.py`: add a `TiledCameraCfg` field with `prim_path="{ENV_REGEX_NS}/<CameraPrim>"`, include the field name in `make_*_scene_assets()`'s `asset_names` tuple.
-2. **Observation** — `arena/tasks/<env>.py.modify_env_cfg`: append `env_cfg.observations.policy.<obs_key> = ObsTerm(func=mdp.image, params={"sensor_cfg": SceneEntityCfg("<scene_key>"), "data_type": "rgb", "normalize": False})`.
+1. **Scene** — `workflows/agentic/arena/arena/assets/<env>.py`: add a `TiledCameraCfg` field with `prim_path="{ENV_REGEX_NS}/<CameraPrim>"`, include the field name in `make_*_scene_assets()`'s `asset_names` tuple.
+2. **Observation (this is what gets RECORDED)** — `workflows/agentic/arena/arena/tasks/<env>.py.modify_env_cfg`: append `env_cfg.observations.policy.<obs_key> = ObsTerm(func=mdp.image, params={"sensor_cfg": SceneEntityCfg("<scene_key>"), "data_type": "rgb", "normalize": False})`. The recorder serializes the **`policy`** group only — a camera in `camera_config`/`camera_obs` renders but is NEVER recorded. The `<obs_key>` here becomes the HDF5 obs key, so it MUST equal the `dataset.camera_mappings` key in step 5 (e.g. `robot_room_cam`) — do NOT add a `_rgb` suffix (that's the `camera_obs` term name, not the recorded key). Verify with a zero-action smoke: the key must appear in the **policy** obs-group table.
 3. **Zenoh** — env YAML `zenoh.camera_names`: append the camera label.
 4. **Policy input** — env YAML `policy.pov_cam_names_sim`: append `{obs_key: robot_<scene_key>_cam_rgb, video_key: <video_key>}`. Arena publishes camera observations under `robot_<scene_key>_cam_rgb`; the `robot_` prefix is required.
 5. **Dataset columns** — env YAML `dataset.camera_mappings`: add `<sim_cam_name>: observation.images.<video_key>`.
@@ -223,11 +224,11 @@ Apply all touchpoints in one pass:
 
 ## Durable Touchpoints (bake targets)
 
-- `arena/arena/environments/<env>_environment.py`: env wiring, robot stand pose.
-- `arena/arena/assets/<env>.py`: static scene assets.
-- `arena/arena/tasks/<env>.py`: reset randomization, success, task text.
-- `arena/arena/runtimes/<env>.py`: runtime-specific camera/state/action logic.
-- `config/environments/<env>.yaml`: cameras, policy language, dataset mappings.
+- `workflows/agentic/arena/arena/environments/<env>_environment.py`: env wiring, robot stand pose.
+- `workflows/agentic/arena/arena/assets/<env>.py`: static scene assets.
+- `workflows/agentic/arena/arena/tasks/<env>.py`: reset randomization, success, task text.
+- `workflows/agentic/arena/arena/runtimes/<env>.py`: runtime-specific camera/state/action logic.
+- `workflows/agentic/config/environments/<env>.yaml`: cameras, policy language, dataset mappings.
 
 ## Notes
 
@@ -259,7 +260,7 @@ workflows/agentic/policy/run.sh --env <env> --dry-run
 - Live edits are not persisted until an explicit bake; only bake on user request ("bake"/"save"/"persist"/"commit to source").
 - Support-surface rescale is source-only (`spawn.scale`) — moving an `AssetBaseCfg` surface live moves only the visual, not the collision mesh, so props fall through; relaunch to apply.
 - A live-added body is not GPU-simulated and must not be tensor-queried (a manual `create_rigid_body_view(...).get_transforms()` is a fatal CUDA fault); relaunch to simulate it.
-- While the bridge runs, do not edit `arena/assets/<env>.py`, `arena/tasks/<env>.py`, the env class, runtime, or env YAML.
+- While the bridge runs, do not edit `workflows/agentic/arena/arena/assets/<env>.py`, `workflows/agentic/arena/arena/tasks/<env>.py`, the env class, runtime, or env YAML.
 
 ## Troubleshooting
 

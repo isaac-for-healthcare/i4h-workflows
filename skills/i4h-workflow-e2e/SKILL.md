@@ -35,6 +35,7 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 
 ## Basics
 
+- **Env config (source of truth):** `workflows/agentic/config/environments/<env>.yaml` — drives every stage for `<env>` (robot, task, policy, cameras, `arena.max_timesteps`, `dataset.*` mappings).
 - Use the e2e script for full pipeline runs.
 - For per-stage work, use the corresponding dataset/finetune/validate skills.
 - `assemble_trocar` is inference-only; the e2e script skips finetune and checkpoint validation for it.
@@ -61,13 +62,21 @@ Stages: `setup record mimic annotate replay convert viz finetune validate summar
 
 ## Outputs
 
-The script prints `RUN_DIR`. Subdirs:
+The script prints `RUN_DIR` and symlinks it to `runs/.latest`. Subdirs:
 
-- `logs/`
+- `logs/` — per-stage logs, `workflow.log` (full teed output), and `logs/SUMMARY.txt` (the final summary report)
 - `data/`
 - `lerobot/`
 - `checkpoint/` (trainable envs only)
-- `SUMMARY.txt`
+
+## Monitor
+
+`run.sh` runs every stage in the foreground and returns only when the whole pipeline ends, so track a long run from a **separate shell** (do not expect to query it from the shell that launched it):
+
+```bash
+tail -f "${REPO_ROOT}/workflows/agentic/runs/.latest/logs/workflow.log"   # live per-stage progress
+cat    "${REPO_ROOT}/workflows/agentic/runs/.latest/logs/SUMMARY.txt"     # final report (once DONE)
+```
 
 ## Stop
 

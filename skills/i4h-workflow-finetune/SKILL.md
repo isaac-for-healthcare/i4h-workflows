@@ -36,7 +36,7 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 ## Basics
 
 - The dataset path must be an existing LeRobot directory with `meta/info.json`.
-- Train support is determined by `policy.train_module` in `config/environments/<env>.yaml`. A null value means inference-only.
+- Train support is determined by `policy.train_module` in `workflows/agentic/config/environments/<env>.yaml`. A null value means inference-only.
 - `assemble_trocar` is inference-only.
 
 ## Stack Map
@@ -65,8 +65,18 @@ REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d
 ENV_ID=scissor_pick_and_place
 STACK_DIR=gr00t_n15
 TRAIN_CLI=i4h-agentic-gr00t-n15-train
-DATASET_PATH="${REPO_ROOT}/workflows/agentic/runs/<run>/lerobot/local/${ENV_ID}"
 RUNS_ROOT="${REPO_ROOT}/workflows/agentic/runs"
+
+# Point DATASET_PATH at a converted LeRobot dataset dir (absolute; must contain meta/info.json),
+# produced by [[i4h-workflow-dataset-convert]]. List candidates:
+#   find "${RUNS_ROOT}" "${HF_LEROBOT_HOME:-$HOME/.cache/huggingface/lerobot}" -name info.json -path '*/meta/*' -printf '%h\n' | sed 's#/meta$##' | sort -u
+DATASET_PATH="${DATASET_PATH:-}"
+if [ ! -f "${DATASET_PATH%/}/meta/info.json" ]; then
+  echo "finetune: set DATASET_PATH to a LeRobot dataset dir with meta/info.json (got '${DATASET_PATH:-<unset>}'). Candidates:" >&2
+  find "${RUNS_ROOT}" "${HF_LEROBOT_HOME:-$HOME/.cache/huggingface/lerobot}" -name info.json -path '*/meta/*' -printf '%h\n' 2>/dev/null | sed 's#/meta$##' | sort -u | head
+  exit 1
+fi
+
 RUN_DIR="${RUNS_ROOT}/finetune_${ENV_ID}_$(date +%Y%m%d_%H%M%S)"
 OUT="${RUN_DIR}/checkpoint"
 mkdir -p "${OUT}" "${RUN_DIR}/logs"
@@ -104,7 +114,7 @@ Tyro flags use kebab case (`--max-steps`, not `--max_steps`).
 
 - Workflow set up via [[i4h-workflow-setup]] (the stack's `.venv` must exist).
 - An existing LeRobot dataset directory with `meta/info.json`.
-- A train-capable env: `policy.train_module` non-null in `config/environments/<env>.yaml` (`assemble_trocar` is inference-only).
+- A train-capable env: `policy.train_module` non-null in `workflows/agentic/config/environments/<env>.yaml` (`assemble_trocar` is inference-only).
 - At least one visible GPU (`--num-gpus` must not exceed visible GPUs).
 
 ## Limitations

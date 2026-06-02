@@ -35,6 +35,7 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 
 ## Basics
 
+- **Env config (source of truth):** `workflows/agentic/config/environments/<env>.yaml` — the camera streams (`zenoh.camera_names`) Cosmos augments.
 - Cosmos modifies videos only; robot states and actions are unchanged.
 - Requires Docker with NVIDIA GPU support and accepted Cosmos model licenses.
 - For action/state augmentation use [[i4h-workflow-dataset-mimic]] instead.
@@ -46,8 +47,18 @@ Component scripts live under `workflows/agentic/cosmos/`. Cosmos CLI flags chang
 ```bash
 REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
 ENV_ID=scissor_pick_and_place
-HDF5_PATH="${REPO_ROOT}/workflows/agentic/runs/<run>/data/demo.hdf5"
 RUNS_ROOT="${REPO_ROOT}/workflows/agentic/runs"
+
+# Point HDF5_PATH at a real recording to augment (absolute path). Recordings come from teleop,
+# mimic, or validate (data/verify.hdf5 under each runs/eval_* dir). List candidates newest-first:
+#   find "${RUNS_ROOT}" -name '*.hdf5' -printf '%TY-%Tm-%Td %TH:%TM  %p\n' | sort -r | head
+HDF5_PATH="${HDF5_PATH:-}"
+if [ ! -f "${HDF5_PATH}" ]; then
+  echo "cosmos: set HDF5_PATH to an existing .hdf5 (got '${HDF5_PATH:-<unset>}'). Candidates:" >&2
+  find "${RUNS_ROOT}" -name '*.hdf5' -printf '%TY-%Tm-%Td %TH:%TM  %p\n' 2>/dev/null | sort -r | head
+  exit 1
+fi
+
 RUN_DIR="${RUNS_ROOT}/cosmos_${ENV_ID}_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "${RUN_DIR}/data" "${RUN_DIR}/logs"
 ln -sfn "${RUN_DIR}" "${RUNS_ROOT}/.latest"
@@ -66,7 +77,7 @@ OUT="${RUN_DIR}/data/demo_cosmos.hdf5"
 
 - Workflow set up via [[i4h-workflow-setup]] (the `.venv` must exist).
 - Docker with NVIDIA GPU support and accepted Cosmos model licenses.
-- An existing HDF5 recording to augment (e.g. `runs/<run>/data/demo.hdf5`).
+- An existing HDF5 recording to augment (set `HDF5_PATH` to an absolute path; the Run block lists candidates if it's unset or wrong).
 - Component scripts under `workflows/agentic/cosmos/`; check `run.sh --help` for current flags.
 
 ## Limitations
