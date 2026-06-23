@@ -27,7 +27,12 @@ from isaaclab.utils import configclass
 from isaaclab_teleop.isaac_teleop_cfg import IsaacTeleopCfg
 from isaaclab_teleop.xr_cfg import XrAnchorRotationMode, XrCfg
 
-from .config import H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER, _resolve_h2_pkg_dir, _resolve_h2_urdf_path
+from .config import (
+    H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER,
+    H2_SHARPA_HAND_URDF_DIR,
+    H2_SHARPA_TELEOP_CONFIG_DIR,
+    H2_SHARPA_URDF_PATH,
+)
 from .h2_spread_tablecloth_env_cfg import H2SpreadTableclothEnvCfg
 
 _LEFT_HAND_JOINT_NAMES = [
@@ -156,15 +161,11 @@ def _build_h2_sharpa_tablecloth_pipeline():
     connected_right_se3 = right_se3.connect({HandsSource.RIGHT: transformed_hands.output(HandsSource.RIGHT)})
 
     # DexPilot retargeters for Sharpa Wave hands.
-    _h2_pkg = _resolve_h2_pkg_dir()
+    left_yaml_path = os.path.join(H2_SHARPA_TELEOP_CONFIG_DIR, "sharpa_wave_left_dexpilot.yml")
+    right_yaml_path = os.path.join(H2_SHARPA_TELEOP_CONFIG_DIR, "sharpa_wave_right_dexpilot.yml")
 
-    _config_dir = os.path.join(_h2_pkg, "teleop_configs")
-    left_yaml_path = os.path.join(_config_dir, "sharpa_wave_left_dexpilot.yml")
-    right_yaml_path = os.path.join(_config_dir, "sharpa_wave_right_dexpilot.yml")
-
-    _sharpa_dir = os.path.join(_h2_pkg, "urdf", "sharpa_standalone")
-    left_hand_urdf = os.path.join(_sharpa_dir, "left_sharpa_wave.urdf")
-    right_hand_urdf = os.path.join(_sharpa_dir, "right_sharpa_wave.urdf")
+    left_hand_urdf = os.path.join(H2_SHARPA_HAND_URDF_DIR, "left_sharpa_wave.urdf")
+    right_hand_urdf = os.path.join(H2_SHARPA_HAND_URDF_DIR, "right_sharpa_wave.urdf")
 
     operator2mano = (0, -1, 0, -1, 0, 0, 0, 0, -1)
 
@@ -305,9 +306,8 @@ class H2SpreadTableclothTeleopEnvCfg(H2SpreadTableclothEnvCfg):
 
         self.episode_length_s = 300.0
 
-        h2_urdf_path = _resolve_h2_urdf_path()
-        self.actions.pink_ik_cfg.controller.urdf_path = h2_urdf_path
-        self.actions.pink_ik_cfg.controller.mesh_path = os.path.dirname(h2_urdf_path)
+        self.actions.pink_ik_cfg.controller.urdf_path = H2_SHARPA_URDF_PATH
+        self.actions.pink_ik_cfg.controller.mesh_path = os.path.dirname(H2_SHARPA_URDF_PATH)
 
         self.xr.anchor_prim_path = "/World/envs/env_0/Robot/pelvis"
         self.xr.fixed_anchor_height = True

@@ -1,0 +1,68 @@
+#usda 1.0
+(
+    doc = """Inner-rigid-body-only view of the tablecloth asset (Newton migration).
+
+    Counterpart to ``cloth_only.usda``:     references the original Cloth_fold13.usd
+    unchanged and deactivates the deformable cloth (Cloth_fold07), leaving only
+    the embedded rigid body (Cloth_In002). This is spawned as a standalone rigid
+    object so the Newton MJWarp solver simulates it independently of the VBD
+    cloth (Newton VBD has no PhysX-style rigid-in-deformable embedding).
+
+    The original asset is NOT modified; this is a pure composition override."""
+    defaultPrim = "ClothIn"
+)
+
+def Xform "ClothIn" (
+    # Local copy of the tablecloth asset (no Nucleus auth needed). Nucleus mirror:
+    #   omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/0.6-dev/Props/TableCloth/Assets/Cloth/Cloth_fold06/Cloth_fold13.usd
+    prepend references = @/home/shlabws1/workspace/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold06/Cloth_fold13.usd@
+)
+{
+    over "Cloth_fold07" (
+        active = false
+    )
+    {
+    }
+
+    # Approximate the inner rigid body's collider with an oriented bounding box.
+    # The source asset authors this collider as a (non-convex) triangle mesh that
+    # is also non-manifold/unclosed (see CoACD "Unclosed mesh / Mesh Manifoldness:
+    # false" in the logs). MuJoCo cannot use a non-convex mesh for a *dynamic*
+    # body, and cooking that bad mesh into a convexHull corrupts the heap
+    # ("double free or corruption (fasttop)") during sim.reset(). ``boundingCube``
+    # needs NO mesh cooking (it just takes the AABB), so it sidesteps the crash
+    # and is still a valid single convex geom == one colliding shape for MuJoCo.
+    # A box is plenty for "cloth draped over a lump"; switch to convexHull/
+    # convexDecomposition later only if the shape fidelity matters and the source
+    # mesh is first repaired (made watertight).
+    #
+    # Authoring a positive mass is REQUIRED, not cosmetic. Newton imports a free
+    # rigid body (no joint / not under an ArticulationRootAPI) as a single-body
+    # *articulation* only when it has positive mass; otherwise it is treated as a
+    # static collider and gets no joint/articulation. See
+    #   newton/_src/sim/builder.py :: _add_base_joints_to_floating_bodies
+    #     for body_id in floating_bodies:
+    #         if self.body_mass[body_id] <= 0:
+    #             continue                      # <-- skipped == static, no articulation
+    #         joint = self._add_base_joint(body_id, floating=floating, ...)
+    #         self.add_articulation([joint], label=self.body_label[body_id])
+    # Without articulation registration, IsaacLab's Newton RigidObject (which queries
+    # via ArticulationView on the body's prim path) raises
+    #   KeyError: No articulations matching pattern '.../ClothInner/Cloth_In002/Cloth_In002'
+    # The source mesh authors neither MassAPI nor density, and we use boundingCube
+    # (no cooking), so Newton cannot derive a mass from a cooked hull volume either ->
+    # body_mass stays 0. Authoring physics:mass here makes it a dynamic floating body.
+    # (Inertia is left unauthored; Newton fills a default inertia from the shape when
+    # mass > 0 -- see import_usd.py default-inertia path.)
+    over "Cloth_In002"
+    {
+        over "Cloth_In002" (
+            prepend apiSchemas = ["PhysicsMeshCollisionAPI", "PhysicsMassAPI"]
+        )
+        {
+            uniform token physics:approximation = "boundingCube"
+            float physics:mass = 0.2
+        }
+    }
+
+}

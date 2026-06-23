@@ -14,14 +14,14 @@ cd IsaacLab
 git switch develop
 ./isaaclab.sh --install
 
-
+###################################################
+######        teleop with xr device          ######
+###################################################
 ### terminal 1
 echo "NV_CXR_ENABLE_PUSH_DEVICES=0" > ~/handtracking.env
 python -m isaacteleop.cloudxr --cloudxr-env-config=~/handtracking.env
 
 # termina 2
-
-
 ## run source /path/to/.cloudxr/run/cloudxr.env shown in terminal 1 first
 ## change the cmd to your own path
 source /home/mxgu/.cloudxr/run/cloudxr.env
@@ -33,3 +33,15 @@ python workflows/rheo/scripts/simulation/record_demos_tablecloth.py \
   --dataset_file datasets/tablecloth/demo.hdf5 \
   --device cuda:0 --enable_pinocchio --viz kit --xr \
   --enable_cameras --no-auto_launch_cloudxr
+
+
+###################################################
+######           test without xr             ######
+###################################################
+python workflows/rheo/scripts/simulation/examples/test_spread_tablecloth.py \
+  --viz kit --action_mode joint --robot h2 \
+  --physics_backend physx --num_steps 1500
+
+python workflows/rheo/scripts/simulation/examples/test_spread_tablecloth.py \
+  --viz kit --action_mode teleop --robot h2 \
+  --physics_backend newton --num_steps 1500

@@ -1,0 +1,68 @@
+#usda 1.0
+(
+    doc = """Cloth-only view of the tablecloth asset (Newton migration).
+
+    The original Cloth_fold13.usd bundles the deformable cloth (Cloth_fold07)
+    *and* an embedded rigid body (Cloth_In002) in a single prim, and the cloth
+    mesh is ALREADY authored as an OmniPhysics surface deformable (it carries a
+    *DeformableSimAPI). Two problems follow when spawning it under Newton:
+
+      1. The deformable prim must expose exactly one mesh, but the bundle has
+         several. We deactivate the inner rigid body here (it is spawned
+         separately from cloth_inner.usda as its own rigid object).
+
+      2. ``isaaclab_contrib``'s Newton DeformableObject requires a Newton
+         physics material bound to the *template root* prim, but IsaacLab's
+         ``bind_physics_material`` only binds to prims that already carry a
+         physics API - which this wrapper Xform root does not. Passing
+         ``deformable_props`` is not an option either: it would author a SECOND
+         simulation mesh on top of the asset's authored one. So we author the
+         Newton surface-deformable material and bind it (materialPurpose
+         "physics") directly on the root here.
+
+    Because the material lives here, the env-cfg spawn passes NEITHER
+    ``deformable_props`` NOR ``physics_material``. Tune the cloth stiffness by
+    editing the ``newton:*`` attributes below. The original asset is NOT
+    modified; this is a pure composition override."""
+    defaultPrim = "Tablecloth"
+)
+
+def Xform "Tablecloth" (
+    # Local copy of the tablecloth asset (no Nucleus auth needed). The Nucleus
+    # mirror lives at
+    #   omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/0.6-dev/Props/TableCloth/Assets/Cloth/Cloth_fold06/Cloth_fold13.usd
+    # Switch back to the omniverse:// URL if you sync the asset to a different
+    # machine that has Nucleus access but not this local path.
+    prepend references = @/home/shlabws1/workspace/surgery-room-dev-internal/assets/Assets/Assets/Cloth/Cloth_fold06/Cloth_fold13.usd@
+    prepend apiSchemas = ["MaterialBindingAPI"]
+)
+{
+    # Bind the Newton deformable material on the deformable's template root so
+    # isaaclab_contrib._register_deformable() can resolve it.
+    rel material:binding:physics = </Tablecloth/ClothPhysicsMaterial>
+
+    # Newton surface-deformable material (mirrors make_cloth_surface_material()).
+    # IMPORTANT: edgeKe MUST stay <=2.0 at the current num_substeps=10 /
+    # VBD iterations=10 / physics dt=1/120s. Any higher (e.g. 5.0) makes the
+    # explicit VBD edge-bending force diverge -- the cloth particles go NaN
+    # somewhere around step 30-50, which renders as a giant garbage-triangle
+    # mesh that smears across the whole viewport. Bump substeps/iterations
+    # FIRST if you really need a stiffer cloth.
+    def Material "ClothPhysicsMaterial"
+    {
+        custom float newton:density = 50.0
+        custom float newton:particleRadius = 0.005
+        custom float newton:triKe = 500.0
+        custom float newton:triKa = 500.0
+        custom float newton:triKd = 0.001
+        custom float newton:edgeKe = 2.0
+        custom float newton:edgeKd = 0.001
+    }
+
+    # Remove the embedded rigid body from the cloth-only view (spawned separately).
+    over "Cloth_In002" (
+        active = false
+    )
+    {
+    }
+}

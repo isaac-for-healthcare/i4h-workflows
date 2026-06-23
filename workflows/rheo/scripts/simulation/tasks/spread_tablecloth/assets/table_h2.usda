@@ -1,0 +1,33 @@
+#usda 1.0
+(
+    doc = """Z-scaled (taller) view of Table256 for the H2 spread-tablecloth env.
+
+    Why a wrapper instead of UsdFileCfg(scale=...): IsaacLab spawns the table via
+    isaacsim ``create_prim`` -> ``XFormPrim``, which REWRITES the spawned prim's
+    ``xformOpOrder`` to its own canonical list. For an asset whose root authors
+    ``xformOp:rotateXYZ`` (like Table256), the rewritten order ends up
+    [translate, orient] and the scale op is dropped, so UsdFileCfg(scale=...) has
+    no effect (the table stays 0.77 m and, positioned as if scaled, floats above
+    the ground). Baking the scale on a CHILD prim here survives that rewrite: the
+    consumer only clears the ROOT prim's order, never the child's. Verified with
+    pxr: the composed table is 1.078 m tall (0.77 * 1.4).
+
+    The original asset is NOT modified; this is a pure composition override.
+    The root ``Table`` Xform is left transform-free so the env config still owns
+    the table's world pose (pos/rot)."""
+    defaultPrim = "Table"
+)
+
+def Xform "Table"
+{
+    def Xform "Geom" (
+        prepend references = @/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/assets/Assets/Assets/Table256/Table256.usd@
+    )
+    {
+        # Table256 is 0.77 m tall natively (identity transforms). Scale Z by 1.4
+        # -> 1.078 m. Order is inherited from the reference ([translate, rotateXYZ,
+        # scale]); we author it explicitly so the scale op cannot be dropped.
+        float3 xformOp:scale = (1, 1, 1.4)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+    }
+}

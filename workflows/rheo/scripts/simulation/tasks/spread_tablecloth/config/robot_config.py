@@ -15,7 +15,6 @@
 
 """Robot configs for spread_tablecloth (G1 29DOF + Inspire / H2 + Sharpa Wave)."""
 
-import os
 from typing import Dict, Optional, Tuple
 
 import isaaclab.sim as sim_utils
@@ -23,67 +22,27 @@ from isaaclab.actuators import IdealPDActuatorCfg, ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
 from isaaclab.utils import configclass
 
+# ---------------------------------------------------------------------------
+# Hard-coded local robot asset roots. The Nucleus mirrors (kept here only as
+# breadcrumbs for porting) are:
+#   H2: omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/0.6-dev/Robots/UnitreeH2/h2_with_sharpa/...
+#   G1: omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/0.6-dev/Robots/UnitreeG1/g1_29dof_with_inspire_rev_1_0/...
+# When you move to a different machine, update H2_PKG_DIR / G1_PKG_DIR to the
+# new on-disk location -- no env vars, no resolver fallbacks.
+# ---------------------------------------------------------------------------
 
-def _assets_dir() -> str:
-    """Root of the assets bundle. Must be set via ASSETS_DIR env var."""
-    path = os.environ.get("ASSETS_DIR")
-    if not path:
-        raise RuntimeError(
-            "ASSETS_DIR is not set. Point it at the assets bundle "
-            "(host path; mounted at /assets inside the docker container)."
-        )
-    return path
-
-
-def _require_file(path: str, label: str) -> str:
-    if not os.path.isfile(path):
-        raise FileNotFoundError(f"{label} not found at {path}")
-    return path
+H2_PKG_DIR = "/home/shlabws1/workspace/surgery-room-dev-internal/robots/h2_with_sharpa"
+G1_PKG_DIR = "/home/shlabws1/workspace/surgery-room-dev-internal/robots/g1_29dof_with_inspire_rev_1_0"
 
 
 # ---------------------------------------------------------------------------
 # H2 + Sharpa Wave hands
 # ---------------------------------------------------------------------------
 
-
-def _resolve_h2_pkg_dir() -> str:
-    """Root of the H2 asset tree (contains urdf/, teleop_configs/)."""
-    return os.path.join(_assets_dir(), "robots", "H2")
-
-
-# FIXME: switch to the public asset URL once the H2 + Sharpa USD is released.
-_H2_USD_NUCLEUS_DEFAULT = (
-    "omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/0.6-dev/"
-    "Robots/UnitreeH2/h2_with_sharpa/H2_sharpa_flattened/H2_sharpa_flattened_clean.usd"
-)
-
-
-def _resolve_h2_usd_path() -> str:
-    """H2 + Sharpa Wave flattened USD.
-
-    Order: ``H2_USD_PATH`` env var -> local copy under ``$ASSETS_DIR/robots/H2/``
-    if present -> Nucleus fallback.
-    """
-    override = os.environ.get("H2_USD_PATH")
-    if override:
-        return override
-    assets = os.environ.get("ASSETS_DIR")
-    if assets:
-        local = os.path.join(assets, "robots", "H2", "H2_sharpa_flattened", "H2_sharpa_flattened_clean.usd")
-        if os.path.isfile(local):
-            return local
-    return _H2_USD_NUCLEUS_DEFAULT
-
-
-def _resolve_h2_urdf_path() -> str:
-    """Local URDF path for PinkIK. Override via H2_URDF_PATH."""
-    return _require_file(
-        os.environ.get("H2_URDF_PATH") or os.path.join(_resolve_h2_pkg_dir(), "urdf", "H2_with_sharpa_hands.urdf"),
-        "H2 URDF",
-    )
-
-
-H2_SHARPA_USD_PATH = _resolve_h2_usd_path()
+H2_SHARPA_USD_PATH = f"{H2_PKG_DIR}/H2_sharpa_flattened/H2_sharpa_flattened_clean.usd"
+H2_SHARPA_URDF_PATH = f"{H2_PKG_DIR}/urdf/H2_with_sharpa_hands.urdf"
+H2_SHARPA_HAND_URDF_DIR = f"{H2_PKG_DIR}/urdf/sharpa_standalone"
+H2_SHARPA_TELEOP_CONFIG_DIR = f"{H2_PKG_DIR}/teleop_configs"
 
 H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER = [
     "left_index_MCP_FE",
@@ -223,47 +182,33 @@ H2_SHARPA_CFG = ArticulationCfg(
         joint_vel={".*": 0.0},
     ),
     actuators={
-        "legs": IdealPDActuatorCfg(
+        # Legs/feet are not commanded in this upper-body teleop task. With the base
+        # pinned (fix_root_link) the dangling legs oscillate, and an explicit
+        # IdealPDActuator goes UNSTABLE if we raise damping to lock them (c*dt/m >> 2
+        # at dt=1/120 makes them shake harder, not less). Use ImplicitActuatorCfg
+        # instead: its stiffness/damping are integrated implicitly by the solver, so
+        # large gains hold the default stance rock-solid without diverging (same
+        # pattern as the locked G1 waist below).
+        "legs": ImplicitActuatorCfg(
             joint_names_expr=[
                 ".*_hip_yaw_joint",
                 ".*_hip_roll_joint",
                 ".*_hip_pitch_joint",
                 ".*_knee_joint",
             ],
-            effort_limit={
-                ".*_hip_yaw_joint": 360.0,
-                ".*_hip_roll_joint": 360.0,
-                ".*_hip_pitch_joint": 360.0,
-                ".*_knee_joint": 360.0,
-            },
-            velocity_limit={
-                ".*_hip_yaw_joint": 20.0,
-                ".*_hip_roll_joint": 20.0,
-                ".*_hip_pitch_joint": 20.0,
-                ".*_knee_joint": 20.0,
-            },
-            stiffness={
-                ".*_hip_yaw_joint": 200.0,
-                ".*_hip_roll_joint": 200.0,
-                ".*_hip_pitch_joint": 200.0,
-                ".*_knee_joint": 400.0,
-            },
-            damping={
-                ".*_hip_yaw_joint": 4.0,
-                ".*_hip_roll_joint": 4.0,
-                ".*_hip_pitch_joint": 4.0,
-                ".*_knee_joint": 6.0,
-            },
+            effort_limit=1000.0,
+            velocity_limit=0.0,
+            stiffness=10000.0,
+            damping=1000.0,
             armature=0.03,
         ),
-        "feet": IdealPDActuatorCfg(
+        "feet": ImplicitActuatorCfg(
             joint_names_expr=[".*_ankle_roll_joint", ".*_ankle_pitch_joint"],
-            stiffness=40.0,
-            damping=2.0,
-            effort_limit=67.0,
-            velocity_limit=100.0,
+            effort_limit=1000.0,
+            velocity_limit=0.0,
+            stiffness=10000.0,
+            damping=1000.0,
             armature=0.03,
-            friction=0.03,
         ),
         "waist": IdealPDActuatorCfg(
             joint_names_expr=["waist_.*_joint"],
@@ -394,36 +339,7 @@ class H2RobotPresets:
 # G1 + Inspire hands
 # ---------------------------------------------------------------------------
 
-# FIXME: switch to the public asset URL once the G1 + Inspire USD is released.
-_G1_USD_NUCLEUS_DEFAULT = (
-    "omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/0.6-dev/"
-    "Robots/UnitreeG1/g1_29dof_with_inspire_rev_1_0/g1_29dof_with_inspire_rev_1_0.usd"
-)
-
-
-def _resolve_g1_usd_path() -> str:
-    """G1 29DOF + Inspire USD.
-
-    Order: ``G1_USD_PATH`` env var -> Nucleus default -> ``$ASSETS_DIR/robots/G1/...``
-    local fallback if it exists on disk. We prefer the curated Nucleus copy
-    because some locally-cached "base-fix" variants ship inconsistent
-    ``physics:localPose`` on ``left_elbow_joint`` and break the
-    ``UsdToUrdf`` consistency check used by Pink IK.
-    """
-    override = os.environ.get("G1_USD_PATH")
-    if override:
-        return override
-    if _G1_USD_NUCLEUS_DEFAULT:
-        return _G1_USD_NUCLEUS_DEFAULT
-    assets = os.environ.get("ASSETS_DIR")
-    if assets:
-        local = os.path.join(assets, "robots", "G1", "g1_29dof_with_inspire_rev_1_0.usd")
-        if os.path.isfile(local):
-            return local
-    return _G1_USD_NUCLEUS_DEFAULT
-
-
-G1_INSPIRE_USD_PATH = _resolve_g1_usd_path()
+G1_INSPIRE_USD_PATH = f"{G1_PKG_DIR}/g1_29dof_with_inspire_rev_1_0.usd"
 
 DEFAULT_JOINT_POS: Dict[str, float] = {
     # legs

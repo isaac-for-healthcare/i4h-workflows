@@ -30,7 +30,7 @@ from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils import configclass
 from simulation.tasks.spread_tablecloth import mdp
-from simulation.tasks.spread_tablecloth.cloth_physics import make_cloth_physics
+from simulation.tasks.spread_tablecloth.cloth_physics import make_newton_physics
 
 # Local composition wrappers that split the bundled tablecloth USD into a
 # cloth-only deformable and a standalone inner rigid body (Newton migration).
@@ -45,13 +45,10 @@ CLOTH_INNER_USD = os.path.join(_ASSET_DIR, "cloth_inner.usda")
 # composition check (``parse_usd`` -> ``_raise_on_stage_errors``) rejects, whereas
 # PhysX/Kit only warned. All other object positions are kept unchanged.
 # FIXME: switch to the public/released asset URL once available.
-TABLE_USD = "/home/mxgu/Workspace/Omniverse/gmx/surgery-room-dev-internal/" "assets/Assets/Assets/Table256/Table256.usd"
-# Table256 is 1.0 x 0.6 x 0.77 m with its origin at the bbox center. The asset is
-# already right-side up (the full-size 1.0 x 0.6 tabletop slab sits on the +Z
-# side, +0.385 m above the origin), so it needs NO rotation - identity rot.
-_TABLE_HALF_HEIGHT = 0.385
-_TABLE_TOP_Z = 0.79  # == cloth init z, so the cloth rests on the table top
-_TABLE_CENTER_XY = (-0.40, 0.0)  # in front of the robot (x=-0.95), under the cloth
+TABLE_USD = "/home/shlabws1/workspace/surgery-room-dev-internal/assets/Assets/Assets/Table256/Table256.usd"
+# Table256 is 1.0 x 0.6 x 0.77 m with its origin at the bbox center (tabletop slab
+# +0.385 m above origin). With pos.z = 0.385 the bottom sits at z=0 and the tabletop
+# top is at z=0.77 m.
 from simulation.tasks.spread_tablecloth.config import (
     H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER,
     H2_SPREAD_TABLECLOTH_CUSTOM_JOINT_POS,
@@ -109,25 +106,25 @@ class H2SpreadTableclothSceneCfg(InteractiveSceneCfg):
 
     front_camera = CameraPresets.h2_front_camera(focal_length=10.5)
 
-    # Ground plane standing the table on (sits at the table's base height).
+    # Ground plane at z=0.02 (the robot's feet rest here; do not move it).
     ground = AssetBaseCfg(
         prim_path="/World/ground",
         spawn=sim_utils.GroundPlaneCfg(),
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=(0.0, 0.0, _TABLE_TOP_Z - 2.0 * _TABLE_HALF_HEIGHT),
+            pos=(0.0, 0.0, 0.0),
         ),
     )
 
     # Table the cloth is spread on. The asset already ships its own colliders
     # (/root/Table256/Collisions/*), which Newton imports as fixed obstacles, so we
-    # do not author extra collision. The table is already right-side up; rot is a
-    # 90 deg yaw about +Z (x, y, z, w) = (0, 0, sin45, cos45) so the 1.0 m long edge
-    # runs along Y. pos.z places the tabletop at _TABLE_TOP_Z.
+    # do not author extra collision. rot is a 90 deg yaw about +Z so the 1.0 m long
+    # edge runs along Y. scale Z by 1.2727 makes the 0.77 m table 0.98 m tall; center
+    # z=0.51 -> bottom on the ground (0.02), tabletop surface at z=1.0.
     table = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Table",
         spawn=sim_utils.UsdFileCfg(usd_path=TABLE_USD),
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=(_TABLE_CENTER_XY[0], _TABLE_CENTER_XY[1], _TABLE_TOP_Z - _TABLE_HALF_HEIGHT),
+            pos=(-0.42, 0.0, 0.385),  # tabletop top sits at z = 0.77 m
             rot=(0.0, 0.0, 0.70710678, 0.70710678),
         ),
     )
@@ -135,7 +132,7 @@ class H2SpreadTableclothSceneCfg(InteractiveSceneCfg):
     cloth: DeformableObjectCfg = DeformableObjectCfg(
         prim_path="{ENV_REGEX_NS}/Tablecloth",
         init_state=DeformableObjectCfg.InitialStateCfg(
-            pos=(-0.57, 0.0, 0.79),
+            pos=(-0.55, 0.0, 0.77),  # rest on the tabletop surface (z=0.77)
             rot=(0.0, 0.0, 0.0, 1.0),
         ),
         spawn=sim_utils.UsdFileCfg(
@@ -152,22 +149,18 @@ class H2SpreadTableclothSceneCfg(InteractiveSceneCfg):
         ),
     )
 
-    # Inner rigid body that the cloth wraps around. Counterpart to the cloth-only
-    # wrapper: ``cloth_inner.usda`` references the SAME source asset but keeps only
-    # the rigid ``Cloth_In002`` (deformable deactivated) and forces a convexHull
-    # collider so the MJWarp solver accepts it as a dynamic body. Spawned at the
-    # *same* pose as the cloth so the cloth's authored rest geometry (which already
-    # drapes over Cloth_In002 in the source asset) starts wrapped around it; the
-    # Newton coupled solver's soft-contact (see make_cloth_physics) then keeps the
-    # cloth resting on the body. RigidObjectCfg (not AssetBaseCfg): the Newton
-    # RigidObject walks children for the RigidBodyAPI prim, so the plain-Xform
-    # wrapper root is fine, and the body is registered for automatic reset.
+    # cloth_inner MUST be a RigidObjectCfg: the scene needs >=1 free rigid body or
+    # Newton's finalize corrupts the heap ("double free") and aborts during sim init
+    # (verified: AssetBaseCfg and removing it both crash this way).
     cloth_inner = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/ClothInner",
-        spawn=sim_utils.UsdFileCfg(usd_path=CLOTH_INNER_USD),
+        spawn=sim_utils.UsdFileCfg(
+            usd_path=CLOTH_INNER_USD,
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+        ),
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(-0.57, 0.0, 0.79),
-            rot=(0.0, 0.0, 0.0, 1.0),
+            pos=(-0.55, 0.0, 0.83),  # cloth.pos.z + 0.06 (same offset as G1 config)
+            rot=(0.0, 0.0, 0.70710678, 0.70710678),
         ),
     )
 
@@ -236,14 +229,14 @@ class H2EventCfg:
     # ``cloth_asset_name`` points at the standalone ``cloth_inner`` asset (not the
     # deformable ``cloth``): reset_cloth_inner reads that asset's prim_path
     # (/World/envs/env_*/ClothInner) and globs ``<prim>/Cloth_In002/Cloth_In002``.
-    reset_cloth_inner = EventTermCfg(
-        func=mdp.reset_cloth_inner,
-        mode="reset",
-        params={
-            "cloth_asset_name": "cloth_inner",
-            "inner_rel_path": "Cloth_In002/Cloth_In002",
-        },
-    )
+    # reset_cloth_inner = EventTermCfg(
+    #     func=mdp.reset_cloth_inner,
+    #     mode="reset",
+    #     params={
+    #         "cloth_asset_name": "cloth_inner",
+    #         "inner_rel_path": "Cloth_In002/Cloth_In002",
+    #     },
+    # )
 
 
 @configclass
@@ -276,4 +269,5 @@ class H2SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.dt = 1 / 120
         self.sim.render_interval = 2
         # Newton coupled MJWarp (robot) + VBD (cloth) backend.
-        self.sim.physics = make_cloth_physics()
+        self.sim.physics = make_newton_physics()
+    

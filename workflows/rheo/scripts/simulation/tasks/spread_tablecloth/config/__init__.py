@@ -16,10 +16,16 @@
 from .camera_config import CameraBaseCfg, CameraPresets
 from .robot_config import (
     DEFAULT_JOINT_POS,
+    G1_INSPIRE_USD_PATH,
+    G1_PKG_DIR,
     G129_CFG_WITH_INSPIRE_HAND,
     H2_DEFAULT_JOINT_POS,
+    H2_PKG_DIR,
     H2_SHARPA_CFG,
     H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER,
+    H2_SHARPA_HAND_URDF_DIR,
+    H2_SHARPA_TELEOP_CONFIG_DIR,
+    H2_SHARPA_URDF_PATH,
     H2_SHARPA_USD_PATH,
     H2_SPREAD_TABLECLOTH_CUSTOM_JOINT_POS,
     H2_SPREAD_TABLECLOTH_INIT_POS,
@@ -29,8 +35,6 @@ from .robot_config import (
     SPREAD_TABLECLOTH_INIT_ROT,
     G1RobotPresets,
     H2RobotPresets,
-    _resolve_h2_pkg_dir,
-    _resolve_h2_urdf_path,
 )
 
 __all__ = [
@@ -38,10 +42,16 @@ __all__ = [
     "CameraPresets",
     "DEFAULT_JOINT_POS",
     "G129_CFG_WITH_INSPIRE_HAND",
+    "G1_INSPIRE_USD_PATH",
+    "G1_PKG_DIR",
     "G1RobotPresets",
     "H2_DEFAULT_JOINT_POS",
+    "H2_PKG_DIR",
     "H2_SHARPA_CFG",
     "H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER",
+    "H2_SHARPA_HAND_URDF_DIR",
+    "H2_SHARPA_TELEOP_CONFIG_DIR",
+    "H2_SHARPA_URDF_PATH",
     "H2_SHARPA_USD_PATH",
     "H2_SPREAD_TABLECLOTH_CUSTOM_JOINT_POS",
     "H2_SPREAD_TABLECLOTH_INIT_POS",
@@ -50,6 +60,4 @@ __all__ = [
     "SPREAD_TABLECLOTH_CUSTOM_JOINT_POS",
     "SPREAD_TABLECLOTH_INIT_POS",
     "SPREAD_TABLECLOTH_INIT_ROT",
-    "_resolve_h2_pkg_dir",
-    "_resolve_h2_urdf_path",
 ]
