@@ -24,7 +24,7 @@ ARG INSTALL_GROOT=false
 ARG WORKDIR="/workspaces"
 ENV WORKDIR=${WORKDIR}
 WORKDIR "${WORKDIR}"
-ENV PYTHONPATH=${WORKDIR}/workflows/rheo/scripts:${WORKDIR}/workflows/rheo/scripts/simulation/rl
+ENV PYTHONPATH=${WORKDIR}/workflows/rheo:${WORKDIR}/workflows/rheo/scripts:${WORKDIR}/workflows/rheo/scripts/simulation/rl
 
 USER root
 
@@ -40,7 +40,10 @@ RUN apt-get update && apt-get install -y \
   cmake \
   sudo \
   ffmpeg \
-  python3-pip
+  python3-pip \
+  pkg-config \
+  libfreetype6-dev \
+  libpng-dev
 
 # Skip pip upgrade - not needed in Docker and conflicts with PEP 668 in Python 3.12
 # RUN pip3 install --upgrade pip
@@ -52,40 +55,80 @@ COPY ./third_party/IsaacLab ${WORKDIR}/third_party/IsaacLab
 ENV ISAACLAB_PATH=${WORKDIR}/third_party/IsaacLab
 ENV TERM=xterm
 RUN ln -s /isaac-sim/ ${WORKDIR}/third_party/IsaacLab/_isaac_sim
-# Install IsaacLab dependencies
-RUN for DIR in ${WORKDIR}/third_party/IsaacLab/source/isaaclab*/; do pip install --no-deps -e "$DIR" --break-system-packages; done
 # Set permissions for Isaac Sim directories that need write access
 RUN chmod 777 -R /isaac-sim/
-# Pre-install flatdict into kit Python: its setup.py imports pkg_resources which
-# is absent from pip's isolated build env, causing isaaclab core install to fail.
-RUN /isaac-sim/python.sh -m pip install --no-build-isolation flatdict==4.0.1
-# Install isaaclab
-RUN ${ISAACLAB_PATH}/isaaclab.sh -i
-# Verify isaaclab core was installed (isaaclab.sh silently swallows failures)
-RUN /isaac-sim/python.sh -c "import isaaclab; print(isaaclab.__file__)"
+# Build deps and apt packages required by Isaac Lab extensions (see IsaacLab/docker/Dockerfile.base)
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install toml
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p ${ISAACLAB_PATH}/tools/install_deps.py apt ${ISAACLAB_PATH}/source
+# flatdict must be pre-installed without build isolation (pkg_resources / setuptools issue).
+# Do NOT install setuptools/wheel here — it corrupts pip's vendored packaging in the kit.
+# Pre-install isaaclab deps in stages with pinned wheels. Use --no-deps for packages that
+# re-trigger pip matplotlib backtracking (pytransform3d, dex-retargeting) after deps exist.
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --prefer-binary \
+    flatdict==4.0.1 \
+    "numpy<2" \
+    matplotlib==3.10.3 \
+    scipy \
+    lxml \
+    pyyaml \
+    anytree \
+    trimesh \
+    nlopt==2.7.1 \
+    pin==2.7.0 \
+    qpsolvers==4.8.1 \
+    quadprog \
+    loop-rate-limiters
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --prefer-binary --no-deps \
+    pytransform3d==3.14.4
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --prefer-binary --no-deps \
+    pin-pink==3.1.0 && \
+    ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --prefer-binary \
+    daqp==0.7.2
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --prefer-binary --no-deps \
+    dex-retargeting==0.4.6
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --prefer-binary \
+    prettytable==3.3.0 \
+    gymnasium==1.2.1 \
+    pillow==11.3.0 \
+    hidapi==0.14.0.post2 \
+    starlette==0.49.1 \
+    "pyglet<2"
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --prefer-binary "onnx>=1.18.0"
+# RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --prefer-binary warp-lang
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --prefer-binary warp-lang==1.8.1
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --prefer-binary einops
+# isaaclab_mimic runtime deps (install editable packages with --no-deps below)
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --prefer-binary \
+    tomli ipywidgets==8.1.5
+# transformers omitted here — bulk install segfaults kit Python; GR00T stage installs it when needed.
+# Install Isaac Lab core and extensions with --no-deps (runtime deps pre-installed above).
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --no-deps -e "${ISAACLAB_PATH}/source/isaaclab" && \
+    /isaac-sim/python.sh -c "import isaaclab; print(isaaclab.__file__)" && \
+    for DIR in ${WORKDIR}/third_party/IsaacLab/source/isaaclab_*/; do \
+      ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --no-deps -e "$DIR" || exit 1; \
+    done && \
+    /isaac-sim/python.sh -c "import isaaclab; import isaaclab_mimic; print(isaaclab.__file__)"
 
 # Patch for osqp
 RUN if python -c "import qpsolvers; print(qpsolvers.available_solvers)" | grep -q "osqp"; then \
         echo "OSQP is installed."; \
     else \
         echo "OSQP missing, installing..."; \
-        /isaac-sim/python.sh -m pip install --upgrade pip; \
         /isaac-sim/python.sh -m pip install qpsolvers==4.8.1; \
     fi
 
-# Install pip dependencies
-RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
-  /isaac-sim/python.sh -m pip install \
+# Workflow pip deps in one layer. Do not pin typing_extensions or install jupyter here —
+# they install standalone `packaging` and break pip's vendored copy in kit Python.
+# WebRTC stack required by scripts/utils/webrtc_cam.py (imported at module load by runners).
+RUN ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --no-build-isolation --prefer-binary \
   pytest \
-  jupyter \
-  typing_extensions==4.12.2 \
-  onnxruntime
-
-# lwlabs deps
-RUN /isaac-sim/python.sh -m pip install --upgrade pip && \
-  /isaac-sim/python.sh -m pip install \
+  onnxruntime \
   vuer[all] \
-  lightwheel-sdk
+  lightwheel-sdk \
+  aiohttp \
+  av==12.3.0 \
+  aiortc==1.10.1 && \
+  ${ISAACLAB_PATH}/isaaclab.sh -p -m pip install --force-reinstall --no-deps pip==24.3.1
 
 ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 
@@ -207,7 +250,7 @@ COPY ./third_party/RLinf ${WORKDIR}/third_party/RLinf
 ################################
 COPY ./workflows/rheo ${WORKDIR}/workflows/rheo
 
-RUN echo "export PYTHONPATH=${WORKDIR}/workflows/rheo/scripts:${WORKDIR}/workflows/rheo/scripts/simulation/rl:\$PYTHONPATH" >> /etc/bash.bashrc
+RUN echo "export PYTHONPATH=${WORKDIR}/workflows/rheo:${WORKDIR}/workflows/rheo/scripts:${WORKDIR}/workflows/rheo/scripts/simulation/rl:\$PYTHONPATH" >> /etc/bash.bashrc
 
 # Set aliases
 RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc

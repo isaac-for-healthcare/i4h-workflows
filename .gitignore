@@ -144,6 +144,21 @@ venv.bak/
 **/pi_zero/wandb/
 **/data/hdf5/
 
+# Local datasets and large pipeline artifacts (keep dataset/scripts tools)
+dataset/*
+!dataset/scripts/
+
+# HDF5 recordings and cosmos/mimic intermediates
+*.hdf5
+*.h5
+
+# Cosmos Transfer export/run workspaces (source videos, specs, outputs)
+**/cosmos_workspace/
+**/*_cosmos_workdir/
+
+# LeRobot episode parquet (when stored outside ignored dataset trees)
+**/data/chunk-*/
+
 # Spyder project settings
 .spyderproject
 .spyproject

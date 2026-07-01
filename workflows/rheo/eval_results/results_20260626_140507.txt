@@ -1,0 +1,20 @@
+Evaluation Results
+============================================================
+Task: Isaac-Assemble-Trocar-G129-Dex3-Joint
+Model: /models/GR00T-N1.5-RL-Rheo-AssembleTrocar
+Episodes: 10
+Action Chunk Size: 1
+Success Rate: 90.0%
+Average Success Steps: 168.8
+
+Detailed Results:
+  Episode 1: SUCCESS | Stage: 4/4 | Steps: 153 | Reward: 4.000
+  Episode 2: SUCCESS | Stage: 4/4 | Steps: 158 | Reward: 4.000
+  Episode 3: SUCCESS | Stage: 4/4 | Steps: 200 | Reward: 4.000
+  Episode 4: SUCCESS | Stage: 4/4 | Steps: 155 | Reward: 4.000
+  Episode 5: SUCCESS | Stage: 4/4 | Steps: 157 | Reward: 4.000
+  Episode 6: SUCCESS | Stage: 4/4 | Steps: 154 | Reward: 4.000
+  Episode 7: FAILED | Stage: 2/4 | Steps: 500 | Reward: 2.000
+  Episode 8: SUCCESS | Stage: 4/4 | Steps: 166 | Reward: 4.000
+  Episode 9: SUCCESS | Stage: 4/4 | Steps: 205 | Reward: 4.000
+  Episode 10: SUCCESS | Stage: 4/4 | Steps: 171 | Reward: 4.000
