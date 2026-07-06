@@ -108,8 +108,12 @@ def make_newton_physics() -> DeformableNewtonCfg:
             shape_material_mu=1.0e-4,
         ),
         num_substeps=10,
-        # False: CUDA graph + env.reset() after a failed hold-step stalls for minutes.
-        use_cuda_graph=False,
+        # Re-enabled for ~9x throughput. Previously disabled because CUDA graph +
+        # env.reset() after a failed hold-step would stall for minutes; revisit if
+        # that stall reappears (repro: --success_hold_steps high enough that success
+        # is gained then lost before the wrapper accepts it, then let the episode
+        # time out so env.reset() runs).
+        use_cuda_graph=True,
     )
 
 

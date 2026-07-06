@@ -16,6 +16,7 @@
 """Minimal test script to visualize the G1 spread_tablecloth environment."""
 
 import argparse
+import os
 import time
 
 from isaaclab.app import AppLauncher
@@ -53,14 +54,40 @@ parser.add_argument(
     action="store_true",
     help="Drop the deformable cloth (and its inner-body reset event) to isolate the robot/physics.",
 )
+parser.add_argument(
+    "--repro_cuda700",
+    action="store_true",
+    help=(
+        "Reproduce the CUDA-700 crash fixed in commit 8e8f6860: run a render-only "
+        "warmup (defers Newton's first CUDA-graph capture to the first env.step), "
+        "then call env.sim.reset() + env.reset() right before the first step. With "
+        "use_cuda_graph=True this poisons CUDA state and the first step crashes with "
+        "'Warp CUDA error 700: an illegal memory access' inside narrow_phase / "
+        "create_soft_contacts."
+    ),
+)
+parser.add_argument(
+    "--repro_warmup",
+    type=int,
+    default=60,
+    help="Render-only frames before the poison env.sim.reset() (only used with --repro_cuda700).",
+)
 
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 
+# CUDA-700 diagnostics: enable BEFORE Kit starts a CUDA context so faults leave a
+# stack trace and CUDA errors surface at the real offending kernel launch.
+if args_cli.repro_cuda700:
+    import faulthandler  # noqa: E402
+
+    faulthandler.enable(all_threads=True)
+    os.environ.setdefault("CUDA_LAUNCH_BLOCKING", "1")
+    print("[REPRO CUDA-700] faulthandler + CUDA_LAUNCH_BLOCKING=1 enabled", flush=True)
+
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
-import os  # noqa: E402
 import sys  # noqa: E402
 
 import gymnasium as gym  # noqa: E402
@@ -272,6 +299,26 @@ def main():
     print("[INFO]: Entering step loop. Timing first 10 steps to spot stalls...")
     step = 0
     loop_start = time.perf_counter()
+
+    # Reproduce CUDA-700 (see commit 8e8f6860 "resolve CUDA700 by removing env.sim.reset"):
+    # with use_cuda_graph=True, the sequence
+    #   render/wait -> env.sim.reset() -> env.reset() -> first env.step()
+    # poisons Newton/CUDA state and the first step faults with
+    # "Warp CUDA error 700: an illegal memory access" inside narrow_phase /
+    # create_soft_contacts. The render-only warmup defers Newton's first CUDA-graph
+    # capture to the first env.step() (RTX mode), which is required for the poison
+    # to land on that specific step.
+    if args_cli.repro_cuda700:
+        print(
+            f"[REPRO CUDA-700] render-only warmup {args_cli.repro_warmup} frames "
+            "(defer CUDA-graph capture to first env.step)",
+            flush=True,
+        )
+        for _ in range(args_cli.repro_warmup):
+            env.sim.render()
+        print("[REPRO CUDA-700] env.sim.reset() (the poison) -> env.reset() -> step", flush=True)
+        env.sim.reset()
+
     env.reset()
     try:
         while simulation_app.is_running() and step < args_cli.num_steps:
