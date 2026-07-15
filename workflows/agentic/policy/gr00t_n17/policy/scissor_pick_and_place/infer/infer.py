@@ -87,7 +87,14 @@ def run(args: argparse.Namespace) -> None:
     health_server = serve_health(health, host=args.health_host, port=args.health_port)
     logger.info("policy daemon started (health=http://%s:%s/healthz)", args.health_host, args.health_port)
 
-    model_path = _resolve_model_path(args.model_path, args.model_repo or SO_ARM_POLICY_CONFIG.required_model_repo)
+    model_repo = args.model_repo or SO_ARM_POLICY_CONFIG.required_model_repo
+    model_path = _resolve_model_path(args.model_path, model_repo)
+    health.set_metadata(
+        env=args.env,
+        model_path=str(Path(model_path).expanduser().resolve()),
+        model_repo=model_repo,
+        model_revision=getattr(args, "model_revision", None),
+    )
     runner = GR00TPolicyRunner(
         RunnerConfig(
             model_path=model_path,
@@ -115,8 +122,9 @@ def run(args: argparse.Namespace) -> None:
     period = 1.0 / args.control_hz
 
     try:
-        health.set("waiting_for_samples")
         with PolicyIO(env_id=args.env) as io:
+            health.set("waiting_for_samples")
+            logger.info("policy IO ready; waiting for cameras and state")
             deadline = time.monotonic() + args.warmup_timeout if args.warmup_timeout > 0 else None
             while not stop:
                 if io.wait_for_data(timeout=5.0):

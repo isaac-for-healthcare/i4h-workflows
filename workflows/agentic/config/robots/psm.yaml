@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+id: psm
+has_locomotion: false
+has_dex_hand: false
+# Logical policy vector: six arm joints plus one gripper aperture channel.
+# The USD has two opposing jaw joints; the runtime maps the logical gripper
+# value onto psm_tool_gripper1_joint and psm_tool_gripper2_joint.
+arm_joint_count: 6
+body_joint_names:
+  - psm_yaw_joint
+  - psm_pitch_end_joint
+  - psm_main_insertion_joint
+  - psm_tool_roll_joint
+  - psm_tool_pitch_joint
+  - psm_tool_yaw_joint
+hand_joint_names:
+  - psm_tool_gripper
+teleop_devices:
+  keyboard: {}

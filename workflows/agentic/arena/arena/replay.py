@@ -8,7 +8,7 @@ import logging
 import h5py
 import numpy as np
 import torch
-from arena.runtimes._base import ready
+from arena.runtimes.core.base import ready
 
 logger = logging.getLogger("arena")
 

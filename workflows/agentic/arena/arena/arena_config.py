@@ -15,6 +15,7 @@ class ArenaEnvironmentConfig:
     robot_type: str | None = None
     max_timesteps: int | None = None
     home_joint_pos_rad: list[float] | None = None
+    bridge_port: int | None = None
     description: str | None = None
 
 

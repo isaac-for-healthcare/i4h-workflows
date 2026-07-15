@@ -8,6 +8,7 @@ import logging
 import os
 import signal
 import time
+from pathlib import Path
 
 from common.config import get_policy_config
 from common.health import PolicyHealth, serve_health
@@ -55,6 +56,7 @@ def run(args: argparse.Namespace) -> None:
         args.model_path,
         args.model_repo or policy_config.required_model_repo,
     )
+    model_repo = args.model_repo or policy_config.required_model_repo
 
     health = PolicyHealth()
     health_server = serve_health(health, host=args.health_host, port=args.health_port)
@@ -75,13 +77,20 @@ def run(args: argparse.Namespace) -> None:
             task_description=task_description,
         )
     )
+    health.set_metadata(
+        env=args.env,
+        model_path=str(Path(model_path).expanduser().resolve()),
+        model_repo=model_repo,
+        model_revision=getattr(args, "model_revision", None),
+    )
     health.set("loading")
     runner.ensure_loaded()
 
     period = 1.0 / args.control_hz
     try:
-        health.set("waiting_for_samples")
         with PolicyIO(env_id=args.env) as io:
+            health.set("waiting_for_samples")
+            logger.info("policy IO ready; waiting for ultrasound Arena samples")
             deadline = time.monotonic() + args.warmup_timeout if args.warmup_timeout > 0 else None
             while not stop:
                 if io.wait_for_data(timeout=5.0):

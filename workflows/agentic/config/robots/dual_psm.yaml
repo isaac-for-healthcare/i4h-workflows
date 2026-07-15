@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+id: dual_psm
+has_locomotion: false
+has_dex_hand: false
+# Logical flattened vector for future dual-arm policy/runtime work. Each arm
+# uses the single-PSM six-joint body vector plus one logical gripper aperture.
+arm_joint_count: 12
+body_joint_names:
+  - left.psm_yaw_joint
+  - left.psm_pitch_end_joint
+  - left.psm_main_insertion_joint
+  - left.psm_tool_roll_joint
+  - left.psm_tool_pitch_joint
+  - left.psm_tool_yaw_joint
+  - right.psm_yaw_joint
+  - right.psm_pitch_end_joint
+  - right.psm_main_insertion_joint
+  - right.psm_tool_roll_joint
+  - right.psm_tool_pitch_joint
+  - right.psm_tool_yaw_joint
+hand_joint_names:
+  - left.psm_tool_gripper
+  - right.psm_tool_gripper
+teleop_devices:
+  keyboard: {}

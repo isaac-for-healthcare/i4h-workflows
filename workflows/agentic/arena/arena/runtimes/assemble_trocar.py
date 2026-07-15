@@ -9,7 +9,7 @@ import uuid
 
 import numpy as np
 import torch
-from arena.runtimes._base import PolicyIO, logger
+from arena.runtimes.core.base import PolicyIO, logger
 from common.config import get_robot_config, get_zenoh_config
 from tqdm import trange
 
@@ -225,8 +225,7 @@ def _wait_for_action(ctx, io) -> np.ndarray | None:
             )
             io.clear_actions()
             return None
-        ctx.env.sim.render()
-        time.sleep(0.001)
+        time.sleep(0.01)
     return None
 
 

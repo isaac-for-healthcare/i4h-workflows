@@ -12,7 +12,13 @@ from typing import Any
 import torch
 from arena.arena_config import get_arena_config
 from arena.dump import SceneDumper, parse_scene_pose_names, should_dump_scene_step
-from arena.environments.base import AgenticEnvironmentBase, policy_io_factory
+from arena.environments.core.base import AgenticEnvironmentBase, policy_io_factory
+from arena.statemachine.core.dispatch import (
+    add_state_machine_cli_args,
+    configure_state_machine_args,
+    run_state_machine_module,
+    state_machine_requested,
+)
 from common.config import get_robot_config
 from common.utils import nonnegative_int, resolve_path
 from tqdm import trange
@@ -29,9 +35,11 @@ def _episode_indices(value: str) -> tuple[int, ...]:
 
 class ScissorPickAndPlaceEnvironment(AgenticEnvironmentBase):
     name: str = "scissor_pick_and_place"
+    state_machine_module: str = "arena.statemachine.scissor_pick_and_place"
 
     @classmethod
     def add_cli_args(cls, parser: argparse.ArgumentParser) -> None:
+        add_state_machine_cli_args(parser)
         parser.add_argument("--action-device", choices=("keyboard", "joint_position"), default="joint_position")
         parser.add_argument("--episode-length-s", type=float, default=8.0)
         parser.add_argument("--record", action="store_true")
@@ -70,6 +78,7 @@ class ScissorPickAndPlaceEnvironment(AgenticEnvironmentBase):
             from arena.teleop.helpers.soarm import action_device_for_teleop
 
             args.action_device = action_device_for_teleop(args.teleop_device)
+        configure_state_machine_args(args, action_device="joint_position", default_episodes=1)
         super().configure_args(args)
 
     def get_env(self, args: argparse.Namespace) -> Any:
@@ -110,7 +119,9 @@ class ScissorPickAndPlaceEnvironment(AgenticEnvironmentBase):
         return IsaacLabArenaEnvironment(name=self.name, embodiment=embodiment, scene=scene, task=task)
 
     def run(self, args, env, app, controller) -> None:
-        if getattr(args, "replay_dataset_path", None):
+        if state_machine_requested(args):
+            run_state_machine_module(self.state_machine_module, args=args, env=env, app=app, controller=controller)
+        elif getattr(args, "replay_dataset_path", None):
             self._run_replay(args, env, app, controller)
         elif args.teleop:
             self._run_teleop(args, env, app, controller)
@@ -206,7 +217,8 @@ class ScissorPickAndPlaceEnvironment(AgenticEnvironmentBase):
                 env=env, io=io, controller=controller, simulation_app=app, device=args.device, env_id=self.name
             )
             if record_to:
-                setup_recording(ctx, record_to, filter_success=False)
+                setup_recording(ctx, record_to, streaming=save_all, filter_success=not save_all)
+            external_success = bool(record_to and not save_all)
             try:
                 episode_attempts = 0
                 total_attempts = 0
@@ -240,7 +252,11 @@ class ScissorPickAndPlaceEnvironment(AgenticEnvironmentBase):
                         saved,
                         args.episodes,
                     )
-                    status = run_policy_based_episode(ctx, max_timesteps=max_timesteps)
+                    status = run_policy_based_episode(
+                        ctx,
+                        max_timesteps=max_timesteps,
+                        external_success=external_success,
+                    )
                     metadata = {
                         "env_id": self.name,
                         "run_id": run_id,

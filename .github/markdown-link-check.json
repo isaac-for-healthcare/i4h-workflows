@@ -15,6 +15,9 @@
         },
         {
             "pattern": "https://www.omg.org/spec/IDL/"
+        },
+        {
+            "pattern": "https://integrate.api.nvidia.com"
         }
     ],
     "timeout": "20s",

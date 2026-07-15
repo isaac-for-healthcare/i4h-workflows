@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 
-from arena.environments._humanoid_base import HumanoidEnvironmentBase
+from arena.environments.core.humanoid_base import HumanoidEnvironmentBase
 
 
 class LocomanipTrayPickAndPlaceEnvironment(HumanoidEnvironmentBase):

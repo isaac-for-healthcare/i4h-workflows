@@ -9,17 +9,22 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
 class PolicyHealth:
-    def __init__(self) -> None:
+    def __init__(self, **metadata) -> None:
         self._lock = threading.Lock()
         self._state = "starting"
+        self._metadata = {key: value for key, value in metadata.items() if value is not None}
 
     def set(self, state: str) -> None:
         with self._lock:
             self._state = state
 
+    def set_metadata(self, **metadata) -> None:
+        with self._lock:
+            self._metadata.update({key: value for key, value in metadata.items() if value is not None})
+
     def snapshot(self) -> dict:
         with self._lock:
-            return {"ok": True, "state": self._state}
+            return {"ok": True, "state": self._state, **self._metadata}
 
 
 def serve_health(health: PolicyHealth, *, host: str, port: int) -> ThreadingHTTPServer:

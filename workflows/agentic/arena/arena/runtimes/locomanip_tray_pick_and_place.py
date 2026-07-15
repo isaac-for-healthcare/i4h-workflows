@@ -9,7 +9,7 @@ import uuid
 
 import numpy as np
 import torch
-from arena.runtimes._base import PolicyIO, find_camera_in_obs, first_env_rgb, logger
+from arena.runtimes.core.base import PolicyIO, find_camera_in_obs, logger
 from common.config import get_policy_config, get_robot_config, get_zenoh_config
 from tqdm import trange
 
@@ -39,6 +39,7 @@ _PUSH_CART_TARGET_POS = (0.35, -3.30, -0.7875)
 _PUSH_CART_MIN_PROGRESS_M = 1.20
 _PUSH_CART_SUCCESS_XY_M = 0.50
 _PUSH_CART_MAX_Z_ERROR_M = 0.15
+_REPUBLISH_PERIOD_S = 0.1
 _ACTION_WAIT_TIMEOUT_S = 30.0
 
 
@@ -273,7 +274,7 @@ def _run_episode(ctx, io, obs: dict, *, max_timesteps: int, progress=None) -> st
         if not _ready(ctx):
             return "aborted"
         io.publish_observation(obs)
-        action = _wait_for_action(ctx, io)
+        action = _wait_for_action(ctx, io, obs)
         if action is None:
             return "timeout"
         action_tensor = torch.as_tensor(action, device=ctx.env.device, dtype=torch.float32)
@@ -313,19 +314,23 @@ def _run_episode(ctx, io, obs: dict, *, max_timesteps: int, progress=None) -> st
     return "timeout"
 
 
-def _wait_for_action(ctx, io) -> np.ndarray | None:
+def _wait_for_action(ctx, io, obs: dict) -> np.ndarray | None:
     wait_started = time.monotonic()
+    last_pub = wait_started
     while _ready(ctx):
         action = io.pop_action()
         if action is not None:
             return action
-        if time.monotonic() - wait_started > _ACTION_WAIT_TIMEOUT_S:
+        now = time.monotonic()
+        if now - wait_started > _ACTION_WAIT_TIMEOUT_S:
             logger.warning(
                 "timed out waiting for current-run policy action; restart the policy daemon if stale commands were rejected"
             )
             io.clear_actions()
             return None
-        ctx.env.sim.render()
+        if now - last_pub > _REPUBLISH_PERIOD_S:
+            io.publish_observation(obs)
+            last_pub = now
         time.sleep(0.001)
     return None
 
@@ -746,7 +751,3 @@ def _robot_joint_positions(observation: dict) -> np.ndarray:
             values = np.asarray(values, dtype=np.float32)
             return values[0] if values.ndim > 1 else values
     raise KeyError(f"could not find joint positions in policy observation keys: {list(policy_obs.keys())}")
-
-
-# Backward-compatible alias; the implementation lives in arena.runtimes._base.
-_first_env_rgb = first_env_rgb

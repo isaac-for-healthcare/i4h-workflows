@@ -9,9 +9,11 @@ MODEL="${AGENTIC_ANNOTATOR_VLLM_MODEL:-Qwen/Qwen3-VL-8B-Instruct}"
 PORT="${AGENTIC_ANNOTATOR_VLLM_PORT:-8000}"
 
 usage() {
-    echo "usage: $(basename "$0") [start|status|stop] [gpu-utilization] [max-model-len] [tensor-parallel]"
+    echo "usage: $(basename "$0") [start|status|wait|ensure|stop] [gpu-utilization] [max-model-len] [tensor-parallel]"
     echo "  start  : serve ${MODEL} on port ${PORT} (default util: 0.4 aarch64 / 0.8 x86, len: 32768)"
     echo "  status : check vLLM health endpoint"
+    echo "  wait   : poll status every second until the health endpoint is ready"
+    echo "  ensure : start vLLM if needed, then wait until ready"
     echo "  stop   : stop the vLLM container"
     echo
     echo "Environment overrides:"
@@ -42,6 +44,35 @@ if [[ "${MODE}" == "status" ]]; then
     fi
     echo "Health endpoint: not ready (HTTP ${http_code:-N/A})"
     exit 1
+fi
+
+if [[ "${MODE}" == "wait" ]]; then
+    deadline=$((SECONDS + ${AGENTIC_ANNOTATOR_VLLM_WAIT_TIMEOUT:-300}))
+    while (( SECONDS < deadline )); do
+        container_info="$(docker ps --filter "name=${CONTAINER_NAME}" --format "{{.ID}}\t{{.Status}}\t{{.Names}}" 2>/dev/null || true)"
+        if [[ -n "${container_info}" ]]; then
+            http_code="$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${PORT}/health" 2>/dev/null || true)"
+            if [[ "${http_code}" == "200" ]]; then
+                echo "vLLM ready: ${container_info}"
+                exit 0
+            fi
+            echo "vLLM loading: HTTP ${http_code:-000}"
+        else
+            echo "vLLM container: not running"
+        fi
+        sleep 1
+    done
+    echo "Timed out waiting for vLLM health endpoint on port ${PORT}" >&2
+    exit 1
+fi
+
+if [[ "${MODE}" == "ensure" ]]; then
+    if "$0" status; then
+        exit 0
+    fi
+    "$0" start "${@:2}" &
+    "$0" wait
+    exit $?
 fi
 
 if [[ "${MODE}" == "stop" ]]; then

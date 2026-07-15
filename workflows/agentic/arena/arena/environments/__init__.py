@@ -13,7 +13,7 @@ import importlib
 import inspect
 import pkgutil
 
-from arena.environments.base import AgenticEnvironmentBase
+from arena.environments.core.base import AgenticEnvironmentBase
 from common.config import environment_blocks, get_env_metadata
 
 
@@ -30,6 +30,10 @@ def _discover_environment_classes() -> tuple[type[AgenticEnvironmentBase], ...]:
                 and value is not AgenticEnvironmentBase
                 and not inspect.isabstract(value)
             ):
+                continue
+            if value.__module__ != module.__name__:
+                continue
+            if value.__name__.startswith("_"):
                 continue
             env_id = value.name
             if not env_id:

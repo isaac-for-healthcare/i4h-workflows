@@ -6,7 +6,7 @@ A single ``arena`` package exposes a flat set of environments, embodiments,
 assets, and tasks. Layout mirrors IsaacLab-Arena conventions:
 
 * :mod:`arena.environments` — env classes inheriting
-  :class:`~arena.environments.base.AgenticEnvironmentBase`.
+  :class:`~arena.environments.core.base.AgenticEnvironmentBase`.
 * :mod:`arena.embodiments` — robot embodiments under
   ``arena.embodiments.<robot>``, registered via ``@register_asset``.
 * :mod:`arena.assets` — scene background/object asset libraries.

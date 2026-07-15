@@ -13,6 +13,7 @@ policy:
   execution_steps: 50
   control_hz: 30.0
 arena:
+  bridge_port: 8869
   description: Franka Panda + ultrasound probe + abdominal phantom (liver scan).
   max_timesteps: 250
 dataset:

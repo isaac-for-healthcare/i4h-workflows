@@ -10,6 +10,7 @@ workflows/agentic/arena/run.sh --env <env_id>                                  #
 workflows/agentic/arena/run.sh --env <env_id> --bridge                         # open edit mode + scene-edit bridge
 workflows/agentic/arena/run.sh --env <env_id> --num-steps 40 --dump-scene      # final zero-action scene smoke
 workflows/agentic/arena/run.sh --env <env_id> --episodes 1                     # one policy-driven episode
+workflows/agentic/arena/run.sh --env <env_id> --state-machine --episodes 1     # one scripted state-machine episode
 workflows/agentic/arena/run.sh --env <env_id> --episodes N --max-timesteps T   # cap each episode at T steps
 ```
 
@@ -28,12 +29,13 @@ env assets before teleop.
 workflows/agentic/arena/run.sh --env scissor_pick_and_place --bridge
 ```
 
-The local scene-edit bridge starts at `http://127.0.0.1:8765`.
+The local scene-edit bridge uses the env's `arena.bridge_port` from `config/environments/<env>.yaml`. Resolve the URL before calling endpoints:
 
 ```bash
-curl -sS "http://127.0.0.1:8765/objects"
-curl -sS "http://127.0.0.1:8765/cameras"
-curl -sS "http://127.0.0.1:8765/capture" \
+BRIDGE_URL="$(workflows/agentic/arena/run.sh bridge-url --env scissor_pick_and_place)"
+curl -sS "${BRIDGE_URL}/objects"
+curl -sS "${BRIDGE_URL}/cameras"
+curl -sS "${BRIDGE_URL}/capture" \
   -H 'Content-Type: application/json' \
   -d '{"viewport": true}'
 ```
@@ -66,7 +68,22 @@ When `--dump-scene` is passed without a directory, outputs are written to
 contains `manifest.json`, camera JPEGs, and `scene_poses.json`; each pose record
 references the images dumped for the same step.
 
-## One-Episode Examples
+## State-Machine Examples
+
+Scripted state-machine runs drive an env to task success without a policy daemon, and record the successful episodes to HDF5 when `--record-to` is given. Available for the scissor and ultrasound envs and the surgical reach/lift envs; each uses `arena.max_timesteps` from its YAML unless `--max-timesteps` is provided. See `arena/statemachine/README.md`.
+
+```bash
+workflows/agentic/arena/run.sh --env scissor_pick_and_place --state-machine --episodes 1
+workflows/agentic/arena/run.sh --env ultrasound_liver_scan --state-machine --episodes 1
+workflows/agentic/arena/run.sh --env surgical_reach_psm --state-machine --episodes 1
+workflows/agentic/arena/run.sh --env surgical_reach_dual_psm --state-machine --episodes 1
+workflows/agentic/arena/run.sh --env surgical_reach_star --state-machine --episodes 1
+workflows/agentic/arena/run.sh --env surgical_lift_block --state-machine --episodes 1
+workflows/agentic/arena/run.sh --env surgical_lift_needle --state-machine --episodes 1
+workflows/agentic/arena/run.sh --env surgical_lift_needle_organs --state-machine --episodes 1
+```
+
+## Policy & Teleop Examples
 
 Start the matching policy daemon first, then run one Arena episode:
 

@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+id: star
+has_locomotion: false
+has_dex_hand: false
+arm_joint_count: 7
+body_joint_names:
+  - star_joint_1
+  - star_joint_2
+  - star_joint_3
+  - star_joint_4
+  - star_joint_5
+  - star_joint_6
+  - star_joint_7
+hand_joint_names:
+  - endo360_joint_1
+teleop_devices:
+  keyboard: {}

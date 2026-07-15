@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+id: ecm
+has_locomotion: false
+has_dex_hand: false
+arm_joint_count: 4
+body_joint_names:
+  - ecm_yaw_joint
+  - ecm_pitch_end_joint
+  - ecm_main_insertion_joint
+  - ecm_tool_joint
+hand_joint_names: []
+teleop_devices:
+  keyboard: {}

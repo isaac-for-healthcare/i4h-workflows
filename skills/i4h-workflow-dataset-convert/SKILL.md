@@ -41,6 +41,10 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 
 ## Run
 
+Run the steps below in order. Each step is a separate bash call; variables persist in the local agent's tmux session.
+
+### Step 1 — setup and resolve HDF5
+
 ```bash
 REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
 ENV_ID=scissor_pick_and_place
@@ -60,7 +64,11 @@ RUN_DIR="${RUNS_ROOT}/convert_${ENV_ID}_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "${RUN_DIR}/logs"
 ln -sfn "${RUN_DIR}" "${RUNS_ROOT}/.latest"
 export HF_LEROBOT_HOME="${RUN_DIR}/lerobot"
+```
 
+### Step 2 — convert
+
+```bash
 "${REPO_ROOT}/workflows/agentic/dataset/run.sh" \
   --env "${ENV_ID}" \
   --hdf5-path "${HDF5_PATH}" \

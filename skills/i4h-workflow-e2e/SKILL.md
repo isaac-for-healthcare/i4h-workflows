@@ -49,6 +49,18 @@ REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d
 
 ## Run
 
+Run the steps below in order. Each step is a separate bash call; variables persist in the local agent's tmux session.
+
+For Claude Code `--print` or any other noninteractive runner, keep Step 2 in the foreground. This is a validation requirement: do not use Claude background tasks, async task mode, Bash background mode, `&`, `nohup`, `tmux`, `disown`, or any detached process/task id, and do not answer that the pipeline is still running. Do not return until `run.sh` exits and you have inspected `logs/SUMMARY.txt` on success, or the failing stage log on failure. Report the run dir, skipped stages, per-stage status, key artifacts, and cleanup/stop status before finishing.
+
+### Step 1 — setup
+
+```bash
+REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
+```
+
+### Step 2 — e2e pipeline
+
 ```bash
 "${REPO_ROOT}/workflows/agentic/scripts/e2e/run.sh" --env <env>
 ```
@@ -57,6 +69,7 @@ REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d
 
 - `--skip-mimic`, `--skip-annotate`, `--skip-replay`, `--skip-viz`
 - `--from-stage <stage> --run-dir <existing-run>` resumes from a prior run.
+- Policy record/verify stages open the sim window by default. Set `ARENA_HEADLESS=1` before `run.sh` only when the user explicitly asks for headless/no-window execution.
 
 Stages: `setup record mimic annotate replay convert viz finetune validate summary`.
 
@@ -79,6 +92,8 @@ cat    "${REPO_ROOT}/workflows/agentic/runs/.latest/logs/SUMMARY.txt"     # fina
 ```
 
 ## Stop
+
+### Step 3 — stop (if needed)
 
 ```bash
 "${REPO_ROOT}/workflows/agentic/stop.sh" all --env <env>

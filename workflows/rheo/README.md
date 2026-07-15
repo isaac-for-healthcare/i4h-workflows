@@ -7,12 +7,13 @@
 ## 🔬 Technical Overview
 
 Rheo is a blueprint for smart hospital automation and Physical AI development, designed for healthcare robotics researchers and developers building intelligent, autonomous clinical environments, starting with the Operating Room (OR). Healthcare faces a structural demand–capacity crisis: a projected global shortfall of millions of clinicians, costly OR inefficiencies, and billions of diagnostic exams with significant unmet demand. The future hospital must be automation-enabled, where robotics extends clinician capacity, increases procedural throughput, and democratizes access to high-quality care.
-However, hospitals are heterogeneous, high-stakes environments—every facility has different layouts, workflows, equipment, and patient populations—making it economically and operationally infeasible to capture exhaustive real-world training data across every edge case. Rheo addresses this through simulation-first development, providing a complete pipeline from digital twin composition through demonstration capture, synthetic data generation, policy training, and pre-deployment validation, all built on NVIDIA Isaac Sim and Isaac Lab.
+However, hospitals are heterogeneous, high-stakes environments—every facility has different layouts, workflows, equipment, and patient populations—making it economically and operationally infeasible to capture exhaustive real-world training data across every edge case. Rheo addresses this through simulation-first development, providing a complete pipeline—covering both rigid and surface-deformable asset classes, including the tablecloth used in the spreading task—from digital twin composition through demonstration capture, synthetic data generation, policy training, and pre-deployment validation, all built on NVIDIA Isaac Sim and Isaac Lab.
 
 The workflow provides an end-to-end development pipeline for Physical AI in clinical settings:
 
-- **Digital Twin Composition**: Rapid environment assembly using two complementary simulation tracks—[Isaac Lab-Arena](https://github.com/isaac-sim/IsaacLab-Arena) for OR-scale task composition (swapping scenes, objects, and embodiments with minimal friction) and [Isaac Lab](https://github.com/isaac-sim/IsaacLab) for task-centric, manager-based environments that pair with curriculum design and large-scale RL for precision manipulation.
-- **Expert Demonstration Capture**: Teleoperation interfaces for recording task demonstrations in simulation—keyboard-based control for loco-manipulation tasks (surgical tray pick-and-place, case cart pushing) and Meta Quest controllers for precision bimanual manipulation (trocar assembly).
+- **Digital Twin Composition**: Rapid environment assembly using two complementary simulation tracks—[Isaac Lab-Arena](https://github.com/isaac-sim/IsaacLab-Arena) for OR-scale task composition (swapping scenes, objects, and embodiments with minimal friction) and [Isaac Lab](https://github.com/isaac-sim/IsaacLab) for task-centric, manager-based environments that pair with curriculum design and large-scale RL for precision manipulation. Scene assets cover both rigid SimReady props and surface-deformable bodies.
+- **Surface-Deformable Simulation** *(new)*: First-class support for surface-deformable bodies — the Lightwheel tablecloth — authored alongside standard rigid-body assets, so contact-rich tablecloth-spreading tasks live in the same pipeline. The deformable cloth pipeline runs on either the default Newton backend (coupled MJWarp rigid + VBD deformable, two-way coupled) or PhysX, switchable at runtime via `--physics_backend`.
+- **Expert Demonstration Capture**: Teleoperation interfaces for recording task demonstrations in simulation—keyboard-based control for loco-manipulation tasks (surgical tray pick-and-place, case cart pushing) and XR (Meta Quest / Pico / Apple Vision Pro, controllers and hand tracking) for precision bimanual manipulation, including rigid contact-rich tasks (trocar assembly) and surface-deformable manipulation (tablecloth spreading).
 - **Synthetic Data Generation**: Simulation-driven data amplification using Isaac Lab Mimic/SkillGen-style pipelines to systematically diversify a small set of demonstrations into larger training datasets, combined with Cosmos Transfer 2.5 guided generation for cross-scene generalization across different hospital environments.
 - **Policy Training**: Supervised fine-tuning (SFT) of GR00T Vision-Language-Action models (N1.5/N1.6) on curated datasets, with online RL post-training (PPO via RLinf) to push precision manipulation stages—such as multi-step trocar assembly—over the line.
 - **Pre-Deployment Validation**: Task-level evaluation runners for closed-loop policy assessment, plus end-to-end integration testing with WebRTC camera streaming and trigger-based action execution for system-level verification before physical deployment.
@@ -308,6 +309,78 @@ Optionally, you can replay keyboard teleoperation demos:
   --num_demos 1 \
   --xr
 ```
+
+#### Tablecloth Task (XR only)
+
+*XR here is used for dataset collection (demo recording) only.*
+
+Surface deformable object teleoperation. The deformable tablecloth used in this task is a SimReady asset authored by [Lightwheel](https://lightwheel.ai/) — see the [Attribution & Citation](#-attribution-and-citation) section for details.
+
+Two robot embodiments are registered:
+
+- **Unitree G1 29DoF + Inspire dexterous hands** — gym id `Isaac-Spread-Tablecloth-G129-Inspire-Teleop`
+- **Fourier H2 + Sharpa Wave hands** — gym id `Isaac-Spread-Tablecloth-H2-Sharpa-Teleop`
+
+Teleoperation is performed in XR with hand tracking (Meta Quest / Pico / Apple Vision Pro) via Pink IK retargeting.
+
+**Physics backend** (switchable via `--physics_backend`):
+
+- `newton` *(default)* — coupled MJWarp (rigid robot) + VBD (surface-deformable cloth), two-way coupled. Uses `use_cuda_graph=True` for speed; see [`cloth_physics.py`](scripts/simulation/tasks/spread_tablecloth/cloth_physics.py).
+- `physx` — PhysX backend, choose this if you need PhysX-specific features.
+
+**Terminal A — Start the CloudXR runtime (hand tracking):**
+
+```bash
+./workflows/rheo/docker/run_docker.sh -c
+
+# inside the container
+echo "NV_CXR_ENABLE_PUSH_DEVICES=0" > ~/handtracking.env
+python -m isaacteleop.cloudxr --cloudxr-env-config=~/handtracking.env
+```
+
+Keep this terminal open — CloudXR must stay running for the entire session.
+
+**Connect the XR headset:**
+Follow [Isaac Teleop Quick Start — Connect an XR headset](https://nvidia.github.io/IsaacTeleop/main/getting_started/quick_start.html#connect-an-xr-headset) for XR setup.
+
+**Terminal B — Record demonstrations:**
+
+```bash
+./workflows/rheo/docker/run_docker.sh -c
+
+# inside the container — pick up the runtime env exported by Terminal A
+source /root/.cloudxr/run/cloudxr.env
+
+# G1 + Inspire hands  (swap --physics_backend to physx to change solver)
+python scripts/simulation/record_demos_tablecloth.py \
+  --task Isaac-Spread-Tablecloth-G129-Inspire-Teleop \
+  --num_demos 10 \
+  --dataset_file datasets/tablecloth/demo.hdf5 \
+  --device cuda:0 --enable_pinocchio --viz kit --xr \
+  --no-auto_launch_cloudxr \
+  --physics_backend newton
+```
+
+```bash
+# H2 + Sharpa hands
+python scripts/simulation/record_demos_tablecloth.py \
+  --task Isaac-Spread-Tablecloth-H2-Sharpa-Teleop \
+  --num_demos 10 \
+  --dataset_file datasets/tablecloth/demo.hdf5 \
+  --device cuda:0 --enable_pinocchio --viz kit --xr \
+  --no-auto_launch_cloudxr \
+  --physics_backend newton
+```
+
+`--no-auto_launch_cloudxr` skips the embedded launcher because Terminal A already owns the CloudXR runtime. The motion-controllers flow does not need Terminal A — it auto-launches CloudXR from the recorder script itself.
+
+**Recording controls** — demos are stepped manually with the keyboard:
+
+- **`B`** — begin recording the next demo (resets the scene first).
+- **`S`** — save the current demo and advance the counter (marks it successful and exports the episode); recording continues for the next demo.
+- **`R`** — reset/discard the current attempt without saving.
+
+> **Note:** these tablecloth recording commands omit `--enable_cameras`, so the resulting dataset does **not** contain camera images.
 
 #### Synthetic Data Generation
 

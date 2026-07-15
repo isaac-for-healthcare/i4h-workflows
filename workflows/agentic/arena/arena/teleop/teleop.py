@@ -34,7 +34,7 @@ from collections.abc import Callable
 
 import torch
 from arena.recording import close_recording, save_episode, setup_recording
-from arena.runtimes._base import ready
+from arena.runtimes.core.base import ready
 
 logger = logging.getLogger("arena")
 

@@ -60,6 +60,10 @@ workflows/agentic/policy/<stack>/run.sh --list-envs
 
 ## Run
 
+Run the steps below in order. Each step is a separate bash call; variables persist in the local agent's tmux session.
+
+### Step 1 — setup and resolve dataset
+
 ```bash
 REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
 ENV_ID=scissor_pick_and_place
@@ -79,9 +83,14 @@ fi
 
 RUN_DIR="${RUNS_ROOT}/finetune_${ENV_ID}_$(date +%Y%m%d_%H%M%S)"
 OUT="${RUN_DIR}/checkpoint"
+export TMPDIR=/tmp   # short path: torch DataLoader FD-sharing socket must fit AF_UNIX's 108-byte limit
 mkdir -p "${OUT}" "${RUN_DIR}/logs"
 ln -sfn "${RUN_DIR}" "${RUNS_ROOT}/.latest"
+```
 
+### Step 2 — train
+
+```bash
 uv --directory "${REPO_ROOT}/workflows/agentic/policy/${STACK_DIR}" run "${TRAIN_CLI}" \
   --env "${ENV_ID}" \
   --dataset-path "${DATASET_PATH}" \
