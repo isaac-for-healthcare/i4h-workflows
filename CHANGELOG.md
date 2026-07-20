@@ -2,6 +2,82 @@
 
 All notable changes to Isaac for Healthcare Workflows are documented in this file.
 
+## [0.7.0] - Endoluminal Workflow, Agentic Surgical Environments, NVSkills Agent Platform, Rheo Deformable Cloth
+
+- **Endoluminal Workflow**: New GPU fluoroscopy + XPBD catheter navigation workflow with CT digital-twin generation, Slang DRR/DSA rendering, interactive viewport, and `./i4h` CLI modes; user-facing name is **Endoluminal Workflow** (directory remains `workflows/catheter_navigation/`).
+- **Agentic Surgical Environments**: Six new dVRK/STAR Arena environments ported from Robotic Surgery, plus scripted state-machine rollouts and a surgical baseline policy path for smoke validation.
+- **NVSkills Agent Platform**: Skills relocated to top-level `skills/` with NV-BASE validation, signed artifacts, eval datasets, `AGENTS.md` entry point, and a new **Local Agent** runner.
+- **Rheo Surface-Deformable Simulation**: New tablecloth-spreading task with Newton/PhysX backends, XR teleop recording, and dedicated cloth Docker image.
+
+### Endoluminal Workflow
+
+New `workflows/catheter_navigation/` workflow for simulation-driven development of endovascular navigation systems.
+
+- **Fluoroscopy Simulator (`fluorosim`):** Slang-based differentiable DRR renderer with fused Beer-Lambert catheter compositing, batched multi-env rendering, DSA pipeline, and detector realism.
+- **Physics Solver:** XPBD Cosserat rod solvers with vessel-mesh containment, track-guided insertion, and hardened bend containment.
+- **Vasculature Digital Twin:** CT ingestion (DICOM/NIfTI), segmentation, meshing, and centerline extraction; bring your own CT patient data.
+- **Interactive Viewport:** Multi-projection C-arm fluoroscopy with guided catheter navigation; fluoro and mesh-rail viewport paths removed in favor of guided-only runtime.
+- **I4H CLI Integration:** Registered workflow with modes `preprocess_ct`, `segment_vessels`, `render_drr`, and `interactive_viewport`; host and Docker execution paths.
+- **Pip-Installable Packages:** Runtime pulls `fluoro-simulator`, `vasculature-digital-twin`, and `catheter-vasculature-solver` from pinned Git dependencies.
+- **Agent Skills:** Seven `i4h-catheter-navigation*` skills (overview, setup, digital twin, DRR render, viewport, smoke, e2e) with eval prompts and NVSkills signatures.
+
+See [Endoluminal Workflow README](workflows/catheter_navigation/README.md).
+
+### Surgical Agentic Workflow Updates
+
+Expands the Agentic workflow from five pre-trained environments to eleven registered environments.
+
+- **Six New Surgical Environments:** `surgical_reach_psm`, `surgical_reach_dual_psm`, `surgical_reach_star`, `surgical_lift_block`, `surgical_lift_needle`, and `surgical_lift_needle_organs`.
+- **New Robot Embodiments:** dVRK PSM, dual PSM, STAR, and ECM configs under `config/robots/`.
+- **Scripted State Machines:** New state-machine framework for policy-free rollouts with latched success semantics; supported on scissor, ultrasound, and all six surgical envs via `--state-machine`.
+- **Surgical Baseline Policy:** Zero-action GR00T N1.5 inference daemon for validating policy/Arena/Zenoh plumbing on new surgical envs.
+- **Policy Health Routing:** Readiness checks for skill and automation flows via `policy_routing.py`.
+- **Scene-Edit Bridge:** Per-env bridge port from YAML (`arena.bridge_port`); resolve via `arena/run.sh bridge-url --env <env>`.
+- **E2E Pipeline:** Headless camera rendering in record/replay/validate stages; vLLM annotator gains `wait`/`ensure` modes.
+
+See [Agentic Workflow README](workflows/agentic/README.md) and [Arena State Machines README](workflows/agentic/arena/arena/statemachine/README.md).
+
+### Rheo Deformable Cloth
+
+First surface-deformable asset support in Rheo, alongside existing rigid-body tasks.
+
+- **Spread Tablecloth Task:** G1 29DoF + Inspire hands and Fourier H2 + Sharpa Wave hands teleop environments.
+- **Physics Backends:** Switchable `--physics_backend newton` (default) or `physx`.
+- **XR Teleop Recording:** `record_demos_tablecloth.py` with CloudXR hand tracking.
+- **Dedicated Container:** `Dockerfile.rheo_cloth` with separate IsaacLab checkout so cloth deps do not affect other Rheo tasks.
+- **Newton Fixes:** Improved G1 Inspire hand finger tracking and hand–cloth collision behavior.
+
+See [Rheo Workflow README](workflows/rheo/README.md).
+
+### NVSkills Agent Platform
+
+Major reorganization of the agent skill system introduced in v0.6.0.
+
+- **Skills Relocated:** Canonical catalog moves from `.claude/skills/i4h-workflow-*` to top-level `skills/`; `.claude/skills` and `.codex/skills` are symlinks.
+- **`AGENTS.md`:** New agent entry point with skill routing, supported env table, and `$I4H_WORKFLOWS` bootstrap.
+- **NV-BASE Validation:** All skills include `BENCHMARK.md`, `skill-card.md`, `skill.oms.sig`, and `evals/evals.json`.
+- **`TESTING.md`:** Validation guide for NV-BASE offline validation, eval schema checks, and acceptance criteria.
+- **Local Agent (`local-agent/`):** Run skills with local SGLang or NVIDIA-hosted inference; includes `validate-env.sh`, `validate-bake.sh`, and `vlcheck.py`.
+- **Removed Skill:** `i4h-workflow-dataset-transfer` (Cosmos Transfer augmentation) is no longer in the skill catalog.
+
+### Other Updates
+
+- **Documentation:** Updated Agentic, Arena, Rheo, and Telesurgery READMEs; fixed Holoscan Sensor Bridge doc links after docs.nvidia.com restructure.
+- **Dependencies:** Agentic GR00T policy stacks switch flash-attn wheels to public URM URLs; catheter workflow container with pinned Python deps in `requirements.txt`.
+- **I4H CLI:** Metadata discovery skips agentic virtualenvs to eliminate spurious `metadata.json` scan errors.
+- **Fixes:** Catheter viewport input reliability and vessel containment at bends; agentic G1 import and GR00T N1.6 health metadata fixes; skill link and smoke-test alignment fixes.
+
+### Breaking Changes and Renames
+
+- **Skills Path:** Update references from `.claude/skills/i4h-workflow-*` to `skills/i4h-workflow-*`.
+- **Removed Skill:** `i4h-workflow-dataset-transfer` no longer shipped; Cosmos Transfer must be invoked manually outside the skill catalog.
+- **Workflow Display Name:** **Catheter Navigation** → **Endoluminal Workflow** in user-facing docs; CLI/HoloHub id remains `catheter_navigation`.
+- **Catheter Viewport Modes:** Fluoro and mesh-rail paths removed; `interactive_viewport` is guided-only.
+- **Scene-Edit Bridge Port:** No longer hardcoded to `8765`; read per-env from YAML via `bridge-url`.
+- **Vendor Spelling:** **LightWheel** → **Lightwheel** in Rheo attribution.
+
+---
+
 ## [0.6.0] - Agentic Workflow, Claude Code Skills, SO-ARM Starter on GR00T N1.7
 
 - **Agentic Workflow**: New unified IsaacLab-Arena + GR00T/openpi pipeline with five pre-trained environments, covering teleop recording, mimic expansion, VLM annotation, LeRobot conversion, fine-tuning, and rollout validation from a single CLI.
