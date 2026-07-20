@@ -7,7 +7,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 from arena.arena_config import get_arena_config
-from arena.runtimes._base import PolicyIO, logger, ready, run_policy_episode  # noqa: F401 (ready re-exported)
+from arena.runtimes.core.base import PolicyIO, logger, ready, run_policy_episode  # noqa: F401 (ready re-exported)
 from arena.tasks.scissor_pick_and_place import success_scissors_in_tray, success_scissors_placed
 from common.config import get_robot_config, get_zenoh_config
 from common.joint_utils import isaaclab_rad_to_lerobot, lerobot_to_isaaclab_rad

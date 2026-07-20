@@ -15,7 +15,7 @@ import time
 
 import numpy as np
 import torch
-from arena.runtimes._base import PolicyIO, logger, run_policy_episode
+from arena.runtimes.core.base import PolicyIO, logger, run_policy_episode
 from common.config import get_zenoh_config
 
 FRANKA_STATE_DIM = 7

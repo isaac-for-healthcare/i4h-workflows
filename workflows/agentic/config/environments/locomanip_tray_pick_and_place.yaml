@@ -30,6 +30,7 @@ policy:
     max_steps: 60000
     save_steps: 10000
 arena:
+  bridge_port: 8866
   description: G1 loco-manipulation tray pick-and-place task.
   max_timesteps: 1500
 dataset:

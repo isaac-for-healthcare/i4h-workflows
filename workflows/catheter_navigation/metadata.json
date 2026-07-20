@@ -1,0 +1,82 @@
+{
+  "workflow": {
+    "name": "Catheter Navigation Workflow",
+    "description": "Endovascular catheter navigation workflow with GPU-accelerated fluoroscopy simulation, XPBD physics, and reinforcement learning for autonomous guidewire and catheter control",
+    "authors": [
+      {
+        "name": "Isaac for Healthcare Team",
+        "affiliation": "NVIDIA"
+      }
+    ],
+    "language": "Python",
+    "version": "0.7",
+    "changelog": {
+      "0.7": "Initial release: Slang DiffDRR renderer, fused Beer-Lambert catheter compositing, XPBDRodSolver, XCathRodSolver, vasculature digital twin, DSA pipeline, decoupled CatheterProvider interface"
+    },
+    "dockerfile": "workflows/catheter_navigation/docker/Dockerfile",
+    "platforms": ["x86_64"],
+    "tags": ["Isaac4Healthcare", "Catheter Navigation", "Fluoroscopy", "DRR", "XPBD"],
+    "ranking": 1,
+    "requirements": {
+      "packages": [
+        {
+          "name": "Isaac Lab",
+          "author": "NVIDIA",
+          "version": "2.3.0",
+          "url": "https://isaac-sim.github.io/IsaacLab/"
+        },
+        {
+          "name": "Warp",
+          "author": "NVIDIA",
+          "url": "https://github.com/NVIDIA/warp"
+        },
+        {
+          "name": "slangpy",
+          "author": "NVIDIA",
+          "url": "https://github.com/shader-slang/slang"
+        }
+      ]
+    },
+    "default_mode": "render_drr",
+    "modes": {
+      "render_drr": {
+        "description": "Render a single DRR frame from a preprocessed CT volume",
+        "run": {
+          "command": "python scripts/simulation/fluorosim/examples/render_drr.py",
+          "workdir": "holohub_app_source",
+          "env": {
+            "PYTHONPATH": "<holohub_app_source>/scripts/simulation:<PYTHONPATH>"
+          }
+        }
+      },
+      "preprocess_ct": {
+        "description": "Preprocess a DICOM/NIfTI CT volume into a fluorosim-ready mu volume",
+        "run": {
+          "command": "python -m vasculature_digital_twin.cli.preprocess_ct",
+          "workdir": "holohub_app_source"
+        }
+      },
+      "segment_vessels": {
+        "description": "Segment the arterial tree from a preprocessed CT into vessel mask + centerline (the digital twin)",
+        "run": {
+          "command": "python -m vasculature_digital_twin.cli.segment_vessels",
+          "workdir": "holohub_app_source"
+        }
+      },
+      "interactive_viewport": {
+        "description": "Launch the interactive Slang fluoroscopy viewport for catheter navigation",
+        "run": {
+          "command": "python scripts/simulation/fluorosim/examples/interactive_catheter_slang_viewport.py",
+          "workdir": "holohub_app_source"
+        }
+      }
+    },
+    "run": {
+      "command": "python -m fluorosim.examples.render_drr",
+      "workdir": "holohub_app_source",
+      "env": {
+        "PYTHONPATH": "<holohub_app_source>/scripts/simulation:<PYTHONPATH>"
+      }
+    }
+  }
+}

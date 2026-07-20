@@ -75,13 +75,14 @@ class TrainConfig:
     resume: bool = False
     balance_dataset_weights: bool = True
     balance_trajectory_weights: bool = True
+    save_final_model: bool = False
 
 
 def _train(cfg: TrainConfig) -> None:
     from gr00t.data.dataset import LeRobotMixtureDataset, LeRobotSingleDataset
     from gr00t.data.schema import EmbodimentTag
+    from gr00t.experiment import runner as gr00t_runner
     from gr00t.experiment.data_config import DATA_CONFIG_MAP
-    from gr00t.experiment.runner import TrainRunner
     from gr00t.model.gr00t_n1 import GR00T_N1_5
     from gr00t.utils.peft import get_lora_model
     from transformers import TrainingArguments
@@ -168,7 +169,17 @@ def _train(cfg: TrainConfig) -> None:
         torch_compile_mode=None,
     )
 
-    TrainRunner(
+    if not cfg.save_final_model:
+
+        def _skip_final_model_save(*, trainer, output_dir):
+            print(
+                f"Skipping duplicate final model save at {output_dir}; use checkpoint-* instead.",
+                flush=True,
+            )
+
+        gr00t_runner.safe_save_model_for_hf_trainer = _skip_final_model_save
+
+    gr00t_runner.TrainRunner(
         train_dataset=train_dataset,
         model=model,
         training_args=training_args,

@@ -20,6 +20,9 @@ set -e
 DOCKER_IMAGE_NAME='rheo'
 DOCKER_VERSION_TAG='latest'
 
+# Default Dockerfile (overridden by --cloth / -c, see below).
+DOCKERFILE_NAME='Dockerfile.x86'
+
 # ============================================
 # Directory Structure
 # ============================================
@@ -49,6 +52,7 @@ THIRD_PARTY_DIR="${I4H_ROOT}/third_party"
 # Component paths
 ISAACLAB_ARENA_DIR="${THIRD_PARTY_DIR}/IsaacLab-Arena"
 ISAACLAB_DIR="${THIRD_PARTY_DIR}/IsaacLab"
+ISAACLAB_CLOTH_DIR="${THIRD_PARTY_DIR}/IsaacLab-3-0-dev"
 ISAAC_GROOT_DIR="${THIRD_PARTY_DIR}/Isaac-GR00T"
 RLINF_DIR="${THIRD_PARTY_DIR}/RLinf"
 
@@ -58,8 +62,14 @@ clone_if_missing() {
     [ -d "$1/.git" ] || { git clone "$2" "$1" && cd "$1" && git checkout "$3" && cd -; }
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# IsaacLab commit pins — picked based on mode further down (see --cloth flag).
+# ─────────────────────────────────────────────────────────────────────────────
+ISAACLAB_COMMIT_DEFAULT="941ebdf4ad1fbf89018777012bdfa4b5944c758f"
+ISAACLAB_COMMIT_CLOTH="378dc59f05b43e18e53b65e2c6dcdff2ba072892"
+
 clone_if_missing "$ISAACLAB_ARENA_DIR" "https://github.com/isaac-sim/IsaacLab-Arena.git" "dba09956588dddae52897820686efd329d85da12"
-clone_if_missing "$ISAACLAB_DIR" "https://github.com/isaac-sim/IsaacLab.git" "941ebdf4ad1fbf89018777012bdfa4b5944c758f"
+clone_if_missing "$ISAACLAB_DIR" "https://github.com/isaac-sim/IsaacLab.git" "${ISAACLAB_COMMIT_DEFAULT}"
 clone_if_missing "$RLINF_DIR" "https://github.com/RLinf/RLinf.git" "649e7579775997ade74efff33a7c23e90c61e60a"
 
 # Clone GR00T 1.5 (base branch for environment installation) if -g flag is used
@@ -84,7 +94,20 @@ GPU_DEVICE=""
 FORCE_REBUILD=false
 NEW_CONTAINER=false
 
-while getopts ":d:m:e:hn:rn:Rn:vn:g:G:u:N" OPTION; do
+# Translate long flags to their short equivalents so the existing getopts
+# parser keeps working unchanged. Only --cloth is recognized today; extend
+# this loop if you add more long flags.
+ARGS=()
+for arg in "$@"; do
+    case "$arg" in
+        --cloth) ARGS+=("-c") ;;
+        --help)  ARGS+=("-h") ;;
+        *)       ARGS+=("$arg") ;;
+    esac
+done
+set -- "${ARGS[@]}"
+
+while getopts ":d:m:e:hn:rn:Rn:vn:g:G:u:Nc" OPTION; do
     case $OPTION in
         d) DATASETS_HOST_MOUNT_DIRECTORY=$OPTARG ;;
         m) MODELS_HOST_MOUNT_DIRECTORY=$OPTARG ;;
@@ -105,6 +128,11 @@ while getopts ":d:m:e:hn:rn:Rn:vn:g:G:u:N" OPTION; do
             ;;
         u) GPU_DEVICE=${OPTARG} ;;
         N) NEW_CONTAINER=true ;;
+        c)
+            # Cloth / IsaacSim-6 mode: build & enter Dockerfile.rheo_cloth.
+            DOCKER_VERSION_TAG='cloth'
+            DOCKERFILE_NAME='Dockerfile.rheo_cloth'
+            ;;
         h)
             echo "Usage: $(basename "$0") [options]"
             echo ""
@@ -116,10 +144,11 @@ while getopts ":d:m:e:hn:rn:Rn:vn:g:G:u:N" OPTION; do
             echo "  -r                 Force rebuild"
             echo "  -R                 Force rebuild without cache"
             echo "  -g [version]       Install GR00T. Version: 1.5 or 1.6 (default). Use -g, -g1.5, or -g1.6"
+            echo "  -c, --cloth        Cloth / IsaacSim-6 mode (Dockerfile.rheo_cloth, tag '${DOCKER_IMAGE_NAME}:cloth')"
             echo "  -u <gpu>           GPU device number (default: all)"
             echo "  -N                 Force create a new container (add timestamp suffix)"
             echo "  -v                 Verbose output"
-            echo "  -h                 Show this help"
+            echo "  -h, --help         Show this help"
             exit 0
             ;;
         \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
@@ -129,13 +158,32 @@ done
 
 shift $((OPTIND-1))
 
+if [ "$DOCKERFILE_NAME" = "Dockerfile.rheo_cloth" ]; then
+    ISAACLAB_COMMIT="${ISAACLAB_COMMIT_CLOTH}"
+    ISAACLAB_DIR="${ISAACLAB_CLOTH_DIR}"
+    ISAACLAB_PATH_IN_CONTAINER="${WORKDIR}/third_party/IsaacLab-3-0-dev"
+    clone_if_missing "$ISAACLAB_DIR" "https://github.com/isaac-sim/IsaacLab.git" "${ISAACLAB_COMMIT}"
+else
+    ISAACLAB_COMMIT="${ISAACLAB_COMMIT_DEFAULT}"
+    ISAACLAB_PATH_IN_CONTAINER="${WORKDIR}/third_party/IsaacLab"
+fi
+
+CURRENT_ISAACLAB_COMMIT=$(git -C "${ISAACLAB_DIR}" rev-parse HEAD 2>/dev/null || echo "")
+if [ "${CURRENT_ISAACLAB_COMMIT}" != "${ISAACLAB_COMMIT}" ]; then
+    echo "Switching IsaacLab to ${ISAACLAB_COMMIT} (was ${CURRENT_ISAACLAB_COMMIT:-unknown})"
+    git -C "${ISAACLAB_DIR}" fetch --quiet origin "${ISAACLAB_COMMIT}" || true
+    git -C "${ISAACLAB_DIR}" checkout --quiet "${ISAACLAB_COMMIT}"
+fi
+
 echo "=============================================="
 echo "Docker Environment"
 echo "=============================================="
-echo "Docker image: $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG"
-echo "I4H root: $I4H_ROOT"
-echo "Third party: $THIRD_PARTY_DIR"
-echo "Workflow dir: $WORKFLOW_DIR"
+echo "Docker image    : $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG"
+echo "Dockerfile      : $DOCKERFILE_NAME"
+echo "IsaacLab commit : $ISAACLAB_COMMIT"
+echo "I4H root        : $I4H_ROOT"
+echo "Third party     : $THIRD_PARTY_DIR"
+echo "Workflow dir    : $WORKFLOW_DIR"
 
 # Build Docker image
 if [ "$(docker images -q $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG 2> /dev/null)" ] && \
@@ -143,13 +191,25 @@ if [ "$(docker images -q $DOCKER_IMAGE_NAME:$DOCKER_VERSION_TAG 2> /dev/null)" ]
     echo "Docker image already exists. Use -r to rebuild."
 else
     echo "Building Docker image..."
+
+    # Dockerfile.rheo_cloth pulls IsaacSim 6.x wheels from NVIDIA-internal
+    # urm.nvidia.com, which only resolves via the host's DNS / /etc/hosts.
+    # Use host network for the build container in that case so resolution works.
+    # Dockerfile.x86 only hits public endpoints, so we keep its default
+    # build network untouched to avoid surprising existing setups.
+    BUILD_NETWORK_ARGS=()
+    if [ "$DOCKERFILE_NAME" = "Dockerfile.rheo_cloth" ]; then
+        BUILD_NETWORK_ARGS+=("--network=host")
+    fi
+
     # Build context is i4h-workflows root
     docker build --pull \
+        "${BUILD_NETWORK_ARGS[@]}" \
         $NO_CACHE \
         --build-arg WORKDIR="${WORKDIR}" \
         --build-arg INSTALL_GROOT=$INSTALL_GROOT \
         -t ${DOCKER_IMAGE_NAME}:${DOCKER_VERSION_TAG} \
-        --file ${WORKFLOW_DIR}/docker/Dockerfile.x86 \
+        --file ${WORKFLOW_DIR}/docker/${DOCKERFILE_NAME} \
         ${I4H_ROOT}
 fi
 
@@ -185,12 +245,20 @@ add_volume_if_it_exists() {
 
 # Run container
 if [ "$NEW_CONTAINER" = false ] && [ "$( docker container inspect -f '{{.State.Running}}' $CONTAINER_NAME 2>/dev/null)" = "true" ]; then
+    # Pick a user that actually exists in the container so attach doesn't fail
+    # when the image was built without an entrypoint that creates the host user
+    # (e.g. Dockerfile.rheo_cloth, which has no useradd step and runs as root).
+    EXEC_USER="$(id -un)"
+    if ! docker exec "$CONTAINER_NAME" id -u "$EXEC_USER" > /dev/null 2>&1; then
+        EXEC_USER="root"
+    fi
+
     if [ $# -ge 1 ]; then
-        echo "Container already running. Executing command."
-        docker exec -it $CONTAINER_NAME su $(id -un) -c "$*"
+        echo "Container already running. Executing command as ${EXEC_USER}."
+        docker exec -it "$CONTAINER_NAME" su "$EXEC_USER" -c "$*"
     else
-        echo "Container already running. Attaching."
-        docker exec -it $CONTAINER_NAME su $(id -un)
+        echo "Container already running. Attaching as ${EXEC_USER}."
+        docker exec -it "$CONTAINER_NAME" su "$EXEC_USER"
     fi
 else
     DOCKER_RUN_ARGS=("--name" "$CONTAINER_NAME"
@@ -211,7 +279,15 @@ else
                     "-v" "$HOME/.cache:/home/$(id -un)/.cache"
                     "-v" "/tmp/.X11-unix:/tmp/.X11-unix:rw"
                     "-v" "$HOME/.Xauthority:/root/.Xauthority"
+                    # CloudXR runtime config (sourced by bashrc inside container if present)
+                    $(add_volume_if_it_exists "$HOME/.cloudxr" /root/.cloudxr)
+                    # Assets bundle (URDFs, meshes, teleop configs, local USDs).
+                    $(add_volume_if_it_exists "${ASSETS_DIR:-}" /assets)
+                    # if H2_URDF_HOST_DIR is set on the host.
+                    $(add_volume_if_it_exists "${H2_URDF_HOST_DIR:-}" /h2_urdf)
                     # Environment variables
+                    "--env" "ASSETS_DIR=/assets"
+                    "--env" "RHEO_H2_SHARPA_ASSETS_DIR=/assets"
                     "--env" "OMNI_USER=\$omni-api-token"
                     "--env" "OMNI_PASS"
                     "--env" "DATASET_DIR=/datasets"
@@ -223,7 +299,7 @@ else
                     "--env" "DOCKER_RUN_USER_NAME=$(id -un)"
                     "--env" "DOCKER_RUN_GROUP_ID=$(id -g)"
                     "--env" "DOCKER_RUN_GROUP_NAME=$(id -gn)"
-                    "--env" "ISAACLAB_PATH=${WORKDIR}/third_party/IsaacLab"
+                    "--env" "ISAACLAB_PATH=${ISAACLAB_PATH_IN_CONTAINER}"
                     )
 
     # Mount GR00T based on version (overrides the whole workspace mount for Isaac-GR00T specifically)

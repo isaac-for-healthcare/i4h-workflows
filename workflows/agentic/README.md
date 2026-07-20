@@ -1,6 +1,6 @@
 # Agentic Workflow
 
-Unified IsaacLab-Arena + GR00T/openpi policy workflow with five pre-trained environments.
+Unified IsaacLab-Arena + GR00T/openpi workflow for registered policy and validation environments.
 
 ## Requirements
 
@@ -36,6 +36,12 @@ workflows/agentic/setup.sh --with-cosmos
 | `locomanip_push_cart` | Unitree G1 | `nvidia/GR00T-N1.6-Rheo-Sim-PushCart` |
 | `assemble_trocar` | Unitree G1 | `nvidia/GR00T-N1.5-RL-Rheo-AssembleTrocar` |
 | `ultrasound_liver_scan` | Franka-style arm | `nvidia/Liver_Scan_Pi0_Cosmos_Rel` |
+| `surgical_reach_psm` | dVRK PSM | `nvidia/GR00T-N1.5-3B` |
+| `surgical_reach_dual_psm` | dVRK dual PSM | `nvidia/GR00T-N1.5-3B` |
+| `surgical_reach_star` | STAR | `nvidia/GR00T-N1.5-3B` |
+| `surgical_lift_block` | dVRK PSM | `nvidia/GR00T-N1.5-3B` |
+| `surgical_lift_needle` | dVRK PSM | `nvidia/GR00T-N1.5-3B` |
+| `surgical_lift_needle_organs` | dVRK PSM | `nvidia/GR00T-N1.5-3B` |
 
 ## Subprojects
 
@@ -50,12 +56,12 @@ Each environment is configured by one YAML file in [`config/environments/`](conf
 
 ## Quick Run
 
-Try following prompts in your claude code.
-Verified using: **Opus 4.8 (1M context)**.
+Try the following prompts in Claude Code, Codex, or Local Agent.
+Verified using: **Opus 4.8 (1M context)** and **GPT 5.5**.
 
-> When running Claude Code for these skills/prompts, use effort level to **`low`/`medium`**.
+> When running Claude Code, Codex, or Local Agent for these skills/prompts, use effort level to **`low`/`medium`**.
 
-Each block below is one or more **natural-language prompts to paste into Claude Code** — not shell commands. Claude Code loads the matching skill from the table further down to execute them. Estimates are for *cached* re-runs; first runs are typically 5–10x longer due to model and Isaac Sim asset downloads.
+Each block below is one or more **natural-language prompts to paste into Claude Code, Codex, or [Local Agent](../../local-agent/README.md)** — not shell commands. The agent loads the matching skill from the table further down to execute them. Estimates are for *cached* re-runs; first runs are typically 5–10x longer due to model and Isaac Sim asset downloads.
 
 ### Existing Environments
 
@@ -80,6 +86,10 @@ Evaluate trocar assembly for 1 episode.
 Evaluate locomanip tray pick and place for 1 episode.
 Evaluate locomanip push cart for 1 episode.
 
+# Surgical state-machine smoke runs (no policy server)
+Run surgical_reach_psm with the state machine for 1 episode.
+Run surgical_lift_needle with the state machine for 1 episode.
+
 # Run E2E (record -> mimic -> annotate/filter -> replay -> convert -> visualize -> finetune -> validate)
 # (~10 mins)
 Run end-to-end smoke pipeline for scissor pick-and-place.
@@ -96,16 +106,15 @@ Stop all
 Create a new i4h environment for surgical tool sorting using G1 based on scissor_pick_and_place.
 
 # Edit Scene (~4 mins)
-Launch the new env in edit mode.  Edit in live mode only without restart.
-  - Add new red cube with gravity to stay on table.
+Edit the scene for new env in live mode.
+  - Add new red cube on table.
+  - Increase size of red cube by 2x.
   - Shift G1 to the opposite side of the table and 4 ft away from table.
-  - Add a room camera based on perspective view.
-  - Bake all changes and exit.
+  - Add a room camera based on current perspective view to capture room area.
+  - Bake all changes and stop.
 
 # Teleop/Finetune/Eval (~20 mins)
-Add room camera input to be part of dataset + policy.
 Change policy task description to "Walk towards surgical table"
-Run zero action smoke to verify all good.
 
 Run teleop for 5 episodes.
 Mimic 3 more episodes and visualize my dataset.
@@ -118,32 +127,30 @@ Stop all
 
 ## Workflow Skills
 
-Use these prompts with the repository skills in `.claude/skills/`.
+Use these prompts with the repository skills in `skills/`.
 > **Status legend**: ✓ verified, ◐ partial / known limitations, ○ not verified.
 
 | Skill | Description | Example prompt |
 | --- | --- | --- |
-| ✓ [`i4h-workflow`](../../.claude/skills/i4h-workflow/SKILL.md) | Overview of the unified IsaacLab-Arena + GR00T/openpi workflow and where to start. | `What does the i4h workflow include, and where should I start?` |
-| ✓ [`i4h-workflow-setup`](../../.claude/skills/i4h-workflow-setup/SKILL.md) | Verify host requirements and run setup. | `Set up the i4h workflow on this machine and tell me if any host requirements are missing.` |
-| ✓ [`i4h-workflow-create`](../../.claude/skills/i4h-workflow-create/SKILL.md) | Create a new agentic environment from an existing template, including scene, task, YAML, and policy registration. | SO-ARM 101: `Create a new i4h environment by forking the scissor pick-and-place task for surgical tool sorting.`<br><br>G1: `Create a new i4h environment by forking the scissor pick-and-place task for surgical tool sorting using G1 robot.` |
-| ✓ [`i4h-workflow-scene-edit`](../../.claude/skills/i4h-workflow-scene-edit/SKILL.md) | Edit an existing environment's scene in place, such as moving/scaling objects, swapping props, adjusting cameras, robot placement, task language, success bounds, or randomization. | `Edit the scissor pick-and-place scene to replace the scissors with a red cube and save the scene.` |
-| ◐ [`i4h-workflow-dataset-teleop`](../../.claude/skills/i4h-workflow-dataset-teleop/SKILL.md) | Record teleoperated Arena episodes into HDF5 using keyboard or the SO-ARM leader arm. | `Record 5 keyboard teleop demos for the scissor pick-and-place task.` |
-| ✓ [`i4h-workflow-dataset-replay`](../../.claude/skills/i4h-workflow-dataset-replay/SKILL.md) | Replay recorded HDF5 episodes inside Isaac Sim for visual verification. | `Replay episode 0 from my scissor pick-and-place recording in Isaac Sim.` |
-| ✓ [`i4h-workflow-dataset-mimic`](../../.claude/skills/i4h-workflow-dataset-mimic/SKILL.md) | Expand an HDF5 recording by copying trajectories and adding small action/state noise. | `Expand my scissor pick-and-place recording to 10 episodes with small action and state noise.` |
-| ○ [`i4h-workflow-dataset-transfer`](../../.claude/skills/i4h-workflow-dataset-transfer/SKILL.md) | Use NVIDIA Cosmos Transfer to add visual variation to HDF5 camera streams without changing actions or states. | `Use Cosmos Transfer to create 2 hospital-lighting visual variants of my scissor pick-and-place recording.` |
-| ✓ [`i4h-workflow-dataset-annotate`](../../.claude/skills/i4h-workflow-dataset-annotate/SKILL.md) | Use a VLM to label whether HDF5 episodes or live camera frames satisfy the task. | `Run the VLM annotator on my scissor pick-and-place recording and label which episodes satisfy the task.` |
-| ✓ [`i4h-workflow-dataset-convert`](../../.claude/skills/i4h-workflow-dataset-convert/SKILL.md) | Convert an Arena HDF5 recording into a LeRobot dataset for visualization or training. | `Convert my scissor pick-and-place recording into a LeRobot dataset.` |
-| ✓ [`i4h-lerobot-viz`](../../.claude/skills/i4h-lerobot-viz/SKILL.md) | Serve the LeRobot HTML visualizer for inspecting converted datasets in a browser. | `Serve the LeRobot visualizer for my converted scissor pick-and-place dataset and show me the local URL.` |
-| ◐ [`i4h-workflow-finetune`](../../.claude/skills/i4h-workflow-finetune/SKILL.md) | Fine-tune a GR00T or openpi PI0 policy on a converted LeRobot dataset. | `Fine-tune a policy for the scissor pick-and-place task on my converted dataset for a short smoke run.` |
-| ✓ [`i4h-workflow-validate`](../../.claude/skills/i4h-workflow-validate/SKILL.md) | Evaluate a configured policy or checkpoint by recording rollout episodes; annotate only when requested. | `Evaluate scissor pick and place with 3 episodes.` |
-| ◐ [`i4h-workflow-e2e`](../../.claude/skills/i4h-workflow-e2e/SKILL.md) | Run the full smoke pipeline from setup and recording through mimic, annotation, conversion, finetuning, and validation. | `Run the full end-to-end smoke pipeline for the scissor pick-and-place task.` |
+| ✓ [`i4h-workflow`](../../skills/i4h-workflow/SKILL.md) | Overview of the unified IsaacLab-Arena + GR00T/openpi workflow and where to start. | `What does the i4h workflow include, and where should I start?` |
+| ✓ [`i4h-workflow-setup`](../../skills/i4h-workflow-setup/SKILL.md) | Verify host requirements and run setup. | `Set up the i4h workflow on this machine and tell me if any host requirements are missing.` |
+| ✓ [`i4h-workflow-create`](../../skills/i4h-workflow-create/SKILL.md) | Create a new agentic environment from an existing template, including scene, task, YAML, and policy registration. | SO-ARM 101: `Create a new i4h environment by forking the scissor pick-and-place task for surgical tool sorting.`<br><br>G1: `Create a new i4h environment by forking the scissor pick-and-place task for surgical tool sorting using G1 robot.` |
+| ✓ [`i4h-workflow-scene-edit`](../../skills/i4h-workflow-scene-edit/SKILL.md) | Edit an existing environment's scene in place, such as moving/scaling objects, swapping props, adjusting cameras, robot placement, task language, success bounds, or randomization. | `Edit the scissor pick-and-place scene to replace the scissors with a red cube and save the scene.` |
+| ◐ [`i4h-workflow-dataset-teleop`](../../skills/i4h-workflow-dataset-teleop/SKILL.md) | Record teleoperated Arena episodes into HDF5 using keyboard or the SO-ARM leader arm. | `Record 5 keyboard teleop demos for the scissor pick-and-place task.` |
+| ✓ [`i4h-workflow-dataset-replay`](../../skills/i4h-workflow-dataset-replay/SKILL.md) | Replay recorded HDF5 episodes inside Isaac Sim for visual verification. | `Replay episode 0 from my scissor pick-and-place recording in Isaac Sim.` |
+| ✓ [`i4h-workflow-dataset-mimic`](../../skills/i4h-workflow-dataset-mimic/SKILL.md) | Expand an HDF5 recording by copying trajectories and adding small action/state noise. | `Expand my scissor pick-and-place recording to 10 episodes with small action and state noise.` |
+| ✓ [`i4h-workflow-dataset-annotate`](../../skills/i4h-workflow-dataset-annotate/SKILL.md) | Use a VLM to label whether HDF5 episodes or live camera frames satisfy the task. | `Run the VLM annotator on my scissor pick-and-place recording and label which episodes satisfy the task.` |
+| ✓ [`i4h-workflow-dataset-convert`](../../skills/i4h-workflow-dataset-convert/SKILL.md) | Convert an Arena HDF5 recording into a LeRobot dataset for visualization or training. | `Convert my scissor pick-and-place recording into a LeRobot dataset.` |
+| ✓ [`i4h-lerobot-viz`](../../skills/i4h-lerobot-viz/SKILL.md) | Serve the LeRobot HTML visualizer for inspecting converted datasets in a browser. | `Serve the LeRobot visualizer for my converted scissor pick-and-place dataset and show me the local URL.` |
+| ◐ [`i4h-workflow-finetune`](../../skills/i4h-workflow-finetune/SKILL.md) | Fine-tune a GR00T or openpi PI0 policy on a converted LeRobot dataset. | `Fine-tune a policy for the scissor pick-and-place task on my converted dataset for a short smoke run.` |
+| ✓ [`i4h-workflow-validate`](../../skills/i4h-workflow-validate/SKILL.md) | Evaluate a configured policy or checkpoint by recording rollout episodes; annotate only when requested. | `Evaluate scissor pick and place with 3 episodes.` |
+| ◐ [`i4h-workflow-e2e`](../../skills/i4h-workflow-e2e/SKILL.md) | Run the full smoke pipeline from setup and recording through mimic, annotation, conversion, finetuning, and validation. | `Run the full end-to-end smoke pipeline for the scissor pick-and-place task.` |
 
 Additional Notes:
 
 - ◐ `i4h-workflow-dataset-teleop`: keyboard ✓, keyboard_23 ✓, so-arm-leader ✓, manus-gloves ✗
 - ◐ `i4h-workflow-finetune`: scissor_pick_and_place ✓, others ✗
 - ◐ `i4h-workflow-e2e`: scissor_pick_and_place ✓, others ✗
-- ○ `i4h-workflow-dataset-transfer`: not verified
 
 ## Quick E2E CLI Run
 

@@ -38,6 +38,7 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 - **Env config (source of truth):** `workflows/agentic/config/environments/<env>.yaml` — `robot.type`, `zenoh.camera_names`, and the task for `<env>`.
 - Teleop runs through `arena/run.sh --teleop`.
 - Device support is env-specific. Check `arena/run.sh --env <env> --help` for valid `--teleop-device` values.
+- Do not run teleop headless unless the user explicitly asks. Teleop is a GUI/hardware handoff: launching the recorder is not the same as recording successful demos.
 
 ## Controls
 
@@ -50,7 +51,7 @@ Reserved keys (consistent across devices):
 | `R` | Discard, reset |
 | `F` | Reserved by Isaac Sim — do not bind |
 
-Device-specific keybindings (move, rotate, gripper, mode switches) are printed by the teleop process at startup and vary by `--teleop-device`. Report them to the user from the log; they cannot drive the sim without them. See "Surface Device Keybindings".
+Device-specific keybindings (move, rotate, gripper, mode switches) are printed by the teleop process at startup and vary by `--teleop-device`. Report them to the user from the log; they cannot drive the sim without them. See "Surface Device Keybindings". For `keyboard_23d`, the banner can print late, after scene creation and recorder setup; wait for mode/control markers such as `BOTH_HANDS`, `HAND MODE`, `BASE NAVIGATION MODE`, `SPECIAL KEYS`, or `Current Mode` before saying the controls are missing.
 
 Stop from terminal:
 
@@ -70,6 +71,10 @@ For other envs, consult `arena/run.sh --env <env> --help`.
 
 ## Run
 
+Run the steps below in order. Each step is a separate bash call; variables persist in the local agent's tmux session.
+
+### Step 1 — setup
+
 ```bash
 REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
 ENV_ID=scissor_pick_and_place
@@ -77,7 +82,13 @@ RUNS_ROOT="${REPO_ROOT}/workflows/agentic/runs"
 RUN_DIR="${RUNS_ROOT}/teleop_${ENV_ID}_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "${RUN_DIR}/data" "${RUN_DIR}/logs"
 ln -sfn "${RUN_DIR}" "${RUNS_ROOT}/.latest"
+```
 
+### Step 2 — teleop record
+
+Use the foreground form when the human operator is ready to drive immediately and the agent can stay attached until completion:
+
+```bash
 "${REPO_ROOT}/workflows/agentic/arena/run.sh" \
   --env "${ENV_ID}" \
   --teleop \
@@ -87,13 +98,21 @@ ln -sfn "${RUN_DIR}" "${RUNS_ROOT}/.latest"
   2>&1 | tee "${RUN_DIR}/logs/teleop.log"
 ```
 
+If no human operator is ready, do not fake demos and do not leave a teleop process behind. You may launch long enough to confirm the visible GUI, recorder, and controls, then stop cleanly and report that recording is waiting on a human operator.
+
 ## Surface Device Keybindings
 
-The teleop process prints its keybinding table to stdout shortly after launch (look for sections such as `Keybindings`, `Controls`, `Key Map`, mode-switch lines, or any block enumerating keys → actions). Background the run, wait for the table to appear, extract it from the log, and report it to the user before they need to drive the sim.
+The teleop process prints its keybinding table to stdout shortly after launch (look for sections such as `Keybindings`, `Controls`, `Key Map`, `BOTH_HANDS`, `HAND MODE`, `BASE NAVIGATION MODE`, `SPECIAL KEYS`, `WORKSPACE LIMITS`, `Current Mode`, mode-switch lines, or any block enumerating keys/actions). Wait for the table to appear, extract it from the log, and report it to the user before they need to drive the sim.
 
 ```bash
-# After launching teleop in the background and tailing the log:
-sed -n '/Keybind\|Controls\|Key Map\|Current Mode\|Mode\] Switched/,/^$/p' "${RUN_DIR}/logs/teleop.log"
+# After launching teleop and tailing the log:
+for i in $(seq 1 180); do
+  if grep -qiE 'Keybind|Controls|Key Map|BOTH_HANDS|HAND MODE|BASE NAVIGATION MODE|SPECIAL KEYS|WORKSPACE LIMITS|Current Mode|Mode\] Switched|run complete|Traceback|Error' "${RUN_DIR}/logs/teleop.log" 2>/dev/null; then
+    break
+  fi
+  sleep 1
+done
+grep -n -A80 -E 'Keybind|Controls|Key Map|BOTH_HANDS|HAND MODE|BASE NAVIGATION MODE|SPECIAL KEYS|WORKSPACE LIMITS|Current Mode|Mode\] Switched' "${RUN_DIR}/logs/teleop.log" | head -120
 ```
 
 If the block is multi-section (e.g. `BOTH_HANDS`, `BASE_NAV`, `LEFT_HAND`, `RIGHT_HAND` modes), include every mode in the report. Append the reserved keys above so the user has one consolidated reference.
@@ -102,11 +121,13 @@ If the block is multi-section (e.g. `BOTH_HANDS`, `BASE_NAV`, `LEFT_HAND`, `RIGH
 
 - `--record-to` must be absolute. The recorder resolves relative paths against `workflows/agentic/arena` (its CWD) and writes to a nested orphan dir. `${RUN_DIR}/data/demo.hdf5` built from `${REPO_ROOT}` is absolute.
 - Use `--save-all-episodes` only when failed attempts must be kept.
+- If the prompt asks "Run teleop for N episodes" and no human/operator input is available, launch the visible recorder only for readiness/control verification, stop it cleanly, and report that no demos were recorded; do not claim N episodes were recorded.
 
 ## Verify
 
 - `${RUN_DIR}/data/demo.hdf5` exists.
-- Log contains `run complete: N/M episodes succeeded`.
+- Log contains `run complete: N/M episodes succeeded`, and N must equal the requested episode count before reporting success. A tiny HDF5 with `0/M episodes succeeded` is only a failed/empty recording artifact, not a usable dataset.
+- Before final response, verify no unintended teleop process is left running unless the user explicitly asked to keep it open.
 
 ## Prerequisites
 
@@ -127,7 +148,8 @@ If the block is multi-section (e.g. `BOTH_HANDS`, `BASE_NAV`, `LEFT_HAND`, `RIGH
 - **Error:** `.venv` not found / teleop fails to launch - Cause: workflow not set up. Fix: run [[i4h-workflow-setup]] first.
 - **Error:** invalid `--teleop-device` for env - Cause: device not supported by that env. Fix: pick a value from `arena/run.sh --env <env> --help` (or Known Devices).
 - **Error:** HDF5 written to an unexpected/nested location - Cause: `--record-to` was relative. Fix: pass an absolute path built from `${REPO_ROOT}`.
-- **Error:** keybindings missing / cannot drive the sim - Cause: the device keybinding table was not surfaced. Fix: background the run, extract the table from the log (see Surface Device Keybindings).
+- **Error:** keybindings missing / cannot drive the sim - Cause: the device keybinding table was not surfaced. Fix: extract the table from the log before the operator starts driving (see Surface Device Keybindings).
+- **Error:** run exits with `0/N episodes succeeded` - Cause: no human/operator completed episodes. Fix: record successful source demos with an operator; do not continue to mimic/convert/finetune from an empty HDF5.
 
 ## Final Response
 

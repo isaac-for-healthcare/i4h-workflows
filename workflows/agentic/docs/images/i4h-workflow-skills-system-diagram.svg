@@ -68,7 +68,7 @@
 
   <rect class="box data" x="655" y="420" width="180" height="82" />
   <text class="text" x="745" y="452" text-anchor="middle">Inspect + Expand</text>
-  <text class="small" x="745" y="477" text-anchor="middle">replay, mimic, transfer</text>
+  <text class="small" x="745" y="477" text-anchor="middle">replay, mimic</text>
 
   <rect class="box data" x="655" y="535" width="180" height="82" />
   <text class="text" x="745" y="567" text-anchor="middle">Label + Convert</text>

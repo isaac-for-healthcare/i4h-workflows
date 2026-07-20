@@ -38,8 +38,28 @@ class _BridgeJob:
     bake: dict[str, Any] | None = None
     timeout_s: float = 30.0
     submitted_at: float = field(default_factory=time.monotonic)
+    started_at: float | None = None
+    cancel_requested: bool = False
     done: threading.Event = field(default_factory=threading.Event)
     response: dict[str, Any] | None = None
+
+
+def _job_label(job: _BridgeJob) -> str:
+    if job.script_path is not None:
+        return f"script:{job.script_path.name}"
+    if job.list_objects:
+        return "objects"
+    if job.list_cameras:
+        return "cameras"
+    if job.capture_output_dir is not None:
+        return "capture"
+    if job.inspect_target is not None:
+        return f"object:{job.inspect_target}"
+    if job.teleport is not None:
+        return f"teleport:{job.teleport.get('name', '<unknown>')}"
+    if job.bake is not None:
+        return "bake"
+    return "unknown"
 
 
 def _snapshot_registered_rigid_bodies(stage: Any) -> set[str]:
@@ -352,6 +372,12 @@ class BridgeServer:
         self._jobs: Queue[_BridgeJob] = Queue()
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
+        self._state_lock = threading.Lock()
+        self._current_job: _BridgeJob | None = None
+        self._last_pump_at: float | None = None
+        self._last_job_finished_at: float | None = None
+        self._completed_jobs = 0
+        self._rejected_jobs = 0
 
     @property
     def url(self) -> str:
@@ -375,8 +401,44 @@ class BridgeServer:
         self._server = None
         logger.info("scene-edit HTTP bridge stopped")
 
+    def submit(self, job: _BridgeJob) -> tuple[bool, str | None]:
+        """Submit a main-loop job unless another one is already pending/running."""
+        with self._state_lock:
+            if self._current_job is not None:
+                current = self._current_job
+                age = time.monotonic() - (current.started_at or current.submitted_at)
+                self._rejected_jobs += 1
+                return False, f"main loop busy running {_job_label(current)!r} for {age:.1f}s"
+            if not self._jobs.empty():
+                self._rejected_jobs += 1
+                return False, "main loop already has a queued job"
+            self._jobs.put(job)
+        return True, None
+
+    def status(self) -> dict[str, Any]:
+        now = time.monotonic()
+        with self._state_lock:
+            current = self._current_job
+            status: dict[str, Any] = {
+                "queue_depth": self._jobs.qsize(),
+                "completed_jobs": self._completed_jobs,
+                "rejected_jobs": self._rejected_jobs,
+                "last_pump_age_s": None if self._last_pump_at is None else round(now - self._last_pump_at, 3),
+                "last_job_finished_age_s": (
+                    None if self._last_job_finished_at is None else round(now - self._last_job_finished_at, 3)
+                ),
+                "busy": current is not None,
+            }
+            if current is not None:
+                status["current_job"] = _job_label(current)
+                status["current_job_age_s"] = round(now - (current.started_at or current.submitted_at), 3)
+                status["current_job_timeout_s"] = current.timeout_s
+            return status
+
     def pump(self) -> int:
         """Run all pending bridge jobs. Call from the Isaac Sim main thread."""
+        with self._state_lock:
+            self._last_pump_at = time.monotonic()
         processed = 0
         while True:
             try:
@@ -384,7 +446,25 @@ class BridgeServer:
             except Empty:
                 return processed
             processed += 1
-            self._run_job(job)
+            now = time.monotonic()
+            if job.done.is_set() or job.cancel_requested or now - job.submitted_at > job.timeout_s:
+                if not job.done.is_set():
+                    job.response = {
+                        "ok": False,
+                        "error": f"{_job_label(job)} expired before the main loop started",
+                    }
+                    job.done.set()
+                continue
+            with self._state_lock:
+                job.started_at = now
+                self._current_job = job
+            try:
+                self._run_job(job)
+            finally:
+                with self._state_lock:
+                    self._current_job = None
+                    self._completed_jobs += 1
+                    self._last_job_finished_at = time.monotonic()
 
     def _run_job(self, job: _BridgeJob) -> None:
         helpers = BridgeHelpers(self.ctx)
@@ -469,6 +549,7 @@ class BridgeServer:
                             "capture_url": f"{bridge.url}/capture",
                             "teleport_url": f"{bridge.url}/object/teleport",
                             "bake_url": f"{bridge.url}/bake",
+                            "main_loop": bridge.status(),
                         }
                     )
                     return
@@ -511,12 +592,17 @@ class BridgeServer:
                         timeout_s = float(_single_query_value(params, "timeout") or 5.0)
                         env_index = int(_single_query_value(params, "env_index") or 0)
                         job = _BridgeJob(list_objects=True, inspect_env_index=env_index, timeout_s=timeout_s)
-                        bridge._jobs.put(job)
+                        accepted, error = bridge.submit(job)
+                        if not accepted:
+                            self._send_json({"ok": False, "error": error, "main_loop": bridge.status()}, status=409)
+                            return
                         if not job.done.wait(timeout_s):
+                            job.cancel_requested = True
                             self._send_json(
                                 {
                                     "ok": False,
                                     "error": f"object list timed out after {timeout_s:.1f}s waiting for main loop",
+                                    "main_loop": bridge.status(),
                                 },
                                 status=504,
                             )
@@ -534,12 +620,17 @@ class BridgeServer:
                         timeout_s = float(_single_query_value(params, "timeout") or 5.0)
                         env_index = int(_single_query_value(params, "env_index") or 0)
                         job = _BridgeJob(inspect_target=target, inspect_env_index=env_index, timeout_s=timeout_s)
-                        bridge._jobs.put(job)
+                        accepted, error = bridge.submit(job)
+                        if not accepted:
+                            self._send_json({"ok": False, "error": error, "main_loop": bridge.status()}, status=409)
+                            return
                         if not job.done.wait(timeout_s):
+                            job.cancel_requested = True
                             self._send_json(
                                 {
                                     "ok": False,
                                     "error": f"object query timed out after {timeout_s:.1f}s waiting for main loop",
+                                    "main_loop": bridge.status(),
                                 },
                                 status=504,
                             )
@@ -553,12 +644,17 @@ class BridgeServer:
                         params = parse_qs(parsed.query)
                         timeout_s = float(_single_query_value(params, "timeout") or 5.0)
                         job = _BridgeJob(list_cameras=True, timeout_s=timeout_s)
-                        bridge._jobs.put(job)
+                        accepted, error = bridge.submit(job)
+                        if not accepted:
+                            self._send_json({"ok": False, "error": error, "main_loop": bridge.status()}, status=409)
+                            return
                         if not job.done.wait(timeout_s):
+                            job.cancel_requested = True
                             self._send_json(
                                 {
                                     "ok": False,
                                     "error": f"camera list timed out after {timeout_s:.1f}s waiting for main loop",
+                                    "main_loop": bridge.status(),
                                 },
                                 status=504,
                             )
@@ -584,12 +680,17 @@ class BridgeServer:
                             capture_viewport=viewport,
                             timeout_s=timeout_s,
                         )
-                        bridge._jobs.put(job)
+                        accepted, error = bridge.submit(job)
+                        if not accepted:
+                            self._send_json({"ok": False, "error": error, "main_loop": bridge.status()}, status=409)
+                            return
                         if not job.done.wait(timeout_s):
+                            job.cancel_requested = True
                             self._send_json(
                                 {
                                     "ok": False,
                                     "error": f"capture timed out after {timeout_s:.1f}s waiting for main loop",
+                                    "main_loop": bridge.status(),
                                 },
                                 status=504,
                             )
@@ -603,12 +704,17 @@ class BridgeServer:
                         payload = self._read_json()
                         timeout_s = float(payload.get("timeout", 30.0))
                         job = _BridgeJob(teleport=payload, timeout_s=timeout_s)
-                        bridge._jobs.put(job)
+                        accepted, error = bridge.submit(job)
+                        if not accepted:
+                            self._send_json({"ok": False, "error": error, "main_loop": bridge.status()}, status=409)
+                            return
                         if not job.done.wait(timeout_s):
+                            job.cancel_requested = True
                             self._send_json(
                                 {
                                     "ok": False,
                                     "error": f"teleport timed out after {timeout_s:.1f}s waiting for main loop",
+                                    "main_loop": bridge.status(),
                                 },
                                 status=504,
                             )
@@ -622,10 +728,18 @@ class BridgeServer:
                         payload = self._read_json()
                         timeout_s = float(payload.get("timeout", 30.0))
                         job = _BridgeJob(bake=payload, timeout_s=timeout_s)
-                        bridge._jobs.put(job)
+                        accepted, error = bridge.submit(job)
+                        if not accepted:
+                            self._send_json({"ok": False, "error": error, "main_loop": bridge.status()}, status=409)
+                            return
                         if not job.done.wait(timeout_s):
+                            job.cancel_requested = True
                             self._send_json(
-                                {"ok": False, "error": f"bake timed out after {timeout_s:.1f}s waiting for main loop"},
+                                {
+                                    "ok": False,
+                                    "error": f"bake timed out after {timeout_s:.1f}s waiting for main loop",
+                                    "main_loop": bridge.status(),
+                                },
                                 status=504,
                             )
                             return
@@ -643,10 +757,18 @@ class BridgeServer:
                         raise ValueError("JSON body must contain absolute script 'path'")
                     timeout_s = float(payload.get("timeout", 30.0))
                     job = _BridgeJob(script_path=script_path, timeout_s=timeout_s)
-                    bridge._jobs.put(job)
+                    accepted, error = bridge.submit(job)
+                    if not accepted:
+                        self._send_json({"ok": False, "error": error, "main_loop": bridge.status()}, status=409)
+                        return
                     if not job.done.wait(timeout_s):
+                        job.cancel_requested = True
                         self._send_json(
-                            {"ok": False, "error": f"script timed out after {timeout_s:.1f}s waiting for main loop"},
+                            {
+                                "ok": False,
+                                "error": f"script timed out after {timeout_s:.1f}s waiting for main loop",
+                                "main_loop": bridge.status(),
+                            },
                             status=504,
                         )
                         return
@@ -701,6 +823,16 @@ def _classify_scene_asset(scene: Any, name: str) -> tuple[str, Any | None]:
         asset = scene[name]
     except (KeyError, IndexError, TypeError):
         return ("xform", None)
+
+    # Camera ``data`` is a lazy property that renders/updates buffers on access.
+    # Classification must stay passive; otherwise cheap endpoints such as
+    # /objects can unexpectedly run camera work or block on a partially-added
+    # live sensor.
+    cfg = getattr(asset, "cfg", None)
+    if "camera" in type(asset).__name__.lower() or (
+        cfg is not None and hasattr(cfg, "data_types") and hasattr(cfg, "height") and hasattr(cfg, "width")
+    ):
+        return ("camera", asset)
 
     # Discriminate by the strongest available signal. IsaacLab's RigidObjectData
     # also exposes ``root_link_pose_w``, so that alone is not enough to tell
@@ -1071,15 +1203,6 @@ def _wait_for_capture(
     eventually write the file but our wait loop already returned, so we
     falsely reported ``"viewport capture did not produce a file"``.
     """
-    wait = getattr(capture, "wait_for_result", None)
-    if callable(wait):
-        try:
-            wait()
-        except BaseException:  # noqa: BLE001
-            # Some Kit builds raise on uncompleted futures — fall through to polling.
-            pass
-        if output_path is None or output_path.is_file():
-            return True
     for _ in range(max_iters):
         _render_once(ctx)
         update = getattr(ctx.app, "update", None)

@@ -83,10 +83,17 @@ def run(args: argparse.Namespace) -> None:
             action_head_future_tokens=policy_config.action_head_future_tokens,
             trt_engine_path=trt_engine_path,
         )
+        health.set_metadata(
+            env=args.env,
+            model_path=str(policy.model_path),
+            model_repo=model_repo,
+            model_revision=model_revision,
+        )
         logger.info("Assemble Trocar policy ready in %.1fs", time.monotonic() - t0)
         period = 1.0 / control_hz
-        health.set("waiting_for_samples")
         with PolicyIO(env_id=args.env) as io:
+            health.set("waiting_for_samples")
+            logger.info("policy IO ready; waiting for Assemble Trocar Arena samples")
             deadline = time.monotonic() + args.warmup_timeout if args.warmup_timeout > 0 else None
             while not stop:
                 if io.wait_for_data(timeout=5.0):

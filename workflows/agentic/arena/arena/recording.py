@@ -48,8 +48,9 @@ def setup_recording(
     Args:
         ctx: SimpleNamespace with at least ``env``.
         dataset_path: HDF5 output path; parent dirs are created.
-        streaming: Use :class:`StreamingRecorderManager` so the file grows as
-            episodes finish (otherwise everything is buffered until close).
+        streaming: Use :class:`StreamingRecorderManager` so the file grows
+            during an episode. Filtered recording forces this off because
+            discarded attempts must never be partially exported.
         filter_success: When True, only :func:`save_successful_episode` exports
             an episode; failed attempts must be cleared via
             :func:`discard_episode`. When False, every buffered episode flushes
@@ -61,6 +62,9 @@ def setup_recording(
     env = ctx.env
     path = Path(dataset_path).expanduser().resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
+    if streaming and filter_success:
+        logger.info("recording filter_success=True; disabling streaming so discarded attempts stay out of HDF5")
+        streaming = False
 
     cfg = env.cfg.recorders
     cfg.dataset_export_mode = (

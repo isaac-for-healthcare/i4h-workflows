@@ -20,6 +20,7 @@ policy:
   infer_module: policy.assemble_trocar.infer.infer
   train_module:
 arena:
+  bridge_port: 8868
   description: G1 dex-hand assemble-trocar task.
   max_timesteps: 250
 dataset:

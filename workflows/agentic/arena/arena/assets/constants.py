@@ -9,6 +9,9 @@ MAIN_BACKGROUND_USD = ASSET_PATH + "Props/Rheo/main_new_light.usd"
 TROCAR_ASSEMBLY_SCENE_USD = ASSET_PATH + "Props/LightWheel/scene03.usd"
 
 # Robots
+STAR_USD = ASSET_PATH + "Robots/STAR/star.usd"
+DVRK_ECM_USD = ASSET_PATH + "Robots/dVRK/ECM/ecm.usd"
+DVRK_PSM_USD = ASSET_PATH + "Robots/dVRK/PSM/psm.usd"
 UNITREE_G1_29DOF_BASE_FIX_USD = (
     ASSET_PATH + "Robots/UnitreeG1/g1_29dof_with_dex3_base_fix/g1_29dof_with_dex3_base_fix.usd"
 )
@@ -33,7 +36,14 @@ TABLE_WITH_COVER_USD = ASSET_PATH + "Props/VentionTable/BlackCover/table_with_co
 
 # Scissor pick-and-place task props
 SOARM101_USD = ASSET_PATH + "Robots/SO-ARM/SO-ARMDualCamera.usd"
+BOARD_USD = ASSET_PATH + "Props/Board/board.usd"
+BLOCK_USD = ASSET_PATH + "Props/PegBlock/block.usd"
+NEEDLE_USD = ASSET_PATH + "Props/SutureNeedle/needle.usd"
+NEEDLE_SDF_USD = ASSET_PATH + "Props/SutureNeedle/needle_sdf.usd"
+ORGANS_USD = ASSET_PATH + "Props/Organs/organs.usd"
 SCISSOR_TABLE_USD = ASSET_PATH + "Props/Table/table.usd"
 SCISSORS_USD = ASSET_PATH + "Props/SurgicalInstruments/SurgicalScissors.usd"
 SCISSOR_TRAY_USD = ASSET_PATH + "Props/SurgicalInstruments/SurgicalTray.usd"
+SUTURE_PAD_USD = ASSET_PATH + "Props/SuturePad/suture_pad.usd"
 SURGICAL_TWEEZERS_USD = ASSET_PATH + "Props/LightWheel/Assets/SurgicalTweezers/AngledTweezers001.usd"
+TABLE_USD = ASSET_PATH + "Props/Table/table.usd"

@@ -30,6 +30,7 @@ policy:
     max_steps: 20000
     save_steps: 5000
 arena:
+  bridge_port: 8867
   description: G1 loco-manipulation cart-push task.
   max_timesteps: 1800
 dataset:

@@ -1,0 +1,28 @@
+# Catheter Navigation (local host) pinned Python dependencies
+# Install with:
+#   pip install -r workflows/catheter_navigation/requirements.txt
+#
+# Notes:
+# - Torch pins use CUDA 12.1 wheels for host installs.
+# - Tutorial packages are pinned to an internal commit SHA until public release.
+
+--extra-index-url https://download.pytorch.org/whl/cu121
+
+numpy==1.26.4
+scipy==1.15.3
+matplotlib==3.10.9
+warp-lang==1.15.0
+slangpy==0.43.1
+SimpleITK==2.5.2
+nibabel==5.3.2
+opencv-python==4.10.0.84
+vtk==9.6.2
+scikit-image==0.25.2
+totalsegmentator==2.15.0
+
+torch==2.5.1+cu121
+torchvision==0.20.1+cu121
+
+git+https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git@945948d79b54919ee1d5218f89362cbd501547a9#subdirectory=fluoro-simulator
+git+https://github.com/isaac-for-healthcare/i4h-tutorials-internal.git@fd244fd52f1072106cf182dca9de3f5d7a9970b8#subdirectory=vasculature-digital-twin
+git+https://github.com/isaac-for-healthcare/i4h-tutorials-internal.git@fd244fd52f1072106cf182dca9de3f5d7a9970b8#subdirectory=catheter-vasculature-solver

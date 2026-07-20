@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+robot:
+  type: psm
+  home_joint_pos_rad: [0.01, 0.01, 0.07, 0.01, 0.01, 0.01, 0.09]
+zenoh:
+  camera_names: [room]
+policy:
+  stack: gr00t_n15
+  health_port: 8776
+  model_repo: nvidia/GR00T-N1.5-3B
+  model_revision: null
+  task_description: Lift the peg-transfer block with the dVRK PSM
+  embodiment_tag: new_embodiment
+  action_horizon: 16
+  action_head_future_tokens: 0
+  execution_steps: 16
+  control_hz: 60.0
+  data_config: psm_singlecam
+  denoising_steps: 4
+  image_size: [256, 256]
+  trt_engine_path: null
+  infer_module: policy.surgical_baseline.infer.infer
+  train_module: null
+arena:
+  bridge_port: 8875
+  description: dVRK PSM peg-transfer block lift task.
+  max_timesteps: 250
+dataset:
+  joint_space: raw
+  state_obs_key: joint_pos
+  action_names: [psm_yaw_joint.pos, psm_pitch_end_joint.pos, psm_main_insertion_joint.pos, psm_tool_roll_joint.pos, psm_tool_pitch_joint.pos, psm_tool_yaw_joint.pos, psm_tool_gripper.pos]
+  state_names: [psm_yaw_joint.pos, psm_pitch_end_joint.pos, psm_main_insertion_joint.pos, psm_tool_roll_joint.pos, psm_tool_pitch_joint.pos, psm_tool_yaw_joint.pos, psm_tool_gripper1_joint.pos, psm_tool_gripper2_joint.pos]
+  state_split: [[single_arm, 0, 6], [gripper, 6, 8]]
+  action_split: [[single_arm, 0, 6], [gripper, 6, 7]]

@@ -10,7 +10,13 @@ from typing import Any
 
 import torch
 from arena.dump import SceneDumper, parse_scene_pose_names, should_dump_scene_step
-from arena.environments.base import AgenticEnvironmentBase, policy_io_factory
+from arena.environments.core.base import AgenticEnvironmentBase, policy_io_factory
+from arena.statemachine.core.dispatch import (
+    add_state_machine_cli_args,
+    configure_state_machine_args,
+    run_state_machine_module,
+    state_machine_requested,
+)
 from common.utils import nonnegative_int, resolve_path
 from tqdm import trange
 
@@ -24,9 +30,11 @@ def _episode_indices(value: str) -> tuple[int, ...]:
 
 class UltrasoundLiverScanEnvironment(AgenticEnvironmentBase):
     name: str = "ultrasound_liver_scan"
+    state_machine_module: str = "arena.statemachine.ultrasound_liver_scan"
 
     @classmethod
     def add_cli_args(cls, parser: argparse.ArgumentParser) -> None:
+        add_state_machine_cli_args(parser)
         parser.add_argument(
             "--episode-length-s",
             type=float,
@@ -91,6 +99,10 @@ class UltrasoundLiverScanEnvironment(AgenticEnvironmentBase):
         parser.add_argument("--replay", dest="replay_dataset_path", default=None, metavar="DATASET_PATH")
         parser.add_argument("--episode-index", dest="replay_episode_index", type=_episode_indices, default=(0,))
 
+    def configure_args(self, args: argparse.Namespace) -> None:
+        configure_state_machine_args(args, default_episodes=1)
+        super().configure_args(args)
+
     def register_assets(self) -> None:
         # IsaacLab-Arena lazily scans installed packages for @register_asset
         # entries. The package scan tries to import optional Lightwheel SDK
@@ -113,7 +125,9 @@ class UltrasoundLiverScanEnvironment(AgenticEnvironmentBase):
         return IsaacLabArenaEnvironment(name=self.name, embodiment=embodiment, scene=scene, task=task)
 
     def run(self, args, env, app, controller) -> None:
-        if getattr(args, "replay_dataset_path", None):
+        if state_machine_requested(args):
+            run_state_machine_module(self.state_machine_module, args=args, env=env, app=app, controller=controller)
+        elif getattr(args, "replay_dataset_path", None):
             self._run_replay(args, env, app, controller)
         elif getattr(args, "teleop", False):
             self._run_teleop(args, env, app, controller)

@@ -347,7 +347,7 @@ wheels = [
 [[package]]
 name = "flash-attn"
 version = "2.7.4.post1"
-source = { url = "https://urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_aarch64.whl" }
+source = { url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_aarch64.whl" }
 resolution-markers = [
     "platform_machine == 'aarch64' and sys_platform == 'linux'",
 ]
@@ -356,7 +356,7 @@ dependencies = [
     { name = "torch", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_aarch64.whl", hash = "sha256:3c1047bffe7e0f78f386a06efd5e4e392aec9c1673716771bffa0e2abe6b6f5a" },
+    { url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_aarch64.whl", hash = "sha256:3c1047bffe7e0f78f386a06efd5e4e392aec9c1673716771bffa0e2abe6b6f5a" },
 ]
 
 [package.metadata]
@@ -368,7 +368,7 @@ requires-dist = [
 [[package]]
 name = "flash-attn"
 version = "2.7.4.post1"
-source = { url = "https://urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl" }
+source = { url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl" }
 resolution-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux'",
 ]
@@ -377,7 +377,7 @@ dependencies = [
     { name = "torch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl", hash = "sha256:458e4fbff3f9e1e3fb12327e5d0530a490c238c4b8f3fcedd57a8c7e74985f37" },
+    { url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl", hash = "sha256:458e4fbff3f9e1e3fb12327e5d0530a490c238c4b8f3fcedd57a8c7e74985f37" },
 ]
 
 [package.metadata]
@@ -655,8 +655,8 @@ source = { editable = "." }
 dependencies = [
     { name = "decord2", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
     { name = "diffusers", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
-    { name = "flash-attn", version = "2.7.4.post1", source = { url = "https://urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "flash-attn", version = "2.7.4.post1", source = { url = "https://urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "flash-attn", version = "2.7.4.post1", source = { url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "flash-attn", version = "2.7.4.post1", source = { url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "gr00t", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
     { name = "huggingface-hub", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
     { name = "i4h-agentic-common", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
@@ -679,8 +679,8 @@ requires-dist = [
     { name = "decord2", marker = "platform_machine == 'aarch64'", specifier = "==3.3.0" },
     { name = "diffusers", specifier = "==0.30.2" },
     { name = "flash-attn", marker = "platform_machine != 'aarch64' and platform_machine != 'x86_64'", specifier = "==2.7.4.post1" },
-    { name = "flash-attn", marker = "platform_machine == 'aarch64'", url = "https://urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_aarch64.whl" },
-    { name = "flash-attn", marker = "platform_machine == 'x86_64'", url = "https://urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl" },
+    { name = "flash-attn", marker = "platform_machine == 'aarch64'", url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_aarch64.whl" },
+    { name = "flash-attn", marker = "platform_machine == 'x86_64'", url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl" },
     { name = "gr00t", editable = "../../third_party/Isaac-GR00T-1.6" },
     { name = "huggingface-hub", specifier = ">=0.24" },
     { name = "i4h-agentic-common", editable = "../../common" },

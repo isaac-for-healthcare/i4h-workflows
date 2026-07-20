@@ -48,8 +48,8 @@ torch = { index = "pytorch-cu130" }
 torchvision = { index = "pytorch-cu130" }
 # Downloaded from NVIDIA artifactory; see tools/env_setup/install_flash_attn.sh.
 flash-attn = [
-    { url = "https://urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl",  marker = "platform_machine == 'x86_64'"  },
-    { url = "https://urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_aarch64.whl", marker = "platform_machine == 'aarch64'" },
+    { url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl",  marker = "platform_machine == 'x86_64'"  },
+    { url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_aarch64.whl", marker = "platform_machine == 'aarch64'" },
 ]
 
 [[tool.uv.index]]

@@ -73,6 +73,12 @@ def run(args: argparse.Namespace) -> None:
         policy_config_data=policy_config_data,
         config_base_dir=environment_config_path().parent.parent,
     )
+    health.set_metadata(
+        env=args.env,
+        model_path=str(policy.resolved_model_path),
+        model_repo=model_repo,
+        model_revision=model_revision,
+    )
     logger.info("G1 GR00T policy ready in %.1fs", time.monotonic() - t0)
     control_hz = args.control_hz or policy_config.control_hz
     execution_steps = args.execution_steps or policy_config.execution_steps
@@ -80,8 +86,9 @@ def run(args: argparse.Namespace) -> None:
         raise ValueError(f"policy config for {args.env} must define control_hz and execution_steps")
     period = 1.0 / control_hz
     try:
-        health.set("waiting_for_samples")
         with PolicyIO(device=args.policy_device, num_envs=args.num_envs, env_id=args.env) as io:
+            health.set("waiting_for_samples")
+            logger.info("policy IO ready; waiting for G1 Arena samples")
             deadline = time.monotonic() + args.warmup_timeout if args.warmup_timeout > 0 else None
             while not stop:
                 if io.wait_for_data(timeout=5.0):

@@ -27,6 +27,7 @@ policy:
     max_steps: 1000
     save_steps: 1000
 arena:
+  bridge_port: 8865
   description: SO-ARM 101 scissor pick-and-place task.
   max_timesteps: 600
 dataset:

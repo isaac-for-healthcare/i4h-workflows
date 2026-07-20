@@ -1,0 +1,172 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+# http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+FROM nvcr.io/nvidia/isaac-sim:6.0.1
+
+ARG WORKDIR="/workspaces"
+ARG VENV_DIR="/opt/env_isaaclab_n17"
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV WORKDIR=${WORKDIR}
+ENV VENV_DIR=${VENV_DIR}.
+ENV ISAACLAB_PATH=${WORKDIR}/third_party/IsaacLab-3-0-dev
+
+# Env vars normally exported by /isaac-sim/python.sh. We do not use python.sh
+# (venv Python instead), so replicate them at the image layer:
+#   - ISAAC_PATH: read by isaacsim/__init__.py::expose_api() glob for
+#     exts*/isaacsim.simulation_app*; without it `import isaacsim` prints
+#     "[Warning] Unable to expose 'isaacsim.simulation_app' API: Extension not
+#     found." and SimulationApp is None.
+#   - EXP_PATH: read by IsaacLab AppLauncher (_resolve_experience_file) to
+#     locate the .kit experience file; missing var => KeyError('EXP_PATH').
+#   - CARB_APP_PATH: root path Kit uses to resolve its own binaries/plugins.
+ENV ISAAC_PATH=/isaac-sim
+ENV EXP_PATH=/isaac-sim/apps
+ENV CARB_APP_PATH=/isaac-sim/kit
+
+# Skip the interactive Omniverse EULA + privacy prompts on first Kit launch.
+ENV ACCEPT_EULA=Y
+ENV PRIVACY_CONSENT=Y
+
+WORKDIR ${WORKDIR}
+
+USER root
+
+# Hide conflicting Vulkan files (matches Dockerfile.x86 behavior).
+RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
+        mv /usr/share/vulkan /usr/share/vulkan_hidden; \
+    fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# System packages
+# ─────────────────────────────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        git-lfs \
+        cmake \
+        build-essential \
+        pkg-config \
+        libegl1-mesa-dev \
+        libgles2-mesa-dev \
+        libgl1-mesa-dev \
+        sudo \
+        ffmpeg \
+        python3 \
+        python3-venv \
+        python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# ─────────────────────────────────────────────────────────────────────────────
+# zenity shim: Kit's omni.client shells out to `zenity` for Nucleus login popups.
+# In headless/container runs there's no display; without a zenity binary the
+# invocations spam `sh: 1: zenity: not found` (harmless but noisy). Provide a
+# shim that just `exit 1`s — omni.client treats non-zero as "user cancelled"
+# and falls back to anonymous / local-USD mode, which is what we want here.
+# Mirrors the ~/bin/zenity trick used on the host.
+# ─────────────────────────────────────────────────────────────────────────────
+RUN printf '#!/bin/sh\nexit 1\n' > /usr/local/bin/zenity \
+    && chmod +x /usr/local/bin/zenity
+
+# ─────────────────────────────────────────────────────────────────────────────
+# uv + venv
+# ─────────────────────────────────────────────────────────────────────────────
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && mv /root/.local/bin/uv /usr/local/bin/uv \
+    && mv /root/.local/bin/uvx /usr/local/bin/uvx
+
+# Single seeded venv that mirrors the host env_isaaclab_n17 layout.
+RUN uv venv --python 3.12 --seed ${VENV_DIR} \
+    && ${VENV_DIR}/bin/python -m pip install --upgrade pip
+
+# Anything below this line uses the venv's pip implicitly.
+ENV VIRTUAL_ENV=${VENV_DIR}
+ENV PATH="${VENV_DIR}/bin:${PATH}"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IsaacSim 6.0.1 comes preinstalled in the base image at /isaac-sim.
+# IsaacLab picks it up via the `_isaac_sim` symlink created below.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Torch 2.10 (CUDA 12.8 wheels) — pinned to keep IsaacLab + GR00T compatible
+# ─────────────────────────────────────────────────────────────────────────────
+RUN uv pip install -U \
+        "torch==2.10.0" \
+        "torchvision==0.25.0" \
+        --index-url https://download.pytorch.org/whl/cu128
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IsaacLab — COPY host's third_party/IsaacLab-3-0-dev (already pinned to the
+# cloth commit by run_docker.sh), then install into the same venv via ./isaaclab.sh
+# ─────────────────────────────────────────────────────────────────────────────
+COPY ./third_party/IsaacLab-3-0-dev ${ISAACLAB_PATH}
+
+ENV TERM=xterm
+# isaaclab.sh expects to find isaac-sim via `_isaac_sim` symlink for some helpers.
+RUN ln -s /isaac-sim/ ${ISAACLAB_PATH}/_isaac_sim || true
+
+# The NGC isaac-sim:6.0.1 image ships /isaac-sim/setup_python_env.sh but not
+# setup_conda_env.sh — which is what isaaclab.sh sources to pick up Kit's
+# PYTHONPATH (so `import isaacsim` works in the venv). Symlink them.
+RUN ln -sf /isaac-sim/setup_python_env.sh /isaac-sim/setup_conda_env.sh
+
+RUN ${ISAACLAB_PATH}/isaaclab.sh --install \
+    && python -c "import isaaclab; print(isaaclab.__file__)"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CloudXR native lib fixup.
+#
+# The isaac-sim:6.0.1 base image ships a broken libPoco.so under
+# isaacsim.replicator.teleop's pip_prebundle: its 6th PT_LOAD segment has a
+# non-page-aligned p_offset (0x7f1698 vs p_vaddr 0x7f8000). Since setup_python_env.sh
+# puts pip_prebundle ahead of the venv on PYTHONPATH, `python -m isaacteleop.cloudxr`
+# resolves that copy and glibc's ld.so rejects it with:
+#     OSError: libPoco.so: ELF load command address/offset not page-aligned
+#
+# The isaacteleop pulled into the venv by isaaclab.sh --install has a correctly
+# aligned build (LOAD6 offset==0x7f2000). Overwrite the pip_prebundle native/
+# folder with the venv copy so the fix survives container recreate / image rebuild.
+# ─────────────────────────────────────────────────────────────────────────────
+RUN CXR_GOOD="${VENV_DIR}/lib/python3.12/site-packages/isaacteleop/cloudxr/native" \
+    && CXR_BAD="/isaac-sim/exts/isaacsim.replicator.teleop/pip_prebundle/isaacteleop/cloudxr/native" \
+    && if [ -f "$CXR_GOOD/libPoco.so" ] && [ -f "$CXR_BAD/libPoco.so" ]; then \
+           mv "$CXR_BAD" "${CXR_BAD}.broken" \
+           && cp -a "$CXR_GOOD" "$CXR_BAD" \
+           && echo "Patched CloudXR native libs: $CXR_BAD <- $CXR_GOOD" ; \
+       else \
+           echo "WARN: CloudXR patch skipped (missing $CXR_GOOD or $CXR_BAD)"; \
+           exit 1; \
+       fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Workflow env vars + aliases
+# ─────────────────────────────────────────────────────────────────────────────
+ENV PYTHONPATH=${WORKDIR}/workflows/rheo/scripts:${WORKDIR}/workflows/rheo/scripts/simulation/rl
+
+RUN echo "source ${VENV_DIR}/bin/activate" >> /etc/bash.bashrc \
+    && echo ". /isaac-sim/setup_python_env.sh" >> /etc/bash.bashrc \
+    && echo "export LD_PRELOAD=/isaac-sim/kit/libcarb.so\${LD_PRELOAD:+:\$LD_PRELOAD}" >> /etc/bash.bashrc \
+    && echo "export PYTHONPATH=${WORKDIR}/workflows/rheo/scripts:${WORKDIR}/workflows/rheo/scripts/simulation/rl:\$PYTHONPATH" >> /etc/bash.bashrc \
+    && echo "[ -f /root/.cloudxr/run/cloudxr.env ] && . /root/.cloudxr/run/cloudxr.env" >> /etc/bash.bashrc \
+    && echo "alias ll='ls -alF --color=auto'" >> /etc/bash.bashrc \
+    && echo "alias ..='cd ..'" >> /etc/bash.bashrc \
+    && echo "PS1='[RHEO-CLOTH] \[\e[0;32m\]\u\[\e[0m\] \[\e[0;34m\]\w\[\e[0m\] \$ '" >> /etc/bash.bashrc \
+    && cp /etc/bash.bashrc /root/.bashrc
+
+# Match Dockerfile.x86's entrypoint if it exists in the build context;
+# otherwise fall back to a login bash so the venv activation in bashrc runs.
+ENTRYPOINT ["/bin/bash", "-l"]

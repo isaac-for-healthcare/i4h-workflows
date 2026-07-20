@@ -14,7 +14,6 @@ policy backends are built from the same YAML routing fields.
 workflows/agentic/policy/setup.sh                          # set up every subproject (or pass names to pick)
 workflows/agentic/policy/run.sh --list-envs                # show env -> subproject mapping + policy language
 workflows/agentic/policy/run.sh --env <env_id> [args...]   # dispatch
-workflows/agentic/policy/run.sh --all                      # start every supported policy daemon
 ```
 
 ## Examples
@@ -29,10 +28,10 @@ workflows/agentic/policy/run.sh --env assemble_trocar
 workflows/agentic/policy/run.sh --env ultrasound_liver_scan
 ```
 
-Or start every supported policy daemon at once:
+Start only the policy needed for the active environment; validation and e2e runs do not launch every policy daemon.
 
 ```bash
-workflows/agentic/policy/run.sh --all
+workflows/agentic/policy/run.sh --env scissor_pick_and_place --ensure --log /tmp/policy.log
 ```
 
 Default health ports are configured per env YAML. Policy inference traffic

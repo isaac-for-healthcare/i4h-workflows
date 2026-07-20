@@ -3,6 +3,11 @@ ci:
   autoupdate_commit_msg: '[pre-commit.ci] pre-commit suggestions'
   autoupdate_schedule: quarterly
 
+# Signed skill artifacts: skill.oms.sig records per-file digests of the
+# generated BENCHMARK.md and skill-card.md, so any lint fix to these files
+# breaks signature verification. Keep them out of all hooks.
+exclude: '^skills/[^/]+/(BENCHMARK\.md|skill-card\.md|skill\.oms\.sig)$'
+
 repos:
   # pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks

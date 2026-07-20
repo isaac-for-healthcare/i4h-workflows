@@ -203,6 +203,7 @@ EOF
   train support:                $([[ "$TRAIN_SUPPORTED" == "1" ]] && echo "$TRAIN_BIN" || echo "inference-only")
   finetune steps/save/bs/gpus: ${FINETUNE_MAX_STEPS}/${FINETUNE_SAVE_STEPS}/${FINETUNE_BATCH_SIZE}/${FINETUNE_GPUS}
   verify episodes/attempts:    ${VERIFY_EPISODES}/${VERIFY_MAX_ATTEMPTS}
+  arena render:                 $([[ "$ARENA_HEADLESS" == "1" ]] && echo "headless cameras (${ARENA_RENDERING_MODE})" || echo "visible")
   policy ready timeout:        ${POLICY_LOAD_WAIT_SECONDS}s
   vLLM ready timeout:          ${VLLM_READY_TIMEOUT_SECONDS}s
   viz:                         $([[ "$SKIP_VIZ" == "1" ]] && echo "skip" || echo "start")
@@ -222,6 +223,12 @@ e2e_filter_plan_description() {
   fi
 }
 
+e2e_arena_rollout_args() {
+  if [[ "$ARENA_HEADLESS" == "1" ]]; then
+    printf '%s\0' --headless --enable_cameras --rendering_mode "$ARENA_RENDERING_MODE"
+  fi
+}
+
 stage_setup() {
   e2e_stage 1 "setup"
   workflows/agentic/setup.sh 2>&1 | tee "$LOGS/01_setup.log"
@@ -229,9 +236,11 @@ stage_setup() {
 
 stage_record() {
   e2e_stage 2 "record ${RECORD_EPISODES} successful base-policy episodes"
+  local arena_args=()
+  mapfile -d '' -t arena_args < <(e2e_arena_rollout_args)
   e2e_start_policy "$LOGS/02a_policy.log"
   workflows/agentic/arena/run.sh --env "$ENV" --episodes "$RECORD_EPISODES" --max-attempts "$RECORD_MAX_ATTEMPTS" \
-    --record-to "$RECORD_HDF5" 2>&1 | tee "$LOGS/02b_arena.log"
+    --record-to "$RECORD_HDF5" "${arena_args[@]}" 2>&1 | tee "$LOGS/02b_arena.log"
   e2e_stop_policy
 }
 
@@ -411,9 +420,11 @@ stage_validate() {
 
   e2e_discover_checkpoint
 
+  local arena_args=()
+  mapfile -d '' -t arena_args < <(e2e_arena_rollout_args)
   e2e_start_policy "$LOGS/09a_verify_policy.log" --model-path "$CKPT" "${EXTRA_POLICY_ARGS[@]}"
   workflows/agentic/arena/run.sh --env "$ENV" --episodes "$VERIFY_EPISODES" --max-attempts "$VERIFY_MAX_ATTEMPTS" \
-    --record-to "$VERIFY_HDF5" 2>&1 | tee "$LOGS/09b_verify_arena.log" || true
+    --record-to "$VERIFY_HDF5" "${arena_args[@]}" 2>&1 | tee "$LOGS/09b_verify_arena.log" || true
   e2e_stop_policy
 
   if [[ "$SKIP_VERIFY_ANNOTATE" == "1" ]]; then

@@ -40,12 +40,16 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 
 ## Run
 
+Run the steps below in order. Each step is a separate bash call; variables persist in the local agent's tmux session.
+
+### Step 1 — setup and resolve dataset
+
 ```bash
 REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
 RUNS_ROOT="${REPO_ROOT}/workflows/agentic/runs"
 
 # Point DATASET_DIR at a converted LeRobot dataset dir (absolute; must contain meta/info.json),
-# produced by [[i4h-workflow-dataset-convert]] / [[i4h-workflow-dataset-transfer]]. List candidates:
+# produced by [[i4h-workflow-dataset-convert]]. List candidates:
 #   find "${RUNS_ROOT}" "${HF_LEROBOT_HOME:-$HOME/.cache/huggingface/lerobot}" -name info.json -path '*/meta/*' -printf '%h\n' | sed 's#/meta$##' | sort -u
 DATASET_DIR="${DATASET_DIR:-}"
 if [ ! -f "${DATASET_DIR%/}/meta/info.json" ]; then
@@ -57,7 +61,11 @@ fi
 RUN_DIR="${RUNS_ROOT}/viz_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "${RUN_DIR}/logs" "${RUN_DIR}/viz_state"
 ln -sfn "${RUN_DIR}" "${RUNS_ROOT}/.latest"
+```
 
+### Step 2 — serve visualizer
+
+```bash
 "${REPO_ROOT}/workflows/agentic/dataset/viz.sh" "${DATASET_DIR}" \
   --state-dir "${RUN_DIR}/viz_state" \
   2>&1 | tee "${RUN_DIR}/logs/viz.log"

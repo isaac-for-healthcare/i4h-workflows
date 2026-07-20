@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import logging
 
-from arena.environments._humanoid_base import HumanoidEnvironmentBase
+from arena.environments.core.humanoid_base import HumanoidEnvironmentBase
 from common.config import get_robot_config
 
 logger = logging.getLogger("arena")

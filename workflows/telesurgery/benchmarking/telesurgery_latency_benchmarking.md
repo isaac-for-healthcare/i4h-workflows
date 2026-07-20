@@ -65,7 +65,7 @@ Logitech BRIO (usb-3610000.usb-2):
  /dev/media1
 ```
 
-1. **HSB w/ IMX274 camera** - This tutorial assumes you have experience using the HSB board, if not see the [HSB user guide](https://docs.nvidia.com/holoscan/sensor-bridge/latest/sensor_bridge_hardware_setup.html) on how to set this up.  For physical connections, you'll need to
+1. **HSB w/ IMX274 camera** - This tutorial assumes you have experience using the HSB board, if not see the [HSB user guide](https://docs.nvidia.com/holoscan/sensor-bridge/getting-started/hardware-setup) on how to set this up.  For physical connections, you'll need to
 
 * Connect IMX274 camera to HSB's MIPI port.
 * Connect the HSB to the patient's IGX QSFP port via fiber optic cable with the required transceivers and adapter
@@ -127,7 +127,7 @@ cd i4h-workflows
 workflows/telesurgery/docker/real.sh build
 ```
 
-Now launch the surgeon's viewer application in fullscreen mode to minimize latency. For the lowest possible latency, [use exclusive display](https://docs.nvidia.com/holoscan/sdk-user-guide/4-3-latest/operators/visualization#using-a-display-in-exclusive-mode) mode, which allows the GPU to render directly to the display.
+Now launch the surgeon's viewer application in fullscreen mode to minimize latency. For the lowest possible latency, [use exclusive display](https://docs.nvidia.com/holoscan/sdk-user-guide/operators/visualization#using-a-display-in-exclusive-mode) mode, which allows the GPU to render directly to the display.
 
 ```bash
 workflows/telesurgery/docker/real.sh run

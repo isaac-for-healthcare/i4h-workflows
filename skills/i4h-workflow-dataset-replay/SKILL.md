@@ -38,13 +38,19 @@ export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
 - **Env config (source of truth):** `workflows/agentic/config/environments/<env>.yaml` — the `<env>` scene, robot, and cameras Arena replays against.
 - Replay runs `arena/run.sh --replay` against the env that produced the HDF5.
 - Use it to verify visual correctness before conversion or training.
+- Interpret ordinal wording as zero-based episode indices: "first episode" -> `0`, "second episode" -> `1`, etc.
 
 ## Run
+
+Run the steps below in order. Each step is a separate bash call; variables persist in the local agent's tmux session.
+
+### Step 1 — setup and resolve HDF5
 
 ```bash
 REPO_ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"; [ -d "$REPO_ROOT/workflows/agentic" ] || REPO_ROOT="$HOME/i4h-workflows"
 ENV_ID=scissor_pick_and_place
 RUNS_ROOT="${REPO_ROOT}/workflows/agentic/runs"
+EPISODE_INDEX="${EPISODE_INDEX:-0}"  # For "Replay second episode", set EPISODE_INDEX=1.
 
 # Point HDF5_PATH at a real recording (absolute path). Recordings come from teleop, mimic, or
 # validate (which writes data/verify.hdf5 under each runs/eval_* dir). List candidates newest-first:
@@ -59,11 +65,15 @@ fi
 RUN_DIR="${RUNS_ROOT}/replay_${ENV_ID}_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "${RUN_DIR}/logs"
 ln -sfn "${RUN_DIR}" "${RUNS_ROOT}/.latest"
+```
 
+### Step 2 — replay
+
+```bash
 "${REPO_ROOT}/workflows/agentic/arena/run.sh" \
   --env "${ENV_ID}" \
   --replay "${HDF5_PATH}" \
-  --episode-index 0 \
+  --episode-index "${EPISODE_INDEX}" \
   2>&1 | tee "${RUN_DIR}/logs/replay.log"
 ```
 
@@ -72,6 +82,7 @@ ln -sfn "${RUN_DIR}" "${RUNS_ROOT}/.latest"
 - `HDF5_PATH` must be an absolute path to an existing recording — `--replay` resolves a relative path against `runs/<env>/`, not your cwd, so a bare/relative path silently fails to load. The block lists real candidates if it's unset or wrong.
 - Recordings come from [[i4h-workflow-dataset-teleop]], [[i4h-workflow-dataset-mimic]], or [[i4h-workflow-validate]] (validate writes `data/verify.hdf5` under each `runs/eval_*` dir). There is no default `demo.hdf5`.
 - `--episode-index` selects the episode within the HDF5 (zero-based).
+- For "Replay second episode", use `--episode-index 1`.
 - Use the same env id as the env that produced the recording.
 
 ## Prerequisites

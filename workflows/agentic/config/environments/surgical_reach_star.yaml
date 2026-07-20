@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+robot:
+  type: star
+  home_joint_pos_rad: [0.0, -0.569, 0.0, -2.0, 0.0, 2.037, 0.741, 0.04]
+zenoh:
+  camera_names: [room]
+policy:
+  stack: gr00t_n15
+  health_port: 8773
+  model_repo: nvidia/GR00T-N1.5-3B
+  model_revision: null
+  task_description: Move the STAR tool tip through sampled reach poses
+  embodiment_tag: new_embodiment
+  action_horizon: 16
+  action_head_future_tokens: 0
+  execution_steps: 16
+  control_hz: 60.0
+  data_config: star_singlecam
+  denoising_steps: 4
+  image_size: [256, 256]
+  trt_engine_path: null
+  infer_module: policy.surgical_baseline.infer.infer
+  train_module: null
+arena:
+  bridge_port: 8872
+  description: STAR single-arm reach task.
+  max_timesteps: 150
+dataset:
+  joint_space: raw
+  state_obs_key: joint_pos
+  action_names: [star_joint_1.pos, star_joint_2.pos, star_joint_3.pos, star_joint_4.pos, star_joint_5.pos, star_joint_6.pos, star_joint_7.pos, endo360_joint_1.pos]
+  state_names: [star_joint_1.pos, star_joint_2.pos, star_joint_3.pos, star_joint_4.pos, star_joint_5.pos, star_joint_6.pos, star_joint_7.pos, endo360_joint_1.pos]
+  state_split: [[single_arm, 0, 7], [tool, 7, 8]]
+  action_split: [[single_arm, 0, 7], [tool, 7, 8]]

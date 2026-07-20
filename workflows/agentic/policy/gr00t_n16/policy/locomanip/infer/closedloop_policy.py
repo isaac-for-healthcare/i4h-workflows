@@ -57,6 +57,7 @@ class G1LocomanipClosedloopPolicy:
         yaml_data = self._resolve_config_paths(yaml_data)
         self.trt_engine_path = yaml_data.get("trt_engine_path", None)
         self.policy_config = self._build_policy_config(yaml_data)
+        self.resolved_model_path: Path | None = None
         self.policy = self.load_policy()
         self.action_chunk_length = self.policy_config.action_chunk_length
         self.num_envs = num_envs
@@ -131,6 +132,7 @@ class G1LocomanipClosedloopPolicy:
 
     def load_policy(self) -> Any:
         model_path = self._resolve_model_path()
+        self.resolved_model_path = model_path
         from gr00t.data.embodiment_tags import EmbodimentTag
         from gr00t.policy.gr00t_policy import Gr00tPolicy
 

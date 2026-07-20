@@ -179,6 +179,28 @@ export HOLOHUB_CMD_NAME=${BASH_SOURCE[0]}
 # HOLOHUB_ROOT: Root directory of the repository (used as base for all relative paths)
 export HOLOHUB_ROOT=${SCRIPT_PATH}
 
+# HOLOHUB_SEARCH_PATH: Limit metadata discovery to HoloHub-managed component trees.
+# The agentic workflow uses env YAMLs and contains local virtualenvs with unrelated metadata.json files.
+if [[ -z "${HOLOHUB_SEARCH_PATH:-}" ]]; then
+    COMPONENT_SEARCH_PATHS=(
+        applications
+        benchmarks
+        gxf_extensions
+        modules
+        operators
+        pkg
+        tutorials
+    )
+    for WORKFLOW_PATH in "${HOLOHUB_ROOT}"/workflows/*; do
+        [[ -d "${WORKFLOW_PATH}" ]] || continue
+        WORKFLOW_NAME=${WORKFLOW_PATH##*/}
+        [[ "${WORKFLOW_NAME}" == "agentic" ]] && continue
+        COMPONENT_SEARCH_PATHS+=("workflows/${WORKFLOW_NAME}")
+    done
+    HOLOHUB_SEARCH_PATH=$(IFS=,; printf '%s' "${COMPONENT_SEARCH_PATHS[*]}")
+fi
+export HOLOHUB_SEARCH_PATH
+
 # HOLOHUB_REPO_PREFIX: Default prefix for container naming
 export HOLOHUB_REPO_PREFIX="i4h_build"
 
