@@ -19,7 +19,7 @@ dependencies = [
     "datasets>=4.0.0",
     # Declare torch/torchvision directly so tool.uv.sources index override pins them
     # to CUDA-12 wheels (transitive deps don't pick up index overrides from sources).
-    "torch>=2.10,<2.13",
+    "torch>=2.10,<2.14",
     "torchvision>=0.25",
 ]
 
