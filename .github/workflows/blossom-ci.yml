@@ -48,7 +48,8 @@ jobs:
            github.actor == 'mahdiazizian' ||
            github.actor == 'mimiliaogo' ||
            github.actor == 'mingxueg-nv' ||
-           github.actor == 'tbirdso'
+           github.actor == 'tbirdso' ||
+           github.actor == 'SachidanandAlle'
          )
 
     steps:
