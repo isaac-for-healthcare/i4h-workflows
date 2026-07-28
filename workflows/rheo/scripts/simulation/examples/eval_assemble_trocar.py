@@ -23,6 +23,9 @@ from pathlib import Path
 
 import numpy as np
 from isaaclab.app import AppLauncher
+from scripts.utils.blackwell_render import ensure_blackwell_safe_kit_args
+
+ensure_blackwell_safe_kit_args()
 
 # Add command line arguments
 parser = argparse.ArgumentParser(description="Evaluate Gr00t Policy in IsaacLab")

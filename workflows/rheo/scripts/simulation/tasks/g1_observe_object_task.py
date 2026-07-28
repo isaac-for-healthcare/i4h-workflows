@@ -26,6 +26,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPickAndPlaceTask
 from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
+from scripts.utils.blackwell_render import apply_blackwell_safe_render_cfg
 
 
 class ObserveObjectTask(G1LocomanipPickAndPlaceTask):
@@ -54,21 +55,12 @@ class ObserveObjectTask(G1LocomanipPickAndPlaceTask):
         )
 
     def modify_env_cfg(self, env_cfg):
-        """Modify environment configuration for better rendering quality and add room camera."""
+        """Modify environment configuration and add room camera."""
         # Call parent class method if it exists
         if hasattr(super(), "modify_env_cfg"):
             env_cfg = super().modify_env_cfg(env_cfg)
 
-        # Set rendering configuration for better visual quality
-        env_cfg.sim.render.rendering_mode = "quality"
-        env_cfg.sim.render.antialiasing_mode = "DLAA"
-
-        # Enable translucency rendering for transparent/glass objects
-        env_cfg.sim.render.enable_translucency = True
-        # Use carb_settings for fractionalCutoutOpacity (for transparent object rendering)
-        if env_cfg.sim.render.carb_settings is None:
-            env_cfg.sim.render.carb_settings = {}
-        env_cfg.sim.render.carb_settings["rtx.raytracing.fractionalCutoutOpacity"] = True
+        apply_blackwell_safe_render_cfg(env_cfg.sim.render)
 
         # Add room camera to scene
         self._add_room_camera(env_cfg)

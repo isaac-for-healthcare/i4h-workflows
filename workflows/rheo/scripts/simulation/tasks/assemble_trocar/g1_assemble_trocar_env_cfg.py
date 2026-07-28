@@ -26,6 +26,7 @@ from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
+from scripts.utils.blackwell_render import apply_blackwell_safe_render_cfg
 from simulation.assets.assets import (
     PUNCTURE_DEVICE_XFORM_USD,
     TRAY_TROCAR_ASSEMBLY_USD,
@@ -383,12 +384,7 @@ class G1AssembleTrocarEnvCfg(ManagerBasedRLEnvCfg):
         self.sim.dt = 1 / 200
         self.sim.render_interval = self.decimation
         self.sim.physx.bounce_threshold_velocity = 0.01
-        self.sim.render.enable_translucency = True
-        self.sim.render.carb_settings = {
-            "rtx.raytracing.fractionalCutoutOpacity": True,
-        }
-        self.sim.render.rendering_mode = "quality"
-        self.sim.render.antialiasing_mode = "DLAA"
+        apply_blackwell_safe_render_cfg(self.sim.render)
 
 
 @configclass

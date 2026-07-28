@@ -28,6 +28,7 @@ from isaaclab_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPic
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 from simulation.tasks.terminations import object_at_destination
+from scripts.utils.blackwell_render import apply_blackwell_safe_render_cfg
 
 
 class G1PushCartTask(G1LocomanipPickAndPlaceTask):
@@ -196,14 +197,12 @@ class G1PushCartTask(G1LocomanipPickAndPlaceTask):
         )
 
     def modify_env_cfg(self, env_cfg):
-        """Modify environment configuration for better rendering quality."""
+        """Modify environment configuration for simulation rendering."""
 
         if hasattr(super(), "modify_env_cfg"):
             env_cfg = super().modify_env_cfg(env_cfg)
 
-        # Set rendering configuration for better visibility
-        env_cfg.sim.render.rendering_mode = "quality"
-        env_cfg.sim.render.antialiasing_mode = "DLAA"
+        apply_blackwell_safe_render_cfg(env_cfg.sim.render)
 
         return env_cfg
 

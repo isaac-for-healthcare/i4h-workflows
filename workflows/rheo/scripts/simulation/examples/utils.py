@@ -207,12 +207,90 @@ _CAMERA_MAP = {
     "right_wrist_camera": "video.right_wrist_view",
 }
 
-# Camera view -> sensor key mapping for video recording
+# Camera view -> sensor key mapping for assemble-trocar video recording
 _VIDEO_CAMERAS = [
     ("head", "front_camera"),
     ("left_wrist", "left_wrist_camera"),
     ("right_wrist", "right_wrist_camera"),
 ]
+
+# Arena / locomanip cameras (first match wins per key)
+_ARENA_VIDEO_CAMERAS = [
+    ("room", "room_camera"),
+    ("head", "robot_head_cam"),
+    ("head", "front_camera"),
+    ("left_wrist", "left_wrist_camera"),
+    ("right_wrist", "right_wrist_camera"),
+]
+
+
+def create_video_writer_if_requested(
+    args: Any,
+    *,
+    run_name: str = "run",
+) -> tuple[_MultiViewConcatWriter | None, str | None]:
+    """Create a video writer when ``args.save_video`` is True."""
+    if not bool(getattr(args, "save_video", False)):
+        return None, None
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    base_name = f"{timestamp}_{run_name}"
+    fps = int(getattr(args, "video_fps", 30) or 30)
+    video_dir = str(getattr(args, "video_dir", "./eval_videos"))
+    return _MultiViewConcatWriter(video_dir, base_name=base_name, fps=fps), base_name
+
+
+def _scene_has_rgb_camera(env, camera_key: str) -> bool:
+    try:
+        cam = env.scene[camera_key]
+        output = getattr(cam, "data", None)
+        if output is None or not hasattr(output, "output"):
+            return False
+        return "rgb" in output.output
+    except (KeyError, AttributeError, TypeError):
+        return False
+
+
+def record_available_cameras(
+    writer: _MultiViewConcatWriter,
+    env,
+    *,
+    env_index: int = 0,
+    stream_prefix: str = "",
+    overlay_text: str | None = None,
+) -> None:
+    """Record every RGB scene camera known for Arena or assemble-trocar envs."""
+    recorded: set[str] = set()
+    first_camera = True
+    for view, cam_key in _ARENA_VIDEO_CAMERAS + _VIDEO_CAMERAS:
+        if cam_key in recorded or not _scene_has_rgb_camera(env, cam_key):
+            continue
+        recorded.add(cam_key)
+        stream_key = f"{stream_prefix}{view}" if stream_prefix else view
+        if stream_key in writer._writers:
+            stream_key = f"{stream_prefix}{cam_key}" if stream_prefix else cam_key
+        writer.write_from_scene_camera(
+            env,
+            view=view,
+            camera_key=cam_key,
+            env_index=env_index,
+            stream_key=stream_key,
+            overlay_text=overlay_text if first_camera else None,
+        )
+        first_camera = False
+
+
+def maybe_record_video_frame(
+    writer: _MultiViewConcatWriter | None,
+    env,
+    *,
+    env_index: int = 0,
+    overlay_text: str | None = None,
+) -> None:
+    """Render the sim and append one frame per available camera."""
+    if writer is None:
+        return
+    env.sim.render()
+    record_available_cameras(writer, env, env_index=env_index, overlay_text=overlay_text)
 
 
 def process_observation(obs: Dict[str, Any], env, device: str = "cuda") -> Dict[str, torch.Tensor]:

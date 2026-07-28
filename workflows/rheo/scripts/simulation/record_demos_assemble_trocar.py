@@ -23,6 +23,9 @@ import time
 import weakref
 
 from isaaclab.app import AppLauncher
+from scripts.utils.blackwell_render import ensure_blackwell_safe_kit_args
+
+ensure_blackwell_safe_kit_args()
 
 parser = argparse.ArgumentParser(description="Record HDF5 demos with Meta Quest controllers")
 parser.add_argument("--task", type=str, default="Isaac-Assemble-Trocar-G129-Dex3-Teleop", help="task name")

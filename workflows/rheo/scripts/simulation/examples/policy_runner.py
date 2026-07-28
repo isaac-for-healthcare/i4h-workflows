@@ -23,8 +23,6 @@ import tqdm
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli
-from scripts.utils.policy_tasks import create_success_hold_wrapper
-from simulation.examples.policy_runner_cli import create_policy, setup_policy_argument_parser, validate_policy_args
 from simulation.register_and_patch import register_workflow_assets, register_workflow_cli
 
 register_workflow_cli()
@@ -36,9 +34,20 @@ def main():
     # We do this as the parser is shared between the example environment and policy runner
     args_cli, _ = args_parser.parse_known_args()
 
+    if getattr(args_cli, "enable_pinocchio", False):
+        import pinocchio  # noqa: F401
+
     # Start the simulation app
     with SimulationAppContext(args_cli):
-        # Add policy-related arguments to the parser
+        # Lazy imports: policy_runner_cli pulls isaaclab (warp) — must load after Kit starts.
+        from scripts.utils.policy_tasks import create_success_hold_wrapper
+        from simulation.examples.policy_runner_cli import (
+            create_policy,
+            setup_policy_argument_parser,
+            validate_policy_args,
+        )
+        from simulation.examples.utils import create_video_writer_if_requested, maybe_record_video_frame
+
         register_workflow_assets()
         args_parser = setup_policy_argument_parser(args_parser)
         args_cli = args_parser.parse_args()
@@ -53,6 +62,11 @@ def main():
             env_cfg.recorders = None
 
         env = arena_builder.make_registered()
+        env_unwrapped = getattr(env, "unwrapped", env)
+
+        video_writer, video_base_name = create_video_writer_if_requested(args_cli, run_name=env_name)
+        if video_writer is not None:
+            print(f"[INFO] Video recording enabled -> {args_cli.video_dir}")
 
         if args_cli.seed is not None:
             env.seed(args_cli.seed)
@@ -61,6 +75,12 @@ def main():
             random.seed(args_cli.seed)
 
         obs, _ = env.reset()
+        maybe_record_video_frame(
+            video_writer,
+            env_unwrapped,
+            env_index=int(getattr(args_cli, "video_env_id", 0) or 0),
+            overlay_text="policy  step 0",
+        )
 
         # Wrap success term with hold logic if specified (AFTER reset)
         if args_cli.success_hold_steps > 1:
@@ -99,10 +119,16 @@ def main():
         # NOTE(xinjieyao, 2025-10-07): lazy import to prevent app stalling caused by omni.kit
         from isaaclab_arena.metrics.metrics import compute_metrics
 
-        for _ in tqdm.tqdm(range(num_steps)):
+        for step_idx in tqdm.tqdm(range(num_steps)):
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
                 obs, _, terminated, truncated, _ = env.step(actions)
+                maybe_record_video_frame(
+                    video_writer,
+                    env_unwrapped,
+                    env_index=int(getattr(args_cli, "video_env_id", 0) or 0),
+                    overlay_text=f"policy  step {step_idx + 1}/{num_steps}",
+                )
                 if terminated.any() or truncated.any():
                     print(
                         f"Resetting policy for terminated env_ids: {terminated.nonzero().flatten()}"
@@ -113,6 +139,9 @@ def main():
 
         metrics = compute_metrics(env)
         print(f"Metrics: {metrics}")
+        if video_writer is not None:
+            video_writer.close()
+            print(f"[INFO] Video saved to: {args_cli.video_dir}/{video_base_name}_*.mp4")
         env.close()
 
 

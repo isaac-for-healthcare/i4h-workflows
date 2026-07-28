@@ -23,6 +23,7 @@ The workflow provides an end-to-end development pipeline for Physical AI in clin
 - [🚀 Quick Start](#-quick-start)
 - [🏠 Environment Requirements](#-environment-requirements)
 - [⚡ Running Workflows](#-running-workflows)
+- [🖥 Viewing Isaac Sim](#-viewing-isaac-sim)
 - [🛠 Troubleshooting](#-troubleshooting)
 - [📚 Attribution & Citation](#-attribution-and-citation)
 
@@ -106,6 +107,61 @@ hf download nvidia/GR00T-N1.5-RL-Rheo-AssembleTrocar --local-dir $HOME/models/GR
 
 ## ⚡ Running Workflows
 
+### 🖥 Viewing Isaac Sim
+
+Isaac Sim does **not** open when you only enter the Docker shell (`[RHEO] $`). You must run a runner script (for example `observe_runner.py`). The Rheo Docker image sets `HEADLESS=1` by default, so you need an explicit override to show the native GUI window.
+
+#### Step 1 — Host display setup (run once per desktop session)
+
+On the machine with a monitor (not a plain SSH session without X11), allow Docker to use your display:
+
+```bash
+xhost +local:docker
+echo $DISPLAY   # should print :0 or :1
+```
+
+#### Step 2 — Run with the Isaac Sim GUI window
+
+Prefix the `run_docker.sh` command with `HEADLESS=0`, pass `--enable_cameras`, and **do not** pass `--headless`. The window appears after the environment finishes loading (first launch can take several minutes).
+
+```bash
+cd i4h-workflows
+
+HEADLESS=0 ./workflows/rheo/docker/run_docker.sh \
+  python scripts/simulation/examples/observe_runner.py \
+    --num_steps 15000 \
+    --enable_cameras \
+    observe_object \
+    --object surgical_tray_no_lid \
+    --embodiment g1_wbc_pink
+```
+
+Apply the same pattern to other runners (policy evaluation, teleop, and so on): `HEADLESS=0` on the host, no `--headless` on the script.
+
+#### Browser stream (WebRTC alternative)
+
+If you are on SSH, have no local display, or the GUI crashes on startup, use headless mode with WebRTC and open `http://localhost:8080` in a browser:
+
+```bash
+./workflows/rheo/docker/run_docker.sh \
+  python scripts/simulation/examples/observe_runner.py \
+    --headless \
+    --num_steps 15000 \
+    --enable_cameras \
+    --webrtc_cam \
+    --webrtc_host 0.0.0.0 \
+    --webrtc_port 8080 \
+    --webrtc_fps 30 \
+    observe_object \
+    --object surgical_tray_no_lid \
+    --embodiment g1_wbc_pink
+```
+
+| Mode | Host | Script flags | Where you see the scene |
+| --- | --- | --- | --- |
+| GUI window | `HEADLESS=0`, `xhost +local:docker` | `--enable_cameras` (no `--headless`) | Isaac Sim / Kit window |
+| WebRTC | default | `--headless --webrtc_cam ...` | Browser at `http://localhost:8080` |
+
 ### Running Agent Workflow
 
 #### Run Physical Agent
@@ -127,17 +183,15 @@ This is a minimal example to run the physical agent in Isaac Sim, in which the c
     --embodiment g1_wbc_joint
 ```
 
-OR simply observe the surgical tray:
+OR simply observe the surgical tray — see [Viewing Isaac Sim](#-viewing-isaac-sim) for GUI vs WebRTC. GUI example:
 
 ```bash
-./workflows/rheo/docker/run_docker.sh -g1.6 \
+xhost +local:docker
+
+HEADLESS=0 ./workflows/rheo/docker/run_docker.sh \
   python scripts/simulation/examples/observe_runner.py \
     --num_steps 15000 \
     --enable_cameras \
-    --webrtc_cam \
-    --webrtc_host 0.0.0.0 \
-    --webrtc_port 8080 \
-    --webrtc_fps 30 \
     observe_object \
     --object surgical_tray_no_lid \
     --embodiment g1_wbc_pink
@@ -177,7 +231,8 @@ hf download nvidia/GR00T-N1.5-RL-Rheo-AssembleTrocar --local-dir $HOME/models/GR
 
 Notes:
 
-- **`--headless`** and **`--enable_cameras`** are Isaac Lab / AppLauncher options (pass them if you need cameras/rendering).
+- **GUI vs headless**: The Docker image sets `HEADLESS=1`. Use `HEADLESS=0` on the host and omit `--headless` to open the Isaac Sim window; see [Viewing Isaac Sim](#-viewing-isaac-sim). Use `--headless` (and optionally `--webrtc_cam`) for SSH or browser viewing.
+- **`--enable_cameras`** is required when you need camera observations or rendering.
 - **`--rl_ckpt`** automatically applies runtime patches to `Gr00tPolicy` to ensure consistency with RL post-training modifications made by RLinf. **If you are not using RL-trained checkpoints, DO NOT pass this flag.** The patch modifies:
   - **Eagle input padding**: Pads `eagle_input_ids` and `eagle_attention_mask` to a fixed length of 850
   - **Dropout removal**: Replaces all dropout layers with `nn.Identity()` for deterministic inference
@@ -458,6 +513,14 @@ Please check the following fine-tuning and reinforcement learning recipes for de
 After fine-tuning or reinforcement learning, you can evaluate the success rate of the policy by following [Individual Task Inference and Evaluation](#individual-task-inference-and-evaluation) section.
 
 ## 🛠 Troubleshooting
+
+- **Isaac Sim window does not appear**:
+  - Entering the container alone (`./workflows/rheo/docker/run_docker.sh` with no command) only opens a shell; run a runner script such as `observe_runner.py`.
+  - The image defaults to `HEADLESS=1`. Set `HEADLESS=0` before `run_docker.sh` and do not pass `--headless` on the script.
+  - On the host, run `xhost +local:docker` and confirm `echo $DISPLAY` is set (`:0` or `:1`).
+  - The GUI may take several minutes to appear on first scene load; wait for `[INFO] Environment created:` in the logs.
+  - If the process segfaults during RTX startup (common on some RTX 50-series GPUs), use the WebRTC path in [Viewing Isaac Sim](#-viewing-isaac-sim) instead.
+  - Rheo auto-injects conservative Kit/render settings for Blackwell (RTX 50-series) and unsets `DISPLAY` in Docker unless `HEADLESS=0` and `RHEO_KEEP_DISPLAY=1`. Opt out with `RHEO_DISABLE_BLACKWELL_RENDER_PATCH=1`. Clear shader cache: `rm -rf ~/.cache/ov ~/.nv/ComputeCache`.
 
 - **Resetting the VLM Agent**:
   - After changing the agent configuration or a system restart, you need to reset the UI container to reload the agent configurations. Otherwise, it could lead to unexpected behavior by using the default agent in the VLM-Surgical-Agent-Framework repository.

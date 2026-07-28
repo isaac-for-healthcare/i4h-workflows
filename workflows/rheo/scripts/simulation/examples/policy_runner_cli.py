@@ -27,6 +27,7 @@ from isaaclab_arena.examples.policy_runner_cli import (
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.policy.replay_action_policy import ReplayActionPolicy
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy
+from simulation.examples.video_runner_cli import add_video_cli_args
 
 
 def setup_policy_argument_parser(args_parser: argparse.ArgumentParser | None = None) -> argparse.ArgumentParser:
@@ -51,6 +52,7 @@ def setup_policy_argument_parser(args_parser: argparse.ArgumentParser | None = N
     add_replay_arguments(args_parser)
     add_replay_lerobot_arguments(args_parser)
     add_gr00t_closedloop_arguments(args_parser)
+    add_video_cli_args(args_parser)
 
     return args_parser
 

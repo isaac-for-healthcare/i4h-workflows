@@ -1,0 +1,247 @@
+<mxfile host="Electron">
+  <diagram name="Fine-tuning Pipeline (EN)" id="WMZUUfPY3YhT5Rn8xIaY">
+    <mxGraphModel dx="1414" dy="841" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-1" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=22;fontColor=#1a1a2e;" value="&lt;b&gt;i4h Agentic Workflow — Fine-tuning Pipeline&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="520" x="740" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-2" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=12;fontColor=#666666;" value="GR00T N1.5 / N1.6 · openpi PI0 · LeRobot dataset · &lt;font style=&quot;font-size:10px&quot;&gt;Sources: &lt;a href=&quot;https://github.com/isaac-for-healthcare/i4h-workflows&quot;&gt;isaac-for-healthcare/i4h-workflows&lt;/a&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="24" width="720" x="640" y="405" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;arcSize=12;" value="&lt;b&gt;Step 0&lt;/b&gt;&lt;br&gt;Choose environment&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;workflows/agentic/policy/run.sh --list-envs&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="280" x="860" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;arcSize=12;" value="&lt;b&gt;Step 1 — Setup&lt;/b&gt;&lt;br&gt;Install deps and third-party&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;workflows/agentic/setup.sh&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="280" x="860" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;arcSize=12;" value="&lt;b&gt;Step 2 — Record demos&lt;/b&gt;&lt;br&gt;Teleop → HDF5&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;arena/run.sh --env ENV --teleop --record&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="280" x="860" y="670" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=12;arcSize=12;dashed=1;dashPattern=8 4;" value="&lt;b&gt;Step 3 — Optional&lt;/b&gt;&lt;br&gt;Mimic (expand HDF5)&lt;br&gt;Annotate (VLM / filter)" vertex="1">
+          <mxGeometry height="70" width="280" x="860" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;arcSize=12;" value="&lt;b&gt;Step 4 — Convert → LeRobot&lt;/b&gt;&lt;br&gt;HDF5 → parquet + meta + videos&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;dataset/run.sh --video-codec h264&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="280" x="860" y="890" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;arcSize=12;" value="&lt;b&gt;Step 5 — Preflight&lt;/b&gt;&lt;br&gt;meta/info.json · nvidia-smi · --list-envs" vertex="1">
+          <mxGeometry height="60" width="280" x="860" y="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;arcSize=12;" value="&lt;b&gt;Step 6 — Fine-tuning&lt;/b&gt;&lt;br&gt;uv run i4h-agentic-*-train&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;--env · --dataset-path · --output-dir · --max-steps&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="280" x="860" y="1100" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;arcSize=12;" value="&lt;b&gt;Step 7 — Verify checkpoint&lt;/b&gt;&lt;br&gt;safetensors · experiment_cfg/ · processor/" vertex="1">
+          <mxGeometry height="60" width="280" x="860" y="1210" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;arcSize=12;" value="&lt;b&gt;Step 8 — Validate policy&lt;/b&gt;&lt;br&gt;Rollout in Isaac Sim&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;policy daemon + arena/run.sh&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="280" x="860" y="1310" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-12" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;" target="DbFWfC9cLFrEa6PSl87w-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-13" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;" target="DbFWfC9cLFrEa6PSl87w-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-14" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#999999;dashed=1;" target="DbFWfC9cLFrEa6PSl87w-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-15" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;" target="DbFWfC9cLFrEa6PSl87w-7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-16" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#999999;dashed=1;fontSize=10;fontColor=#666666;" target="DbFWfC9cLFrEa6PSl87w-7" value="skip">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1180" y="705" />
+              <mxPoint x="1180" y="925" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-17" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;" target="DbFWfC9cLFrEa6PSl87w-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-18" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;" target="DbFWfC9cLFrEa6PSl87w-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-19" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;" target="DbFWfC9cLFrEa6PSl87w-10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-20" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#333333;" target="DbFWfC9cLFrEa6PSl87w-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-21" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#6c8ebf;" target="DbFWfC9cLFrEa6PSl87w-49">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-22" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f9f9f9;strokeColor=#cccccc;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="520" width="320" x="500" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-23" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=13;fontColor=#333333;" value="&lt;b&gt;Supported environments (Step 0)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="24" width="290" x="515" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-24" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=11;" value="&lt;font style=&quot;font-size:10px&quot;&gt;&lt;b&gt;scissor_pick_and_place&lt;/b&gt;&lt;br&gt;Robot: SO-ARM 101 · GR00T N1.5&lt;br&gt;Task: pick scissors and place in tray&lt;br&gt;&lt;br&gt;&lt;b&gt;locomanip_tray_pick_and_place&lt;/b&gt;&lt;br&gt;Robot: Unitree G1 · GR00T N1.6&lt;br&gt;Task: pick box from shelf, turn 180°,&lt;br&gt;place on cart, return to initial posture&lt;br&gt;&lt;br&gt;&lt;b&gt;locomanip_push_cart&lt;/b&gt;&lt;br&gt;Robot: Unitree G1 · GR00T N1.6&lt;br&gt;Task: go to cart, grasp handles, push&lt;br&gt;to destination&lt;br&gt;&lt;br&gt;&lt;b&gt;ultrasound_liver_scan&lt;/b&gt;&lt;br&gt;Robot: Franka + probe · openpi PI0&lt;br&gt;Task: liver ultrasound on abdominal phantom&lt;br&gt;&lt;br&gt;&lt;b&gt;assemble_trocar&lt;/b&gt;&lt;br&gt;Robot: G1 + dex hands · GR00T N1.5&lt;br&gt;Task: assemble trocar from box&lt;br&gt;&lt;font color=&quot;#b85450&quot;&gt;⚠ inference-only (no agentic fine-tune)&lt;/font&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="340" width="290" x="515" y="488" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-25" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=11;" value="&lt;table cellpadding=&quot;3&quot; style=&quot;font-size:9px;width:100%&quot;&gt;&lt;tr style=&quot;background:#dae8fc&quot;&gt;&lt;td&gt;&lt;b&gt;Env&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Stack&lt;/b&gt;&lt;/td&gt;&lt;td&gt;&lt;b&gt;Train?&lt;/b&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;scissor_*&lt;/td&gt;&lt;td&gt;gr00t_n15&lt;/td&gt;&lt;td&gt;✓&lt;/td&gt;&lt;/tr&gt;&lt;tr style=&quot;background:#f5f5f5&quot;&gt;&lt;td&gt;locomanip_*&lt;/td&gt;&lt;td&gt;gr00t_n16&lt;/td&gt;&lt;td&gt;✓&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;ultrasound_*&lt;/td&gt;&lt;td&gt;openpi_pi0&lt;/td&gt;&lt;td&gt;✓&lt;/td&gt;&lt;/tr&gt;&lt;tr style=&quot;background:#f5f5f5&quot;&gt;&lt;td&gt;assemble_trocar&lt;/td&gt;&lt;td&gt;gr00t_n15&lt;/td&gt;&lt;td&gt;✗&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;" vertex="1">
+          <mxGeometry height="80" width="290" x="515" y="830" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-26" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=10;fontColor=#666666;" value="&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;Source: workflows/agentic/config/environments/&amp;lt;env&amp;gt;.yaml&lt;br&gt;See also: skills/i4h-workflow/SKILL.md&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="290" x="515" y="920" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-27" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="200" width="320" x="500" y="990" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-28" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=13;fontColor=#333333;" value="&lt;b&gt;Common flags (Step 6)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="24" width="290" x="515" y="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-29" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=11;" value="&lt;font style=&quot;font-size:10px;font-family:monospace&quot;&gt;--max-steps N&lt;br&gt;--save-steps N&lt;br&gt;--batch-size N&lt;br&gt;--learning-rate FLOAT&lt;br&gt;--no-tune-visual  &lt;i&gt;(freeze vision)&lt;/i&gt;&lt;br&gt;--base-model-path PATH&lt;br&gt;--report-to tensorboard|wandb&lt;br&gt;--num-gpus N&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;Ref: skills/i4h-workflow-finetune/SKILL.md&lt;/font&gt;" vertex="1">
+          <mxGeometry height="150" width="290" x="515" y="1030" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-30" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fde8e8;strokeColor=#b85450;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="170" width="320" x="500" y="1210" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-31" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=13;fontColor=#333333;" value="&lt;b&gt;Troubleshooting&lt;/b&gt;" vertex="1">
+          <mxGeometry height="24" width="290" x="515" y="1220" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-32" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=11;" value="&lt;font style=&quot;font-size:10px&quot;&gt;❌ Import fails → setup.sh&lt;br&gt;❌ info.json missing → convert&lt;br&gt;❌ inference-only → pick another env&lt;br&gt;❌ wrong flag → use kebab-case&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;(--max-steps, not --max_steps)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="120" width="290" x="515" y="1250" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-33" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4fd;strokeColor=#6c8ebf;arcSize=8;dashed=1;dashPattern=8 4;" value="" vertex="1">
+          <mxGeometry height="280" width="320" x="1240" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-34" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=13;fontColor=#333333;" value="&lt;b&gt;Rheo variant (Docker)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="24" width="290" x="1255" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-35" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=11;" value="&lt;font style=&quot;font-size:10px&quot;&gt;1. Collect HDF5 demos (VR recommended)&lt;br&gt;2. Convert in Docker container:&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;run_docker.sh -g1.5|-g1.6&lt;br&gt;&amp;nbsp;&amp;nbsp;&amp;nbsp;convert_hdf5_to_lerobot.py&lt;br&gt;3. launch_finetune.py / gr00t_finetune.py&lt;br&gt;4. Evaluate with eval_*.py&lt;/font&gt;" vertex="1">
+          <mxGeometry height="100" width="290" x="1255" y="490" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-36" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=11;" value="&lt;font style=&quot;font-size:10px&quot;&gt;&lt;b&gt;Recipes (repo):&lt;/b&gt;&lt;br&gt;• workflows/rheo/docs/locomanip_finetuning.md&lt;br&gt;• workflows/rheo/docs/assemble_trocar_finetuning.md&lt;br&gt;• workflows/rheo/docs/assemble_trocar_rl_guide.md&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="290" x="1255" y="600" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-37" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="200" width="320" x="1240" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-38" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=13;fontColor=#333333;" value="&lt;b&gt;Output directories&lt;/b&gt;" vertex="1">
+          <mxGeometry height="24" width="290" x="1255" y="780" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-39" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=11;" value="&lt;font style=&quot;font-size:10px;font-family:monospace&quot;&gt;runs/record_&amp;lt;env&amp;gt;_*/     → HDF5&lt;br&gt;runs/convert_&amp;lt;env&amp;gt;_*/    → LeRobot&lt;br&gt;runs/finetune_&amp;lt;env&amp;gt;_*/  → checkpoint&lt;br&gt;runs/eval_*/               → validation&lt;br&gt;runs/.latest               → symlink&lt;/font&gt;" vertex="1">
+          <mxGeometry height="150" width="290" x="1255" y="810" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-40" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cccccc;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="120" width="320" x="1240" y="990" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-41" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" value="&lt;b&gt;Legend&lt;/b&gt;" vertex="1">
+          <mxGeometry height="20" width="100" x="1255" y="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-42" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;dashed=1;dashPattern=8 4;" value="" vertex="1">
+          <mxGeometry height="16" width="30" x="1255" y="1030" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-43" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;" value="Optional step" vertex="1">
+          <mxGeometry height="20" width="100" x="1295" y="1028" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-44" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4fd;strokeColor=#6c8ebf;dashed=1;dashPattern=8 4;" value="" vertex="1">
+          <mxGeometry height="16" width="30" x="1255" y="1060" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-45" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;" value="Alternative flow (Rheo)" vertex="1">
+          <mxGeometry height="20" width="150" x="1295" y="1058" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-46" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" value="" vertex="1">
+          <mxGeometry height="16" width="30" x="1420" y="1030" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-47" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;" value="Core stage (training)" vertex="1">
+          <mxGeometry height="20" width="120" x="1460" y="1028" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-48" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;strokeColor=#6c8ebf;dashed=1;fontSize=10;fontColor=#6c8ebf;" target="DbFWfC9cLFrEa6PSl87w-33" value="alternative">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1220" y="705" />
+              <mxPoint x="1220" y="590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-49" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=8;strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="360" width="1060" x="500" y="1430" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-50" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=15;fontColor=#1a1a2e;" value="&lt;b&gt;Policy evaluation (Step 8 — detail)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="28" width="400" x="520" y="1445" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-51" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=11;" value="&lt;font style=&quot;font-size:10px;color:#555&quot;&gt;Two parallel processes: policy daemon (headless) + Arena (Isaac Sim)&lt;br&gt;Ref: skills/i4h-workflow-validate/SKILL.md&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="520" x="520" y="1470" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-52" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;arcSize=10;" value="&lt;b&gt;1. Policy daemon&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;policy/run.sh --env ENV&lt;br&gt;--model-path checkpoint-NNNN/&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="190" x="520" y="1505" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-53" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;arcSize=10;" value="&lt;b&gt;2. Wait for ready&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Log: &quot;policy ready&quot;&lt;br&gt;No Traceback/Error&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="170" x="740" y="1505" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-54" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;arcSize=10;" value="&lt;b&gt;3. Arena rollout&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;arena/run.sh --env ENV&lt;br&gt;--episodes N --max-timesteps T&lt;br&gt;--record-to verify.hdf5&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="210" x="940" y="1505" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-55" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;arcSize=10;" value="&lt;b&gt;4. Episode loop&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Obs (cameras + state) → Zenoh →&lt;br&gt;policy → actions → sim&lt;br&gt;Env success criterion&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="210" x="1180" y="1505" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-56" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;arcSize=10;" value="&lt;b&gt;5. Result&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Log: run complete: X/Y&lt;br&gt;episodes succeeded&lt;br&gt;→ success rate&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="120" x="1420" y="1505" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-57" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-52" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#6c8ebf;" target="DbFWfC9cLFrEa6PSl87w-53">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-58" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-53" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#6c8ebf;" target="DbFWfC9cLFrEa6PSl87w-54">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-59" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-54" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#6c8ebf;" target="DbFWfC9cLFrEa6PSl87w-55">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-60" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-55" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1.5;strokeColor=#6c8ebf;" target="DbFWfC9cLFrEa6PSl87w-56">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-61" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#cccccc;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;arcSize=8;" value="&lt;b&gt;Metrics and parameters&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;• &lt;b&gt;Success rate:&lt;/b&gt; X/Y episodes in Arena log&lt;br&gt;• &lt;b&gt;max-timesteps&lt;/b&gt; (YAML): scissor 500 · locomanip 1500 · ultrasound 250&lt;br&gt;• &lt;b&gt;Sanity check:&lt;/b&gt; 1 episode, 200 steps&lt;br&gt;• &lt;b&gt;Full eval:&lt;/b&gt; 10–200+ episodes with env max-timesteps&lt;br&gt;• &lt;b&gt;Output:&lt;/b&gt; runs/eval_&amp;lt;env&amp;gt;_*/data/verify.hdf5&lt;br&gt;• &lt;b&gt;Logs:&lt;/b&gt; runs/eval_*/logs/policy.log + arena.log&lt;/font&gt;" vertex="1">
+          <mxGeometry height="120" width="480" x="520" y="1600" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-62" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;arcSize=8;dashed=1;dashPattern=8 4;" value="&lt;b&gt;Optional — VLM Annotator&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;annotator/run.sh offline --hdf5-path verify.hdf5&lt;br&gt;Labels success per episode with VLM (YAML task description)&lt;br&gt;Useful when sim auto-criterion is not enough&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="300" x="1020" y="1600" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-63" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e6;strokeColor=#d6b656;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;arcSize=8;" value="&lt;b&gt;Command summary&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-family:monospace&quot;&gt;# 1) Policy (background)&lt;br&gt;policy/run.sh --env ENV --model-path CHECKPOINT/&lt;br&gt;# 2) Arena&lt;br&gt;arena/run.sh --env ENV --episodes 10 --max-timesteps 500 \&lt;br&gt;  --record-to runs/eval_.../data/verify.hdf5&lt;br&gt;# 3) Stop policy&lt;br&gt;stop.sh policy --env ENV&lt;/font&gt;" vertex="1">
+          <mxGeometry height="170" width="200" x="1340" y="1600" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-64" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-56" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1;strokeColor=#999999;dashed=1;fontSize=9;fontColor=#666666;" target="DbFWfC9cLFrEa6PSl87w-62" value="refine labels">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1480" y="1590" />
+              <mxPoint x="1170" y="1590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-65" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#bbbbbb;arcSize=8;strokeWidth=1;" value="" vertex="1">
+          <mxGeometry height="370" width="1060" x="500" y="1862" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-66" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=14;fontColor=#333333;" value="&lt;b&gt;Repository references (i4h-workflows)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="24" width="400" x="520" y="1877" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-67" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=10;fontColor=#666666;" value="&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;Repo: github.com/isaac-for-healthcare/i4h-workflows · Paths relative to repo root · Skills: skills/ (symlinks at .claude/skills/, .codex/skills/)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="18" width="700" x="520" y="1900" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-68" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eef6ff;strokeColor=#6c8ebf;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;arcSize=6;" value="&lt;b&gt;Step → Skill&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-family:monospace&quot;&gt;0 → i4h-workflow&lt;br&gt;1 → i4h-workflow-setup&lt;br&gt;2 → i4h-workflow-dataset-teleop&lt;br&gt;3 → dataset-mimic / dataset-annotate&lt;br&gt;4 → i4h-workflow-dataset-convert&lt;br&gt;6 → i4h-workflow-finetune&lt;br&gt;8 → i4h-workflow-validate&lt;br&gt;e2e → i4h-workflow-e2e&lt;/font&gt;" vertex="1">
+          <mxGeometry height="163" width="185" x="1355" y="1877" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-69" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dddddd;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;arcSize=6;" value="&lt;b&gt;Skills (per-stage docs)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-family:monospace&quot;&gt;AGENTS.md&lt;br&gt;skills/i4h-workflow/SKILL.md&lt;br&gt;skills/i4h-workflow-setup/SKILL.md&lt;br&gt;skills/i4h-workflow-dataset-teleop/SKILL.md&lt;br&gt;skills/i4h-workflow-dataset-mimic/SKILL.md&lt;br&gt;skills/i4h-workflow-dataset-annotate/SKILL.md&lt;br&gt;skills/i4h-workflow-dataset-convert/SKILL.md&lt;br&gt;skills/i4h-workflow-finetune/SKILL.md&lt;br&gt;skills/i4h-workflow-validate/SKILL.md&lt;br&gt;skills/i4h-workflow-e2e/SKILL.md&lt;/font&gt;" vertex="1">
+          <mxGeometry height="288" width="250" x="520" y="1922" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-70" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dddddd;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;arcSize=6;" value="&lt;b&gt;Configuration and envs&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-family:monospace&quot;&gt;workflows/agentic/config/environments/*.yaml&lt;br&gt;  scissor_pick_and_place.yaml&lt;br&gt;  locomanip_tray_pick_and_place.yaml&lt;br&gt;  locomanip_push_cart.yaml&lt;br&gt;  ultrasound_liver_scan.yaml&lt;br&gt;  assemble_trocar.yaml&lt;br&gt;workflows/agentic/policy/run.sh --list-envs&lt;/font&gt;" vertex="1">
+          <mxGeometry height="155" width="280" x="785" y="1922" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-71" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dddddd;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;arcSize=6;" value="&lt;b&gt;Execution scripts&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-family:monospace&quot;&gt;workflows/agentic/setup.sh&lt;br&gt;workflows/agentic/arena/run.sh&lt;br&gt;workflows/agentic/dataset/run.sh&lt;br&gt;workflows/agentic/mimic/run.sh&lt;br&gt;workflows/agentic/annotator/run.sh&lt;br&gt;workflows/agentic/policy/run.sh&lt;br&gt;workflows/agentic/policy/gr00t_n15/run.sh&lt;br&gt;workflows/agentic/policy/gr00t_n16/run.sh&lt;br&gt;workflows/agentic/policy/openpi_pi0/run.sh&lt;br&gt;workflows/agentic/stop.sh&lt;/font&gt;" vertex="1">
+          <mxGeometry height="155" width="260" x="1080" y="1922" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-72" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f4fd;strokeColor=#6c8ebf;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;arcSize=6;dashed=1;dashPattern=8 4;" value="&lt;b&gt;Rheo variant&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-family:monospace&quot;&gt;workflows/rheo/README.md&lt;br&gt;workflows/rheo/docs/locomanip_finetuning.md&lt;br&gt;workflows/rheo/docs/assemble_trocar_finetuning.md&lt;br&gt;workflows/rheo/docs/assemble_trocar_rl_guide.md&lt;br&gt;workflows/rheo/scripts/simulation/rl/&lt;br&gt;  train_gr00t_assemble_trocar.sh&lt;/font&gt;" vertex="1">
+          <mxGeometry height="110" width="460" x="1080" y="2099" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-73" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#dddddd;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;arcSize=6;" value="&lt;b&gt;This diagram and validation&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;font-family:monospace&quot;&gt;workflows/agentic/docs/finetune-pipeline-en.drawio&lt;br&gt;workflows/agentic/docs/finetune-pipeline.drawio (PT)&lt;br&gt;TESTING.md (NV-BASE skill validation)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="110" width="230" x="528" y="2090" as="geometry" />
+        </mxCell>
+        <mxCell id="DbFWfC9cLFrEa6PSl87w-74" edge="1" parent="1" source="DbFWfC9cLFrEa6PSl87w-49" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeWidth=1;strokeColor=#bbbbbb;dashed=1;" target="DbFWfC9cLFrEa6PSl87w-65">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

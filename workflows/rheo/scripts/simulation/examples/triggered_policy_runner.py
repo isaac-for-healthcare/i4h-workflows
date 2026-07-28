@@ -23,14 +23,11 @@ import numpy as np
 import torch
 import tqdm
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.examples.policy_runner_cli import get_isaaclab_arena_environments_cli_parser
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli
 from scripts.utils.keyboard_env_reseter import KeyboardHandler, disable_terminations_and_recorders
 from scripts.utils.trigger_server import RemoteTrigger
-from scripts.utils.webrtc_cam import setup_webrtc_cam
 from simulation.examples.webrtc_runner_cli import add_trigger_cli_args, add_webrtc_cli_args
-from simulation.gr00t_closedloop_policy import CustomGr00tClosedloopPolicy
 from simulation.register_and_patch import register_workflow_assets, register_workflow_cli
 
 
@@ -136,6 +133,8 @@ def _build_idle_action(obs, env) -> torch.Tensor:
 
 def _load_policy(policy_name: str, device: str) -> tuple:
     """Load a policy by name. Returns (policy, max_steps)."""
+    from simulation.gr00t_closedloop_policy import CustomGr00tClosedloopPolicy
+
     cfg = POLICY_CONFIGS[policy_name]
     print(f"[INFO] Loading policy: {policy_name}")
     policy = CustomGr00tClosedloopPolicy(
@@ -168,7 +167,12 @@ def main():
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli, _ = args_parser.parse_known_args()
 
+    if getattr(args_cli, "enable_pinocchio", False):
+        import pinocchio  # noqa: F401
+
     with SimulationAppContext(args_cli):
+        from isaaclab_arena.examples.policy_runner_cli import get_isaaclab_arena_environments_cli_parser
+
         register_workflow_assets()
         args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
         add_webrtc_cli_args(args_parser)
@@ -187,7 +191,13 @@ def main():
         env = gym.make(env_name, cfg=env_cfg).unwrapped
         print(f"[INFO] Environment created: {env_name}")
 
-        _maybe_publish_cam = setup_webrtc_cam(args_cli, camera_name="room_camera")
+        # Lazy import: aiortc/asyncio must not load during Kit startup.
+        if getattr(args_cli, "webrtc_cam", False):
+            from scripts.utils.webrtc_cam import setup_webrtc_cam
+
+            _maybe_publish_cam = setup_webrtc_cam(args_cli, camera_name="room_camera")
+        else:
+            _maybe_publish_cam = lambda _obs: None
 
         if args_cli.seed is not None:
             env.seed(args_cli.seed)

@@ -108,8 +108,13 @@ def _get_g129_dex3_env_class():
         def _make_env_function(self):
             def make_env_isaaclab():
                 from isaaclab.app import AppLauncher
+                from scripts.utils.blackwell_render import BLACKWELL_SAFE_KIT_ARGS, blackwell_render_patch_enabled
 
-                sim_app = AppLauncher(headless=True, enable_cameras=True).app
+                kit_args = BLACKWELL_SAFE_KIT_ARGS if blackwell_render_patch_enabled() else None
+                launcher_kwargs = {"headless": True, "enable_cameras": True}
+                if kit_args:
+                    launcher_kwargs["kit_args"] = kit_args
+                sim_app = AppLauncher(**launcher_kwargs).app
                 import gymnasium as gym
                 import simulation.tasks.assemble_trocar  # noqa: F401 - triggers gym.register()
                 from isaaclab_tasks.utils import load_cfg_from_registry
