@@ -8,7 +8,7 @@ dependencies = [
     "isaaclab-arena",
     "numpy>=1.23.5,<2",
     "opencv-python-headless>=4.8",
-    "torch==2.9.0+cu130",
+    "torch==2.13.0",
     'torchvision==0.24.0+cu130 ; platform_machine == "x86_64"',
     'torchvision==0.24.0       ; platform_machine == "aarch64"',
     "huggingface_hub>=0.24",
@@ -63,7 +63,7 @@ environments = [
     'sys_platform == "linux" and platform_machine == "aarch64"',
 ]
 override-dependencies = [
-    "torch==2.9.0+cu130",
+    "torch==2.13.0",
     'torchvision==0.24.0+cu130 ; platform_machine == "x86_64"',
     'torchvision==0.24.0       ; platform_machine == "aarch64"',
 ]
