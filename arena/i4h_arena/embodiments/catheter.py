@@ -235,6 +235,9 @@ class CatheterEmbodiment:
             radius_m=float(self.scene_config.catheter.radius_m),
             patient_twin_manifest=patient_twin_manifest,
         )
+        #: Distal centerline point the tip has to reach, in Isaac world metres.
+        #: Stays ``None`` without a twin, where there is no vessel to navigate.
+        self.navigation_target_world_m: tuple[float, float, float] | None = None
         self._rod_handle: CatheterRodHandle | None = None
         if patient_twin_manifest is not None:
             self._align_to_patient_centerline(PatientTwin.load(patient_twin_manifest))
@@ -279,6 +282,9 @@ class CatheterEmbodiment:
         # against the deformable wall is what keeps it there.
         self.rod_spec.initial_path_world_m = tuple(tuple(float(value) for value in point) for point in path_world_m)
         self.rod_spec.__post_init__()
+        # The rod is seeded over the first ``length_m`` of the path, so its tip
+        # starts short of the far end and insertion has to cover the remainder.
+        self.navigation_target_world_m = tuple(float(value) for value in path_world_m[-1])
 
     def get_scene_cfg(self) -> Any:
         return self.scene_config
@@ -289,8 +295,12 @@ class CatheterEmbodiment:
     def get_observation_cfg(self) -> None:
         return None
 
-    def get_events_cfg(self) -> None:
-        return None
+    def get_events_cfg(self) -> Any:
+        if self.navigation_target_world_m is None:
+            return None
+        from i4h_arena.envcfg.endoluminal_navigation import CatheterNavigationEventsCfg
+
+        return CatheterNavigationEventsCfg()
 
     def get_rewards_cfg(self) -> None:
         return None
@@ -307,8 +317,18 @@ class CatheterEmbodiment:
     def get_recorder_term_cfg(self) -> None:
         return None
 
-    def get_termination_cfg(self) -> None:
-        return None
+    def get_termination_cfg(self) -> Any:
+        """Report arrival at the distal centerline as IsaacLab's ``success`` term.
+
+        Omitted without a twin rather than reported as permanently unsatisfied:
+        there is no vessel to navigate, so a workflow reading the term gets the
+        absent-term zeros instead of a goal it can never meet.
+        """
+        if self.navigation_target_world_m is None:
+            return None
+        from i4h_arena.envcfg.endoluminal_navigation import navigation_terminations_cfg
+
+        return navigation_terminations_cfg(self.navigation_target_world_m)
 
     def modify_env_cfg(self, env_cfg: Any) -> Any:
         env_cfg.sim.dt = 1.0 / 120.0

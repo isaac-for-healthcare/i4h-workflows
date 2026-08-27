@@ -15,6 +15,7 @@ from i4h_engine.task import TickContext
 success = load_workflow_module("scissor_pick_and_place").workflow.success
 block_lift_success = load_workflow_module("surgical_lift_block").workflow.success
 needle_lift_success = load_workflow_module("surgical_lift_needle").workflow.success
+endoluminal = load_workflow_module("endoluminal_navigation").workflow
 
 
 class _ScissorScene:
@@ -60,3 +61,32 @@ def test_surgical_lift_success_uses_psm_root_relative_height() -> None:
     needle_ctx.scene.z = -0.08
     assert block_lift_success(block_ctx).all()
     assert needle_lift_success(needle_ctx).all()
+
+
+class _CatheterScene:
+    """Reports the simulator term, which is absent without a patient twin."""
+
+    def __init__(self, arrived: np.ndarray) -> None:
+        self.arrived = arrived
+
+    def termination(self, _name: str) -> np.ndarray:
+        return self.arrived
+
+
+def test_endoluminal_success_reads_the_simulator_arrival_term() -> None:
+    ctx = TickContext(scene=_CatheterScene(np.array([False])), act=SimpleNamespace())
+    assert not endoluminal.success(ctx).any()
+
+    ctx.scene.arrived = np.array([True])
+    assert endoluminal.success(ctx).all()
+
+
+def test_endoluminal_success_is_unmet_without_a_centerline() -> None:
+    """No twin means no arrival term, so the scene view returns absent-term zeros."""
+    ctx = TickContext(scene=_CatheterScene(np.zeros(1, dtype=bool)), act=SimpleNamespace())
+
+    assert not endoluminal.success(ctx).any()
+
+
+def test_endoluminal_exposes_replay() -> None:
+    assert "replay" in endoluminal.modes
