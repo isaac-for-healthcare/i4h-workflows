@@ -276,3 +276,50 @@ def test_a_missing_builder_is_reported_not_silently_skipped(stub_model_init, stu
 
     with pytest.raises(RuntimeError, match="ModelBuilder"):
         handle._on_model_init()
+
+
+# --------------------------------------------------------------------------- #
+# Reset
+# --------------------------------------------------------------------------- #
+class _RecordingRod:
+    def __init__(self) -> None:
+        self.reset_with: list[object] = []
+
+    def reset(self, env_ids=None) -> None:
+        self.reset_with.append(env_ids)
+
+
+def _handle_with_rod() -> tuple[CatheterRodHandle, _RecordingRod]:
+    handle = CatheterRodHandle(CatheterRodSpec())
+    rod = _RecordingRod()
+    handle._rod = rod
+    return handle, rod
+
+
+def test_reset_before_the_rod_exists_is_a_no_op():
+    handle = CatheterRodHandle(CatheterRodSpec())
+
+    handle.reset(None)  # must not raise; MODEL_INIT has not fired yet
+
+
+def test_reset_forwards_every_environment_as_none():
+    handle, rod = _handle_with_rod()
+
+    handle.reset(None)
+
+    assert rod.reset_with == [None]
+
+
+def test_reset_forwards_the_index_tensor_untouched():
+    """IsaacLab hands reset the device tensor it builds, and the solver takes it.
+
+    Converting here instead would put a copy at each caller of a solver that
+    already accepts device buffers at every entry point.
+    """
+    torch = pytest.importorskip("torch")
+    handle, rod = _handle_with_rod()
+    env_ids = torch.tensor([1, 0], dtype=torch.int32)
+
+    handle.reset(env_ids)
+
+    assert rod.reset_with[0] is env_ids

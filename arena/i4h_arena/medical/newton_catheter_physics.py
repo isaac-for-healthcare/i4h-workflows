@@ -188,6 +188,9 @@ class CatheterRodHandle:
         Rebuilding the solver instead would reallocate every buffer, which
         invalidates any captured CUDA graph and throws away the vessel's
         deformation state along with the rod's.
+
+        The device index tensor IsaacLab builds is forwarded as-is; the solver
+        brings it to the host itself.
         """
         if self._rod is None:
             return
