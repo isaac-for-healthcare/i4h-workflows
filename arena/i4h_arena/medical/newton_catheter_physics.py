@@ -58,6 +58,7 @@ class CatheterRodSpec:
     patient_twin_manifest: str | None = None
     vessel_enabled: bool = True
     gravity_world: tuple[float, float, float] = GRAVITY_WORLD_Z_UP
+    initial_path_world_m: tuple[tuple[float, float, float], ...] | None = None
     solver_overrides: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -86,6 +87,22 @@ class CatheterRodSpec:
     @property
     def wants_vessel(self) -> bool:
         return bool(self.vessel_enabled) and self.patient_twin_manifest is not None
+
+    def initial_positions(self) -> np.ndarray | None:
+        """Rest positions along the vessel path, or ``None`` for a straight rod.
+
+        Seeding the rod's shape from the centerline is initialization, not
+        control: the catheter starts inside the lumen and XPBD takes over from
+        there. Resampling it every step instead would overwrite the solver's
+        own result and leave contact with nothing to act on.
+        """
+        if self.initial_path_world_m is None:
+            return None
+        from i4h_arena.medical.centerline import sample_polyline
+
+        path = np.asarray(self.initial_path_world_m, dtype=np.float32)
+        distances = np.linspace(0.0, float(self.length_m), self.num_points)
+        return np.asarray(sample_polyline(path, distances), dtype=np.float32)
 
 
 def rod_solver_cfg(spec: CatheterRodSpec) -> Any:
@@ -165,11 +182,23 @@ class CatheterRodHandle:
         """Deformable vessel runtime, or ``None`` when running without a wall."""
         return self._vessel
 
+    def reset(self, env_ids: Any = None) -> None:
+        """Restore the listed environments in place.
+
+        Rebuilding the solver instead would reallocate every buffer, which
+        invalidates any captured CUDA graph and throws away the vessel's
+        deformation state along with the rod's.
+        """
+        if self._rod is None:
+            return
+        self._rod.reset(env_ids)
+
     def install(self) -> "CatheterRodHandle":
         """Subscribe to ``MODEL_INIT`` so the rod joins the model before finalize."""
         from isaaclab.physics import PhysicsEvent
         from isaaclab_newton.physics import NewtonManager
 
+        _set_active_handle(self)
         self._callback = NewtonManager.register_callback(
             self._on_model_init,
             PhysicsEvent.MODEL_INIT,
@@ -202,6 +231,7 @@ class CatheterRodHandle:
         self._particle_range = add_catheter_rod_to_builder(
             builder,
             rod_config,
+            positions=spec.initial_positions(),
             start=np.asarray(spec.origin_world_m, dtype=np.float32),
             direction=np.asarray(spec.track_direction_world, dtype=np.float32),
             num_envs=spec.num_envs,
@@ -252,10 +282,39 @@ class CatheterRodHandle:
         return vessel
 
 
+# Isaac Lab's physics managers are process-wide classmethod singletons, and the
+# scene entity that renders the catheter is built from a config by the scene
+# loader, so it has no constructor argument to receive the handle through. One
+# active handle per process matches the manager it wraps.
+_ACTIVE_HANDLE: CatheterRodHandle | None = None
+
+
+def _set_active_handle(handle: CatheterRodHandle | None) -> None:
+    global _ACTIVE_HANDLE
+    _ACTIVE_HANDLE = handle
+
+
+def active_handle() -> CatheterRodHandle | None:
+    """Return the installed catheter rod handle, or ``None`` before install."""
+    return _ACTIVE_HANDLE
+
+
+def require_active_handle() -> CatheterRodHandle:
+    handle = active_handle()
+    if handle is None:
+        raise RuntimeError(
+            "no catheter rod is installed; the scene must call "
+            "CatheterRodHandle(spec).install() before the simulation is built"
+        )
+    return handle
+
+
 __all__ = [
     "GRAVITY_WORLD_Z_UP",
     "CatheterRodHandle",
     "CatheterRodSpec",
+    "active_handle",
     "newton_physics_cfg",
+    "require_active_handle",
     "rod_solver_cfg",
 ]

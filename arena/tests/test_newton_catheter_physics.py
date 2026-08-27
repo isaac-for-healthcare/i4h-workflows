@@ -177,12 +177,14 @@ class FakeBuilder:
 def stub_model_init(monkeypatch, stub_isaac):
     """Record the order of builder population and rod registration."""
     calls: list[str] = []
+    recorded: dict = {}
     builder = FakeBuilder()
     stub_isaac.newton_physics.NewtonManager._builder = builder
 
-    def add_catheter_rod_to_builder(passed_builder, config, *, start, direction, num_envs):
+    def add_catheter_rod_to_builder(passed_builder, config, *, positions, start, direction, num_envs):
         assert passed_builder is builder
         calls.append("add_particles")
+        recorded["positions"] = positions
         return SimpleNamespace(offset=0, count=(config.num_points) * num_envs, num_envs=num_envs)
 
     def rod_config_from_solver_cfg(solver_cfg, *, device):
@@ -210,7 +212,7 @@ def stub_model_init(monkeypatch, stub_isaac):
 
     solver_module.CathRodSolver = CathRodSolver
     monkeypatch.setitem(sys.modules, "catheter_vasculature_solver", solver_module)
-    return SimpleNamespace(calls=calls, registered=registered, builder=builder)
+    return SimpleNamespace(calls=calls, registered=registered, builder=builder, recorded=recorded)
 
 
 def test_particles_are_added_before_the_rod_is_registered(stub_model_init):
@@ -241,6 +243,31 @@ def test_the_rod_config_is_built_on_the_requested_device(stub_model_init):
     handle._on_model_init()
 
     assert "rod_config:cuda:1" in stub_model_init.calls
+
+
+def test_a_straight_rod_gets_no_explicit_positions(stub_model_init):
+    handle = CatheterRodHandle(CatheterRodSpec(initial_path_world_m=None))
+
+    handle._on_model_init()
+
+    assert stub_model_init.recorded["positions"] is None
+
+
+def test_the_vessel_path_seeds_the_rod_shape(stub_model_init):
+    """The centerline sets the starting shape once, instead of being replayed
+    into the solver every step, which would overwrite the physics result."""
+    path = tuple((float(index) * 0.05, 0.0, 0.0) for index in range(8))
+    spec = CatheterRodSpec(num_segments=8, length_m=0.2, initial_path_world_m=path)
+    handle = CatheterRodHandle(spec)
+
+    handle._on_model_init()
+
+    positions = stub_model_init.recorded["positions"]
+    assert positions is not None
+    assert positions.shape == (spec.num_points, 3)
+    # Sampled along the path, so the seeded rod spans the requested length.
+    span = float(np.linalg.norm(positions[-1] - positions[0]))
+    assert span == pytest.approx(spec.length_m, rel=1e-3)
 
 
 def test_a_missing_builder_is_reported_not_silently_skipped(stub_model_init, stub_isaac):

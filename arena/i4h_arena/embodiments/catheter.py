@@ -17,6 +17,7 @@ from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
 from isaaclab.utils.configclass import configclass
 
 from i4h_arena.medical.centerline import ordered_centerline_path
+from i4h_arena.medical.newton_catheter_physics import CatheterRodHandle, CatheterRodSpec, newton_physics_cfg
 from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.medical.patient_volume import PatientVolume
 from i4h_arena.medical.xpbd_catheter import XpbdCatheterAsset, XpbdCatheterAssetCfg
@@ -208,7 +209,6 @@ class _CatheterSceneCfg:
     catheter = XpbdCatheterAssetCfg(
         prim_path="{ENV_REGEX_NS}/Catheter",
         update_period=0.0,
-        origin_world_m=(-0.11, 0.04, 0.68),
         debug_vis=True,
     )
 
@@ -228,6 +228,14 @@ class CatheterEmbodiment:
     def __init__(self, patient_twin_manifest: str | None = None) -> None:
         self.scene_config = _CatheterSceneCfg()
         self.action_config = _ActionsCfg()
+        # Rod geometry belongs to the physics spec now that Newton's manager
+        # owns the solver; the scene entity only needs the radius it draws.
+        self.rod_spec = CatheterRodSpec(
+            origin_world_m=(-0.11, 0.04, 0.68),
+            radius_m=float(self.scene_config.catheter.radius_m),
+            patient_twin_manifest=patient_twin_manifest,
+        )
+        self._rod_handle: CatheterRodHandle | None = None
         if patient_twin_manifest is not None:
             self._align_to_patient_centerline(PatientTwin.load(patient_twin_manifest))
 
@@ -262,13 +270,15 @@ class CatheterEmbodiment:
         origin = tuple(float(value) for value in start)
         track_direction = tuple(float(value) for value in direction)
         self.scene_config.catheter_root.init_state.pos = origin
-        self.scene_config.catheter.origin_world_m = origin
-        self.scene_config.catheter.track_direction_world_m = track_direction
-        self.scene_config.catheter.length_m = length
-        self.scene_config.catheter.num_segments = 40
-        self.scene_config.catheter.guide_path_world_m = tuple(
-            tuple(float(value) for value in point) for point in path_world_m
-        )
+        self.rod_spec.origin_world_m = origin
+        self.rod_spec.track_direction_world = track_direction
+        self.rod_spec.length_m = length
+        self.rod_spec.num_segments = 40
+        # The centerline seeds the rod's initial shape so the catheter starts
+        # inside the lumen. It is no longer resampled every step; containment
+        # against the deformable wall is what keeps it there.
+        self.rod_spec.initial_path_world_m = tuple(tuple(float(value) for value in point) for point in path_world_m)
+        self.rod_spec.__post_init__()
 
     def get_scene_cfg(self) -> Any:
         return self.scene_config
@@ -307,4 +317,13 @@ class CatheterEmbodiment:
         env_cfg.decimation = 4
         env_cfg.sim.render_interval = 4
         env_cfg.scene.replicate_physics = False
+
+        self.rod_spec.num_envs = int(getattr(env_cfg.scene, "num_envs", 1))
+        self.rod_spec.device = str(getattr(env_cfg.sim, "device", self.rod_spec.device))
+        self.rod_spec.__post_init__()
+        env_cfg.sim.physics = newton_physics_cfg(self.rod_spec)
+        # Installed here because the rod's particles have to reach the Newton
+        # ModelBuilder on PhysicsEvent.MODEL_INIT, which fires while the scene
+        # is being built and before the model is finalized.
+        self._rod_handle = CatheterRodHandle(self.rod_spec).install()
         return env_cfg

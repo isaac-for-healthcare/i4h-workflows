@@ -68,7 +68,7 @@ class EndoluminalNavigationScene(Scene):
                 detector_size_m=detector_size_m,
             )
         else:
-            carm_provider = SceneCArmStateProvider(
+            carm_provider = self._scene_data_carm_provider(env, detector_size_m) or SceneCArmStateProvider(
                 env.unwrapped.scene["xray_source"],
                 env.unwrapped.scene["detector"],
                 detector_size_m=detector_size_m,
@@ -84,6 +84,34 @@ class EndoluminalNavigationScene(Scene):
             gripper=False,
             joint_state_providers={"robot": CatheterCArmJointStateProvider(catheter, carm_orbit)},
         )
+
+    @staticmethod
+    def _scene_data_carm_provider(env: Any, detector_size_m: tuple[float, float]) -> Any | None:
+        """Read C-arm poses through SceneDataProvider when one is available.
+
+        The provider is the backend-agnostic path for body transforms, so it is
+        preferred over per-asset ``get_world_poses()``. It returns ``None`` when
+        no provider is present or the prims are not registered with it, leaving
+        the caller to fall back rather than losing the C-arm entirely.
+        """
+        try:
+            from isaaclab.sim import SimulationContext
+
+            from i4h_arena.medical.newton_providers import SceneDataCArmStateProvider
+
+            provider = SimulationContext.instance().get_scene_data_provider()
+            if provider is None:
+                return None
+            num_envs = int(env.unwrapped.num_envs)
+            root = env.unwrapped.scene.env_prim_paths
+            return SceneDataCArmStateProvider(
+                provider,
+                source_paths=[f"{root[index]}/CArm/Orbit/Source" for index in range(num_envs)],
+                detector_paths=[f"{root[index]}/CArm/Orbit/Detector" for index in range(num_envs)],
+                detector_size_m=detector_size_m,
+            )
+        except Exception:
+            return None
 
     def default_sensor_views(self) -> tuple[str, ...]:
         return ("fluoroscopy",)
