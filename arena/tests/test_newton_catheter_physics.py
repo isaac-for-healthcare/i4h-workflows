@@ -136,15 +136,18 @@ def test_static_collision_and_track_stay_off(stub_isaac):
     assert cfg.track_enabled is False
 
 
-def test_state_sync_stays_off_so_insertion_survives(stub_isaac):
-    """With it on, the rod never advances: the solver's step opens by copying
-    ``state_in.particle_q`` over the root particle the action term just moved,
-    and the action term runs in exactly that window."""
+def test_state_sync_stays_on_so_the_rod_starts_in_the_patient(stub_isaac):
+    """It is the only route the centerline has into the solver.
+
+    The rod builds itself as a straight rod along +X and cannot be constructed
+    from a polyline, so the seeded Newton buffer reaching it on the first step
+    is what puts the catheter in the vessel rather than out in the room.
+    """
     from i4h_arena.medical.newton_catheter_physics import rod_solver_cfg
 
     cfg = rod_solver_cfg(CatheterRodSpec())
 
-    assert cfg.sync_from_state is False
+    assert getattr(cfg, "sync_from_state", True) is True
 
 
 def test_solver_overrides_win(stub_isaac):

@@ -112,14 +112,12 @@ def rod_solver_cfg(spec: CatheterRodSpec) -> Any:
     kernels, so the static-mesh collision path stays off; leaving both on would
     apply two independent wall constraints to the same catheter.
 
-    ``sync_from_state`` is off because it would discard every insertion
-    command. Proximal control advances the rod's root particle in the solver's
-    own buffers at the moment the action term calls it, and the Newton solver
-    begins its step by copying ``state_in.particle_q`` back over those buffers.
-    Since the action term runs between steps, the command lands in exactly the
-    window that copy overwrites. Nothing else writes these particles -- the rod
-    is the only solver that owns them, and reset republishes through the
-    bridge's own write-back -- so there is nothing for the sync to preserve.
+    ``sync_from_state`` stays on, and is what places the catheter in the
+    patient. The rod solver builds itself as a straight rod along +X and has no
+    way to start from a polyline, so the centerline reaches it only because the
+    Newton builder is seeded with it and the solver reads that buffer back on
+    its first step. Turning the sync off strands the catheter at the solver's
+    default pose, well outside the anatomy.
     """
     from catheter_vasculature_solver.isaaclab_integration import XPBDRodSolverCfg
 
@@ -130,7 +128,6 @@ def rod_solver_cfg(spec: CatheterRodSpec) -> Any:
         "gravity": tuple(float(value) for value in spec.gravity_world),
         "collision_enabled": False,
         "track_enabled": False,
-        "sync_from_state": False,
     }
     fields.update(spec.solver_overrides)
     return XPBDRodSolverCfg(**fields)
