@@ -111,6 +111,15 @@ def rod_solver_cfg(spec: CatheterRodSpec) -> Any:
     Containment against the deformable wall runs in the rod solver's own
     kernels, so the static-mesh collision path stays off; leaving both on would
     apply two independent wall constraints to the same catheter.
+
+    ``sync_from_state`` is off because it would discard every insertion
+    command. Proximal control advances the rod's root particle in the solver's
+    own buffers at the moment the action term calls it, and the Newton solver
+    begins its step by copying ``state_in.particle_q`` back over those buffers.
+    Since the action term runs between steps, the command lands in exactly the
+    window that copy overwrites. Nothing else writes these particles -- the rod
+    is the only solver that owns them, and reset republishes through the
+    bridge's own write-back -- so there is nothing for the sync to preserve.
     """
     from catheter_vasculature_solver.isaaclab_integration import XPBDRodSolverCfg
 
@@ -121,6 +130,7 @@ def rod_solver_cfg(spec: CatheterRodSpec) -> Any:
         "gravity": tuple(float(value) for value in spec.gravity_world),
         "collision_enabled": False,
         "track_enabled": False,
+        "sync_from_state": False,
     }
     fields.update(spec.solver_overrides)
     return XPBDRodSolverCfg(**fields)
