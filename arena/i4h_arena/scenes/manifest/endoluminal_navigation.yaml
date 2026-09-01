@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+impl: i4h_arena.scenes.endoluminal_navigation:EndoluminalNavigationScene
+description: "Endoluminal navigation with a patient digital twin and custom fluoroscopy sensor."
+embodiment: catheter
+action_space: catheter_carm_velocity
+dof: 3
+gripper: false
+cameras:
+- fluoroscopy
+objects: []
+robots:
+- robot
+max_steps: 600
+control_hz: 60.0

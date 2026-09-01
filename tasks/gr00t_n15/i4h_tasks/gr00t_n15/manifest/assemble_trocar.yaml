@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# One remote task. Nothing can import this stack (its torch pins conflict
+# with Isaac's), so its declaration has to be data — and data is what this
+# is: no behaviour, just what the checkpoint is and what scene it needs.
+#
+# summary / prompt / embodiment / cameras are read in the light venv.
+# model / observation / train       are read only by this stack's server.py
+#                                   and train.py, in this stack's own venv.
+# `train:` present -> supervised LeRobot finetunable. Online PPO is declared
+# separately in rl/ so this Task remains inference-only for SFT.
+
+summary: Install trocar from box
+embodiment: g1_dex
+cameras:
+- front
+- left_wrist
+- right_wrist
+model:
+  repo: nvidia/GR00T-N1.5-RL-Rheo-AssembleTrocar
+  revision: b54e14286ed3f8392d614741748739e09c7fefe4
+  embodiment_tag: new_embodiment
+  data_config: unitree_g1_assemble_trocar
+  action_horizon: 16
+  action_head_future_tokens: 32
+  execution_steps: 1
+  control_hz: 30.0
+observation:
+  image_size:
+  - 480
+  - 640

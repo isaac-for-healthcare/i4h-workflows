@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# What this scene PROVIDES. Structure stays Python in arena/i4h_arena/scenes/.
+
+impl: i4h_arena.scenes.panda_phantom:PandaPhantomScene
+description: Franka Panda with an ultrasound probe over an abdominal phantom.
+embodiment: panda
+action_space: ee_pose
+dof: 6
+gripper: false
+cameras:
+- room
+- wrist
+objects:
+- table
+- organs
+max_steps: 250
+control_hz: 30.0

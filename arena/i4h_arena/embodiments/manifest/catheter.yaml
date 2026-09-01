@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: catheter
+joint_names:
+- insertion_m
+- rotation_rad
+- carm_orbit_rad
+action_names:
+- insertion_velocity_mps
+- rotation_rate_radps
+- carm_orbit_rate_radps
+state_names:
+- insertion_m
+- rotation_rad
+- carm_orbit_rad
+teleop_devices:
+- catheter_keyboard

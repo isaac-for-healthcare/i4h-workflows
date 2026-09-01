@@ -1,11 +1,29 @@
 [run]
-source = workflows/robotic_ultrasound/scripts
-omit = workflows/robotic_ultrasound/tests
+branch = True
+relative_files = True
+source =
+    common/i4h_common
+    engine/i4h_engine
+    workflows/i4h_workflows
+    workflows/i4h_workflow_modes
+    tasks/basic/i4h_tasks/basic
+    tasks/gr00t_n15/i4h_tasks/gr00t_n15
+    tasks/gr00t_n16/i4h_tasks/gr00t_n16
+    tasks/ik/i4h_tasks/ik
+    tasks/rsl_rl/i4h_tasks/rsl_rl
+    tasks/teleop/i4h_tasks/teleop
+    rl/i4h_rl
+    tools/dataset/i4h_tools/dataset
+    tools/mimic/i4h_tools/mimic
+    tools/patient_twin/i4h_tools/patient_twin
+    scripts
 
 [report]
-exclude_lines =
-    pragma: no cover
-    def __repr__
-    raise NotImplementedError
-    if __name__ == "__main__":
-    pass
+precision = 1
+show_missing = True
+skip_empty = True
+omit =
+    */tests/*
+
+[xml]
+output = coverage.xml

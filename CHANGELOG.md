@@ -2,10 +2,12 @@
 
 All notable changes to Isaac for Healthcare Workflows are documented in this file.
 
+Entries describe the repository layout at the time of each release. Links to removed layouts are pinned to the corresponding historical tag.
+
 ## [0.7.0] - Endoluminal Workflow, Agentic Surgical Environments, NVSkills Agent Platform, Rheo Deformable Cloth
 
 - **Endoluminal Workflow**: New GPU fluoroscopy + XPBD catheter navigation workflow with CT digital-twin generation, Slang DRR/DSA rendering, interactive viewport, and `./i4h` CLI modes; user-facing name is **Endoluminal Workflow** (directory remains `workflows/catheter_navigation/`).
-- **Agentic Surgical Environments**: Six new dVRK/STAR Arena environments ported from Robotic Surgery, plus scripted state-machine rollouts and a surgical baseline policy path for smoke validation.
+- **Agentic Surgical Environments**: Six new dVRK/STAR Arena environments ported from Robotic Surgery, plus rule-based controller rollouts and a surgical baseline policy path for smoke validation.
 - **NVSkills Agent Platform**: Skills relocated to top-level `skills/` with NV-BASE validation, signed artifacts, eval datasets, `AGENTS.md` entry point, and a new **Local Agent** runner.
 - **Rheo Surface-Deformable Simulation**: New tablecloth-spreading task with Newton/PhysX backends, XR teleop recording, and dedicated cloth Docker image.
 
@@ -21,7 +23,7 @@ New `workflows/catheter_navigation/` workflow for simulation-driven development 
 - **Pip-Installable Packages:** Runtime pulls `fluoro-simulator`, `vasculature-digital-twin`, and `catheter-vasculature-solver` from pinned Git dependencies.
 - **Agent Skills:** Seven `i4h-catheter-navigation*` skills (overview, setup, digital twin, DRR render, viewport, smoke, e2e) with eval prompts and NVSkills signatures.
 
-See [Endoluminal Workflow README](workflows/catheter_navigation/README.md).
+See [Endoluminal Workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.7.0/workflows/catheter_navigation/README.md).
 
 ### Surgical Agentic Workflow Updates
 
@@ -29,13 +31,13 @@ Expands the Agentic workflow from five pre-trained environments to eleven regist
 
 - **Six New Surgical Environments:** `surgical_reach_psm`, `surgical_reach_dual_psm`, `surgical_reach_star`, `surgical_lift_block`, `surgical_lift_needle`, and `surgical_lift_needle_organs`.
 - **New Robot Embodiments:** dVRK PSM, dual PSM, STAR, and ECM configs under `config/robots/`.
-- **Scripted State Machines:** New state-machine framework for policy-free rollouts with latched success semantics; supported on scissor, ultrasound, and all six surgical envs via `--state-machine`.
+- **Rule-Based Controllers:** Local TaskGraph controllers for policy-free rollouts with explicit success semantics; supported on scissor, ultrasound, and all six surgical environments via `--rule-based`.
 - **Surgical Baseline Policy:** Zero-action GR00T N1.5 inference daemon for validating policy/Arena/Zenoh plumbing on new surgical envs.
 - **Policy Health Routing:** Readiness checks for skill and automation flows via `policy_routing.py`.
 - **Scene-Edit Bridge:** Per-env bridge port from YAML (`arena.bridge_port`); resolve via `arena/run.sh bridge-url --env <env>`.
 - **E2E Pipeline:** Headless camera rendering in record/replay/validate stages; vLLM annotator gains `wait`/`ensure` modes.
 
-See [Agentic Workflow README](workflows/agentic/README.md) and [Arena State Machines README](workflows/agentic/arena/arena/statemachine/README.md).
+See the historical [workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.7.0/workflows/agentic/README.md) and [architecture](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.7.0/workflows/agentic/DESIGN.md).
 
 ### Rheo Deformable Cloth
 
@@ -47,7 +49,7 @@ First surface-deformable asset support in Rheo, alongside existing rigid-body ta
 - **Dedicated Container:** `Dockerfile.rheo_cloth` with separate IsaacLab checkout so cloth deps do not affect other Rheo tasks.
 - **Newton Fixes:** Improved G1 Inspire hand finger tracking and hand–cloth collision behavior.
 
-See [Rheo Workflow README](workflows/rheo/README.md).
+See [Rheo Workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.7.0/workflows/rheo/README.md).
 
 ### NVSkills Agent Platform
 
@@ -86,9 +88,9 @@ Major reorganization of the agent skill system introduced in v0.6.0.
 
 ### Agentic Workflow
 
-New `workflows/agentic/` workflow unifying IsaacLab-Arena, GR00T (N1.5/N1.6/N1.7), and openpi PI0 behind YAML-driven dispatch.
+New workflow runtime unifying IsaacLab-Arena, GR00T (N1.5/N1.6/N1.7), and openpi PI0 behind YAML-driven dispatch.
 
-See [Agentic Workflow README](workflows/agentic/README.md).
+See the historical [workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.6.0/workflows/agentic/README.md).
 
 ### Claude Code Agent Skills
 
@@ -120,7 +122,7 @@ New comprehensive workflow for autonomous clinical environment development, buil
 - **VLM Agents:** Configurable VLM-powered agents for peri-operative annotation, surgical monitoring, robot control, and user command handling, with automated setup scripts.
 - **TensorRT Support:** GR00T N1.6 TensorRT acceleration for Arena-based tasks.
 
-See [Rheo Workflow README](workflows/rheo/README.md).
+See [Rheo Workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.5.0/workflows/rheo/README.md).
 
 ### Isaac for Healthcare Command Line Interface (I4H CLI)
 
@@ -137,7 +139,7 @@ Unified `./i4h` command-line interface to simplify setup and execution across wo
 - **DGX Spark Support:** Added workflow container support for DGX Spark platform.
 - **IGX Orin (CUDA 12):** Real-world telesurgery workflow supported on IGX Orin.
 
-See [Telesurgery Workflow README](workflows/telesurgery/README.md).
+See [Telesurgery Workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.5.0/workflows/telesurgery/README.md).
 
 ### Other Workflow Updates
 
@@ -158,7 +160,7 @@ See [Telesurgery Workflow README](workflows/telesurgery/README.md).
 - **Holoscan Integration:** Enable low-latency streaming and processing in the SO-ARM workflow.
 - **Documentation Enhancements:** Expanded SO-ARM Starter docs and guidance.
 
-See [SO-ARM Starter Workflow README](workflows/so_arm_starter/README.md).
+See [SO-ARM Starter Workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.4.0/workflows/so_arm_starter/README.md).
 
 ### Workflow Updates
 
@@ -185,7 +187,7 @@ All workflows now support IsaacSim 5.x and IsaacLab 2.2/2.3 with Python 3.11.
 - **GR00T N1.5 Foundation Model:** Advanced foundation model training and fine-tuning with automated HDF5 to LeRobot format conversion and TensorRT optimization.
 - **DDS Communication Framework:** Real-time communication with RTI DDS support.
 
-See [SO-ARM Starter Workflow README](workflows/so_arm_starter/README.md).
+See [SO-ARM Starter Workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.3.0/workflows/so_arm_starter/README.md).
 
 ### Enhanced Camera Support for Telesurgery Workflow
 
@@ -216,7 +218,7 @@ See [SO-ARM Starter Workflow README](workflows/so_arm_starter/README.md).
 - **Liver Scan State Machine with Replay:** Enhanced state machine with replay functionality for HDF5 trajectories.
 - **Inference Deployment:** Policy evaluation for trained models in robotic ultrasound simulation.
 
-See [GR00T N1 Training README](workflows/robotic_ultrasound/scripts/training/gr00t_n1/README.md) and [Robotic Ultrasound Workflow README](workflows/robotic_ultrasound/README.md).
+See [GR00T N1 Training README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.2.0/workflows/robotic_ultrasound/scripts/training/gr00t_n1/README.md) and [Robotic Ultrasound Workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.2.0/workflows/robotic_ultrasound/README.md).
 
 ### Cosmos-Transfer1
 
@@ -234,7 +236,7 @@ See [Cosmos-transfer1 README](https://github.com/isaac-for-healthcare/i4h-workfl
 - **Multi-Controller Support:** Xbox controllers and Haply Inverse3 devices.
 - **Advanced Video Streaming:** Configurable H.264/HEVC encoding with NVIDIA Video Codec and NVJPEG.
 
-See [Telesurgery Workflow README](workflows/telesurgery/README.md).
+See [Telesurgery Workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.2.0/workflows/telesurgery/README.md).
 
 ### Enhanced Utility Modules
 
@@ -260,17 +262,17 @@ Initial release of Isaac for Healthcare Workflows.
 - **Ultrasound Raytracing:** Standalone ultrasound raytracing simulator for realistic images from 3D meshes.
 - **DDS Communication:** RTI Connext DDS for inter-process communication.
 
-See [Robotic Ultrasound Workflow README](workflows/robotic_ultrasound/README.md).
+See [Robotic Ultrasound Workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.1.0/workflows/robotic_ultrasound/README.md).
 
 ### Robotic Surgery Workflow
 
 - **State Machine Implementations:** State-based control examples for surgical procedures.
 - **Reinforcement Learning:** Framework for training RL policies for surgical subtasks.
 
-See [Robotic Surgery Workflow README](workflows/robotic_surgery/README.md).
+See [Robotic Surgery Workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.1.0/workflows/robotic_surgery/README.md).
 
 ### Tutorials
 
 - Bring Your Own Patient: Import custom CT or MRI scans into USD for simulation.
 - Bring Your Own Robot: Import custom robot models (CAD/URDF) and replace components.
-- [Sim2Real Transition](workflows/robotic_ultrasound/docs/sim2real/README.md): Adapt simulation-trained policies for physical deployment using DDS.
+- [Sim2Real Transition](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.1.0/workflows/robotic_ultrasound/docs/sim2real/README.md): Adapt simulation-trained policies for physical deployment using DDS.

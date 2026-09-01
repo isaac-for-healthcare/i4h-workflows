@@ -1,0 +1,83 @@
+diff --git a/isaaclab_arena/assets/asset_registry.py b/isaaclab_arena/assets/asset_registry.py
+index 92c31b7..7dcec23 100644
+--- a/isaaclab_arena/assets/asset_registry.py
++++ b/isaaclab_arena/assets/asset_registry.py
+@@ -46,6 +46,10 @@ class Registry(metaclass=SingletonMeta):
+             ensure_assets_registered()
+         return key in self._components
+ 
++    def is_registered_local(self, key: str) -> bool:
++        """Check the current registry without importing the global asset catalog."""
++        return key in self._components
++
+     def get_component_by_name(self, key: str) -> Any:
+         """Get an component by name.
+ 
+@@ -84,8 +88,15 @@ class AssetRegistry(Registry):
+         Args:
+             name (str): The name of the asset.
+         """
+-        ensure_assets_registered()
+-        return self.get_component_by_name(name)
++        # Workflow-owned assets register themselves before scene construction.
++        # Return those entries without importing the network-backed global
++        # catalog, which may be unavailable in offline simulation runs.
++        if name in self._components:
++            return self._components[name]
++        ensure_assets_registered()
++        if name not in self._components:
++            raise AssertionError(f"component {name} not found, please check if requested component is registered")
++        return self._components[name]
+ 
+     def get_assets_by_tag(self, tag: str) -> list[type["Asset"]]:
+         """Gets a list of assets by tag.
+
+diff --git a/isaaclab_arena/assets/register.py b/isaaclab_arena/assets/register.py
+index 38664c6..6ffd1d6 100644
+--- a/isaaclab_arena/assets/register.py
++++ b/isaaclab_arena/assets/register.py
+@@ -14,7 +14,7 @@ from isaaclab_arena.assets.asset_registry import (
+ 
+ # Decorator to register an asset with the AssetRegistry.
+ def register_asset(cls):
+-    if AssetRegistry().is_registered(cls.name):
++    if AssetRegistry().is_registered_local(cls.name):
+         print(f"WARNING: Asset {cls.name} is already registered. Doing nothing.")
+     else:
+         AssetRegistry().register(cls, cls.name)
+@@ -23,7 +23,7 @@ def register_asset(cls):
+ 
+ # Decorator to register an device with the DeviceRegistry.
+ def register_device(cls):
+-    if DeviceRegistry().is_registered(cls.name):
++    if DeviceRegistry().is_registered_local(cls.name):
+         print(f"WARNING: Device {cls.name} is already registered. Doing nothing.")
+     else:
+         DeviceRegistry().register(cls, cls.name)
+@@ -34,7 +34,7 @@ def register_device(cls):
+ def register_retargeter(cls):
+     retargeter_key = (cls.device, cls.embodiment)
+     retargeter_key_str = RetargeterRegistry().convert_tuple_to_str(retargeter_key)
+-    if RetargeterRegistry().is_registered(retargeter_key_str):
++    if RetargeterRegistry().is_registered_local(retargeter_key_str):
+         print(f"WARNING: Retargeter {cls.device} for {cls.embodiment} is already registered. Doing nothing.")
+     else:
+         RetargeterRegistry().register(cls, retargeter_key_str)
+@@ -43,7 +43,7 @@ def register_retargeter(cls):
+ 
+ # Decorator to register a policy with the PolicyRegistry.
+ def register_policy(cls):
+-    if PolicyRegistry().is_registered(cls.name):
++    if PolicyRegistry().is_registered_local(cls.name):
+         print(f"WARNING: Policy {cls.name} is already registered. Doing nothing.")
+     else:
+         PolicyRegistry().register(cls, cls.name)
+@@ -52,7 +52,7 @@ def register_policy(cls):
+ 
+ # Decorator to register an HDRImage with the HDRImageRegistry.
+ def register_hdr(cls):
+-    if HDRImageRegistry().is_registered(cls.name):
++    if HDRImageRegistry().is_registered_local(cls.name):
+         print(f"WARNING: HDRImage {cls.name} is already registered. Doing nothing.")
+     else:
+         HDRImageRegistry().register(cls, cls.name)

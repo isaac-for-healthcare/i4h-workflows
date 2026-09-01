@@ -1,4 +1,0 @@
-struct UltraSoundProbeInfo {
-  sequence<double> position;
-  sequence<double> orientation;
-};

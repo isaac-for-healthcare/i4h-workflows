@@ -1,91 +1,83 @@
-# AGENTS.md — Isaac for Healthcare Agent Entry Point
+# i4h Workflows Agent Guide
 
-AI agent skills for **Isaac for Healthcare (i4h)** workflows. Skills live in **`skills/`** (repo root; `.claude/skills` and `.codex/skills` symlink to it).
+Run commands from the repository root.
 
-- **Agentic workflow** (`workflows/agentic/`) — sim-to-policy pipeline; each stage is its own `i4h-workflow-*` skill. Compose them, or use `skills/i4h-workflow-e2e/` for the full pipeline.
-- **Catheter navigation** (`workflows/catheter_navigation/`) — fluorosim DRR + XPBD physics + vasculature digital twin; start at `skills/i4h-catheter-navigation/`.
-
-Other workflows under `workflows/` (telesurgery, robotic surgery, …) do not yet have dedicated skills.
-
-## Conventions
-
-**Base code.** Every skill drives the i4h-workflows base code (the `workflows/agentic/` tree). Inside this repo it is already present. Running a skill standalone (e.g. from a central skills repo)? Set `I4H_WORKFLOWS` to an existing checkout to reuse it; otherwise it clones to `~/i4h-workflows` without prompting. Run from the resolved root:
+## First Checks
 
 ```bash
-ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"
-if [ ! -d "$ROOT/workflows/agentic" ]; then
-  ROOT="${I4H_WORKFLOWS:-$HOME/i4h-workflows}"
-  [ -d "$ROOT/workflows/agentic" ] || git clone https://github.com/isaac-for-healthcare/i4h-workflows "$ROOT"
-fi
-export I4H_WORKFLOWS="$ROOT"; cd "$ROOT"
+./run.sh list
+./run.sh lint <workflow>
+./run.sh show <workflow>
 ```
 
-Other conventions:
+If a component environment is missing, run `./setup.sh`. Use `./stop.sh all` for process cleanup.
 
-- **Env YAMLs are the source of truth** — `workflows/agentic/config/environments/<env>.yaml` defines each env's robot, task, scene, policy, cameras, and randomization.
-- **Set up first** — if `.venv` or third-party checkouts are missing, run `skills/i4h-workflow-setup/` before any hands-on stage.
-- **Run from the repo root** so the per-skill `workflows/agentic/...` paths resolve.
-- **Stop/cleanup prompts are direct commands** — for prompts such as `Stop all`, run `workflows/agentic/stop.sh all` from the repo root and report the stopped components. Do not route this through a stage skill or invent `run.sh stop`.
-- **Do not hard-wrap skill Markdown** — keep prose and bullets in `skills/**/*.md` as single logical lines unless a code block, table, or command needs explicit line breaks.
+Create a blank idle-only Workflow with `./scripts/create_blank_environment.py <workflow_id> --specialty <specialty>`. Choose one of `laparoscopic-robotics`, `ultrasound-robotics`, `endoluminal-robotics`, or `hospital-automation-robotics`. Pass `--dry-run` to preview the generated files or `--validate` to run focused static checks after creation.
 
-## Skills directory
+## Resolve the Checkout
 
-### Start here
+Skills may also run from a central catalog outside this repository. Resolve or clone the root-level workflow runtime before using repository-relative paths:
 
-- `skills/i4h-workflow/` — overview/router: supported envs, subproject layout, and which stage skill to use next.
-- `skills/i4h-workflow-setup/` — install/sync dependencies and third-party checkouts; verify the toolchain.
+```bash
+export I4H_WORKFLOWS_REPO_URL="${I4H_WORKFLOWS_REPO_URL:-https://github.com/isaac-for-healthcare/i4h-workflows}"
+I4H_REPO_DIR_NAME="${I4H_WORKFLOWS_REPO_URL%/}"
+I4H_REPO_DIR_NAME="${I4H_REPO_DIR_NAME##*/}"
+I4H_REPO_DIR_NAME="${I4H_REPO_DIR_NAME##*:}"
+I4H_REPO_DIR_NAME="${I4H_REPO_DIR_NAME%.git}"
+[ -n "$I4H_REPO_DIR_NAME" ] || { echo "Cannot derive a checkout name from I4H_WORKFLOWS_REPO_URL" >&2; exit 2; }
+ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"
+if [ ! -d "$ROOT/workflows/i4h_workflows" ]; then
+  ROOT="${I4H_WORKFLOWS:-$HOME/$I4H_REPO_DIR_NAME}"
+  [ -d "$ROOT/workflows/i4h_workflows" ] || git clone "$I4H_WORKFLOWS_REPO_URL" "$ROOT"
+fi
+export I4H_WORKFLOWS="$ROOT"
+cd "$ROOT"
+```
 
-### Author environments
+`I4H_WORKFLOWS_REPO_URL` chooses the clone source and `I4H_WORKFLOWS` chooses or reuses a specific checkout. Never replace an existing checkout.
 
-- `skills/i4h-workflow-create/` — create a new env from an existing one (robot + task + scene + policy).
-- `skills/i4h-workflow-scene-edit/` — edit an existing env's scene, cameras, or task in place (the `--bridge` session).
+For a live scene, export confirmed edits with `arena/.venv/bin/python scripts/live_scene_edit.py export-scene --workflow <workflow> --output-path <run-dir>/live_scene.json`, then resolve reusable facts with `arena/.venv/bin/python scripts/authoring_info.py snapshot <workflow> <run-dir>/live_scene.json`. These utilities do not generate workflow code; the coding agent patches the owning Scene, asset source, and manifest while the snapshot remains a run artifact.
 
-### Build datasets
+Keep generated runtime artifacts under `runs/<workflow>/<YYYYMMDD_HHMMSS>/`. Pass `run.sh --run-dir <that-directory>` when a skill or driver must place launcher logs and recordings together; do not create flat stage-prefixed run directories.
 
-- `skills/i4h-workflow-dataset-teleop/` — record human demos to HDF5 (keyboard / SO-ARM leader / VR).
-- `skills/i4h-workflow-dataset-replay/` — replay an HDF5 episode in Isaac Sim to verify it.
-- `skills/i4h-workflow-dataset-mimic/` — expand HDF5 demos by replicating trajectories with action/state noise.
-- `skills/i4h-workflow-dataset-annotate/` — VLM success labels and episode filtering.
-- `skills/i4h-workflow-dataset-convert/` — convert an HDF5 recording to a LeRobot dataset.
+## Source of Truth
 
-### Train, evaluate, run
+- Workflow layout and specialty catalog: `workflows/README.md`
+- Author-facing Workflow value: `engine/i4h_engine/interface.py`
+- TaskGraph-building API: `engine/i4h_engine/graph.py`
+- Workflow and run modes: `workflows/i4h_workflows/<specialty>/<workflow>.py`
+- Standard run-mode vocabulary and shared builders: `workflows/i4h_workflow_modes/README.md`
+- Scene construction: `arena/i4h_arena/scenes/`
+- Scene capabilities and step cap: `arena/i4h_arena/scenes/manifest/<scene>.yaml`
+- Embodiment facts: `arena/i4h_arena/embodiments/manifest/<robot>.yaml`
+- Task implementation and manifest: `tasks/<project>/i4h_tasks/<project>/`
+- Exported RSL-RL policy Tasks: `tasks/rsl_rl/`
+- Shared HDF5 contract: `common/i4h_common/episode.py`
+- Online RL profiles, backends, and workflow adapters: `rl/`
 
-- `skills/i4h-workflow-finetune/` — fine-tune a GR00T or openpi PI0 policy on a LeRobot dataset.
-- `skills/i4h-workflow-validate/` — roll out a policy against an env and record verification episodes.
-- `skills/i4h-workflow-e2e/` — run the full pipeline end-to-end (record → mimic → annotate → replay → convert → finetune → validate).
-- `skills/i4h-lerobot-viz/` — open the LeRobot HTML dataset viewer.
+Use `--rule-based` for local controller graphs. Do not add mode aliases.
 
-### Catheter navigation (`workflows/catheter_navigation/`)
+## Change Discipline
 
-- `skills/i4h-catheter-navigation/` — overview/router: CLI modes, fluorosim layout, which stage skill to use next.
-- `skills/i4h-catheter-navigation-setup/` — host/GPU preflight, PYTHONPATH, smoke-test verify.
-- `skills/i4h-catheter-navigation-digital-twin/` — CT preprocess + vessel segmentation (digital twin).
-- `skills/i4h-catheter-navigation-render-drr/` — single DRR frame (cache or synthetic phantom).
-- `skills/i4h-catheter-navigation-viewport/` — interactive fluoroscopy + catheter physics.
-- `skills/i4h-catheter-navigation-smoke/` — CPU unittest smoke (CI-friendly).
-- `skills/i4h-catheter-navigation-e2e/` — chained smoke (setup → digital twin → DRR → tests).
+- A task reads `ctx.scene`, writes `ctx.act`, and never calls `env.step`.
+- Keep online RL outside Workflow modes; `rl` owns vectorized stepping and hands checkpoints back to normal policy validation.
+- Keep incompatible policy stacks isolated behind `i4h_common.server.PolicyServer`; a simulator-compatible exported TorchScript actor may be an in-process Task under `tasks/rsl_rl`.
+- Do not import policy packages into arena or Isaac packages into the light discovery path.
+- Do not increase a workflow's validated step cap to hide inference or controller issues.
+- Give every task manifest a concise `summary`; add `prompt` only when it needs more detail. Keep model, observation, and training defaults in the owning remote-task manifest.
+- Add CPU tests for graph/task behavior and perform a visible simulator validation for scene changes.
 
-## Supported envs
+For generic Isaac Sim physics, cameras, USD, rendering, or spatial authoring, route through `skills/i4h-workflow-scene-edit/references/isaacsim-skill-routing.md` and use the selected upstream skill. Keep i4h guidance focused on workflow/task integration, manifests, policy wiring, recording, and validation.
 
-| Env | Robot | Policy |
-|---|---|---|
-| `scissor_pick_and_place` | SO-ARM 101 | GR00T N1.5 (N1.7 alternative) |
-| `locomanip_tray_pick_and_place` | Unitree G1 | GR00T N1.6 |
-| `locomanip_push_cart` | Unitree G1 | GR00T N1.6 |
-| `assemble_trocar` | Unitree G1 + Dex hands | GR00T N1.5 (inference-only) |
-| `ultrasound_liver_scan` | Franka-style arm | openpi PI0 |
-| `surgical_reach_psm` | dVRK PSM | GR00T N1.5 or scripted state machine |
-| `surgical_reach_dual_psm` | dVRK dual PSM | GR00T N1.5 or scripted state machine |
-| `surgical_reach_star` | STAR | GR00T N1.5 or scripted state machine |
-| `surgical_lift_block` | dVRK PSM | GR00T N1.5 or scripted state machine |
-| `surgical_lift_needle` | dVRK PSM | GR00T N1.5 or scripted state machine |
-| `surgical_lift_needle_organs` | dVRK PSM | GR00T N1.5 or scripted state machine |
+## Skill Routing
 
-## Validation
+- Start with `skills/i4h-workflow/` for architecture, support, or where-to-start questions.
+- Use `skills/i4h-workflow-setup/` for installation and missing component environments.
+- Use `skills/i4h-workflow-create/` for a new blank workflow and `skills/i4h-workflow-scene-edit/` for an existing Scene or task contract.
+- Use the matching `skills/i4h-workflow-dataset-*` skill for teleoperation, replay, mimic, annotation, or conversion.
+- Use `skills/i4h-workflow-finetune/` for offline policy training, `skills/i4h-workflow-train-rl/` for online RL, and `skills/i4h-workflow-validate/` for rollouts.
+- Use `skills/i4h-workflow-e2e/` only for the full maintained data-to-policy pipeline and `skills/i4h-lerobot-viz/` for browser inspection of converted data.
 
-Skills are validated locally with NV-BASE. After any change under `skills/`, run the Recommended Local Validation and Eval Dataset Schema Check in `TESTING.md` before reporting the skill work complete. Treat that file as the source of truth for validation standards; do not substitute lighter checks such as `quick_validate.py` for the NV-BASE report.
+## Skill Validation
 
-## Resources
-
-- Repository: <https://github.com/isaac-for-healthcare/i4h-workflows>
-- Asset catalog: <https://github.com/isaac-for-healthcare/i4h-asset-catalog>
+After changing `skills/`, skill routing, or skill-backed examples, run the Recommended Local Validation and Eval Dataset Schema Check in `TESTING.md`. Treat that file as the validation source of truth; lighter checks do not replace its NV-BASE report.

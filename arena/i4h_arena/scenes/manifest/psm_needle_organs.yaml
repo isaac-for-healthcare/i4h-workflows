@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# What this scene PROVIDES. Structure stays Python in arena/i4h_arena/scenes/.
+
+impl: i4h_arena.scenes.psm_needle_organs:PsmNeedleOrgansScene
+description: dVRK PSM lifting a suture needle from an organ bed.
+embodiment: dvrk_psm
+action_space: ee_pose
+dof: 8
+cameras:
+- room
+objects:
+- table
+- needle
+- organs
+max_steps: 250
+control_hz: 50.0

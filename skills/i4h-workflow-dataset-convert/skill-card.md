@@ -1,5 +1,5 @@
 ## Description: <br>
-Convert an agentic HDF5 recording into a LeRobot dataset (parquet, meta, videos). <br>
+Convert a workflow HDF5 recording into a LeRobot dataset (parquet, meta, videos). <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 

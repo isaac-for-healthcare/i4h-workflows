@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Every task manifest owns its summary. The class owns behavior, requirements,
+# and ports because those can be derived from the implementation.
+
+summary: Feed actions from a recorded HDF5 episode, optionally one node's segment
+impl: i4h_tasks.basic.replay.replay:Replay

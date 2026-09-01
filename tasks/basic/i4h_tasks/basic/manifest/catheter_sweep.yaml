@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+summary: Exercise catheter insertion, axial rotation, and C-arm orbit for simulator validation
+impl: i4h_tasks.basic.medical.catheter_sweep:CatheterSweep

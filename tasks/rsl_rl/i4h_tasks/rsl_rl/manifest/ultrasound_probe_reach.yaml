@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+summary: Reach a torso target with the exported ultrasound-probe policy
+impl: i4h_tasks.rsl_rl.ultrasound_probe_reach:UltrasoundProbeReachPolicy
+model:
+  family: rsl_rl
+  format: torchscript

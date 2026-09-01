@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+summary: Walk G1 forward and stop upright before an object's nearest edge
+impl: i4h_tasks.basic.motion.g1_walk_to_object:G1WalkToObject

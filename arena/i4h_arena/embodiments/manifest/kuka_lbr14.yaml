@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Cross-process robot identity for the KUKA LBR14Med embodiment. Controller
+# width and action semantics belong to the Scene that mounts the arm.
+
+name: kuka_lbr14
+joint_names:
+- axis1
+- axis2
+- axis3
+- axis4
+- axis5
+- axis6
+- axis7

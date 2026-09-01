@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Robot facts that must cross a venv boundary and are not already stated by
+# the IsaacLab articulation cfg beside this file:
+#   - LeRobot column names and splits, read by tools/dataset
+#   - teleop device list and leader calibration, read by tasks/teleop
+#   - home pose and control rate, read by arena when building a scene
+#
+# dof / action_space / gripper are NOT here: the scene declares them, because
+# the same arm can be mounted under different controllers.
+
+name: dvrk_psm
+joint_names:
+- psm_yaw_joint
+- psm_pitch_end_joint
+- psm_main_insertion_joint
+- psm_tool_roll_joint
+- psm_tool_pitch_joint
+- psm_tool_yaw_joint
+- psm_tool_gripper1_joint
+- psm_tool_gripper2_joint
+action_names:
+- ee.x
+- ee.y
+- ee.z
+- ee.qx
+- ee.qy
+- ee.qz
+- ee.qw
+- gripper
+state_names:
+- psm_yaw_joint.pos
+- psm_pitch_end_joint.pos
+- psm_main_insertion_joint.pos
+- psm_tool_roll_joint.pos
+- psm_tool_pitch_joint.pos
+- psm_tool_yaw_joint.pos
+- psm_tool_gripper1_joint.pos
+- psm_tool_gripper2_joint.pos
+teleop_devices:
+- keyboard

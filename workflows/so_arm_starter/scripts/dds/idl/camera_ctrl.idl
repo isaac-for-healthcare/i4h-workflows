@@ -1,3 +1,0 @@
-struct CameraCtrlInput {
-  double focal_len;
-};

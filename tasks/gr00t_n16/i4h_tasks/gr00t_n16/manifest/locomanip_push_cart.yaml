@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# One remote task. Nothing can import this stack (its torch pins conflict
+# with Isaac's), so its declaration has to be data — and data is what this
+# is: no behaviour, just what the checkpoint is and what scene it needs.
+#
+# summary / prompt / embodiment / cameras are read in the light venv.
+# model / observation / train       are read only by this stack's server.py
+#                                   and train.py, in this stack's own venv.
+# `train:` present -> finetunable.
+
+summary: Walk to the cart and push it forward
+prompt: Go to the left side of the cart, turn around to face the cart, grasp the cart handles with both hands, and push the cart forward to the destination.
+embodiment: g1
+cameras:
+- head
+model:
+  repo: nvidia/GR00T-N1.6-Rheo-Sim-PushCart
+  revision: 0e24b9b225da4a2cff53049eb8b6e57f435814ec
+  embodiment_tag: new_embodiment
+  data_config: unitree_g1_sim_wbc
+  task_mode_name: g1_locomanipulation
+  action_horizon: 16
+  execution_steps: 16
+  control_hz: 30.0
+  action_chunk_length: 16
+  policy_joints_config_path: third_party/IsaacLab-Arena-0a1b8c2/isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml
+  action_joints_config_path: third_party/IsaacLab-Arena-0a1b8c2/isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
+  state_joints_config_path: third_party/IsaacLab-Arena-0a1b8c2/isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
+  pov_cam_names_sim:
+  - obs_key: head
+    video_key: ego_view
+observation:
+  image_size:
+  - 480
+  - 640
+train:
+  output_dir: /tmp/gr00t_g1_cart
+  base_model: nvidia/GR00T-N1.6-3B
+  max_steps: 20000
+  save_steps: 2000
+  batch_size: 16
+  tune_visual: true

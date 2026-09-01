@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# One remote task. Nothing can import this stack (its torch pins conflict
+# with Isaac's), so its declaration has to be data — and data is what this
+# is: no behaviour, just what the checkpoint is and what scene it needs.
+#
+# summary / prompt / embodiment / cameras are read in the light venv.
+# model / observation / train       are read only by this stack's server.py
+#                                   and train.py, in this stack's own venv.
+# `train:` present -> finetunable.
+
+summary: Perform a liver ultrasound sweep with the probe
+prompt: Perform a liver ultrasound.
+embodiment: panda
+cameras:
+- room
+- wrist
+model:
+  repo: nvidia/Liver_Scan_Pi0_Cosmos_Rel
+  repo_id: i4h/sim_liver_scan
+  action_horizon: 50
+  execution_steps: 50
+  control_hz: 30.0
+  config: robotic_ultrasound
+train:
+  config: robotic_ultrasound
+  output_dir: /tmp/pi0_liver_scan
+  max_steps: 30000
+  batch_size: 32

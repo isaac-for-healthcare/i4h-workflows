@@ -8,7 +8,7 @@ The canonical skill catalog is `skills/`. `.claude/skills` and `.codex/skills` a
 
 Run the recommended local validation and eval dataset schema check when changing any file under `skills/`.
 
-Also run them when changing skill routing docs such as `AGENTS.md`, skill references in `workflows/agentic/README.md`, or the Quick Run golden prompts that the eval datasets are based on.
+Also run them when changing skill routing docs such as `AGENTS.md`, skill references in `./README.md`, or the Quick Run golden prompts that the eval datasets are based on.
 
 For source-only workflow changes outside `skills/`, use the workflow-specific checks for that change. If the source change affects a skill prompt, example, command, or expected behavior, update the relevant skill/eval and run this validation too.
 
@@ -68,7 +68,7 @@ cd "$REPO_ROOT"
 
 nv-base validate skills \
   -r cli json \
-  -o /tmp/i4h-workflows-internal-nvbase \
+  -o /tmp/i4h-workflows-nvbase \
   --catalog-path "$PWD" \
   --no-dedup \
   --no-llm \
@@ -78,7 +78,7 @@ nv-base validate skills \
 Flag notes:
 
 - `-r cli json` prints a terminal report and writes a machine-readable JSON report.
-- `-o /tmp/i4h-workflows-internal-nvbase` keeps generated reports out of the repository.
+- `-o /tmp/i4h-workflows-nvbase` keeps generated reports out of the repository.
 - `--catalog-path "$PWD"` points NV-BASE at the repository root, which contains the `skills/` catalog.
 - `--no-dedup` skips inter-skill deduplication.
 - `--no-llm` avoids LLM-backed security and quality analysis.
@@ -87,7 +87,7 @@ Flag notes:
 The JSON report is written as:
 
 ```text
-/tmp/i4h-workflows-internal-nvbase/nv-base-output-YYYYMMDDHHMMSS.json
+/tmp/i4h-workflows-nvbase/nv-base-output-YYYYMMDDHHMMSS.json
 ```
 
 ## Tracked-Only Validation
@@ -125,7 +125,7 @@ This is a local approximation of CI's clean checkout. It excludes untracked file
 Find the latest JSON report:
 
 ```bash
-latest_report="$(ls -t /tmp/i4h-workflows-internal-nvbase/nv-base-output-*.json | head -1)"
+latest_report="$(ls -t /tmp/i4h-workflows-nvbase/nv-base-output-*.json | head -1)"
 echo "$latest_report"
 ```
 
@@ -170,7 +170,7 @@ jq -r '
 
 ## Eval Dataset Schema Check
 
-Every onboarded skill in this repository should have an eval dataset at `skills/<skill>/evals/evals.json`. These datasets should cover the Quick Run golden prompts in `workflows/agentic/README.md` and any skill-table examples intended to trigger a specific skill.
+Every onboarded skill in this repository should have an eval dataset at `skills/<skill>/evals/evals.json`. These datasets should cover the Quick Run golden prompts in `./README.md` and any skill-table examples intended to trigger a specific skill.
 
 Repo-specific rule: entries in `skills/<skill>/evals/evals.json` should set `expected_skill` to that same skill name. Use `null` only for direct non-skill prompts such as `Stop all`.
 
@@ -254,7 +254,7 @@ cd "$REPO_ROOT"
 
 nv-base validate skills \
   -r cli json \
-  -o /tmp/i4h-workflows-internal-nvbase \
+  -o /tmp/i4h-workflows-nvbase \
   --catalog-path "$PWD" \
   --no-dedup \
   -c
@@ -271,7 +271,7 @@ Before reporting skill work as ready:
 - The eval dataset schema check prints `PASS` for every `skills/*/evals/evals.json` file.
 - No skill directory with `SKILL.md` is missing `evals/evals.json`.
 - `skillspector` is installed and the report does not indicate that the security scan was skipped.
-- Every Quick Run natural-language prompt in `workflows/agentic/README.md` is represented in an eval dataset, or intentionally covered as a direct command with `expected_skill: null`.
+- Every Quick Run natural-language prompt in `./README.md` is represented in an eval dataset, or intentionally covered as a direct command with `expected_skill: null`.
 - Any remaining warnings are understood, documented in the handoff, and not caused by missing evals, missing metadata, broken links, invalid JSON, script lint failures, or skipped required tooling.
 
 ## Common Warning Triage
@@ -286,6 +286,6 @@ Do not accept warnings for missing eval datasets, missing metadata, invalid eval
 
 ## Updating Evals
 
-When a Quick Run prompt in `workflows/agentic/README.md` changes, update the matching `skills/*/evals/evals.json` entry in the same change. The `question` should use the prompt text or a close representative prompt, `expected_skill` should name the skill that should trigger, and `expected_behavior` should list the concrete behaviors the agent must perform.
+When a Quick Run prompt in `./README.md` changes, update the matching `skills/*/evals/evals.json` entry in the same change. The `question` should use the prompt text or a close representative prompt, `expected_skill` should name the skill that should trigger, and `expected_behavior` should list the concrete behaviors the agent must perform.
 
-When a skill is intentionally removed, remove its eval dataset and all references to that skill in `AGENTS.md`, `workflows/agentic/README.md`, and related routing docs.
+When a skill is intentionally removed, remove its eval dataset and all references to that skill in `AGENTS.md`, `./README.md`, and related routing docs.

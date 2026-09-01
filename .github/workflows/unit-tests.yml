@@ -1,0 +1,89 @@
+# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: Unit Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unit-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    name: CPU tests and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # tools/patient_twin builds against the vasculature_digital_twin package, so its suite
+      # needs the component checkout that ./setup.sh provides locally. Pull requests from forks
+      # receive no secrets; scripts/run_tests.py skips the suite when the checkout is absent
+      # rather than failing, so this step is guarded instead of required.
+      - name: Detect component repository access
+        id: components
+        env:
+          TWIN_TOKEN: ${{ secrets.I4H_INTERNAL_READ_TOKEN }}
+        run: |
+          if [ -n "$TWIN_TOKEN" ]; then
+            echo "twin=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "no token for i4h-digital-twin-internal; the patient-twin suite will be skipped"
+          fi
+
+      - name: Checkout the patient digital twin component
+        if: ${{ steps.components.outputs.twin == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          repository: isaac-for-healthcare/i4h-digital-twin-internal
+          # Tracks main, matching the default ref that third_party/setup.sh clones.
+          ref: main
+          path: third_party/i4h-digital-twin-internal
+          token: ${{ secrets.I4H_INTERNAL_READ_TOKEN }}
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          version: "0.11.8"
+          enable-cache: true
+          prune-cache: false
+          cache-python: true
+          cache-dependency-glob: |
+            workflows/uv.lock
+            tools/dataset/uv.lock
+            tools/mimic/uv.lock
+            tools/patient_twin/uv.lock
+
+      - name: Run CPU tests with coverage
+        run: python scripts/run_tests.py --suite ci --coverage
+
+      - name: Add coverage to the job summary
+        if: ${{ always() && hashFiles('coverage.xml') != '' }}
+        run: |
+          echo '## CPU unit-test coverage' >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          uv run --project workflows --with coverage==7.4.4 \
+            coverage report >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        if: ${{ always() && hashFiles('coverage.xml') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpu-coverage
+          path: coverage.xml
+          if-no-files-found: error
+          retention-days: 14

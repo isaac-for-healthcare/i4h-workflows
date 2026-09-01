@@ -1,0 +1,34 @@
+[project]
+name = "i4h-tasks-basic"
+version = "0.1.0"
+description = "Scripted motion, manipulation, perception, control and replay task nodes. No Isaac."
+requires-python = ">=3.11, <3.13"
+dependencies = [
+    "i4h-common",
+    "i4h-engine",
+    "numpy>=1.23.5,<3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# PEP 420 namespace: there is no tasks/__init__.py anywhere.
+[tool.hatch.build.targets.wheel]
+packages = ["i4h_tasks"]
+
+[tool.uv.sources]
+i4h-common = { path = "../../common", editable = true }
+i4h-engine = { path = "../../engine", editable = true }
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

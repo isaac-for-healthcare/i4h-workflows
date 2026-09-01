@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# What this scene PROVIDES. Structure stays Python in arena/i4h_arena/scenes/.
+
+impl: i4h_arena.scenes.dual_psm_reach:DualPsmReachScene
+description: Two dVRK PSM arms reaching targets on a table.
+embodiment: dvrk_dual_psm
+action_space: ee_pose
+dof: 14
+gripper: false
+robots:
+- psm1
+- psm2
+cameras:
+- room
+objects:
+- table
+- reach_target_1
+- reach_target_2
+max_steps: 150
+control_hz: 30.0

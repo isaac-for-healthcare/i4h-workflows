@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+summary: Turn G1 in place until it faces a named scene object
+impl: i4h_tasks.basic.motion.g1_face_object:G1FaceObject

@@ -1,5 +1,5 @@
 ## Description: <br>
-Verify host requirements and run workflows/agentic/setup.sh to bootstrap the Isaac for Healthcare agentic workflow. <br>
+Verify host requirements and run ./setup.sh to bootstrap Isaac for Healthcare workflows. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers setting up, installing, or bootstrapping the Isaac for Healthcare agentic workflow on Linux hosts with NVIDIA GPUs. <br>
+Developers and engineers setting up, installing, or bootstrapping Isaac for Healthcare workflows on Linux hosts with NVIDIA GPUs. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -25,6 +25,7 @@ Risk: Review before execution as proposals could introduce incorrect or misleadi
 Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
+- [Isaac Sim skills](https://github.com/isaac-sim/IsaacSim/tree/v6.0.1/skills) <br>
 - [Isaac for Healthcare Workflows](https://github.com/isaac-for-healthcare/i4h-workflows) <br>
 - [Agent Skills Specification](https://agentskills.io/specification) <br>
 
@@ -73,7 +74,7 @@ Underlying evaluation signals used in this run: <br>
 | Efficiency | 1 | 91% (+66%) | 71% (+12%) |
 
 ## Skill Version(s): <br>
-0.6.0 (source: frontmatter) <br>
+0.6.1 (source: frontmatter) <br>
 
 ## Ethical Considerations: <br>
 NVIDIA believes Trustworthy AI is a shared responsibility and we have established policies and practices to enable development for a wide array of AI applications. When downloaded or used in accordance with our terms of service, developers should work with their internal team to ensure this skill meets requirements for the relevant industry and use case and addresses unforeseen product misuse. <br>

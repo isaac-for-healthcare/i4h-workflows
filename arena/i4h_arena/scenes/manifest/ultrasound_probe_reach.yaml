@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+impl: i4h_arena.scenes.ultrasound_probe_reach:UltrasoundProbeReachScene
+description: "Franka-style ultrasound probe reaching a measured surface target on an abdominal phantom."
+embodiment: panda
+action_space: ee_pose
+dof: 6
+gripper: false
+cameras:
+- room
+- wrist
+objects:
+- table
+- organs
+- target
+robots:
+- robot
+max_steps: 250
+control_hz: 50.0
+mode_overrides:
+  policy:
+    cameras: []

@@ -1,4 +1,0 @@
-struct FrankaInfo {
-  sequence<double> joints_state_positions;
-  sequence<double> joints_state_velocities;
-};

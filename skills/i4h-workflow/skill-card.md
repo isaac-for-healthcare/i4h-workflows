@@ -1,5 +1,5 @@
 ## Description: <br>
-Overview of `workflows/agentic/` (IsaacLab-Arena + GR00T/openpi). Use when the user asks what i4h workflow is, what's supported, or where to start. <br>
+Overview of the root-level i4h workflow runtime (IsaacLab-Arena + GR00T/openpi). Use when the user asks what i4h workflows include, what's supported, or where to start. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers orienting on the i4h agentic workflow pipeline to understand which environments, robots, and policies are supported and which per-stage skill to invoke next. <br>
+Developers and engineers orienting on the i4h workflow pipeline to understand which environments, robots, and policies are supported and which per-stage skill to invoke next. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -25,7 +25,7 @@ Risk: Review before execution as proposals could introduce incorrect or misleadi
 Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
-- [Agentic Repo Map](references/repo-map.md) <br>
+- [Workflow Repo Map](references/repo-map.md) <br>
 - [i4h-workflows (GitHub)](https://github.com/isaac-for-healthcare/i4h-workflows) <br>
 - [AgentSkills.io Specification](https://agentskills.io/specification) <br>
 
