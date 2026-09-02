@@ -11,9 +11,9 @@ source "${ROOT}/config.env"
 API_BASE="${I4H_AGENT_BASE_URL%/}/v1"
 HEALTH_URL="${I4H_AGENT_BASE_URL%/}/health_generate"
 
-# Remote mode: an API key means we talk to a hosted endpoint (e.g. NVIDIA NIM)
-# instead of starting/managing a local Docker model server.
-is_remote() { [[ -n "${I4H_AGENT_API_KEY:-}" ]]; }
+# Hosted mode is selected explicitly. An exported inference key must not silently
+# turn a local Nemotron profile into a remote profile.
+is_remote() { [[ "${I4H_AGENT_PROFILE}" == "nvidia-hosted" ]]; }
 CURL_AUTH=()
 is_remote && CURL_AUTH=(-H "Authorization: Bearer ${I4H_AGENT_API_KEY}")
 
@@ -22,7 +22,7 @@ need() { command -v "$1" >/dev/null 2>&1 || { echo "error: missing '$1'" >&2; ex
 remote_guard() {
     is_remote && {
         echo "error: '$1' manages the local model server and is not used in remote mode" >&2
-        echo "       (I4H_AGENT_API_KEY is set, base ${I4H_AGENT_BASE_URL}). Just run: ./local-agent/run.sh agent" >&2
+        echo "       (profile ${I4H_AGENT_PROFILE}, base ${I4H_AGENT_BASE_URL}). Just run: ./local-agent/run.sh agent" >&2
         exit 1
     }
     return 0
@@ -30,7 +30,7 @@ remote_guard() {
 
 usage() {
     printf '%s\n' \
-        "usage: ./local-agent/run.sh <start|status|stop|logs|warmup|agent> [prompt]" \
+        "usage: ./local-agent/run.sh <start|status|stop|logs|warmup|agent> [--continue|--session ID] [prompt]" \
         "" \
         "profile: ${I4H_AGENT_PROFILE} (${I4H_AGENT_MODEL})" \
         "" \
@@ -115,9 +115,16 @@ start_server() {
     remote_guard start
     need docker
     if container_running; then
+        local running_name requested_name
         log "${I4H_AGENT_CONTAINER} already running"
         apply_restart_policy
         wait_ready
+        running_name="$(resolve_served_name)"
+        requested_name="$(local_served_name)"
+        if [[ "${running_name}" != "${requested_name}" ]]; then
+            log "running server exposes '${running_name}'; requested profile '${I4H_AGENT_PROFILE}' was not applied"
+            log "stop the existing server before changing profiles"
+        fi
         warmup_model
         return
     fi
@@ -151,6 +158,21 @@ start_server() {
     if [[ "${I4H_AGENT_TRUST_REMOTE_CODE:-0}" == "1" ]]; then
         launch_args+=(--trust-remote-code)
     fi
+    if [[ -n "${I4H_AGENT_MAMBA_BACKEND:-}" ]]; then
+        launch_args+=(--mamba-backend "${I4H_AGENT_MAMBA_BACKEND}")
+    fi
+    if [[ -n "${I4H_AGENT_MAMBA_SSM_DTYPE:-}" ]]; then
+        launch_args+=(--mamba-ssm-dtype "${I4H_AGENT_MAMBA_SSM_DTYPE}")
+    fi
+    if [[ "${I4H_AGENT_MAMBA_CACHE_STOCHASTIC_ROUNDING:-0}" == "1" ]]; then
+        launch_args+=(--enable-mamba-cache-stochastic-rounding)
+    fi
+    if [[ -n "${I4H_AGENT_MAMBA_CACHE_PHILOX_ROUNDS:-}" ]]; then
+        launch_args+=(--mamba-cache-philox-rounds "${I4H_AGENT_MAMBA_CACHE_PHILOX_ROUNDS}")
+    fi
+    if [[ -n "${I4H_AGENT_CUDA_GRAPH_MAX_BS_DECODE:-}" ]]; then
+        launch_args+=(--cuda-graph-max-bs-decode "${I4H_AGENT_CUDA_GRAPH_MAX_BS_DECODE}")
+    fi
 
     local launch_cmd
     launch_cmd="$(printf '%q ' "${launch_args[@]}")"
@@ -168,6 +190,8 @@ start_server() {
         -v "${I4H_AGENT_HF_CACHE}:/root/.cache/huggingface"
         -e HF_HOME=/root/.cache/huggingface
         -e "NVIDIA_VISIBLE_DEVICES=${I4H_AGENT_GPU}"
+        --label "i4h.agent.profile=${I4H_AGENT_PROFILE}"
+        --label "i4h.agent.model=${I4H_AGENT_MODEL}"
     )
     if [[ -n "${I4H_AGENT_DOCKER_RESTART}" ]]; then
         docker_args+=(--restart "${I4H_AGENT_DOCKER_RESTART}")
@@ -188,9 +212,12 @@ status_server() {
     remote_guard status
     need docker
     container_running || { echo "model: stopped"; return 1; }
-    curl -fsS "${HEALTH_URL}" >/dev/null 2>&1 \
-        && echo "model: ready at ${API_BASE} (${I4H_AGENT_PROFILE}: ${I4H_AGENT_MODEL})" \
-        || { echo "model: starting on port ${I4H_AGENT_PORT} (${I4H_AGENT_PROFILE}: ${I4H_AGENT_MODEL})"; return 1; }
+    if curl -fsS "${HEALTH_URL}" >/dev/null 2>&1; then
+        echo "model: ready at ${API_BASE} (served: $(resolve_served_name))"
+        return
+    fi
+    echo "model: starting on port ${I4H_AGENT_PORT} (container: ${I4H_AGENT_CONTAINER})"
+    return 1
 }
 
 stop_server() {
@@ -206,12 +233,15 @@ stop_server() {
 
 write_opencode_config() {
     local served_name="$1"
+    local config_tmp
     # A real key for hosted endpoints; "dummy" for the local unauthenticated server.
-    local api_key="${I4H_AGENT_API_KEY:-dummy}"
+    local api_key="dummy"
+    is_remote && api_key="${I4H_AGENT_API_KEY}"
+    config_tmp="$(mktemp "${ROOT}/.opencode.json.XXXXXX")"
     python3 - "${API_BASE}" "${served_name}" "${I4H_AGENT_MAX_MODEL_LEN}" "${I4H_AGENT_OUTPUT_LIMIT}" \
         "local/${served_name}" "${ROOT}/tmux-shell.sh" "${I4H_AGENT_REPO_ROOT}" "${api_key}" \
         "${I4H_AGENT_REQUEST_TIMEOUT_MS:-600000}" "${I4H_AGENT_HEADER_TIMEOUT_MS:-90000}" "${I4H_AGENT_CHUNK_TIMEOUT_MS:-90000}" \
-        > "${ROOT}/opencode.json" <<'PY'
+        > "${config_tmp}" <<'PY'
 import json
 import os
 import sys
@@ -248,10 +278,13 @@ json.dump({
     },
 }, sys.stdout, indent=2)
 PY
+    chmod 600 "${config_tmp}"
+    mv -f "${config_tmp}" "${ROOT}/opencode.json"
 }
 
 run_agent() {
     need "${I4H_AGENT_OPENCODE_BIN}"
+    need tmux
     curl -fsS "${CURL_AUTH[@]}" "${API_BASE}/models" >/dev/null 2>&1 || {
         if is_remote; then
             echo "error: ${API_BASE} not reachable with the supplied I4H_AGENT_API_KEY (check key/endpoint)" >&2
@@ -266,15 +299,33 @@ run_agent() {
     write_opencode_config "${served_name}"
     export OPENCODE_CONFIG="${ROOT}/opencode.json"
     export I4H_WORKFLOWS="${I4H_AGENT_REPO_ROOT}" REPO_ROOT="${I4H_AGENT_REPO_ROOT}"
+    export I4H_LOCAL_AGENT=1
     export I4H_TMUX_CWD="${I4H_AGENT_REPO_ROOT}" I4H_TMUX_SESSION="${I4H_TMUX_SESSION:-i4h_local_agent}"
     export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
     export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-${I4H_AGENT_SKILL_GPU}}"
 
+    local -a session_args=()
+    case "${1:-}" in
+        --continue)
+            session_args=(--continue)
+            shift
+            ;;
+        --session)
+            [[ -n "${2:-}" ]] || { echo "error: --session requires an OpenCode session ID" >&2; exit 2; }
+            session_args=(--session "$2")
+            shift 2
+            ;;
+    esac
+
     cd "${I4H_AGENT_REPO_ROOT}"
     if [[ $# -eq 0 ]]; then
+        [[ ${#session_args[@]} -eq 0 ]] || {
+            echo "error: --continue/--session requires a non-interactive prompt" >&2
+            exit 2
+        }
         exec "${I4H_AGENT_OPENCODE_BIN}" --model "local/${served_name}"
     fi
-    exec "${I4H_AGENT_OPENCODE_BIN}" run --model "local/${served_name}" "$*" </dev/null
+    exec "${I4H_AGENT_OPENCODE_BIN}" run --model "local/${served_name}" "${session_args[@]}" "$*" </dev/null
 }
 
 case "${1:-}" in

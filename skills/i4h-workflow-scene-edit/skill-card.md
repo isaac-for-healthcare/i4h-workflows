@@ -1,5 +1,5 @@
 ## Description: <br>
-Edit an env's scene in place — objects, cameras, task, success bounds, randomization — via a live bridge session or source bake. <br>
+Edit an env's scene in place — objects, cameras, task, success bounds, randomization — via a live bridge or source bake. <br>
 
 This skill is for research and development only. <br>
 
@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers editing simulation scenes for Isaac for Healthcare workflows, including moving/scaling objects, adjusting cameras, and tweaking task parameters through an interactive bridge session. <br>
+Developers and engineers editing simulation scenes for Isaac for Healthcare workflows, including moving/scaling objects, adjusting cameras, and tweaking task parameters through the interactive bridge. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -25,10 +25,8 @@ Risk: Review before execution as proposals could introduce incorrect or misleadi
 Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
-- [scene-edit-patterns.md](references/scene-edit-patterns.md) <br>
-- [asset-snippets.md](references/asset-snippets.md) <br>
-- [camera-snippets.md](references/camera-snippets.md) <br>
-- [bake-checklist.md](references/bake-checklist.md) <br>
+- [isaacsim-skill-routing.md](references/isaacsim-skill-routing.md) <br>
+- [Isaac Sim skills](https://github.com/isaac-sim/IsaacSim/tree/v6.0.1/skills) <br>
 - [i4h-workflows (GitHub)](https://github.com/isaac-for-healthcare/i4h-workflows) <br>
 
 
@@ -76,7 +74,7 @@ Underlying evaluation signals used in this run: <br>
 | Efficiency | 3 | 62% (+30%) | 63% (+12%) |
 
 ## Skill Version(s): <br>
-0.7.0 (source: frontmatter) <br>
+0.7.3 (source: frontmatter) <br>
 
 ## Ethical Considerations: <br>
 NVIDIA believes Trustworthy AI is a shared responsibility and we have established policies and practices to enable development for a wide array of AI applications. When downloaded or used in accordance with our terms of service, developers should work with their internal team to ensure this skill meets requirements for the relevant industry and use case and addresses unforeseen product misuse. <br>

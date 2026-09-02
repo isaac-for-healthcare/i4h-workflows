@@ -1,4 +1,0 @@
-struct TargetInfo {
-  sequence<double> position;
-  sequence<double> orientation;
-};

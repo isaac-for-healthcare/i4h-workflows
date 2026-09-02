@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Robot facts that must cross a venv boundary and are not already stated by
+# the IsaacLab articulation cfg beside this file:
+#   - LeRobot column names and splits, read by tools/dataset
+#   - teleop device list and leader calibration, read by tasks/teleop
+#   - home pose and control rate, read by arena when building a scene
+#
+# dof / action_space / gripper are NOT here: the scene declares them, because
+# the same arm can be mounted under different controllers.
+
+name: panda
+joint_names:
+- panda_joint1
+- panda_joint2
+- panda_joint3
+- panda_joint4
+- panda_joint5
+- panda_joint6
+- panda_joint7

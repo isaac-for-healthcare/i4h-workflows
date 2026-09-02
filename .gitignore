@@ -1,2 +1,39 @@
+# Runtime output
+.run/
+data/
+logs/
+runs/
+.lerobot-viz/
+
+# Python environments, caches, and build output
+.venv/
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Local tool and NVIDIA caches
+.cache/
+.nv/
+
+# Local environment files may contain model or service credentials.
+.env
+.env.*
+!.env.example
+
+# The root is configuration-only; component lockfiles remain tracked.
+/uv.lock
+
+# Setup-managed source checkouts
+third_party/*
+!third_party/.gitignore
+!third_party/setup.sh
+!third_party/*.patch

@@ -26,18 +26,10 @@ repos:
     rev: v0.5.2
     hooks:
       - id: ruff-format
-        exclude: |
-            (?x)^(
-                workflows/telesurgery/cmake/pybind11/__init__.py
-                | .*\.patch
-            )$
+        exclude: '.*\.patch$'
       - id: ruff
         args: [--fix]
-        exclude: |
-            (?x)^(
-                workflows/telesurgery/cmake/pybind11/__init__.py
-                | .*\.patch
-            )$
+        exclude: '.*\.patch$'
   # isort (owns import sorting; ruff's "I" rule is disabled so the two don't conflict)
   - repo: https://github.com/pycqa/isort
     rev: 6.0.0
@@ -49,6 +41,9 @@ repos:
     rev: v2.2.6
     hooks:
       - id: codespell
+        # RLinf's public checkpoint-conversion module and Hydra keys spell this
+        # identifier ``convertor``; changing it would break the integration.
+        args: [--ignore-words-list=convertor]
         exclude: '(\.svg|\.patch)$'
         additional_dependencies:
         - tomli

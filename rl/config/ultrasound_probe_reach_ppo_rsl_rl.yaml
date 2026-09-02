@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+schema_version: 1
+backend: rsl_rl
+runner:
+  num_steps_per_env: 24
+  max_iterations: 400
+  save_interval: 25
+  experiment_name: ultrasound_probe_reach
+  obs_groups:
+    actor: [policy, task_obs]
+    critic: [policy, task_obs]
+policy:
+  init_noise_std: 0.6
+  actor_obs_normalization: true
+  critic_obs_normalization: true
+  actor_hidden_dims: [256, 128, 64]
+  critic_hidden_dims: [256, 128, 64]
+  activation: elu
+algorithm:
+  value_loss_coef: 1.0
+  use_clipped_value_loss: true
+  clip_param: 0.2
+  entropy_coef: 0.005
+  num_learning_epochs: 5
+  num_mini_batches: 4
+  learning_rate: 0.0003
+  schedule: adaptive
+  gamma: 0.98
+  lam: 0.95
+  desired_kl: 0.01
+  max_grad_norm: 1.0

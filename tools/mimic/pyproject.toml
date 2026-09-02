@@ -1,0 +1,35 @@
+[project]
+name = "i4h-tools-mimic"
+version = "0.1.0"
+description = "HDF5 trajectory expansion: clone demos with action/state noise."
+requires-python = ">=3.11, <3.12"
+dependencies = [
+    "i4h-common",
+    "numpy>=1.23.5,<2",
+    "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+i4h-mimic = "i4h_tools.mimic.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["i4h_tools"]
+
+[tool.uv.sources]
+i4h-common = { path = "../../common", editable = true }
+
+[tool.uv]
+environments = ["sys_platform == 'linux'"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

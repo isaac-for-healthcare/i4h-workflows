@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# What this scene PROVIDES. Structure stays Python in arena/i4h_arena/scenes/.
+
+impl: i4h_arena.scenes.g1_tray:G1TrayScene
+description: Unitree G1 in the Rheo room with a surgical tray.
+embodiment: g1
+action_space: joint_position
+dof: 50
+gripper: false
+cameras:
+- head
+objects:
+- background
+- tray
+- cart
+max_steps: 1500
+control_hz: 30.0
+mode_overrides:
+  teleop:
+    dof: 23

@@ -27,6 +27,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 
 def default_vl_url() -> str:
@@ -52,7 +53,7 @@ def main() -> int:
 
     content = [{"type": "text", "text": a.prompt}]
     for img in a.image:
-        b64 = base64.b64encode(open(img, "rb").read()).decode()
+        b64 = base64.b64encode(Path(img).read_bytes()).decode()
         content.append({"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + b64}})
 
     payload = {

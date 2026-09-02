@@ -1,5 +1,5 @@
 ## Description: <br>
-Create a new agentic env by forking an existing env. Use for new env/task scaffolding, not scene edits or baking. <br>
+Create a minimal blank Workflow scaffold with ground, light, and idle mode. Use for new Workflow scaffolding, not edits to an existing Scene. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers creating new agentic environments for Isaac for Healthcare workflows by forking the closest existing env pattern. <br>
+Developers and engineers creating new Isaac for Healthcare Workflow scaffolds. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -25,11 +25,7 @@ Risk: Review before execution as proposals could introduce incorrect or misleadi
 Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
-- [Create Env Contract](references/create-contract.md) <br>
-- [Create Env Validation](references/create-validation.md) <br>
-- [Env Authoring Patterns](references/env-authoring-patterns.md) <br>
-- [Hybrid Layout Rules](references/hybrid-layout-rules.md) <br>
-- [G1 Surgical Tool Sort](references/g1-surgical-tool-sort.md) <br>
+- [Isaac Sim skills](https://github.com/isaac-sim/IsaacSim/tree/v6.0.1/skills) <br>
 - [i4h-workflows Repository](https://github.com/isaac-for-healthcare/i4h-workflows) <br>
 
 
@@ -77,7 +73,7 @@ Underlying evaluation signals used in this run: <br>
 | Efficiency | 3 | 50% (+27%) | 74% (+31%) |
 
 ## Skill Version(s): <br>
-0.7.0 (source: frontmatter) <br>
+0.7.1 (source: frontmatter) <br>
 
 ## Ethical Considerations: <br>
 NVIDIA believes Trustworthy AI is a shared responsibility and we have established policies and practices to enable development for a wide array of AI applications. When downloaded or used in accordance with our terms of service, developers should work with their internal team to ensure this skill meets requirements for the relevant industry and use case and addresses unforeseen product misuse. <br>

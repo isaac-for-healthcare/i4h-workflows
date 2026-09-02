@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# One remote task. Nothing can import this stack (its torch pins conflict
+# with Isaac's), so its declaration has to be data — and data is what this
+# is: no behaviour, just what the checkpoint is and what scene it needs.
+#
+# summary / prompt / embodiment / cameras are read in the light venv.
+# model / observation / train       are read only by this stack's server.py
+#                                   and train.py, in this stack's own venv.
+# `train:` present -> finetunable.
+
+summary: Grip the scissors and put it into the tray (N1.7 backend)
+prompt: Grip the scissors and put it into the tray
+embodiment: so101
+cameras:
+- room
+- wrist
+model:
+  repo: nvidia/SO_ARM_Starter_Gr00tN17
+  embodiment_tag: new_embodiment
+  data_config: so100_dualcam
+  action_horizon: 16
+  execution_steps: 16
+  control_hz: 60.0
+observation:
+  image_size:
+  - 256
+  - 256
+  state_names:
+  - shoulder_pan.pos
+  - shoulder_lift.pos
+  - elbow_flex.pos
+  - wrist_flex.pos
+  - wrist_roll.pos
+  - gripper.pos
+train:
+  output_dir: /tmp/gr00t_so_arm_n17
+  base_model: nvidia/GR00T-N1.7-3B
+  max_steps: 10000
+  save_steps: 1000
+  batch_size: 32

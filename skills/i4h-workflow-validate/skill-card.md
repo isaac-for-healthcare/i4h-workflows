@@ -1,5 +1,5 @@
 ## Description: <br>
-Validate, evaluate, or run i4h envs. Use for policy/checkpoint rollouts and scripted state-machine smoke runs. <br>
+Validate, evaluate, or run i4h envs. Use for policy/checkpoint rollouts and rule-based smoke runs. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 

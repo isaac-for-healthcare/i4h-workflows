@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+schema_version: 1
+workflow: ultrasound_probe_reach
+scene: ultrasound_probe_reach
+trainer: rsl_rl
+algorithm: ppo
+adapter_module: i4h_rl.adapters.ultrasound_probe_reach
+trainer_config: ../config/ultrasound_probe_reach_ppo_rsl_rl.yaml
+train_task_id: ultrasound_probe_reach
+eval_task_id: ultrasound_probe_reach
+task_description: reach and align the probe with the marked point on the torso
+action_dof: 6
+policy_action_dof: 6
+state_dof: 34
+cameras: []
+default_num_envs: 128
+default_epochs: 400
+simulation:
+  env_spacing: 2.0
+  presets: physx
+  enable_cameras: false

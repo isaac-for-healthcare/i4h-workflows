@@ -1,0 +1,146 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Robot facts that must cross a venv boundary and are not already stated by
+# the IsaacLab articulation cfg beside this file:
+#   - LeRobot column names and splits, read by tools/dataset
+#   - teleop device list and leader calibration, read by tasks/teleop
+#   - home pose and control rate, read by arena when building a scene
+#
+# dof / action_space / gripper are NOT here: the scene declares them, because
+# the same arm can be mounted under different controllers.
+
+name: g1_dex
+joint_names:
+- left_hip_pitch_joint
+- left_hip_roll_joint
+- left_hip_yaw_joint
+- left_knee_joint
+- left_ankle_pitch_joint
+- left_ankle_roll_joint
+- right_hip_pitch_joint
+- right_hip_roll_joint
+- right_hip_yaw_joint
+- right_knee_joint
+- right_ankle_pitch_joint
+- right_ankle_roll_joint
+- waist_yaw_joint
+- waist_roll_joint
+- waist_pitch_joint
+- left_shoulder_pitch_joint
+- left_shoulder_roll_joint
+- left_shoulder_yaw_joint
+- left_elbow_joint
+- left_wrist_roll_joint
+- left_wrist_pitch_joint
+- left_wrist_yaw_joint
+- right_shoulder_pitch_joint
+- right_shoulder_roll_joint
+- right_shoulder_yaw_joint
+- right_elbow_joint
+- right_wrist_roll_joint
+- right_wrist_pitch_joint
+- right_wrist_yaw_joint
+- left_hand_index_0_joint
+- left_hand_middle_0_joint
+- left_hand_thumb_0_joint
+- left_hand_index_1_joint
+- left_hand_middle_1_joint
+- left_hand_thumb_1_joint
+- left_hand_thumb_2_joint
+- right_hand_index_0_joint
+- right_hand_middle_0_joint
+- right_hand_thumb_0_joint
+- right_hand_index_1_joint
+- right_hand_middle_1_joint
+- right_hand_thumb_1_joint
+- right_hand_thumb_2_joint
+action_names:
+- left_hip_pitch_joint.pos
+- left_hip_roll_joint.pos
+- left_hip_yaw_joint.pos
+- left_knee_joint.pos
+- left_ankle_pitch_joint.pos
+- left_ankle_roll_joint.pos
+- right_hip_pitch_joint.pos
+- right_hip_roll_joint.pos
+- right_hip_yaw_joint.pos
+- right_knee_joint.pos
+- right_ankle_pitch_joint.pos
+- right_ankle_roll_joint.pos
+- waist_yaw_joint.pos
+- waist_roll_joint.pos
+- waist_pitch_joint.pos
+- left_shoulder_pitch_joint.pos
+- left_shoulder_roll_joint.pos
+- left_shoulder_yaw_joint.pos
+- left_elbow_joint.pos
+- left_wrist_roll_joint.pos
+- left_wrist_pitch_joint.pos
+- left_wrist_yaw_joint.pos
+- right_shoulder_pitch_joint.pos
+- right_shoulder_roll_joint.pos
+- right_shoulder_yaw_joint.pos
+- right_elbow_joint.pos
+- right_wrist_roll_joint.pos
+- right_wrist_pitch_joint.pos
+- right_wrist_yaw_joint.pos
+- left_hand_index_0_joint.pos
+- left_hand_middle_0_joint.pos
+- left_hand_thumb_0_joint.pos
+- left_hand_index_1_joint.pos
+- left_hand_middle_1_joint.pos
+- left_hand_thumb_1_joint.pos
+- left_hand_thumb_2_joint.pos
+- right_hand_index_0_joint.pos
+- right_hand_middle_0_joint.pos
+- right_hand_thumb_0_joint.pos
+- right_hand_index_1_joint.pos
+- right_hand_middle_1_joint.pos
+- right_hand_thumb_1_joint.pos
+- right_hand_thumb_2_joint.pos
+state_names:
+- left_hip_pitch_joint.pos
+- left_hip_roll_joint.pos
+- left_hip_yaw_joint.pos
+- left_knee_joint.pos
+- left_ankle_pitch_joint.pos
+- left_ankle_roll_joint.pos
+- right_hip_pitch_joint.pos
+- right_hip_roll_joint.pos
+- right_hip_yaw_joint.pos
+- right_knee_joint.pos
+- right_ankle_pitch_joint.pos
+- right_ankle_roll_joint.pos
+- waist_yaw_joint.pos
+- waist_roll_joint.pos
+- waist_pitch_joint.pos
+- left_shoulder_pitch_joint.pos
+- left_shoulder_roll_joint.pos
+- left_shoulder_yaw_joint.pos
+- left_elbow_joint.pos
+- left_wrist_roll_joint.pos
+- left_wrist_pitch_joint.pos
+- left_wrist_yaw_joint.pos
+- right_shoulder_pitch_joint.pos
+- right_shoulder_roll_joint.pos
+- right_shoulder_yaw_joint.pos
+- right_elbow_joint.pos
+- right_wrist_roll_joint.pos
+- right_wrist_pitch_joint.pos
+- right_wrist_yaw_joint.pos
+- left_hand_index_0_joint.pos
+- left_hand_middle_0_joint.pos
+- left_hand_thumb_0_joint.pos
+- left_hand_index_1_joint.pos
+- left_hand_middle_1_joint.pos
+- left_hand_thumb_1_joint.pos
+- left_hand_thumb_2_joint.pos
+- right_hand_index_0_joint.pos
+- right_hand_middle_0_joint.pos
+- right_hand_thumb_0_joint.pos
+- right_hand_index_1_joint.pos
+- right_hand_middle_1_joint.pos
+- right_hand_thumb_1_joint.pos
+- right_hand_thumb_2_joint.pos
+teleop_devices: []

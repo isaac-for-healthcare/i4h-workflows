@@ -1,0 +1,9 @@
+diff --git a/source/leisaac/leisaac/tasks/template/mdp/__init__.py b/source/leisaac/leisaac/tasks/template/mdp/__init__.py
+index d989eff..a5860cf 100644
+--- a/source/leisaac/leisaac/tasks/template/mdp/__init__.py
++++ b/source/leisaac/leisaac/tasks/template/mdp/__init__.py
+@@ -1,2 +1,3 @@
+ from isaaclab.envs.mdp import *
++from isaaclab.managers import ActionTermCfg
+ from leisaac.enhance.envs.mdp import *
+\ No newline at end of file

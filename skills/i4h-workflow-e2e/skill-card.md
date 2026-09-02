@@ -1,5 +1,5 @@
 ## Description: <br>
-Run the full end-to-end agentic pipeline (record → mimic → annotate → replay → convert → visualize → finetune → validate). Use when asked to run the whole pipeline or do an e2e, smoke, or demo run. <br>
+Run the full end-to-end workflow pipeline (record → mimic → annotate → replay → convert → visualize → finetune → validate). Use when asked to run the whole pipeline or do an e2e, smoke, or demo run. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers running the full Isaac for Healthcare end-to-end agentic pipeline for robot learning data collection, model training, and validation. <br>
+Developers and engineers running the full Isaac for Healthcare end-to-end workflow pipeline for robot learning data collection, model training, and validation. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>

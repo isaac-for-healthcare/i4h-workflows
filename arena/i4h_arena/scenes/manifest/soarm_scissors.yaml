@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# What this scene PROVIDES. Structure stays Python in arena/i4h_arena/scenes/.
+
+impl: i4h_arena.scenes.soarm_scissors:SoArmScissorsScene
+description: SO-ARM 101 over a table with surgical scissors and a tray.
+embodiment: so101
+action_space: joint_position
+dof: 6
+cameras:
+- room
+- wrist
+objects:
+- table
+- scissors
+- tray
+max_steps: 600
+control_hz: 60.0

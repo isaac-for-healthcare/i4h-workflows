@@ -15,12 +15,23 @@ aggregate_metadata.json
 # CI
 ci/
 
-# Python
-**/__pycache__
-*.pyc
+# Python bytecode and generated package metadata. These recursive rules keep
+# host artifacts out of every COPY, including the final `COPY . .`.
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.tox/
+**/.nox/
+**/*.egg-info/
+**/.coverage
+**/.coverage.*
+**/coverage.xml
+**/htmlcov/
 
 # Development environment
-.venv/
+**/.venv/
 .vscode-server/
 ngc-cli/
 CTestConfig.cmake
@@ -33,6 +44,8 @@ CTestConfig.cmake
 .config/
 .local/
 tmp/
+.run/
+runs/
 
 # History and user files
 .bash_history
@@ -45,3 +58,9 @@ tmp/
 .git/
 .gitignore
 .github/
+
+# Setup-managed sources are cloned at their pinned revisions inside the image.
+# Never send local third-party worktrees through the Docker build context.
+third_party/*
+!third_party/setup.sh
+!third_party/*.patch

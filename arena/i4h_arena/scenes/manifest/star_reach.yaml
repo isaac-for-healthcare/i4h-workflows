@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# What this scene PROVIDES. Structure stays Python in arena/i4h_arena/scenes/.
+
+impl: i4h_arena.scenes.star_reach:StarReachScene
+description: STAR arm reaching a target. Uses SeattleLabTable, not Props/Table.
+embodiment: star
+action_space: ee_pose
+dof: 7
+gripper: false
+cameras:
+- room
+objects:
+- star_table
+- reach_target
+max_steps: 150
+control_hz: 30.0

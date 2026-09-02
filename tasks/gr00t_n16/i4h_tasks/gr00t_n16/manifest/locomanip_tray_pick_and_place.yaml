@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# One remote task. Nothing can import this stack (its torch pins conflict
+# with Isaac's), so its declaration has to be data — and data is what this
+# is: no behaviour, just what the checkpoint is and what scene it needs.
+#
+# summary / prompt / embodiment / cameras are read in the light venv.
+# model / observation / train       are read only by this stack's server.py
+#                                   and train.py, in this stack's own venv.
+# `train:` present -> finetunable.
+
+summary: Grasp the tray from the shelf, turn around, and place it on the cart
+prompt: Grasp the box from the shelf, turn around 180 degrees, place it onto the cart surface, take two steps backward, and return to initial posture.
+embodiment: g1
+cameras:
+- head
+model:
+  repo: nvidia/GR00T-N1.6-Rheo-PickNPlaceTray
+  revision: 76a205040fc8489de91487c82e51eecb82f7d250
+  embodiment_tag: new_embodiment
+  data_config: unitree_g1_sim_wbc
+  task_mode_name: g1_locomanipulation
+  action_horizon: 16
+  action_chunk_length: 16
+  execution_steps: 16
+  control_hz: 30.0
+  policy_joints_config_path: third_party/IsaacLab-Arena-0a1b8c2/isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml
+  action_joints_config_path: third_party/IsaacLab-Arena-0a1b8c2/isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
+  state_joints_config_path: third_party/IsaacLab-Arena-0a1b8c2/isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
+  pov_cam_names_sim:
+  - obs_key: head
+    video_key: ego_view
+observation:
+  image_size:
+  - 480
+  - 640
+train:
+  output_dir: /tmp/gr00t_g1_tray
+  base_model: nvidia/GR00T-N1.6-3B
+  max_steps: 20000
+  save_steps: 2000
+  batch_size: 16
+  tune_visual: true

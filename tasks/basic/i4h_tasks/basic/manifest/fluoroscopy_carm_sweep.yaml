@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+summary: Orbit the C-arm and verify that the fluoroscopy sensor image changes
+impl: i4h_tasks.basic.medical.fluoroscopy_carm_sweep:FluoroscopyCArmSweep

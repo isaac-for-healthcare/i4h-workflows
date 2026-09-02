@@ -1,0 +1,97 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Robot facts that must cross a venv boundary and are not already stated by
+# the IsaacLab articulation cfg beside this file:
+#   - LeRobot column names and splits, read by tools/dataset
+#   - teleop device list and leader calibration, read by tasks/teleop
+#   - home pose and control rate, read by arena when building a scene
+#
+# dof / action_space / gripper are NOT here: the scene declares them, because
+# the same arm can be mounted under different controllers.
+
+name: so101
+joint_names:
+- shoulder_pan
+- shoulder_lift
+- elbow_flex
+- wrist_flex
+- wrist_roll
+- gripper
+home_joint_pos_rad:
+- 0.0
+- -1.6
+- 1.4
+- 1.5
+- -1.8
+- 0.0
+gripper_open: 0.35
+gripper_closed: -0.16
+action_names:
+- shoulder_pan.pos
+- shoulder_lift.pos
+- elbow_flex.pos
+- wrist_flex.pos
+- wrist_roll.pos
+- gripper.pos
+state_names:
+- shoulder_pan.pos
+- shoulder_lift.pos
+- elbow_flex.pos
+- wrist_flex.pos
+- wrist_roll.pos
+- gripper.pos
+state_split:
+- - single_arm
+  - 0
+  - 5
+- - gripper
+  - 5
+  - 6
+action_split:
+- - single_arm
+  - 0
+  - 5
+- - gripper
+  - 5
+  - 6
+# The N1.5 SO-ARM checkpoint was trained in LeRobot's calibrated motor
+# coordinates, not simulator radians. These are the same ranges used by the
+# working root-level workflow runtime.
+isaaclab_joint_pos_limit_range:
+- - -110.0
+  - 110.0
+- - -100.0
+  - 100.0
+- - -100.0
+  - 90.0
+- - -95.0
+  - 95.0
+- - -160.0
+  - 160.0
+- - -10.0
+  - 100.0
+lerobot_joint_pos_limit_range:
+- - -100.0
+  - 100.0
+- - -100.0
+  - 100.0
+- - -100.0
+  - 100.0
+- - -100.0
+  - 100.0
+- - -100.0
+  - 100.0
+- - 0.0
+  - 100.0
+teleop_devices:
+- keyboard
+- so101_leader
+so101_leader:
+  wrist_flex_baseline_deg: 60.0
+  gripper_close_offset_deg: -20.0
+  sim_signs_by_joint:
+    shoulder_pan: 1.0
+    shoulder_lift: 1.0
+    elbow_flex: 1.0
+    wrist_roll: 1.0

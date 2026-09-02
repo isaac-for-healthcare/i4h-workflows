@@ -1,5 +1,5 @@
 ## Description: <br>
-Record episodes for an agentic env via teleoperation (keyboard, SO-ARM leader, or VR) into HDF5. Use when the user wants to teleop or record human demos. <br>
+Record episodes for a workflow env via teleoperation (keyboard, SO-ARM leader, or VR) into HDF5. Use when the user wants to teleop or record human demos. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and robotics engineers recording human teleoperation demonstrations for agentic environments, capturing episodes into HDF5 datasets for downstream imitation learning or policy training. <br>
+Developers and robotics engineers recording human teleoperation demonstrations for workflow environments, capturing episodes into HDF5 datasets for downstream imitation learning or policy training. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>

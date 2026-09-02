@@ -1,24 +1,33 @@
-[tool.isort]
+# This directory is not a uv workspace. Each sub-component (common, engine,
+# workflows, tasks/*, arena, tools/*) is an independent uv project with its own lock,
+# wired together by path sources. See DESIGN.md §12 for why.
+#
+# This file holds shared dev settings only.
 
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-line_length = 120
-py_version = 311
-group_by_package = true
-known_third_party = ["openpi", "i4h_asset_helper"]
+[project]
+name = "i4h-workflows"
+version = "0.1.0"
+description = "Scene + workflow + task runtime for Isaac for Healthcare."
+requires-python = ">=3.11"
 
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-exclude = [
-  "workflows/telesurgery/cmake/pybind11/"
-]
+exclude = ["**/.venv", "**/third_party"]
 
 [tool.ruff.lint]
-extend-select = ["E501"]
-extend-ignore = ["E402"]
+select = ["E", "F", "W", "UP", "B", "SIM"]
+ignore = ["E402", "B008", "B027"]
 
-[tool.codespell]
-ignore-words-list = "solum, ptd"
+[tool.ruff.lint.isort]
+known-first-party = ["i4h_common", "i4h_engine", "i4h_workflows", "i4h_workflow_modes", "i4h_tasks", "i4h_tools", "i4h_arena", "i4h_rl"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+honor_noqa = true
+known_first_party = ["i4h_common", "i4h_engine", "i4h_workflows", "i4h_workflow_modes", "i4h_tasks", "i4h_tools", "i4h_arena", "i4h_rl"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

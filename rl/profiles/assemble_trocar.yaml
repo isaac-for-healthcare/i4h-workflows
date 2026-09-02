@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+schema_version: 1
+workflow: assemble_trocar
+scene: g1_trocar
+trainer: rlinf
+algorithm: ppo_actor_critic
+adapter_module: i4h_rl.adapters.assemble_trocar
+trainer_config: ../config/assemble_trocar_ppo_gr00t.yaml
+train_task_id: I4H-Workflows-Assemble-Trocar-RLinf-v0
+eval_task_id: I4H-Workflows-Assemble-Trocar-RLinf-Eval-v0
+task_description: install trocar from box
+action_dof: 43
+policy_action_dof: 28
+state_dof: 28
+cameras:
+- front
+- left_wrist
+- right_wrist
+default_num_envs: 64
+default_epochs: 1000
+simulation:
+  env_spacing: 6.0
+  presets: physx
+  enable_cameras: true

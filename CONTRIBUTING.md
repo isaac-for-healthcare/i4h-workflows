@@ -82,23 +82,33 @@ We use pre-commit hooks to ensure code quality. To set up pre-commit:
 
 ## Running Tests
 
-Before submitting your contribution, ensure all tests pass in the workflow(s) you contributed:
+Set up the independently locked component environments, then run the repository test dispatcher:
 
 ```bash
-# Install dependencies
-python tools/install_deps.py --workflow <workflow_name>
+./setup.sh
+python scripts/run_tests.py
+```
 
-# Download required assets
-i4h-asset-retrieve
+For only the fastest workflow-contract subset:
 
-# Set up your RTI license, skip if you are only running tests for robotic_surgery
-export RTI_LICENSE_FILE=<path to your RTI license file>
+```bash
+python scripts/run_tests.py --suite light
+```
 
-# Run all unit tests
-python tools/run_all_tests.py --workflow <workflow_name>
+To run the same CPU suites and coverage report used by GitHub Actions:
 
-# Run all integration tests
-python tools/run_all_tests.py --integration
+```bash
+python scripts/run_tests.py --suite ci --coverage
+```
+
+The generated `coverage.xml` reports coverage for CPU-testable repository code. Arena and simulator integration are validated separately by the GPU smoke suite.
+
+Suites whose project depends on an internal component checkout are skipped, and named at the end of the run, when `./setup.sh` has not cloned it. GitHub Actions clones the patient digital twin from `main` when the `I4H_INTERNAL_READ_TOKEN` secret is present, so the patient-twin suite runs there on internal pull requests. Forks receive no secrets, so it is skipped on those and has to be run locally against a checkout.
+
+On a configured GPU host, run the recorded headless workflow smokes used by Blossom:
+
+```bash
+python scripts/run_tests.py --suite gpu
 ```
 
 ## Reporting issues
