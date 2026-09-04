@@ -4,6 +4,7 @@ description: Orient users to the i4h workflow runtime and route them to the corr
 license: Apache-2.0
 metadata:
   author: "Isaac for Healthcare Team <isaac-for-healthcare-support@nvidia.com>"
+  version: "0.8.0"
   tags:
     - isaac-for-healthcare
     - i4h

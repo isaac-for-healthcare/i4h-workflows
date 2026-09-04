@@ -4,6 +4,7 @@ description: Use when training, evaluating, or exporting Workflow policies with 
 license: Apache-2.0
 metadata:
   author: "Isaac for Healthcare Team <isaac-for-healthcare-support@nvidia.com>"
+  version: "0.8.0"
   tags:
     - isaac-for-healthcare
     - i4h

@@ -4,6 +4,7 @@ description: Run the root-level workflow runtime policy or rule-based rollouts a
 license: Apache-2.0
 metadata:
   author: "Isaac for Healthcare Team <isaac-for-healthcare-support@nvidia.com>"
+  version: "0.8.0"
   tags:
     - isaac-for-healthcare
     - i4h

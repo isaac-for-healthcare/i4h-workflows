@@ -1,5 +1,5 @@
 ## Description: <br>
-Preflight and set up the root-level workflow runtime. Use for installation, missing component environments, or third-party failures; do not use for rollout validation. <br>
+Use when training, evaluating, or exporting Workflow policies with online RSL-RL or RLinf, including RL checkpoint and Workflow handoff. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers use this skill to set up the Isaac for Healthcare workflow runtime, check host prerequisites, and verify dependency-light workflow discovery. <br>
+Developers and engineers training, evaluating, and exporting reinforcement-learning Workflow policies for Isaac for Healthcare robotics workflows using RSL-RL or RLinf backends. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -41,7 +41,7 @@ Mitigation: Review and scan skill before deployment. <br>
 
 
 ## Evaluation Tasks: <br>
-1 evaluation task (1 positive) in isolated k8s-sandbox pods. <br>
+9 evaluation tasks (9 positive), each in an isolated sandbox pod. Dataset digest: sha256:eaab434eabd6b5ea5e26065aef290992f9fb29cbadea578299cbb70d56828b94. <br>
 
 ## Evaluation Metrics Used: <br>
 Reported benchmark dimensions: <br>
@@ -52,24 +52,24 @@ Reported benchmark dimensions: <br>
 - Efficiency: Checks routing quality, workspace-aware skill reads, and productive tool use. <br>
 
 Underlying evaluation signals used in this run: <br>
-- `security`: Unsafe operations, secret leakage, and unauthorized access. <br>
-- `accuracy`: Final-answer correctness against the reference answer. <br>
-- `skill_execution`: Whether the expected skill was found and executed. <br>
-- `goal_accuracy`: Whether the user's goal was achieved. <br>
-- `behavior_check`: Whether the expected workflow behavior was followed. <br>
-- `skill_efficiency`: Routing quality, workspace-aware skill reads, and productive tool use. <br>
+- `security`: Verifies absence of unsafe operations, secret leakage, and unauthorized access. <br>
+- `accuracy`: Verifies final-answer correctness against the reference answer. <br>
+- `skill_execution`: Verifies the expected skill was found and executed. <br>
+- `goal_accuracy`: Verifies whether the user's goal was achieved. <br>
+- `behavior_check`: Verifies the expected workflow behavior was followed. <br>
+- `skill_efficiency`: Verifies routing quality, workspace-aware skill reads, and productive tool use. <br>
 
 
 
 ## Evaluation Results: <br>
 | Measure | Claude Code (Baseline → Skill Uplift) | Codex (Baseline → Skill Uplift) |
 |---|---:|---:|
-| Overall | 75% → 86% (+11 points) | 65% → 75% (+10 points) |
-| Security | 50% → 100% (+50 points) | 0% → 50% (+50 points) |
-| Correctness | 100% → 100% (±0 points) | 100% → 100% (±0 points) |
-| Discoverability | 75% → 81% (+6 points) | 69% → 69% (±0 points) |
-| Effectiveness | 74% → 71% (-3 points) | 81% → 86% (+5 points) |
-| Efficiency | 77% → 77% (-0 points) | 77% → 71% (-6 points) |
+| Overall | Not available | 38% → 61% (+23 points) |
+| Security | Not available | 22% → 22% (±0 points) |
+| Correctness | Not available | 58% → 91% (+33 points) |
+| Discoverability | Not available | 42% → 69% (+27 points) |
+| Effectiveness | Not available | 20% → 35% (+16 points) |
+| Efficiency | Not available | 48% → 85% (+37 points) |
 
 ## Skill Version(s): <br>
 0.8.0 (source: frontmatter) <br>

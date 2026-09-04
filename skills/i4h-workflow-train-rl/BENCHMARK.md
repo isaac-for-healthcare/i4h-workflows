@@ -1,4 +1,4 @@
-# Skill Benchmark: i4h-workflow-dataset-annotate
+# Skill Benchmark: i4h-workflow-train-rl
 
 > ✅ **Overall verdict: PASS — Recommended for publication**
 
@@ -8,12 +8,12 @@ Recommended for publication based on the completed evaluation evidence in this r
 
 ## Evaluation Metadata
 
-- Skill: `i4h-workflow-dataset-annotate`
+- Skill: `i4h-workflow-train-rl`
 - Evaluation date: 2026-09-03
 - Evaluator version: `1.3.2`
 - Agents: Claude Code (`aws/anthropic/bedrock-claude-opus-4-8`), Codex (`openai/openai/gpt-5.5`)
-- Tasks: 2 evaluation tasks (2 positive)
-- Dataset digest: `sha256:b1d50c74acaec1cdd719c0e683f299d8e8a0538cbe903efc0c052cbb9318fb9e` (skill-evaluator-dataset-snapshot/1)
+- Tasks: 9 evaluation tasks (9 positive)
+- Dataset digest: `sha256:eaab434eabd6b5ea5e26065aef290992f9fb29cbadea578299cbb70d56828b94` (skill-evaluator-dataset-snapshot/1)
 - Attempts per task: 1
 - Environment: `k8s-sandbox`
 - Tier 3 evidence: required for publication
@@ -45,12 +45,12 @@ The three-tier evaluation checks whether the skill:
 
 | Measure | Claude Code (Baseline → Skill Uplift) | Codex (Baseline → Skill Uplift) |
 |---|---:|---:|
-| Overall | 47% → 85% (+38 points) | 17% → 63% (+46 points) |
-| Security | 100% → 100% (±0 points) | 0% → 0% (±0 points) |
-| Correctness | 30% → 100% (+70 points) | 10% → 100% (+90 points) |
-| Discoverability | 50% → 94% (+44 points) | 28% → 81% (+53 points) |
-| Effectiveness | 6% → 42% (+36 points) | 6% → 50% (+44 points) |
-| Efficiency | 47% → 88% (+41 points) | 41% → 85% (+44 points) |
+| Overall | Not available | 38% → 61% (+23 points) |
+| Security | Not available | 22% → 22% (±0 points) |
+| Correctness | Not available | 58% → 91% (+33 points) |
+| Discoverability | Not available | 42% → 69% (+27 points) |
+| Effectiveness | Not available | 20% → 35% (+16 points) |
+| Efficiency | Not available | 48% → 85% (+37 points) |
 
 **How to read this table:** baseline is the same task attempted without the target skill. Uplift is `skill score - baseline score`, shown in percentage points.
 
@@ -62,7 +62,7 @@ Example: `47% → 92% (+45 points)` means the skill-assisted run scored 92%, 45 
 |---|---|---|---|
 | Tier 1 | Static validation | **PASSED** | 1 validator(s); 0 finding(s) |
 | Tier 2 | Semantic deduplication | **NOT RUN** | No result was recorded |
-| Tier 3 | Live agent evaluation | **PASS** | 2 agent(s); 2 task(s) |
+| Tier 3 | Live agent evaluation | **PASS** | 2 agent(s); 9 task(s) |
 
 ## Findings and Observations
 
@@ -70,7 +70,7 @@ Example: `47% → 92% (+45 points)` means the skill-assisted run scored 92%, 45 
 <summary>Show detailed findings and successful checks</summary>
 
 - Schema & Repository Governance: Found skill manifest: SKILL.md
-- AGENT_EVAL: Tier 3 evaluation complete: verdict PASS; best agent claude-code
+- AGENT_EVAL: Tier 3 evaluation complete: verdict PASS; best agent codex
 
 </details>
 
