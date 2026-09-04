@@ -4,6 +4,7 @@ description: Use when training, evaluating, or exporting Workflow policies with 
 license: Apache-2.0
 metadata:
   author: "Isaac for Healthcare Team <isaac-for-healthcare-support@nvidia.com>"
+  version: "0.8.0"
   tags:
     - isaac-for-healthcare
     - i4h
@@ -22,7 +23,7 @@ Resolve a maintained online-RL profile, verify its Scene/objective/model contrac
 
 - Run the Workflow setup skill first so its uv environments and pinned third-party checkouts are available.
 - Use a CUDA-capable Isaac Lab/Arena runtime for the RSL-RL workflow.
-- For Trocar, provide a compatible local GR00T N1.5 starting checkpoint and two visible local GPUs for the isolated controller and simulator runtimes.
+- For Trocar, provide a local GR00T N1.5 3B base or SFT checkpoint and two visible local GPUs for the isolated controller and simulator runtimes. A compatible checkpoint is a complete local Hugging Face directory that the pinned GR00T N1.5/RLinf loader accepts without conversion; it must retain the N1.5 3B architecture and support the maintained three-camera plus 28-joint observation mapping and 28-D policy action head. Reject another model family, an exported inference-only Task artifact, or a checkpoint whose config changes those interfaces.
 
 ## Instructions
 

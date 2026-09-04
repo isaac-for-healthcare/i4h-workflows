@@ -4,6 +4,7 @@ description: Fine-tune a manifest-backed GR00T or openpi remote Task on compatib
 license: Apache-2.0
 metadata:
   author: "Isaac for Healthcare Team <isaac-for-healthcare-support@nvidia.com>"
+  version: "0.8.0"
   tags:
     - isaac-for-healthcare
     - i4h
