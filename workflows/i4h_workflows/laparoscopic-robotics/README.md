@@ -84,5 +84,8 @@ This workflow originated from the [ORBIT-Surgical](https://orbit-surgical.github
   booktitle={2025 IEEE International Conference on Robotics and Automation (ICRA)},
   title={SuFIA-BC: Generating High Quality Demonstration Data for Visuomotor Policy Learning in Surgical Subtasks},
   year={2025},
+  pages={4534--4541},
+  publisher={IEEE},
+  doi={10.1109/ICRA55743.2025.11127797}
 }
 ```
