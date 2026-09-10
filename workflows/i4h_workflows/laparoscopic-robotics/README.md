@@ -64,3 +64,25 @@ The agent runs the selected workflow, verifies the episode result, and inspects 
 # Lift a suture needle from an organ bed.
 ./run.sh surgical_lift_needle_organs --rule-based
 ```
+
+## 📚 Citations
+
+This workflow originated from the [ORBIT-Surgical](https://orbit-surgical.github.io/) framework. If you use it in academic publications, please cite:
+
+```text
+@inproceedings{ORBIT-Surgical,
+  author={Yu, Qinxi and Moghani, Masoud and Dharmarajan, Karthik and Schorp, Vincent and Panitch, William Chung-Ho and Liu, Jingzhou and Hari, Kush and Huang, Huang and Mittal, Mayank and Goldberg, Ken and Garg, Animesh},
+  booktitle={2024 IEEE International Conference on Robotics and Automation (ICRA)},
+  title={ORBIT-Surgical: An Open-Simulation Framework for Learning Surgical Augmented Dexterity},
+  year={2024},
+  pages={15509-15516},
+  doi={10.1109/ICRA57147.2024.10611637}
+}
+
+@inproceedings{SuFIA-BC,
+  author={Moghani, Masoud and Nelson, Nigel and Ghanem, Mohamed and Diaz-Pinto, Andres and Hari, Kush and Azizian, Mahdi and Goldberg, Ken and Huver, Sean and Garg, Animesh},
+  booktitle={2025 IEEE International Conference on Robotics and Automation (ICRA)},
+  title={SuFIA-BC: Generating High Quality Demonstration Data for Visuomotor Policy Learning in Surgical Subtasks},
+  year={2025},
+}
+```
