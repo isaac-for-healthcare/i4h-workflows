@@ -16,7 +16,7 @@ from i4h_engine.task import Task, TickContext
 class FluoroscopyCArmSweep(Task):
     """Orbit the C-arm and require the fluoroscopy sensor image to change."""
 
-    requires = {"action_space": "catheter_carm_velocity", "dof": 3}
+    requires = {"action_space": "catheter_carm_velocity", "dof": 4}
 
     @dataclass
     class Outputs:
@@ -59,11 +59,11 @@ class FluoroscopyCArmSweep(Task):
 
         elapsed = self._ticks * ctx.dt
         if elapsed < self.orbit_s:
-            command = (0.0, 0.0, self.orbit_rate_radps)
+            command = (0.0, 0.0, 0.0, self.orbit_rate_radps)
         elif elapsed < 2.0 * self.orbit_s:
-            command = (0.0, 0.0, -self.orbit_rate_radps)
+            command = (0.0, 0.0, 0.0, -self.orbit_rate_radps)
         else:
-            command = (0.0, 0.0, 0.0)
+            command = (0.0, 0.0, 0.0, 0.0)
         apply_action(ctx.act, np.tile(np.asarray(command, dtype=np.float32), (ctx.num_envs, 1)))
         self._ticks += 1
 

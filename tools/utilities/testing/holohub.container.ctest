@@ -1,0 +1,160 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Usage (run from the holohub repo root or invoke ctest directly):
+#   ctest -DAPP=my_app -DTAG=<tag> -S utilities/testing/holohub.container.ctest -VV
+#
+# CTest -D variables:
+#   APP                   Project name (required unless OP/PKG/EXT is set)
+#   TAG                   Image tag / branch identifier (default: "latest")
+#   CTEST_SITE            CDash site name (default: "SITE_NA")
+#   PLATFORM_NAME         Platform portion of the build name (default: "linux")
+#   CONFIGURE_OPTIONS     Semicolon-separated list of extra cmake -D flags
+#   CTEST_SUBMIT_URL      CDash submit URL; omit to skip submission
+#   CTEST_TEST_INCLUDE    Regex filter passed to ctest_test(INCLUDE ...)
+#   DASHBOARD_MODEL       Nightly | Experimental (default: "Nightly")
+#   COVERAGE              Set to ON to enable coverage instrumentation
+#   TEST_FAILURES_FILE    If defined, write the test exit code to this path
+#                         instead of calling FATAL_ERROR. Lets the caller
+#                         distinguish test failures (exit 0, file present)
+#                         from infra failures (exit != 0).
+#
+#   ./holohub test [project] [options]
+#     Examples: ./holohub test app_name
+#               ./holohub test operator_name
+#               ./holohub test video_streaming --ctest-options "-R unit_tests -VV"
+# `./holohub test` options supported by this ctest config:
+#   --verbose               Print extra CLI output; also adds -VV to ctest
+#   --dryrun                Echo the commands without executing them
+#   --clear-cache           Remove cached build/data directories before testing
+#   --site-name NAME        Sets CTEST_SITE
+#   --cdash-url URL         Submit results to the specified CDash endpoint
+#   --platform-name NAME    Sets PLATFORM_NAME portion of the CTest build name
+#   --cmake-options OPT     Append cmake configure flags (may be passed multiple times)
+#   --ctest-options OPT     Append raw ctest arguments (may be passed multiple times)
+#   --no-xvfb               Disable xvfb-run wrapper (enabled by default for GUI apps)
+#   --coverage              Build with coverage instrumentation and run ctest_coverage
+#   --build-name-suffix TAG Override the auto-detected TAG used by CTest
+
+
+set(PROJ_PREFIX APP)
+set(PROJ_NAME "")
+
+if(OP)
+  set(PROJ_NAME ${OP})
+  set(PROJ_PREFIX OP)
+elseif(PKG)
+  set(PROJ_NAME ${PKG})
+  set(PROJ_PREFIX PKG)
+elseif(EXT)
+  set(PROJ_NAME ${EXT})
+  set(PROJ_PREFIX EXT)
+elseif(APP)
+  set(PROJ_NAME ${APP})
+else()
+  message(STATUS "No APP/OP/PKG/EXT provided; running repository-wide tests")
+endif()
+
+if(NOT TAG)
+  set(TAG latest)
+endif()
+
+get_filename_component(CTEST_SOURCE_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+set(CTEST_BINARY_DIRECTORY "${CTEST_SOURCE_DIRECTORY}/build-${PROJ_NAME}")
+
+if(NOT CTEST_SITE)
+  set(CTEST_SITE "SITE_NA")
+endif()
+
+if(NOT PLATFORM_NAME)
+  set(PLATFORM_NAME linux)
+endif()
+
+set(CTEST_BUILD_NAME "holohub-${PLATFORM_NAME}-${PROJ_NAME}-${TAG}")
+
+set(CTEST_UPDATE_COMMAND "git")
+set(CTEST_CMAKE_GENERATOR "Ninja")
+
+ctest_empty_binary_directory(${CTEST_BINARY_DIRECTORY})
+
+# Copy the CDash configurations
+file(COPY
+    ${CMAKE_CURRENT_LIST_DIR}/CTestCustom.cmake
+    DESTINATION ${CTEST_BINARY_DIRECTORY})
+ctest_read_custom_files("${CTEST_BINARY_DIRECTORY}")
+
+set(configure_options
+  ${CONFIGURE_OPTIONS}
+  -D HOLOHUB_DATA_DIR=${CTEST_SOURCE_DIRECTORY}/data-${PROJ_NAME}-${TAG}
+  -D CMAKE_BUILD_TYPE=RelWithDebInfo
+)
+
+if(PROJ_NAME)
+  list(APPEND configure_options "-D${PROJ_PREFIX}_${PROJ_NAME}=ON")
+endif()
+
+# Enable coverage if requested
+if(COVERAGE)
+
+  set(CTEST_CUSTOM_COVERAGE_EXCLUDE
+    ".*/_deps/.*"
+  )
+
+  list(APPEND configure_options
+    -DCMAKE_C_FLAGS=--coverage
+    -DCMAKE_CXX_FLAGS=--coverage
+    -DCMAKE_EXE_LINKER_FLAGS=--coverage
+    -DCMAKE_SHARED_LINKER_FLAGS=--coverage
+    "-DPYTHON_EXECUTABLE_TEST=coverage\;run\;--data-file=${CTEST_BINARY_DIRECTORY}/.coverage"
+  )
+endif()
+
+# Default nightly start time
+set(CTEST_NIGHTLY_START_TIME "06:00:00 UTC")
+
+# Dashboard model: Nightly (scheduled), Experimental (manual), or Continuous (CI)
+if(NOT DASHBOARD_MODEL)
+  set(DASHBOARD_MODEL "Nightly")
+endif()
+
+ctest_start(${DASHBOARD_MODEL})
+ctest_configure(OPTIONS "${configure_options}")
+ctest_build()
+if(CTEST_TEST_INCLUDE)
+  ctest_test(RETURN_VALUE test_result INCLUDE "${CTEST_TEST_INCLUDE}")
+else()
+  ctest_test(RETURN_VALUE test_result)
+endif()
+
+if(COVERAGE)
+  # Generate the python coverage report as XML for CTest
+  execute_process(COMMAND coverage xml -o "${CTEST_BINARY_DIRECTORY}/coverage.xml"
+                  WORKING_DIRECTORY "${CTEST_BINARY_DIRECTORY}"
+                 )
+  set(CTEST_COVERAGE_COMMAND "/usr/bin/gcov")
+  ctest_coverage()
+endif()
+
+if(CTEST_SUBMIT_URL)
+  ctest_submit()
+endif()
+
+if (test_result)
+  if (DEFINED TEST_FAILURES_FILE)
+    file(WRITE "${TEST_FAILURES_FILE}" "${test_result}")
+  else()
+    message(FATAL_ERROR "Tests failed with return value: ${test_result}")
+  endif()
+endif()

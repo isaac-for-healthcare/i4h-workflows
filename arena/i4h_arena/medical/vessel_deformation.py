@@ -105,6 +105,8 @@ def centerline_vessel_from_twin(
     catheter_radius_m: float,
     two_way: bool = True,
     vessel_response: float = 1.0,
+    interior_deadband: float = 1.0,
+    interior_stiffness: float = 0.0,
     max_distance_m: float = 0.05,
     catheter_max_delta_m: float = 0.005,
     vessel_max_delta_m: float = 0.005,
@@ -122,6 +124,11 @@ def centerline_vessel_from_twin(
         catheter_radius_m: Catheter radius, used to inset the contact surface.
         two_way: Let the catheter push the wall back, not just be constrained.
         vessel_response: Scale on the wall's share of a contact correction.
+        interior_deadband: Fraction of the free radius the wire may occupy before
+            containment starts pulling it back toward the axis. ``1.0`` reaches
+            the wall, which is the one-sided behaviour.
+        interior_stiffness: How hard that interior pull acts, in ``[0, 1]``.
+            ``0.0`` disables it, leaving containment one-sided.
         max_distance_m: Containment search radius.
         catheter_max_delta_m: Per-iteration clamp on catheter corrections.
         vessel_max_delta_m: Per-iteration clamp on wall corrections.
@@ -152,6 +159,8 @@ def centerline_vessel_from_twin(
         max_distance=float(max_distance_m),
         two_way=bool(two_way),
         vessel_response=float(vessel_response),
+        interior_deadband=float(interior_deadband),
+        interior_stiffness=float(interior_stiffness),
         catheter_max_delta=float(catheter_max_delta_m),
         vessel_max_delta=float(vessel_max_delta_m),
     )

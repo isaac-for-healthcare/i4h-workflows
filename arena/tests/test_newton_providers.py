@@ -270,10 +270,35 @@ def test_carm_derives_the_detector_axis_from_orientation():
 
 
 def test_carm_surfaces_a_failed_conversion():
-    provider, _ = _carm(1, succeed=False)
+    """Reported while the caller can still fall back, which means at construction.
 
+    The scene prefers this provider but drops to reading the two prims directly
+    when it cannot be built. Surfacing the same failure from ``snapshot`` instead
+    would take the run down mid-episode, long after the choice was made.
+    """
     with pytest.raises(RuntimeError, match="could not convert"):
-        provider.snapshot(1)
+        _carm(1, succeed=False)
+
+
+def test_carm_rejects_a_mapping_that_does_not_restrict_the_output():
+    """The read must return only the mapped prims.
+
+    Where ``create_mapping`` is not honoured, the provider hands back every rigid
+    body in the model and nothing identifies which rows are the source and the
+    detector. That stayed hidden while the model held only the C-arm; an
+    articulation puts its links in the same output.
+    """
+    num_envs = 1
+    extra_bodies = np.concatenate((_identity_transforms(num_envs), _identity_transforms(3)), axis=0)
+    backend = FakeSceneDataProvider(extra_bodies)
+
+    with pytest.raises(RuntimeError, match="not restricting"):
+        SceneDataCArmStateProvider(
+            backend,
+            source_paths=["/World/envs/env_0/CArm/Orbit/Source"],
+            detector_paths=["/World/envs/env_0/CArm/Orbit/Detector"],
+            detector_size_m=(0.6144, 0.6144),
+        )
 
 
 def test_carm_rejects_unpaired_prim_paths():

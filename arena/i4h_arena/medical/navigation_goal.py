@@ -14,10 +14,18 @@ to achieve rather than something initialization hands it.
 
 from __future__ import annotations
 
+import logging
+import math
+import os
+import time
 from collections.abc import Iterable
 from typing import Any
 
 import torch
+
+_LOGGER = logging.getLogger(__name__)
+
+DRIFT_LOG_ENV_VAR = "I4H_CATHETER_DRIFT"
 
 #: Tip-to-target distance that counts as arrival. Lumens in the shipped twins
 #: are a few millimetres across, so this stays inside one radius; a looser
@@ -66,6 +74,96 @@ def hold_counter(env: Any) -> torch.Tensor:
     return counter
 
 
+def arrival_readout(
+    distance_m: float,
+    held_steps: int = 0,
+    *,
+    tolerance_m: float = ARRIVAL_TOLERANCE_M,
+    hold_steps: int = ARRIVAL_HOLD_STEPS,
+) -> str:
+    """One line telling the operator what still stands between them and arrival.
+
+    Both halves of the criterion are visible because either one can be the thing
+    holding an episode open: the tip can be far away, or it can be close enough
+    and drifting back out before the hold completes.
+    """
+    if not math.isfinite(distance_m):
+        return "Target: waiting for the catheter"
+    millimetres = distance_m * 1000.0
+    if distance_m > tolerance_m:
+        return f"Target: {millimetres:.1f} mm away (arrive within {tolerance_m * 1000.0:.0f} mm)"
+    return f"Target: {millimetres:.1f} mm away -- holding {min(held_steps, hold_steps)}/{hold_steps}"
+
+
+def arrival_progress(env: Any) -> tuple[float, int, float, int] | None:
+    """Live ``(distance_m, held_steps, tolerance_m, hold_steps)`` for one environment.
+
+    The target and both thresholds are read back off the configured ``success``
+    term rather than re-derived, so a readout built from this cannot disagree
+    with the criterion that actually ends the episode. Returns ``None`` for a
+    scene that terminates on something else.
+    """
+    manager = getattr(env, "termination_manager", None)
+    if manager is None or "success" not in getattr(manager, "active_terms", ()):
+        return None
+    params = manager.get_term_cfg("success").params
+    target = params["target_world_m"]
+    tolerance_m = float(params.get("tolerance_m", ARRIVAL_TOLERANCE_M))
+    hold_steps = int(params.get("hold_steps", ARRIVAL_HOLD_STEPS))
+    # Read the counter the term maintains; advancing it here would let the
+    # readout consume part of the hold the operator still has to earn.
+    distance_m = float(tip_distance_to_target_m(env, target)[0])
+    return distance_m, int(hold_counter(env)[0]), tolerance_m, hold_steps
+
+
+def drift_log_seconds(environ: Any = None) -> float:
+    """Seconds between tip-distance reports, from ``I4H_CATHETER_DRIFT``.
+
+    Off by default. Reading the tip is free here -- the arrival term already
+    does it every step -- but a line per frame would bury a teleop log.
+    """
+    raw = (environ if environ is not None else os.environ).get(DRIFT_LOG_ENV_VAR, "")
+    try:
+        interval = float(str(raw).strip())
+    except ValueError:
+        return 0.0
+    return interval if interval > 0.0 else 0.0
+
+
+_drift_logged_at = 0.0
+
+
+def _log_tip_drift(distance_m: float) -> None:
+    """Report the tip-to-target distance on a wall clock, to measure creep.
+
+    The tip is meant to hold still when nothing is driving it. It does not:
+    containment injects excess arc length that the cleanup sweeps then pull back
+    toward rest, and with the proximal end latched at the roller the only place
+    that shortening can go is the tip walking backward. Eyeballing the on-screen
+    readout cannot separate that from ordinary jitter, so the interval is a wall
+    clock and the log carries one, which makes the creep a slope in mm/s.
+    """
+    interval = drift_log_seconds()
+    if interval <= 0.0:
+        return
+    global _drift_logged_at
+    now = time.monotonic()
+    if now - _drift_logged_at < interval:
+        return
+    _drift_logged_at = now
+    _LOGGER.info("catheter drift: t=%.2f s  tip_to_target=%.2f mm", now, 1000.0 * float(distance_m))
+
+
+def arrival_status(env: Any) -> str:
+    """``arrival_readout`` for the live env, or empty for a scene without the term."""
+    progress = arrival_progress(env)
+    if progress is None:
+        return ""
+    distance_m, held_steps, tolerance_m, hold_steps = progress
+    _log_tip_drift(distance_m)
+    return arrival_readout(distance_m, held_steps, tolerance_m=tolerance_m, hold_steps=hold_steps)
+
+
 def reset_arrival_progress(env: Any, env_ids: Any = None) -> None:
     """Clear the hold counter for the environments being reset."""
     counter = hold_counter(env)
@@ -93,6 +191,9 @@ __all__ = [
     "ARRIVAL_HOLD_STEPS",
     "ARRIVAL_TOLERANCE_M",
     "HOLD_COUNTER_ATTR",
+    "arrival_progress",
+    "arrival_readout",
+    "arrival_status",
     "catheter_tip_world_m",
     "hold_counter",
     "reached_navigation_target",

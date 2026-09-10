@@ -144,6 +144,7 @@ class SimulationRunner:
         sensor_view_appearances: dict[str, tuple[tuple[str, str], ...]] | None = None,
         sensor_view_display_controls: dict[str, tuple[Any, ...]] | None = None,
         sensor_view_sliders: dict[str, tuple[Any, ...]] | None = None,
+        sensor_view_readouts: dict[str, Any] | None = None,
     ) -> None:
         self.scene = scene
         self.workflow = workflow
@@ -171,6 +172,7 @@ class SimulationRunner:
             sensor_view_appearances or {},
             sensor_view_display_controls or {},
             sensor_view_sliders or {},
+            sensor_view_readouts or {},
         )
         # Construct only after the episode reset, when sensor-backed TCP data
         # and randomized state belong to the same reset.
@@ -352,6 +354,7 @@ class SimulationRunner:
         appearances: dict[str, tuple[tuple[str, str], ...]],
         display_controls: dict[str, tuple[Any, ...]],
         sliders: dict[str, tuple[Any, ...]],
+        readouts: dict[str, Any],
     ) -> tuple[Any, ...]:
         if not names:
             return ()
@@ -369,6 +372,7 @@ class SimulationRunner:
                 appearances=appearances.get(name, ()),
                 display_controls=display_controls.get(name, ()),
                 sliders=sliders.get(name, ()),
+                readout=readouts.get(name),
                 controls=self._controls,
             )
             for name in names

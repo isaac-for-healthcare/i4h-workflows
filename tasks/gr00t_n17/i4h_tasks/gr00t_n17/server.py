@@ -11,6 +11,7 @@ why this file is short.
 from __future__ import annotations
 
 import argparse
+import importlib
 import logging
 import os
 from typing import Any
@@ -25,7 +26,51 @@ from i4h_common.server import ActionContract, PolicyServer, Session
 logger = logging.getLogger("i4h_tasks.gr00t_n17")
 
 
-MODALITY_KEYS = ("single_arm", "gripper")
+#: Used only by embodiments that declare no splits of their own, which is what
+#: every checkpoint here looked like before the catheter arrived.
+FALLBACK_MODALITY_KEYS = ("single_arm", "gripper")
+
+#: Registered when a task names none. Keeping the SO-ARM default means existing
+#: manifests behave exactly as they did.
+DEFAULT_MODALITY_CONFIG = "config"
+
+
+def _modality_keys(robot: RobotConfig) -> tuple[str, ...]:
+    """The group names this embodiment's data is stored under.
+
+    These have to match the dataset's ``modality.json``, which conversion
+    writes from the same splits, so deriving them beats naming them twice.
+    """
+    if robot.action_split:
+        return tuple(name for name, _start, _end in robot.action_split)
+    return FALLBACK_MODALITY_KEYS
+
+
+def _register_modalities(module: str) -> None:
+    """Import a sibling modality config for its registration side effect.
+
+    Registration has to happen before the policy reads the checkpoint
+    processor's embodiment metadata. Names are checked against the modules that
+    exist rather than passed to ``import_module`` as given, so a typo in a
+    manifest names the alternatives instead of raising a bare ImportError.
+    """
+    here = os.path.dirname(__file__)
+    if not os.path.isfile(os.path.join(here, f"{module}.py")):
+        available = sorted(name[:-3] for name in os.listdir(here) if name.startswith("config") and name.endswith(".py"))
+        raise ValueError(f"no modality config {module!r} in this stack; have {available}")
+    importlib.import_module(f"{__package__}.{module}")
+
+
+def _is_calibrated(robot: RobotConfig) -> bool:
+    """Whether this embodiment's data is in LeRobot motor coordinates.
+
+    A physical arm records what its servos report and needs converting to
+    simulator radians; an instrument driven in metres and radians per second
+    was recorded in the units the scene already uses, and putting it through a
+    joint calibration it does not have would be meaningless rather than merely
+    unnecessary.
+    """
+    return bool(robot.isaaclab_joint_pos_limit_range and robot.lerobot_joint_pos_limit_range)
 
 
 class Gr00tN17Server(PolicyServer):
@@ -44,9 +89,11 @@ class Gr00tN17Server(PolicyServer):
         from gr00t.data.embodiment_tags import EmbodimentTag
         from gr00t.policy.gr00t_policy import Gr00tPolicy
 
-        import i4h_tasks.gr00t_n17.config  # noqa: F401
-
         model = session.model
+        # Only one modality config can hold an embodiment tag, so the task says
+        # which one it wants; training resolves the same name to the same file.
+        _register_modalities(str(model.get("modality_config") or DEFAULT_MODALITY_CONFIG))
+
         path = session.checkpoint or str(model.get("repo", ""))
         if not path:
             raise ValueError(f"{session.task_id}: no model repo and no --checkpoint")
@@ -66,12 +113,20 @@ class Gr00tN17Server(PolicyServer):
         pass
 
     def action_contract(self, session: Session) -> ActionContract:
+        """What this checkpoint's action vectors mean, per the task declaration.
+
+        The runtime refuses a checkpoint whose space differs from the scene's,
+        so reporting ``joint_position`` for everything made any non-arm
+        embodiment unservable. ``joint_position`` stays the default because
+        that is what every checkpoint predating this claimed implicitly.
+        """
         robot = self._robot(session)
+        keys = _modality_keys(robot)
         return ActionContract(
-            space="joint_position",
+            space=str(session.model.get("action_space") or "joint_position"),
             layout="joints",
             dof=len(robot.joint_names),
-            gripper="last",
+            gripper="last" if keys and keys[-1] == "gripper" else "none",
         )
 
     def infer(self, session: Session, frame: ObsFrame) -> np.ndarray | None:
@@ -81,38 +136,48 @@ class Gr00tN17Server(PolicyServer):
         images = session.images(frame)
         robot = self._robot(session)
         state = self._ordered_state(frame, robot)
-        state = isaaclab_rad_to_lerobot(
-            state,
-            robot.isaaclab_joint_pos_limit_range,
-            robot.lerobot_joint_pos_limit_range,
-        ).astype(np.float32)
-        width = state.shape[-1]
+        calibrated = _is_calibrated(robot)
+        if calibrated:
+            state = isaaclab_rad_to_lerobot(
+                state,
+                robot.isaaclab_joint_pos_limit_range,
+                robot.lerobot_joint_pos_limit_range,
+            ).astype(np.float32)
         observation = {
             "video": {name: pixels[np.newaxis, np.newaxis, ...] for name, pixels in images.items()},
-            "state": {
-                "single_arm": state[np.newaxis, np.newaxis, : width - 1],
-                "gripper": state[np.newaxis, np.newaxis, width - 1 :],
-            },
+            "state": self._state_groups(state, robot),
             "language": {
                 policy.language_key: [[session.prompt]],
             },
         }
         chunk, _info = policy.get_action(observation)
-        actions = self._flatten(chunk)
-        actions = lerobot_to_isaaclab_rad(
-            actions,
-            robot.lerobot_joint_pos_limit_range,
-            robot.isaaclab_joint_pos_limit_range,
-        ).astype(np.float32)
+        actions = self._flatten(chunk, _modality_keys(robot))
+        if calibrated:
+            actions = lerobot_to_isaaclab_rad(
+                actions,
+                robot.lerobot_joint_pos_limit_range,
+                robot.isaaclab_joint_pos_limit_range,
+            ).astype(np.float32)
         if not np.isfinite(actions).all():
-            raise ValueError("GR00T N1.7 produced non-finite joint actions")
+            raise ValueError("GR00T N1.7 produced non-finite actions")
         return actions[: min(session.execution_steps, len(actions))]
 
     @staticmethod
-    def _flatten(chunk: dict[str, Any] | np.ndarray) -> np.ndarray:
+    def _state_groups(state: np.ndarray, robot: RobotConfig) -> dict[str, np.ndarray]:
+        """Slice the state vector into the groups the checkpoint was trained on."""
+        if not robot.state_split:
+            width = state.shape[-1]
+            return {
+                "single_arm": state[np.newaxis, np.newaxis, : width - 1],
+                "gripper": state[np.newaxis, np.newaxis, width - 1 :],
+            }
+        return {name: state[np.newaxis, np.newaxis, start:end] for name, start, end in robot.state_split}
+
+    @staticmethod
+    def _flatten(chunk: dict[str, Any] | np.ndarray, keys: tuple[str, ...]) -> np.ndarray:
         if isinstance(chunk, np.ndarray):
             return np.atleast_2d(chunk).astype(np.float32)
-        parts = [_as_steps(_action_value(chunk, key)) for key in MODALITY_KEYS]
+        parts = [_as_steps(_action_value(chunk, key)) for key in keys]
         return np.concatenate(parts, axis=-1)
 
     @staticmethod
@@ -120,8 +185,16 @@ class Gr00tN17Server(PolicyServer):
         if not session.embodiment:
             raise ValueError(f"{session.task_id}: task declaration has no embodiment")
         robot = get_robot_config(session.embodiment)
-        if not robot.isaaclab_joint_pos_limit_range or not robot.lerobot_joint_pos_limit_range:
-            raise ValueError(f"{session.task_id}: robot {robot.name!r} has no joint calibration ranges")
+        # Both ranges or neither. Neither means the data is already in the
+        # scene's own units; one of the two is a half-written descriptor, which
+        # used to be caught by requiring both and would otherwise now be
+        # silently treated as uncalibrated.
+        if bool(robot.isaaclab_joint_pos_limit_range) != bool(robot.lerobot_joint_pos_limit_range):
+            raise ValueError(
+                f"{session.task_id}: robot {robot.name!r} declares only one of "
+                f"isaaclab_joint_pos_limit_range / lerobot_joint_pos_limit_range; "
+                f"declare both to convert joint coordinates, or neither to use them as recorded"
+            )
         return robot
 
     @staticmethod

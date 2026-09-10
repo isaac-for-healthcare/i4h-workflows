@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 import time
 import weakref
 from abc import ABC, abstractmethod
@@ -153,33 +154,82 @@ class KeyboardDevice(InputDevice):
         self._impl = None
 
 
+KEY_LOG_ENV_VAR = "I4H_TELEOP_KEY_LOG"
+
+# Keys whose command lasts as long as they are held.
+_CATHETER_MOTION_KEYS = frozenset({"W", "S", "A", "D", "Q", "E", "Z", "C"})
+# Named C-arm projections, in orbit radians.
+_CARM_PROJECTION_KEYS = {
+    "1": 0.0,
+    "2": math.radians(45.0),
+    "3": math.radians(90.0),
+    "4": math.radians(-30.0),
+}
+
+
+def key_log_enabled(environ: Any = None) -> bool:
+    """Whether to print raw keyboard events, from ``I4H_TELEOP_KEY_LOG``.
+
+    Anything truthy but ``0``/``false``/``no`` counts, so the switch behaves the
+    way an operator setting an environment variable in a hurry expects.
+    """
+    raw = (environ if environ is not None else os.environ).get(KEY_LOG_ENV_VAR, "")
+    return str(raw).strip().lower() not in ("", "0", "false", "no", "off")
+
+
 class CatheterKeyboardDevice(InputDevice):
-    """Reference-style catheter keys plus four named C-arm projections."""
+    """Reference-style catheter keys plus four named C-arm projections.
+
+    The rate defaults are set for how slowly these scenes actually run rather
+    than for how fast a catheter moves. Insertion is a velocity in *simulation*
+    time, but the operator experiences it in wall time, and a fluoroscopy scene
+    rendering a real DRR every frame steps at roughly two hertz -- some
+    seventeen times slower than the 30 Hz it simulates. At the older 16 mm/s
+    that came out near a millimetre of travel per second of holding W, which
+    reads as a dead key rather than a slow one.
+
+    ``key_hold_ttl_s`` matters for the same reason and is easier to get wrong.
+    It bridges the gap between auto-repeat events, so it is spent in wall time
+    while the thing it feeds is counted in steps: at two steps a second the old
+    200 ms window covered less than half a step, so a tap routinely landed
+    between steps and did nothing at all. It now only covers taps, since a hold
+    is read from the device rather than inferred from events.
+
+    ``insertion_speed_mps`` is bounded from above by the rod rather than by the
+    action term: feeding faster than the shaft can shed length buckles it into
+    the vessel wall. See the default's test for the measurement.
+    """
 
     def __init__(
         self,
         *,
-        insertion_speed_mps: float = 0.016,
+        insertion_speed_mps: float = 0.009,
         rotation_rate_radps: float = 1.5,
         orbit_rate_radps: float = 0.45,
-        key_hold_ttl_s: float = 0.20,
+        tip_bend_rate_radps: float = 1.5,
+        key_hold_ttl_s: float = 0.50,
     ) -> None:
         self.insertion_speed_mps = float(insertion_speed_mps)
         self.rotation_rate_radps = float(rotation_rate_radps)
         self.orbit_rate_radps = float(orbit_rate_radps)
+        self.tip_bend_rate_radps = float(tip_bend_rate_radps)
         self.key_hold_ttl_s = max(0.05, float(key_hold_ttl_s))
         self._input: Any = None
         self._keyboard: Any = None
         self._keyboard_sub: Any = None
-        self._pressed: set[str] = set()
-        self._released_at: dict[str, float] = {}
+        self._motion_buttons: dict[str, Any] = {}
+        self._held_since: dict[str, float] = {}
         self._orbit_target_rad: float | None = None
         self._reset_requested = False
+        self._last_event_at: float | None = None
+        # Resolved once: the event handler runs per key event, and the unset
+        # case is the common one.
+        self._key_log = key_log_enabled()
 
     def open(self, ctx: TickContext) -> None:
-        if ctx.act.action_space != "catheter_carm_velocity" or ctx.act.dof != 3:
+        if ctx.act.action_space != "catheter_carm_velocity" or ctx.act.dof != 4:
             raise RuntimeError(
-                "catheter_keyboard requires the three-value catheter_carm_velocity action space; "
+                "catheter_keyboard requires the four-value catheter_carm_velocity action space; "
                 f"got {ctx.act.action_space!r} with {ctx.act.dof} values"
             )
         try:
@@ -188,11 +238,18 @@ class CatheterKeyboardDevice(InputDevice):
 
             self._input = carb.input.acquire_input_interface()
             self._keyboard = omni.appwindow.get_default_app_window().get_keyboard()
+            self._motion_buttons = {
+                key: getattr(carb.input.KeyboardInput, key)
+                for key in _CATHETER_MOTION_KEYS
+                if hasattr(carb.input.KeyboardInput, key)
+            }
             self._keyboard_sub = self._input.subscribe_to_keyboard_events(
                 self._keyboard,
                 lambda event, *args, obj=weakref.proxy(self): obj._on_keyboard_event(event, *args),
             )
-            logger.info("catheter keyboard ready: W/S insert, A/D rotate, 1-4 C-arm views, Q/E fine orbit, R reset")
+            logger.info(
+                "catheter keyboard ready: W/S insert, A/D rotate, Z/C tip bend, 1-4 C-arm views, Q/E fine orbit, R reset"
+            )
         except Exception:
             logger.warning("no Isaac keyboard device available; catheter command will remain zero", exc_info=True)
             self.close()
@@ -202,15 +259,15 @@ class CatheterKeyboardDevice(InputDevice):
             return None
         if self._reset_requested:
             self._reset_requested = False
-            self._pressed.clear()
-            self._released_at.clear()
+            self._held_since.clear()
             self._orbit_target_rad = None
             ctx.request_scene_reset()
-            return np.zeros((ctx.num_envs, 3), dtype=np.float32)
+            return np.zeros((ctx.num_envs, 4), dtype=np.float32)
         insertion_speed_mps = float(ctx.controls.get("catheter_insertion_speed_mps", self.insertion_speed_mps))
         forward = float(self._active("W")) - float(self._active("S"))
         rotation = float(self._active("D")) - float(self._active("A"))
         orbit = float(self._active("Q")) - float(self._active("E"))
+        tip_bend = float(self._active("C")) - float(self._active("Z"))
         if orbit:
             self._orbit_target_rad = None
         elif self._orbit_target_rad is not None:
@@ -225,6 +282,7 @@ class CatheterKeyboardDevice(InputDevice):
             [
                 forward * insertion_speed_mps,
                 rotation * self.rotation_rate_radps,
+                tip_bend * self.tip_bend_rate_radps,
                 orbit * self.orbit_rate_radps,
             ],
             dtype=np.float32,
@@ -237,41 +295,93 @@ class CatheterKeyboardDevice(InputDevice):
         self._input = None
         self._keyboard = None
         self._keyboard_sub = None
-        self._pressed.clear()
-        self._released_at.clear()
+        self._motion_buttons.clear()
+        self._held_since.clear()
         self._reset_requested = False
 
+    def _mark_held(self, key: str) -> None:
+        """Record fresh evidence that ``key`` is down."""
+        self._held_since[key] = time.monotonic()
+
     def _active(self, key: str) -> bool:
-        if key in self._pressed:
-            return True
-        released = self._released_at.get(key)
-        return released is not None and time.monotonic() - released <= self.key_hold_ttl_s
+        """Whether ``key`` is down, asked of the device before it is inferred."""
+        polled = self._poll_held(key)
+        if polled is not None:
+            return polled
+        held = self._held_since.get(key)
+        return held is not None and time.monotonic() - held <= self.key_hold_ttl_s
+
+    def _poll_held(self, key: str) -> bool | None:
+        """Live device state for ``key``, or ``None`` when carb cannot be asked.
+
+        Every event-derived answer has been wrong in one direction or the other.
+        Latching on release left the catheter advancing after the key was let go,
+        because Kit drops releases. Expiring on a timeout since the last press or
+        repeat then left it dead while the key was held, because Kit also stops
+        sending press and repeat once something else takes the keyboard and
+        delivers only ``CHAR`` -- 531 of them in one session, against no press
+        and no repeat.
+
+        Polling sidesteps the whole question: a held key reads as held whatever
+        Kit chooses to dispatch. The cost is that it reports the physical key, so
+        typing into a panel field would also drive the catheter. The panel's
+        fields are numeric, and a stray nudge is a far cheaper failure than a
+        control that silently stops mid-demonstration.
+        """
+        button = self._motion_buttons.get(key)
+        if button is None or self._input is None or self._keyboard is None:
+            return None
+        try:
+            return bool(self._input.get_keyboard_value(self._keyboard, button))
+        except Exception:
+            # Fall back to the events for the rest of the session rather than
+            # raising once per key per step.
+            logger.warning("keyboard state polling unavailable; falling back to key events", exc_info=True)
+            self._motion_buttons.clear()
+            return None
+
+    def _log_key_event(self, event: Any, key: str) -> None:
+        """Print every keyboard event, to settle what Kit actually delivers.
+
+        A key stays latched until its release arrives, so a dropped release
+        leaves the command on indefinitely. Whether that latch can safely be
+        replaced by a timeout depends on whether holding a key produces repeat
+        events, and on what type they carry: an auto-repeat delivered as its own
+        event type rather than as a fresh press is invisible to a handler
+        watching only press and release. Neither is inferable from behaviour,
+        hence the raw log.
+        """
+        now = time.monotonic()
+        gap = 0.0 if self._last_event_at is None else now - self._last_event_at
+        self._last_event_at = now
+        print(
+            f"[teleop keys] {str(event.type):<34} {str(key):<5} "
+            f"+{gap * 1000:8.1f} ms  held={sorted(self._held_since)}",
+            flush=True,
+        )
 
     def _on_keyboard_event(self, event: Any, *_args: Any) -> bool:
         import carb
 
         key = keyboard_event_input_name(event)
-        if event.type == carb.input.KeyboardEventType.KEY_PRESS:
+        if self._key_log:
+            self._log_key_event(event, key)
+        types = carb.input.KeyboardEventType
+        # Only consulted when polling is unavailable. A repeat is as good as a
+        # press for holding a key down; ``CHAR`` is deliberately not counted,
+        # since it was observed naming a key other than the one being held.
+        if key in _CATHETER_MOTION_KEYS and event.type in (types.KEY_PRESS, types.KEY_REPEAT):
+            self._mark_held(key)
+        elif event.type == types.KEY_PRESS:
+            # The one-shot keys stay on press alone, so holding one does not
+            # re-fire it every frame.
             if key == "L":
-                self._pressed.clear()
-                self._released_at.clear()
+                self._held_since.clear()
                 self._orbit_target_rad = None
             elif key == "R":
                 self._reset_requested = True
-            elif key in {"W", "S", "A", "D", "Q", "E"}:
-                self._pressed.add(key)
-                self._released_at.pop(key, None)
-            elif key in {"1", "2", "3", "4"}:
-                projection_key = key
-                self._orbit_target_rad = {
-                    "1": 0.0,
-                    "2": math.radians(45.0),
-                    "3": math.radians(90.0),
-                    "4": math.radians(-30.0),
-                }[projection_key]
-        elif event.type == carb.input.KeyboardEventType.KEY_RELEASE and key in self._pressed:
-            self._pressed.remove(key)
-            self._released_at[key] = time.monotonic()
+            elif key in _CARM_PROJECTION_KEYS:
+                self._orbit_target_rad = _CARM_PROJECTION_KEYS[key]
         return True
 
 

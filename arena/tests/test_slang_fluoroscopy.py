@@ -4,12 +4,20 @@
 from __future__ import annotations
 
 import json
+import types
 
 import numpy as np
 import pytest
 import yaml
 
-from i4h_arena.medical.carm import CArmState, ReferenceProjectionCArmStateProvider, SceneCArmStateProvider
+from i4h_arena.medical.carm import (
+    FOLLOW_TIP_ENV_VAR,
+    CArmState,
+    ReferenceProjectionCArmStateProvider,
+    SceneCArmStateProvider,
+    follow_tip_enabled,
+    panned_isocenter_offsets,
+)
 from i4h_arena.medical.catheter import CatheterState
 from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.medical.patient_volume import PatientVolume
@@ -84,8 +92,27 @@ def test_scene_carm_provider_reads_isaac_xyzw_quaternions() -> None:
     np.testing.assert_allclose(state.detector_x_axis_world, [[0.0, 1.0, 0.0]], atol=1e-6)
 
 
-def test_reference_projection_provider_reproduces_four_view_angles(tmp_path) -> None:
+def test_reference_projection_provider_aims_the_named_views_at_the_patient(tmp_path) -> None:
+    """AP must run anterior-posterior, and the obliques must sweep about the body.
+
+    The frame used to be taken from the volume's storage axes. On a real twin
+    those map to patient left, posterior and superior, which aimed "AP" along the
+    patient's *superior* axis -- a projection down the length of the body -- and
+    swept the orbit toward the left instead of around it, leaving a true AP
+    unreachable at any angle.
+
+    Asserting the beam in patient terms is what catches that. The test this
+    replaced compared the projection against the volume frame and passed
+    throughout, because agreeing with the volume frame was the bug.
+
+    The fixture's ``world_from_patient_m`` is the identity, so world axes are the
+    patient's own left, posterior and superior.
+    """
     patient = _patient_volume(tmp_path)
+    left = np.array([1.0, 0.0, 0.0])
+    posterior = np.array([0.0, 1.0, 0.0])
+    superior = np.array([0.0, 0.0, 1.0])
+    anterior = -posterior
 
     class Orbit:
         angle_rad = np.zeros(1, dtype=np.float32)
@@ -99,9 +126,226 @@ def test_reference_projection_provider_reproduces_four_view_angles(tmp_path) -> 
 
     for angle_deg in (0.0, 45.0, 90.0, -30.0):
         orbit.angle_rad[:] = np.deg2rad(angle_deg)
-        projection = solve_projection_geometry(patient, provider.snapshot(1), width=1024, height=1024)
-        np.testing.assert_allclose(np.rad2deg(projection.rotation_zxy_rad), [0.0, angle_deg, 0.0], atol=1e-5)
+        state = provider.snapshot(1)
+        beam = state.detector_center_world_m[0] - state.source_world_m[0]
+        beam /= np.linalg.norm(beam)
+        radians = np.deg2rad(angle_deg)
+        expected = np.sin(radians) * left + np.cos(radians) * anterior
+
+        np.testing.assert_allclose(beam, expected, atol=1e-6)
+        # The defining property of an LAO/RAO sweep: it turns about the body's
+        # long axis, so the beam stays in the patient's transverse plane.
+        assert abs(float(np.dot(beam, superior))) < 1e-6
+
+        projection = solve_projection_geometry(patient, state, width=1024, height=1024)
         np.testing.assert_allclose(projection.translation_xyz_mm, [0.0, 0.0, 0.0], atol=1e-7)
+
+    orbit.angle_rad[:] = 0.0
+    state = provider.snapshot(1)
+    # Vertical axis of the image, derived by the renderer as beam x u. Inferior
+    # means the head is drawn at the top rather than upside down.
+    vertical = np.cross(anterior, state.detector_x_axis_world[0])
+    np.testing.assert_allclose(vertical, -superior, atol=1e-6)
+
+
+# --------------------------------------------------------------------------- #
+# Panning the isocenter to keep the tip in frame
+# --------------------------------------------------------------------------- #
+
+
+def test_a_tip_inside_the_keep_zone_leaves_the_frame_alone():
+    """A frame that tracked the tip continuously would shake, and would also
+    pin the tip to the middle of every image -- discarding tip position within
+    the frame as something a policy could read."""
+    pan = panned_isocenter_offsets(
+        np.array([0.05]), np.zeros(1), half_fov_m=0.15, keep_fraction=0.6, limits_m=(-1.0, 1.0)
+    )
+
+    np.testing.assert_allclose(pan, [0.0])
+
+
+def test_a_tip_past_the_keep_zone_pans_it_back_to_the_boundary():
+    """Exactly to the boundary, not to the centre: the smallest move that
+    restores the invariant, which is also how a pan reads in a lab."""
+    pan = panned_isocenter_offsets(
+        np.array([0.12]), np.zeros(1), half_fov_m=0.15, keep_fraction=0.6, limits_m=(-1.0, 1.0)
+    )
+
+    # Keep zone is 0.6 * 0.15 = 0.09, so a tip at 0.12 pans by 0.03.
+    np.testing.assert_allclose(pan, [0.03])
+
+
+def test_the_pan_is_hysteretic_so_a_settled_tip_does_not_creep():
+    """Once at the boundary the frame must stop, or every step nudges it again."""
+    first = panned_isocenter_offsets(
+        np.array([0.12]), np.zeros(1), half_fov_m=0.15, keep_fraction=0.6, limits_m=(-1.0, 1.0)
+    )
+    second = panned_isocenter_offsets(np.array([0.12]), first, half_fov_m=0.15, keep_fraction=0.6, limits_m=(-1.0, 1.0))
+
+    np.testing.assert_allclose(second, first)
+
+
+def test_the_pan_follows_a_tip_retreating_the_other_way():
+    pan = panned_isocenter_offsets(
+        np.array([-0.12]), np.zeros(1), half_fov_m=0.15, keep_fraction=0.6, limits_m=(-1.0, 1.0)
+    )
+
+    np.testing.assert_allclose(pan, [-0.03])
+
+
+def test_the_pan_stops_at_the_edge_of_the_scanned_volume():
+    """Panning past the anatomy renders a blank detector, which reads as a
+    broken sensor rather than as the frame having run out of patient."""
+    pan = panned_isocenter_offsets(
+        np.array([5.0]), np.zeros(1), half_fov_m=0.15, keep_fraction=0.6, limits_m=(-0.2, 0.2)
+    )
+
+    np.testing.assert_allclose(pan, [0.2])
+
+
+def test_a_tip_that_is_nowhere_yet_does_not_drag_the_frame_away():
+    """Before Newton finalizes its model the tip reads as infinity."""
+    pan = panned_isocenter_offsets(
+        np.array([np.inf]), np.array([0.02]), half_fov_m=0.15, keep_fraction=0.6, limits_m=(-1.0, 1.0)
+    )
+
+    np.testing.assert_allclose(pan, [0.02])
+
+
+def test_each_environment_pans_on_its_own_tip():
+    pan = panned_isocenter_offsets(
+        np.array([0.0, 0.12, -0.12]),
+        np.zeros(3),
+        half_fov_m=0.15,
+        keep_fraction=0.6,
+        limits_m=(-1.0, 1.0),
+    )
+
+    np.testing.assert_allclose(pan, [0.0, 0.03, -0.03])
+
+
+def test_following_the_tip_is_on_but_can_be_pinned_back(monkeypatch) -> None:
+    """On by default because a fixed frame loses the tip for 40% of a run, with
+    an escape hatch because panning is the only thing that gives the renderer a
+    non-zero pose translation."""
+    monkeypatch.delenv(FOLLOW_TIP_ENV_VAR, raising=False)
+    assert follow_tip_enabled() is True
+
+    for value in ("1", "true", "yes", "on", "ON"):
+        monkeypatch.setenv(FOLLOW_TIP_ENV_VAR, value)
+        assert follow_tip_enabled() is True
+
+    for value in ("0", "false", "", "off"):
+        monkeypatch.setenv(FOLLOW_TIP_ENV_VAR, value)
+        assert follow_tip_enabled() is False
+
+
+class _Tip:
+    """The slice of the catheter entity the provider reads the tip through."""
+
+    def __init__(self, *positions_world_m) -> None:
+        # Trailing particle is the tip, matching positions_world_m's ordering.
+        self.data = types.SimpleNamespace(positions_world_m=np.asarray(positions_world_m, dtype=np.float64))
+
+
+def _orbit_at_zero():
+    class Orbit:
+        angle_rad = np.zeros(1, dtype=np.float32)
+
+    return Orbit()
+
+
+def test_without_a_tip_source_the_isocenter_stays_on_the_volume_centre(tmp_path) -> None:
+    """The projection tests were all written against a fixed isocenter."""
+    patient = _patient_volume(tmp_path)
+    provider = ReferenceProjectionCArmStateProvider(patient, _orbit_at_zero(), detector_size_m=(0.6144, 0.6144))
+
+    state = provider.snapshot(1)
+
+    midpoint = 0.5 * (state.source_world_m[0] + state.detector_center_world_m[0])
+    np.testing.assert_allclose(midpoint, patient.volume_mm_to_world(patient.center_xyz_mm), atol=1e-9)
+
+
+def test_the_isocenter_follows_the_tip_along_the_head_foot_axis(tmp_path) -> None:
+    """The route runs 510 mm head-foot through a 307 mm field, so without this
+    roughly 40% of every episode pairs an action with an image that does not
+    contain the tip."""
+    patient = _patient_volume(tmp_path)
+    centre = patient.volume_mm_to_world(patient.center_xyz_mm)
+    # The fixture's world_from_patient_m is the identity, so +z is superior.
+    far_superior = centre + np.array([0.0, 0.0, 0.5])
+    provider = ReferenceProjectionCArmStateProvider(
+        patient,
+        _orbit_at_zero(),
+        detector_size_m=(0.6144, 0.6144),
+        tip_source=_Tip([centre, far_superior]),
+    )
+
+    state = provider.snapshot(1)
+
+    midpoint = 0.5 * (state.source_world_m[0] + state.detector_center_world_m[0])
+    moved = midpoint - centre
+    assert abs(float(moved[2])) > 0.0
+    # A table pans along the body, not across it.
+    np.testing.assert_allclose(moved[:2], [0.0, 0.0], atol=1e-9)
+
+
+def test_panning_does_not_disturb_the_beam_direction(tmp_path) -> None:
+    """Otherwise following the tip would quietly re-aim the named views, which
+    is the bug the anatomical basis was introduced to fix."""
+    patient = _patient_volume(tmp_path)
+    centre = patient.volume_mm_to_world(patient.center_xyz_mm)
+    fixed = ReferenceProjectionCArmStateProvider(patient, _orbit_at_zero(), detector_size_m=(0.6144, 0.6144))
+    following = ReferenceProjectionCArmStateProvider(
+        patient,
+        _orbit_at_zero(),
+        detector_size_m=(0.6144, 0.6144),
+        tip_source=_Tip([centre, centre + np.array([0.0, 0.0, 0.5])]),
+    )
+
+    def beam(provider):
+        state = provider.snapshot(1)
+        axis = state.detector_center_world_m[0] - state.source_world_m[0]
+        return axis / np.linalg.norm(axis)
+
+    np.testing.assert_allclose(beam(following), beam(fixed), atol=1e-9)
+
+
+def test_a_positive_orbit_angle_is_lao_and_a_negative_one_is_rao(tmp_path) -> None:
+    """The presets name a side, so the sign has to put the detector on it.
+
+    ``2 LAO-45`` passes a positive angle and ``4 RAO-30`` a negative one, so a
+    flipped sign would silently swap every oblique for its mirror image.
+    """
+    patient = _patient_volume(tmp_path)
+    left = np.array([1.0, 0.0, 0.0])
+
+    class Orbit:
+        angle_rad = np.zeros(1, dtype=np.float32)
+
+    orbit = Orbit()
+    provider = ReferenceProjectionCArmStateProvider(patient, orbit, detector_size_m=(0.6, 0.6))
+    isocenter = patient.volume_mm_to_world(patient.center_xyz_mm)
+
+    orbit.angle_rad[:] = np.deg2rad(45.0)
+    lao = provider.snapshot(1).detector_center_world_m[0] - isocenter
+    orbit.angle_rad[:] = np.deg2rad(-30.0)
+    rao = provider.snapshot(1).detector_center_world_m[0] - isocenter
+
+    assert float(np.dot(lao, left)) > 0.0, "a positive angle must carry the detector to the patient's left"
+    assert float(np.dot(rao, left)) < 0.0, "a negative angle must carry the detector to the patient's right"
+
+
+def test_an_unsupported_patient_frame_is_refused(tmp_path) -> None:
+    """A different frame convention would silently reorient every view."""
+    from i4h_arena.medical.carm import anatomical_projection_basis
+
+    class Twin:
+        coordinate_frame = "RAS"
+        world_from_patient_m = np.eye(4)
+
+    with pytest.raises(ValueError, match="coordinate_frame"):
+        anatomical_projection_basis(Twin())
 
 
 def test_patient_volume_preserves_physical_coordinates(tmp_path) -> None:

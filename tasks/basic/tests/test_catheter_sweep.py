@@ -13,7 +13,7 @@ from i4h_tasks.basic.medical.catheter_sweep import CatheterSweep
 
 class _Actuation:
     def __init__(self) -> None:
-        self.value = np.zeros((1, 3), dtype=np.float32)
+        self.value = np.zeros((1, 4), dtype=np.float32)
 
     @property
     def action_space(self) -> str:
@@ -21,7 +21,7 @@ class _Actuation:
 
     @property
     def dof(self) -> int:
-        return 3
+        return 4
 
     def set_raw_action(self, action: np.ndarray, robot: str = "robot") -> None:
         del robot
@@ -38,14 +38,14 @@ def test_sweep_emits_catheter_commands_and_carm_orbit() -> None:
     task.on_enter(ctx, object())
 
     assert task.tick(ctx) is Status.RUNNING
-    np.testing.assert_allclose(act.value, [[0.012, 0.0, 0.0]])
+    np.testing.assert_allclose(act.value, [[0.012, 0.0, 0.0, 0.0]])
     assert task.tick(ctx) is Status.RUNNING
-    np.testing.assert_allclose(act.value, [[0.0, 0.8, 0.0]])
+    np.testing.assert_allclose(act.value, [[0.0, 0.8, 0.0, 0.0]])
     assert task.tick(ctx) is Status.RUNNING
-    np.testing.assert_allclose(act.value, [[-0.012, 0.0, 0.0]])
+    np.testing.assert_allclose(act.value, [[-0.012, 0.0, 0.0, 0.0]])
     assert task.tick(ctx) is Status.RUNNING
-    np.testing.assert_allclose(act.value, [[0.0, 0.0, 0.45]])
+    np.testing.assert_allclose(act.value, [[0.0, 0.0, 0.0, 0.45]])
     assert task.tick(ctx) is Status.RUNNING
-    np.testing.assert_allclose(act.value, [[0.0, 0.0, -0.45]])
+    np.testing.assert_allclose(act.value, [[0.0, 0.0, 0.0, -0.45]])
     assert task.tick(ctx) is Status.SUCCESS
-    np.testing.assert_allclose(act.value, [[0.0, 0.0, 0.0]])
+    np.testing.assert_allclose(act.value, [[0.0, 0.0, 0.0, 0.0]])

@@ -1,0 +1,57 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# One remote task. Nothing can import this stack (its torch pins conflict with
+# Isaac's), so its declaration has to be data.
+#
+# summary / prompt / embodiment / cameras are read in the light venv.
+# model / observation / train       are read only by this stack's server.py
+#                                   and train.py, in this stack's own venv.
+# `train:` present -> finetunable.
+#
+# Both finetuning and serving work from this declaration. The observation
+# groups, the action space and the modality config all come from here rather
+# than from constants in server.py, because a catheter reports insertion and
+# rotation rates where the SO-ARM next door reports joint positions and a
+# gripper.
+
+summary: Navigate the catheter tip to the target vessel branch under fluoroscopy (N1.7 backend)
+prompt: Steer the catheter along the vessel and stop at the target branch
+embodiment: catheter
+cameras:
+- fluoroscopy
+# Insertion and rotation are rates, not joint positions, so a scene offering a
+# joint-position arm is not a substitute even if the channel count matches.
+requires:
+  action_space: catheter_carm_velocity
+model:
+  # No published checkpoint for this task yet, so a rollout must pass
+  # --checkpoint. Naming a `repo` here would imply one exists.
+  embodiment_tag: new_embodiment
+  action_horizon: 16
+  execution_steps: 16
+  # 120 Hz physics with decimation 4, matching the scene manifest. Recordings
+  # have to be made at the same rate this claims.
+  control_hz: 30.0
+  # Reported on the ready handshake. The runtime rejects a checkpoint whose
+  # action space differs from the scene's, and these are rates rather than the
+  # joint positions the backend otherwise assumes.
+  action_space: catheter_carm_velocity
+  # Selects config_catheter.py over the SO-ARM config.py, since only one
+  # modality config can hold the NEW_EMBODIMENT tag in a given process. Read
+  # by both this stack's server.py and its train.py.
+  modality_config: config_catheter
+observation:
+  image_size:
+  - 256
+  - 256
+  state_names:
+  - insertion_m
+  - rotation_rad
+  - carm_orbit_rad
+train:
+  output_dir: /tmp/gr00t_catheter_n17
+  base_model: nvidia/GR00T-N1.7-3B
+  max_steps: 10000
+  save_steps: 1000
+  batch_size: 32

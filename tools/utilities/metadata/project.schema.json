@@ -1,0 +1,277 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:holohub:project:v1",
+  "type": "object",
+  "$defs": {
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "authors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "affiliation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "affiliation"
+        ]
+      }
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(\\.(0|[1-9]\\d*))*$"
+    },
+    "changelog": {
+      "$id": "changelog",
+      "type": "object"
+    },
+    "language": {
+      "type": "string",
+      "enum": [
+        "C++",
+        "Python",
+        "GXF"
+      ]
+    },
+    "multi_language": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/language"
+          }
+        },
+        {
+          "$ref": "#/$defs/language"
+        }
+      ]
+    },
+    "platforms": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "x86_64",
+          "aarch64"
+        ]
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "version_list": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/version"
+      }
+    },
+    "sdk_version": {
+      "type": "object",
+      "properties": {
+        "minimum_required_version": {
+          "$ref": "#/$defs/version"
+        },
+        "tested_versions": {
+          "$ref": "#/$defs/version_list"
+        }
+      },
+      "required": [
+        "minimum_required_version",
+        "tested_versions"
+      ]
+    },
+    "ranking": {
+      "type": "integer"
+    },
+    "versioned_dependency": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "$ref": "#/$defs/version"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ]
+    },
+    "hardware_descriptor": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "name",
+        "description"
+      ]
+    },
+    "requirements": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array"
+        },
+        "gxf_extensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/versioned_dependency"
+          }
+        },
+        "hardware": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/hardware_descriptor"
+          }
+        }
+      }
+    },
+    "run_command": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "Complete command to execute including all arguments"
+        },
+        "workdir": {
+          "type": "string",
+          "description": "Working directory for command execution"
+        },
+        "docker_run_args": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Docker run arguments as a single string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "Docker arguments"
+              },
+              "description": "Array of Docker run arguments"
+            }
+          ],
+          "description": "Docker run arguments - can be a single string or array of strings, equivalent to CLI `--docker-opts`"
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Environment variables to set when running the application"
+        }
+      },
+      "description": "Run command configuration"
+    },
+    "build_configuration": {
+      "type": "object",
+      "properties": {
+        "depends": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "docker_build_args": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Docker build arguments as a single string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "Docker arguments"
+              },
+              "description": "Array of Docker build arguments"
+            }
+          ],
+          "description": "Docker build arguments - can be a single string or array of strings, equivalent to CLI `--build-args`"
+        },
+        "cmake_options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional cmake options to pass to the local build step"
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Environment variables to set when building the application (local and container builds)"
+        }
+      }
+    },
+    "mode_definition": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of dependency IDs required for this mode"
+        },
+        "build": {
+          "$ref": "#/$defs/build_configuration"
+        },
+        "run": {
+          "$ref": "#/$defs/run_command"
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Environment variables to set for this mode"
+        }
+      },
+      "required": [
+        "description",
+        "run"
+      ]
+    },
+    "modes": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z_][a-zA-Z0-9_]*$": {
+          "$ref": "#/$defs/mode_definition"
+        }
+      }
+    }
+  }
+}

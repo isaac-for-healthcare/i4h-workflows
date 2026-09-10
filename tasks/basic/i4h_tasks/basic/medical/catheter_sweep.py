@@ -16,7 +16,7 @@ from i4h_engine.task import Task, TickContext
 class CatheterSweep(Task):
     """Exercise catheter controls and an autonomous C-arm orbital sweep."""
 
-    requires = {"action_space": "catheter_carm_velocity", "dof": 3}
+    requires = {"action_space": "catheter_carm_velocity", "dof": 4}
 
     @dataclass
     class Outputs:
@@ -55,17 +55,17 @@ class CatheterSweep(Task):
         orbit_positive_end = retract_end + self.orbit_s
         orbit_return_end = orbit_positive_end + self.orbit_s
         if elapsed < advance_end:
-            command = (self.insertion_speed_mps, 0.0, 0.0)
+            command = (self.insertion_speed_mps, 0.0, 0.0, 0.0)
         elif elapsed < rotate_end:
-            command = (0.0, self.rotation_rate_radps, 0.0)
+            command = (0.0, self.rotation_rate_radps, 0.0, 0.0)
         elif elapsed < retract_end:
-            command = (-self.insertion_speed_mps, 0.0, 0.0)
+            command = (-self.insertion_speed_mps, 0.0, 0.0, 0.0)
         elif elapsed < orbit_positive_end:
-            command = (0.0, 0.0, self.orbit_rate_radps)
+            command = (0.0, 0.0, 0.0, self.orbit_rate_radps)
         elif elapsed < orbit_return_end:
-            command = (0.0, 0.0, -self.orbit_rate_radps)
+            command = (0.0, 0.0, 0.0, -self.orbit_rate_radps)
         else:
-            command = (0.0, 0.0, 0.0)
+            command = (0.0, 0.0, 0.0, 0.0)
         apply_action(ctx.act, np.tile(np.asarray(command, dtype=np.float32), (ctx.num_envs, 1)))
         self._ticks += 1
         return Status.SUCCESS if elapsed >= orbit_return_end else Status.RUNNING

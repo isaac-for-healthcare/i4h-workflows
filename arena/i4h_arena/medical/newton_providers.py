@@ -151,10 +151,16 @@ class SceneDataCArmStateProvider:
         # frame; sources occupy the first half of the output, detectors the second.
         self._mapping = provider.create_mapping(list(source_paths) + list(detector_paths))
         self._output = None
+        # Probe once here rather than trusting the mapping. On a Lab revision
+        # where create_mapping does not restrict the output, the read returns
+        # every rigid body in the model and there is no way to tell which rows
+        # are the source and the detector. Raising during construction is what
+        # lets the caller fall back to reading the two prims directly; the same
+        # discovery at snapshot time would instead kill the run mid-episode.
+        self._read_transforms()
 
-    def snapshot(self, num_envs: int) -> CArmState:
-        if num_envs != self._num_envs:
-            raise ValueError(f"C-arm spans {self._num_envs} environment(s), requested {num_envs}")
+    def _read_transforms(self) -> np.ndarray:
+        """Read the mapped body transforms, checking the mapping actually applied."""
         from isaaclab.scene_data import SceneDataFormat
 
         if self._output is None:
@@ -164,13 +170,25 @@ class SceneDataCArmStateProvider:
         if not self._provider.get_transforms(self._output, self._mapping, allow_passthrough=False):
             raise RuntimeError("SceneDataProvider could not convert body transforms to SceneDataFormat.Transform")
         transforms = self._output.transforms.numpy()
-        if len(transforms) < 2 * self._num_envs:
-            raise RuntimeError(f"expected {2 * self._num_envs} C-arm transforms, got {len(transforms)}")
+        expected = 2 * self._num_envs
+        if len(transforms) != expected:
+            raise RuntimeError(
+                f"expected {expected} C-arm transforms from the mapped prims, got {len(transforms)}; "
+                "the mapping is not restricting the provider output, so source and detector rows "
+                "cannot be identified"
+            )
+        return transforms
+
+    def snapshot(self, num_envs: int) -> CArmState:
+        if num_envs != self._num_envs:
+            raise ValueError(f"C-arm spans {self._num_envs} environment(s), requested {num_envs}")
+        transforms = self._read_transforms()
+        expected = 2 * self._num_envs
         source = np.asarray(transforms[: self._num_envs, :3], dtype=np.float64)
-        detector = np.asarray(transforms[self._num_envs :, :3], dtype=np.float64)
+        detector = np.asarray(transforms[self._num_envs : expected, :3], dtype=np.float64)
         # warp transforms carry XYZW quaternions, matching the detector frame
         # convention the renderer expects.
-        detector_quat = np.asarray(transforms[self._num_envs :, 3:7], dtype=np.float64)
+        detector_quat = np.asarray(transforms[self._num_envs : expected, 3:7], dtype=np.float64)
         x_axis = _rotate_xyzw(detector_quat, np.array([1.0, 0.0, 0.0]))
         return CArmState(source, detector, x_axis, self._detector_size_m)
 

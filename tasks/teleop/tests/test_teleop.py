@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import sys
+import time
 import types
 
 import numpy as np
@@ -24,9 +25,11 @@ from i4h_tasks.teleop.devices import (
     CatheterKeyboardDevice,
     InputDevice,
     KeyboardDevice,
+    key_log_enabled,
     keyboard_event_input_name,
     make_device,
 )
+from i4h_tasks.teleop.devices import KEY_LOG_ENV_VAR
 from i4h_tasks.teleop.drive import Drive
 
 DT = 1 / 60
@@ -150,57 +153,290 @@ def test_keyboard_maps_joint_arm_and_gripper(monkeypatch):
 
 
 def test_catheter_keyboard_maps_insertion_rotation_and_orbit() -> None:
+    """Orbit stays last now that the tip bend sits between it and rotation."""
     local = TickContext(
-        scene=FakeScene(dof=3, joint_names=("insertion_m", "rotation_rad", "carm_orbit_rad")),
-        act=FakeActuation(dof=3, action_space="catheter_carm_velocity"),
+        scene=FakeScene(dof=4, joint_names=("insertion_m", "rotation_rad", "tip_bend_rad", "carm_orbit_rad")),
+        act=FakeActuation(dof=4, action_space="catheter_carm_velocity"),
         dt=DT,
     )
     device = CatheterKeyboardDevice(insertion_speed_mps=0.012, rotation_rate_radps=0.8, orbit_rate_radps=0.45)
     device._keyboard_sub = object()  # noqa: SLF001
-    device._pressed.update(("W", "A", "Q"))  # noqa: SLF001
+    for held in ("W", "A", "Q"):
+        device._mark_held(held)  # noqa: SLF001
 
-    assert np.allclose(device.read(local), [[0.012, -0.8, 0.45]])
+    assert np.allclose(device.read(local), [[0.012, -0.8, 0.0, 0.45]])
 
 
 def test_catheter_keyboard_drives_named_carm_projection() -> None:
-    scene = FakeScene(dof=3, joint_names=("insertion_m", "rotation_rad", "carm_orbit_rad"))
+    scene = FakeScene(dof=4, joint_names=("insertion_m", "rotation_rad", "tip_bend_rad", "carm_orbit_rad"))
     local = TickContext(
         scene=scene,
-        act=FakeActuation(dof=3, action_space="catheter_carm_velocity"),
+        act=FakeActuation(dof=4, action_space="catheter_carm_velocity"),
         dt=DT,
     )
     device = CatheterKeyboardDevice(orbit_rate_radps=0.45)
     device._keyboard_sub = object()  # noqa: SLF001
     device._orbit_target_rad = np.deg2rad(45.0)  # noqa: SLF001
 
-    assert np.allclose(device.read(local), [[0.0, 0.0, 0.45]])
+    assert np.allclose(device.read(local), [[0.0, 0.0, 0.0, 0.45]])
 
 
 def test_catheter_keyboard_uses_live_velocity_control() -> None:
     local = TickContext(
-        scene=FakeScene(dof=3, joint_names=("insertion_m", "rotation_rad", "carm_orbit_rad")),
-        act=FakeActuation(dof=3, action_space="catheter_carm_velocity"),
+        scene=FakeScene(dof=4, joint_names=("insertion_m", "rotation_rad", "tip_bend_rad", "carm_orbit_rad")),
+        act=FakeActuation(dof=4, action_space="catheter_carm_velocity"),
         dt=DT,
         controls={"catheter_insertion_speed_mps": 0.027},
     )
     device = CatheterKeyboardDevice()
     device._keyboard_sub = object()  # noqa: SLF001
-    device._pressed.add("W")  # noqa: SLF001
+    device._mark_held("W")  # noqa: SLF001
 
-    assert np.allclose(device.read(local), [[0.027, 0.0, 0.0]])
+    assert np.allclose(device.read(local), [[0.027, 0.0, 0.0, 0.0]])
+
+
+def test_a_key_with_no_fresh_evidence_stops_commanding() -> None:
+    """The stuck-key bug, now bounded by the hold window.
+
+    A held key streams ``KEY_REPEAT`` and stops the moment it is let go, so the
+    absence of repeats is what ends the command. Releases are not consulted,
+    because Kit delivers them unreliably -- one session logged 36 seconds of
+    unrequested retraction from a single dropped release, ending only when the
+    insertion depth hit its lower bound.
+    """
+    local = TickContext(
+        scene=FakeScene(dof=4, joint_names=("insertion_m", "rotation_rad", "tip_bend_rad", "carm_orbit_rad")),
+        act=FakeActuation(dof=4, action_space="catheter_carm_velocity"),
+        dt=DT,
+    )
+    device = CatheterKeyboardDevice(insertion_speed_mps=0.030, key_hold_ttl_s=0.05)
+    device._keyboard_sub = object()  # noqa: SLF001
+    device._mark_held("S")  # noqa: SLF001
+
+    assert np.allclose(device.read(local), [[-0.030, 0.0, 0.0, 0.0]])
+
+    time.sleep(0.2)  # four times the hold window, with no repeat arriving
+
+    assert np.allclose(device.read(local), [[0.0, 0.0, 0.0, 0.0]])
+
+
+def test_clearing_the_keys_stops_a_stuck_command() -> None:
+    """What ``L`` does, for an operator who does not want to wait out the window."""
+    local = TickContext(
+        scene=FakeScene(dof=4, joint_names=("insertion_m", "rotation_rad", "tip_bend_rad", "carm_orbit_rad")),
+        act=FakeActuation(dof=4, action_space="catheter_carm_velocity"),
+        dt=DT,
+    )
+    device = CatheterKeyboardDevice(insertion_speed_mps=0.030, key_hold_ttl_s=10.0)
+    device._keyboard_sub = object()  # noqa: SLF001
+    device._mark_held("S")  # noqa: SLF001
+    device._held_since.clear()  # noqa: SLF001
+
+    assert np.allclose(device.read(local), [[0.0, 0.0, 0.0, 0.0]])
+
+
+def test_catheter_keyboard_steers_the_tip_on_z_and_c() -> None:
+    """C bends the tip one way, Z the other, without touching the other columns."""
+    local = TickContext(
+        scene=FakeScene(dof=4, joint_names=("insertion_m", "rotation_rad", "tip_bend_rad", "carm_orbit_rad")),
+        act=FakeActuation(dof=4, action_space="catheter_carm_velocity"),
+        dt=DT,
+    )
+    device = CatheterKeyboardDevice(tip_bend_rate_radps=1.2)
+    device._keyboard_sub = object()  # noqa: SLF001
+
+    device._mark_held("C")  # noqa: SLF001
+    assert np.allclose(device.read(local), [[0.0, 0.0, 1.2, 0.0]])
+
+    device._held_since.clear()  # noqa: SLF001
+    device._mark_held("Z")  # noqa: SLF001
+    assert np.allclose(device.read(local), [[0.0, 0.0, -1.2, 0.0]])
+
+
+def test_holding_both_tip_keys_cancels_out() -> None:
+    """Opposed keys are a zero command rather than whichever arrived last."""
+    local = TickContext(
+        scene=FakeScene(dof=4, joint_names=("insertion_m", "rotation_rad", "tip_bend_rad", "carm_orbit_rad")),
+        act=FakeActuation(dof=4, action_space="catheter_carm_velocity"),
+        dt=DT,
+    )
+    device = CatheterKeyboardDevice(tip_bend_rate_radps=1.2)
+    device._keyboard_sub = object()  # noqa: SLF001
+    device._mark_held("Z")  # noqa: SLF001
+    device._mark_held("C")  # noqa: SLF001
+
+    assert np.allclose(device.read(local), [[0.0, 0.0, 0.0, 0.0]])
+
+
+def test_catheter_keyboard_rejects_the_old_three_value_action_space() -> None:
+    """The bend column widened the space, so a stale 3-dof scene must not open.
+
+    Silently accepting it would map orbit onto the bend and steer the tip
+    whenever the operator asked for a C-arm sweep.
+    """
+    device = CatheterKeyboardDevice()
+    stale = TickContext(
+        scene=FakeScene(dof=3, joint_names=("insertion_m", "rotation_rad", "carm_orbit_rad")),
+        act=FakeActuation(dof=3, action_space="catheter_carm_velocity"),
+        dt=DT,
+    )
+    with pytest.raises(RuntimeError, match="four-value"):
+        device.open(stale)
+
+
+def test_the_key_log_is_off_unless_asked_for() -> None:
+    assert key_log_enabled({}) is False
+
+
+@pytest.mark.parametrize("value", ["1", "yes", "true", "on", "please"])
+def test_the_key_log_accepts_an_operator_in_a_hurry(value: str) -> None:
+    assert key_log_enabled({KEY_LOG_ENV_VAR: value}) is True
+
+
+@pytest.mark.parametrize("value", ["", "0", "false", "no", "off", "  OFF  "])
+def test_the_key_log_stays_off_for_a_negative_setting(value: str) -> None:
+    assert key_log_enabled({KEY_LOG_ENV_VAR: value}) is False
+
+
+def test_catheter_keyboard_defaults_below_the_buckling_speed() -> None:
+    """Fast enough to feel direct, slow enough that the shaft can keep up.
+
+    This used to default near the action term's 60 mm/s ceiling, to compensate
+    for a fluoroscopy scene that stepped around two hertz -- at that rate a
+    slower speed made holding W worth about a millimetre a second, which reads
+    as a broken key. Two things retired that reasoning. The slow stepping was
+    largely a starved machine, and the scene now runs at 25 Hz. And a hold that
+    actually sustains 30 mm/s drove wall penetration from +0.55 to +4.25 mm with
+    8 of 41 particles outside the lumen, never recovering, where 9 mm/s held
+    penetration negative and every particle contained for 10,000 steps.
+
+    So the ceiling is the wrong thing to track. The speed the shaft can shed is.
+    """
+    assert CatheterKeyboardDevice().insertion_speed_mps == pytest.approx(0.009)
+
+
+def test_a_tapped_key_survives_to_the_next_step_on_a_slow_scene() -> None:
+    """The hold window is spent in wall time; the steps it feeds are not.
+
+    At roughly two steps a second the old 200 ms window closed before the next
+    step ran, so a tap could land entirely between steps and do nothing. The
+    window has to outlast one step at that rate to be worth offering at all.
+    """
+    slowest_expected_step_rate_hz = 2.0
+
+    assert CatheterKeyboardDevice().key_hold_ttl_s >= 1.0 / slowest_expected_step_rate_hz
+
+
+def test_a_key_still_reads_as_active_within_the_hold_window() -> None:
+    """What that window buys: a tap outlives the gap to the next step."""
+    device = CatheterKeyboardDevice(key_hold_ttl_s=10.0)
+    device._held_since["W"] = time.monotonic()  # noqa: SLF001
+
+    assert device._active("W")  # noqa: SLF001
+
+
+def test_a_key_last_seen_before_the_window_is_not_active() -> None:
+    """And it does expire, so the catheter stops when the operator lets go."""
+    device = CatheterKeyboardDevice(key_hold_ttl_s=0.01)
+    device._held_since["W"] = time.monotonic() - 1.0  # noqa: SLF001
+
+    assert not device._active("W")  # noqa: SLF001
+
+
+def test_a_repeat_refreshes_a_hold_that_would_otherwise_expire() -> None:
+    """Why repeats are counted: they are the only reliable evidence of a hold.
+
+    Kit sends ``KEY_REPEAT`` continuously while a key is down, and one logged
+    session held a key for several seconds without ever producing a ``KEY_PRESS``
+    for it. Ignoring repeats, as the handler used to, made that hold invisible.
+    """
+    device = CatheterKeyboardDevice(key_hold_ttl_s=0.05)
+    device._held_since["W"] = time.monotonic() - 1.0  # noqa: SLF001
+    assert not device._active("W")  # noqa: SLF001
+
+    device._mark_held("W")  # noqa: SLF001
+
+    assert device._active("W")  # noqa: SLF001
+
+
+class _FakeInput:
+    """The one carb call the device polls, plus a switch to make it fail."""
+
+    def __init__(self, down: set[str], *, raises: bool = False) -> None:
+        self.down = down
+        self.raises = raises
+        self.calls = 0
+
+    def get_keyboard_value(self, _keyboard: object, button: str) -> float:
+        self.calls += 1
+        if self.raises:
+            raise RuntimeError("no input provider")
+        return 1.0 if button in self.down else 0.0
+
+
+def _polling_device(down: set[str], **kwargs) -> CatheterKeyboardDevice:
+    device = CatheterKeyboardDevice(**kwargs)
+    device._input = _FakeInput(down)  # noqa: SLF001
+    device._keyboard = object()  # noqa: SLF001
+    device._motion_buttons = {key: key for key in ("W", "S", "A", "D", "Q", "E")}  # noqa: SLF001
+    return device
+
+
+def test_a_held_key_reads_as_held_with_no_events_at_all() -> None:
+    """The failure this replaces: Kit sent only ``CHAR`` and the hold went dead."""
+    device = _polling_device({"W"})
+
+    assert device._active("W")  # noqa: SLF001
+    assert not device._active("S")  # noqa: SLF001
+
+
+def test_the_device_outranks_a_stale_hold_in_both_directions() -> None:
+    """Neither a dropped release nor a dropped press can outlive the real state."""
+    device = _polling_device({"W"}, key_hold_ttl_s=10.0)
+    device._held_since["S"] = time.monotonic()  # noqa: SLF001
+
+    assert device._active("W")  # noqa: SLF001
+    assert not device._active("S")  # noqa: SLF001
+
+
+def test_polling_failure_falls_back_to_the_events() -> None:
+    device = _polling_device({"W"}, key_hold_ttl_s=10.0)
+    device._input.raises = True  # noqa: SLF001
+    device._mark_held("S")  # noqa: SLF001
+
+    assert not device._active("W")  # noqa: SLF001
+    assert device._active("S")  # noqa: SLF001
+
+
+def test_a_failed_poll_is_not_retried_every_step() -> None:
+    """Six keys a step for a whole session is too many raises to swallow."""
+    device = _polling_device({"W"})
+    device._input.raises = True  # noqa: SLF001
+
+    for _ in range(5):
+        device._active("W")  # noqa: SLF001
+
+    assert device._input.calls == 1  # noqa: SLF001
+
+
+def test_the_events_still_answer_before_the_keyboard_is_opened() -> None:
+    device = CatheterKeyboardDevice(key_hold_ttl_s=10.0)
+    device._mark_held("W")  # noqa: SLF001
+
+    assert device._active("W")  # noqa: SLF001
 
 
 def test_catheter_keyboard_requests_full_scene_reset() -> None:
     local = TickContext(
-        scene=FakeScene(dof=3, joint_names=("insertion_m", "rotation_rad", "carm_orbit_rad")),
-        act=FakeActuation(dof=3, action_space="catheter_carm_velocity"),
+        scene=FakeScene(dof=4, joint_names=("insertion_m", "rotation_rad", "tip_bend_rad", "carm_orbit_rad")),
+        act=FakeActuation(dof=4, action_space="catheter_carm_velocity"),
         dt=DT,
     )
     device = CatheterKeyboardDevice()
     device._keyboard_sub = object()  # noqa: SLF001
     device._reset_requested = True  # noqa: SLF001
 
-    assert np.allclose(device.read(local), [[0.0, 0.0, 0.0]])
+    assert np.allclose(device.read(local), [[0.0, 0.0, 0.0, 0.0]])
     assert local.consume_scene_reset() is True
     assert local.consume_scene_reset() is False
 

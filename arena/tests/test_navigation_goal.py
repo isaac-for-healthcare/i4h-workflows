@@ -18,7 +18,12 @@ import torch
 from i4h_arena.medical.navigation_goal import (
     ARRIVAL_HOLD_STEPS,
     ARRIVAL_TOLERANCE_M,
+    DRIFT_LOG_ENV_VAR,
+    arrival_progress,
+    arrival_readout,
+    arrival_status,
     catheter_tip_world_m,
+    drift_log_seconds,
     hold_counter,
     reached_navigation_target,
     reset_arrival_progress,
@@ -84,6 +89,17 @@ def test_the_target_is_not_offset_per_environment():
 # --------------------------------------------------------------------------- #
 # Hold requirement
 # --------------------------------------------------------------------------- #
+def test_the_drift_log_is_off_until_an_interval_is_asked_for():
+    """A line per UI frame would bury a teleop log, and the creep being measured
+    is a slope in mm/s, so the caller picks the interval."""
+    assert drift_log_seconds({}) == 0.0
+    assert drift_log_seconds({DRIFT_LOG_ENV_VAR: "0.5"}) == 0.5
+    assert drift_log_seconds({DRIFT_LOG_ENV_VAR: "0"}) == 0.0
+    assert drift_log_seconds({DRIFT_LOG_ENV_VAR: "-2"}) == 0.0
+    # A mistyped diagnostic must not take a teleop session down.
+    assert drift_log_seconds({DRIFT_LOG_ENV_VAR: "every second"}) == 0.0
+
+
 def test_arrival_requires_the_tolerance_to_hold():
     env = _env_at(TARGET)
 
@@ -150,3 +166,78 @@ def test_the_counter_is_reallocated_when_the_environment_count_changes():
 
     env.num_envs = 3
     assert hold_counter(env).tolist() == [0, 0, 0]
+
+
+# --------------------------------------------------------------------------- #
+# Operator readout
+# --------------------------------------------------------------------------- #
+class _FakeTerminationManager:
+    """The slice of IsaacLab's manager the readout reads its thresholds from."""
+
+    def __init__(self, **params) -> None:
+        self.active_terms = ["success"]
+        self._cfg = SimpleNamespace(params={"target_world_m": TARGET, **params})
+
+    def get_term_cfg(self, name: str) -> SimpleNamespace:
+        assert name == "success"
+        return self._cfg
+
+
+def _env_with_term(*tips, **params) -> _FakeEnv:
+    env = _env_at(*tips)
+    env.termination_manager = _FakeTerminationManager(**params)
+    return env
+
+
+def test_a_distant_tip_reads_out_the_gap_and_the_tolerance():
+    assert arrival_readout(0.0274) == "Target: 27.4 mm away (arrive within 5 mm)"
+
+
+def test_a_tip_inside_the_tolerance_reads_out_the_hold():
+    """Being close is not arrival, so the operator needs to see the hold too."""
+    assert arrival_readout(0.0031, 7) == "Target: 3.1 mm away -- holding 7/15"
+
+
+def test_an_unknown_tip_says_so_rather_than_reading_out_infinity():
+    assert arrival_readout(float("inf")) == "Target: waiting for the catheter"
+
+
+def test_the_readout_never_promises_more_hold_than_the_criterion_wants():
+    assert arrival_readout(0.0, ARRIVAL_HOLD_STEPS + 4).endswith(f"{ARRIVAL_HOLD_STEPS}/{ARRIVAL_HOLD_STEPS}")
+
+
+def test_the_readout_follows_the_terms_own_thresholds():
+    """A readout derived from anything else could disagree with what ends the episode."""
+    env = _env_with_term((0.98, 0.0, 0.0), tolerance_m=0.05, hold_steps=3)
+
+    assert arrival_status(env) == "Target: 20.0 mm away -- holding 0/3"
+
+
+def test_progress_reports_the_live_distance_and_hold():
+    env = _env_with_term(TARGET)
+    for _ in range(4):
+        reached_navigation_target(env, TARGET)
+
+    distance_m, held_steps, tolerance_m, hold_steps = arrival_progress(env)
+
+    assert distance_m == pytest.approx(0.0)
+    assert held_steps == 4
+    assert (tolerance_m, hold_steps) == (ARRIVAL_TOLERANCE_M, ARRIVAL_HOLD_STEPS)
+
+
+def test_reading_the_progress_does_not_spend_the_hold():
+    """The operator still has to earn every step of the hold on their own."""
+    env = _env_with_term(TARGET)
+    reached_navigation_target(env, TARGET)
+
+    for _ in range(5):
+        arrival_status(env)
+
+    assert hold_counter(env).item() == 1
+
+
+def test_a_scene_without_the_success_term_gets_no_readout():
+    env = _env_at(TARGET)
+
+    assert arrival_progress(env) is None
+    assert arrival_status(env) == ""

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:holohub:operator:v1",
+  "type": "object",
+  "properties": {
+    "$schema": { "type": "string" },
+    "operator": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "urn:holohub:project:v1#/$defs/name"
+        },
+        "description": {
+          "$ref": "urn:holohub:project:v1#/$defs/description"
+        },
+        "authors": {
+          "$ref": "urn:holohub:project:v1#/$defs/authors"
+        },
+        "version": {
+          "$ref": "urn:holohub:project:v1#/$defs/version"
+        },
+        "changelog": {
+          "$ref": "urn:holohub:project:v1#/$defs/changelog"
+        },
+        "language": {
+          "$ref": "urn:holohub:project:v1#/$defs/multi_language"
+        },
+        "platforms": {
+          "$ref": "urn:holohub:project:v1#/$defs/platforms"
+        },
+        "tags": {
+          "$ref": "urn:holohub:project:v1#/$defs/tags"
+        },
+        "holoscan_sdk": {
+          "$ref": "urn:holohub:project:v1#/$defs/sdk_version"
+        },
+        "ranking": {
+          "$ref": "urn:holohub:project:v1#/$defs/ranking"
+        },
+        "requirements": {
+          "$ref": "urn:holohub:project:v1#/$defs/requirements"
+        }
+      },
+      "required": [
+        "name",
+        "authors",
+        "version",
+        "changelog",
+        "language",
+        "platforms",
+        "tags",
+        "holoscan_sdk",
+        "ranking",
+        "requirements"
+      ]
+    }
+  },
+  "required": [
+    "operator"
+  ]
+}

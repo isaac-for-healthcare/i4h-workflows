@@ -16,8 +16,17 @@ from isaaclab.assets import AssetBaseCfg
 from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
 from isaaclab.utils.configclass import configclass
 
-from i4h_arena.medical.centerline import ordered_centerline_path
-from i4h_arena.medical.newton_catheter_physics import CatheterRodHandle, CatheterRodSpec, newton_physics_cfg
+from i4h_arena.medical.centerline import ordered_centerline_lumen
+from i4h_arena.medical.newton_catheter_physics import (
+    DEFAULT_NUM_SEGMENTS,
+    CatheterRodHandle,
+    CatheterRodSpec,
+    cleanup_sweeps_override,
+    containment_stage_override,
+    newton_physics_cfg,
+    rod_damping_override,
+    segment_count_override,
+)
 from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.medical.patient_volume import PatientVolume
 from i4h_arena.medical.xpbd_catheter import XpbdCatheterAsset, XpbdCatheterAssetCfg
@@ -41,7 +50,18 @@ def reference_initial_catheter_length_m(twin: PatientTwin, *, fallback_m: float)
 
 
 class CatheterVelocityAction(ActionTerm):
-    """Proximal insertion velocity and axial rotation rate in SI units."""
+    """Proximal insertion velocity, axial rotation rate, and tip bend rate in SI units.
+
+    The first two terms are rates the solver consumes. The third is different in
+    kind: the tip's bend is a rest shape the solver holds, so this term
+    integrates the commanded rate into an angle it owns and hands over the angle
+    rather than the rate. Steering has to persist between commands the way a
+    shaped wire does, and releasing the key has to hold the shape rather than
+    let it spring back.
+
+    The bend is about the tip's local X axis. Aiming it at a branch is the
+    rotation term's job, which is how a pre-shaped wire is aimed clinically.
+    """
 
     cfg: CatheterVelocityActionCfg
 
@@ -49,12 +69,20 @@ class CatheterVelocityAction(ActionTerm):
         super().__init__(cfg, env)
         if not isinstance(self._asset, XpbdCatheterAsset):
             raise TypeError(f"asset {cfg.asset_name!r} must be XpbdCatheterAsset")
-        self._raw_actions = torch.zeros((self.num_envs, 2), device=self.device)
+        self._raw_actions = torch.zeros((self.num_envs, 3), device=self.device)
         self._processed_actions = torch.zeros_like(self._raw_actions)
+        # Held here rather than on the asset because it is this term's
+        # integration of the command, and a reset has to clear it per env.
+        self._tip_bend_angle = torch.zeros(self.num_envs, device=self.device)
 
     @property
     def action_dim(self) -> int:
-        return 2
+        return 3
+
+    @property
+    def tip_bend_angle(self) -> torch.Tensor:
+        """Current absolute tip bend per env, in radians."""
+        return self._tip_bend_angle
 
     @property
     def raw_actions(self) -> torch.Tensor:
@@ -72,25 +100,49 @@ class CatheterVelocityAction(ActionTerm):
         self._processed_actions[:, 1] = torch.clamp(
             actions[:, 1], -float(self.cfg.max_rotation_rate_radps), float(self.cfg.max_rotation_rate_radps)
         )
+        self._processed_actions[:, 2] = torch.clamp(
+            actions[:, 2], -float(self.cfg.max_tip_bend_rate_radps), float(self.cfg.max_tip_bend_rate_radps)
+        )
 
     def apply_actions(self) -> None:
-        self._asset.advance(self._processed_actions, float(self._env.physics_dt))
+        dt = float(self._env.physics_dt)
+        # Only the two rate terms are the asset's velocity contract; the bend is
+        # a separate shape command, so it does not travel through ``advance``.
+        self._asset.advance(self._processed_actions[:, :2], dt)
+        limit = float(self.cfg.max_tip_bend_rad)
+        # In place so the buffer the solver was handed keeps its storage.
+        self._tip_bend_angle.add_(self._processed_actions[:, 2] * dt).clamp_(-limit, limit)
+        self._asset.set_tip_bend(self._tip_bend_angle)
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         if env_ids is None:
             self._raw_actions.zero_()
             self._processed_actions.zero_()
+            self._tip_bend_angle.zero_()
         else:
             self._raw_actions[env_ids] = 0.0
             self._processed_actions[env_ids] = 0.0
+            # A reset returns a straight wire, so the steer has to go with it.
+            self._tip_bend_angle[env_ids] = 0.0
 
 
 @configclass
 class CatheterVelocityActionCfg(ActionTermCfg):
     class_type: type[CatheterVelocityAction] = CatheterVelocityAction
     asset_name: str = "catheter"
-    max_insertion_velocity_mps: float = 0.030
+    #: Kept equal to the arm-driven term's ceiling, since the same fluoroscopy
+    #: velocity slider drives both and a mismatch would silently clip one of
+    #: them. See that term for what bounds the value.
+    max_insertion_velocity_mps: float = 0.060
     max_rotation_rate_radps: float = 1.5
+    #: Rate the tip's bend can be steered at. At this ceiling a full deflection
+    #: takes about a second, which is deliberate: the tip is shaped against the
+    #: bend constraint's rest state, and stepping that faster than the solve
+    #: relaxes asks the wire to snap rather than curl.
+    max_tip_bend_rate_radps: float = 1.5
+    #: Total bend across the tip edges, so roughly a 90-degree hook at the
+    #: ceiling. Matches the clamp the reference implementation settled on.
+    max_tip_bend_rad: float = 1.5
 
 
 class CArmOrbitAction(ActionTerm):
@@ -256,7 +308,7 @@ class CatheterEmbodiment:
         edges = np.load(edges_path)
         radii_path = twin.artifacts.get("centerline_radii")
         radii = np.load(radii_path) if radii_path is not None else None
-        path_patient_mm = ordered_centerline_path(
+        path_patient_mm, lumen_radii_mm = ordered_centerline_lumen(
             points_patient_mm,
             edges,
             target_spacing_mm=7.5,
@@ -276,11 +328,71 @@ class CatheterEmbodiment:
         self.rod_spec.origin_world_m = origin
         self.rod_spec.track_direction_world = track_direction
         self.rod_spec.length_m = length
-        self.rod_spec.num_segments = 40
+        # 40 segments over this route put a joint every ~16 mm, too coarse to
+        # sit smoothly against the lumen: a joint held one containment state
+        # until the solve tipped it into another, which read as the tip jumping
+        # about a millimetre inside a single 0.77 s sample while the operator
+        # was holding still. Refining removed those jumps outright. The count
+        # stays overridable because the step cost is real and the bend
+        # stiffness has to be compensated alongside it.
+        self.rod_spec.num_segments = segment_count_override() or DEFAULT_NUM_SEGMENTS
         # The centerline seeds the rod's initial shape so the catheter starts
         # inside the lumen. It is no longer resampled every step; containment
         # against the deformable wall is what keeps it there.
+        #
+        # Containment runs "post", after the constraint solve, because that is
+        # the only side the projection survives on, and the cleanup sweeps repair
+        # the chords it costs. Measured on the s0011 iliac route: +2.7 to +3.4 mm
+        # worst penetration, 2-3 of 41 particles outside, chords 100-112%.
+        #
+        # "pre" is the better shape and still not usable. It delivers exactly
+        # what it promises -- chords land at 100-100% of rest -- but 39 of 41
+        # particles end up as much as 74 mm outside the lumen. Writing the rod's
+        # real rotational inertia over the solver's identity default does not
+        # change that by itself: the two stagings measure 74 mm and 3 mm with the
+        # inertia fix in place, the same as without it.
+        #
+        # Nor does damping rescue it. Running fully quasi-static at damping 1.0,
+        # which zeroes velocity and gravity every substep and makes each step a
+        # pure geometric projection, measures +74.6 mm and 39 of 41 outside --
+        # identical to damping 0.01, across 720 steps of a steady equilibrium.
+        # A sparse attraction toward the centerline, re-applied every step, was
+        # measured too and came back marginally worse at +74.9 mm and 40 of 41.
+        #
+        # The reason none of it moves: nothing in the pipeline asks the rod to be
+        # curved. The rest shape is straight, and containment is one-sided --
+        # acting on a particle only once it is already outside the wall, doing
+        # nothing for one inside. So the inward shove and the straightening solve
+        # balance tens of millimetres out, and the wire renders as a straight
+        # line down the spine. A pre-solve nudge cannot survive a direct solve
+        # that lands exactly on the straight manifold, so it never accumulates.
+        #
+        # That leaves "post" as the configuration that follows the vessel, and
+        # closing the gap properly as solver-side work: the solve has to accept
+        # a curved rest configuration. The stage switch stays for measurement.
+        stage = containment_stage_override() or "post"
+        self.rod_spec.containment_stage = stage
+        damping = rod_damping_override()
+        if damping is not None:
+            self.rod_spec.solver_overrides = {
+                **self.rod_spec.solver_overrides,
+                "linear_damping": damping,
+                "angular_damping": damping,
+            }
+        # The cleanup sweeps exist only to repair the chords that a post-solve
+        # projection mangles. Under "pre" there is nothing to repair, and running
+        # them would be a third opinion on position competing with the solve.
+        sweeps = cleanup_sweeps_override()
+        if sweeps is None:
+            sweeps = self.rod_spec.containment_cleanup_iterations
+        self.rod_spec.containment_cleanup_iterations = sweeps if stage == "post" else 0
         self.rod_spec.initial_path_world_m = tuple(tuple(float(value) for value in point) for point in path_world_m)
+        # How wide the vessel is at each of those samples. Carried alongside the
+        # path because "on the centerline" is not a testable claim without a
+        # tolerance: a prescribed particle exempt from wall contact can sit
+        # centimetres outside the lumen and nothing in the path alone objects.
+        if lumen_radii_mm is not None:
+            self.rod_spec.lumen_radii_m = tuple(float(value) / 1000.0 for value in lumen_radii_mm)
         self.rod_spec.__post_init__()
         # The rod is seeded over the first ``length_m`` of the path, so its tip
         # starts short of the far end and insertion has to cover the remainder.

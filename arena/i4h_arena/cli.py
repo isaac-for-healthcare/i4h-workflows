@@ -299,6 +299,7 @@ def _launch(args: argparse.Namespace, workflow) -> int:
                 sensor_view_appearances=scene.sensor_view_appearances(),
                 sensor_view_display_controls=scene.sensor_view_display_controls(),
                 sensor_view_sliders=scene.sensor_view_sliders(),
+                sensor_view_readouts=scene.sensor_view_readouts(env),
             )
             summary = runner.run()
             print(summary.render())

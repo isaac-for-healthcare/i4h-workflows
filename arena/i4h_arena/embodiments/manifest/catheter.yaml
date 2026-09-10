@@ -5,14 +5,41 @@ name: catheter
 joint_names:
 - insertion_m
 - rotation_rad
+- tip_bend_rad
 - carm_orbit_rad
 action_names:
 - insertion_velocity_mps
 - rotation_rate_radps
+- tip_bend_rate_radps
 - carm_orbit_rate_radps
 state_names:
 - insertion_m
 - rotation_rad
+- tip_bend_rad
 - carm_orbit_rad
+# GR00T semantic groups, which dataset conversion turns into `modality.json`.
+# Two groups rather than one because they are different kinds of command: the
+# catheter channels move the instrument inside the patient, while the C-arm
+# channel moves the imaging gantry and changes only the view. A policy that
+# navigates can be trained on the catheter group alone with the C-arm group
+# treated as context.
+#
+# The groups have to tile the whole vector -- conversion checks that they start
+# at 0, stay contiguous and end at the tensor width -- so the C-arm is declared
+# even where it is not commanded.
+state_split:
+- - catheter
+  - 0
+  - 3
+- - carm
+  - 3
+  - 4
+action_split:
+- - catheter
+  - 0
+  - 3
+- - carm
+  - 3
+  - 4
 teleop_devices:
 - catheter_keyboard

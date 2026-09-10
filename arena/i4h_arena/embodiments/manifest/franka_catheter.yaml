@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Catheter whose drive unit rides on a Franka Panda hand.
+#
+# The catheter and C-arm entries come first and keep the names the plain
+# `catheter` embodiment uses, so a recording made with the arm shares its
+# leading columns with one made without it and only appends the arm. The order
+# here must match ArmCatheterCArmJointStateProvider.joint_state(); the LeRobot
+# converter falls back to positional names, with only a warning, if the widths
+# disagree.
+#
+# The arm names are the USD joint names rather than a tidier `arm.axis1..7`,
+# because the provider derives them from Articulation.find_joints() and a
+# dataset column has to say which joint it actually holds.
+#
+# The arm is servo'd along the introducer rather than commanded, so it
+# contributes joints but no action entries. dof / action_space are NOT here:
+# the scene declares them.
+
+name: franka_catheter
+joint_names:
+- insertion_m
+- rotation_rad
+- tip_bend_rad
+- carm_orbit_rad
+- arm.panda_joint1
+- arm.panda_joint2
+- arm.panda_joint3
+- arm.panda_joint4
+- arm.panda_joint5
+- arm.panda_joint6
+- arm.panda_joint7
+action_names:
+- insertion_velocity_mps
+- rotation_rate_radps
+- tip_bend_rate_radps
+- carm_orbit_rate_radps
+state_names:
+- insertion_m
+- rotation_rad
+- tip_bend_rad
+- carm_orbit_rad
+- arm.panda_joint1
+- arm.panda_joint2
+- arm.panda_joint3
+- arm.panda_joint4
+- arm.panda_joint5
+- arm.panda_joint6
+- arm.panda_joint7
+teleop_devices:
+- catheter_keyboard
