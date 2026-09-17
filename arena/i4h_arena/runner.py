@@ -279,7 +279,7 @@ class SimulationRunner:
             if engine.status.is_terminal and not terminal_advance:
                 break
             if not engine.advance_requested:
-                self.app.update()
+                _render_scene_only(self.env, self.app)
                 continue
             if self.workflow.mode == "idle":
                 # Match the original scene-edit behavior: render the reset

@@ -1,0 +1,162 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+name: g1_inspire
+joint_names:
+- left_hip_pitch_joint
+- right_hip_pitch_joint
+- left_hip_roll_joint
+- right_hip_roll_joint
+- left_hip_yaw_joint
+- right_hip_yaw_joint
+- left_knee_joint
+- right_knee_joint
+- left_ankle_pitch_joint
+- right_ankle_pitch_joint
+- left_ankle_roll_joint
+- right_ankle_roll_joint
+- waist_yaw_joint
+- waist_roll_joint
+- waist_pitch_joint
+- left_shoulder_pitch_joint
+- left_shoulder_roll_joint
+- left_shoulder_yaw_joint
+- left_elbow_joint
+- left_wrist_roll_joint
+- left_wrist_pitch_joint
+- left_wrist_yaw_joint
+- right_shoulder_pitch_joint
+- right_shoulder_roll_joint
+- right_shoulder_yaw_joint
+- right_elbow_joint
+- right_wrist_roll_joint
+- right_wrist_pitch_joint
+- right_wrist_yaw_joint
+- L_index_proximal_joint
+- L_index_intermediate_joint
+- L_middle_proximal_joint
+- L_middle_intermediate_joint
+- L_pinky_proximal_joint
+- L_pinky_intermediate_joint
+- L_ring_proximal_joint
+- L_ring_intermediate_joint
+- L_thumb_proximal_yaw_joint
+- L_thumb_proximal_pitch_joint
+- L_thumb_intermediate_joint
+- L_thumb_distal_joint
+- R_index_proximal_joint
+- R_index_intermediate_joint
+- R_middle_proximal_joint
+- R_middle_intermediate_joint
+- R_pinky_proximal_joint
+- R_pinky_intermediate_joint
+- R_ring_proximal_joint
+- R_ring_intermediate_joint
+- R_thumb_proximal_yaw_joint
+- R_thumb_proximal_pitch_joint
+- R_thumb_intermediate_joint
+- R_thumb_distal_joint
+state_names:
+- left_hip_pitch_joint.pos
+- right_hip_pitch_joint.pos
+- left_hip_roll_joint.pos
+- right_hip_roll_joint.pos
+- left_hip_yaw_joint.pos
+- right_hip_yaw_joint.pos
+- left_knee_joint.pos
+- right_knee_joint.pos
+- left_ankle_pitch_joint.pos
+- right_ankle_pitch_joint.pos
+- left_ankle_roll_joint.pos
+- right_ankle_roll_joint.pos
+- waist_yaw_joint.pos
+- waist_roll_joint.pos
+- waist_pitch_joint.pos
+- left_shoulder_pitch_joint.pos
+- left_shoulder_roll_joint.pos
+- left_shoulder_yaw_joint.pos
+- left_elbow_joint.pos
+- left_wrist_roll_joint.pos
+- left_wrist_pitch_joint.pos
+- left_wrist_yaw_joint.pos
+- right_shoulder_pitch_joint.pos
+- right_shoulder_roll_joint.pos
+- right_shoulder_yaw_joint.pos
+- right_elbow_joint.pos
+- right_wrist_roll_joint.pos
+- right_wrist_pitch_joint.pos
+- right_wrist_yaw_joint.pos
+- L_index_proximal_joint.pos
+- L_index_intermediate_joint.pos
+- L_middle_proximal_joint.pos
+- L_middle_intermediate_joint.pos
+- L_pinky_proximal_joint.pos
+- L_pinky_intermediate_joint.pos
+- L_ring_proximal_joint.pos
+- L_ring_intermediate_joint.pos
+- L_thumb_proximal_yaw_joint.pos
+- L_thumb_proximal_pitch_joint.pos
+- L_thumb_intermediate_joint.pos
+- L_thumb_distal_joint.pos
+- R_index_proximal_joint.pos
+- R_index_intermediate_joint.pos
+- R_middle_proximal_joint.pos
+- R_middle_intermediate_joint.pos
+- R_pinky_proximal_joint.pos
+- R_pinky_intermediate_joint.pos
+- R_ring_proximal_joint.pos
+- R_ring_intermediate_joint.pos
+- R_thumb_proximal_yaw_joint.pos
+- R_thumb_proximal_pitch_joint.pos
+- R_thumb_intermediate_joint.pos
+- R_thumb_distal_joint.pos
+action_names:
+- left_wrist.x
+- left_wrist.y
+- left_wrist.z
+- left_wrist.qx
+- left_wrist.qy
+- left_wrist.qz
+- left_wrist.qw
+- right_wrist.x
+- right_wrist.y
+- right_wrist.z
+- right_wrist.qx
+- right_wrist.qy
+- right_wrist.qz
+- right_wrist.qw
+- L_index_proximal_joint.pos
+- L_middle_proximal_joint.pos
+- L_pinky_proximal_joint.pos
+- L_ring_proximal_joint.pos
+- L_thumb_proximal_yaw_joint.pos
+- R_index_proximal_joint.pos
+- R_middle_proximal_joint.pos
+- R_pinky_proximal_joint.pos
+- R_ring_proximal_joint.pos
+- R_thumb_proximal_yaw_joint.pos
+- L_index_intermediate_joint.pos
+- L_middle_intermediate_joint.pos
+- L_pinky_intermediate_joint.pos
+- L_ring_intermediate_joint.pos
+- L_thumb_proximal_pitch_joint.pos
+- R_index_intermediate_joint.pos
+- R_middle_intermediate_joint.pos
+- R_pinky_intermediate_joint.pos
+- R_ring_intermediate_joint.pos
+- R_thumb_proximal_pitch_joint.pos
+- L_thumb_intermediate_joint.pos
+- R_thumb_intermediate_joint.pos
+- L_thumb_distal_joint.pos
+- R_thumb_distal_joint.pos
+action_split:
+- - left_wrist
+  - 0
+  - 7
+- - right_wrist
+  - 7
+  - 14
+- - hands
+  - 14
+  - 38
+teleop_devices:
+- xr

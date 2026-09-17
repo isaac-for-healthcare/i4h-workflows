@@ -66,6 +66,8 @@ def build_parser() -> argparse.ArgumentParser:
     teleop.add_argument("--teleop-sensitivity", type=float, default=1.0)
     teleop.add_argument("--teleop-base-height", type=float, default=0.75)
     teleop.add_argument("--teleop-recalibrate", action="store_true")
+    teleop.add_argument("--cloudxr-env", default=None, help="CloudXR environment file for an embedded XR runtime")
+    teleop.add_argument("--auto-launch-cloudxr", action="store_true", help="launch CloudXR from --cloudxr-env")
 
     replay = parser.add_argument_group("replay")
     replay.add_argument("--dataset", default=None, help="recording to replay")
@@ -91,9 +93,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     simulation.add_argument("--disable-fabric", dest="disable_fabric", action="store_true")
     simulation.add_argument("--mimic", action="store_true", help="build the Arena mimic env cfg")
-    # Arena only populates env_cfg.sim.physics when this is set, and the
-    # embodiments then tune it — leave it out and physics is None.
-    simulation.add_argument("--presets", choices=("physx", "newton"), default="physx", help="Arena physics backend")
+    # The scene selects its default backend unless explicitly overridden.
+    simulation.add_argument(
+        "--presets", choices=("physx", "newton"), default=None, help="override scene physics backend"
+    )
     simulation.add_argument("--spacing", type=float, default=4.0, dest="env_spacing")
     simulation.add_argument("--no-cameras", action="store_true")
     simulation.add_argument("--headless", action="store_true")
@@ -215,6 +218,8 @@ def _build(args: argparse.Namespace, resolve_workflow) -> object:
             "sensitivity": args.teleop_sensitivity,
             "base_height": args.teleop_base_height,
             "recalibrate": args.teleop_recalibrate,
+            "cloudxr_env": args.cloudxr_env,
+            "auto_launch_cloudxr": args.auto_launch_cloudxr,
         }
         if args.teleop_device:
             kwargs["device"] = args.teleop_device
@@ -226,12 +231,17 @@ def _build(args: argparse.Namespace, resolve_workflow) -> object:
 def _launch(args: argparse.Namespace, workflow) -> int:
     # This function-local import must remain below workflow resolution.
     from i4h_arena.app import launch_app
+    from i4h_arena.scenes.base import load_scene
 
+    # Scenes may require XR or early Pinocchio loading. Configure the launcher
+    # before Kit starts, keeping asset registration inside AppContext.make_env.
+    args.mode = workflow.mode
+    scene = load_scene(workflow.scene, args, register_assets=False)
+    scene.configure_args(args)
     with launch_app(args) as app_ctx:
         from i4h_arena.io.publishers import ScenePublisher
         from i4h_arena.recording.hdf5 import EpisodeRecorder
         from i4h_arena.runner import SimulationRunner
-        from i4h_arena.scenes.base import load_scene
         from i4h_common.bus.keys import Keys
         from i4h_common.bus.zenoh_bus import open_zenoh_bus
 
@@ -240,8 +250,6 @@ def _launch(args: argparse.Namespace, workflow) -> int:
         # shutdown from the outside — Isaac closes, the runner never ticks, and
         # the process reports 0. Name it so the next reader is not hunting.
         try:
-            scene = load_scene(workflow.scene, args)
-            scene.configure_args(args)
             env = app_ctx.make_env(scene)
         except SystemExit as exit_request:
             raise RuntimeError(

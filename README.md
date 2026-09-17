@@ -72,8 +72,10 @@ Workflows are organized by clinical robotics specialty. The specialty affects so
 | ![G1 cart scene](docs/workflows/images/thumbnail-locomanip_push_cart.webp) | [`locomanip_push_cart`](workflows/i4h_workflows/hospital-automation-robotics/README.md) | Walk to and push a cart. | Unitree G1 | ✓ GR00T N1.6 | — |
 | ![G1 tray scene](docs/workflows/images/thumbnail-locomanip_tray_pick_and_place.webp) | [`locomanip_tray_pick_and_place`](workflows/i4h_workflows/hospital-automation-robotics/README.md) | Move a surgical tray from a shelf to a cart. | Unitree G1 | ✓ GR00T N1.6 | — |
 | ![SO-ARM scissor scene](docs/workflows/images/thumbnail-scissor_pick_and_place.webp) | [`scissor_pick_and_place`](workflows/i4h_workflows/hospital-automation-robotics/README.md) | Pick up scissors and place them in a tray. | SO-ARM 101 | ✓ GR00T N1.5 / N1.7 | ✓ |
+| [![G1 tablecloth scene](docs/workflows/images/thumbnail-spread_tablecloth_g1.webp)](docs/workflows/images/spread_tablecloth_g1.webp) | [`spread_tablecloth_g1`](docs/workflows/tablecloth.md) | Tablecloth spreading via XR hand tracking. | Unitree G1 + Inspire hands | — | — |
+| [![H2 tablecloth scene](docs/workflows/images/thumbnail-spread_tablecloth_h2.webp)](docs/workflows/images/spread_tablecloth_h2.webp) | [`spread_tablecloth_h2`](docs/workflows/tablecloth.md) | Tablecloth spreading via XR hand tracking. | Unitree H2 + Sharpa hands | — | — |
 
-PhysX is the default physics backend for all workflows. The laparoscopic workflows also support Newton physics. `assemble_trocar` also provides an RLinf PPO post-training profile.
+PhysX is the default physics backend except for the tablecloth workflows, which use coupled Newton cloth physics. The laparoscopic workflows also support Newton physics. `assemble_trocar` also provides an RLinf PPO post-training profile.
 
 ## Use with an AI Agent
 

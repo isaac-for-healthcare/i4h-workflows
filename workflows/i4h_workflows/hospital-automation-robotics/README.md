@@ -10,6 +10,10 @@ Workflows for robotic manipulation, transport, and procedural support in hospita
 | [`locomanip_push_cart`](locomanip_push_cart.py) | Walk to a cart, grip it, and push it forward with a Unitree G1. | `policy`, `teleop`, `replay`, `idle` |
 | [`locomanip_tray_pick_and_place`](locomanip_tray_pick_and_place.py) | Move a surgical tray from a shelf to a cart with a Unitree G1. | `policy`, `teleop`, `replay`, `idle` |
 | [`scissor_pick_and_place`](scissor_pick_and_place.py) | Pick up surgical scissors, place them in a tray, and return an SO-ARM 101 home. | `policy`, `policy_n17`, `rule-based`, `teleop`, `replay`, `idle` |
+| [`spread_tablecloth_g1`](spread_tablecloth_g1.py) | Spread a deformable tablecloth with Unitree G1 and Inspire hands. | `teleop` (XR), `replay`, `idle` |
+| [`spread_tablecloth_h2`](spread_tablecloth_h2.py) | Spread a deformable tablecloth with Unitree H2 and Sharpa Wave hands. | `teleop` (XR), `replay`, `idle` |
+
+See [tablecloth XR setup and recording](../../../docs/workflows/tablecloth.md).
 
 `policy_n17` is a workflow-specific extension for an alternative policy stack.
 
@@ -24,6 +28,12 @@ Open a preview to view the animated demonstration.
 | [`locomanip_tray_pick_and_place`](locomanip_tray_pick_and_place.py) | [`scissor_pick_and_place`](scissor_pick_and_place.py) |
 | :---: | :---: |
 | [![Unitree G1 moving a surgical tray](../../../docs/workflows/images/locomanip_tray_pick_and_place.webp)](../../../docs/workflows/images/locomanip_tray_pick_and_place.gif) | [![SO-ARM picking and placing surgical scissors](../../../docs/workflows/images/scissor_pick_and_place.webp)](../../../docs/workflows/images/scissor_pick_and_place.gif) |
+
+Tablecloth camera screenshots from simulator validation:
+
+| [`spread_tablecloth_g1`](spread_tablecloth_g1.py) | [`spread_tablecloth_h2`](spread_tablecloth_h2.py) |
+| :---: | :---: |
+| [![G1 Inspire hands and tablecloth](../../../docs/workflows/images/spread_tablecloth_g1.webp)](../../../docs/workflows/images/spread_tablecloth_g1.webp) | [![H2 Sharpa hands and tablecloth](../../../docs/workflows/images/spread_tablecloth_h2.webp)](../../../docs/workflows/images/spread_tablecloth_h2.webp) |
 
 Note: Complete the [project setup](../../../README.md#setup-from-the-command-line) before you begin.
 

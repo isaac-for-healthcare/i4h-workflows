@@ -23,6 +23,7 @@ dependencies = [
     "tqdm>=4.66",
     "isaacsim[all,extscache]==6.0.1",
     "isaaclab",
+    "isaaclab-contrib",
     "isaaclab-mimic",
     "isaaclab-newton",
     "isaaclab-ov",
@@ -59,6 +60,7 @@ i4h-tasks-ik = { path = "../tasks/ik", editable = true }
 i4h-tasks-teleop = { path = "../tasks/teleop", editable = true }
 isaacsim = { index = "nvidia" }
 isaaclab = { path = "../third_party/IsaacLab-ffff603/source/isaaclab", editable = true }
+isaaclab-contrib = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_contrib", editable = true }
 isaaclab-mimic = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_mimic", editable = true }
 isaaclab-newton = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_newton", editable = true }
 isaaclab-ov = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_ov", editable = true }

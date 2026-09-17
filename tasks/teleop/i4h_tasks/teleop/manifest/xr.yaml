@@ -1,0 +1,4 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+summary: Record a bimanual XR demonstration with manual start, save, and discard controls
+impl: i4h_tasks.teleop.xr:XR

@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+impl: i4h_arena.scenes.h2_tablecloth:H2TableclothScene
+description: H2 humanoid spreading a surface-deformable tablecloth with XR hand tracking.
+embodiment: h2_sharpa
+action_space: bimanual_pose
+dof: 58
+gripper: false
+cameras:
+- front
+objects:
+- cloth
+- cloth_inner
+max_steps: 9000
+control_hz: 30.0
