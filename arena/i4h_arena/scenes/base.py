@@ -86,6 +86,8 @@ class Scene(ABC):
 
     def configure_args(self, args: argparse.Namespace) -> None:
         """Adjust ``args`` before ``AppLauncher`` starts (e.g. enable cameras)."""
+        if getattr(args, "presets", None) is None:
+            args.presets = "physx"
         if not getattr(args, "no_cameras", False) and self.spec.cameras:
             args.enable_cameras = True
         if self.spec.action_space == "ee_pose":
@@ -245,7 +247,7 @@ def scene_specs() -> dict[str, SceneSpec]:
     return dict(default_registry().scenes)
 
 
-def load_scene(name: str, args: argparse.Namespace) -> Scene:
+def load_scene(name: str, args: argparse.Namespace, *, register_assets: bool = True) -> Scene:
     """Import and construct a scene by manifest name.
 
     This is the only place ``arena`` imports a scene class, and it happens after
@@ -269,5 +271,6 @@ def load_scene(name: str, args: argparse.Namespace) -> Scene:
     if cls is None:
         raise AttributeError(f"scene {name}: {module_name} has no attribute {attr!r} (from {spec.source})")
     scene = cls(spec, args)
-    scene.register_assets()
+    if register_assets:
+        scene.register_assets()
     return scene

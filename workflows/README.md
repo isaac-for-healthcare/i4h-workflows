@@ -23,7 +23,7 @@ workflows/
 | [Laparoscopic robotics](i4h_workflows/laparoscopic-robotics/README.md) | `surgical_lift_block`, `surgical_lift_needle`, `surgical_lift_needle_organs`, `surgical_reach_dual_psm`, `surgical_reach_psm`, `surgical_reach_star` |
 | [Ultrasound robotics](i4h_workflows/ultrasound-robotics/README.md) | `ultrasound_liver_scan`, `ultrasound_probe_reach` |
 | [Endoluminal robotics](i4h_workflows/endoluminal-robotics/README.md) | `endoluminal_navigation` |
-| [Hospital automation robotics](i4h_workflows/hospital-automation-robotics/README.md) | `assemble_trocar`, `locomanip_push_cart`, `locomanip_tray_pick_and_place`, `scissor_pick_and_place` |
+| [Hospital automation robotics](i4h_workflows/hospital-automation-robotics/README.md) | `assemble_trocar`, `locomanip_push_cart`, `locomanip_tray_pick_and_place`, `scissor_pick_and_place`, `spread_tablecloth_g1`, `spread_tablecloth_h2` |
 
 The Python filename is the public workflow ID and must be unique across all specialties. Specialty folders organize the source only. Runtime commands use the workflow ID without the specialty path:
 

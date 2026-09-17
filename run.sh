@@ -28,7 +28,9 @@
 #   --prompt TEXT         override the policy instruction
 #   --policy-endpoint HOST:PORT connect to an external policy service over Zenoh
 #   --headless            run without the interactive viewport
-#   --presets NAME        physics backend: physx (the default) or newton
+#   --presets NAME        physics backend override: physx or newton (scene default)
+#   --cloudxr-env PATH    CloudXR environment file for XR teleoperation
+#   --auto-launch-cloudxr start CloudXR using that file (default: externally managed)
 #   --device NAME         CUDA device for the simulation (default cuda:0)
 #   --python-server       enable the Isaac Sim Python bridge on port 8226
 #   --fluoro-backend NAME override automatic synthetic/patient-backed Slang selection

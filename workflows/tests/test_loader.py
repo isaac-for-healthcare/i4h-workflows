@@ -27,6 +27,8 @@ EXPECTED_SPECIALTIES = {
         "locomanip_push_cart",
         "locomanip_tray_pick_and_place",
         "scissor_pick_and_place",
+        "spread_tablecloth_g1",
+        "spread_tablecloth_h2",
     },
 }
 

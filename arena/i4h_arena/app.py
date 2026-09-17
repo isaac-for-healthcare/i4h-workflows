@@ -21,6 +21,32 @@ from typing import Any
 logger = logging.getLogger("i4h_arena.app")
 
 
+@contextlib.contextmanager
+def _usd_thread_limit(limit: int | None) -> Iterator[None]:
+    """Keep Kit's USD bootstrap from overriding a scene-required thread limit.
+
+    omni.usd.config 1.0.7 unconditionally writes 16. USD caches that value,
+    making later Work.SetConcurrencyLimit calls ineffective (IsaacSim #692).
+    Intercept only that environment assignment, only while Kit launches.
+    """
+    if limit is None:
+        yield
+        return
+    value = str(limit)
+    os.environ["PXR_WORK_THREAD_LIMIT"] = value
+    environ_type = type(os.environ)
+    original = environ_type.__setitem__
+
+    def setitem(environ, key, setting):
+        original(environ, key, value if key == "PXR_WORK_THREAD_LIMIT" else setting)
+
+    environ_type.__setitem__ = setitem
+    try:
+        yield
+    finally:
+        environ_type.__setitem__ = original
+
+
 @dataclass
 class AppContext:
     app: Any
@@ -53,6 +79,10 @@ class AppContext:
 @contextlib.contextmanager
 def launch_app(args: argparse.Namespace) -> Iterator[AppContext]:
     """Start ``AppLauncher`` and shut it down on the way out."""
+    if getattr(args, "enable_pinocchio", False):
+        # Pink's native libraries must load before Kit's libstdc++.
+        import pinocchio  # noqa: F401,PLC0415
+
     from isaaclab.app import AppLauncher  # noqa: PLC0415
 
     # Built through AppLauncher's own parser rather than by hand. A partial
@@ -67,6 +97,7 @@ def launch_app(args: argparse.Namespace) -> Iterator[AppContext]:
     launcher_args.device = str(args.device)
     launcher_args.num_envs = int(args.num_envs)
     launcher_args.enable_cameras = bool(getattr(args, "enable_cameras", not args.no_cameras))
+    launcher_args.xr = bool(getattr(args, "xr", False))
     # Interactive runs require the Kit visualizer.
     launcher_args.visualizer = None if args.headless else ["kit"]
     # ExplicitAction pairs each option with a `<name>_explicit` flag; without it
@@ -90,7 +121,8 @@ def launch_app(args: argparse.Namespace) -> Iterator[AppContext]:
         launcher_args.enable_cameras,
         args.python_server,
     )
-    launcher = AppLauncher(launcher_args)
+    with _usd_thread_limit(getattr(args, "usd_thread_limit", None)):
+        launcher = AppLauncher(launcher_args)
     app = launcher.app
     try:
         yield AppContext(app=app, args=args)

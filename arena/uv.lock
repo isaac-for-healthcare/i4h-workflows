@@ -376,7 +376,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "newton", marker = "extra == 'newton'" },
+    { name = "newton", marker = "extra == 'newton'", specifier = ">=1.2.1,<1.3" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "torch", specifier = ">=2.0" },
@@ -1168,6 +1168,7 @@ dependencies = [
     { name = "isaaclab", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
     { name = "isaaclab-arena", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
     { name = "isaaclab-assets", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
+    { name = "isaaclab-contrib", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
     { name = "isaaclab-mimic", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
     { name = "isaaclab-newton", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
     { name = "isaaclab-ov", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
@@ -1205,6 +1206,7 @@ requires-dist = [
     { name = "isaaclab", editable = "../third_party/IsaacLab-ffff603/source/isaaclab" },
     { name = "isaaclab-arena", editable = "../third_party/IsaacLab-Arena-0a1b8c2" },
     { name = "isaaclab-assets", editable = "../third_party/IsaacLab-ffff603/source/isaaclab_assets" },
+    { name = "isaaclab-contrib", editable = "../third_party/IsaacLab-ffff603/source/isaaclab_contrib" },
     { name = "isaaclab-mimic", editable = "../third_party/IsaacLab-ffff603/source/isaaclab_mimic" },
     { name = "isaaclab-newton", editable = "../third_party/IsaacLab-ffff603/source/isaaclab_newton" },
     { name = "isaaclab-ov", editable = "../third_party/IsaacLab-ffff603/source/isaaclab_ov" },
@@ -1653,6 +1655,27 @@ provides-extras = ["dev"]
 name = "isaaclab-assets"
 version = "0.3.4"
 source = { editable = "../third_party/IsaacLab-ffff603/source/isaaclab_assets" }
+
+[[package]]
+name = "isaaclab-contrib"
+version = "0.4.4"
+source = { editable = "../third_party/IsaacLab-ffff603/source/isaaclab_contrib" }
+
+[package.metadata]
+requires-dist = [
+    { name = "albumentations", marker = "extra == 'rlinf'", specifier = ">=1.4.18" },
+    { name = "av", marker = "extra == 'rlinf'", specifier = ">=12.3.0" },
+    { name = "decord2", marker = "extra == 'rlinf'" },
+    { name = "diffusers", marker = "extra == 'rlinf'", specifier = ">=0.35.0" },
+    { name = "dm-tree", marker = "extra == 'rlinf'", specifier = ">=0.1.8" },
+    { name = "numpydantic", marker = "extra == 'rlinf'", specifier = ">=1.7.0" },
+    { name = "pandas", marker = "extra == 'rlinf'" },
+    { name = "peft", marker = "extra == 'rlinf'", specifier = ">=0.17.0" },
+    { name = "pydantic", marker = "extra == 'rlinf'", specifier = ">=2.7,<2.12" },
+    { name = "ray", extras = ["default"], marker = "extra == 'rlinf'", specifier = ">=2.47.0" },
+    { name = "timm", marker = "extra == 'rlinf'", specifier = ">=1.0.14" },
+]
+provides-extras = ["rlinf"]
 
 [[package]]
 name = "isaaclab-mimic"

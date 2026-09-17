@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+impl: i4h_arena.scenes.g1_tablecloth:G1TableclothScene
+description: G1 humanoid tablecloth manipulation with XR hand tracking.
+embodiment: g1_inspire
+action_space: bimanual_pose
+dof: 38
+gripper: false
+cameras:
+- front
+- left_wrist
+- right_wrist
+objects:
+- cloth
+- cloth_inner
+max_steps: 3600
+control_hz: 30.0
