@@ -15,58 +15,12 @@
 
 """Robot configs for spread_tablecloth (G1 29DOF + Inspire / H2 + Sharpa Wave)."""
 
-import os
-
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import IdealPDActuatorCfg, ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
 from isaaclab.utils import configclass
 
-_ASSET_ROOT = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.7.0/724f82e"
-G1_INSPIRE_USD_PATH = f"{_ASSET_ROOT}/Robots/UnitreeG1/g1_29dof_with_inspire_rev_1_0/g1_29dof_with_inspire_rev_1_0.usd"
-H2_SHARPA_USD_PATH = f"{_ASSET_ROOT}/Robots/UnitreeH2/h2_with_sharpa/H2_with_sharpa_flat.usd"
-# ---------------------------------------------------------------------------
-# H2 + Sharpa non-USD asset resolution (urdf/ + teleop_configs/)
-# ---------------------------------------------------------------------------
-_H2_SHARPA_ASSET_ROOT = os.path.expanduser(
-    os.environ.get(
-        "RHEO_H2_SHARPA_ASSETS_DIR",
-        "~/.cache/i4h_workflows/spread_tablecloth/h2_with_sharpa",
-    )
-)
-H2_SHARPA_URDF_PATH = os.path.join(_H2_SHARPA_ASSET_ROOT, "urdf", "H2_with_sharpa_hands.urdf")
-H2_SHARPA_HAND_URDF_DIR = os.path.join(_H2_SHARPA_ASSET_ROOT, "urdf", "sharpa_standalone")
-H2_SHARPA_TELEOP_CONFIG_DIR = os.path.join(_H2_SHARPA_ASSET_ROOT, "teleop_configs")
-
-_H2_SHARPA_SUBDIRS = (
-    ("urdf", "H2_with_sharpa_hands.urdf"),
-    ("teleop_configs", "sharpa_wave_left_dexpilot.yml"),
-)
-
-
-def ensure_h2_sharpa_assets(usd_url: str = H2_SHARPA_USD_PATH) -> None:
-    """Mirror h2_with_sharpa/urdf and teleop_configs from Nucleus into the
-    local cache. No-op when the marker files already exist."""
-    if not usd_url.startswith(("omniverse://", "http://", "https://")):
-        raise FileNotFoundError(
-            f"H2_SHARPA_USD_PATH ({usd_url!r}) is not a Nucleus URL; set "
-            "RHEO_H2_SHARPA_ASSETS_DIR to an already-populated local folder "
-            "or point H2_SHARPA_USD_PATH at Nucleus."
-        )
-    base_url = usd_url.rsplit("/", 1)[0] + "/"
-    for subdir, marker in _H2_SHARPA_SUBDIRS:
-        local = os.path.join(_H2_SHARPA_ASSET_ROOT, subdir)
-        if os.path.isfile(os.path.join(local, marker)):
-            continue
-        os.makedirs(local, exist_ok=True)
-        import omni.client  # noqa: PLC0415  (deferred; skipped when cache is warm)
-
-        remote = base_url + subdir + "/"
-        print(f"[rheo] downloading {remote} -> {local}", flush=True)
-        result = omni.client.copy(remote, local, omni.client.CopyBehavior.OVERWRITE)
-        if result != omni.client.Result.OK:
-            raise RuntimeError(f"omni.client.copy {remote} -> {result}")
-
+from i4h_arena.embodiments._tablecloth_assets import G1_INSPIRE_USD_PATH, H2_SHARPA_USD_PATH
 
 # ---------------------------------------------------------------------------
 # H2 + Sharpa Wave hands

@@ -26,13 +26,13 @@ from isaaclab.utils import configclass
 from isaaclab_teleop.isaac_teleop_cfg import IsaacTeleopCfg
 from isaaclab_teleop.xr_cfg import XrAnchorRotationMode, XrCfg
 
-from i4h_arena.embodiments.tablecloth import (
-    H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER,
+from i4h_arena.embodiments._tablecloth_assets import (
     H2_SHARPA_HAND_URDF_DIR,
     H2_SHARPA_TELEOP_CONFIG_DIR,
     H2_SHARPA_URDF_PATH,
     ensure_h2_sharpa_assets,
 )
+from i4h_arena.embodiments.tablecloth import H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER
 
 from .cloth_physics import PinkInverseKinematicsActionOrderedCfg as PinkInverseKinematicsActionCfg
 from .h2_spread_tablecloth_env_cfg import H2SpreadTableclothEnvCfg
