@@ -16,6 +16,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils.configclass import configclass
 from isaaclab_arena.assets.asset import Asset
 
+from i4h_arena.medical.patient_table import fit_table_to_soma
 from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.sensors.fluoroscopy import FluoroscopySensorCfg
 
@@ -437,6 +438,8 @@ def make_assets(
     source.fluoroscopy.slang_device_type = fluoro_device
     source.fluoroscopy.patient_twin_manifest = patient_twin_manifest
     source.patient = _patient_asset(source.patient, patient_twin_manifest)
+    if patient_twin_manifest is not None:
+        fit_table_to_soma(source, PatientTwin.load(patient_twin_manifest))
     names = (
         "ground",
         "light",

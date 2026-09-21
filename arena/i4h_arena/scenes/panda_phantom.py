@@ -16,10 +16,11 @@ import numpy as np
 
 from i4h_arena.adapters.actuation import RobotSlice
 from i4h_arena.scenes.base import Scene
+from i4h_arena.scenes.patient_ultrasound import PatientUltrasoundMixin
 from i4h_common.config import get_robot_config
 
 
-class PandaPhantomScene(Scene):
+class PandaPhantomScene(PatientUltrasoundMixin, Scene):
     name = "panda_phantom"
 
     def register_assets(self) -> None:
@@ -39,7 +40,7 @@ class PandaPhantomScene(Scene):
         return IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
-            scene=ArenaScene(assets=make_assets()),
+            scene=ArenaScene(assets=make_assets(getattr(self.args, "patient_twin", None))),
             # PandaPhantomEnvCfg takes no env_spacing: the phantom scene is a
             # single workspace, not a tiled grid.
             task=PandaPhantomEnvCfg(episode_length_s=max(10.0, (steps + 1) / self.spec.control_hz)),
@@ -72,6 +73,9 @@ class PandaPhantomScene(Scene):
 
     def on_reset(self, env: Any, view: Any) -> None:
         """Servo to the PI0 training start pose before publishing frame zero."""
+        if getattr(self.args, "patient_twin", None):
+            self.patient_reset(env, view)
+            return
         import torch  # noqa: PLC0415
         from isaaclab.utils.math import compute_pose_error  # noqa: PLC0415
         from isaaclab.utils.math import quat_from_euler_xyz

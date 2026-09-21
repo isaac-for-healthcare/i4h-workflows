@@ -371,6 +371,10 @@ else
 fi
 
 echo "==> arena $WORKFLOW [${MODE:-default}]"
-env -u VIRTUAL_ENV uv run --project arena python -m i4h_arena.cli \
+ultrasound_extra=()
+if [[ "$WORKFLOW" == ultrasound_* && -n "$PATIENT_TWIN" ]]; then
+  ultrasound_extra=(--extra ultrasound)
+fi
+env -u VIRTUAL_ENV uv run --project arena "${ultrasound_extra[@]}" python -m i4h_arena.cli \
   --workflow "$WORKFLOW" --mode "$MODE" --namespace "$NAMESPACE" "${ARENA_ARGS[@]}" \
   2>&1 | tee -a "$RUN_LOG"

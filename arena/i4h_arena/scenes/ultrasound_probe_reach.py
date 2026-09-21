@@ -7,9 +7,10 @@ from __future__ import annotations
 from typing import Any
 
 from i4h_arena.scenes.base import Scene
+from i4h_arena.scenes.patient_ultrasound import PatientUltrasoundMixin
 
 
-class UltrasoundProbeReachScene(Scene):
+class UltrasoundProbeReachScene(PatientUltrasoundMixin, Scene):
     name = "ultrasound_probe_reach"
 
     def register_assets(self) -> None:
@@ -43,7 +44,7 @@ class UltrasoundProbeReachScene(Scene):
         return IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=embodiment,
-            scene=ArenaScene(assets=make_assets()),
+            scene=ArenaScene(assets=make_assets(getattr(self.args, "patient_twin", None))),
             task=UltrasoundProbeReachTask(
                 rl_training_mode=bool(getattr(self.args, "rl_training_mode", False)),
                 episode_length_s=5.0,
@@ -63,3 +64,7 @@ class UltrasoundProbeReachScene(Scene):
 
     def relative_ee(self) -> bool:
         return True
+
+    def on_reset(self, env, view):
+        if getattr(self.args, "patient_twin", None):
+            self.patient_reset(env, view)

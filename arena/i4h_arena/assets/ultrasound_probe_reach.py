@@ -11,9 +11,9 @@ from i4h_arena.assets.config_asset import ConfigAsset
 from i4h_arena.assets.panda_phantom import make_assets as make_ultrasound_assets
 
 
-def make_assets() -> list[ConfigAsset]:
+def make_assets(patient_twin_manifest=None) -> list[ConfigAsset]:
     """Reuse the maintained ultrasound cell and add a randomized marker."""
-    scene_assets = make_ultrasound_assets()
+    scene_assets = make_ultrasound_assets(patient_twin_manifest)
     for asset in scene_assets:
         name, cfg = asset.get_object_cfg()
         if name in {"table", "organs"}:
@@ -45,4 +45,12 @@ def make_assets() -> list[ConfigAsset]:
             ),
         ),
     )
+    if patient_twin_manifest:
+        from i4h_arena.medical.patient_twin import PatientTwin
+        from i4h_arena.medical.patient_ultrasound import patient_layout
+        from scipy.spatial.transform import Rotation
+
+        position, rotation = patient_layout(PatientTwin.load(patient_twin_manifest)).tcp_target()
+        target.init_state.pos = tuple(map(float, position))
+        target.init_state.rot = tuple(map(float, Rotation.from_matrix(rotation).as_quat()))
     return [*scene_assets, ConfigAsset("target", target)]

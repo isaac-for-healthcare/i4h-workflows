@@ -28,7 +28,7 @@ _FRAME_MARKER_TINY_CFG = FRAME_MARKER_CFG.copy()
 _FRAME_MARKER_TINY_CFG.markers["frame"].scale = (0.01, 0.01, 0.01)
 
 
-def make_assets() -> list[ConfigAsset]:
+def make_assets(patient_twin_manifest=None) -> list[ConfigAsset]:
     """Build the ultrasound scene's non-robot assets as Arena ``Asset`` wrappers."""
     ground = AssetBaseCfg(
         prim_path="/World/defaultGroundPlane",
@@ -98,7 +98,7 @@ def make_assets() -> list[ConfigAsset]:
         ],
     )
 
-    return [
+    assets = [
         ConfigAsset("ground", ground),
         ConfigAsset("dome_light", dome_light),
         ConfigAsset("table", table),
@@ -107,3 +107,8 @@ def make_assets() -> list[ConfigAsset]:
         ConfigAsset("mesh_to_organ_transform", mesh_to_organ_transform),
         ConfigAsset("organ_to_ee_transform", organ_to_ee_transform),
     ]
+
+    if patient_twin_manifest:
+        from i4h_arena.assets.patient_ultrasound import replace_phantom
+        return replace_phantom(assets, patient_twin_manifest)
+    return assets

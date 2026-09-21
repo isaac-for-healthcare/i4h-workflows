@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from i4h_engine.graph import TaskGraph, node
 from i4h_engine.interface import Workflow
+from i4h_tasks.basic.medical.patient_ultrasound_scan import PatientUltrasoundScan
 from i4h_tasks.basic.control.hold import Hold
 from i4h_tasks.basic.control.wait_until import WaitUntil
 from i4h_tasks.basic.perception.locate import Locate
@@ -101,6 +102,9 @@ WORKFLOW = Workflow(
     modes={
         "policy": lambda: policy("openpi_pi0/ultrasound_liver_scan", until=success),
         "rule-based": rule_based,
+        "validate-ultrasound": lambda: TaskGraph(description="Patient ultrasound contact and lift-off validation").flow(
+            node(PatientUltrasoundScan(name="patient_scan"))
+        ),
         "teleop": lambda device="keyboard", **kwargs: teleop(device, until=success, **kwargs),
         "replay": replay,
         "idle": idle,

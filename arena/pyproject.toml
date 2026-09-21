@@ -40,6 +40,9 @@ dependencies = [
     "qpsolvers==4.8.1",
 ]
 
+[project.optional-dependencies]
+ultrasound = ["ultrasound-simulator"]
+
 [project.scripts]
 i4h-arena = "i4h_arena.cli:main"
 
@@ -51,6 +54,7 @@ build-backend = "hatchling.build"
 packages = ["i4h_arena"]
 
 [tool.uv.sources]
+ultrasound-simulator = { path = "../third_party/i4h-sensor-simulation-internal/ultrasound-simulator", editable = true }
 i4h-common = { path = "../common", editable = true }
 i4h-engine = { path = "../engine", editable = true }
 i4h-workflows = { path = "../workflows", editable = true }
