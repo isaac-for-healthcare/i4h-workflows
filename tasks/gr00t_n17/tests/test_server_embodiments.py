@@ -119,13 +119,13 @@ def test_the_arm_still_reports_joint_positions_and_a_gripper(server) -> None:
 
 
 def test_the_catheter_state_splits_into_instrument_and_gantry(server) -> None:
-    state = np.array([0.10, 0.20, 0.30], dtype=np.float32)
+    state = np.array([0.10, 0.20, 0.30, 0.40], dtype=np.float32)
     groups = server._state_groups(state, get_robot_config("catheter"))
     assert sorted(groups) == ["carm", "catheter"]
-    assert groups["catheter"].shape == (1, 1, 2)
+    assert groups["catheter"].shape == (1, 1, 3)
     assert groups["carm"].shape == (1, 1, 1)
-    np.testing.assert_allclose(groups["catheter"][0, 0], [0.10, 0.20])
-    np.testing.assert_allclose(groups["carm"][0, 0], [0.30])
+    np.testing.assert_allclose(groups["catheter"][0, 0], [0.10, 0.20, 0.30])
+    np.testing.assert_allclose(groups["carm"][0, 0], [0.40])
 
 
 def test_the_arm_state_still_splits_five_and_one(server) -> None:
@@ -139,13 +139,13 @@ def test_the_arm_state_still_splits_five_and_one(server) -> None:
 def test_the_action_chunk_is_concatenated_in_group_order(server) -> None:
     """Order follows the splits, so it matches the columns the scene expects."""
     chunk = {
-        "action.catheter": np.array([[0.01, 0.02], [0.03, 0.04]], dtype=np.float32),
+        "action.catheter": np.array([[0.01, 0.02, 0.03], [0.04, 0.05, 0.06]], dtype=np.float32),
         "action.carm": np.array([0.5, 0.6], dtype=np.float32),
     }
     actions = server._flatten(chunk, ("catheter", "carm"))
-    assert actions.shape == (2, 3)
-    np.testing.assert_allclose(actions[0], [0.01, 0.02, 0.5])
-    np.testing.assert_allclose(actions[1], [0.03, 0.04, 0.6])
+    assert actions.shape == (2, 4)
+    np.testing.assert_allclose(actions[0], [0.01, 0.02, 0.03, 0.5])
+    np.testing.assert_allclose(actions[1], [0.04, 0.05, 0.06, 0.6])
 
 
 def test_a_missing_action_group_is_an_error(server) -> None:

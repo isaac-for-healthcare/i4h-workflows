@@ -13,13 +13,14 @@ from i4h_common.episode import (
     action_path,
     camera_keys,
     demo_names,
+    diagnostic_keys,
     episodes,
     read_segments,
     write_segments,
 )
 
 
-def _make(path, *, demos=2, frames=5, legacy=False, cameras=("room",)):
+def _make(path, *, demos=2, frames=5, legacy=False, cameras=("room",), diagnostics=()):
     with h5py.File(path, "w") as handle:
         data = handle.create_group("data")
         for index in range(demos):
@@ -33,6 +34,10 @@ def _make(path, *, demos=2, frames=5, legacy=False, cameras=("room",)):
             obs.create_dataset("joint_pos", data=np.zeros((frames, 6), dtype=np.float32))
             for camera in cameras:
                 obs.create_dataset(camera, data=np.zeros((frames, 4, 4, 3), dtype=np.uint8))
+            if diagnostics:
+                group = demo.create_group("diagnostics")
+                for name in diagnostics:
+                    group.create_dataset(name, data=np.arange(frames, dtype=np.float32))
             demo.attrs["success"] = index == 0
             demo.attrs["num_samples"] = frames
     return path
@@ -131,3 +136,57 @@ def test_validate_accepts_well_formed(tmp_path):
         demo = handle["data/demo_0"]
         write_segments(demo, [Segment("a", "basic/a", 0, 4)])
         Episode("demo_0", demo).validate()
+
+
+# --------------------------------------------------------------------------- #
+# Diagnostics
+#
+# Per-frame measurements of the simulation rather than observations. Optional
+# and scene-specific, so every reader has to cope with their absence.
+# --------------------------------------------------------------------------- #
+def test_diagnostics_are_listed_and_readable(tmp_path):
+    path = _make(tmp_path / "d.hdf5", frames=5, diagnostics=("arc_excess_mm", "min_bend_radius_mm"))
+    with h5py.File(path) as handle:
+        demo = handle["data/demo_0"]
+
+        assert diagnostic_keys(demo) == ["arc_excess_mm", "min_bend_radius_mm"]
+        np.testing.assert_array_equal(Episode("demo_0", demo).diagnostic("arc_excess_mm"), np.arange(5))
+
+
+def test_a_recording_without_diagnostics_reads_as_empty(tmp_path):
+    """Every recording made before diagnostics existed has to stay readable."""
+    path = _make(tmp_path / "d.hdf5")
+    with h5py.File(path) as handle:
+        demo = handle["data/demo_0"]
+
+        assert diagnostic_keys(demo) == []
+        assert Episode("demo_0", demo).diagnostics == []
+
+
+def test_diagnostics_are_not_mistaken_for_cameras(tmp_path):
+    """``camera_keys`` drives dataset conversion, so anything it picks up would
+    be turned into video."""
+    path = _make(tmp_path / "d.hdf5", cameras=("room",), diagnostics=("tip_target_distance_m",))
+    with h5py.File(path) as handle:
+        assert camera_keys(handle["data/demo_0"]) == ["room"]
+
+
+def test_asking_for_a_diagnostic_that_was_not_recorded_says_what_was(tmp_path):
+    path = _make(tmp_path / "d.hdf5", diagnostics=("arc_excess_mm",))
+    with h5py.File(path) as handle:
+        episode = Episode("demo_0", handle["data/demo_0"])
+
+        with pytest.raises(EpisodeError, match="arc_excess_mm"):
+            episode.diagnostic("worst_penetration_mm")
+
+
+def test_validate_rejects_a_diagnostic_that_does_not_span_the_episode(tmp_path):
+    """A short column means frame N of the measurement is not frame N of the
+    action, which is the only reason to record them together."""
+    path = _make(tmp_path / "d.hdf5", frames=5)
+    with h5py.File(path, "a") as handle:
+        demo = handle["data/demo_0"]
+        demo.create_group("diagnostics").create_dataset("arc_excess_mm", data=np.zeros(3, dtype=np.float32))
+
+        with pytest.raises(EpisodeError, match="3 frames, actions have 5"):
+            Episode("demo_0", demo).validate()

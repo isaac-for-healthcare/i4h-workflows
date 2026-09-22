@@ -74,7 +74,7 @@ its sub-solvers move the proxy during their own solve. `NewtonCathRodSolver` nev
 state, and the rod's proximal particle carries zero inverse mass because `lock_root` pins it.
 So a body-momentum harvest and a particle-momentum harvest would both report exactly zero, and
 two-way coupling would silently behave as one-way. The reaction is taken from the rod's own
-constraints instead, via `XPBDRodSolver.proximal_reaction`. This keeps solver internals inside
+constraints instead, via `XPBDRodSolver.proximal_wrench`. This keeps solver internals inside
 the solver, the way upstream keeps its `CouplingInterface` hooks on each sub-solver rather than
 in the coupler.
 
@@ -108,8 +108,10 @@ proxy-shaped interface; the last one is the one that matters regardless.
 - **We do not reuse the destination's contact path.** The documentation lists that as a proxy
   advantage. Our rod ignores Newton's contact buffers entirely and resolves vessel containment
   in its own kernels, so `collide_interval` has no analogue.
-- **The intrinsic root bending moment is absent** from the transmitted wrench, for the
-  Jacobian reason given in the coupling document.
+- **The arm exchange remains lagged.** Intrinsic bending/twisting moments are now
+  transmitted by contracting the rod's private rotational Jacobian with its
+  multipliers; the generic Newton particle interface is not needed for that
+  harvest. See [the implementation and tests](rod-contact-feedback.md).
 - **No ADMM option — and this is the consequential one.** ADMM is not a nicety we skipped; it
   is where our interface actually belongs. See
   [Is this interface really a proxy?](#is-this-interface-really-a-proxy).
@@ -159,6 +161,11 @@ moment stays untransmitted. Attachment stiffness needs tuning between a wire tha
 gripper and ADMM convergence trouble. And the roller-drive feed still needs its own mechanism,
 because the attachment holds the wire without advancing it.
 
+> **Partly corrected by the Newton team.** The untransmitted bending moment is confirmed:
+> Newton models cables as rigid bodies, so particle frames do not exist and an angular row
+> would have nothing to act on. The stiffness-tuning trade-off is not real; see
+> `admm-coupling-newton-answers.md`.
+
 ## What porting to the framework would take
 
 Not a configuration change. There is a hard prerequisite, a mechanical middle, and one physics
@@ -188,6 +195,13 @@ stiffness in N/m and damping in N·s/m. Today the root is kinematic: `lock_root`
 inverse mass and the predictor zeroes velocity on zero-inverse-mass particles, so it teleports
 to the commanded pose. Under ADMM it becomes a dynamic particle on a stiff spring, moved by the
 body rather than by `set_root_pose_gpu`.
+
+> **Corrected by the Newton team.** ADMM constraints are hard, not compliant — it is an
+> augmented Lagrangian formulation, so the kinematic constraint is exactly satisfied on
+> convergence, and the multipliers are warm-started across timesteps. Stiffness is a penalty
+> weight, not a grip stiffness, and there is no Baumgarte term. Un-pinning the root therefore
+> does not cost exact placement, and the stiff-spring prototype recommended below over-states
+> the error. See `admm-coupling-newton-answers.md`.
 
 The gain is a genuinely symmetric interface with equal and opposite forces, no lag, and no
 relaxation weight to tune. The whole reason `proximal_reaction` exists — a zero-mass root that

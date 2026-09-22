@@ -789,6 +789,7 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
         # which is what lets the arm feel insertion resistance rather than
         # servoing as if the catheter weighed nothing.
         self.rod_spec.drive_body_name = FRANKA_FLANGE_BODY
+        self.rod_spec.drive_mount_local = (0.0, 0.0, _HAND_TO_GRIP_M)
         self.rod_spec.__post_init__()
 
     @property

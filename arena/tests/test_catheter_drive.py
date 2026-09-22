@@ -1,45 +1,71 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the flange-mounted introducer the catheter is fed through.
+"""Tests for the introducers the catheter is fed through.
 
-Three claims carry the design.
+What decides whether the catheter can navigate at all is where the feed puts
+the wire's proximal particle, which is prescribed and so goes exactly where the
+drive says. Three answers, in the order they were tried.
 
-Feed follows the wire's own tangent, not a fixed axis. This is the one that
-decides whether the catheter can navigate at all: the vessel curves, and a root
-pushed along the introducer's straight axis ends up 44 mm outside the lumen by
-300 mm of depth on the s0011 twin, dragging the rod off the centerline until it
-folds. The curve-following tests below are the ones that would have caught it.
+A fixed introducer axis ends up 44 mm outside the lumen by 300 mm of depth on
+the s0011 twin, because the vessel curves away from it.
 
-Insertion is a roller command, so it must not depend on the arm's travel -- the
-rod is a fixed-length stick and tying its reach to the arm's would strand most
-of it.
+The wire's own tangent follows the curve and closes a feedback loop: the push
+bends the segment the direction is read from, so a fold feeds itself. It is the
+drive the flange-mounted tests below cover, since an arm-carried unit still
+uses it.
 
-And the flange still carries the wire, as a rigid delta rather than an absolute
-offset, because the wire slides *through* the drive unit.
+Arc length along the route has neither failure, and is what the keyboard drive
+uses. Its tests are the ones that assert the root is *on* the route rather than
+near it, which is the property the other two lose.
+
+Around all of that: insertion is a roller command, so it must not depend on the
+arm's travel -- the rod is a fixed-length stick and tying its reach to the
+arm's would strand most of it -- and the flange carries the wire as a rigid
+delta rather than an absolute offset, because the wire slides *through* the
+drive unit.
 """
 
 from __future__ import annotations
 
+import ast
 import logging
 import math
+from pathlib import Path
 
 import pytest
 
 torch = pytest.importorskip("torch")
+
+ARENA = Path(__file__).parents[1] / "i4h_arena"
+PLAIN_CATHETER = ARENA / "embodiments" / "catheter.py"
+XPBD_CATHETER = ARENA / "medical" / "xpbd_catheter.py"
 
 from i4h_arena.medical.catheter_drive import (  # noqa: E402
     FEED_LOG_ENV_VAR,
     FlangeMountedIntroducer,
     IntroducerDriveSpec,
     LumenClamp,
+    RouteRailedIntroducer,
     feed_log_seconds,
+    frame_along,
     quat_to_w_first,
     quat_to_xyzw,
     twist_about_axis,
 )
 
 X_AXIS = (1.0, 0.0, 0.0)
+
+#: A route that turns, which is where a drive that steps along a direction
+#: parts company with the vessel. 100 mm along +X, then 50 mm along +Y.
+CORNER = [(0.0, 0.0, 0.0), (0.1, 0.0, 0.0), (0.1, 0.05, 0.0)]
+
+#: A route that curves everywhere rather than at one vertex, so drift has
+#: somewhere to accumulate: a quarter circle of 0.2 m radius in the XY plane.
+ARCH = [
+    (0.2 * math.sin(0.5 * math.pi * index / 40), 0.2 * (1.0 - math.cos(0.5 * math.pi * index / 40)), 0.0)
+    for index in range(41)
+]
 
 
 def quat_about(axis: tuple[float, float, float], angle_rad: float) -> torch.Tensor:
@@ -55,6 +81,29 @@ IDENTITY_QUAT = quat_about(X_AXIS, 0.0)
 
 def vec(*values: float) -> torch.Tensor:
     return torch.tensor([values], dtype=torch.float32)
+
+
+def rotate(quat: torch.Tensor, vector: torch.Tensor) -> torch.Tensor:
+    """Turn ``vector`` by a ``(N, 4)`` w-first ``quat``."""
+    w, axis = quat[..., :1], quat[..., 1:]
+    return (
+        vector * (w * w - (axis * axis).sum(-1, keepdim=True))
+        + 2.0 * axis * (axis * vector).sum(-1, keepdim=True)
+        + 2.0 * w * torch.linalg.cross(axis, vector.expand_as(axis), dim=-1)
+    )
+
+
+def rail(route, num_envs: int = 1) -> RouteRailedIntroducer:
+    return RouteRailedIntroducer(torch.tensor(route, dtype=torch.float32), num_envs)
+
+
+def distance_to_route(route, point: torch.Tensor) -> float:
+    """How far ``point`` sits from the route polyline, metres."""
+    path = torch.tensor(route, dtype=torch.float32)
+    start, span = path[:-1], path[1:] - path[:-1]
+    offset = point.reshape(1, 3) - start
+    travel = ((offset * span).sum(-1) / (span * span).sum(-1)).clamp(0.0, 1.0)
+    return float(torch.linalg.norm(offset - travel.unsqueeze(-1) * span, dim=-1).min())
 
 
 def introducer(spec: IntroducerDriveSpec | None = None, num_envs: int = 1) -> FlangeMountedIntroducer:
@@ -528,3 +577,316 @@ def test_resetting_one_environment_leaves_the_others_fed():
     unit.reset(torch.tensor([1]))
 
     torch.testing.assert_close(unit.depth_m, torch.tensor([0.01, 0.0, 0.03]))
+
+
+# --------------------------------------------------------------------------- #
+# Frames along a direction
+# --------------------------------------------------------------------------- #
+def test_a_frame_along_z_is_the_identity():
+    """The rod's frames carry local +Z along the tangent, so +Z needs no rotation."""
+    torch.testing.assert_close(frame_along(vec(0.0, 0.0, 1.0)), IDENTITY_QUAT)
+
+
+@pytest.mark.parametrize(
+    "tangent",
+    [X_AXIS, (0.0, 1.0, 0.0), (0.0, 0.0, -1.0), (1.0, 1.0, 1.0), (0.3, -0.7, 0.2)],
+)
+def test_a_frame_carries_local_z_onto_its_tangent(tangent):
+    """The property the rod's stretch constraint reads the frame for."""
+    unit = vec(*tangent)
+    unit = unit / torch.linalg.norm(unit)
+
+    carried = rotate(frame_along(unit), vec(0.0, 0.0, 1.0))
+
+    torch.testing.assert_close(carried, unit, atol=1e-6, rtol=1e-5)
+
+
+def test_a_frame_is_normalized_even_at_the_reversal():
+    """A tangent at -Z leaves the minimal-rotation axis undefined, not the frame."""
+    quat = frame_along(vec(0.0, 0.0, -1.0))
+
+    assert torch.isfinite(quat).all()
+    torch.testing.assert_close(torch.linalg.norm(quat, dim=-1), torch.ones(1))
+
+
+# --------------------------------------------------------------------------- #
+# Feeding along the route
+# --------------------------------------------------------------------------- #
+def test_the_root_starts_at_the_head_of_the_route():
+    """Arc zero is where the rod was seeded, so the first pose is no jump."""
+    unit = rail(CORNER)
+
+    position, quat = unit.root_target()
+
+    torch.testing.assert_close(position, vec(0.0, 0.0, 0.0))
+    torch.testing.assert_close(quat, frame_along(vec(*X_AXIS)))
+
+
+def test_insertion_advances_the_root_by_arc_length():
+    unit = rail(CORNER)
+
+    unit.advance(torch.tensor([0.04]), torch.zeros(1), dt=1.0)
+
+    torch.testing.assert_close(unit.root_target()[0], vec(0.04, 0.0, 0.0))
+
+
+def test_the_root_turns_the_corner_instead_of_cutting_it():
+    """The arc is measured along the route, so 150 mm of feed rounds the bend.
+
+    A drive that stepped along a direction would still be heading down +X here,
+    50 mm outside a vessel that turned 50 mm ago.
+    """
+    unit = rail(CORNER)
+
+    unit.advance(torch.tensor([0.15]), torch.zeros(1), dt=1.0)
+
+    position, quat = unit.root_target()
+    torch.testing.assert_close(position, vec(0.1, 0.05, 0.0))
+    torch.testing.assert_close(quat, frame_along(vec(0.0, 1.0, 0.0)), atol=1e-6, rtol=1e-5)
+
+
+def test_the_root_never_leaves_a_curved_route():
+    """The claim the whole class exists for, over a full traverse.
+
+    Tangent-following accumulates its error; an arc lookup has none to
+    accumulate, so the prescribed particle is on the vessel at every depth
+    rather than drifting millimetres out of it.
+    """
+    unit = rail(ARCH)
+    off_route = []
+
+    for _ in range(200):
+        unit.advance(torch.full((1,), 0.004), torch.zeros(1), dt=1.0)
+        off_route.append(distance_to_route(ARCH, unit.root_target()[0]))
+
+    assert max(off_route) < 1e-6, f"root drifted {1000 * max(off_route):.3f} mm off the route"
+
+
+def test_the_root_stops_at_the_end_of_the_route():
+    """Past the far end there is no vessel to prescribe a pose on."""
+    unit = rail(CORNER)
+
+    unit.advance(torch.tensor([1.0]), torch.zeros(1), dt=1.0)
+
+    torch.testing.assert_close(unit.depth_m, torch.tensor([0.15]))
+    torch.testing.assert_close(unit.root_target()[0], vec(0.1, 0.05, 0.0))
+
+
+def test_feed_the_route_could_not_take_is_not_reported_as_spent():
+    """Recorded insertion has to be the wire's motion, not the keypress."""
+    unit = rail(CORNER)
+
+    spent, _ = unit.advance(torch.tensor([1.0]), torch.zeros(1), dt=1.0)
+
+    torch.testing.assert_close(spent, torch.tensor([0.15]))
+
+
+def test_withdrawal_runs_back_down_the_route():
+    unit = rail(CORNER)
+    unit.advance(torch.tensor([0.12]), torch.zeros(1), dt=1.0)
+
+    unit.advance(torch.tensor([-0.04]), torch.zeros(1), dt=1.0)
+
+    torch.testing.assert_close(unit.depth_m, torch.tensor([0.08]))
+
+
+def test_withdrawal_stops_at_the_access_site():
+    """The root cannot be pulled back past where the wire entered."""
+    unit = rail(CORNER)
+
+    spent, _ = unit.advance(torch.tensor([-1.0]), torch.zeros(1), dt=1.0)
+
+    torch.testing.assert_close(unit.depth_m, torch.zeros(1))
+    torch.testing.assert_close(spent, torch.zeros(1))
+
+
+def test_axial_rotation_rolls_the_root_about_the_route():
+    """Rotation rides on the pose because the solver latches one command a step.
+
+    Were it sent as a rate instead, the pose issued in the same step would
+    overwrite it and the catheter could not be aimed at a branch at all.
+    """
+    unit = rail(CORNER)
+
+    unit.advance(torch.zeros(1), torch.full((1,), math.pi / 2.0), dt=1.0)
+
+    _, quat = unit.root_target()
+    # The route runs along +X here, so a quarter turn about it takes the
+    # frame's local +X onto the direction its local +Y pointed.
+    torch.testing.assert_close(
+        rotate(quat, vec(0.0, 0.0, 1.0)),
+        vec(*X_AXIS),
+        atol=1e-6,
+        rtol=1e-5,
+    )
+    assert abs(float(twist_about_axis(frame_along(vec(*X_AXIS)), quat, vec(*X_AXIS))) - math.pi / 2.0) < 1e-5
+
+
+def test_rotation_accumulates_rather_than_springing_back():
+    """Releasing the key holds the aim, the way a rotated wire keeps its aim."""
+    unit = rail(CORNER)
+
+    for _ in range(3):
+        unit.advance(torch.zeros(1), torch.full((1,), 0.5), dt=1.0)
+    unit.advance(torch.zeros(1), torch.zeros(1), dt=1.0)
+
+    _, quat = unit.root_target()
+    assert abs(float(twist_about_axis(frame_along(vec(*X_AXIS)), quat, vec(*X_AXIS))) - 1.5) < 1e-5
+
+
+def test_the_pose_does_not_depend_on_where_the_rod_went():
+    """Asked twice without a feed, the answer is the same.
+
+    The point of prescribing from arc length: the pose is a function of the
+    feed integral and the route, so it cannot inherit last step's drift.
+    """
+    unit = rail(ARCH)
+    unit.advance(torch.tensor([0.3]), torch.tensor([0.4]), dt=1.0)
+
+    first, first_quat = unit.root_target()
+    second, second_quat = unit.root_target()
+
+    torch.testing.assert_close(first, second)
+    torch.testing.assert_close(first_quat, second_quat)
+
+
+def test_resetting_returns_the_root_to_the_start():
+    unit = rail(CORNER)
+    unit.advance(torch.tensor([0.1]), torch.tensor([1.0]), dt=1.0)
+
+    unit.reset()
+
+    torch.testing.assert_close(unit.depth_m, torch.zeros(1))
+    torch.testing.assert_close(unit.root_target()[1], frame_along(vec(*X_AXIS)))
+
+
+def test_the_route_is_fed_independently_per_environment():
+    unit = rail(CORNER, num_envs=3)
+
+    unit.advance(torch.tensor([0.02, 0.08, 0.14]), torch.zeros(3), dt=1.0)
+
+    torch.testing.assert_close(unit.depth_m, torch.tensor([0.02, 0.08, 0.14]))
+    torch.testing.assert_close(
+        unit.root_target()[0],
+        torch.tensor([[0.02, 0.0, 0.0], [0.08, 0.0, 0.0], [0.1, 0.04, 0.0]]),
+    )
+
+
+def test_resetting_one_environment_leaves_the_others_on_the_route():
+    unit = rail(CORNER, num_envs=3)
+    unit.advance(torch.tensor([0.02, 0.08, 0.14]), torch.zeros(3), dt=1.0)
+
+    unit.reset(torch.tensor([1]))
+
+    torch.testing.assert_close(unit.depth_m, torch.tensor([0.02, 0.0, 0.14]))
+
+
+def test_the_rail_reports_the_arc_it_can_feed_along():
+    assert rail(CORNER).route_length_m == pytest.approx(0.15)
+
+
+@pytest.mark.parametrize(
+    "route",
+    [
+        [(0.0, 0.0, 0.0)],
+        [(0.0, 0.0), (1.0, 0.0)],
+        [[(0.0, 0.0, 0.0), (1.0, 0.0, 0.0)]],
+    ],
+)
+def test_the_rail_rejects_a_route_it_cannot_follow(route):
+    with pytest.raises(ValueError, match="route must have shape"):
+        RouteRailedIntroducer(torch.tensor(route, dtype=torch.float32), 1)
+
+
+def test_the_rail_rejects_a_repeated_route_vertex():
+    """A zero-length segment carries no direction to prescribe a frame from."""
+    with pytest.raises(ValueError, match="distinct"):
+        rail([(0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.1, 0.0, 0.0)])
+
+
+def test_the_rail_rejects_a_non_finite_route():
+    with pytest.raises(ValueError, match="non-finite"):
+        rail([(0.0, 0.0, 0.0), (float("nan"), 0.0, 0.0)])
+
+
+def test_the_rail_rejects_a_non_positive_step():
+    with pytest.raises(ValueError, match="dt must be positive"):
+        rail(CORNER).advance(torch.zeros(1), torch.zeros(1), dt=0.0)
+
+
+def test_the_rail_reports_feed_against_the_route(caplog, monkeypatch):
+    monkeypatch.setenv(FEED_LOG_ENV_VAR, "0.0001")
+    unit = rail(CORNER)
+
+    with caplog.at_level(logging.INFO, logger="i4h_arena.medical.catheter_drive"):
+        unit.advance(torch.tensor([1.0]), torch.zeros(1), dt=1.0)
+
+    assert "commanded=1000.00 mm/s" in caplog.text
+    assert "spent=150.00 mm/s" in caplog.text
+    assert "route=150.0/150 mm" in caplog.text
+
+
+# --------------------------------------------------------------------------- #
+# Wiring the keyboard drive
+# --------------------------------------------------------------------------- #
+def source_of(path, name: str) -> str:
+    """One class or function's source, read without importing Isaac Sim."""
+    text = path.read_text()
+    for node in ast.walk(ast.parse(text)):
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef)) and node.name == name:
+            return ast.get_source_segment(text, node) or ""
+    raise AssertionError(f"{name} not found in {path.name}")
+
+
+def test_the_keyboard_drive_feeds_along_the_route():
+    """Insertion has to reach the rail, not the solver's own tangent push.
+
+    Left on the tangent push, everything else here is inert: the root would
+    still be stepped along the segment the push bends, which is the loop the
+    rail exists to remove.
+    """
+    body = source_of(PLAIN_CATHETER, "_feed")
+
+    assert "self._rail.advance(" in body
+    assert "self._rail.root_target()" in body
+    assert "place_proximal" in body
+
+
+def test_the_keyboard_drive_records_the_feed_the_route_allowed():
+    """Not the keypress: a command the route could not take is not insertion."""
+    body = source_of(PLAIN_CATHETER, "_feed")
+
+    assert "torch.stack((spent, spin)" in body
+
+
+def test_the_embodiment_rails_the_drive_onto_the_seeded_path():
+    """Arc zero has to be where the root already is.
+
+    Any other polyline and the first prescribed pose teleports the root off the
+    shaft it is attached to.
+    """
+    body = source_of(PLAIN_CATHETER, "_align_to_patient_centerline")
+
+    assert "self.action_config.catheter.route_world_m = self.rod_spec.initial_path_world_m" in body
+
+
+def test_a_route_less_scene_still_has_a_drive():
+    """No centerline means nothing to prescribe against, not a crash."""
+    body = source_of(PLAIN_CATHETER, "_build_rail")
+
+    assert "if route is None:" in body
+    assert "return None" in body
+
+
+def test_both_drives_sample_the_probe_before_commanding():
+    """A prescribed root is exactly where the diagnostics are load-bearing.
+
+    The wall constraint cannot push back on that particle, so penetration and
+    proximal bend only surface in the readout. Moving the keyboard drive onto
+    the pose path once dropped it silently.
+    """
+    for name in ("advance", "place_proximal"):
+        body = source_of(XPBD_CATHETER, name)
+
+        assert "self._log_insertion()" in body, f"{name} does not sample insertion"
+        assert "self._log_probe()" in body, f"{name} does not sample the probe"

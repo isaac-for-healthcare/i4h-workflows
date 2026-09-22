@@ -24,6 +24,55 @@ if TYPE_CHECKING:  # pragma: no cover - import cycle only matters for type check
 # part instead of going through the full affine.
 _MM_TO_M = 0.001
 
+# Wall settings matched to the reference endoluminal scene, omniendo's
+# xcath/scenes/s0065.yaml, which drives this same centerline Cosserat vessel
+# against this same two-way containment. These four are dimensionless, so they
+# carry over despite that scene running at 20x length scale. Its per-iteration
+# delta clamps work out to the 5 mm this module already uses.
+#: Share of a contact correction the wall absorbs; the catheter takes the rest.
+VESSEL_RESPONSE = 0.5
+#: Anchor the distal end as well as the root. Held at the root alone, a wall
+#: whose bend stiffness is 1.0 does not so much bend under contact as swing
+#: about that one anchor, carrying the lumen away from the anatomy with it.
+VESSEL_ENDPOINTS_LOCKED = True
+#: Wall damping. Undamped, the energy a contact puts into the wall stays there.
+VESSEL_LINEAR_DAMPING = 0.01
+VESSEL_ANGULAR_DAMPING = 0.01
+
+
+def vessel_dynamics_fields(
+    *,
+    endpoints_locked: bool = VESSEL_ENDPOINTS_LOCKED,
+    linear_damping: float = VESSEL_LINEAR_DAMPING,
+    angular_damping: float = VESSEL_ANGULAR_DAMPING,
+) -> dict[str, Any]:
+    """Return ``CenterlineDynamicsParams`` fields for the vessel wall.
+
+    Kept apart from the runtime so the boundary conditions and damping can be
+    checked without a Warp device, since they are what decide whether the wall
+    stays on the anatomy and neither is observable from the rod's own state.
+
+    Args:
+        endpoints_locked: Anchor the distal end too, not just the root.
+        linear_damping: Wall translational damping, in ``[0, 1]``.
+        angular_damping: Wall rotational damping, in ``[0, 1]``.
+
+    Raises:
+        ValueError: If either damping falls outside ``[0, 1]``.
+    """
+    if not 0.0 <= float(linear_damping) <= 1.0:
+        raise ValueError(f"linear_damping must be in [0, 1], got {linear_damping}")
+    if not 0.0 <= float(angular_damping) <= 1.0:
+        raise ValueError(f"angular_damping must be in [0, 1], got {angular_damping}")
+    return {
+        # The root keeps the vessel registered to the anatomy instead of
+        # drifting away under contact, since nothing else constrains it.
+        "root_locked": True,
+        "endpoints_locked": bool(endpoints_locked),
+        "linear_damping": float(linear_damping),
+        "angular_damping": float(angular_damping),
+    }
+
 
 def length_scale_from_affine(world_from_patient_m: np.ndarray) -> float:
     """Return the uniform length scale of a patient-to-world transform.
@@ -104,12 +153,15 @@ def centerline_vessel_from_twin(
     num_envs: int = 1,
     catheter_radius_m: float,
     two_way: bool = True,
-    vessel_response: float = 1.0,
+    vessel_response: float = VESSEL_RESPONSE,
     interior_deadband: float = 1.0,
     interior_stiffness: float = 0.0,
     max_distance_m: float = 0.05,
     catheter_max_delta_m: float = 0.005,
     vessel_max_delta_m: float = 0.005,
+    endpoints_locked: bool = VESSEL_ENDPOINTS_LOCKED,
+    linear_damping: float = VESSEL_LINEAR_DAMPING,
+    angular_damping: float = VESSEL_ANGULAR_DAMPING,
     params: Any = None,
 ) -> "CenterlineVesselRuntime | None":
     """Build a per-environment deformable vessel from the twin's centerline.
@@ -132,7 +184,11 @@ def centerline_vessel_from_twin(
         max_distance_m: Containment search radius.
         catheter_max_delta_m: Per-iteration clamp on catheter corrections.
         vessel_max_delta_m: Per-iteration clamp on wall corrections.
-        params: Optional ``CenterlineDynamicsParams`` override.
+        endpoints_locked: Anchor the wall's distal end as well as its root.
+        linear_damping: Wall translational damping, in ``[0, 1]``.
+        angular_damping: Wall rotational damping, in ``[0, 1]``.
+        params: Optional ``CenterlineDynamicsParams`` override, which replaces
+            the boundary conditions and damping above rather than merging.
 
     Returns:
         The runtime, or ``None`` when the twin carries no centerline graph.
@@ -152,9 +208,14 @@ def centerline_vessel_from_twin(
         tree,
         device=device,
         num_envs=int(num_envs),
-        # Locking the root keeps the vessel anchored to the anatomy instead of
-        # drifting away under contact, since nothing else constrains it.
-        params=params or CenterlineDynamicsParams(root_locked=True),
+        params=params
+        or CenterlineDynamicsParams(
+            **vessel_dynamics_fields(
+                endpoints_locked=endpoints_locked,
+                linear_damping=linear_damping,
+                angular_damping=angular_damping,
+            )
+        ),
         catheter_radius=float(catheter_radius_m),
         max_distance=float(max_distance_m),
         two_way=bool(two_way),
@@ -167,7 +228,12 @@ def centerline_vessel_from_twin(
 
 
 __all__ = [
+    "VESSEL_ANGULAR_DAMPING",
+    "VESSEL_ENDPOINTS_LOCKED",
+    "VESSEL_LINEAR_DAMPING",
+    "VESSEL_RESPONSE",
     "centerline_data_from_twin",
     "centerline_vessel_from_twin",
     "length_scale_from_affine",
+    "vessel_dynamics_fields",
 ]

@@ -19,10 +19,60 @@ from typing import Any
 import h5py
 import numpy as np
 
-from i4h_common.episode import Segment, write_segments
+from i4h_common.episode import DIAGNOSTICS_GROUP, Segment, write_segments
 from i4h_engine.events import EventKind, WorkflowEvent
 
 logger = logging.getLogger("i4h_arena.recording")
+
+#: Filters for camera datasets. ``lzf`` was chosen for speed, but it barely
+#: dents a rendered X-ray: one 1024x1024 fluoroscopy frame still cost about
+#: 3.7 MB, which is a 2 GB episode and puts a few hundred demonstrations beyond
+#: any disk we have. Nothing here is on the simulation thread -- frames go
+#: through a queue to a writer thread, and the renderer produces them far
+#: slower than gzip consumes them -- so the trade was paying latency nobody was
+#: waiting on to save space that ran out.
+#:
+#: ``shuffle`` is what makes the level worth having: a greyscale projection
+#: written as three equal channels interleaves near-identical bytes, and
+#: grouping them by position gives the deflate pass long runs to find. Level 4
+#: rather than 9 because the last levels buy little on image data and cost
+#: several times the CPU.
+CAMERA_COMPRESSION = {"compression": "gzip", "compression_opts": 4, "shuffle": True}
+
+#: Longest edge kept in the recording. The fluoroscopy sensor renders 1024 so
+#: the operator can see the wire while driving, but nothing downstream consumes
+#: that: the GR00T catheter manifest asks for 256, and the converter resizes to
+#: it before training. Storing the other fifteen sixteenths of the pixels costs
+#: about 1.3 MB a frame -- 164 GB for two hundred episodes against 11 GB at 256
+#: -- to be discarded later. Set to ``0`` to record whatever the sensor renders.
+RECORDED_CAMERA_EDGE = 256
+
+
+def downsample_frame(frame: np.ndarray, edge: int = RECORDED_CAMERA_EDGE) -> np.ndarray:
+    """Box-average ``frame`` down until its short side is near ``edge``.
+
+    Averaged rather than subsampled because the catheter is about a pixel wide
+    at 1024: taking every fourth pixel drops the wire out of the frames it
+    happens to fall between, which is the one thing the image is recorded for.
+    Averaging dims it instead of losing it.
+
+    Only exact integer factors are used, so the box divides the frame evenly
+    and no edge pixel is weighted differently from the rest. A frame that does
+    not divide, or is already small, is returned untouched -- this is a storage
+    saving, and a shape it cannot halve cleanly is not worth resampling for.
+    """
+    if edge <= 0 or frame.ndim < 2:
+        return frame
+    rows, cols = frame.shape[:2]
+    factor = min(rows // edge, cols // edge)
+    if factor < 2 or rows % factor or cols % factor:
+        return frame
+    blocks = frame.reshape(rows // factor, factor, cols // factor, factor, *frame.shape[2:])
+    reduced = blocks.mean(axis=(1, 3))
+    # Rounded before the cast: numpy truncates toward zero on the way back to
+    # an integer dtype, which would darken every frame by half a level.
+    return (np.rint(reduced) if np.issubdtype(frame.dtype, np.integer) else reduced).astype(frame.dtype)
+
 
 #: Display-independent sensor output stored beside each camera image when a sensor offers it.
 SIGNAL_OUTPUT = "attenuation"
@@ -31,8 +81,16 @@ SIGNAL_OUTPUT = "attenuation"
 class EpisodeRecorder:
     """Stream camera frames to a temporary group, then commit or discard it."""
 
-    def __init__(self, path: str | Path, *, workflow: Any, cameras: tuple[str, ...] = ()) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        workflow: Any,
+        cameras: tuple[str, ...] = (),
+        camera_edge: int = RECORDED_CAMERA_EDGE,
+    ) -> None:
         self.path = Path(path)
+        self.camera_edge = int(camera_edge)
         self.workflow = workflow
         self.cameras = cameras
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -44,6 +102,7 @@ class EpisodeRecorder:
 
         self._actions: list[np.ndarray] = []
         self._states: list[np.ndarray] = []
+        self._diagnostics: list[dict[str, np.ndarray]] = []
         self._attempt_group: h5py.Group | None = None
         self._camera_datasets: dict[str, h5py.Dataset] = {}
         self._frame_queue: Queue[tuple[str, np.ndarray] | None] = Queue(maxsize=32)
@@ -62,6 +121,7 @@ class EpisodeRecorder:
         self._attempt = attempt
         self._actions.clear()
         self._states.clear()
+        self._diagnostics.clear()
         self._discard_attempt()
         self._attempt_group = self._data.create_group("_attempt")
         self._attempt_group.create_group("obs")
@@ -95,6 +155,7 @@ class EpisodeRecorder:
         # Recording a vectorized rollout properly needs per-env engine state.
         self._actions.append(np.asarray(action, dtype=np.float32)[0])
         self._states.append(np.asarray(view.joints().pos, dtype=np.float32)[0])
+        self._diagnostics.append(self._frame_diagnostics(view))
         for camera in self.cameras:
             frame = view.camera(camera)
             if frame is not None:
@@ -116,6 +177,43 @@ class EpisodeRecorder:
         values = reader(camera, SIGNAL_OUTPUT)
         return None if values is None else np.asarray(values)
 
+    @staticmethod
+    def _frame_diagnostics(view: Any) -> dict[str, np.ndarray]:
+        """Per-frame physics measurements, for scenes that offer any.
+
+        Optional and duck-typed, like ``sensor_signal``: a scene with nothing to
+        add omits the method and the recording simply has no ``diagnostics``
+        group. Values are whatever the scene names them, so this stays free of
+        any one embodiment's vocabulary.
+        """
+        reader = getattr(view, "diagnostics", None)
+        if not callable(reader):
+            return {}
+        values = reader()
+        if not values:
+            return {}
+        return {str(key): np.asarray(value, dtype=np.float32) for key, value in values.items()}
+
+    def _stacked_diagnostics(self) -> dict[str, np.ndarray]:
+        """One array per measurement, aligned frame for frame with ``actions``.
+
+        A scene may start reporting a measurement partway through an episode --
+        the live vessel gap only exists once a vessel has been built -- so the
+        keys are unioned over the episode and absent frames are filled with
+        ``nan``. Dropping the partial keys instead would lose the measurement
+        entirely, and dropping the frames would break alignment with the
+        actions, which is the one property that makes these worth recording.
+        """
+        names = {name for frame in self._diagnostics for name in frame}
+        if not names:
+            return {}
+        stacked: dict[str, np.ndarray] = {}
+        for name in sorted(names):
+            shape = next(frame[name].shape for frame in self._diagnostics if name in frame)
+            missing = np.full(shape, np.nan, dtype=np.float32)
+            stacked[name] = np.stack([frame.get(name, missing) for frame in self._diagnostics])
+        return stacked
+
     def end_episode(self, result: Any, *, keep: bool) -> None:
         self._drain_frames()
         if self._open_node:  # a node still active when the workflow ended
@@ -135,6 +233,15 @@ class EpisodeRecorder:
         demo.create_dataset("actions", data=np.stack(self._actions))
         obs = demo["obs"]
         obs.create_dataset("joint_pos", data=np.stack(self._states))
+        diagnostics = self._stacked_diagnostics()
+        if diagnostics:
+            # Beside ``obs`` rather than inside it: these are measurements of the
+            # simulation, not observations a policy is trained against, and
+            # everything that walks ``obs`` would otherwise have to learn to skip
+            # them.
+            group = demo.create_group(DIAGNOSTICS_GROUP)
+            for measurement, values in diagnostics.items():
+                group.create_dataset(measurement, data=values)
 
         demo.attrs["success"] = bool(result.succeeded)
         demo.attrs["num_samples"] = len(self._actions)
@@ -151,16 +258,22 @@ class EpisodeRecorder:
         self._data.attrs["total"] = len(self._existing_demos())
         self._file.flush()
         logger.info(
-            "saved %s: %s frames, %s segments (%s)",
+            "saved %s: %s frames, %s segments, %s diagnostics (%s)",
             name,
             len(self._actions),
             len(self._segments),
+            len(diagnostics),
             result.status.value,
         )
 
     def _append_frame(self, camera: str, frame: np.ndarray) -> None:
         if self._attempt_group is None:
             raise RuntimeError("begin_episode must be called before on_step")
+        # Here rather than at capture: this runs on the writer thread, so the
+        # resample is paid alongside compression instead of on the step the
+        # simulator is waiting to finish. It also catches the raw sensor
+        # signal, which is queued separately but is the same size.
+        frame = downsample_frame(frame, self.camera_edge)
         dataset = self._camera_datasets.get(camera)
         if dataset is None:
             obs = self._attempt_group["obs"]
@@ -168,8 +281,10 @@ class EpisodeRecorder:
                 camera,
                 data=frame[np.newaxis, ...],
                 maxshape=(None, *frame.shape),
+                # One frame per chunk, so a reader pulling a single timestep
+                # decompresses only that timestep.
                 chunks=(1, *frame.shape),
-                compression="lzf",
+                **CAMERA_COMPRESSION,
             )
             self._camera_datasets[camera] = dataset
             return

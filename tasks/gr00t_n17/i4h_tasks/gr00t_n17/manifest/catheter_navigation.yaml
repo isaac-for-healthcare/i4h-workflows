@@ -48,6 +48,7 @@ observation:
   state_names:
   - insertion_m
   - rotation_rad
+  - tip_bend_rad
   - carm_orbit_rad
 train:
   output_dir: /tmp/gr00t_catheter_n17

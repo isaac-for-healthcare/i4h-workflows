@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
@@ -161,6 +162,26 @@ _LOGGER = logging.getLogger(__name__)
 
 FOLLOW_TIP_ENV_VAR = "I4H_CARM_FOLLOW_TIP"
 
+PAN_LOG_ENV_VAR = "I4H_CARM_PAN"
+
+
+def pan_log_seconds(environ: Any = None) -> float:
+    """Seconds between C-arm pan reports, from ``I4H_CARM_PAN``.
+
+    Off by default, and interval-based rather than a fixed number of opening
+    frames. A frame budget spends itself during startup, when the tip is still
+    near the isocenter and the pan is legitimately zero, so the log ends up
+    recording only the case it was not written to explain. Whether the frame
+    later followed the tip then has to be recovered by correlating screenshots,
+    which is not an answer this code should make anyone go and find.
+    """
+    raw = (environ if environ is not None else os.environ).get(PAN_LOG_ENV_VAR, "")
+    try:
+        interval = float(str(raw).strip())
+    except ValueError:
+        return 0.0
+    return interval if interval > 0.0 else 0.0
+
 
 def follow_tip_enabled() -> bool:
     """Whether the isocenter should track the catheter tip.
@@ -272,9 +293,7 @@ class ReferenceProjectionCArmStateProvider:
         self._tip_source = tip_source
         self._pan_keep_fraction = float(pan_keep_fraction)
         self._pan_m: np.ndarray | None = None
-        # A handful of frames is enough to see whether the live tip agrees with
-        # the centerline, without flooding a teleop session's log.
-        self._pan_log_countdown = 5
+        self._pan_logged_at = 0.0
 
     def _pan_axis_limits_m(self, isocenter: np.ndarray, pan_axis: np.ndarray) -> tuple[float, float]:
         """How far the isocenter may pan before the beam leaves the scanned volume.
@@ -337,8 +356,10 @@ class ReferenceProjectionCArmStateProvider:
             # renderer applies the translation in the volume frame. The first
             # live frame said otherwise, so report what the tip actually reads
             # rather than what the centerline predicts it should.
-            if self._pan_log_countdown > 0:
-                self._pan_log_countdown -= 1
+            interval = pan_log_seconds()
+            now = time.monotonic()
+            if interval > 0.0 and now - self._pan_logged_at >= interval:
+                self._pan_logged_at = now
                 _LOGGER.info(
                     "carm tip-follow: pan_axis=%s tip_offset_mm=%s pan_mm=%s limits_mm=%s",
                     np.round(pan_axis, 3).tolist(),

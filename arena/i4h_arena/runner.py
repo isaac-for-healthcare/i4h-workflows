@@ -157,6 +157,9 @@ class SimulationRunner:
         self.episodes = max(1, episodes)
         self.attempts = max(1, attempts)
         self.max_steps = max_steps or workflow.max_steps or scene.spec.max_steps
+        # Kept apart from the resolved budget above, which cannot say whether a
+        # cap was asked for or merely inherited. Teleop needs that distinction.
+        self._requested_max_steps = max_steps
         self.record_failures = record_failures
         self.seed = seed
         self.run_id = uuid.uuid4().hex[:8]
@@ -202,6 +205,26 @@ class SimulationRunner:
             )
 
     # -- the loop --------------------------------------------------------
+    def _engine_max_steps(self) -> int | None:
+        """Step budget the engine enforces, or ``None`` to run until the graph stops.
+
+        Idle is a render-only inspection mode: its ticks take no physics step,
+        so they cannot consume the scene's budget and a cap would only limit how
+        long someone may look at the scene.
+
+        Teleop does step, and is left uncapped so that a demonstration is not
+        cut off underneath the person giving it. An explicit ``--episode-steps``
+        is honoured though, because an attempt that will not succeed otherwise
+        has no way to end: teleop runs ``until=success`` with no time limit, so
+        without a cap the episode is never finalized, nothing reaches
+        ``/data``, and ``--record-failures`` has no failed episode to write.
+        """
+        if self.workflow.mode == "idle":
+            return None
+        if self.workflow.mode == "teleop":
+            return self._requested_max_steps
+        return self.max_steps
+
     def run(self) -> RunSummary:
         global _ACTIVE_RUNNER
         if _ACTIVE_RUNNER is not None:
@@ -213,13 +236,11 @@ class SimulationRunner:
             mode=self.workflow.mode,
             requested=self.episodes,
         )
-        # Idle is a render-only inspection mode: its ticks do not consume the
-        # scene's simulation-step budget because no physics step is taken.
         engine = Engine(
             self.workflow.graph,
             workflow_name=self.workflow.name,
             on_event=self._on_event,
-            max_steps=None if self.workflow.mode in {"idle", "teleop"} else self.max_steps,
+            max_steps=self._engine_max_steps(),
         )
 
         try:

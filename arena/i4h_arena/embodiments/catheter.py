@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 from collections.abc import Sequence
 from typing import Any, ClassVar
@@ -16,6 +15,7 @@ from isaaclab.assets import AssetBaseCfg
 from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
 from isaaclab.utils.configclass import configclass
 
+from i4h_arena.medical.catheter_drive import RouteRailedIntroducer
 from i4h_arena.medical.centerline import ordered_centerline_lumen
 from i4h_arena.medical.newton_catheter_physics import (
     DEFAULT_NUM_SEGMENTS,
@@ -32,21 +32,53 @@ from i4h_arena.medical.patient_volume import PatientVolume
 from i4h_arena.medical.xpbd_catheter import XpbdCatheterAsset, XpbdCatheterAssetCfg
 from i4h_common.types import JointState
 
+#: Route left ahead of the tip at reset, which is the navigation an episode is
+#: actually about.
+#:
+#: This is bounded by the step cap rather than by anatomy. The scene is
+#: validated to 600 steps, which is twenty seconds at 30 Hz, and the insertion
+#: slider defaults to 9 mm/s because faster sustained feed drives the shaft
+#: into the wall. Twenty seconds at 9 mm/s is 180 mm, so nothing longer than
+#: that can be navigated within one episode whatever the operator does. The
+#: default keeps a third of the budget back for the steering, pausing and
+#: correcting that the insertion arithmetic ignores.
+DEFAULT_INSERTION_ALLOWANCE_M = 0.12
 
-def reference_initial_catheter_length_m(twin: PatientTwin, *, fallback_m: float) -> float:
-    """Match the reference viewport's 15%-to-80% CT-width initialization."""
-    metadata_path = twin.artifacts.get("volume_metadata")
-    if metadata_path is None:
-        return float(fallback_m)
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    shape_zyx = np.asarray(metadata.get("shape_zyx"), dtype=np.float64)
-    spacing_zyx_mm = np.asarray(metadata.get("spacing_zyx_mm"), dtype=np.float64)
-    if shape_zyx.shape != (3,) or spacing_zyx_mm.shape != (3,):
-        raise ValueError("volume metadata must contain three-value shape_zyx and spacing_zyx_mm")
-    length_m = 0.65 * float(shape_zyx[2] * spacing_zyx_mm[2]) * 0.001
-    if not np.isfinite(length_m) or length_m <= 0.0:
-        raise ValueError("volume metadata produces an invalid catheter initialization length")
-    return min(float(fallback_m), length_m)
+
+def route_initial_catheter_length_m(
+    route_length_m: float,
+    *,
+    allowance_m: float = DEFAULT_INSERTION_ALLOWANCE_M,
+) -> float:
+    """Seeded shaft length that leaves ``allowance_m`` of route ahead of the tip.
+
+    The shaft is inextensible, so advancing the tip by one millimetre of arc
+    costs one millimetre at the root: the route left unseeded *is* the
+    insertion the episode has to perform. Sizing the shaft from the route makes
+    that quantity the thing being chosen, instead of a residue of how the seed
+    length and the route happen to compare.
+
+    The rule this replaced took 65% of the CT volume's width, matching the
+    reference viewport's initialization. Nothing in that ties it to the vessel
+    being navigated, and on ``s0011`` it produced a 303 mm shaft for a 646 mm
+    route, leaving 343 mm to insert where the cap affords 180 mm. Arrival was
+    unreachable on arithmetic alone, before any question of whether the
+    operator steered well, so every episode recorded a failure and the goal's
+    hold condition had never once been exercised.
+
+    A short route is returned nearly whole rather than clamped to a negative
+    length; the tip then starts essentially at the entry and the allowance is
+    whatever the route affords.
+    """
+    route_length_m = float(route_length_m)
+    if not np.isfinite(route_length_m) or route_length_m <= 0.0:
+        raise ValueError(f"route_length_m must be positive and finite, got {route_length_m}")
+    allowance_m = float(allowance_m)
+    if not np.isfinite(allowance_m) or allowance_m <= 0.0:
+        raise ValueError(f"allowance_m must be positive and finite, got {allowance_m}")
+    # Leaves a tenth of a short route seeded so the shaft still has a direction
+    # to be inserted along.
+    return max(0.1 * route_length_m, route_length_m - allowance_m)
 
 
 class CatheterVelocityAction(ActionTerm):
@@ -74,6 +106,26 @@ class CatheterVelocityAction(ActionTerm):
         # Held here rather than on the asset because it is this term's
         # integration of the command, and a reset has to clear it per env.
         self._tip_bend_angle = torch.zeros(self.num_envs, device=self.device)
+        self._rail = self._build_rail()
+
+    def _build_rail(self) -> RouteRailedIntroducer | None:
+        """The route rail this term feeds along, or ``None`` without a route.
+
+        Absent a route there is nothing to prescribe the root against, so the
+        term falls back to the solver's own tangent feed. That is the drive
+        which folds the proximal shaft under sustained insertion -- see
+        :class:`~i4h_arena.medical.catheter_drive.RouteRailedIntroducer` -- so
+        it is a fallback for a rodless or route-less scene rather than a
+        supported way to navigate.
+        """
+        route = self.cfg.route_world_m
+        if route is None:
+            return None
+        return RouteRailedIntroducer(
+            torch.as_tensor(route, dtype=torch.float32),
+            self.num_envs,
+            device=self.device,
+        )
 
     @property
     def action_dim(self) -> int:
@@ -106,13 +158,29 @@ class CatheterVelocityAction(ActionTerm):
 
     def apply_actions(self) -> None:
         dt = float(self._env.physics_dt)
-        # Only the two rate terms are the asset's velocity contract; the bend is
-        # a separate shape command, so it does not travel through ``advance``.
-        self._asset.advance(self._processed_actions[:, :2], dt)
+        # Only the two rate terms are the drive's velocity contract; the bend is
+        # a separate shape command, so it does not travel through the feed.
+        self._feed(self._processed_actions[:, 0], self._processed_actions[:, 1], dt)
         limit = float(self.cfg.max_tip_bend_rad)
         # In place so the buffer the solver was handed keeps its storage.
         self._tip_bend_angle.add_(self._processed_actions[:, 2] * dt).clamp_(-limit, limit)
         self._asset.set_tip_bend(self._tip_bend_angle)
+
+    def _feed(self, insertion_velocity: torch.Tensor, rotation_rate: torch.Tensor, dt: float) -> None:
+        """Advance the wire by one step of insertion and axial rotation.
+
+        With a route, the rail integrates the feed into arc length and the root
+        is placed at that arc, so the prescribed particle stays on the vessel
+        however long the operator holds insertion. The feed the rail reports as
+        spent is what gets recorded, so a command the route could not take does
+        not appear in the data as insertion that happened.
+        """
+        if self._rail is None:
+            self._asset.advance(torch.stack((insertion_velocity, rotation_rate), dim=-1), dt)
+            return
+        spent, spin = self._rail.advance(insertion_velocity, rotation_rate, dt)
+        position, quat = self._rail.root_target()
+        self._asset.place_proximal(position, quat, torch.stack((spent, spin), dim=-1), dt)
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         if env_ids is None:
@@ -124,6 +192,11 @@ class CatheterVelocityAction(ActionTerm):
             self._processed_actions[env_ids] = 0.0
             # A reset returns a straight wire, so the steer has to go with it.
             self._tip_bend_angle[env_ids] = 0.0
+        if self._rail is not None:
+            # The rod is re-seeded from the start of the route, so the arc the
+            # root is placed at has to go back with it or the wire is placed
+            # mid-route against a shaft that is not there yet.
+            self._rail.reset(None if env_ids is None else torch.as_tensor(env_ids, device=self.device))
 
 
 @configclass
@@ -140,9 +213,19 @@ class CatheterVelocityActionCfg(ActionTermCfg):
     #: bend constraint's rest state, and stepping that faster than the solve
     #: relaxes asks the wire to snap rather than curl.
     max_tip_bend_rate_radps: float = 1.5
-    #: Total bend across the tip edges, so roughly a 90-degree hook at the
-    #: ceiling. Matches the clamp the reference implementation settled on.
+    #: Turn of the tip polyline, so roughly a 90-degree hook at the ceiling.
+    #: Matches the clamp the reference implementation settled on. This only
+    #: became true once the solver's rest-curvature mapping was corrected: the
+    #: earlier ``angle / n`` share realized 164 degrees here, not 86.
     max_tip_bend_rad: float = 1.5
+    #: Route the wire's proximal end is fed along, as world-metre vertices, and
+    #: the same polyline the rod is seeded on. Set, insertion advances the root
+    #: by arc length on it instead of along the wire's own tangent, which is
+    #: what keeps the prescribed particle in the vessel under sustained feed;
+    #: see :class:`~i4h_arena.medical.catheter_drive.RouteRailedIntroducer`.
+    #: ``None`` for a scene with no centerline, which falls back to the
+    #: solver's tangent feed.
+    route_world_m: tuple[tuple[float, float, float], ...] | None = None
 
 
 class CArmOrbitAction(ActionTerm):
@@ -317,7 +400,7 @@ class CatheterEmbodiment:
         path_world_m = twin.patient_mm_to_world(path_patient_mm)
         path_segments = np.linalg.norm(np.diff(path_world_m, axis=0), axis=1)
         path_length = float(np.sum(path_segments))
-        length = reference_initial_catheter_length_m(twin, fallback_m=path_length)
+        length = route_initial_catheter_length_m(path_length)
         start = path_world_m[0]
         direction = path_world_m[1] - path_world_m[0]
         direction /= np.linalg.norm(direction)
@@ -340,36 +423,10 @@ class CatheterEmbodiment:
         # inside the lumen. It is no longer resampled every step; containment
         # against the deformable wall is what keeps it there.
         #
-        # Containment runs "post", after the constraint solve, because that is
-        # the only side the projection survives on, and the cleanup sweeps repair
-        # the chords it costs. Measured on the s0011 iliac route: +2.7 to +3.4 mm
-        # worst penetration, 2-3 of 41 particles outside, chords 100-112%.
-        #
-        # "pre" is the better shape and still not usable. It delivers exactly
-        # what it promises -- chords land at 100-100% of rest -- but 39 of 41
-        # particles end up as much as 74 mm outside the lumen. Writing the rod's
-        # real rotational inertia over the solver's identity default does not
-        # change that by itself: the two stagings measure 74 mm and 3 mm with the
-        # inertia fix in place, the same as without it.
-        #
-        # Nor does damping rescue it. Running fully quasi-static at damping 1.0,
-        # which zeroes velocity and gravity every substep and makes each step a
-        # pure geometric projection, measures +74.6 mm and 39 of 41 outside --
-        # identical to damping 0.01, across 720 steps of a steady equilibrium.
-        # A sparse attraction toward the centerline, re-applied every step, was
-        # measured too and came back marginally worse at +74.9 mm and 40 of 41.
-        #
-        # The reason none of it moves: nothing in the pipeline asks the rod to be
-        # curved. The rest shape is straight, and containment is one-sided --
-        # acting on a particle only once it is already outside the wall, doing
-        # nothing for one inside. So the inward shove and the straightening solve
-        # balance tens of millimetres out, and the wire renders as a straight
-        # line down the spine. A pre-solve nudge cannot survive a direct solve
-        # that lands exactly on the straight manifold, so it never accumulates.
-        #
-        # That leaves "post" as the configuration that follows the vessel, and
-        # closing the gap properly as solver-side work: the solve has to accept
-        # a curved rest configuration. The stage switch stays for measurement.
+        # The default coupled solve alternates live contact with full elastic
+        # blocks, including material-frame updates. The pre/post switch and
+        # position-only cleanup settings remain for comparisons when contact
+        # coupling is explicitly disabled with I4H_CATHETER_CONTACT_ITERATIONS=0.
         stage = containment_stage_override() or "post"
         self.rod_spec.containment_stage = stage
         damping = rod_damping_override()
@@ -387,6 +444,36 @@ class CatheterEmbodiment:
             sweeps = self.rod_spec.containment_cleanup_iterations
         self.rod_spec.containment_cleanup_iterations = sweeps if stage == "post" else 0
         self.rod_spec.initial_path_world_m = tuple(tuple(float(value) for value in point) for point in path_world_m)
+        # The drive feeds the root along the same polyline the rod is seeded on,
+        # so arc zero is where the root already sits and the first prescribed
+        # pose is the one it was seeded with.
+        self.action_config.catheter.route_world_m = self.rod_spec.initial_path_world_m
+        # Hold the traversed shaft on the route and leave the working length
+        # free. The shaft behind the tip has already been somewhere and has no
+        # freedom left to spend, which is what a wire inside an introducer and
+        # against vessel it threaded is like; holding it there costs the
+        # operator nothing. The free window is the insertion allowance plus a
+        # margin, so it always covers more than the route still to be
+        # navigated and never prescribes an unmade choice.
+        self.rod_spec.track_guidance = True
+        self.rod_spec.track_free_distal_length_m = 1.5 * DEFAULT_INSERTION_ALLOWANCE_M
+        # Both of these were attempts to damp the fold the tangent feed
+        # produces, and neither worked. Guidance skips the very particle
+        # insertion prescribes, so with the rail on node 1 still fell from
+        # 61 mm to 15 mm of bend radius and pushed four particles through the
+        # wall. Widening the baseline the feed direction is read over to 35 mm,
+        # from one 4 mm segment, did not stop it either: node 1 took the bend
+        # in 90% of samples across two 600-step episodes and containment stayed
+        # near 25%.
+        #
+        # What resolved it was removing the loop instead of damping it, by
+        # feeding along arc length on the route so the root's pose never
+        # depends on a direction the push itself bends. See
+        # :class:`~i4h_arena.medical.catheter_drive.RouteRailedIntroducer`,
+        # which the keyboard drive now uses. The span below therefore only
+        # reaches the solver's own tangent feed, which is what the arm drive
+        # and a route-less scene still use, so it stays set for those.
+        self.rod_spec.proximal_feed_span_m = 0.035
         # How wide the vessel is at each of those samples. Carried alongside the
         # path because "on the centerline" is not a testable claim without a
         # tolerance: a prescribed particle exempt from wall contact can sit
@@ -440,7 +527,12 @@ class CatheterEmbodiment:
             return None
         from i4h_arena.envcfg.endoluminal_navigation import navigation_terminations_cfg
 
-        return navigation_terminations_cfg(self.navigation_target_world_m)
+        # The same polyline the rod was seeded along, so the readout measures
+        # remaining vessel against the route the target is the far end of.
+        return navigation_terminations_cfg(
+            self.navigation_target_world_m,
+            route_world_m=self.rod_spec.initial_path_world_m,
+        )
 
     def modify_env_cfg(self, env_cfg: Any) -> Any:
         env_cfg.sim.dt = 1.0 / 120.0

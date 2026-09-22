@@ -11,7 +11,7 @@ implicit method suited to stiff articulated chains. The catheter is a **Cosserat
 represented as particles with orientations, solved position-based (XPBD) with many small
 substeps. Merging them into one monolithic system would mean rewriting one solver in terms of
 the other. Instead they run **sequentially over a shared state**, exchanging exactly two
-quantities: a pose going down to the wire, and a force coming back up.
+quantities: a pose going down to the wire, and a force-and-moment wrench coming back up.
 
 ## The one-slide version
 
@@ -20,7 +20,7 @@ quantities: a pose going down to the wire, and a force coming back up.
    MJWarp arm  ─────────────────────────────────────────>  XPBD rod
       ▲                                                       │
       └───────────────────────────────────────────────────────┘
-              force (what the wire does to its holder)
+              wrench (force and moment on the holder)
 ```
 
 Two directions, two mechanisms:
@@ -28,9 +28,9 @@ Two directions, two mechanisms:
 | Direction | Mechanism | Quantity |
 |---|---|---|
 | Arm → catheter | `set_root_pose_gpu` | Pose of the proximal particle |
-| Catheter → arm | `proximal_reaction` | Force at the proximal particle (N) |
+| Catheter → arm | `proximal_wrench` | World force (N) and moment (N·m) at the proximal particle |
 
-The exchange is **lagged**, not simultaneous: the force applied this substep was harvested
+The exchange is **lagged**, not simultaneous: the wrench applied this substep was harvested
 from the previous one.
 
 ## Shared state, not a merged solver
@@ -47,13 +47,13 @@ substep:
 
 ```python
 cls._clear_force_buffers(state_0)              # zero particle_f, body_f, joint_f
-cls._apply_soft_to_rigid_reactions(contacts, state_0)   # two-way: inject lagged force
+cls._apply_soft_to_rigid_reactions(contacts, state_0)   # two-way: inject lagged wrench
 contacts = cls._run_collision_pipeline(state_0, state_1, control) or contacts
 
 rigid.step(state_0, state_1, control, contacts, substep_dt)
 rod.step(state_1, state_1, control, contacts, substep_dt)   # note: in place
 
-coupler.harvest(state_1, rod.rod)              # two-way: read force for next substep
+coupler.harvest(state_1, rod.rod)              # two-way: read wrench for next substep
 ```
 
 Every line's position is load-bearing:
@@ -96,26 +96,27 @@ This is the harder direction, because the obvious approach is unavailable. The r
 kinematically with zero mass, so **no momentum accumulates there** and the reaction cannot be
 recovered from a velocity difference.
 
-Instead, the reaction is read off the constraints that hold the root to its neighbour:
-`proximal_reaction` takes **edge 0's accumulated stretch multipliers** and scales them into a
-force by the substep they were gathered over. Because those multipliers absorb everything the
-rod did during the substep, the resulting force reflects bending, buckling, and vessel
-contact — which is exactly what makes it meaningful as feedback.
+Instead, `proximal_wrench` reads edge 0's accumulated multipliers. The translational
+Jacobian on the root is identity, giving `F = lambda_stretch / dt²`. The rotational
+Jacobian gives `M = Jrot_root.T @ lambda / dt²`, evaluated at the final material
+frames. This includes the bend/twist couple and the stretch constraint's local
+lever arm. Both quantities are in world coordinates, with moment measured about
+the proximal point. `proximal_reaction` remains available as a force-only API.
 
-One honest limitation: only the transmitted *force* is reported. A clamped root also transmits
-an intrinsic bending moment, but recovering that requires a rotational Jacobian contraction
-rather than the identity that makes the force exact. Callers needing a wrench take the moment
-arm about their own body and treat the intrinsic term as missing.
+The multipliers are retained while contact and global elastic solves alternate
+within each rod substep. Their accuracy therefore depends on convergence of that
+combined solve. See [rod contact and feedback](rod-contact-feedback.md) for the
+material model and physical reference tests.
 
-## Turning that force into a wrench on the right body
+## Applying the wrench to the right body
 
-`harvest_drive_reaction_kernel` carries the force onto the holding body and adds the moment
-from *where on that body* the wire is gripped:
+`harvest_drive_reaction_kernel` carries the wrench onto the holding body and adds
+the force's moment about that body's center of mass:
 
 ```python
-f   = proximal_force[env]
-arm = wp.transform_vector(body_q[body], mount_local[env])
-tau = wp.cross(arm, f)
+f   = wp.spatial_top(proximal_wrench[env])
+arm = wp.transform_vector(body_q[body], mount_local[env] - body_com[body])
+tau = wp.spatial_bottom(proximal_wrench[env]) + wp.cross(arm, f)
 wp.atomic_add(out_coupling_forces, body, wp.spatial_vector(f, tau))
 ```
 
@@ -149,12 +150,13 @@ above 1 over-relaxes. This mirrors upstream's `proxy_relaxation`.
 
 ## Configuration surface
 
-`CoupledMJWarpXPBDRodSolverCfg` exposes three fields that matter:
+`CoupledMJWarpXPBDRodSolverCfg` exposes these coupling fields:
 
 | Field | Meaning |
 |---|---|
 | `coupling_mode` | `one_way` or `two_way` |
 | `drive_body_name` | Which body holds the proximal end |
+| `drive_mount_local` | Grip point in the drive body's local frame, in metres |
 | `drive_reaction_relaxation` | Feedback damping, default `1.0` |
 
 **`one_way`**: rigid bodies push the catheter, but never feel it.
@@ -171,12 +173,17 @@ two_way = spec.drive_body_name is not None
 The body is identified **by name, not index**, resolved against the Newton builder's labels. An
 index would silently refer to a different link if the scene's body order ever changed.
 
+The Franka catheter embodiment enables two-way coupling through `panda_hand` and
+sets the grip point to `(0, 0, 0.1034)` m in that body's frame. The manager supplies
+Newton's authored `body_com` when shifting the wrench.
+
 ## Caveats worth stating up front
 
 - **Lagged, not monolithic.** Stability depends on relaxation and substep size rather than
   being unconditional.
-- **The intrinsic root bending moment is absent** from the transmitted wrench, for the Jacobian
-  reason above.
+- **Contact is approximate at a finite iteration count.** The default uses 32
+  alternating contact/elastic iterations; the wrench is not a proof of contact
+  convergence or device calibration.
 - **The rod does not read Newton's contact buffers.** The reaction transmits through the rod's
   own constraints at the drive point, which is why the coupler ignores the `contacts` argument
   it is handed.

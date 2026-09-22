@@ -12,10 +12,12 @@ import yaml
 
 from i4h_arena.medical.carm import (
     FOLLOW_TIP_ENV_VAR,
+    PAN_LOG_ENV_VAR,
     CArmState,
     ReferenceProjectionCArmStateProvider,
     SceneCArmStateProvider,
     follow_tip_enabled,
+    pan_log_seconds,
     panned_isocenter_offsets,
 )
 from i4h_arena.medical.catheter import CatheterState
@@ -238,6 +240,27 @@ def test_following_the_tip_is_on_but_can_be_pinned_back(monkeypatch) -> None:
     for value in ("0", "false", "", "off"):
         monkeypatch.setenv(FOLLOW_TIP_ENV_VAR, value)
         assert follow_tip_enabled() is False
+
+
+def test_the_pan_log_is_off_until_an_interval_is_asked_for():
+    assert pan_log_seconds({}) == 0.0
+
+
+@pytest.mark.parametrize("value, expected", [("1", 1.0), ("0.5", 0.5), (" 5 ", 5.0)])
+def test_the_pan_log_takes_an_interval_in_seconds(value, expected):
+    """An interval rather than a frame budget.
+
+    A budget of opening frames spends itself while the tip is still near the
+    isocenter and the pan is legitimately zero, so it records only the case it
+    was not written to explain, and whether the frame later tracked the tip has
+    to be recovered by correlating screenshots.
+    """
+    assert pan_log_seconds({PAN_LOG_ENV_VAR: value}) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("value", ["", "0", "-1", "always"])
+def test_an_unusable_pan_setting_just_stays_off(value):
+    assert pan_log_seconds({PAN_LOG_ENV_VAR: value}) == 0.0
 
 
 class _Tip:

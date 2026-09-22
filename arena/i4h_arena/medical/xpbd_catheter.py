@@ -13,7 +13,9 @@ scalars, so a batched scene does not serialize on a host copy per step.
 
 from __future__ import annotations
 
+import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -27,10 +29,10 @@ from isaaclab.utils.configclass import configclass
 from i4h_common.types import JointState
 
 from .catheter import CatheterState
+from .catheter_diagnostics import InsertionSample, insertion_report
 from .catheter_drive import quat_to_w_first, quat_to_xyzw
 from .newton_catheter_physics import require_active_handle
 from .newton_providers import NewtonRodCatheterStateProvider
-
 
 # The narrowest lumen on the routes we drive is about 3 mm in radius. A marker
 # wider than that cannot be drawn inside the vessel at all, so it reads as wall
@@ -41,7 +43,58 @@ _SHAFT_MARKER_CAP_M = 0.0015
 _TIP_MARKER_CAP_M = 0.003
 
 
+_LOGGER = logging.getLogger(__name__)
+
+
 PROBE_ENV_VAR = "I4H_CATHETER_PROBE"
+
+INSERTION_LOG_ENV_VAR = "I4H_CATHETER_INSERTION"
+
+
+def insertion_log_seconds(environ: Any = None) -> float:
+    """Seconds between insertion reports, from ``I4H_CATHETER_INSERTION``.
+
+    Off by default. The roller drive's ``I4H_CATHETER_FEED`` answers the same
+    question for the arm-borne scene, but that drive belongs to
+    :class:`~i4h_arena.medical.catheter_drive.FlangeMountedIntroducer` and is
+    never constructed here, so a plain catheter scene had no way to ask it.
+
+    What it separates: a commanded rate the drive did deliver to the root, and a
+    tip that did not move anyway. Those look identical on the fluoroscopy view
+    and on the tip-distance readout, and they have different causes -- the first
+    is an input or clamping question, the second means the insertion went into
+    the shaft as arc length instead of into tip travel. ``arc_excess_mm`` on the
+    containment probe is where that missing travel shows up.
+    """
+    raw = (environ if environ is not None else os.environ).get(INSERTION_LOG_ENV_VAR, "")
+    try:
+        interval = float(str(raw).strip())
+    except ValueError:
+        return 0.0
+    return interval if interval > 0.0 else 0.0
+
+
+def axial_rate(
+    displacement_m: np.ndarray,
+    tangent_m: np.ndarray,
+    elapsed_s: float,
+) -> float:
+    """Signed speed along ``tangent_m``, in metres per second.
+
+    Signed and projected rather than a plain distance, because the question is
+    whether the end went forward or came back. A magnitude reports a retreating
+    tip as movement, which is the one reading that would hide the problem this
+    log exists to find. A degenerate tangent gives ``0.0``, since a direction
+    that does not exist cannot order a sign.
+    """
+    if not elapsed_s > 0.0:
+        raise ValueError(f"elapsed_s must be positive, got {elapsed_s}")
+    tangent = np.asarray(tangent_m, dtype=np.float64)
+    norm = float(np.linalg.norm(tangent))
+    if not norm > 0.0:
+        return 0.0
+    along = float(np.dot(np.asarray(displacement_m, dtype=np.float64), tangent / norm))
+    return along / float(elapsed_s)
 
 
 def probe_interval(environ: Any = None) -> int:
@@ -103,7 +156,12 @@ class XpbdCatheterAsset(SensorBase):
         # steer arrives, which reads as an unbent tip.
         self._tip_bend_rad: torch.Tensor | None = None
         self._probe_step = 0
+        self._last_probe_step = -1
         self._probe_every = probe_interval()
+        # Where the root and tip were at the last insertion report, so a rate
+        # spans the whole reporting interval rather than one control step.
+        self._insertion_mark: InsertionSample | None = None
+        self._simulation_s = 0.0
         super().__init__(cfg)
 
     @property
@@ -121,12 +179,25 @@ class XpbdCatheterAsset(SensorBase):
         command = commands.detach().to(device=self._device, dtype=torch.float32)
         if command.shape != (self._num_envs, 2):
             raise ValueError(f"catheter command must have shape ({self._num_envs}, 2), got {tuple(command.shape)}")
+        # Sample the result of previous physics steps before accounting for
+        # this command, which has not yet been integrated by Newton.
+        self._log_insertion()
+        self._log_probe()
         rod = require_active_handle().rod
         rod.apply_proximal_control_gpu(command[:, 0], command[:, 1], float(dt))
         self._record_spent(command, dt)
 
     def set_tip_bend(self, angles_rad: torch.Tensor) -> None:
         """Shape the distal tip to an absolute bend angle per environment.
+
+        The angle is the turn of the tip *polyline*, which is what a projection
+        shows and what a policy is scored against. The solver converts it to the
+        per-edge rest curvature that realizes it, spreading
+        ``sin(angle / (2n - 1))`` over its ``n`` tip edges rather than the
+        ``angle / n`` an even share would suggest -- the polyline follows the
+        midpoints of the frame ladder, so it loses half a hinge at the tip and
+        the naive division over-bends by nearly ``(2n - 1) / n``. See
+        :func:`~i4h_arena.medical.newton_catheter_physics.tip_bend_rest_component`.
 
         Separate from :meth:`advance` because this is a shape and not a rate:
         the solver holds it as the tip edges' rest curvature, so re-sending the
@@ -214,8 +285,60 @@ class XpbdCatheterAsset(SensorBase):
         if command.shape != (self._num_envs, 2):
             raise ValueError(f"catheter command must have shape ({self._num_envs}, 2), got {tuple(command.shape)}")
 
+        # Same sampling point as :meth:`advance`, for the same reason: this
+        # reads the result of previous physics steps, before the command below
+        # has been integrated. Both drives report it because a prescribed root
+        # is exactly the case where penetration and proximal bend are the
+        # numbers worth watching -- the wall constraint cannot push back on
+        # that particle, so nothing but the readout will say it went wrong.
+        self._log_insertion()
+        self._log_probe()
         require_active_handle().rod.set_root_pose_gpu(pos, quat_to_xyzw(quat))
         self._record_spent(command, dt)
+
+    def _log_insertion(self) -> None:
+        """Report integrated feed and endpoint progress per simulation second."""
+        interval = insertion_log_seconds()
+        if interval <= 0.0:
+            return
+        now = time.monotonic()
+        previous = self._insertion_mark
+        # Checked before touching the particles: reading them is a device copy
+        # that would otherwise land on every control step to serve a line
+        # printed once a second.
+        if previous is not None and now - previous.wall_s < interval:
+            return
+        positions = self.data.positions_world_m
+        if positions is None or positions.shape[1] < 2:
+            return
+        sample = InsertionSample(
+            self._simulation_s,
+            now,
+            float(self._data.insertion_m[0].detach().cpu()),
+            positions[0].detach().cpu().numpy().astype(np.float64),
+        )
+        self._insertion_mark = sample
+        if previous is None:
+            return
+        if sample.simulation_s <= previous.simulation_s:
+            return
+        route = require_active_handle().reference_path_world_m
+        report = insertion_report(previous, sample, route)
+        _LOGGER.info(
+            "catheter insertion (sim time): commanded=%+.2f mm/s root=%+.2f mm/s "
+            "tip_%s=%+.2f mm/s; travel command/root/tip=%+.3f/%+.3f/%+.3f mm; "
+            "sim=%.3f s wall=%.3f s real_time_factor=%.3f",
+            1000.0 * report["commanded_mps"],
+            1000.0 * report["root_mps"],
+            "route" if route is not None else "axial",
+            1000.0 * report["tip_mps"],
+            1000.0 * report["commanded_m"],
+            1000.0 * report["root_m"],
+            1000.0 * report["tip_m"],
+            report["simulation_s"],
+            report["wall_s"],
+            report["real_time_factor"],
+        )
 
     def _record_spent(self, command: torch.Tensor, dt: float) -> None:
         """Integrate the spent feed into the recorded virtual joints."""
@@ -225,6 +348,8 @@ class XpbdCatheterAsset(SensorBase):
         self._data.insertion_m.add_(command[:, 0] * float(dt))
         self._data.rotation_rad.add_(command[:, 1] * float(dt))
         self._data.command.copy_(command)
+        self._simulation_s += float(dt)
+        self._probe_step += 1
 
     def snapshot(self, num_envs: int) -> CatheterState:
         """Return the catheter polyline in Isaac world coordinates."""
@@ -277,6 +402,11 @@ class XpbdCatheterAsset(SensorBase):
         self._refresh_positions()
 
     def _zero_bookkeeping(self, env_ids) -> None:
+        # Dropped unconditionally: the wire teleports back to its start on a
+        # reset, so differencing across one would report that jump as a feed
+        # rate. Losing a single reporting interval is the cheaper error.
+        self._insertion_mark = None
+        self._last_probe_step = -1
         if self._data.insertion_m is None or self._data.rotation_rad is None or self._data.command is None:
             return
         if env_ids is None:
@@ -316,7 +446,6 @@ class XpbdCatheterAsset(SensorBase):
         self._data.positions_world_m = torch.as_tensor(
             state.positions_world_m, device=self._device, dtype=torch.float32
         )
-        self._log_probe()
 
     def _log_probe(self) -> None:
         """Report containment and chord spread, when the probe is switched on.
@@ -324,21 +453,38 @@ class XpbdCatheterAsset(SensorBase):
         Off by default: the report brings particles to the host, which is a sync
         the hot path should not pay for a diagnostic nobody asked for.
         """
-        if self._probe_every <= 0 or self._data.positions_world_m is None:
+        if self._probe_every <= 0 or self._probe_step == 0 or self._probe_step == self._last_probe_step:
             return
-        self._probe_step += 1
         if self._probe_step % self._probe_every:
             return
+        self._refresh_positions()
+        if self._data.positions_world_m is None:
+            return
+        self._last_probe_step = self._probe_step
         report = require_active_handle().report_containment(
             self._data.positions_world_m.reshape(self._num_envs, -1, 3)[0].detach().cpu().numpy()
         )
         if report is None:
             return
+        live = ""
+        if "live_worst_penetration_mm" in report:
+            live = (
+                f"  live surface gap {report['live_worst_penetration_mm']:+.3f} mm "
+                f"outside {report['live_samples_outside']}/{report['num_live_samples']} samples"
+            )
         print(
-            f"[catheter probe] step {self._probe_step}  "
+            f"[catheter probe] step {self._probe_step} sim {self._simulation_s:.3f} s  "
             f"worst penetration {report['worst_penetration_mm']:+.2f} mm  "
             f"outside {report['particles_outside']}/{report['num_particles']}  "
-            f"chords {report['chord_min_pct']:.0f}-{report['chord_max_pct']:.0f}%",
+            f"chords {report['chord_min_pct']:.0f}-{report['chord_max_pct']:.0f}%  "
+            f"arc {report['arc_length_mm']:.1f}/{report['rest_length_mm']:.1f} mm "
+            f"({report['arc_excess_mm']:+.1f})  "
+            f"bend R {report['min_bend_radius_mm']:.1f} mm "
+            f"@{report['min_bend_radius_node']}/{report['num_particles'] - 1}  "
+            f"kinked {report['kinked_nodes']}/{report['num_bend_nodes']} "
+            f"@{report['first_kinked_node']}-{report['last_kinked_node']} "
+            f"p05 {report['bend_radius_p05_mm']:.0f} mm"
+            f"{live}",
             flush=True,
         )
 

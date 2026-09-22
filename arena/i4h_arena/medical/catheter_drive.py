@@ -23,8 +23,13 @@ Feeding along a *fixed introducer axis* looks right and quietly destroys
 navigation. The vessel curves away from the axis, so the proximal particle
 leaves the lumen: against this twin's centerline a straight rail is 11 mm off at
 50 mm of depth and 44 mm off at 300 mm, well outside the vessel, and it drags
-the rod off the centerline until it folds back on itself. Feed therefore follows
-the wire's current tangent, which is the path the vessel has already allowed.
+the rod off the centerline until it folds back on itself.
+
+Feeding along the *wire's own tangent* avoids that and closes a feedback loop
+instead, since the direction it reads is the one the push itself bends. What
+avoids both is to feed along arc length on the route, which is what
+:class:`RouteRailedIntroducer` does and what the keyboard drive uses; that
+class documents the comparison and the measurements behind it.
 
 The ops here are deliberately plain torch rather than ``isaaclab.utils.math`` so
 the geometry can be tested on CPU without bringing up Isaac Sim.
@@ -119,6 +124,36 @@ def quat_about_axis(axis: torch.Tensor, angle: torch.Tensor) -> torch.Tensor:
     return torch.cat(
         [torch.cos(half).unsqueeze(-1), axis.expand(angle.shape[0], 3) * torch.sin(half).unsqueeze(-1)], dim=-1
     )
+
+
+def frame_along(tangent: torch.Tensor) -> torch.Tensor:
+    """``(N, 4)`` w-first frames carrying local +Z along ``tangent``.
+
+    The rod's own convention, so a frame built here is the one the solver would
+    have seeded at a node pointing this way. Nodes store local +Z along the
+    tangent because the stretch constraint reaches for its neighbours along
+    half-length local-Z offsets; see
+    :func:`~i4h_arena.medical.catheter_initialization.rod_frames_along_polyline`,
+    whose root frame is this same minimal rotation from +Z.
+
+    Minimal rotation means the roll about the tangent is not chosen here. A
+    caller that cares about roll composes its own twist on top, which is what
+    axial rotation of the catheter is.
+    """
+    unit = tangent / torch.linalg.norm(tangent, dim=-1, keepdim=True).clamp_min(1e-12)
+    # Half-angle form of the minimal rotation from +Z: the axis is +Z x t and
+    # the scalar part is 1 + z.t, normalized.
+    quat = torch.stack(
+        [1.0 + unit[..., 2], -unit[..., 1], unit[..., 0], torch.zeros_like(unit[..., 0])],
+        dim=-1,
+    )
+    norm = torch.linalg.norm(quat, dim=-1, keepdim=True)
+    # A tangent at the -Z antipode leaves that axis undefined, the scalar part
+    # vanishing with it. Any perpendicular axis is then a correct half-turn, and
+    # +X is one; picking it keeps the frame finite instead of dividing by zero.
+    reversed_ = torch.zeros_like(quat)
+    reversed_[..., 1] = 1.0
+    return torch.where(norm > 1e-6, quat / norm.clamp_min(1e-12), reversed_)
 
 
 def quat_to_xyzw(quat: torch.Tensor) -> torch.Tensor:
@@ -362,8 +397,7 @@ class FlangeMountedIntroducer:
             return
         self._feed_logged_at = now
         _LOGGER.info(
-            "catheter feed: t=%.2f s  commanded=%.2f mm/s  clamped=%.2f mm/s  "
-            "spent=%.2f mm/s  depth=%.1f/%.0f mm",
+            "catheter feed: t=%.2f s  commanded=%.2f mm/s  clamped=%.2f mm/s  " "spent=%.2f mm/s  depth=%.1f/%.0f mm",
             now,
             1000.0 * float(commanded[0]),
             1000.0 * float(clamped[0]),
@@ -420,10 +454,189 @@ class FlangeMountedIntroducer:
         self._primed[env_ids] = False
 
 
+class RouteRailedIntroducer:
+    """Feeds the wire by prescribing where its proximal end sits on the route.
+
+    The proximal particle is prescribed: its inverse mass is zero, so no
+    constraint in the solve moves it and whatever the drive says is where it
+    goes. The only question is what the drive says, and there are three answers.
+
+    A *fixed introducer axis* leaves the lumen as soon as the vessel curves --
+    11 mm off at 50 mm of depth on this twin, 44 mm at 300 mm.
+
+    The *wire's own tangent* fixes that and introduces a worse failure, because
+    it is a feedback loop. The push direction is read from the root's first
+    segment, so a root that starts to fold is fed further into the fold, which
+    deepens it, which turns the direction further. Measured on ``s0011``, node
+    1's bend radius fell from 61 mm at reset to 15 mm over 400 steps of
+    pushing, four particles ended up through the vessel wall, and the shaft
+    buckled instead of advancing the tip. Widening the baseline the direction
+    is measured over and railing the traversed shaft onto the path both damped
+    it and neither stopped it, because both leave the root itself free to go
+    wherever the accumulated direction points.
+
+    This class takes the third answer: the root's *arc length along the route*
+    is the state, and its pose is looked up from that. Nothing accumulates, so
+    there is no loop to close -- an inextensible shaft advancing a millimetre
+    at the tip advances a millimetre at the root, which makes arc length the
+    honest integral of the feed, and the root is on the route by construction
+    at every value of it.
+
+    That is also what the hardware does. The wire at the access site runs
+    through an introducer sheath and then along vessel it has already
+    traversed, so its proximal end has no lateral freedom to fold with; the
+    freedom the operator has is all distal. Prescribing the root on the route
+    reproduces that constraint rather than modelling the sheath.
+
+    What stays free is everything the episode is about. Only node 0 is
+    prescribed, and only along a route the wire has already been fed through:
+    the shaft's shape, its contact with the wall, the steerable tip and every
+    millimetre ahead of the tip are left to the solve and the operator.
+    """
+
+    def __init__(
+        self,
+        path_world_m: torch.Tensor,
+        num_envs: int,
+        device: str | torch.device = "cpu",
+    ):
+        """
+        Args:
+            path_world_m: ``(S, 3)`` route vertices in world metres, the same
+                polyline the rod is seeded along. Arc zero is its first vertex,
+                which is where the root starts.
+            num_envs: Environments fed in parallel.
+            device: Where the lookup runs. Kept on the simulation device so
+                feeding the wire does not synchronize on the host each step.
+        """
+        self._device = torch.device(device)
+        path = path_world_m.to(self._device, torch.float32)
+        if path.ndim != 2 or path.shape[0] < 2 or path.shape[1] != 3:
+            raise ValueError(f"route must have shape (S, 3) with S >= 2, got {tuple(path.shape)}")
+        if not torch.isfinite(path).all():
+            raise ValueError("route contains non-finite vertices")
+
+        span = path[1:] - path[:-1]
+        length = torch.linalg.norm(span, dim=-1)
+        if bool((length <= 0.0).any()):
+            raise ValueError("consecutive route vertices must be distinct")
+        self._start = path[:-1]
+        self._direction = span / length.unsqueeze(-1)
+        # Arc at each segment's start, so a lookup interpolates from there.
+        self._arc_at_start = torch.cat([torch.zeros(1, device=self._device), torch.cumsum(length, dim=0)[:-1]])
+        self._route_length_m = float(length.sum())
+
+        self._arc_m = torch.zeros((num_envs,), dtype=torch.float32, device=self._device)
+        self._twist_rad = torch.zeros((num_envs,), dtype=torch.float32, device=self._device)
+        self._feed_logged_at = 0.0
+
+    @property
+    def route_length_m(self) -> float:
+        """Arc length of the whole route, metres."""
+        return self._route_length_m
+
+    @property
+    def depth_m(self) -> torch.Tensor:
+        """Route arc the root has advanced along, metres."""
+        return self._arc_m
+
+    def advance(
+        self,
+        insertion_velocity: torch.Tensor,
+        rotation_rate: torch.Tensor,
+        dt: float,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Run the rollers for one step.
+
+        Args:
+            insertion_velocity: ``(N,)`` commanded feed, metres per second.
+            rotation_rate: ``(N,)`` commanded axial rotation, radians per second.
+            dt: Control-step duration in seconds.
+
+        Returns:
+            The ``(insertion_velocity, rotation_rate)`` actually spent. Feed is
+            reduced where the route ran out, so the recorded command matches
+            the wire's motion rather than the keypress.
+        """
+        if dt <= 0.0:
+            raise ValueError(f"dt must be positive, got {dt}")
+
+        # The end of the route is the stop, and it is the honest one: past it
+        # there is no vessel for the root to be on, so there is no pose to
+        # prescribe. Useful travel runs out earlier anyway, when the tip
+        # reaches the far end and the shaft's own length is what's left.
+        requested = self._arc_m + insertion_velocity * float(dt)
+        allowed = torch.clamp(requested, 0.0, self._route_length_m)
+        spent = (allowed - self._arc_m) / float(dt)
+        self._arc_m.copy_(allowed)
+        self._twist_rad.add_(rotation_rate * float(dt))
+
+        self._log_feed(insertion_velocity, spent)
+        return spent, rotation_rate
+
+    def root_target(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Where the wire's proximal end should be, from the arc it has reached.
+
+        Takes no current rod state, which is the whole point: the pose is a
+        function of the feed integral and the route, so it cannot inherit an
+        error from where the root drifted to last step.
+
+        Returns:
+            ``(position, quaternion)`` for the rod's root, world frame and
+            w-first, matching what
+            :meth:`~i4h_arena.medical.xpbd_catheter.XpbdCatheterAsset.place_proximal`
+            consumes.
+        """
+        # ``searchsorted`` on the segment starts gives the segment containing
+        # each arc; an arc landing exactly on the far end belongs to the last.
+        index = torch.clamp(
+            torch.searchsorted(self._arc_at_start, self._arc_m.contiguous(), right=True) - 1,
+            0,
+            self._start.shape[0] - 1,
+        )
+        direction = self._direction[index]
+        position = self._start[index] + direction * (self._arc_m - self._arc_at_start[index]).unsqueeze(-1)
+        # Axial rotation is composed on here rather than sent as a rate command,
+        # because the solver latches one proximal command per step and a pose
+        # would overwrite the rate. See
+        # :meth:`catheter_vasculature_solver.xpbd_rod_solver.CathRodSolver.set_root_pose_gpu`.
+        spin = quat_about_axis(direction, self._twist_rad)
+        return position, _quat_mul(spin, frame_along(direction))
+
+    def _log_feed(self, commanded: torch.Tensor, spent: torch.Tensor) -> None:
+        """Report what the rollers were asked for against what the route allowed."""
+        interval = feed_log_seconds()
+        if interval <= 0.0:
+            return
+        now = time.monotonic()
+        if now - self._feed_logged_at < interval:
+            return
+        self._feed_logged_at = now
+        _LOGGER.info(
+            "catheter feed: t=%.2f s  commanded=%.2f mm/s  spent=%.2f mm/s  route=%.1f/%.0f mm",
+            now,
+            1000.0 * float(commanded[0]),
+            1000.0 * float(spent[0]),
+            1000.0 * float(self._arc_m[0]),
+            1000.0 * self._route_length_m,
+        )
+
+    def reset(self, env_ids: torch.Tensor | None = None) -> None:
+        """Return the root to the start of the route, untwisted."""
+        if env_ids is None:
+            self._arc_m.zero_()
+            self._twist_rad.zero_()
+            return
+        self._arc_m[env_ids] = 0.0
+        self._twist_rad[env_ids] = 0.0
+
+
 __all__ = [
     "FlangeMountedIntroducer",
     "LumenClamp",
+    "RouteRailedIntroducer",
     "IntroducerDriveSpec",
+    "frame_along",
     "quat_about_axis",
     "quat_to_w_first",
     "quat_to_xyzw",

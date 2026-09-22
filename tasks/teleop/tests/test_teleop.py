@@ -553,6 +553,104 @@ def test_teleop_releases_the_device_on_abort(ctx):
     assert device.closed
 
 
+# -- a device that opened without attaching ------------------------------
+
+
+class DetachedDevice(ScriptedDevice):
+    """Opens successfully and then never delivers a command.
+
+    What the keyboard devices become when Kit has no window: ``open`` warns
+    instead of raising, and every ``read`` returns ``None``.
+    """
+
+    @property
+    def attached(self) -> bool:
+        return False
+
+    @property
+    def done(self) -> bool:
+        return False
+
+    def read(self, ctx: TickContext) -> np.ndarray | None:
+        return None
+
+
+def _drive_real_on_enter(monkeypatch, device: InputDevice) -> Drive:
+    """A ``Drive`` whose real ``on_enter`` runs, unlike :func:`_drive_with`."""
+    monkeypatch.setattr("i4h_tasks.teleop.drive.make_device", lambda name, **kwargs: device)
+    return Drive(name="drive", device="keyboard")
+
+
+def test_a_device_that_opened_without_attaching_fails_at_startup(ctx, monkeypatch):
+    """The whole point: twenty minutes of driving nothing should not be possible.
+
+    A detached device holds pose on every tick, so the run looks alive, records
+    an episode, and reports success. Failing in ``on_enter`` is the only place
+    the operator finds out before spending the session.
+    """
+    task = _drive_real_on_enter(monkeypatch, DetachedDevice([np.zeros(6, np.float32)]))
+
+    with pytest.raises(RuntimeError, match="without acquiring its input source"):
+        task.on_enter(ctx, Drive.Inputs())
+
+
+def test_the_startup_failure_names_the_windowing_cause(ctx, monkeypatch):
+    """The operator needs the next step, not just the verdict.
+
+    GLFW's failure is a warning thousands of lines above the symptom, so the
+    message that stops the run carries the string to search for and the setting
+    to check.
+    """
+    task = _drive_real_on_enter(monkeypatch, DetachedDevice())
+
+    with pytest.raises(RuntimeError) as failure:
+        task.on_enter(ctx, Drive.Inputs())
+
+    assert "GLFW initialization failed" in str(failure.value)
+    assert "DISPLAY" in str(failure.value)
+
+
+def test_a_detached_device_is_released_rather_than_left_open(ctx, monkeypatch):
+    """``on_exit`` never runs for a node that failed to enter."""
+    device = DetachedDevice()
+    task = _drive_real_on_enter(monkeypatch, device)
+
+    with pytest.raises(RuntimeError):
+        task.on_enter(ctx, Drive.Inputs())
+
+    assert device.closed
+
+
+def test_an_attached_device_still_enters_normally(ctx, monkeypatch):
+    device = ScriptedDevice([np.full(6, 0.2, dtype=np.float32)])
+    task = _drive_real_on_enter(monkeypatch, device)
+
+    task.on_enter(ctx, Drive.Inputs())
+
+    assert device.opened
+    assert task.tick(ctx) is Status.RUNNING
+
+
+def test_a_device_that_says_nothing_is_assumed_attached():
+    """Every device that raises on failure keeps working unchanged.
+
+    Only the two keyboards downgrade a failure to a warning, so the default has
+    to be true or the bus, leader and VR devices would all have to opt in to
+    being usable.
+    """
+    assert ScriptedDevice().attached is True
+    assert BusDevice("k").attached is True
+
+
+def test_the_catheter_keyboard_is_detached_until_it_subscribes():
+    """No Kit in a CPU test, so ``open`` is the failing path by construction."""
+    assert CatheterKeyboardDevice().attached is False
+
+
+def test_the_isaac_keyboard_is_detached_without_kit():
+    assert KeyboardDevice().attached is False
+
+
 def test_teleop_runs_inside_a_workflow(ctx):
     device = ScriptedDevice([np.full(6, 0.3, np.float32)] * 2)
     task = _drive_with(device)

@@ -27,6 +27,10 @@ class CatheterSweep(Task):
         *,
         insertion_speed_mps: float = 0.012,
         rotation_rate_radps: float = 0.8,
+        settle_s: float = 1.0,
+        hold_s: float = 0.5,
+        bend_s: float = 0.5,
+        bend_rate_radps: float = 0.5,
         advance_s: float = 0.6,
         rotate_s: float = 0.6,
         retract_s: float = 0.3,
@@ -37,6 +41,10 @@ class CatheterSweep(Task):
         super().__init__(name=name)
         self.insertion_speed_mps = float(insertion_speed_mps)
         self.rotation_rate_radps = float(rotation_rate_radps)
+        self.settle_s = float(settle_s)
+        self.hold_s = float(hold_s)
+        self.bend_s = float(bend_s)
+        self.bend_rate_radps = float(bend_rate_radps)
         self.advance_s = float(advance_s)
         self.rotate_s = float(rotate_s)
         self.retract_s = float(retract_s)
@@ -49,15 +57,26 @@ class CatheterSweep(Task):
 
     def tick(self, ctx: TickContext) -> Status:
         elapsed = self._ticks * ctx.dt
-        advance_end = self.advance_s
-        rotate_end = advance_end + self.rotate_s
-        retract_end = rotate_end + self.retract_s
+        advance_end = self.settle_s + self.advance_s
+        hold_end = advance_end + self.hold_s
+        rotate_end = hold_end + self.rotate_s
+        bend_end = rotate_end + self.bend_s
+        unbend_end = bend_end + self.bend_s
+        retract_end = unbend_end + self.retract_s
         orbit_positive_end = retract_end + self.orbit_s
         orbit_return_end = orbit_positive_end + self.orbit_s
-        if elapsed < advance_end:
+        if elapsed < self.settle_s:
+            command = (0.0, 0.0, 0.0, 0.0)
+        elif elapsed < advance_end:
             command = (self.insertion_speed_mps, 0.0, 0.0, 0.0)
+        elif elapsed < hold_end:
+            command = (0.0, 0.0, 0.0, 0.0)
         elif elapsed < rotate_end:
             command = (0.0, self.rotation_rate_radps, 0.0, 0.0)
+        elif elapsed < bend_end:
+            command = (0.0, 0.0, self.bend_rate_radps, 0.0)
+        elif elapsed < unbend_end:
+            command = (0.0, 0.0, -self.bend_rate_radps, 0.0)
         elif elapsed < retract_end:
             command = (-self.insertion_speed_mps, 0.0, 0.0, 0.0)
         elif elapsed < orbit_positive_end:

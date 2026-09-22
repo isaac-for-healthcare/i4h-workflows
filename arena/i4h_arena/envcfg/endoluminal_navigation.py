@@ -45,8 +45,15 @@ def navigation_terminations_cfg(
     *,
     tolerance_m: float = ARRIVAL_TOLERANCE_M,
     hold_steps: int = ARRIVAL_HOLD_STEPS,
+    route_world_m: Iterable[Iterable[float]] | None = None,
 ) -> CatheterNavigationTerminationsCfg:
-    """Build the ``success`` term for a target in Isaac world metres."""
+    """Build the ``success`` term for a target in Isaac world metres.
+
+    ``route_world_m`` is the planned centerline the target sits at the end of.
+    It rides on the term so the operator readout can report remaining vessel
+    from the same place the criterion reads its target, and does not change
+    when the episode ends.
+    """
     return CatheterNavigationTerminationsCfg(
         success=TerminationTermCfg(
             func=reached_navigation_target,
@@ -55,6 +62,11 @@ def navigation_terminations_cfg(
                 "target_world_m": tuple(float(value) for value in target_world_m),
                 "tolerance_m": float(tolerance_m),
                 "hold_steps": int(hold_steps),
+                "route_world_m": (
+                    None
+                    if route_world_m is None
+                    else tuple(tuple(float(value) for value in point) for point in route_world_m)
+                ),
             },
         )
     )

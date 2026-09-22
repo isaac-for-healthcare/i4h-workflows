@@ -15,7 +15,14 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from i4h_arena.medical.vessel_deformation import length_scale_from_affine
+from i4h_arena.medical.vessel_deformation import (
+    VESSEL_ANGULAR_DAMPING,
+    VESSEL_ENDPOINTS_LOCKED,
+    VESSEL_LINEAR_DAMPING,
+    VESSEL_RESPONSE,
+    length_scale_from_affine,
+    vessel_dynamics_fields,
+)
 
 _MM_TO_M = 0.001
 
@@ -193,3 +200,79 @@ def test_nonpositive_radius_is_rejected(tmp_path, centerline_data_from_twin):
 
     with pytest.raises(ValueError, match="strictly positive"):
         centerline_data_from_twin(twin)
+
+
+# --------------------------------------------------------------------------- #
+# Wall dynamics
+#
+# The boundary conditions and damping decide whether the wall stays on the
+# anatomy, and none of it is visible from the rod's own state: the catheter can
+# read as perfectly shaped while the lumen it sits in has been carried away.
+# --------------------------------------------------------------------------- #
+def test_both_ends_are_anchored_by_default():
+    """With only the root held, a wall whose bend stiffness is 1.0 swings about
+    that anchor instead of bending, which reads as the wire leaving the lumen."""
+    fields = vessel_dynamics_fields()
+
+    assert fields["root_locked"] is True
+    assert fields["endpoints_locked"] is True
+
+
+def test_the_wall_is_damped_by_default():
+    fields = vessel_dynamics_fields()
+
+    assert fields["linear_damping"] == pytest.approx(0.01)
+    assert fields["angular_damping"] == pytest.approx(0.01)
+
+
+def test_the_root_stays_anchored_even_with_the_distal_end_free():
+    """Freeing the distal end is a legitimate comparison; losing the root is
+    not, since then nothing registers the vessel to the anatomy at all."""
+    fields = vessel_dynamics_fields(endpoints_locked=False)
+
+    assert fields["endpoints_locked"] is False
+    assert fields["root_locked"] is True
+
+
+@pytest.mark.parametrize("name", ["linear_damping", "angular_damping"])
+@pytest.mark.parametrize("value", [-0.01, 1.5])
+def test_damping_outside_the_unit_range_is_rejected(name, value):
+    with pytest.raises(ValueError, match=name):
+        vessel_dynamics_fields(**{name: value})
+
+
+def test_the_reference_values_are_what_the_helper_defaults_to():
+    """The constants are what callers and the spec cite, so a change to one that
+    misses the other would leave the two disagreeing about the same wall."""
+    assert VESSEL_ENDPOINTS_LOCKED is True
+    assert VESSEL_RESPONSE == pytest.approx(0.5)
+    assert VESSEL_LINEAR_DAMPING == pytest.approx(0.01)
+    assert VESSEL_ANGULAR_DAMPING == pytest.approx(0.01)
+
+
+def test_every_field_the_helper_names_is_a_real_solver_parameter():
+    """The helper spells these as strings, so a renamed solver field would
+    otherwise surface as a TypeError only once a GPU scene tried to build."""
+    pytest.importorskip(
+        "catheter_vasculature_solver.vessel_deformation",
+        reason="needs the catheter solver's vessel_deformation package",
+    )
+    import dataclasses
+
+    from catheter_vasculature_solver.vessel_deformation import CenterlineDynamicsParams
+
+    known = {field.name for field in dataclasses.fields(CenterlineDynamicsParams)}
+
+    assert set(vessel_dynamics_fields()) <= known
+
+
+def test_the_wall_takes_half_of_a_contact_correction_by_default():
+    """At 1.0 the wall yields completely and the wire is contained by nothing."""
+    import inspect
+
+    from i4h_arena.medical.vessel_deformation import centerline_vessel_from_twin
+
+    defaults = inspect.signature(centerline_vessel_from_twin).parameters
+
+    assert defaults["vessel_response"].default == pytest.approx(0.5)
+    assert defaults["two_way"].default is True

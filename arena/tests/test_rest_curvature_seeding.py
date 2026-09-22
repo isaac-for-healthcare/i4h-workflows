@@ -18,6 +18,7 @@ torch = pytest.importorskip("torch")
 # Below the skip guard on purpose: these helpers are torch-typed, so a machine
 # without torch has to skip rather than error at collection.
 from i4h_arena.medical.newton_catheter_physics import (  # noqa: E402
+    CatheterRodHandle,
     CatheterRodSpec,
     relative_darboux,
     rest_darboux_along_polyline,
@@ -117,14 +118,22 @@ def test_a_planar_arc_seeds_bend_but_no_twist():
     length = float(np.linalg.norm(arc[1] - arc[0]))
     darboux = rest_darboux_along_polyline(arc, length)
 
-    bend = darboux[..., 1:].norm(dim=-1)
-    twist = darboux[..., 0].abs()
+    # Frames carry local +Z along the tangent, so twist is the Z component and
+    # bending is the other two. See ``rod_frames_along_polyline``.
+    bend = darboux[..., :2].norm(dim=-1)
+    twist = darboux[..., 2].abs()
     assert bend.max() > 1e-3, "a curved polyline must seed some bending"
     assert twist.max() < 1e-3, f"planar arc seeded spurious twist up to {twist.max():.3e}"
 
 
 def test_arc_curvature_magnitude_tracks_one_over_radius():
-    """A circular arc's curvature is ``1/R``, which is what the solve is asked for."""
+    """A circular arc's curvature is ``1/R``, which is what the solve is asked for.
+
+    Compared in the rest buffer's own dimensionless units rather than inverse
+    metres: the active constraint subtracts this from ``Im(conj(q0) q1)``
+    without dividing by the segment, so a physical curvature is stored as
+    ``curvature * L / 2``.
+    """
     for radius in (0.03, 0.06):
         count = 40
         angles = np.linspace(0.0, 1.0, count)
@@ -136,7 +145,8 @@ def test_arc_curvature_magnitude_tracks_one_over_radius():
         magnitude = rest_darboux_along_polyline(arc, length).norm(dim=-1)
         # Interior edges only; the end tangents are one-sided and read low.
         interior = magnitude[2:-2].mean()
-        assert abs(float(interior) - 1.0 / radius) < 0.1 / radius
+        expected = (1.0 / radius) * length / 2.0
+        assert abs(float(interior) - expected) < 0.1 * expected
 
 
 def test_curvature_scales_linearly_for_blending():
@@ -162,3 +172,65 @@ def test_track_guidance_defaults_are_the_useful_staging():
     spec = CatheterRodSpec()
     assert spec.track_stage == "pre"
     assert 0.0 < spec.track_stiffness <= 1.0
+
+
+def test_free_distal_window_defaults_to_the_tip():
+    """Unset, guidance behaves as it always has and the solver keeps its default."""
+    spec = CatheterRodSpec()
+
+    assert spec.track_free_distal_length_m is None
+    assert CatheterRodHandle(spec)._track_free_distal_edges() is None
+
+
+def test_free_distal_window_converts_length_to_whole_edges():
+    """Rounded down, so the free window is never shorter than asked for."""
+    spec = CatheterRodSpec(length_m=0.5263, num_segments=120, track_free_distal_length_m=0.18)
+
+    # 0.18 / (0.5263 / 120) = 41.04 edges.
+    assert CatheterRodHandle(spec)._track_free_distal_edges() == 41
+
+
+def test_free_distal_window_cannot_exceed_the_rod():
+    """A window longer than the shaft leaves the whole shaft free, not more."""
+    spec = CatheterRodSpec(length_m=0.5263, num_segments=120, track_free_distal_length_m=10.0)
+
+    assert CatheterRodHandle(spec)._track_free_distal_edges() == 120
+
+
+def test_free_distal_window_rejects_a_non_positive_length():
+    with pytest.raises(ValueError, match="track_free_distal_length_m"):
+        CatheterRodSpec(track_free_distal_length_m=0.0)
+
+
+def test_feed_span_defaults_to_the_adjacent_node():
+    """Unset, the solver keeps reading the rod's own first-segment tangent."""
+    spec = CatheterRodSpec()
+
+    assert spec.proximal_feed_span_m is None
+    assert CatheterRodHandle(spec)._proximal_feed_span() == 1
+
+
+def test_feed_span_converts_length_to_whole_nodes():
+    """Rounded up, so the baseline is never shorter than asked for."""
+    spec = CatheterRodSpec(length_m=0.5263, num_segments=120, proximal_feed_span_m=0.035)
+
+    # 0.035 / (0.5263 / 120) = 7.98 segments.
+    assert CatheterRodHandle(spec)._proximal_feed_span() == 8
+
+
+def test_feed_span_below_one_segment_still_clears_the_adjacent_node():
+    """A fold at the root must not be able to aim the push that deepens it."""
+    spec = CatheterRodSpec(length_m=0.5263, num_segments=120, proximal_feed_span_m=0.0001)
+
+    assert CatheterRodHandle(spec)._proximal_feed_span() == 1
+
+
+def test_feed_span_cannot_run_past_the_rod():
+    spec = CatheterRodSpec(length_m=0.5263, num_segments=120, proximal_feed_span_m=10.0)
+
+    assert CatheterRodHandle(spec)._proximal_feed_span() == 120
+
+
+def test_feed_span_rejects_a_non_positive_length():
+    with pytest.raises(ValueError, match="proximal_feed_span_m"):
+        CatheterRodSpec(proximal_feed_span_m=0.0)

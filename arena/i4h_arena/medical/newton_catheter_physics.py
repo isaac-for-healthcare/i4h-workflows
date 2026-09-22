@@ -16,11 +16,21 @@ before the particles exist has nothing to drive, so registration happens on
 
 from __future__ import annotations
 
+import math
 import os
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+
+# Light: the vessel adapter defers its own solver import, so naming the wall
+# defaults here keeps them from drifting apart from the builder that uses them.
+from i4h_arena.medical.vessel_deformation import (
+    VESSEL_ANGULAR_DAMPING,
+    VESSEL_ENDPOINTS_LOCKED,
+    VESSEL_LINEAR_DAMPING,
+    VESSEL_RESPONSE,
+)
 
 if TYPE_CHECKING:
     # Annotation-only. Arena is on the light discovery path and must not pull
@@ -33,30 +43,16 @@ CLEANUP_SWEEPS_ENV_VAR = "I4H_CATHETER_CLEANUP"
 INTERIOR_CONTAINMENT_ENV_VAR = "I4H_CATHETER_INTERIOR"
 CLEANUP_ROUNDS_ENV_VAR = "I4H_CATHETER_ROUNDS"
 SEGMENT_COUNT_ENV_VAR = "I4H_CATHETER_SEGMENTS"
+REST_CURVATURE_ENV_VAR = "I4H_CATHETER_REST_CURVATURE"
+TIP_EDGES_ENV_VAR = "I4H_CATHETER_TIP_EDGES"
+TIP_LENGTH_ENV_VAR = "I4H_CATHETER_TIP_LENGTH_MM"
+CONTACT_ITERATIONS_ENV_VAR = "I4H_CATHETER_CONTACT_ITERATIONS"
+VESSEL_COMPLIANCE_ENV_VAR = "I4H_CATHETER_VESSEL"
 
-#: Segment count the catheter's bend stiffness was tuned at. Refining past it
-#: has to be compensated, which is what :func:`mesh_invariant_bend_stiffness`
-#: is for. This is a calibration reference, not the shipped resolution.
-REFERENCE_NUM_SEGMENTS = 40
+BEND_STIFFNESS_ENV_VAR = "I4H_CATHETER_BEND"
 
-#: Segments the catheter ships with. Measured against 40 on the s0011 route,
-#: over a matched 55 s hold: single-sample jumps above 0.5 mm went from 3 to 0
-#: and the worst from 1.13 mm to 0.23 mm, the drift band narrowed from 1.85 mm
-#: to 1.03 mm, and containment improved from 0 of 41 particles outside at
-#: -0.01 mm clearance to 0 of 121 at -1.72 mm.
-#:
-#: Chord stretch reads 100-128% here against 100-110% at 40, which looks like a
-#: regression and is not one: the chord probe reports a fraction of the rest
-#: segment length, and refining cut that length to a third. In millimetres the
-#: excess is 1.51 mm against 1.61 mm. Compare chords across segment counts in
-#: absolute terms or not at all.
+#: Spatial resolution. Material stiffness is independent of this count.
 DEFAULT_NUM_SEGMENTS = 120
-
-#: ``XPBDRodSolverCfg.bend_stiffness``'s default, mirrored so the compensation
-#: has a reference to scale without importing the solver package on the light
-#: discovery path. ``test_the_reference_stiffness_matches_the_installed_cfg``
-#: pins the two together.
-REFERENCE_BEND_STIFFNESS = 0.1
 
 
 def containment_stage_override(environ: Any = None) -> str | None:
@@ -143,43 +139,125 @@ def segment_count_override(environ: Any = None) -> int | None:
     return segments if segments >= 2 else None
 
 
-def mesh_invariant_bend_stiffness(
-    reference_stiffness: float,
-    reference_segment_length_m: float,
-    segment_length_m: float,
-) -> float:
-    """Bend stiffness that holds the rod's physical stiffness across refinement.
+def rest_curvature_override(environ: Any = None) -> float | None:
+    """Optional unloaded-shaft curvature scale; zero disables seeding.
 
-    The solver's bend compliance is ``1 / (E * bend_stiffness * L * dt^2)``, so
-    one joint resists with ``k ~ E * bend_stiffness * L``. What that joint
-    measures, though, is the raw relative-frame angle, not curvature: the
-    Newton kernel differences ``vec(q0* q1)`` against the rest Darboux and never
-    divides by ``L``. A rod held at curvature ``kappa`` therefore turns
-    ``kappa * L`` at each joint and stores ``E * bend_stiffness * kappa^2 * L^3``
-    there, and summing over the ``length / L`` joints leaves a total that scales
-    with ``L^2`` instead of staying put.
+    This changes the material rest shape, independently of placement and
+    orientation initialization. Full seeding is a diagnostic control unless
+    the intended catheter is actually manufactured with the vessel's shape.
+    """
+    raw = (environ if environ is not None else os.environ).get(REST_CURVATURE_ENV_VAR, "")
+    try:
+        scale = float(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+    return scale if 0.0 <= scale <= 1.0 else None
 
-    So the discretization is not stiffness-invariant on its own: tripling the
-    segment count makes the catheter nine times floppier in bending. Scaling
-    ``bend_stiffness`` by ``(L_ref / L)^2`` cancels the ``L^2`` exactly and
-    leaves refinement doing only what refinement should -- letting the rod hold
-    a tighter curve -- rather than quietly re-tuning the material.
+
+def tip_bend_rest_component(polyline_turn_rad: float, num_tip_edges: int) -> float:
+    """Per-edge rest Darboux value realizing a given turn of the tip polyline.
+
+    Mirrors what the solver's tip-bend kernels write, so the mapping can be
+    checked without a GPU. See
+    :meth:`catheter_vasculature_solver.cath_rod_solver.CathRodSolver.set_tip_bend`
+    for the derivation of the ``2n - 1``; the short version is that
+    ``rest_darboux`` turns *frames* while the polyline follows the midpoints
+    between them, losing half a hinge at the tip.
 
     Args:
-        reference_stiffness: Stiffness tuned at ``reference_segment_length_m``.
-        reference_segment_length_m: Segment length that tuning was done at.
-        segment_length_m: Segment length the rod will actually be built with.
+        polyline_turn_rad: Requested turn of the tip polyline, in radians.
+        num_tip_edges: Edges the bend is spread over.
 
     Returns:
-        The compensated stiffness, equal to ``reference_stiffness`` when the two
-        lengths match.
+        The value written into each tip edge's local-X rest curvature.
     """
-    if not reference_segment_length_m > 0.0:
-        raise ValueError(f"reference_segment_length_m must be positive, got {reference_segment_length_m}")
-    if not segment_length_m > 0.0:
-        raise ValueError(f"segment_length_m must be positive, got {segment_length_m}")
-    ratio = float(reference_segment_length_m) / float(segment_length_m)
-    return float(reference_stiffness) * ratio * ratio
+    if num_tip_edges < 1:
+        raise ValueError(f"num_tip_edges must be at least 1, got {num_tip_edges}")
+    return math.sin(float(polyline_turn_rad) / float(2 * num_tip_edges - 1))
+
+
+def tip_bend_polyline_turn_rad(rest_component: float, num_tip_edges: int) -> float:
+    """The turn a per-edge rest curvature actually produces, inverting the above.
+
+    Exists to measure the mapping rather than restate it: a test that only
+    checks ``sin`` against ``asin`` proves nothing about whether the polyline
+    turns by the requested amount. Out-of-range components clamp rather than
+    raise, matching ``asin`` on a value the solve could have pushed slightly
+    past one.
+    """
+    if num_tip_edges < 1:
+        raise ValueError(f"num_tip_edges must be at least 1, got {num_tip_edges}")
+    clamped = min(1.0, max(-1.0, float(rest_component)))
+    return float(2 * num_tip_edges - 1) * math.asin(clamped)
+
+
+def max_faithful_tip_bend_rad(num_tip_edges: int) -> float:
+    """Largest request the mapping reproduces exactly, ``(2n - 1) pi / 2``.
+
+    Past it ``asin(sin(x))`` folds back and a larger request realizes a smaller
+    turn. Generous at the shipped ten edges (29.8 rad) and tight at one
+    (``pi / 2``), which is the case worth guarding since the tip band is now
+    sweepable down to a single edge.
+    """
+    if num_tip_edges < 1:
+        raise ValueError(f"num_tip_edges must be at least 1, got {num_tip_edges}")
+    return float(2 * num_tip_edges - 1) * math.pi / 2.0
+
+
+def bend_stiffness_override(environ: Any = None) -> float | None:
+    """Bend stiffness from ``I4H_CATHETER_BEND``, else ``None``.
+
+    This dimensionless multiplier scales the physical section rigidity EI.
+    It is applied after ``solver_overrides`` so a diagnostic sweep can override
+    the scene's authored material. Segment length is accounted for by the
+    solver's compliance; no mesh-dependent multiplier is needed here.
+
+    Zero and negatives are ignored rather than treated as a floppy rod, since
+    the sweep only moves upward and a zero here would silently remove the
+    constraint being measured.
+    """
+    raw = (environ if environ is not None else os.environ).get(BEND_STIFFNESS_ENV_VAR, "")
+    try:
+        stiffness = float(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+    return stiffness if stiffness > 0.0 else None
+
+
+def tip_edge_count_override(environ: Any = None) -> int | None:
+    """Legacy diagnostic edge-count override for the distal tip.
+
+    Prefer a physical tip length, which remains consistent on mesh refinement.
+    Zero disables the steerable band for rest-curvature experiments.
+    """
+    raw = (environ if environ is not None else os.environ).get(TIP_EDGES_ENV_VAR, "")
+    try:
+        edges = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+    return edges if edges >= 0 else None
+
+
+def seeded_rest_curvature_scale(
+    *,
+    from_path: bool,
+    spec_scale: float,
+    override: float | None,
+) -> float | None:
+    """Scale to seed the rest shape at, or ``None`` to leave the rod straight.
+
+    Separated from the solver build so the precedence is testable without a
+    solver. An override turns seeding on by itself, since the sweep would
+    otherwise need the spec flag flipped first and the environment would only
+    be able to change the strength of something already enabled.
+
+    A scale of zero declines seeding however it arrives, which is what makes
+    ``0`` the sweep's control arm rather than a request to seed nothing.
+    """
+    scale = float(spec_scale if override is None else override)
+    if scale <= 0.0:
+        return None
+    return scale if (from_path or override is not None) else None
 
 
 def interior_containment_override(environ: Any = None) -> tuple[float, float] | None:
@@ -204,10 +282,39 @@ def interior_containment_override(environ: Any = None) -> tuple[float, float] | 
     return deadband, stiffness
 
 
+def vessel_compliance_override(environ: Any = None) -> tuple[float, float, float] | None:
+    """``(response, linear_damping, angular_damping)`` from ``I4H_CATHETER_VESSEL``.
+
+    Written ``"response,linear_damping,angular_damping"``, all three fractions
+    in ``[0, 1]`` -- so ``"0.5,0.01,0.01"`` restates the defaults. They share a
+    variable because they trade off against each other: how much of a contact
+    correction the wall takes, and how much of the resulting motion survives to
+    the next step. Returns ``None`` when unset or unparseable, leaving the
+    spec's values alone, since a mistyped diagnostic should not pick the
+    physics.
+    """
+    raw = (environ if environ is not None else os.environ).get(VESSEL_COMPLIANCE_ENV_VAR, "")
+    parts = str(raw).split(",")
+    if len(parts) != 3:
+        return None
+    try:
+        response, linear_damping, angular_damping = (float(part.strip()) for part in parts)
+    except (TypeError, ValueError):
+        return None
+    if not all(0.0 <= value <= 1.0 for value in (response, linear_damping, angular_damping)):
+        return None
+    return response, linear_damping, angular_damping
+
+
 # Isaac's world is Z-up, while the standalone rod solver's config defaults to
-# Y-down. Naming the world value here keeps the scene from inheriting a gravity
-# vector pointing sideways.
+# Y-down. Naming the world value here keeps a scene that wants weight from
+# inheriting a gravity vector pointing sideways.
 GRAVITY_WORLD_Z_UP = (0.0, 0.0, -9.81)
+
+# A guidewire in blood is close to neutrally buoyant, so its weight in air is a
+# load the real device does not carry -- and one the wall then has to resist.
+# The reference endoluminal scene runs with gravity off for the same reason.
+GRAVITY_NEUTRAL_BUOYANCY = (0.0, 0.0, 0.0)
 
 
 def tip_bend_stiffness_profile(
@@ -286,11 +393,9 @@ def _apply_physical_rotational_inertia(solver: Any, *, radius_m: float, segment_
     Written before the first step, because the value reaches the kernel by value
     and is therefore baked into the captured CUDA graph rather than re-read.
 
-    Isotropic on purpose. The torsional axis is properly ``m r^2 / 2``, some 38x
-    smaller here, but the solver source does not pin down which local axis
-    carries the tangent, and guessing wrong would stiffen the rod across the bend
-    instead of along it. Isotropic matches the configuration Mosaic measured as
-    contained with rest lengths intact.
+    Local Z is the material tangent, as in initialization and stretch/shear
+    constraints. Use cylinder transverse inertia for local X/Y and polar
+    inertia ``m r^2 / 2`` for local Z.
 
     Returns the inverse inertia written.
     """
@@ -307,7 +412,8 @@ def _apply_physical_rotational_inertia(solver: Any, *, radius_m: float, segment_
                 radius_m,
                 segment_length_m,
             )
-        value = wp.vec3(inv_inertia, inv_inertia, inv_inertia)
+        polar_inverse = 2.0 / (_segment_mass_kg(workspace) * radius_m * radius_m)
+        value = wp.vec3(inv_inertia, inv_inertia, polar_inverse)
         # Single-env workspaces hold a bare vec3; the batched one holds a
         # per-environment array of them.
         if isinstance(diagonal, wp.array):
@@ -343,12 +449,47 @@ def nearest_on_polyline(points: np.ndarray, path: np.ndarray) -> tuple[np.ndarra
     return projected[rows, edge], edge, fraction[rows, edge]
 
 
+def bend_radii_m(positions_world_m: Any) -> np.ndarray:
+    """Radius of curvature at every interior node, in metres.
+
+    The circumradius of each consecutive triple, which is what makes this
+    comparable across segment counts: refining the rod leaves the circle through
+    three samples of the same physical curve roughly where it was, while a
+    per-node turning angle halves. That is the trap the chord percentages set,
+    and the reason this is a radius rather than an angle.
+
+    A radius is also the number the wire can be judged against. Anatomical
+    curves run tens of millimetres; a guidewire folded on itself turns inside a
+    few. Nothing else in :func:`containment_report` can tell those apart,
+    because containment is a radial test that a fold staying inside the lumen
+    never trips, and a fold does not change arc length either.
+
+    Straight runs have no finite circle through them and come back as ``inf``
+    rather than a large number that would read as a gentle bend. Coincident
+    samples are ``inf`` for the same reason: no bend is defined there.
+    """
+    points = np.asarray(positions_world_m, dtype=np.float64).reshape(-1, 3)
+    if points.shape[0] < 3:
+        return np.empty(0, dtype=np.float64)
+    back = points[1:-1] - points[:-2]
+    forward = points[2:] - points[1:-1]
+    span = points[2:] - points[:-2]
+    # ``|back x forward|`` is twice the triangle's area, so the circumradius
+    # ``abc / 4A`` is the product of the side lengths over twice this.
+    twice_area = np.linalg.norm(np.cross(back, forward), axis=1)
+    sides = np.linalg.norm(back, axis=1) * np.linalg.norm(forward, axis=1) * np.linalg.norm(span, axis=1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        radii = sides / (2.0 * twice_area)
+    return np.where(twice_area > 0.0, radii, np.inf)
+
+
 def containment_report(
     positions_world_m: Any,
     *,
     path_world_m: Any,
     lumen_radii_m: Any,
     segment_length_m: float,
+    kink_radius_m: float = 0.010,
 ) -> dict[str, float]:
     """How far the rod sits outside the lumen, and what it did to its own chords.
 
@@ -359,7 +500,50 @@ def containment_report(
 
     Chords come back as a percentage of ``segment_length_m`` because an
     inextensible rod stored with unequal chords is the specific damage that
-    containment-after-solve does, and the number is meaningless in absolute mm.
+    containment-after-solve does, and a single chord is meaningless in absolute
+    mm.
+
+    Summed over the rod it is not meaningless, which is what ``arc_excess_mm``
+    is for: how much arc length the rod is carrying beyond its rest length. The
+    chord     percentages describe how that excess is distributed and move when the
+    cleanup sweeps redistribute it, so they can improve while the rod holds just
+    as much excess as before. The total only moves when arc length is actually
+    injected or removed, and it is comparable across segment counts, which the
+    percentages are not. Insertion that arrives as excess here rather than as
+    tip travel is insertion the operator does not get.
+
+    ``min_bend_radius_mm`` is the one figure here that can see a fold. Neither
+    penetration nor arc length can: a tip doubled back on itself sits well
+    inside the lumen and carries exactly the arc length it had straight, so both
+    report a healthy rod while the wire is kinked and the tip has stopped
+    tracking. ``min_bend_radius_node`` says where, which is worth having because
+    a tight radius at the distal end is a folded tip and the same radius
+    mid-shaft is usually just anatomy.
+
+    A minimum over a hundred-odd nodes is dominated by its worst one, though, so
+    it cannot say whether the rod holds a single hairpin or is kinked
+    throughout. Measured runs sit at the fold floor of half a segment length in
+    every sample of every configuration, which is exactly the reading those two
+    cases share. ``kinked_nodes`` and ``bend_radius_p05_mm`` separate them:
+    a localized fold leaves the count in the low single digits and the
+    percentile out at anatomical scale, while a rod-wide problem moves both.
+    ``first_kinked_node`` and ``last_kinked_node`` then say whether the kinked
+    nodes are one block or scattered, which is the difference between a buckled
+    section that swallows insertion and a discretization that creases
+    everywhere.
+
+    Args:
+        positions_world_m: ``(num_points, 3)`` particle positions.
+        path_world_m: ``(num_samples, 3)`` centerline the lumen is measured on.
+        lumen_radii_m: Vessel radius at each centerline sample.
+        segment_length_m: Rest length of one edge.
+        kink_radius_m: Bend radius at or below which a node counts as kinked.
+            Defaults to 10 mm, which is under the tightest curve on the s0011
+            route -- the raw centerline bottoms out at 13.1 mm and the rod's
+            seeded shape at 14.4 mm -- so anatomy alone cannot trip it. In
+            absolute metres rather than segment lengths, since the whole point
+            is to compare a fold against the vessel rather than against the
+            discretization.
     """
     points = np.asarray(positions_world_m, dtype=np.float64).reshape(-1, 3)
     path = np.asarray(path_world_m, dtype=np.float64).reshape(-1, 3)
@@ -379,12 +563,49 @@ def containment_report(
 
     chords = np.linalg.norm(np.diff(points, axis=0), axis=1)
     percent = 100.0 / float(segment_length_m)
+    arc_length_m = float(chords.sum())
+    rest_length_m = float(segment_length_m) * float(chords.shape[0])
+    curvature_radii = bend_radii_m(points)
+    tightest_m = float(curvature_radii.min()) if curvature_radii.size else float("inf")
+    # Interior nodes start at 1, so the argmin shifts to index the rod itself.
+    tightest_node = int(curvature_radii.argmin()) + 1 if curvature_radii.size else -1
+    # Interpolating between two infinities gives a nan rather than an infinity,
+    # and a rod straight enough for its 5th percentile to land there has no
+    # kinks worth a number either way, so both collapse to ``inf``.
+    spread_m = float("inf")
+    if curvature_radii.size:
+        with np.errstate(invalid="ignore"):
+            percentile = float(np.percentile(curvature_radii, 5.0))
+        if np.isfinite(percentile):
+            spread_m = percentile
+    tight = curvature_radii <= float(kink_radius_m)
+    kinked = int(tight.sum())
+    # Where those nodes sit, which separates a coil from scattered creases. The
+    # count alone cannot: nine adjacent folded nodes are a buckled distal
+    # section that swallows insertion, and nine spread over the rod are a
+    # discretization problem. Interior nodes start at 1, matching
+    # ``min_bend_radius_node``.
+    if kinked:
+        indices = np.flatnonzero(tight)
+        first_kinked, last_kinked = int(indices[0]) + 1, int(indices[-1]) + 1
+    else:
+        first_kinked, last_kinked = -1, -1
     return {
         "worst_penetration_mm": float(penetration.max()) * 1000.0,
         "particles_outside": int((penetration > 0.0).sum()),
         "num_particles": int(points.shape[0]),
         "chord_min_pct": float(chords.min()) * percent,
         "chord_max_pct": float(chords.max()) * percent,
+        "arc_length_mm": arc_length_m * 1000.0,
+        "rest_length_mm": rest_length_m * 1000.0,
+        "arc_excess_mm": (arc_length_m - rest_length_m) * 1000.0,
+        "min_bend_radius_mm": tightest_m * 1000.0,
+        "min_bend_radius_node": tightest_node,
+        "bend_radius_p05_mm": spread_m * 1000.0,
+        "kinked_nodes": kinked,
+        "first_kinked_node": first_kinked,
+        "last_kinked_node": last_kinked,
+        "num_bend_nodes": int(curvature_radii.size),
     }
 
 
@@ -404,12 +625,12 @@ def _segment_mass_kg(workspace: Any) -> float:
     return 1.0 / float(free[0])
 
 
-def relative_darboux(q1: "torch.Tensor", q2: "torch.Tensor", length_m: float) -> "torch.Tensor":
+def relative_darboux(q1: torch.Tensor, q2: torch.Tensor, length_m: float) -> torch.Tensor:
     """The Darboux vector between consecutive rod frames, ``2 vec(q1* q2) / L``.
 
-    Mirrors ``RodSolver._compute_darboux`` so a rest value written from here is
-    measured against the same convention the bend constraint uses. Quaternions
-    are x, y, z, w, which is what the solver stores.
+    This is physical curvature in inverse metres. The active XPBD rest buffer
+    instead stores dimensionless quaternion components; multiply by L/2 before
+    writing there. Quaternions are x, y, z, w.
 
     Args:
         q1: ``(..., 4)`` frame at the proximal end of each edge.
@@ -434,87 +655,26 @@ def relative_darboux(q1: "torch.Tensor", q2: "torch.Tensor", length_m: float) ->
     return 2.0 * vec / float(length_m)
 
 
-def _quat_multiply(q1: "torch.Tensor", q2: "torch.Tensor") -> "torch.Tensor":
-    """Hamilton product of xyzw quaternions, matching ``RodSolver._quat_multiply``."""
-    import torch
+def rest_darboux_along_polyline(positions_world_m: torch.Tensor, segment_length_m: float) -> torch.Tensor:
+    """Dimensionless XPBD rest values from local-Z transported rod frames.
 
-    x1, y1, z1, w1 = q1[..., 0], q1[..., 1], q1[..., 2], q1[..., 3]
-    x2, y2, z2, w2 = q2[..., 0], q2[..., 1], q2[..., 2], q2[..., 3]
-    return torch.stack(
-        [
-            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
-            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
-            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
-            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
-        ],
-        dim=-1,
-    )
-
-
-def _minimal_rotation(source: "torch.Tensor", target: "torch.Tensor") -> "torch.Tensor":
-    """The shortest xyzw rotation carrying unit ``source`` onto unit ``target``."""
-    import torch
-
-    dot = (source * target).sum(-1, keepdim=True).clamp(-1.0, 1.0)
-    quat = torch.cat([torch.cross(source, target, dim=-1), 1.0 + dot], dim=-1)
-    # Antiparallel tangents leave the axis undetermined; any perpendicular will
-    # do, and a vessel centerline doubling back inside one segment is not a case
-    # worth choosing carefully for.
-    flipped = (dot.squeeze(-1) < -0.999999).unsqueeze(-1)
-    fallback = torch.zeros_like(quat)
-    fallback[..., 1] = 1.0
-    quat = torch.where(flipped, fallback, quat)
-    return quat / (quat.norm(dim=-1, keepdim=True) + 1.0e-8)
-
-
-def rest_darboux_along_polyline(positions_world_m: "torch.Tensor", segment_length_m: float) -> "torch.Tensor":
-    """Per-edge rest curvature describing a polyline, with no spurious twist.
-
-    Frames are parallel transported: the first is the shortest rotation taking
-    local +X onto the first tangent, and each next one carries its predecessor
-    along by the shortest rotation between consecutive tangents. Consecutive
-    frames then differ by bending alone.
-
-    That is the whole reason this exists rather than reusing
-    ``orientations_xyzw_along_polyline``, which builds every frame independently
-    as the shortest rotation from global +X. Those frames point the right way but
-    their roll about the tangent jumps arbitrarily from one point to the next, so
-    the relative Darboux between them is dominated by twist that the polyline
-    does not actually have. Seeding from it drove the solve unstable -- the rod
-    stretched to 3375 mm against a 303 mm rest length.
-
-    Args:
-        positions_world_m: ``(N, 3)`` particle positions, proximal to distal.
-        segment_length_m: Rest length of one edge.
-
-    Returns:
-        ``(N - 1, 3)`` rest curvature and twist in each edge's material frame.
+    The active constraint subtracts rest_darboux from Im(conj(q0) * q1),
+    without dividing by segment length. Physical curvature from
+    relative_darboux must therefore be multiplied by L/2 before storage.
+    This optional material rest shape is independent of initial placement.
     """
     import torch
 
-    positions = positions_world_m.reshape(-1, 3).to(dtype=torch.float32)
-    if positions.shape[0] < 2:
-        raise ValueError(f"need at least 2 particles to describe curvature, got {positions.shape[0]}")
+    from .catheter_initialization import rod_frames_along_polyline
 
-    # Central differences mid-chain, one-sided at the ends, matching how
-    # ``orientations_xyzw_along_polyline`` picks per-point tangents.
-    tangents = torch.zeros_like(positions)
-    tangents[0] = positions[1] - positions[0]
-    tangents[-1] = positions[-1] - positions[-2]
-    if positions.shape[0] > 2:
-        tangents[1:-1] = positions[2:] - positions[:-2]
-    tangents = tangents / (tangents.norm(dim=-1, keepdim=True) + 1.0e-8)
-
-    axis = torch.zeros_like(tangents[0])
-    axis[0] = 1.0
-    frames = torch.zeros(positions.shape[0], 4, dtype=positions.dtype)
-    frames[0] = _minimal_rotation(axis, tangents[0])
-    for i in range(1, positions.shape[0]):
-        transport = _minimal_rotation(tangents[i - 1], tangents[i])
-        frames[i] = _quat_multiply(transport, frames[i - 1])
-        frames[i] = frames[i] / (frames[i].norm() + 1.0e-8)
-
-    return relative_darboux(frames[:-1], frames[1:], segment_length_m)
+    if not segment_length_m > 0.0:
+        raise ValueError("segment_length_m must be positive")
+    frames = torch.as_tensor(
+        rod_frames_along_polyline(positions_world_m.detach().cpu().numpy()),
+        dtype=positions_world_m.dtype,
+        device=positions_world_m.device,
+    )
+    return relative_darboux(frames[:-1], frames[1:], segment_length_m) * (0.5 * segment_length_m)
 
 
 def _seed_shaft_rest_darboux(
@@ -525,44 +685,12 @@ def _seed_shaft_rest_darboux(
     positions_world_m: np.ndarray,
     scale: float = 1.0,
 ) -> None:
-    """Make the rod's rest shape the curve it was seeded on, not a straight line.
+    """Optionally author the shaft's material rest shape from its seed path.
 
-    ``rest_darboux`` is the curvature the bend constraint measures against, and it
-    ships as zeros along the shaft, which is a straight rest shape -- so the rod
-    straightens out of curved anatomy and post-solve containment has to drag it
-    back every step, which is what mangles the chords. Asking the solve for a rod
-    that already follows the vessel is the mechanism that should avoid that,
-    rather than fighting its output with a projection.
-
-    It does not currently survive contact with the solve. See
-    :attr:`CatheterRodSpec.rest_curvature_from_path` for the measurements: at
-    full strength the rod diverges to ten times its rest length, and the
-    curvature has to be scaled down to where it is effectively straight before
-    the solve is stable. Kept because the seeding itself is correct and tested,
-    and it is the shape of the fix once the solve can take it.
-
-    The frames come from the seeded polyline rather than off the solver. Neither
-    of the solver's own buffers can supply them at build time: ``orientations``
-    is initialized to one frame for the whole rod, so consecutive frames are
-    identical and their relative Darboux is zero, and ``positions`` is still
-    empty because the rod syncs particles from the Newton state on each step.
-    Seeding from either wrote back exactly the straight rest shape this is meant
-    to replace, and measured identically to not running at all.
-
-    Tip edges are left as they are. Their rest curvature is the steerable
-    pre-bend that ``set_tip_bend`` owns, and a floppy tip free to deform is what
-    lets the wire be steered at all.
-
-    Args:
-        solver: Built rod solver, single-env or batched.
-        num_tip_edges: Trailing edges to leave to the tip.
-        segment_length_m: Rest length of one edge.
-        positions_world_m: ``(num_points, 3)`` seeded particle positions, in
-            order from proximal to distal.
-        scale: Fraction of the polyline's curvature to adopt. ``1.0`` asks for a
-            rod whose relaxed shape is the vessel exactly, which makes the wire
-            as reluctant to straighten as the anatomy is curved; below that it
-            is a blend, and the rod still carries some preference for straight.
+    Uses the same local-Z frames as initialization and the dimensionless
+    quaternion components expected by XPBD. The distal tip keeps its own
+    authored rest values. Disabled by default: patient placement alone does
+    not imply that the unloaded catheter is shaped like the vessel.
     """
     import torch
     import warp as wp
@@ -608,7 +736,21 @@ class CatheterRodSpec:
             one the rod runs against no wall.
         vessel_enabled: Set ``False`` to run the rod with contact off even when
             a twin is available, which is useful for isolating rod behaviour.
-        gravity_world: World-frame gravity, Z-up by default.
+        gravity_world: World-frame gravity. Zero by default, since a guidewire
+            in blood is near neutrally buoyant; pass ``GRAVITY_WORLD_Z_UP`` for
+            a scene that wants the rod to carry its own weight.
+        vessel_endpoints_locked: Anchor the vessel wall's distal end as well as
+            its root. Held at the root alone, a wall whose bend stiffness is
+            1.0 does not bend under contact so much as swing about that single
+            anchor, which is how the probe came to report the whole wire
+            outside a lumen the wire had itself carried 15 mm off the anatomy.
+        vessel_response: Share of each contact correction the wall absorbs,
+            leaving the rest to the catheter. At ``1.0`` the wall yields
+            completely and the wire is never actually contained by anything.
+        vessel_linear_damping: Wall translational damping, in ``[0, 1]``.
+            Undamped, the energy a contact puts into the wall stays there.
+        vessel_angular_damping: Wall rotational damping, in ``[0, 1]``.
+            ``I4H_CATHETER_VESSEL`` walks the response and both dampings live.
         rigid_bodies_enabled: Set ``True`` when the scene also spawns rigid
             articulations, such as a robot arm carrying the catheter drive.
             The rod-only solver has no rigid integrator, so a scene with an
@@ -630,69 +772,42 @@ class CatheterRodSpec:
             solve guidance runs on. ``"pre"`` is the useful one, since the
             distance constraints then get the last word and are what restore the
             spacing; ``"post"`` leaves guidance as the final say on position.
-        rest_curvature_from_path: Take the bend constraint's rest curvature from
-            the shape the rod was seeded in, instead of leaving it zero. Zero is
-            a straight rest shape, which a direct constraint solve then
-            straightens the rod into regardless of what the anatomy does; this
-            asks the solve for a rod that follows the vessel to begin with.
-            Requires ``initial_path_world_m``. The distal tip keeps its own rest
-            pre-bend so it stays steerable.
+        track_free_distal_length_m: Length of shaft nearest the tip that
+            guidance leaves free, which is what turns guidance from a whole-
+            route prescription into a proximal rail. Unset, guidance holds
+            everything but the steerable tip and the wire simply follows the
+            seeded path. Set it longer than the route still to be navigated and
+            guidance only holds shaft that has already been somewhere, which is
+            the part that has no freedom left anyway: the operator keeps full
+            authority over every millimetre still ahead of the tip.
 
-            Off because it does not currently hold together: on the s0011 iliac
-            route the constraint solve diverges, stretching the rod to 2.5-3.4 m
-            against a 303 mm rest length. Scaling the curvature down only trades
-            that for uselessness -- stable near ``0.05``, which is a 1.7 m radius
-            and leaves 40 of 41 particles outside the lumen exactly as before.
-            Making it work needs the solve to tolerate an anatomically curved
-            rest shape, which is a solver-side change.
-        containment_cleanup_iterations: Gauss-Seidel distance sweeps to run
-            *after* post-solve containment, restoring the edge lengths that
-            containment disturbs. Containment has to run after the solve to
-            persist at all, but it is then the last word on position and
-            overrides the stretch constraints the solve had satisfied, leaving
-            chords at 7-364% of rest -- particles overlapping in clusters with
-            long stretched gaps between them.
-
-            Measured on the s0011 iliac route: 4 sweeps give 91-159%, 16 give
-            100-119%, 32 give 100-112% and 64 give 100-107%. The cost is that
-            worst-case wall penetration rises from 1.5 mm to about 3.2 mm, and
-            notably it plateaus there rather than growing with sweep count, so
-            more sweeps buy spacing accuracy without giving up more containment.
-            ``0`` disables it.
-
-            That measurement was taken over a short insertion. Stretch is not a
-            fixed offset the sweeps pay off once -- it accumulates with inserted
-            length, so a teleop run that drives most of the route reaches
-            121-122% on the setting that measured 112%. Driven to a matched
-            depth, 128 sweeps measured 100-109% against 64's 100-114% at the
-            same containment, which is why it is the default.
-
-            Sweeps alone cannot finish the job, and it is worth knowing why
-            before reaching for a bigger number. They redistribute the excess
-            arc length; they do not remove it. Pushing them harder pulls the
-            correction back off the free distal tip and loads it into the
-            mid-shaft instead, so the bend relocates rather than leaves. What
-            lets it exist at all is one-sided containment -- see
-            ``containment_interior_deadband``.
-            ``I4H_CATHETER_CLEANUP`` walks this live against the probe.
-        containment_cleanup_relaxation: Fraction of each length correction to
-            apply per sweep, in ``(0, 1]``. Full strength converges fastest and
-            is the default; 0.6 measured slightly worse at equal sweeps.
-        containment_cleanup_rounds: How many times to alternate containment with
-            the cleanup sweeps, rather than running containment once and
-            spending every sweep after it.
-
-            Sequencing them lets whichever ran last win, and the sweeps ran
-            last. They equalize edge lengths knowing nothing about the vessel,
-            so they pay for spacing by pushing particles laterally through the
-            wall -- and 128 of them comfortably overrule the single containment
-            pass before them. Measured that way: chords at a best-ever 100-104%
-            with 13 of 41 particles outside the lumen, the worst containment
-            recorded on this route. Alternating projects onto each constraint in
-            turn, which converges toward satisfying both instead of only the
-            last. The sweep budget is divided across rounds rather than
-            multiplied, so this costs extra containment passes and no extra
-            sweeps. ``1`` restores the original sequencing.
+            This removes the lateral freedom a proximal fold needs, and real
+            procedures get the same effect for free: the wire there is inside
+            an introducer and against vessel it already traversed. On its own
+            it is not sufficient, because guidance skips the prescribed root --
+            see ``proximal_feed_span_m`` for the other half.
+        proximal_feed_span_m: Baseline over which the insertion direction is
+            measured, from the root toward the tip. Insertion advances the root
+            along this direction, so measuring it across one 4 mm segment lets
+            a fold at the root aim the very push that deepens it, which is the
+            loop that ends attempts here: node 1's bend radius fell from 61 mm
+            to 15 mm over 400 steps of pushing, and the shaft then buckled
+            rather than advancing. Measured over several centimetres instead,
+            the direction barely registers the fold. Unset, the rod's own first
+            segment is used, which is the solver's historical behaviour.
+        rest_curvature_from_path: Optionally manufacture the shaft's unloaded
+            rest shape from the seeded path, leaving the distal tip separate.
+            Requires ``initial_path_world_m``. Disabled by default: initial
+            placement in a curved vessel does not prescribe material curvature.
+            Earlier sweeps used incompatible curvature units and frame axes;
+            those divergence measurements do not apply to the corrected helper.
+        containment_cleanup_iterations: Legacy position-only length sweeps,
+            used only when ``contact_coupling_iterations=0``. Retained for
+            controlled comparisons with the previous post-solve pipeline.
+        containment_cleanup_relaxation: Fraction of each legacy length
+            correction to apply, in (0, 1].
+        containment_cleanup_rounds: Legacy alternations between contact and
+            position-only length sweeps, dividing the total sweep budget.
         containment_interior_deadband: How much of the radius the wire is free to
             occupy before containment starts pulling it back toward the vessel
             axis, as a fraction. ``1.0`` reaches the wall and is the one-sided
@@ -716,35 +831,23 @@ class CatheterRodSpec:
         track_stiffness: Blend toward the path per iteration, in ``[0, 1]``. A
             blend rather than a snap, so guidance argues with the elastic solve
             instead of overruling it as the hard containment projection does.
-        physical_rotational_inertia: Write the rod's own segment inertia over the
-            solver's identity default, which is physically wrong -- a 0.5 mm
-            wire's frame is orders of magnitude easier to turn than a unit
-            inertia claims.
-
-            Off nonetheless, because it buys nothing measurable and the shipped
-            configuration is the one that has been validated without it. It was
-            expected to make ``containment_stage="pre"`` viable by letting the
-            frame turn under a wall push and so hold a pre-solve correction. It
-            does not: with it on, ``"pre"`` still measures +74 mm and 39 of 41
-            particles outside, and ``"post"`` still measures +3 mm, both
-            unchanged from identity inertia.
-        containment_stage: ``"pre"`` or ``"post"`` — whether the lumen is
-            enforced before or after the rod's constraint solve. The solve is
-            direct, so whichever runs second wins: ``"post"`` keeps the wire
-            inside the vessel but leaves the chord lengths it mangled, while
-            ``"pre"`` preserves rest lengths and lets the solve carry particles
-            back out through the wall.
-
-            ``"pre"`` has been measured against every lever that looked
-            relevant and none of them move it: physical rotational inertia,
-            fully quasi-static damping, and a sparse centerline attraction all
-            leave it at +74 mm with 39-40 of 41 particles outside. The reason is
-            structural rather than a matter of tuning -- the rest shape is
-            straight and containment is one-sided, acting on a particle only
-            once it is already outside the wall, so the inward shove and the
-            straightening solve simply balance well outside the lumen. Shaping
-            the rod to the anatomy needs the solve itself to accept a curved
-            rest configuration, which is solver-side work.
+        physical_rotational_inertia: Use cylinder inertia around the material
+            axes. Enabled so wall contact can turn a frame consistently with
+            the catheter's mass and dimensions; identity inertia is retained
+            only as an explicit legacy comparison.
+        containment_stage: Legacy pre/post ordering used when coupling is
+            disabled. Coupled iterations reconcile contact and elasticity
+            within the solve instead of selecting a final position override.
+        drive_mount_local: Grip point in the drive body's local frame, in
+            metres. The transmitted wrench is shifted from this point to the
+            body's center of mass using its authored mass properties.
+        contact_coupling_iterations: Number of alternating live-wall and
+            global elastic solves per substep, updating stretch/shear and
+            bend/twist together with positions and material frames. Zero
+            selects the legacy global solve plus cleanup.
+        tip_length_m: Distal steering span in metres, rounded up to whole
+            segments. Default 25 mm preserves approximately ten edges at the
+            current s0011 resolution. Set from the intended device geometry.
         tip_bend_fraction: Bend stiffness of the most distal edge as a fraction
             of the shaft's, cosine-blended over the tip. One leaves the rod
             uniform. Relieving the tip is how a real J-tip wire is built, and
@@ -764,16 +867,19 @@ class CatheterRodSpec:
     radius_m: float = 0.0005
     patient_twin_manifest: str | None = None
     vessel_enabled: bool = True
-    gravity_world: tuple[float, float, float] = GRAVITY_WORLD_Z_UP
+    gravity_world: tuple[float, float, float] = GRAVITY_NEUTRAL_BUOYANCY
     rigid_bodies_enabled: bool = False
     drive_body_name: str | None = None
+    drive_mount_local: tuple[float, float, float] = (0.0, 0.0, 0.0)
     initial_path_world_m: tuple[tuple[float, float, float], ...] | None = None
     lumen_radii_m: tuple[float, ...] | None = None
-    physical_rotational_inertia: bool = False
+    physical_rotational_inertia: bool = True
     containment_stage: str = "post"
     track_guidance: bool = False
     track_stage: str = "pre"
     track_stiffness: float = 0.35
+    track_free_distal_length_m: float | None = None
+    proximal_feed_span_m: float | None = None
     rest_curvature_from_path: bool = False
     rest_curvature_scale: float = 1.0
     containment_cleanup_iterations: int = 128
@@ -781,7 +887,13 @@ class CatheterRodSpec:
     containment_cleanup_rounds: int = 8
     containment_interior_deadband: float = 0.5
     containment_interior_stiffness: float = 0.25
+    vessel_endpoints_locked: bool = VESSEL_ENDPOINTS_LOCKED
+    vessel_response: float = VESSEL_RESPONSE
+    vessel_linear_damping: float = VESSEL_LINEAR_DAMPING
+    vessel_angular_damping: float = VESSEL_ANGULAR_DAMPING
     tip_bend_fraction: float = 1.0
+    tip_length_m: float = 0.025
+    contact_coupling_iterations: int = 32
     soft_contact_overrides: dict[str, Any] = field(default_factory=dict)
     solver_overrides: dict[str, Any] = field(default_factory=dict)
 
@@ -794,6 +906,17 @@ class CatheterRodSpec:
             raise ValueError(f"length_m must be positive, got {self.length_m}")
         if self.radius_m <= 0.0:
             raise ValueError(f"radius_m must be positive, got {self.radius_m}")
+        if not math.isfinite(self.tip_length_m) or not 0.0 < self.tip_length_m <= self.length_m:
+            raise ValueError("tip_length_m must be finite, positive, and no longer than the catheter")
+        for name in ("vessel_response", "vessel_linear_damping", "vessel_angular_damping"):
+            value = float(getattr(self, name))
+            if not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                raise ValueError(f"{name} must be a finite fraction in [0, 1], got {getattr(self, name)}")
+        if (
+            int(self.contact_coupling_iterations) != self.contact_coupling_iterations
+            or self.contact_coupling_iterations < 0
+        ):
+            raise ValueError("contact_coupling_iterations must be a nonnegative integer")
         if self.drive_body_name is not None and not self.rigid_bodies_enabled:
             raise ValueError(
                 f"drive_body_name={self.drive_body_name!r} asks the catheter's holder to feel "
@@ -820,6 +943,10 @@ class CatheterRodSpec:
         if norm <= 0.0:
             raise ValueError("track_direction_world must be non-zero")
         self.track_direction_world = tuple(float(value) for value in direction / norm)
+        if self.track_free_distal_length_m is not None and self.track_free_distal_length_m <= 0.0:
+            raise ValueError(f"track_free_distal_length_m must be positive, got {self.track_free_distal_length_m}")
+        if self.proximal_feed_span_m is not None and self.proximal_feed_span_m <= 0.0:
+            raise ValueError(f"proximal_feed_span_m must be positive, got {self.proximal_feed_span_m}")
 
     @property
     def num_points(self) -> int:
@@ -833,8 +960,8 @@ class CatheterRodSpec:
     def wants_vessel(self) -> bool:
         return bool(self.vessel_enabled) and self.patient_twin_manifest is not None
 
-    def initial_positions(self) -> np.ndarray | None:
-        """Rest positions along the vessel path, or ``None`` for a straight rod.
+    def initial_positions(self) -> np.ndarray:
+        """Initial particle positions along the vessel path or straight entry axis.
 
         Seeding the rod's shape from the centerline is initialization, not
         control: the catheter starts inside the lumen and XPBD takes over from
@@ -842,7 +969,11 @@ class CatheterRodSpec:
         own result and leave contact with nothing to act on.
         """
         if self.initial_path_world_m is None:
-            return None
+            offsets = np.linspace(0.0, float(self.length_m), self.num_points)[:, None]
+            return np.asarray(
+                np.asarray(self.origin_world_m) + offsets * np.asarray(self.track_direction_world),
+                dtype=np.float32,
+            )
         from i4h_arena.medical.centerline import sample_polyline
 
         path = np.asarray(self.initial_path_world_m, dtype=np.float32)
@@ -857,12 +988,9 @@ def rod_solver_cfg(spec: CatheterRodSpec) -> Any:
     kernels, so the static-mesh collision path stays off; leaving both on would
     apply two independent wall constraints to the same catheter.
 
-    ``sync_from_state`` stays on, and is what places the catheter in the
-    patient. The rod solver builds itself as a straight rod along +X and has no
-    way to start from a polyline, so the centerline reaches it only because the
-    Newton builder is seeded with it and the solver reads that buffer back on
-    its first step. Turning the sync off strands the catheter at the solver's
-    default pose, well outside the anatomy.
+    ``sync_from_state`` stays on so externally authored Newton positions and
+    velocities are respected. Both the Newton builder and rod workspace are
+    initialized from the same positions before the first step.
     """
     from catheter_vasculature_solver.isaaclab_integration import XPBDRodSolverCfg
 
@@ -874,22 +1002,31 @@ def rod_solver_cfg(spec: CatheterRodSpec) -> Any:
         "collision_enabled": False,
         "track_enabled": False,
     }
-    # Refining the rod is not stiffness-neutral here, so a spec that has moved
-    # off the reference segment count gets its bend stiffness rescaled to
-    # describe the same physical catheter. Without this, asking for three times
-    # the segments quietly asks for a wire nine times floppier, and the extra
-    # resolution reads as a buckling regression. See
-    # :func:`mesh_invariant_bend_stiffness`. At the reference count the field is
-    # left alone rather than written back at its own default, so the shipped rod
-    # is bit-for-bit what it was. An explicit override still wins, since
-    # ``solver_overrides`` is applied last.
-    if int(spec.num_segments) != REFERENCE_NUM_SEGMENTS:
-        fields["bend_stiffness"] = mesh_invariant_bend_stiffness(
-            REFERENCE_BEND_STIFFNESS,
-            float(spec.length_m) / float(REFERENCE_NUM_SEGMENTS),
-            spec.segment_length_m,
-        )
+    # The rod solver uses EI/GJ and the half-angle strain's 4/L factor.
+    # A dimensionless material multiplier now stays fixed under refinement.
     fields.update(spec.solver_overrides)
+    # A physical span survives mesh refinement. Explicit edge counts remain a
+    # diagnostic override; a length override takes precedence when both exist.
+    tip_length = spec.tip_length_m
+    raw_length = os.environ.get(TIP_LENGTH_ENV_VAR)
+    if raw_length is not None:
+        tip_length = float(raw_length) * 0.001
+    if not math.isfinite(tip_length) or not 0.0 < tip_length <= spec.length_m:
+        raise ValueError("tip_length_m must be finite, positive, and no longer than the catheter")
+    fields.setdefault("tip_num_edges", min(spec.num_segments, max(1, math.ceil(tip_length / spec.segment_length_m))))
+    # After ``solver_overrides`` rather than before, because this one is a live
+    # diagnostic for a sweep and a scene's authored value would otherwise pin it.
+    tip_edges = tip_edge_count_override()
+    if tip_edges is not None:
+        fields["tip_num_edges"] = tip_edges
+    if raw_length is not None:
+        fields["tip_num_edges"] = min(spec.num_segments, max(1, math.ceil(tip_length / spec.segment_length_m)))
+    if not 0 <= fields["tip_num_edges"] <= spec.num_segments:
+        raise ValueError("tip_num_edges must lie between zero and num_segments")
+    stiffness = bend_stiffness_override()
+    if stiffness is not None:
+        fields["bend_stiffness"] = stiffness
+        print(f"[catheter bend] stiffness overridden to {stiffness:g}", flush=True)
     return XPBDRodSolverCfg(**fields)
 
 
@@ -921,6 +1058,7 @@ def coupled_solver_cfg(spec: CatheterRodSpec) -> Any:
     }
     if two_way:
         fields["drive_body_name"] = spec.drive_body_name
+        fields["drive_mount_local"] = spec.drive_mount_local
     fields.update(spec.soft_contact_overrides)
     return CoupledMJWarpXPBDRodSolverCfg(**fields)
 
@@ -1000,12 +1138,37 @@ class CatheterRodHandle:
         spec = self._spec
         if spec.initial_path_world_m is None or spec.lumen_radii_m is None:
             return None
-        return containment_report(
+        report = containment_report(
             positions_world_m,
             path_world_m=np.asarray(spec.initial_path_world_m, dtype=np.float64),
             lumen_radii_m=np.asarray(spec.lumen_radii_m, dtype=np.float64),
             segment_length_m=float(spec.segment_length_m),
         )
+        if self._vessel is not None:
+            from .catheter_diagnostics import tube_surface_gaps_m
+
+            vessel = self._vessel
+            gaps = tube_surface_gaps_m(
+                positions_world_m,
+                vessel.positions_per_env[0],
+                vessel.edges.numpy()[: vessel.edges_per_env],
+                vessel.radii.numpy()[: vessel.nodes_per_env],
+                spec.radius_m,
+                open_root=vessel.open_root,
+                open_root_neighbor=vessel.open_root_neighbor,
+            )
+            report.update(
+                live_worst_penetration_mm=float(gaps.max()) * 1000.0 if gaps.size else 0.0,
+                live_samples_outside=int(np.count_nonzero(gaps > 0.0)),
+                num_live_samples=int(gaps.size),
+            )
+        return report
+
+    @property
+    def reference_path_world_m(self) -> np.ndarray | None:
+        """Ordered route for measuring tip progress, independent of wall contact."""
+        path = self._spec.initial_path_world_m
+        return None if path is None else np.asarray(path, dtype=np.float64)
 
     def reset(self, env_ids: Any = None) -> None:
         """Restore the listed environments in place.
@@ -1020,8 +1183,19 @@ class CatheterRodHandle:
         if self._rod is None:
             return
         self._rod.reset(env_ids)
+        if self._particle_range is not None:
+            from isaaclab_newton.physics import NewtonManager
 
-    def install(self) -> "CatheterRodHandle":
+            from .catheter_initialization import publish_reset_state
+
+            publish_reset_state(
+                self._rod,
+                self._particle_range,
+                (NewtonManager.get_state_0(), NewtonManager.get_state_1()),
+                env_ids,
+            )
+
+    def install(self) -> CatheterRodHandle:
         """Subscribe to ``MODEL_INIT`` so the rod joins the model before finalize."""
         from isaaclab.physics import PhysicsEvent
         from isaaclab_newton.physics import NewtonManager
@@ -1056,23 +1230,25 @@ class CatheterRodHandle:
             raise RuntimeError(
                 "MODEL_INIT fired with no Newton ModelBuilder, so the rod's particles have " "nowhere to go"
             )
+        positions = spec.initial_positions()
         self._particle_range = add_catheter_rod_to_builder(
             builder,
             rod_config,
-            positions=spec.initial_positions(),
+            positions=positions,
             start=np.asarray(spec.origin_world_m, dtype=np.float32),
             direction=np.asarray(spec.track_direction_world, dtype=np.float32),
             num_envs=spec.num_envs,
         )
-        self._rod = self._build_rod(rod_config, solver_cfg)
+        self._rod = self._build_rod(rod_config, solver_cfg, positions)
         NewtonXPBDRodManager.register_rod(self._particle_range, rod=self._rod)
 
-    def _build_rod(self, rod_config: Any, solver_cfg: Any) -> Any:
+    def _build_rod(self, rod_config: Any, solver_cfg: Any, positions: np.ndarray) -> Any:
         """Build the rod solver, with a deformable vessel when the twin has one."""
         from catheter_vasculature_solver import CathRodSolver
 
         spec = self._spec
         self._vessel = self._build_vessel()
+        contact_iterations = int(os.environ.get(CONTACT_ITERATIONS_ENV_VAR, spec.contact_coupling_iterations))
         solver = CathRodSolver(
             rod_config,
             num_envs=spec.num_envs,
@@ -1089,6 +1265,8 @@ class CatheterRodHandle:
             # answer, so it follows the path the rod was seeded on.
             collision_enabled=False,
             track_enabled=bool(spec.track_guidance),
+            track_free_distal_edges=self._track_free_distal_edges(),
+            proximal_feed_span=self._proximal_feed_span(),
             track_path=self._track_path(),
             track_stage=spec.track_stage,
             track_stiffness=float(spec.track_stiffness),
@@ -1097,7 +1275,17 @@ class CatheterRodHandle:
             containment_cleanup_iterations=int(spec.containment_cleanup_iterations),
             containment_cleanup_rounds=int(cleanup_rounds_override() or spec.containment_cleanup_rounds),
             containment_cleanup_relaxation=float(spec.containment_cleanup_relaxation),
+            contact_coupling_iterations=contact_iterations,
         )
+        print(
+            f"[catheter solver] contact iterations={contact_iterations} "
+            f"tip={int(solver_cfg.tip_num_edges)} edges "
+            f"({int(solver_cfg.tip_num_edges) * spec.segment_length_m * 1000.0:.2f} mm)",
+            flush=True,
+        )
+        from .catheter_initialization import initialize_rod_state
+
+        initialize_rod_state(solver, positions)
         if spec.physical_rotational_inertia:
             _apply_physical_rotational_inertia(
                 solver,
@@ -1110,15 +1298,26 @@ class CatheterRodHandle:
                 num_tip_edges=int(solver_cfg.tip_num_edges),
                 tip_fraction=spec.tip_bend_fraction,
             )
-        seeded_positions = spec.initial_positions()
-        if spec.rest_curvature_from_path and seeded_positions is not None:
+        # Resolved here rather than on the spec so both embodiments get the
+        # sweep from one place.
+        scale = seeded_rest_curvature_scale(
+            from_path=bool(spec.rest_curvature_from_path),
+            spec_scale=float(spec.rest_curvature_scale),
+            override=rest_curvature_override(),
+        )
+        if scale is not None and spec.initial_path_world_m is not None:
             _seed_shaft_rest_darboux(
                 solver,
                 num_tip_edges=int(solver_cfg.tip_num_edges),
                 segment_length_m=float(spec.segment_length_m),
-                positions_world_m=seeded_positions,
-                scale=float(spec.rest_curvature_scale),
+                positions_world_m=positions,
+                scale=scale,
             )
+            # Printed because the sweep is only readable after the fact if the
+            # log says which scale produced it. Matches the probe's stream so
+            # both land in the same run log.
+            solver.capture_tip_bend_baseline()
+            print(f"[catheter rest curvature] seeded at scale {scale:.2f}", flush=True)
         return solver
 
     def _track_path(self) -> np.ndarray | None:
@@ -1133,6 +1332,29 @@ class CatheterRodHandle:
             return None
         return np.asarray(spec.initial_path_world_m, dtype=np.float32)
 
+    def _proximal_feed_span(self) -> int:
+        """Nodes spanned by the insertion direction; ``1`` keeps the first segment.
+
+        Rounded up, so a span shorter than one segment still reaches past the
+        adjacent node rather than silently collapsing back onto it.
+        """
+        spec = self._spec
+        if spec.proximal_feed_span_m is None:
+            return 1
+        span = math.ceil(spec.proximal_feed_span_m / spec.segment_length_m)
+        return max(1, min(spec.num_segments, int(span)))
+
+    def _track_free_distal_edges(self) -> int | None:
+        """Distal edges guidance leaves free, or ``None`` to keep the tip default.
+
+        Rounded down, so the free window never comes out shorter than asked and
+        guidance never reaches further toward the tip than intended.
+        """
+        spec = self._spec
+        if spec.track_free_distal_length_m is None:
+            return None
+        return min(spec.num_segments, int(spec.track_free_distal_length_m / spec.segment_length_m))
+
     def _build_vessel(self) -> Any:
         if not self._spec.wants_vessel:
             return None
@@ -1144,6 +1366,14 @@ class CatheterRodHandle:
         override = interior_containment_override()
         if override is not None:
             deadband, stiffness = override
+
+        response = self._spec.vessel_response
+        linear_damping = self._spec.vessel_linear_damping
+        angular_damping = self._spec.vessel_angular_damping
+        compliance = vessel_compliance_override()
+        if compliance is not None:
+            response, linear_damping, angular_damping = compliance
+
         vessel = centerline_vessel_from_twin(
             PatientTwin.load(self._spec.patient_twin_manifest),
             device=self._spec.device,
@@ -1151,6 +1381,10 @@ class CatheterRodHandle:
             catheter_radius_m=self._spec.radius_m,
             interior_deadband=float(deadband),
             interior_stiffness=float(stiffness),
+            endpoints_locked=bool(self._spec.vessel_endpoints_locked),
+            vessel_response=float(response),
+            linear_damping=float(linear_damping),
+            angular_damping=float(angular_damping),
         )
         if vessel is None:
             raise ValueError(
@@ -1188,7 +1422,9 @@ def require_active_handle() -> CatheterRodHandle:
 
 
 __all__ = [
+    "GRAVITY_NEUTRAL_BUOYANCY",
     "GRAVITY_WORLD_Z_UP",
+    "VESSEL_COMPLIANCE_ENV_VAR",
     "CatheterRodHandle",
     "CatheterRodSpec",
     "active_handle",
@@ -1197,4 +1433,5 @@ __all__ = [
     "newton_solver_cfg",
     "require_active_handle",
     "rod_solver_cfg",
+    "vessel_compliance_override",
 ]

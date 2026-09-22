@@ -19,9 +19,12 @@ import math
 import os
 import time
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any
 
 import torch
+
+from i4h_arena.medical.route_progress import RouteProgress, route_progress
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -80,28 +83,64 @@ def arrival_readout(
     *,
     tolerance_m: float = ARRIVAL_TOLERANCE_M,
     hold_steps: int = ARRIVAL_HOLD_STEPS,
+    route: RouteProgress | None = None,
 ) -> str:
     """One line telling the operator what still stands between them and arrival.
 
     Both halves of the criterion are visible because either one can be the thing
     holding an episode open: the tip can be far away, or it can be close enough
     and drifting back out before the hold completes.
+
+    Given a route, the vessel still ahead leads and the straight line follows.
+    The straight line is what ends the episode so it cannot be dropped, but it
+    is not monotonic on a vessel that doubles back, and an operator steering on
+    it alone will undo a correct insertion when the arch makes the number grow.
+    Once inside the tolerance the arc is spent and the hold is the whole story,
+    so the line reverts to the criterion it is about to satisfy.
     """
     if not math.isfinite(distance_m):
         return "Target: waiting for the catheter"
     millimetres = distance_m * 1000.0
-    if distance_m > tolerance_m:
-        return f"Target: {millimetres:.1f} mm away (arrive within {tolerance_m * 1000.0:.0f} mm)"
-    return f"Target: {millimetres:.1f} mm away -- holding {min(held_steps, hold_steps)}/{hold_steps}"
+    if distance_m <= tolerance_m:
+        return f"Target: {millimetres:.1f} mm away -- holding {min(held_steps, hold_steps)}/{hold_steps}"
+    within = f"(arrive within {tolerance_m * 1000.0:.0f} mm)"
+    if route is None:
+        return f"Target: {millimetres:.1f} mm away {within}"
+    if not route.on_route:
+        # Naming the straight line rather than an arc figure that projection
+        # cannot stand behind: off route, the tip may be measured against a
+        # stretch of vessel it is not in.
+        return f"Target: {millimetres:.1f} mm direct, tip off route {within}"
+    return f"Target: {route.remaining_m * 1000.0:.0f} mm of vessel ahead -- {millimetres:.1f} mm direct {within}"
 
 
-def arrival_progress(env: Any) -> tuple[float, int, float, int] | None:
-    """Live ``(distance_m, held_steps, tolerance_m, hold_steps)`` for one environment.
+@dataclass(frozen=True)
+class ArrivalProgress:
+    """Everything the readout needs about one environment's approach.
 
-    The target and both thresholds are read back off the configured ``success``
-    term rather than re-derived, so a readout built from this cannot disagree
-    with the criterion that actually ends the episode. Returns ``None`` for a
-    scene that terminates on something else.
+    Attributes:
+        distance_m: Straight-line tip-to-target distance, the arrival quantity.
+        held_steps: Consecutive steps already spent inside the tolerance.
+        tolerance_m: Distance counting as arrival.
+        hold_steps: Steps the tip must hold before the episode succeeds.
+        route: Progress along the planned vessel, or ``None`` when the scene
+            configured no route. Advisory: nothing terminates on it.
+    """
+
+    distance_m: float
+    held_steps: int
+    tolerance_m: float
+    hold_steps: int
+    route: RouteProgress | None = None
+
+
+def arrival_progress(env: Any) -> ArrivalProgress | None:
+    """Live approach state for one environment.
+
+    The target, the route and both thresholds are read back off the configured
+    ``success`` term rather than re-derived, so a readout built from this cannot
+    disagree with the criterion that actually ends the episode. Returns ``None``
+    for a scene that terminates on something else.
     """
     manager = getattr(env, "termination_manager", None)
     if manager is None or "success" not in getattr(manager, "active_terms", ()):
@@ -113,7 +152,39 @@ def arrival_progress(env: Any) -> tuple[float, int, float, int] | None:
     # Read the counter the term maintains; advancing it here would let the
     # readout consume part of the hold the operator still has to earn.
     distance_m = float(tip_distance_to_target_m(env, target)[0])
-    return distance_m, int(hold_counter(env)[0]), tolerance_m, hold_steps
+    return ArrivalProgress(
+        distance_m=distance_m,
+        held_steps=int(hold_counter(env)[0]),
+        tolerance_m=tolerance_m,
+        hold_steps=hold_steps,
+        route=_route_progress(env, params.get("route_world_m"), distance_m),
+    )
+
+
+def _route_progress(env: Any, route_world_m: Any, distance_m: float) -> RouteProgress | None:
+    """Arc progress for the configured route, or ``None`` when unavailable.
+
+    Skipped before there are particles, since the tip is then infinite and has
+    no projection.     A malformed route is reported once and dropped rather than
+    raised: this feeds a status line, and a scene that still simulates and
+    still terminates correctly should not be brought down by its caption.
+    """
+    if route_world_m is None or not math.isfinite(distance_m):
+        return None
+    try:
+        tip = catheter_tip_world_m(env)[0].detach().cpu().numpy()
+        return route_progress(route_world_m, tip)
+    except (ValueError, IndexError, RuntimeError):
+        global _route_warned
+        if not _route_warned:
+            # Once: this runs every step, and the condition is a fixed property
+            # of the configured route rather than something a frame can fix.
+            _route_warned = True
+            _LOGGER.warning("navigation route unusable; falling back to the straight-line readout", exc_info=True)
+        return None
+
+
+_route_warned = False
 
 
 def drift_log_seconds(environ: Any = None) -> float:
@@ -159,9 +230,14 @@ def arrival_status(env: Any) -> str:
     progress = arrival_progress(env)
     if progress is None:
         return ""
-    distance_m, held_steps, tolerance_m, hold_steps = progress
-    _log_tip_drift(distance_m)
-    return arrival_readout(distance_m, held_steps, tolerance_m=tolerance_m, hold_steps=hold_steps)
+    _log_tip_drift(progress.distance_m)
+    return arrival_readout(
+        progress.distance_m,
+        progress.held_steps,
+        tolerance_m=progress.tolerance_m,
+        hold_steps=progress.hold_steps,
+        route=progress.route,
+    )
 
 
 def reset_arrival_progress(env: Any, env_ids: Any = None) -> None:
@@ -178,8 +254,19 @@ def reached_navigation_target(
     target_world_m: Iterable[float],
     tolerance_m: float = ARRIVAL_TOLERANCE_M,
     hold_steps: int = ARRIVAL_HOLD_STEPS,
+    route_world_m: Iterable[Iterable[float]] | None = None,
 ) -> torch.Tensor:
-    """True once the tip has stayed within ``tolerance_m`` for ``hold_steps`` steps."""
+    """True once the tip has stayed within ``tolerance_m`` for ``hold_steps`` steps.
+
+    ``route_world_m`` is carried on this term so the readout and the criterion
+    share one source, and is deliberately not part of the test. Arrival stays a
+    straight-line question: remaining arc is only defined while the projection
+    is unambiguous, and making success depend on it would let a tip that
+    wandered off the route end an episode on a guess. On the shipped s0011
+    aorta the route's closest approach to its own endpoint from elsewhere is
+    44 mm, well outside the 5 mm tolerance, so the straight line cannot be
+    satisfied early by the arch doubling back.
+    """
     counter = hold_counter(env)
     within = tip_distance_to_target_m(env, target_world_m) <= float(tolerance_m)
     counter = torch.where(within, counter + 1, torch.zeros_like(counter))
@@ -191,6 +278,7 @@ __all__ = [
     "ARRIVAL_HOLD_STEPS",
     "ARRIVAL_TOLERANCE_M",
     "HOLD_COUNTER_ATTR",
+    "ArrivalProgress",
     "arrival_progress",
     "arrival_readout",
     "arrival_status",

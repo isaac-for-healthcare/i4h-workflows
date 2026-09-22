@@ -26,6 +26,8 @@ from typing import Any
 import numpy as np
 import pytest
 
+from i4h_arena.medical.newton_catheter_physics import tip_bend_rest_component
+
 import yaml
 
 ARENA = Path(__file__).parents[1] / "i4h_arena"
@@ -204,16 +206,38 @@ def test_steering_leaves_the_authored_body_shape_alone(kernels) -> None:
 
 
 def test_the_bend_is_spread_over_the_tip_edges(kernels) -> None:
-    """Each tip edge takes an equal share, added to what it already carried."""
+    """Each tip edge takes an equal share, added to what it already carried.
+
+    The share is ``sin(angle / (2n - 1))``, not ``angle / n``: ``rest_darboux``
+    turns the frames while the polyline follows the midpoints between them, so
+    the last half-hinge of frame rotation falls past the final segment.
+    Asserting against the host helper also pins kernel and host to one mapping.
+    """
     edges, tip = 10, 4
     baseline = _ramped_baseline(1, edges)
     angle = 0.8
     out = _contain(kernels, baseline, np.array([angle], dtype=np.float32), edges, tip)
 
     added = out[0, edges - tip :] - baseline[0, edges - tip :]
-    np.testing.assert_allclose(added[:, 0], angle / tip, atol=1e-6)
+    np.testing.assert_allclose(added[:, 0], tip_bend_rest_component(angle, tip), atol=1e-6)
     # Only the local X component: aiming the bend is the rotation command's job.
     np.testing.assert_allclose(added[:, 1:], 0.0, atol=1e-7)
+
+
+def test_the_tip_edges_carry_less_than_an_even_share(kernels) -> None:
+    """Guards the direction of the correction, which a sign slip would invert.
+
+    Dividing by ``2n - 1`` rather than ``n`` has to make each edge do *less*,
+    since the polyline picks up nearly twice the turn the naive reading expects.
+    """
+    edges, tip, angle = 10, 4, 0.8
+    baseline = _ramped_baseline(1, edges)
+    out = _contain(kernels, baseline, np.array([angle], dtype=np.float32), edges, tip)
+
+    added = float((out[0, edges - tip :, 0] - baseline[0, edges - tip :, 0])[0])
+
+    assert added < angle / tip
+    assert added == pytest.approx(0.114037, abs=1e-5)
 
 
 def test_each_env_steers_on_its_own_angle(kernels) -> None:
@@ -225,7 +249,7 @@ def test_each_env_steers_on_its_own_angle(kernels) -> None:
 
     for env, angle in enumerate(angles):
         added = out[env, edges - tip :, 0] - baseline[env, edges - tip :, 0]
-        np.testing.assert_allclose(added, angle / tip, atol=1e-6)
+        np.testing.assert_allclose(added, tip_bend_rest_component(float(angle), tip), atol=1e-6)
 
 
 def test_a_zero_angle_is_exactly_the_authored_shape(kernels) -> None:

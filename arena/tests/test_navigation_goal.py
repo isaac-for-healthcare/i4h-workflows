@@ -218,11 +218,13 @@ def test_progress_reports_the_live_distance_and_hold():
     for _ in range(4):
         reached_navigation_target(env, TARGET)
 
-    distance_m, held_steps, tolerance_m, hold_steps = arrival_progress(env)
+    progress = arrival_progress(env)
 
-    assert distance_m == pytest.approx(0.0)
-    assert held_steps == 4
-    assert (tolerance_m, hold_steps) == (ARRIVAL_TOLERANCE_M, ARRIVAL_HOLD_STEPS)
+    assert progress.distance_m == pytest.approx(0.0)
+    assert progress.held_steps == 4
+    assert (progress.tolerance_m, progress.hold_steps) == (ARRIVAL_TOLERANCE_M, ARRIVAL_HOLD_STEPS)
+    # No route configured, so the readout has only the straight line to go on.
+    assert progress.route is None
 
 
 def test_reading_the_progress_does_not_spend_the_hold():
@@ -241,3 +243,72 @@ def test_a_scene_without_the_success_term_gets_no_readout():
 
     assert arrival_progress(env) is None
     assert arrival_status(env) == ""
+
+
+# --------------------------------------------------------------------------- #
+# Remaining vessel
+#
+# Straight-line distance to the far end of the centerline is what ends the
+# episode, but on a vessel that doubles back it grows while the tip advances
+# correctly. The readout leads with remaining arc so the operator has a number
+# they can steer on, and keeps the straight line so they can see arrival come.
+# --------------------------------------------------------------------------- #
+def _route(remaining_m, lateral_m=0.0, on_route=True):
+    from i4h_arena.medical.route_progress import RouteProgress
+
+    return RouteProgress(arc_m=0.5 - remaining_m, remaining_m=remaining_m, lateral_m=lateral_m, on_route=on_route)
+
+
+def test_the_readout_leads_with_the_vessel_still_ahead():
+    line = arrival_readout(0.046, route=_route(0.3431))
+
+    assert line == "Target: 343 mm of vessel ahead -- 46.0 mm direct (arrive within 5 mm)"
+
+
+def test_the_straight_line_survives_alongside_it():
+    """It is the quantity that ends the episode, so hiding it would leave the
+    operator unable to see arrival coming."""
+    assert "46.0 mm direct" in arrival_readout(0.046, route=_route(0.3431))
+
+
+def test_an_off_route_tip_does_not_get_an_arc_figure():
+    """Off route the projection may be measuring a stretch of vessel the tip is
+    not in, and a confident wrong number is worse than none."""
+    line = arrival_readout(0.046, route=_route(0.3431, lateral_m=0.05, on_route=False))
+
+    assert line == "Target: 46.0 mm direct, tip off route (arrive within 5 mm)"
+
+
+def test_inside_the_tolerance_the_hold_takes_over():
+    """The arc is spent by then, and the hold is the only thing left to earn."""
+    line = arrival_readout(0.0031, 7, route=_route(0.0))
+
+    assert line == "Target: 3.1 mm away -- holding 7/15"
+
+
+def test_a_scene_with_no_route_reads_out_exactly_as_before():
+    assert arrival_readout(0.0274, route=None) == "Target: 27.4 mm away (arrive within 5 mm)"
+
+
+def test_an_unknown_tip_still_says_so_even_with_a_route():
+    assert arrival_readout(float("inf"), route=_route(0.3)) == "Target: waiting for the catheter"
+
+
+def test_the_live_readout_measures_the_route_off_the_success_term():
+    """Same place the criterion reads its target, so the two cannot drift."""
+    route = tuple((x / 100.0, 0.0, 0.0) for x in range(31))  # 0.30 m straight
+
+    env = _env_with_term((0.10, 0.0, 0.0), target_world_m=(0.30, 0.0, 0.0), route_world_m=route)
+
+    progress = arrival_progress(env)
+    assert progress.route is not None
+    assert progress.route.remaining_m == pytest.approx(0.20)
+    assert arrival_status(env).startswith("Target: 200 mm of vessel ahead")
+
+
+def test_an_unusable_route_falls_back_to_the_straight_line():
+    """A bad caption must not take down a scene that still terminates correctly."""
+    env = _env_with_term((0.10, 0.0, 0.0), target_world_m=(0.30, 0.0, 0.0), route_world_m=((0.0, 0.0, 0.0),))
+
+    assert arrival_progress(env).route is None
+    assert arrival_status(env) == "Target: 200.0 mm away (arrive within 5 mm)"

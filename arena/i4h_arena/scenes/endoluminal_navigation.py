@@ -20,8 +20,20 @@ def resolve_fluoroscopy_backend(requested: str | None, patient_twin: str | None)
 class EndoluminalNavigationScene(Scene):
     name = "endoluminal_navigation"
 
+    _embodiment: Any | None = None
+
     def register_assets(self) -> None:
         import i4h_arena.assets.fluoroscopy_catheter_navigation  # noqa: F401
+
+    @property
+    def _navigation_target_world_m(self) -> tuple[float, float, float] | None:
+        """Distal end of the planned route, or ``None`` without a patient twin.
+
+        A phantom scene has no centerline and therefore no goal, which is why
+        this is optional rather than an error: the recording then carries the
+        tip's position without a distance to anything.
+        """
+        return getattr(self._embodiment, "navigation_target_world_m", None)
 
     def _make_embodiment(self) -> Any:
         """Build the embodiment this scene drives.
@@ -39,9 +51,12 @@ class EndoluminalNavigationScene(Scene):
 
         from i4h_arena.assets.fluoroscopy_catheter_navigation import make_assets
 
+        # Kept so ``make_view`` can record the tip's distance to the same target
+        # arrival is judged against, rather than a second copy of it.
+        self._embodiment = self._make_embodiment()
         return IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=self._make_embodiment(),
+            embodiment=self._embodiment,
             scene=ArenaScene(
                 assets=make_assets(
                     fluoro_backend=resolve_fluoroscopy_backend(self.args.fluoro_backend, self.args.patient_twin),
@@ -98,6 +113,8 @@ class EndoluminalNavigationScene(Scene):
             )
         fluoroscopy.bind_carm_provider(carm_provider)
 
+        from i4h_arena.medical.catheter_diagnostics import CatheterEpisodeDiagnostics
+
         return ArenaSceneView(
             env,
             objects=self.spec.objects,
@@ -105,6 +122,10 @@ class EndoluminalNavigationScene(Scene):
             cameras=self.spec.cameras,
             gripper=False,
             joint_state_providers=self._joint_state_providers(env, catheter, carm_orbit),
+            # The four commanded joints and the projection cannot tell a clean
+            # run from one where the wire coiled, so a recording needs the rod's
+            # own shape alongside them to be judged after the fact.
+            diagnostics_provider=CatheterEpisodeDiagnostics(catheter, target_world_m=self._navigation_target_world_m),
         )
 
     def _joint_state_providers(self, env: Any, catheter: Any, carm_orbit: Any) -> dict[str, Any]:

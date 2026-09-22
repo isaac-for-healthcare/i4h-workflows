@@ -46,6 +46,18 @@ class InputDevice(ABC):
         """Release the hardware."""
 
     @property
+    def attached(self) -> bool:
+        """Whether :meth:`open` actually acquired its input source.
+
+        Devices that raise on failure are attached as soon as ``open`` returns,
+        which is why this defaults to true. The keyboard devices are the
+        exception: they downgrade a missing Kit window to a warning so a
+        headless run still steps, and that leaves a device that reads ``None``
+        forever while looking started. Overriding this is how they say so.
+        """
+        return True
+
+    @property
     def done(self) -> bool:
         """True when the operator signalled end-of-demo."""
         return False
@@ -127,6 +139,10 @@ class KeyboardDevice(InputDevice):
         except Exception:  # noqa: BLE001 - no Kit means no keyboard; hold pose instead of dying
             logger.warning("no Isaac keyboard device available; teleop will hold pose", exc_info=True)
             self._impl = None
+
+    @property
+    def attached(self) -> bool:
+        return self._impl is not None
 
     def read(self, ctx: TickContext) -> np.ndarray | None:
         if self._impl is None:
@@ -253,6 +269,10 @@ class CatheterKeyboardDevice(InputDevice):
         except Exception:
             logger.warning("no Isaac keyboard device available; catheter command will remain zero", exc_info=True)
             self.close()
+
+    @property
+    def attached(self) -> bool:
+        return self._keyboard_sub is not None
 
     def read(self, ctx: TickContext) -> np.ndarray | None:
         if self._keyboard_sub is None:
