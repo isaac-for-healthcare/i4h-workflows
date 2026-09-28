@@ -501,8 +501,23 @@ class CatheterEmbodiment:
 
         return CatheterNavigationEventsCfg()
 
-    def get_rewards_cfg(self) -> None:
-        return None
+    def get_rewards_cfg(self) -> Any:
+        """Dense navigation objective, bound to this scene's own route and wall.
+
+        Omitted without a twin for the same reason the termination is: there is
+        no vessel, so remaining arc and lumen width are undefined and every
+        term would be measuring against nothing. Teleop and replay ignore the
+        reward manager, so this costs them nothing.
+        """
+        if self.navigation_target_world_m is None:
+            return None
+        from i4h_arena.envcfg.endoluminal_navigation import navigation_rewards_cfg
+
+        return navigation_rewards_cfg(
+            self.navigation_target_world_m,
+            route_world_m=self.rod_spec.initial_path_world_m,
+            lumen_radii_m=self.rod_spec.lumen_radii_m,
+        )
 
     def get_curriculum_cfg(self) -> None:
         return None

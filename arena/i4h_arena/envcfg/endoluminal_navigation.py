@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """IsaacLab term configs for the catheter navigation goal.
 
-The predicates live in :mod:`i4h_arena.medical.navigation_goal`; this module is
-only the wiring that turns them into a ``success`` termination term and the
-reset event that clears its hold counter.
+The predicates live in :mod:`i4h_arena.medical.navigation_goal` and the reward
+quantities in :mod:`i4h_arena.medical.navigation_reward`; this module is only
+the wiring that turns them into term configs, plus the reset events that clear
+their per-episode state.
 """
 
 from __future__ import annotations
@@ -12,7 +13,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import MISSING
 
-from isaaclab.managers import EventTermCfg, TerminationTermCfg
+import isaaclab.envs.mdp as base_mdp
+from isaaclab.managers import EventTermCfg, RewardTermCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 
 from i4h_arena.medical.navigation_goal import (
@@ -20,6 +22,15 @@ from i4h_arena.medical.navigation_goal import (
     ARRIVAL_TOLERANCE_M,
     reached_navigation_target,
     reset_arrival_progress,
+)
+from i4h_arena.medical.navigation_reward import (
+    approach_reward,
+    arrival_reward,
+    fold_penalty,
+    lateral_offset_penalty,
+    reset_route_progress,
+    route_progress_reward,
+    wall_penetration_penalty,
 )
 
 
@@ -38,6 +49,83 @@ class CatheterNavigationTerminationsCfg:
 @configclass
 class CatheterNavigationEventsCfg:
     reset_arrival_progress = EventTermCfg(func=reset_arrival_progress, mode="reset")
+    reset_route_progress = EventTermCfg(func=reset_route_progress, mode="reset")
+
+
+@configclass
+class CatheterNavigationRewardsCfg:
+    """Dense navigation objective. Every term is bound by :func:`navigation_rewards_cfg`.
+
+    The weights are a starting point sized against one episode rather than a
+    tuned result, and they are the part most likely to need moving. Over the
+    600-step cap and the 0.66 m s0011 route: a full traverse pays about 99
+    through ``progress``, the fifteen-step hold pays 75 through ``arrival``, and
+    a tip pinned against the wall gives up roughly 1.0 per step across
+    ``lateral`` and ``penetration``. That ordering -- arriving worth more than
+    traversing, traversing worth more than any amount of loitering -- is the
+    intent; the exact numbers are not load-bearing.
+    """
+
+    progress: RewardTermCfg = MISSING
+    approach: RewardTermCfg = MISSING
+    arrival: RewardTermCfg = MISSING
+    lateral: RewardTermCfg = MISSING
+    penetration: RewardTermCfg = MISSING
+    fold: RewardTermCfg = MISSING
+    action_rate = RewardTermCfg(func=base_mdp.action_rate_l2, weight=-0.01)
+
+
+def navigation_rewards_cfg(
+    target_world_m: Iterable[float],
+    *,
+    route_world_m: Iterable[Iterable[float]],
+    lumen_radii_m: Iterable[float] | None = None,
+    tolerance_m: float = ARRIVAL_TOLERANCE_M,
+) -> CatheterNavigationRewardsCfg:
+    """Bind the dense reward to one scene's route, lumen widths and target.
+
+    Without ``lumen_radii_m`` the lateral and penetration terms have no wall to
+    measure against and are wired at zero weight rather than dropped, so the
+    term set stays the same shape across scenes and a log comparing two runs
+    lines up.
+    """
+    route = tuple(tuple(float(value) for value in point) for point in route_world_m)
+    radii = None if lumen_radii_m is None else tuple(float(value) for value in lumen_radii_m)
+    walled = radii is not None
+    return CatheterNavigationRewardsCfg(
+        progress=RewardTermCfg(
+            func=route_progress_reward,
+            weight=150.0,
+            params={"route_world_m": route},
+        ),
+        # Coarse and fine in one term rather than two: remaining arc already
+        # covers the approach at route scale, so what is missing is only the
+        # last centimetre the 5 mm tolerance is judged on.
+        approach=RewardTermCfg(
+            func=approach_reward,
+            weight=1.0,
+            params={"target_world_m": tuple(float(value) for value in target_world_m), "scale_m": 0.025},
+        ),
+        arrival=RewardTermCfg(
+            func=arrival_reward,
+            weight=5.0,
+            params={
+                "target_world_m": tuple(float(value) for value in target_world_m),
+                "tolerance_m": float(tolerance_m),
+            },
+        ),
+        lateral=RewardTermCfg(
+            func=lateral_offset_penalty,
+            weight=-2.0 if walled else 0.0,
+            params={"route_world_m": route, "lumen_radii_m": radii},
+        ),
+        penetration=RewardTermCfg(
+            func=wall_penetration_penalty,
+            weight=-200.0 if walled else 0.0,
+            params={"route_world_m": route, "lumen_radii_m": radii},
+        ),
+        fold=RewardTermCfg(func=fold_penalty, weight=-1.0),
+    )
 
 
 def navigation_terminations_cfg(
@@ -74,6 +162,8 @@ def navigation_terminations_cfg(
 
 __all__ = [
     "CatheterNavigationEventsCfg",
+    "CatheterNavigationRewardsCfg",
     "CatheterNavigationTerminationsCfg",
+    "navigation_rewards_cfg",
     "navigation_terminations_cfg",
 ]
