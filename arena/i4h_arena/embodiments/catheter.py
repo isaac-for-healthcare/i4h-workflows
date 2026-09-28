@@ -137,6 +137,20 @@ class CatheterVelocityAction(ActionTerm):
         return self._tip_bend_angle
 
     @property
+    def insertion_depth_m(self) -> torch.Tensor:
+        """Route arc the root has been fed to, metres. Zero without a route rail."""
+        if self._rail is None:
+            return torch.zeros(self.num_envs, device=self.device)
+        return self._rail.depth_m
+
+    @property
+    def twist_rad(self) -> torch.Tensor:
+        """Accumulated axial rotation of the root, radians. Zero without a route rail."""
+        if self._rail is None:
+            return torch.zeros(self.num_envs, device=self.device)
+        return self._rail.twist_rad
+
+    @property
     def raw_actions(self) -> torch.Tensor:
         return self._raw_actions
 
@@ -491,8 +505,22 @@ class CatheterEmbodiment:
     def get_action_cfg(self) -> Any:
         return self.action_config
 
-    def get_observation_cfg(self) -> None:
-        return None
+    def get_observation_cfg(self) -> Any:
+        """Low-dimensional navigation state, bound to this scene's route and target.
+
+        Omitted without a twin, matching the reward and the termination: the
+        route terms would be projecting onto a vessel that is not there. Teleop
+        and replay drive the action terms directly and never read the
+        observation manager, so they are unaffected either way.
+        """
+        if self.navigation_target_world_m is None:
+            return None
+        from i4h_arena.envcfg.endoluminal_navigation import navigation_observations_cfg
+
+        return navigation_observations_cfg(
+            self.navigation_target_world_m,
+            route_world_m=self.rod_spec.initial_path_world_m,
+        )
 
     def get_events_cfg(self) -> Any:
         if self.navigation_target_world_m is None:

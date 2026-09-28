@@ -14,7 +14,13 @@ from collections.abc import Iterable
 from dataclasses import MISSING
 
 import isaaclab.envs.mdp as base_mdp
-from isaaclab.managers import EventTermCfg, RewardTermCfg, TerminationTermCfg
+from isaaclab.managers import (
+    EventTermCfg,
+    ObservationGroupCfg,
+    ObservationTermCfg,
+    RewardTermCfg,
+    TerminationTermCfg,
+)
 from isaaclab.utils import configclass
 
 from i4h_arena.medical.navigation_goal import (
@@ -22,6 +28,13 @@ from i4h_arena.medical.navigation_goal import (
     ARRIVAL_TOLERANCE_M,
     reached_navigation_target,
     reset_arrival_progress,
+)
+from i4h_arena.medical.navigation_observation import (
+    drive_state,
+    route_state,
+    target_offset,
+    tip_direction,
+    tip_position,
 )
 from i4h_arena.medical.navigation_reward import (
     approach_reward,
@@ -50,6 +63,60 @@ class CatheterNavigationTerminationsCfg:
 class CatheterNavigationEventsCfg:
     reset_arrival_progress = EventTermCfg(func=reset_arrival_progress, mode="reset")
     reset_route_progress = EventTermCfg(func=reset_route_progress, mode="reset")
+
+
+@configclass
+class CatheterNavigationObservationsCfg:
+    """Low-dimensional navigation state. Bound by :func:`navigation_observations_cfg`.
+
+    One concatenated group rather than several, because the RL bridge reads a
+    single flat state vector; the terms stay separate inside it so a log can
+    still say which part of the state moved.
+
+    No fluoroscopy image here. The catheter's own camera is the operator's
+    view, and adding it doubles the observation into a vision problem before
+    the low-dimensional one is shown to be learnable. It belongs in a second
+    profile, not in the first thing that has to train.
+    """
+
+    @configclass
+    class NavigationObsCfg(ObservationGroupCfg):
+        tip_position: ObservationTermCfg = MISSING
+        tip_direction: ObservationTermCfg = MISSING
+        target_offset: ObservationTermCfg = MISSING
+        route_state: ObservationTermCfg = MISSING
+        drive_state: ObservationTermCfg = MISSING
+
+        def __post_init__(self) -> None:
+            # Corruption off: these are simulated instrument readings, and the
+            # noise that matters for transfer is in the physics, not here.
+            self.enable_corruption = False
+            self.concatenate_terms = True
+
+    policy: NavigationObsCfg = MISSING
+
+
+def navigation_observations_cfg(
+    target_world_m: Iterable[float],
+    *,
+    route_world_m: Iterable[Iterable[float]],
+) -> CatheterNavigationObservationsCfg:
+    """Bind the navigation observation group to one scene's route and target."""
+    return CatheterNavigationObservationsCfg(
+        policy=CatheterNavigationObservationsCfg.NavigationObsCfg(
+            tip_position=ObservationTermCfg(func=tip_position),
+            tip_direction=ObservationTermCfg(func=tip_direction),
+            target_offset=ObservationTermCfg(
+                func=target_offset,
+                params={"target_world_m": tuple(float(value) for value in target_world_m)},
+            ),
+            route_state=ObservationTermCfg(
+                func=route_state,
+                params={"route_world_m": tuple(tuple(float(value) for value in point) for point in route_world_m)},
+            ),
+            drive_state=ObservationTermCfg(func=drive_state),
+        )
+    )
 
 
 @configclass
@@ -162,8 +229,10 @@ def navigation_terminations_cfg(
 
 __all__ = [
     "CatheterNavigationEventsCfg",
+    "CatheterNavigationObservationsCfg",
     "CatheterNavigationRewardsCfg",
     "CatheterNavigationTerminationsCfg",
+    "navigation_observations_cfg",
     "navigation_rewards_cfg",
     "navigation_terminations_cfg",
 ]

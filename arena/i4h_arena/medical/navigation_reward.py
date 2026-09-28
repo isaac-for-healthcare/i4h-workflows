@@ -145,7 +145,7 @@ def project_to_route(
     return arc_m, lateral_m, segment
 
 
-def _tip_route_state(
+def tip_route_state(
     env: Any,
     route_world_m: Iterable[Iterable[float]],
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
@@ -197,7 +197,7 @@ def route_progress_reward(
     unchanged. The clamp is applied to both directions for the same reason --
     a one-sided clamp would pay more for a round trip than for standing still.
     """
-    state = _tip_route_state(env, route_world_m)
+    state = tip_route_state(env, route_world_m)
     if state is None:
         return torch.zeros(int(env.num_envs), device=env.device)
     remaining_m, _, _ = state
@@ -232,7 +232,7 @@ def lateral_offset_penalty(
     the local radius because the same offset is harmless in the aorta and
     against the wall in a branch.
     """
-    state = _tip_route_state(env, route_world_m)
+    state = tip_route_state(env, route_world_m)
     if state is None:
         return torch.zeros(int(env.num_envs), device=env.device)
     _, lateral_m, _ = state
@@ -361,5 +361,6 @@ __all__ = [
     "reset_route_progress",
     "route_length_m",
     "route_progress_reward",
+    "tip_route_state",
     "wall_penetration_penalty",
 ]

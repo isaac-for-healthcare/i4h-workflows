@@ -540,6 +540,11 @@ class RouteRailedIntroducer:
         """Route arc the root has advanced along, metres."""
         return self._arc_m
 
+    @property
+    def twist_rad(self) -> torch.Tensor:
+        """Accumulated axial rotation of the root, radians."""
+        return self._twist_rad
+
     def advance(
         self,
         insertion_velocity: torch.Tensor,
