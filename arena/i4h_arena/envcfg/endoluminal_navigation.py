@@ -19,6 +19,7 @@ from isaaclab.managers import (
     ObservationGroupCfg,
     ObservationTermCfg,
     RewardTermCfg,
+    SceneEntityCfg,
     TerminationTermCfg,
 )
 from isaaclab.utils import configclass
@@ -67,20 +68,19 @@ class CatheterNavigationEventsCfg:
 
 @configclass
 class CatheterNavigationObservationsCfg:
-    """Low-dimensional navigation state. Bound by :func:`navigation_observations_cfg`.
+    """Navigation state and the fluoroscopy view. Bound by :func:`navigation_observations_cfg`.
 
-    One concatenated group rather than several, because the RL bridge reads a
-    single flat state vector; the terms stay separate inside it so a log can
-    still say which part of the state moved.
-
-    No fluoroscopy image here. The catheter's own camera is the operator's
-    view, and adding it doubles the observation into a vision problem before
-    the low-dimensional one is shown to be learnable. It belongs in a second
-    profile, not in the first thing that has to train.
+    Terms are left unconcatenated so each one is addressable by name. The
+    RLinf bridge composes GR00T's modality dict out of named keys -- see
+    :mod:`i4h_rl.adapters.endoluminal_navigation` -- and a flat vector would
+    make the image and the state indistinguishable to it. A trainer that
+    wants one vector concatenates on its own side, which is cheap; recovering
+    named slices from a concatenation is not.
     """
 
     @configclass
     class NavigationObsCfg(ObservationGroupCfg):
+        fluoroscopy_rgb: ObservationTermCfg = MISSING
         tip_position: ObservationTermCfg = MISSING
         tip_direction: ObservationTermCfg = MISSING
         target_offset: ObservationTermCfg = MISSING
@@ -91,7 +91,7 @@ class CatheterNavigationObservationsCfg:
             # Corruption off: these are simulated instrument readings, and the
             # noise that matters for transfer is in the physics, not here.
             self.enable_corruption = False
-            self.concatenate_terms = True
+            self.concatenate_terms = False
 
     policy: NavigationObsCfg = MISSING
 
@@ -104,6 +104,16 @@ def navigation_observations_cfg(
     """Bind the navigation observation group to one scene's route and target."""
     return CatheterNavigationObservationsCfg(
         policy=CatheterNavigationObservationsCfg.NavigationObsCfg(
+            # The fluoroscopy sensor follows Arena's image convention
+            # (``data.output["rgb"]``), so the stock image term reads it.
+            fluoroscopy_rgb=ObservationTermCfg(
+                func=base_mdp.image,
+                params={
+                    "sensor_cfg": SceneEntityCfg("fluoroscopy"),
+                    "data_type": "rgb",
+                    "normalize": False,
+                },
+            ),
             tip_position=ObservationTermCfg(func=tip_position),
             tip_direction=ObservationTermCfg(func=tip_direction),
             target_offset=ObservationTermCfg(
