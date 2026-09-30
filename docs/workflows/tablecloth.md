@@ -56,7 +56,7 @@ arena/.venv/bin/python -m isaacteleop.cloudxr \
 ```
 
 Connect a supported hand-tracking headset using the
-[Isaac Teleop headset setup](https://nvidia.github.io/IsaacTeleop/main/getting_started/quick_start.html#connect-an-xr-headset).
+[Isaac Teleop headset setup](https://nvidia.github.io/IsaacCapture/main/getting_started/quick_start.html#connect-an-xr-headset).
 Keep CloudXR running. In terminal B, source its exported runtime environment
 and choose a robot:
 

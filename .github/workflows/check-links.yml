@@ -24,4 +24,10 @@ jobs:
         run: npm install -g markdown-link-check
 
       - name: Check for broken links
-        run: find . -name "*.md" ! -name "whatsnew_*.md" | xargs -I {} markdown-link-check {} --config .github/markdown-link-check.json
+        # Generated skill reports are copied verbatim with their OMS signatures.
+        # Keep authored SKILL.md and reference documentation in the checked set.
+        run: |
+          find . -name "*.md" ! -name "whatsnew_*.md" \
+            ! -path "./skills/*/BENCHMARK.md" \
+            ! -path "./skills/*/skill-card.md" -print0 \
+            | xargs -0 -r -I {} markdown-link-check {} --config .github/markdown-link-check.json
