@@ -30,12 +30,25 @@ SCENE_MANIFEST = ARENA / "scenes" / "manifest" / "endoluminal_navigation_arm.yam
 
 #: The recorded state contract. Catheter and C-arm lead so a recording made with
 #: the arm keeps the armless scene's column meanings, and the arm is appended.
-EXPECTED_STATE_NAMES = [
+EXPECTED_JOINT_NAMES = [
     "insertion_m",
     "rotation_rad",
     "tip_bend_rad",
     "carm_orbit_rad",
     *[f"arm.panda_joint{index}" for index in range(1, 8)],
+]
+
+#: The recorded state is wider than the joints: it closes with where the
+#: catheter is being asked to go, which no joint reports and nothing actuates.
+#: The reward reads these columns and the N1.7 checkpoint does not, so they
+#: follow the joints rather than displacing any of them.
+EXPECTED_STATE_NAMES = [
+    *EXPECTED_JOINT_NAMES,
+    "target_offset_x_m",
+    "target_offset_y_m",
+    "target_offset_z_m",
+    "route_remaining_m",
+    "route_lateral_m",
 ]
 
 
@@ -368,12 +381,15 @@ def test_the_embodiment_manifest_matches_the_recorded_state_order() -> None:
     """The LeRobot converter only applies these names when the count matches the
     recorded width, and otherwise falls back to positional names with a warning.
     A silent disagreement here produces mislabelled datasets, so the order is
-    pinned rather than derived."""
+    pinned rather than derived.
+
+    ``joint_names`` stays narrower than ``state_names``: it names what the
+    articulation reports, so the goal columns do not belong in it."""
     manifest = yaml.safe_load(EMBODIMENT_MANIFEST.read_text())
 
     assert manifest["name"] == "franka_catheter"
     assert manifest["state_names"] == EXPECTED_STATE_NAMES
-    assert manifest["joint_names"] == EXPECTED_STATE_NAMES
+    assert manifest["joint_names"] == EXPECTED_JOINT_NAMES
 
 
 def test_the_manifest_arm_names_match_the_usd_joint_names() -> None:

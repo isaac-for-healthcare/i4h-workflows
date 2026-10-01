@@ -57,10 +57,16 @@ def test_the_instrument_and_the_gantry_stay_separate(catheter) -> None:
     Training a navigation policy on the catheter group alone depends on the
     C-arm being addressable as its own group, so a single combined group would
     be a regression even though it would still tile correctly.
+
+    Only the commanded groups appear in the action split. The state split leads
+    with the same two, so a checkpoint reading the drive columns finds them at
+    the offsets it was fine-tuned against, and then carries the goal groups.
     """
-    for splits in (catheter.state_split, catheter.action_split):
-        names = [name for name, _start, _end in splits]
-        assert names == [CATHETER_GROUP, CARM_GROUP]
+    assert [name for name, _start, _end in catheter.action_split] == [CATHETER_GROUP, CARM_GROUP]
+
+    state_groups = [name for name, _start, _end in catheter.state_split]
+    assert state_groups[:2] == [CATHETER_GROUP, CARM_GROUP]
+    assert len(set(state_groups)) == len(state_groups), f"a group is declared twice: {state_groups}"
 
 
 def test_the_catheter_group_is_the_instrument_commands(catheter) -> None:

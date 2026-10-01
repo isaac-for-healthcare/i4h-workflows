@@ -135,11 +135,16 @@ def test_the_carm_still_comes_after_the_instrument() -> None:
 
     The instrument's columns lead and the gantry follows, which is what lets a
     recording made on the arm keep the plain scene's leading columns.
+
+    The gantry closes the commanded block rather than the state vector: the goal
+    columns the reward reads are appended after it and are never actuated, so
+    the state is checked at the C-arm's own offset instead of at the end.
     """
     manifest = yaml.safe_load(PLAIN_MANIFEST.read_text())
 
-    for names in (manifest["action_names"], manifest["state_names"]):
-        assert names[-1].startswith("carm_")
+    assert manifest["action_names"][-1].startswith("carm_")
+    carm_start = next(start for name, start, _end in manifest["state_split"] if name == "carm")
+    assert manifest["state_names"][carm_start].startswith("carm_")
     for splits in (manifest["state_split"], manifest["action_split"]):
         groups = {name: (start, end) for name, start, end in splits}
         assert groups["catheter"] == (0, 3)
