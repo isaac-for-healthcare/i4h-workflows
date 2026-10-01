@@ -210,6 +210,8 @@ def test_supported_workflows_have_rl_profiles() -> None:
     assert set(available_profiles()) == {
         "assemble_trocar",
         "endoluminal_navigation",
+        # Same catheter task and checkpoint, with the drive unit on a flange.
+        "endoluminal_navigation_arm",
         "ultrasound_probe_reach",
     }
 

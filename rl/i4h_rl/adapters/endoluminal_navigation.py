@@ -49,6 +49,23 @@ OBS_CONVERTER = "i4h_catheter_carm"
 TRAIN_TASK_ID = "I4H-Workflows-Endoluminal-Navigation-RLinf-v0"
 EVAL_TASK_ID = "I4H-Workflows-Endoluminal-Navigation-RLinf-Eval-v0"
 
+#: The arm-borne scene post-trains through this same adapter. Its Scene
+#: subclasses the armless one and overrides the embodiment, the gravity and the
+#: recorded joint columns -- never ``get_observation_cfg`` -- so the six
+#: observation terms, the four action channels and the reward are identical.
+#: The seven servo'd arm joints appear in recordings and not here: the RL
+#: observation reads ``drive_state`` off the action terms, which is four values
+#: whether or not something is holding the drive unit.
+#:
+#: Separate ids rather than reuse. The id does not pick the scene -- the
+#: profile's ``scene`` does, through the simulator process -- so sharing would
+#: work, but a run would then log under a name that claims the wrong scene.
+ARM_TRAIN_TASK_ID = "I4H-Workflows-Endoluminal-Navigation-Arm-RLinf-v0"
+ARM_EVAL_TASK_ID = "I4H-Workflows-Endoluminal-Navigation-Arm-RLinf-Eval-v0"
+
+#: Every id this adapter answers for. One environment class serves them all.
+TASK_IDS = (TRAIN_TASK_ID, EVAL_TASK_ID, ARM_TRAIN_TASK_ID, ARM_EVAL_TASK_ID)
+
 #: Ordered as the trainer config's ``state`` slices expect. Changing this
 #: order silently re-labels GR00T's state groups, so it is asserted below
 #: rather than trusted.
@@ -272,8 +289,8 @@ def register() -> None:
     from rlinf.envs.isaaclab import REGISTER_ISAACLAB_ENVS
 
     env_class = _get_workflow_env_class()
-    REGISTER_ISAACLAB_ENVS[TRAIN_TASK_ID] = env_class
-    REGISTER_ISAACLAB_ENVS[EVAL_TASK_ID] = env_class
+    for task_id in TASK_IDS:
+        REGISTER_ISAACLAB_ENVS[task_id] = env_class
 
     from isaaclab_contrib.rl.rlinf import extension as isaaclab_extension
     from rlinf.models.embodiment.gr00t import simulation_io
@@ -289,4 +306,4 @@ def register() -> None:
     # dispatches on ``model_type`` and so builds the N1.7 one.
     isaaclab_extension._patch_gr00t_get_model(cfg)
     _registered = True
-    logger.info("registered Workflow catheter RL tasks: %s, %s", TRAIN_TASK_ID, EVAL_TASK_ID)
+    logger.info("registered Workflow catheter RL tasks: %s", ", ".join(TASK_IDS))

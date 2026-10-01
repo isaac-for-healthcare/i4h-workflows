@@ -28,6 +28,9 @@ import yaml
 from i4h_rl.adapters.endoluminal_navigation import (
     ACTION_DIM,
     ACTION_KEYS,
+    ARM_EVAL_TASK_ID,
+    ARM_TRAIN_TASK_ID,
+    EVAL_TASK_ID,
     GR00T_LANGUAGE_KEY,
     GR00T_STATE_DIM,
     GR00T_STATE_GROUPS,
@@ -36,6 +39,8 @@ from i4h_rl.adapters.endoluminal_navigation import (
     STATE_DIM,
     STATE_KEYS,
     STATE_WIDTHS,
+    TASK_IDS,
+    TRAIN_TASK_ID,
     _assert_contract_matches,
     convert_gr00t_to_workflow_action,
     convert_workflow_obs_to_gr00t,
@@ -46,11 +51,18 @@ from i4h_rl.profile import RLProfile
 REPO = Path(__file__).resolve().parents[2]
 PROFILE_PATH = REPO / "rl/profiles/endoluminal_navigation.yaml"
 CONFIG_PATH = REPO / "rl/config/endoluminal_navigation_ppo_gr00t.yaml"
+ARM_PROFILE_PATH = REPO / "rl/profiles/endoluminal_navigation_arm.yaml"
+ARM_CONFIG_PATH = REPO / "rl/config/endoluminal_navigation_arm_ppo_gr00t.yaml"
 
 
 @pytest.fixture(scope="module")
 def trainer_config() -> dict:
     return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def arm_trainer_config() -> dict:
+    return yaml.safe_load(ARM_CONFIG_PATH.read_text(encoding="utf-8"))
 
 
 @pytest.fixture
@@ -480,6 +492,116 @@ def test_runtime_pythonpath_does_not_shadow_gr00t_17_with_15():
     gr00t_sources = [entry for entry in entries if "Isaac-GR00T" in entry]
     assert [Path(entry).name for entry in gr00t_sources] == ["Isaac-GR00T-1.7"]
     assert any(entry.endswith("tasks/gr00t_n17") for entry in entries)
+
+
+# --------------------------------------------------------------------------- #
+# The arm-borne scene post-trains through the same adapter
+# --------------------------------------------------------------------------- #
+def test_the_arm_profile_names_the_arm_scene_and_this_adapter():
+    profile = RLProfile.load(ARM_PROFILE_PATH)
+    assert profile.workflow == "endoluminal_navigation_arm"
+    assert profile.scene == "endoluminal_navigation_arm"
+    assert profile.adapter_module == "i4h_rl.adapters.endoluminal_navigation"
+    assert profile.trainer_config.resolve() == ARM_CONFIG_PATH.resolve()
+
+
+def test_the_adapter_answers_for_both_scenes_task_ids():
+    """One environment class serves every id; the Scene is chosen by the
+    profile, through the simulator process, not by the id."""
+    assert TASK_IDS == (TRAIN_TASK_ID, EVAL_TASK_ID, ARM_TRAIN_TASK_ID, ARM_EVAL_TASK_ID)
+    assert len(set(TASK_IDS)) == len(TASK_IDS)
+
+
+def test_the_arm_profile_task_ids_are_its_own():
+    """Sharing ids would work but would log a run under the wrong scene."""
+    profile = RLProfile.load(ARM_PROFILE_PATH)
+    armless = RLProfile.load(PROFILE_PATH)
+    assert profile.train_task_id == ARM_TRAIN_TASK_ID
+    assert profile.eval_task_id == ARM_EVAL_TASK_ID
+    assert profile.train_task_id != armless.train_task_id
+    assert profile.eval_task_id != armless.eval_task_id
+
+
+def test_the_arm_profile_agrees_with_its_trainer_config():
+    """The backend cross-checks these and refuses the run if they disagree."""
+    from i4h_rl.backends.rlinf import validate_profile
+
+    validate_profile(RLProfile.load(ARM_PROFILE_PATH), REPO)
+
+
+def test_the_arm_carries_the_same_widths_as_the_armless_scene():
+    """The arm appends joints to recordings, not to the RL observation.
+
+    ``drive_state`` is read off the action terms rather than the articulation,
+    so it is four values whether or not something holds the drive unit, and
+    ``franka_catheter.yaml`` declares the same four ``action_names``.
+    """
+    profile = RLProfile.load(ARM_PROFILE_PATH)
+    armless = RLProfile.load(PROFILE_PATH)
+    assert profile.state_dof == armless.state_dof == STATE_DIM
+    assert profile.action_dof == armless.action_dof == ACTION_DIM
+    assert profile.policy_action_dof == armless.policy_action_dof
+    assert profile.cameras == armless.cameras
+    assert profile.task_description == armless.task_description
+    assert profile.requires_patient_twin == armless.requires_patient_twin is True
+    assert profile.model_runtime == armless.model_runtime
+
+
+def test_the_arm_runs_fewer_environments():
+    """The coupled MJWarp + XPBD solver costs more per step than the rod-only
+    one, and there is no CUDA graph capture to amortise it."""
+    assert RLProfile.load(ARM_PROFILE_PATH).default_num_envs < RLProfile.load(PROFILE_PATH).default_num_envs
+
+
+#: What the arm trainer config is allowed to differ on. Everything else is the
+#: same optimiser acting on the same observation, so a difference would be
+#: drift between two copies rather than a deliberate choice.
+ARM_CONFIG_DIFFERENCES = {
+    ("runner", "logger", "experiment_name"),
+    ("env", "train", "init_params", "id"),
+    ("env", "eval", "init_params", "id"),
+    ("env", "train", "total_num_envs"),
+    ("env", "eval", "total_num_envs"),
+}
+
+
+def _flatten(node, prefix=()):
+    if isinstance(node, dict):
+        for key, value in node.items():
+            yield from _flatten(value, (*prefix, key))
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            yield from _flatten(value, (*prefix, index))
+    else:
+        yield prefix, node
+
+
+def test_the_arm_config_differs_only_where_it_has_to(trainer_config, arm_trainer_config):
+    """The two configs are copies, so this is what keeps them from drifting.
+
+    Composition via ``defaults:`` is not available: ``validate_profile`` reads
+    these files with plain ``yaml.safe_load`` to cross-check them against the
+    profile, and an inherited key would be absent from the raw mapping.
+    """
+    armless = dict(_flatten(trainer_config))
+    arm = dict(_flatten(arm_trainer_config))
+    assert set(armless) == set(arm), "the two configs must declare the same keys"
+    differing = {key for key, value in armless.items() if arm[key] != value}
+    assert differing == ARM_CONFIG_DIFFERENCES
+
+
+def test_the_arm_config_task_ids_match_the_adapter(arm_trainer_config):
+    init = arm_trainer_config["env"]
+    assert init["train"]["init_params"]["id"] == ARM_TRAIN_TASK_ID
+    assert init["eval"]["init_params"]["id"] == ARM_EVAL_TASK_ID
+
+
+def test_both_catheter_profiles_are_discovered():
+    """``available_profiles`` refuses duplicate workflow names, so this also
+    pins that the two profiles are distinct rather than one shadowing the other."""
+    from i4h_rl.profile import available_profiles
+
+    assert {"endoluminal_navigation", "endoluminal_navigation_arm"} <= set(available_profiles())
 
 
 def test_n15_profiles_keep_their_own_gr00t_source():
