@@ -85,7 +85,7 @@ SUITES = {
             "patient twin",
             "tools/patient_twin",
             ("tools/patient_twin/tests",),
-            requires_checkout="third_party/i4h-digital-twin-internal/patient-digital-twin/vasculature_digital_twin",
+            requires_checkout="third_party/i4h-digital-twin/patient-digital-twin",
         ),
     ),
     "arena": (

@@ -5,9 +5,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from vasculature_digital_twin import hu_to_mu
-
-from i4h_tools.patient_twin.pipeline import INTERVENTIONAL, LINEAR, PRESETS, preset
+from patient_digital_twin.legacy_ct import INTERVENTIONAL, LINEAR, PRESETS, hu_to_mu
 
 BONE_HU = 900.0
 IMPLANT_HU = 6000.0
@@ -66,6 +64,6 @@ def test_values_outside_the_knots_clamp_to_the_end_points() -> None:
     assert mu[1] == pytest.approx(INTERVENTIONAL.mu_knots[-1])
 
 
-def test_unknown_preset_names_the_available_curves() -> None:
-    with pytest.raises(KeyError, match="interventional"):
-        preset("clinical")
+def test_unknown_preset_is_rejected() -> None:
+    with pytest.raises(KeyError, match="clinical"):
+        PRESETS["clinical"]

@@ -1,7 +1,7 @@
 [project]
 name = "i4h-tools-patient-twin"
 version = "0.1.0"
-description = "Build an Arena fluoroscopy patient twin from a TotalSegmentator subject."
+description = "Build an Arena fluoroscopy patient twin with the patient digital twin pipeline."
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "nibabel==5.3.2",
@@ -12,7 +12,8 @@ dependencies = [
     "trimesh==4.11.1",
     "usd-core==25.5.1; sys_platform != 'linux' or platform_machine != 'aarch64'",
     "usd-exchange>=2.2; sys_platform == 'linux' and platform_machine == 'aarch64'",
-    "vasculature-digital-twin",
+    "patient-digital-twin",
+    "vtk>=9.3",
 ]
 
 [project.optional-dependencies]
@@ -22,7 +23,7 @@ dev = ["pytest>=8.0"]
 i4h-patient-twin = "i4h_tools.patient_twin.cli:main"
 
 [tool.uv.sources]
-vasculature-digital-twin = { path = "../../third_party/i4h-digital-twin-internal/patient-digital-twin/vasculature_digital_twin", editable = true }
+patient-digital-twin = { path = "../../third_party/i4h-digital-twin/patient-digital-twin", editable = true }
 
 [build-system]
 requires = ["hatchling"]

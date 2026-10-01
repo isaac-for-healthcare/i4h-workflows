@@ -27,7 +27,7 @@ Paste any prompt into Claude Code, Codex, or the repository's [Local Agent](../.
 ```text
 Run endoluminal_navigation in demo mode for 1 episode without patient CT data.
 
-Prepare TotalSegmentator sample s0011 as a patient twin.
+Segment the aorta from sample s0011 CT using NV-Segment and export a patient twin.
 Run endoluminal_navigation in demo mode and verify fluoroscopy.
 
 Start endoluminal_navigation teleop with the prepared s0011 patient twin.
@@ -57,19 +57,31 @@ curl -L --fail --show-error \
   -o ./data/Totalsegmentator_dataset_small_v201.zip
 
 unzip -q ./data/Totalsegmentator_dataset_small_v201.zip -d ./data/TotalSegmentator
-./tools/patient_twin/run.sh ./data/TotalSegmentator/s0011
+./tools/patient_twin/run.sh --source nvsegment \
+  --input ./data/TotalSegmentator/s0011/ct.nii.gz --classes aorta \
+  --bundle-root /path/to/NV-Segment-CTMR/NV-Segment-CTMR \
+  --python /path/to/model-env/bin/python \
+  --patient-id s0011 --output ./data/patient_twins/s0011_aorta
 ```
 
-Preparation reads the CT and its vessel labels through the `vasculature_digital_twin` package, which resolves each file's own direction cosines and reorients everything onto the canonical LPS patient axes. A study stored feet first, or a label file saved with a different slice order, therefore lands on the same axes as the rest of the twin instead of mirroring the anatomy; the manifest records the frame as `DICOM_LPS` and `metadata.json` keeps the orientation the source was stored in. A genuinely oblique acquisition is rejected rather than reoriented, because the renderer samples an axis-aligned voxel grid.
+Preparation calls `patient_digital_twin.main` to run NV-Segment inference on the CT,
+extract the requested meshes and missing vessel centerlines, and export the complete
+`patient_twin.yaml` bundle. The dataset's supplied masks are not used. CT and navigation
+artifacts use canonical DICOM LPS millimeters; the manifest maps them to world meters.
+Oblique acquisitions must be resampled to patient axes before running.
 
-For a subject that ships a CT and no `segmentations/` directory, pass `--segment-vessels` to derive the vasculature with the package's own segmenter instead of reading label files.
+Install the model runtime and checkpoint following the
+[patient pipeline guide](https://github.com/isaac-for-healthcare/i4h-digital-twin/blob/mallan/patient-twin-prototype-simple/patient-digital-twin/README.md#model-setup).
+`--python` selects that environment. Use `--source nvgenerate --source-root /path/to/NV-Generate-CTMR`
+without `--input` to generate paired CT/anatomy. See the [builder setup](../../../tools/patient_twin/README.md)
+for the pinned library and local development override. Always choose a new output directory.
 
 Run the demo using the generated manifest:
 
 ```bash
 ./run.sh endoluminal_navigation \
   --mode demo \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+  --patient-twin ./data/patient_twins/s0011_aorta/patient_twin.yaml
 ```
 
 ### Keyboard teleoperation
@@ -79,7 +91,7 @@ Launch teleoperation:
 ```bash
 ./run.sh endoluminal_navigation \
   --teleop \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+  --patient-twin ./data/patient_twins/s0011_aorta/patient_twin.yaml
 ```
 
 Click inside the Isaac window before using the keyboard. The fluoroscopy window provides image, C-arm view, velocity, and brightness controls.
@@ -100,7 +112,7 @@ This mode succeeds only if moving the C-arm changes the fluoroscopy image:
 ./run.sh endoluminal_navigation \
   --mode validate_fluoroscopy \
   --episodes 2 \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+  --patient-twin ./data/patient_twins/s0011_aorta/patient_twin.yaml
 ```
 
 ### Recording
@@ -110,7 +122,7 @@ Add `--record` to store synchronized actions, state, and fluoroscopy frames:
 ```bash
 ./run.sh endoluminal_navigation \
   --teleop \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml \
+  --patient-twin ./data/patient_twins/s0011_aorta/patient_twin.yaml \
   --record --record-failures
 ```
 
@@ -122,7 +134,7 @@ The loop is unified in the sense that three separately maintained packages act o
 
 | Stage | Artifact it owns | Role in the loop |
 | --- | --- | --- |
-| `vasculature_digital_twin`, through `PatientTwin` | `mu_volume.npy`, `metadata.json`, centerline graph, vessel mask, anatomy USD | Attenuation field, insertion path, and the transforms every other stage is expressed in |
+| `patient_digital_twin`, through `PatientTwin` | `mu_volume.npy`, `metadata.json`, centerline graph, vessel mask, anatomy USD | Attenuation field, insertion path, and the transforms every other stage is expressed in |
 | `catheter_vasculature_solver.CathRodSolver` | node positions and orientations in solver-local metres | Advances the rod under Cosserat stretch and Darboux constraints, plus its projections |
 | `xray_simulator` Slang DiffDRR, with `CatheterAttenuation` | the detector image | Marches CT attenuation and catheter attenuation into one Beer-Lambert exponent |
 
@@ -201,7 +213,7 @@ world m -> volume mm    A^-1                            # the handoff T
 
 The centerline arrives as a graph rather than a path. `ordered_centerline_path` recovers the primary vessel by running Dijkstra between degree-one endpoints with edge weights `|p_a - p_b| / sqrt(mean radius)`, which biases the path into large vessels rather than into whatever branch happens to be longest, starts from the most caudal endpoint, smooths the result with a `[1/4, 1/2, 1/4]` stencil, and resamples it uniformly at 7.5 mm. Arclength is the cumulative chord length of that polyline, and the rod's initial length is `min(L_path, 0.65 * X extent of the CT)`.
 
-For the `s0011` twin this yields a 431x311x311 grid at 1.5 mm isotropic spacing (646.5 x 466.5 x 466.5 mm), `mu` in `[0, 0.0234]` 1/mm, a 303.2 mm rod of `N = 40` segments so `l = 7.58 mm`, and `r = 0.5 mm`.
+The s0011 CT has a 431x311x311 grid at 1.5 mm isotropic spacing. The resulting path and rod length depend on the requested vessel classes and model output; read the exported graph rather than assuming a fixed path length.
 
 ### Control
 

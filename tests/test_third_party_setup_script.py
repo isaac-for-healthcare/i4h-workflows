@@ -75,7 +75,7 @@ def test_private_repositories_follow_ssh_root_origin(tmp_path: Path) -> None:
     assert "private repository transport: ssh" in result.stdout
     assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
     assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-sensor-simulation-internal.git" in git_log
-    assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-digital-twin-internal.git" in git_log
+    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-digital-twin.git" in git_log
 
 
 def test_private_repositories_follow_https_root_origin(tmp_path: Path) -> None:
@@ -90,7 +90,7 @@ def test_private_repositories_follow_https_root_origin(tmp_path: Path) -> None:
         "remote set-url origin https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
     )
     assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-sensor-simulation-internal.git" in git_log
-    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-digital-twin-internal.git" in git_log
+    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-digital-twin.git" in git_log
 
 
 def test_private_repositories_default_to_https_without_root_origin(tmp_path: Path) -> None:
