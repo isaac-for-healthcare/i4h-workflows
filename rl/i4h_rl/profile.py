@@ -179,9 +179,7 @@ class RLProfile:
                 raise ProfileError(f"{path}: resources is only supported for RLinf profiles")
             if not isinstance(resources_raw, dict):
                 raise ProfileError(f"{path}: resources must be dict")
-            resource_unknown = sorted(
-                set(resources_raw) - {"model_gpu", "simulator_gpu", "allow_shared_gpu"}
-            )
+            resource_unknown = sorted(set(resources_raw) - {"model_gpu", "simulator_gpu", "allow_shared_gpu"})
             if resource_unknown:
                 raise ProfileError(f"{path}: unknown resources fields: {', '.join(resource_unknown)}")
             model_gpu = resources_raw.get("model_gpu")
