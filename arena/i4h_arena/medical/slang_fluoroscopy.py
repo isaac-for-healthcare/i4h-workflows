@@ -38,11 +38,13 @@ def _contrast_bolus_mask(patient: PatientVolume) -> np.ndarray:
         vessel_path = patient.twin.artifacts.get("vessel_mask")
         if vessel_path is None:
             raise ValueError("DSA fluoroscopy requires centerline_points or vessel_mask in the patient twin")
-        return np.asarray(np.load(vessel_path), dtype=np.uint8)
+        values = np.asarray(np.load(vessel_path), dtype=np.uint8)
+        return values.transpose([patient.twin.array_axes.index(c) for c in "kji"])
 
     from scipy.ndimage import binary_dilation, generate_binary_structure
 
-    points_patient_mm = np.asarray(np.load(centerline_path), dtype=np.float64)
+    unit_mm = patient.twin.meters_per_scan_unit * 1000
+    points_patient_mm = np.asarray(np.load(centerline_path), dtype=np.float64) * unit_mm
     edges_path = patient.twin.artifacts.get("centerline_edges")
     radii_path = patient.twin.artifacts.get("centerline_radii")
     if edges_path is not None:
@@ -51,12 +53,16 @@ def _contrast_bolus_mask(patient: PatientVolume) -> np.ndarray:
             points_patient_mm,
             np.load(edges_path),
             target_spacing_mm=reference_segment_mm,
-            radii_mm=np.load(radii_path) if radii_path is not None else None,
+            radii_mm=np.load(radii_path) * unit_mm if radii_path is not None else None,
         )
     points_world_m = patient.twin.patient_mm_to_world(points_patient_mm)
     points_volume_mm = patient.world_to_volume_mm(points_world_m)
     spacing_xyz = np.asarray(patient.spacing_xyz_mm, dtype=np.float64)
-    indices_xyz = np.rint(points_volume_mm / spacing_xyz).astype(np.int64)
+    if patient.voxel_to_volume_mm is not None:
+        inverse = np.linalg.inv(patient.voxel_to_volume_mm)
+        indices_xyz = np.rint(points_volume_mm @ inverse[:3, :3].T + inverse[:3, 3]).astype(np.int64)
+    else:
+        indices_xyz = np.rint(points_volume_mm / spacing_xyz).astype(np.int64)
     shape_xyz = np.asarray(patient.shape_zyx[::-1], dtype=np.int64)
     valid = np.all((indices_xyz >= 0) & (indices_xyz < shape_xyz), axis=1)
     indices_xyz = indices_xyz[valid]
@@ -214,7 +220,9 @@ class SlangFluoroscopyRenderer:
         )
         # The renderer takes origin_xyz_mm ahead of the config, and leaving it at the default
         # keeps the volume centred, which is the frame solve_projection_geometry poses into.
-        self._renderer = SlangDiffDRRRenderer(patient.mu_volume, patient.spacing_zyx_mm, cfg=base_config)
+        self._renderer = SlangDiffDRRRenderer(
+            patient.mu_volume, patient.spacing_zyx_mm, cfg=base_config, voxel_to_world_mm=patient.voxel_to_volume_mm
+        )
         self._dsa_renderer = None
         if self._dsa:
             vessel_mask = _contrast_bolus_mask(patient)
@@ -225,7 +233,9 @@ class SlangFluoroscopyRenderer:
                 )
             boosted_volume = patient.mu_volume.copy()
             boosted_volume[vessel_mask > 0] *= float(dsa_boost)
-            self._dsa_renderer = SlangDiffDRRRenderer(boosted_volume, patient.spacing_zyx_mm, cfg=base_config)
+            self._dsa_renderer = SlangDiffDRRRenderer(
+                boosted_volume, patient.spacing_zyx_mm, cfg=base_config, voxel_to_world_mm=patient.voxel_to_volume_mm
+            )
 
     def render(self, catheter: CatheterState, carm: CArmState | None = None) -> dict[str, np.ndarray]:
         if catheter.num_envs != 1:

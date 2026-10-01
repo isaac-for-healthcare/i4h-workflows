@@ -112,3 +112,38 @@ def test_schema_two_requires_hu(bundle):
     path.write_text(yaml.safe_dump(manifest))
     with pytest.raises(ValueError, match="schema 2 requires"):
         PatientTwin.load(path)
+
+
+@pytest.mark.parametrize("axes,unit,scale", [("ijk", "mm", 1.0), ("kji", "m", 0.001)])
+def test_native_bundle_geometry_and_default_placement(tmp_path, axes, unit, scale):
+    from xray_simulator.scan_volume import from_array
+
+    values = np.arange(24, dtype=np.float32).reshape(2, 3, 4)
+    affine = np.array([[0.8, -0.6, 0.0, 10.0], [0.6, 0.8, 0.0, 20.0], [0.0, 0.0, 2.0, 30.0], [0.0, 0.0, 0.0, 1.0]])
+    affine[:3] *= scale
+    permutation = np.eye(4)
+    permutation[:3, :3] = np.eye(3)[:, ["ijk".index(c) for c in axes]]
+    scan = from_array(
+        values.transpose(["ijk".index(c) for c in axes]), affine @ permutation, array_axes=axes, world_unit=unit
+    )
+    folder = tmp_path / "scan"
+    scan.save(folder)
+    manifest = {
+        "schema_version": 3,
+        "patient_id": "native",
+        "coordinate_frame": "RAS",
+        "meters_per_unit": scan.meters_per_unit,
+        "spatial_unit": unit,
+        "transforms": {"voxel_to_scan": affine.tolist()},
+        "artifacts": {"hu_volume": "volume.npy", "volume_metadata": "volume.yaml"},
+    }
+    path = folder / "patient_twin.yaml"
+    path.write_text(yaml.safe_dump(manifest))
+    twin = PatientTwin.load(path)
+    volume = PatientVolume.load(twin)
+    np.testing.assert_allclose(volume.volume_mm_to_world(volume.center_xyz_mm), [0.0, 0.0, 0.85])
+    idx = np.array([1.0, 2.0, 3.0, 1.0])
+    point = (volume.voxel_to_volume_mm @ idx)[:3]
+    np.testing.assert_allclose(volume.volume_mm_to_world(point), twin.voxels_to_world(idx[:3]))
+    np.testing.assert_allclose(volume.world_to_volume_mm(twin.voxels_to_world(idx[:3])), point)
+    assert volume.shape_zyx == values.shape[::-1]

@@ -43,13 +43,27 @@ a separate compatible GPU environment.
   --record verify.hdf5
 ```
 
-The input is a 3D CT NIfTI in HU; supplied dataset masks are not read.
-`--classes` takes space- or comma-separated names. Output must be a new directory.
-The default format is `bundle`, with HU CT, spatial metadata, vessel mask, centerlines,
-anatomy USD, and a manifest that records their LPS-to-world placement. Navigation centerlines are
-calculated from the final CT-grid vessel mask; stored structure graphs are retained
-separately. Patient IDs are derived automatically from the CT folder. Axis-oblique CT must be
-resampled before inference.
+The input is a 3D CT NIfTI, DICOM CT directory, or `volume.yaml`; supplied dataset
+masks are not read. For DICOM, install the tool's `dicom` extra and use
+`--series-uid` if multiple series are present. `--classes` accepts space- or
+comma-separated names. Output must be a new directory.
+
+```mermaid
+flowchart LR
+    C["CT: NIfTI / DICOM / volume.yaml"] --> P["patient-digital-twin: segment + mesh"]
+    P --> B["Native scan bundle: HU + YAML + mask + centerlines + USD"]
+    B --> X["sensor-simulation: HU → μ + affine ray marching"]
+    B --> W["Workflow: units + patient placement"]
+    X --> F["Navigation + fluoroscopy"]
+    W --> F
+```
+
+Schema-3 bundles preserve source scan axes, spacing, origin, and orientation,
+including oblique grids. `volume.npy` and `volume.yaml` describe HU and its full
+affine; anatomy and centerlines use the declared scan frame/units. Centerlines
+come from the retained CT-grid labels. The workflow applies simulator placement
+and unit conversion when loading the bundle; these are no longer baked into exports.
+Older schema-1/2 bundles remain supported.
 
 Attenuation conversion belongs to `xray_simulator` in sensor-simulation and runs
 when the workflow loads the HU bundle. The default is `linear`, without HU

@@ -28,6 +28,13 @@ def reference_initial_catheter_length_m(twin: PatientTwin, *, fallback_m: float)
     metadata_path = twin.artifacts.get("volume_metadata")
     if metadata_path is None:
         return float(fallback_m)
+    if twin.schema_version == 3:
+        import yaml
+
+        metadata = yaml.safe_load(metadata_path.read_text())["output"]
+        size_i = metadata["shape"][metadata["array_axes"].index("i")]
+        length_m = 0.65 * size_i * np.linalg.norm(twin.voxel_to_patient_mm[:3, 0]) * 0.001
+        return min(float(fallback_m), float(length_m))
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     shape_zyx = np.asarray(metadata.get("shape_zyx"), dtype=np.float64)
     spacing_zyx_mm = np.asarray(metadata.get("spacing_zyx_mm"), dtype=np.float64)
@@ -238,13 +245,13 @@ class CatheterEmbodiment:
         centerline_path = twin.artifacts.get("centerline_points")
         if centerline_path is None:
             return
-        points_patient_mm = np.load(centerline_path)
+        points_patient_mm = np.load(centerline_path) * (twin.meters_per_scan_unit * 1000)
         edges_path = twin.artifacts.get("centerline_edges")
         if edges_path is None:
             return
         edges = np.load(edges_path)
         radii_path = twin.artifacts.get("centerline_radii")
-        radii = np.load(radii_path) if radii_path is not None else None
+        radii = np.load(radii_path) * (twin.meters_per_scan_unit * 1000) if radii_path is not None else None
         path_patient_mm = ordered_centerline_path(
             points_patient_mm,
             edges,

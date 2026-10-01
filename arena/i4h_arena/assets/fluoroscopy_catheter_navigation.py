@@ -416,7 +416,10 @@ def _patient_asset(fallback: AssetBaseCfg, manifest: str | None) -> AssetBaseCfg
     transform = twin.world_from_patient_m
     return AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Patient",
-        spawn=sim_utils.UsdFileCfg(usd_path=str(anatomy)),
+        spawn=sim_utils.UsdFileCfg(
+            usd_path=str(anatomy),
+            scale=(twin.meters_per_scan_unit,) * 3 if twin.schema_version == 3 else (1.0, 1.0, 1.0),
+        ),
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=tuple(float(value) for value in transform[:3, 3]),
             rot=_quat_xyzw(transform[:3, :3]),

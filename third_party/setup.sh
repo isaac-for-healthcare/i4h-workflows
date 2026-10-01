@@ -28,10 +28,10 @@ I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-main}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
 # X-ray uses the public HU-mapping API; other sensors keep their existing source.
-I4H_XRAY_SIM_REF="${I4H_XRAY_SIM_REF:-6981b04ca8d1f124cc403eac31edb99e55883eb3}"
+I4H_XRAY_SIM_REF="${I4H_XRAY_SIM_REF:-a08a5d9fd39762175fb32fc04561e0f334228f89}"
 I4H_XRAY_SIM_DIR="i4h-sensor-simulation"
 I4H_XRAY_SIM_URL="${I4H_XRAY_SIM_URL:-https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git}"
-I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-99efd53275c9eb4aedd6dd621ac12875b4a972aa}"
+I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-58b3f5af54ad336b1ff0b8381a44282a68b22176}"
 I4H_DIGITAL_TWIN_DIR="i4h-digital-twin"
 I4H_DIGITAL_TWIN_URL="${I4H_DIGITAL_TWIN_URL:-https://github.com/isaac-for-healthcare/i4h-digital-twin.git}"
 

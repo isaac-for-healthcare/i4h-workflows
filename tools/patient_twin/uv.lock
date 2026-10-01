@@ -328,6 +328,9 @@ dependencies = [
 dev = [
     { name = "pytest" },
 ]
+dicom = [
+    { name = "patient-digital-twin", extra = ["dicom"] },
+]
 nvgenerate = [
     { name = "patient-digital-twin", extra = ["nvgenerate"] },
 ]
@@ -340,6 +343,7 @@ requires-dist = [
     { name = "nibabel", specifier = "==5.3.2" },
     { name = "numpy", specifier = "==2.2.6" },
     { name = "patient-digital-twin", editable = "../../third_party/i4h-digital-twin/patient-digital-twin" },
+    { name = "patient-digital-twin", extras = ["dicom"], marker = "extra == 'dicom'", editable = "../../third_party/i4h-digital-twin/patient-digital-twin" },
     { name = "patient-digital-twin", extras = ["nvgenerate"], marker = "extra == 'nvgenerate'", editable = "../../third_party/i4h-digital-twin/patient-digital-twin" },
     { name = "patient-digital-twin", extras = ["nvsegment"], marker = "extra == 'nvsegment'", editable = "../../third_party/i4h-digital-twin/patient-digital-twin" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
@@ -351,7 +355,7 @@ requires-dist = [
     { name = "usd-exchange", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", specifier = ">=2.2" },
     { name = "vtk", specifier = ">=9.3" },
 ]
-provides-extras = ["nvsegment", "nvgenerate", "dev"]
+provides-extras = ["dicom", "nvsegment", "nvgenerate", "dev"]
 
 [[package]]
 name = "idna"
@@ -724,6 +728,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+dicom = [
+    { name = "simpleitk" },
+]
 nvgenerate = [
     { name = "einops" },
     { name = "fire" },
@@ -771,6 +778,7 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'nvsegment'", specifier = ">=1.10" },
     { name = "scipy", marker = "extra == 'pipeline'", specifier = ">=1.10" },
     { name = "shapely", marker = "extra == 'physics'", specifier = ">=2.0" },
+    { name = "simpleitk", marker = "extra == 'dicom'", specifier = ">=2.3.0" },
     { name = "tensorboard", marker = "extra == 'nvgenerate'", specifier = ">=2.14" },
     { name = "tetgen", marker = "extra == 'physics'", specifier = ">=0.8" },
     { name = "torch", marker = "extra == 'nvgenerate'", specifier = ">=2.4" },
@@ -783,7 +791,7 @@ requires-dist = [
     { name = "usd-core", marker = "extra == 'usd'" },
     { name = "vtk", marker = "extra == 'pipeline'" },
 ]
-provides-extras = ["nvsegment", "nvgenerate", "pipeline", "physics", "dev", "mesh", "usd"]
+provides-extras = ["dicom", "nvsegment", "nvgenerate", "pipeline", "physics", "dev", "mesh", "usd"]
 
 [[package]]
 name = "pillow"
@@ -952,6 +960,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6d/44/f5da03a8ef95d369145c5bb53050e7877c9f3d312e128605fd9504829143/setuptools-84.0.0.tar.gz", hash = "sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73", size = 1168449, upload-time = "2026-08-08T18:27:58.365Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl", hash = "sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670", size = 818216, upload-time = "2026-08-08T18:27:56.719Z" },
+]
+
+[[package]]
+name = "simpleitk"
+version = "2.5.6"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c8/30/cb0eec647afea94c1d95bed3c0014a96565404e4225dba2c0c63bbdd6b9a/simpleitk-2.5.6-cp311-abi3-macosx_10_9_x86_64.whl", hash = "sha256:36658792fe2a62814cbfedb3b236ac722ca7e00953241726bc4a3a26cc7ef5a7", size = 42685058, upload-time = "2026-07-30T16:52:12.477Z" },
+    { url = "https://files.pythonhosted.org/packages/68/e8/18d2351ef7b6a17c921f1fbac3a19dc3a27f6ea7749c2f5a5877e38202b9/simpleitk-2.5.6-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:afcda49474748548fa1b7dbb9f557c3b9feafeb0dd3c2e05d771cc935c86646e", size = 38252322, upload-time = "2026-07-30T16:52:16.719Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/c3/9025397ec8638c261ba1fe56ffed06983df707a3bc961da5ef90157e5a25/simpleitk-2.5.6-cp311-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:af7ca101b23233745b813481ea91694ecea95c3e3b6eed8dca37be39a60f6894", size = 48070098, upload-time = "2026-07-30T16:52:21.316Z" },
+    { url = "https://files.pythonhosted.org/packages/f4/ec/301532fb2003e6557e6a12106eb1df572ed6f74c08c05c2e7a8913353383/simpleitk-2.5.6-cp311-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:99242c333ed17138134e9749f3a484518f41baebab0fc0f0fe7c657ab8090c07", size = 52798369, upload-time = "2026-07-30T16:52:25.774Z" },
+    { url = "https://files.pythonhosted.org/packages/16/d0/a746280d0987413e443c26f19fe5c559fb3034160ee0a7307ae2d85e8d59/simpleitk-2.5.6-cp311-abi3-win_amd64.whl", hash = "sha256:0002b298efb31332f99587cf26ed9f42c2c3ec006a0570f492dfc9ea27303d73", size = 18925827, upload-time = "2026-07-30T16:52:29.496Z" },
 ]
 
 [[package]]

@@ -3,7 +3,6 @@
 
 """Exercise the real library exporter through the workflow tool; mock only inference."""
 
-import json
 from pathlib import Path
 
 import nibabel as nib
@@ -55,55 +54,58 @@ def test_complete_bundle_preserves_patient_placement(tmp_path, inference):
     output = tmp_path / "bundle"
     path = _build(ct, output)
     manifest = yaml.safe_load(path.read_text())
-    assert manifest["coordinate_frame"] == "DICOM_LPS"
+    assert manifest["coordinate_frame"] == "RAS"
     assert manifest["patient_id"] == "subject"
     assert len(manifest["artifacts"]) == 7
     for relative in manifest["artifacts"].values():
         assert (output / relative).is_file()
     center = np.append((np.asarray(SHAPE) - 1) * 0.5, 1.0)
-    patient_mm = np.asarray(manifest["transforms"]["voxel_to_patient_mm"]) @ center
-    patient_mm[:3] *= 0.001
-    world = np.asarray(manifest["transforms"]["world_from_patient_m"]) @ patient_mm
-    np.testing.assert_allclose(world[:3], [0.0, 0.0, 0.85], atol=1e-8)
+    np.testing.assert_allclose(
+        np.asarray(manifest["transforms"]["voxel_to_scan"]) @ center, nib.load(ct).affine @ center
+    )
+    assert "world_from_patient_m" not in manifest["transforms"]
     assert np.load(output / "centerline_edges.npy").shape[1] == 2
     assert set(manifest["anatomy"]["structures"]) == {"aorta"}
     assert set(manifest["centerlines"]) == {"aorta"}
 
 
-def test_stored_slice_order_does_not_change_artifacts(tmp_path, inference):
+def test_stored_slice_order_is_preserved(tmp_path, inference):
     for flipped in (False, True):
-        _build(_ct(tmp_path / str(flipped), flipped=flipped), tmp_path / f"out_{flipped}")
-    for filename in ("hu_volume.npy", "vessel_mask.npy", "centerline_points_mm.npy"):
-        np.testing.assert_allclose(
-            np.load(tmp_path / "out_False" / filename), np.load(tmp_path / "out_True" / filename), atol=1e-5
-        )
+        ct = _ct(tmp_path / str(flipped), flipped=flipped)
+        path = _build(ct, tmp_path / f"out_{flipped}")
+        np.testing.assert_array_equal(np.load(path.parent / "volume.npy"), nib.load(ct).get_fdata())
+        metadata = yaml.safe_load((path.parent / "volume.yaml").read_text())["output"]
+        np.testing.assert_allclose(metadata["array_index_to_world"], nib.load(ct).affine)
+    np.testing.assert_array_equal(
+        np.load(tmp_path / "out_False/vessel_mask.npy"), np.load(tmp_path / "out_True/vessel_mask.npy")[:, :, ::-1]
+    )
 
 
 def test_preparation_exports_hu_without_attenuation(tmp_path, inference):
     output = tmp_path / "output"
     ct = _ct(tmp_path / "subject")
     path = _build(ct, output)
-    metadata = json.loads((output / "metadata.json").read_text())
-    assert metadata["intensity_units"] == "HU"
+    metadata = yaml.safe_load((output / "volume.yaml").read_text())["output"]
+    assert metadata["intensity_unit"] == "HU"
     assert "hu_to_mu" not in metadata
     assert not (output / "mu_volume.npy").exists()
     np.testing.assert_array_equal(
-        np.sort(np.load(output / "hu_volume.npy").ravel()), np.sort(nib.load(ct).get_fdata().ravel())
+        np.sort(np.load(output / "volume.npy").ravel()), np.sort(nib.load(ct).get_fdata().ravel())
     )
-    assert yaml.safe_load(path.read_text())["schema_version"] == 2
+    assert yaml.safe_load(path.read_text())["schema_version"] == 3
 
 
-def test_oblique_input_fails_before_inference(tmp_path, monkeypatch):
+def test_oblique_input_keeps_native_grid(tmp_path, inference):
     ct = _ct(tmp_path / "subject")
     image = nib.load(ct)
     affine = np.eye(4)
     angle = np.pi / 6
     affine[:2, :2] = [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
     nib.save(nib.Nifti1Image(image.get_fdata(), affine), ct)
-    monkeypatch.setattr(NVSegmentImporter, "to_anatomy_collection", lambda *a, **kw: pytest.fail("model ran"))
-    with pytest.raises(ValueError, match="oblique"):
-        _build(ct, tmp_path / "output")
-    assert not (tmp_path / "output").exists()
+    path = _build(ct, tmp_path / "output")
+    np.testing.assert_array_equal(np.load(path.parent / "volume.npy"), image.get_fdata())
+    metadata = yaml.safe_load((path.parent / "volume.yaml").read_text())["output"]
+    np.testing.assert_allclose(metadata["array_index_to_world"], nib.load(ct).affine)
 
 
 def test_inference_failure_has_no_fallback_or_partial_bundle(tmp_path, monkeypatch):

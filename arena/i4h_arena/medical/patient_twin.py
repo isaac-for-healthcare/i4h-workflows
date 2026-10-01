@@ -49,6 +49,8 @@ class PatientTwin:
     artifacts: dict[str, Path]
     source: Path
     schema_version: int = 1
+    meters_per_scan_unit: float = 0.001
+    array_axes: str = "kji"
 
     @property
     def voxel_to_world_m(self) -> np.ndarray:
@@ -77,12 +79,15 @@ class PatientTwin:
             raise ValueError(f"{source}: invalid YAML: {exc}") from exc
         if not isinstance(raw, dict):
             raise TypeError(f"{source}: expected a mapping")
-        if int(raw.get("schema_version", 0)) not in (1, 2):
+        if int(raw.get("schema_version", 0)) not in (1, 2, 3):
             raise ValueError(f"{source}: unsupported or missing schema_version")
         patient_id = str(raw.get("patient_id", "")).strip()
         if not patient_id:
             raise ValueError(f"{source}: patient_id is required")
+        version = int(raw["schema_version"])
         coordinate_frame = str(raw.get("coordinate_frame", ""))
+        if version == 3:
+            coordinate_frame = {"RAS": "NIFTI_RAS", "LPS": "DICOM_LPS"}.get(coordinate_frame, coordinate_frame)
         if coordinate_frame not in _SUPPORTED_COORDINATE_FRAMES:
             raise ValueError(
                 f"{source}: coordinate_frame must be one of {sorted(_SUPPORTED_COORDINATE_FRAMES)}, "
@@ -91,13 +96,45 @@ class PatientTwin:
         transforms = raw.get("transforms")
         if not isinstance(transforms, dict):
             raise TypeError(f"{source}: transforms must be a mapping")
-        voxel_to_patient_mm = _affine(transforms.get("voxel_to_patient_mm"), "voxel_to_patient_mm")
-        world_from_patient_m = _affine(transforms.get("world_from_patient_m"), "world_from_patient_m", rigid=True)
+        units = 0.001
+        axes = "kji"
+        if version == 3:
+            units = float(raw["meters_per_unit"])
+            if not np.isfinite(units) or units <= 0:
+                raise ValueError("meters_per_unit must be positive and finite")
+            metadata_path = source.parent / raw["artifacts"]["volume_metadata"]
+            volume = yaml.safe_load(metadata_path.read_text())["output"]
+            expected_frame = {"RAS": "NIFTI_RAS", "LPS": "DICOM_LPS"}.get(volume["world_frame"])
+            expected_units = {"m": 1.0, "mm": 0.001, "micron": 1e-6}.get(volume["world_unit"])
+            if (
+                expected_frame != coordinate_frame
+                or expected_units != units
+                or volume["world_unit"] != raw["spatial_unit"]
+            ):
+                raise ValueError("Patient manifest and volume YAML disagree on frame or units")
+            axes = volume["array_axes"]
+            if sorted(axes) != list("ijk"):
+                raise ValueError("Invalid native volume array axes")
+            voxel_to_patient_mm = _affine(transforms["voxel_to_scan"], "voxel_to_scan").copy()
+            voxel_to_patient_mm[:3] *= units * 1000
+            if "world_from_patient_m" in transforms:
+                world_from_patient_m = _affine(transforms["world_from_patient_m"], "world_from_patient_m", rigid=True)
+            else:
+                # Simulator placement belongs here, never in the patient exporter.
+                world_from_patient_m = np.eye(4)
+                lps_from_scan = np.diag([-1.0, -1.0, 1.0]) if coordinate_frame == "NIFTI_RAS" else np.eye(3)
+                world_from_patient_m[:3, :3] = np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]]) @ lps_from_scan
+                size = np.array([volume["shape"][axes.index(c)] for c in "ijk"])
+                center = (voxel_to_patient_mm @ np.r_[(size - 1) / 2, 1])[:3] * 0.001
+                world_from_patient_m[:3, 3] = [0, 0, 0.85] - world_from_patient_m[:3, :3] @ center
+        else:
+            voxel_to_patient_mm = _affine(transforms.get("voxel_to_patient_mm"), "voxel_to_patient_mm")
+            world_from_patient_m = _affine(transforms.get("world_from_patient_m"), "world_from_patient_m", rigid=True)
         artifact_values = raw.get("artifacts")
         if not isinstance(artifact_values, dict) or not ({"hu_volume", "attenuation_volume"} & artifact_values.keys()):
             raise ValueError(f"{source}: artifacts.hu_volume or legacy attenuation_volume is required")
-        if int(raw["schema_version"]) == 2 and "hu_volume" not in artifact_values:
-            raise ValueError(f"{source}: schema 2 requires artifacts.hu_volume")
+        if int(raw["schema_version"]) >= 2 and "hu_volume" not in artifact_values:
+            raise ValueError(f"{source}: schema {version} requires artifacts.hu_volume")
         artifacts: dict[str, Path] = {}
         for name, value in artifact_values.items():
             if not isinstance(value, str) or not value.strip():
@@ -116,4 +153,6 @@ class PatientTwin:
             artifacts=artifacts,
             source=source,
             schema_version=int(raw["schema_version"]),
+            meters_per_scan_unit=units,
+            array_axes=axes,
         )

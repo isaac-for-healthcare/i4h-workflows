@@ -164,7 +164,7 @@ def test_slang_adapter_builds_dsa_volume_and_cinematic_frame(tmp_path, monkeypat
     captured = {"volumes": [], "configs": []}
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del spacing, origin_xyz_mm
             captured["volumes"].append(np.asarray(volume).copy())
             captured["configs"].append(cfg)
@@ -209,7 +209,7 @@ def test_slang_adapter_renders_fluoro_polarity_on_a_frame_independent_window(tmp
     frames = iter((first_frame, second_frame))
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -237,7 +237,7 @@ def test_switching_to_xray_inverts_the_greys_and_keeps_the_calibrated_window(tmp
     frame[:, 8:16] = 0.02
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -270,7 +270,7 @@ def test_an_unknown_appearance_is_rejected(tmp_path, monkeypatch) -> None:
     from xray_simulator.rendering import diffdrr_slang_renderer
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -293,7 +293,7 @@ def _window_renderer(tmp_path, monkeypatch) -> SlangFluoroscopyRenderer:
     frame[:, 8:16] = 0.02
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -398,7 +398,7 @@ def _ramp_renderer_class(monkeypatch):
     from xray_simulator.rendering import diffdrr_slang_renderer
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -462,7 +462,7 @@ def test_slang_adapter_uses_upstream_renderer_and_composites_catheter(tmp_path, 
     calls = {}
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             calls["shape"] = volume.shape
             calls["spacing"] = spacing
             calls["origin"] = origin_xyz_mm

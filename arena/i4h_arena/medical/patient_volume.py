@@ -21,9 +21,23 @@ class PatientVolume:
     spacing_zyx_mm: tuple[float, float, float]
     volume_xyz_mm_to_world_m: np.ndarray
     world_m_to_volume_xyz_mm: np.ndarray
+    voxel_to_volume_mm: np.ndarray | None = None
 
     @classmethod
     def load(cls, twin: PatientTwin, *, hu_to_mu_preset: str | None = None) -> PatientVolume:
+        if twin.schema_version == 3:
+            from xray_simulator import HuToMuMapping, PreprocessingSettings, VolumePreprocessor
+            from xray_simulator.scan_volume import load_artifact
+
+            scan = load_artifact(twin.artifacts["volume_metadata"])
+            native = scan.ijk_to_world.copy()
+            native[:3] *= scan.meters_per_unit * 1000
+            if not np.allclose(native, twin.voxel_to_patient_mm, atol=1e-6):
+                raise ValueError("Patient manifest and volume YAML disagree on the scan affine")
+            settings = PreprocessingSettings(hu_to_mu=HuToMuMapping.preset(hu_to_mu_preset or "linear"))
+            volume = VolumePreprocessor.from_scan(scan, settings=settings).preprocess()
+            to_world = twin.world_from_patient_m @ np.diag([0.001, 0.001, 0.001, 1.0])
+            return cls(twin, volume.mu_volume, volume.spacing_zyx_mm, to_world, np.linalg.inv(to_world), native)
         # Preserve legacy cached attenuation unless the caller explicitly remaps HU.
         use_hu = twin.schema_version == 2 or "attenuation_volume" not in twin.artifacts or hu_to_mu_preset is not None
         if use_hu and "hu_volume" not in twin.artifacts:
@@ -91,6 +105,8 @@ class PatientVolume:
 
     @property
     def center_xyz_mm(self) -> np.ndarray:
+        if self.voxel_to_volume_mm is not None:
+            return (self.voxel_to_volume_mm @ np.r_[(np.asarray(self.shape_zyx[::-1]) - 1) / 2, 1])[:3]
         return 0.5 * np.asarray(self.shape_zyx[::-1]) * np.asarray(self.spacing_xyz_mm)
 
     def world_to_volume_mm(self, points_world_m: np.ndarray) -> np.ndarray:

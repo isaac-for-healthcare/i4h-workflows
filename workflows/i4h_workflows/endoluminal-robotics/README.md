@@ -47,6 +47,20 @@ This uses a procedural patient shape, synthetic fluoroscopy, and the default phy
 
 ### Patient CT
 
+Patient preparation preserves the source CT grid. Schema-3 bundles contain native
+`volume.npy` + `volume.yaml`, aorta labels, centerlines, and USD; the workflow owns
+world placement and sensor-simulation owns HU → μ conversion. NIfTI, DICOM CT,
+and existing volume artifacts are supported; see the [preparation examples](../../../tools/patient_twin/README.md).
+
+```mermaid
+flowchart LR
+    CT["CT"] --> P["Segment + export native bundle"]
+    P --> W["Place patient in simulator"]
+    P --> S["Map HU → μ and render with full affine"]
+    W --> N["Catheter navigation + fluoroscopy"]
+    S --> N
+```
+
 Download the public [TotalSegmentator small dataset](https://zenodo.org/records/10047263) (3.2 GB) and prepare subject `s0011`:
 
 ```bash
@@ -386,7 +400,7 @@ The renderer produces transmission `exp(-∫μ ds)`, so dense anatomy carries le
 
 Everything in the first three rows is a re-map of the frame already in hand rather than a re-render, so it applies instantly and cannot disturb a run. Polarity only decides which way round the greys go, and switching it preserves the calibrated window, so brightness stays comparable between the two looks. The synthetic CI phantom has no display mapping and keeps its fixed appearance.
 
-Brightness comes from a display window measured once from the first frame of a run and then held fixed, so moving the C-arm or advancing the catheter changes the image only where the anatomy in the beam actually changes. Rescaling every frame by its own range would instead tie background brightness to whatever is in the field of view, which flickers through a sweep and gives a policy a moving target. That fit reflects whatever was in the beam at step zero, which is why a large oblique or a move along the table may warrant **Recalibrate window**. The sliders are expressed as multiples of the fitted width rather than in absolute line-integral units so that the same bounds suit any patient, since the useful range depends on body size and on the μ scaling baked into the twin.
+Brightness comes from a display window measured once from the first frame of a run and then held fixed, so moving the C-arm or advancing the catheter changes the image only where the anatomy in the beam actually changes. Rescaling every frame by its own range would instead tie background brightness to whatever is in the field of view, which flickers through a sweep and gives a policy a moving target. That fit reflects whatever was in the beam at step zero, which is why a large oblique or a move along the table may warrant **Recalibrate window**. The sliders are expressed as multiples of the fitted width rather than in absolute line-integral units so that the same bounds suit any patient, since the useful range depends on body size and on the selected attenuation curve.
 
 The attenuation curve is selected at launch and held fixed for the episode.
 The launcher records forwarded options, including an explicit `--hu-to-mu`, in

@@ -4477,13 +4477,14 @@ name = "xray-simulator"
 version = "0.1.0"
 source = { editable = "../third_party/i4h-sensor-simulation/xray-simulator" }
 dependencies = [
-    { name = "numpy", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
-    { name = "scipy", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
+    { name = "numpy" },
+    { name = "pyyaml" },
+    { name = "scipy" },
 ]
 
 [package.optional-dependencies]
 slang = [
-    { name = "slangpy", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
+    { name = "slangpy" },
 ]
 
 [package.metadata]
@@ -4491,21 +4492,25 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'all'", specifier = ">=3.9.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8.0" },
     { name = "nibabel", marker = "extra == 'all'", specifier = ">=5.0.0" },
+    { name = "nibabel", marker = "extra == 'nifti'", specifier = ">=5.0.0" },
     { name = "numpy" },
     { name = "pillow", marker = "extra == 'all'", specifier = ">=11.0.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.5.0" },
     { name = "pydicom", marker = "extra == 'all'", specifier = ">=2.4.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "pyyaml", marker = "extra == 'all'", specifier = ">=6.0" },
     { name = "scipy" },
     { name = "simpleitk", marker = "extra == 'all'", specifier = ">=2.3.0" },
+    { name = "simpleitk", marker = "extra == 'dicom'", specifier = ">=2.3.0" },
     { name = "slangpy", marker = "extra == 'all'", specifier = ">=0.40" },
     { name = "slangpy", marker = "extra == 'slang'", specifier = ">=0.40" },
     { name = "tqdm", marker = "extra == 'all'", specifier = ">=4.67.1" },
     { name = "warp-lang", marker = "extra == 'all'", specifier = ">=1.0.0" },
     { name = "warp-lang", marker = "extra == 'warp'", specifier = ">=1.0.0" },
 ]
-provides-extras = ["all", "slang", "warp", "dev"]
+provides-extras = ["dicom", "nifti", "all", "slang", "warp", "dev"]
 
 [[package]]
 name = "yarl"
