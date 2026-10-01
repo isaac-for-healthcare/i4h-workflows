@@ -281,6 +281,104 @@ def test_profile_opts_into_shared_gb300_gpu():
     assert profile.resources.allow_shared_gpu is True
 
 
+# --------------------------------------------------------------------------- #
+# The patient twin reaches the scene
+# --------------------------------------------------------------------------- #
+def test_profile_declares_the_twin_mandatory():
+    """Without a twin the embodiment publishes no observation or reward config."""
+    assert RLProfile.load(PROFILE_PATH).requires_patient_twin is True
+
+
+def test_launching_without_a_twin_is_refused_before_isaac_starts():
+    from i4h_rl import cli
+
+    with pytest.raises(SystemExit, match="requires --patient-twin"):
+        cli.main(["endoluminal_navigation", "--model-path", str(REPO), "--dry-run"])
+
+
+def test_a_twin_is_refused_for_a_scene_that_has_no_use_for_one():
+    """Accepting and ignoring it would make a run look patient-specific."""
+    from i4h_rl import cli
+
+    with pytest.raises(SystemExit, match="does not take --patient-twin"):
+        cli.main(["assemble_trocar", "--model-path", str(REPO), "--patient-twin", "whatever.yaml", "--dry-run"])
+
+
+def test_a_missing_twin_manifest_is_caught_at_the_cli():
+    from i4h_rl import cli
+
+    with pytest.raises(SystemExit, match="manifest does not exist"):
+        cli.main(
+            [
+                "endoluminal_navigation",
+                "--model-path",
+                str(REPO),
+                "--patient-twin",
+                "data/no-such-twin/patient_twin.yaml",
+                "--dry-run",
+            ]
+        )
+
+
+def test_the_simulator_accepts_every_scene_argument_the_twin_needs():
+    """sim_server is a separate process, so its parser is the real contract."""
+    from i4h_rl.sim_server import _parser, _scene_args
+
+    args = _parser().parse_args(
+        [
+            "--scene",
+            "endoluminal_navigation",
+            "--socket",
+            "/tmp/s",
+            "--ready-file",
+            "/tmp/r",
+            "--num-envs",
+            "2",
+            "--max-episode-steps",
+            "600",
+            "--env-spacing",
+            "2.0",
+            "--presets",
+            "physx",
+            "--enable-cameras",
+            "--patient-twin",
+            "data/twins/s0058/patient_twin.yaml",
+        ]
+    )
+    scene_args = _scene_args(args)
+    assert scene_args.patient_twin == "data/twins/s0058/patient_twin.yaml"
+    # Left for the scene to resolve, which picks Slang when a twin is present.
+    assert scene_args.fluoro_backend is None
+    assert scene_args.fluoro_device == "vulkan"
+
+
+def test_a_twinless_simulator_still_carries_the_scene_attributes():
+    """A Scene reads these off the namespace; absent, it would raise instead."""
+    from i4h_rl.sim_server import _parser, _scene_args
+
+    args = _parser().parse_args(
+        [
+            "--scene",
+            "assemble_trocar",
+            "--socket",
+            "/tmp/s",
+            "--ready-file",
+            "/tmp/r",
+            "--num-envs",
+            "2",
+            "--max-episode-steps",
+            "600",
+            "--env-spacing",
+            "2.0",
+            "--presets",
+            "physx",
+        ]
+    )
+    scene_args = _scene_args(args)
+    assert scene_args.patient_twin is None
+    assert scene_args.fluoro_backend is None
+
+
 def test_runtime_pythonpath_does_not_shadow_gr00t_17_with_15():
     """PYTHONPATH outranks the venv, so the wrong checkout here wins silently.
 

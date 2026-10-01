@@ -9,7 +9,7 @@ import os
 import sys
 from pathlib import Path
 
-from i4h_rl.artifacts import resolve_output_path
+from i4h_rl.artifacts import resolve_input_path, resolve_output_path
 from i4h_rl.backend_loader import load_backend
 from i4h_rl.contract import validate_workflow_contract
 from i4h_rl.profile import ProfileError, RLProfile, available_profiles, load_profile
@@ -41,6 +41,10 @@ def _parser() -> argparse.ArgumentParser:
         help="trainer Python for RLinf, or the combined simulator/trainer Python for RSL-RL",
     )
     parser.add_argument("--sim-runtime-python", help="Isaac Sim Python used by an isolated RLinf simulator")
+    parser.add_argument(
+        "--patient-twin",
+        help="patient-twin YAML manifest the scene draws its route, target, and lumen widths from",
+    )
     parser.add_argument("--set", action="append", default=[], metavar="KEY=VALUE", dest="overrides")
     return parser
 
@@ -78,6 +82,28 @@ def _workflows_root() -> Path:
     return Path(os.environ.get("I4H_WORKFLOWS", Path(__file__).resolve().parents[2])).resolve()
 
 
+def _resolve_patient_twin(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -> Path | None:
+    """Settle the twin before anything expensive starts.
+
+    Checked here rather than in a backend because the mismatch runs both ways:
+    a scene built from a twin cannot train without one, and a scene that has no
+    use for a twin should say so instead of accepting the path and ignoring it.
+    """
+    if profile.requires_patient_twin and not args.patient_twin:
+        raise SystemExit(
+            f"{profile.workflow} requires --patient-twin: the scene takes its route, target, and lumen "
+            "widths from the twin, and without one it publishes no observations or reward to train on"
+        )
+    if args.patient_twin and not profile.requires_patient_twin:
+        raise SystemExit(f"{profile.workflow} does not take --patient-twin")
+    if not args.patient_twin:
+        return None
+    manifest = resolve_input_path(workflows_root, args.patient_twin)
+    if not manifest.is_file():
+        raise SystemExit(f"--patient-twin manifest does not exist: {manifest}")
+    return manifest
+
+
 def _export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -> int:
     unsupported = {
         "--model-path": args.model_path,
@@ -91,6 +117,7 @@ def _export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) 
         "--epochs": args.epochs,
         "--episodes": args.episodes,
         "--sim-runtime-python": args.sim_runtime_python,
+        "--patient-twin": args.patient_twin,
     }
     used = [name for name, value in unsupported.items() if value]
     if used:
@@ -121,11 +148,14 @@ def _launch(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) 
     if args.train_config:
         raise SystemExit("--train-config is only valid with the export operation")
     args.episodes = episodes
+    args.resolved_patient_twin = _resolve_patient_twin(args, profile, workflows_root)
     overrides = tuple(_validate_override(value) for value in args.overrides)
     backend = load_backend(profile.trainer)
     validate_workflow_contract(profile, workflows_root)
     backend.validate_profile(profile, workflows_root)
     print(_render(profile, num_envs=num_envs, epochs=epochs))
+    if args.resolved_patient_twin:
+        print(f"patient twin: {args.resolved_patient_twin}")
     backend.validate_launch(args, profile, workflows_root)
     print("operation: evaluation" if args.only_eval else "operation: RL training")
     if overrides:

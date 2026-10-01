@@ -47,6 +47,13 @@ class RLProfile:
     #: A GR00T generation is pinned per task venv, so profiles on different
     #: generations cannot share one runtime. ``None`` keeps the N1.5 default.
     model_runtime: str | None
+    #: Whether this scene needs ``--patient-twin`` to produce a trainable
+    #: environment. The catheter does: its route, target, and lumen widths all
+    #: come from the twin, and without one the embodiment publishes no
+    #: observation, event, reward, or termination config at all. Declaring it
+    #: turns that into one refusal up front instead of a missing-key failure
+    #: raised by the adapter after Isaac Sim has finished starting.
+    requires_patient_twin: bool
     trainer_config: Path
     train_task_id: str
     eval_task_id: str
@@ -77,6 +84,7 @@ class RLProfile:
             "algorithm",
             "adapter_module",
             "model_runtime",
+            "requires_patient_twin",
             "trainer_config",
             "train_task_id",
             "eval_task_id",
@@ -138,6 +146,9 @@ class RLProfile:
         model_runtime = raw.get("model_runtime")
         if model_runtime is not None and (not isinstance(model_runtime, str) or not model_runtime.strip()):
             raise ProfileError(f"{path}: model_runtime must be a non-empty path")
+        requires_patient_twin = raw.get("requires_patient_twin", False)
+        if not isinstance(requires_patient_twin, bool):
+            raise ProfileError(f"{path}: requires_patient_twin must be bool")
         if trainer_config.suffix != ".yaml":
             raise ProfileError(f"{path}: trainer_config must be a .yaml file")
         default_num_envs = int(need("default_num_envs", int))
@@ -199,6 +210,7 @@ class RLProfile:
             algorithm=need("algorithm", str),
             adapter_module=adapter_module,
             model_runtime=model_runtime,
+            requires_patient_twin=requires_patient_twin,
             trainer_config=trainer_config,
             train_task_id=need("train_task_id", str),
             eval_task_id=need("eval_task_id", str),

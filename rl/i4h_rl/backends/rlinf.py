@@ -604,6 +604,12 @@ def launch(
         profile.simulation.presets,
         "--enable-cameras" if profile.simulation.enable_cameras else "--no-enable-cameras",
     ]
+    patient_twin = getattr(args, "resolved_patient_twin", None)
+    if patient_twin is not None:
+        # Already resolved and existence-checked by the caller. Passed as an
+        # absolute path because the simulator runs with cwd set to the
+        # repository root, which is not where the user invoked this.
+        sim_command += ["--patient-twin", str(patient_twin)]
     bridge_key = secrets.token_hex(32)
     sim_env["I4H_RL_SIM_AUTHKEY"] = bridge_key
     model_env["I4H_RL_SIM_AUTHKEY"] = bridge_key

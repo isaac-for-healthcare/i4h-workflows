@@ -156,6 +156,12 @@ def _evaluation_command(
 def validate_launch(args: argparse.Namespace, _profile: RLProfile, _workflows_root: Path) -> None:
     if args.sim_runtime_python:
         raise SystemExit("--sim-runtime-python is only valid for RLinf workflows")
+    if getattr(args, "resolved_patient_twin", None) is not None:
+        # This backend builds its environment from a registered task id rather
+        # than through sim_server, so there is nowhere to hand the twin. Refused
+        # rather than ignored, so a patient-specific run cannot appear to have
+        # trained on a twin it never saw.
+        raise SystemExit("RSL-RL does not pass --patient-twin to the scene; use an RLinf profile")
     if args.model_path:
         raise SystemExit("RSL-RL trains from scratch; do not pass --model-path")
     if args.resume_dir:

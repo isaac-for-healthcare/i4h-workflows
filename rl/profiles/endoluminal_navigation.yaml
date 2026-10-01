@@ -17,6 +17,12 @@ adapter_module: i4h_rl.adapters.endoluminal_navigation
 # the N1.7 task venv. The default N1.5 venv pins Isaac-GR00T-1.5, which has no
 # modality-registration API for N1.7 to load the catheter embodiment through.
 model_runtime: tasks/gr00t_n17/.venv/bin/python
+# --patient-twin is not optional here, unlike teleop, where a phantom scene is
+# still worth driving. The route, the target, and the lumen widths the reward
+# measures against all come from the twin, so without one the embodiment
+# returns None for every observation, event, reward, and termination config and
+# there is nothing for PPO to optimise.
+requires_patient_twin: true
 trainer_config: ../config/endoluminal_navigation_ppo_gr00t.yaml
 train_task_id: I4H-Workflows-Endoluminal-Navigation-RLinf-v0
 eval_task_id: I4H-Workflows-Endoluminal-Navigation-RLinf-Eval-v0
