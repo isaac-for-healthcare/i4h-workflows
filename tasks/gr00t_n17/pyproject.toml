@@ -14,10 +14,15 @@ dependencies = [
     "gr00t",
     "lmdb==1.7.5",
     "PyYAML>=6.0",
-    # RLinf's scheduler imports ray at module import, and this venv hosts the
-    # N1.7 PPO post-training runtime named by rl/profiles/endoluminal_navigation.yaml.
-    # Same pin as the N1.5 task venv so both RL hosts agree.
+    # RL post-training host dependencies, on the same pins as the N1.5 task
+    # venv so both RLinf hosts agree. This venv is the runtime named by
+    # rl/profiles/endoluminal_navigation.yaml, and these are imported at module
+    # import rather than lazily: ray by RLinf's scheduler, toml by
+    # isaaclab_contrib, which the catheter adapter loads to reach the RLinf
+    # extension. Inference-only use of this package never touches them.
     "ray[default]==2.47.0",
+    "toml==0.10.2",
+    "tyro>=0.8",
     # deepspeed (gr00t transitive) imports torch.utils.cpp_extension at runtime,
     # which needs setuptools for its CUDA-ops compatibility probe.
     "setuptools>=68",
