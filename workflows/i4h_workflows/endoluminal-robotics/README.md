@@ -60,19 +60,19 @@ unzip -q ./data/Totalsegmentator_dataset_small_v201.zip -d ./data/TotalSegmentat
 ./tools/patient_twin/run.sh --source nvsegment \
   --input ./data/TotalSegmentator/s0011/ct.nii.gz --classes aorta \
   --bundle-root /path/to/NV-Segment-CTMR/NV-Segment-CTMR \
-  --python /path/to/model-env/bin/python \
-  --patient-id s0011 --output ./data/patient_twins/s0011_aorta
+  --output ./data/patient_twins/s0011_aorta
 ```
 
-Preparation calls `patient_digital_twin.main` to run NV-Segment inference on the CT,
+Preparation calls `patient_digital_twin.__main__` to run NV-Segment inference on the CT,
 extract the requested meshes and missing vessel centerlines, and export the complete
 `patient_twin.yaml` bundle. The dataset's supplied masks are not used. CT and navigation
 artifacts use canonical DICOM LPS millimeters; the manifest maps them to world meters.
 Oblique acquisitions must be resampled to patient axes before running.
 
-Install the model runtime and checkpoint following the
-[patient pipeline guide](https://github.com/isaac-for-healthcare/i4h-digital-twin/blob/mallan/patient-twin-prototype-simple/patient-digital-twin/README.md#model-setup).
-`--python` selects that environment. Use `--source nvgenerate --source-root /path/to/NV-Generate-CTMR`
+Install the optional backend with `uv sync --project tools/patient_twin --extra nvsegment`
+and prepare the source checkout and checkpoint following the
+[patient pipeline guide](https://github.com/isaac-for-healthcare/i4h-digital-twin/blob/mallan/patient-twin-prototype-simple/patient-digital-twin/README.md#start-from-ct-or-generate-a-patient).
+Inference uses imports in the current environment; `--python` optionally selects a separate one. Use `--source nvgenerate --source-root /path/to/NV-Generate-CTMR`
 without `--input` to generate paired CT/anatomy. See the [builder setup](../../../tools/patient_twin/README.md)
 for the pinned library and local development override. Always choose a new output directory.
 

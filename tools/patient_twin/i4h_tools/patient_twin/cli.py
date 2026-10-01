@@ -3,7 +3,7 @@
 
 """Prepare a patient with the shared NV-Generate/NV-Segment pipeline."""
 
-from patient_digital_twin.main import parser
+from patient_digital_twin.__main__ import parser
 
 from .pipeline import build_patient_twin
 
@@ -11,7 +11,7 @@ from .pipeline import build_patient_twin
 def build_parser():
     result = parser()
     result.description = "Build an Arena patient bundle with NV-Generate or NV-Segment."
-    result.set_defaults(format="workflow")
+    result.set_defaults(format="bundle")
     return result
 
 

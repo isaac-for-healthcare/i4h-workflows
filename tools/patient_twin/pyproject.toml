@@ -17,6 +17,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+nvsegment = ["patient-digital-twin[nvsegment]"]
+nvgenerate = ["patient-digital-twin[nvgenerate]"]
 dev = ["pytest>=8.0"]
 
 [project.scripts]

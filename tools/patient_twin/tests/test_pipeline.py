@@ -137,7 +137,7 @@ def test_cli_passes_source_image_classes_and_output(monkeypatch, tmp_path):
         )
         == 0
     )
-    assert captured["format"] == "workflow"
+    assert captured["format"] == "bundle"
     assert captured["source"] == "nvsegment"
     assert captured["input"] == Path("ct.nii.gz")
     assert captured["classes"] == ["aorta"]
