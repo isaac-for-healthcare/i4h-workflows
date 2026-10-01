@@ -291,21 +291,17 @@ stay on N1.7; what is missing is an i4h profile, not upstream support.
 
 Four pieces of work, roughly in dependency order.
 
-**1. A reward function. This does not exist.**
-`CatheterEmbodiment.get_rewards_cfg()` returns `None`. There is a termination and success term
-but no reward, and PPO cannot train on a terminal-only signal for a 600-step episode with a
-5 mm target — the success event is far too rare to bootstrap from. A dense reward would need
-to combine, at minimum:
+**1. A reward function. Authored, not tuned.**
+`CatheterEmbodiment.get_rewards_cfg()` binds the dense objective in
+`arena/i4h_arena/medical/navigation_reward.py` to the scene's own route and lumen widths.
+Seven terms: potential-based arc progress, exponential terminal approach, per-step arrival,
+lateral offset, wall penetration, fold curvature, and action rate. The full specification,
+including what terminates an episode and what does not, is in
+[catheter-navigation-reward.md](catheter-navigation-reward.md).
 
-- progress along the route (`route_progress.remaining_m` decreasing, which is already
-  monotonic and already computed)
-- a penalty on wall penetration (`worst_penetration_mm`)
-- a penalty on proximal folding (`min_bend_radius_mm` collapsing, or
-  `min_bend_radius_node` reaching node 1)
-- a terminal bonus on the arrival-plus-hold condition
-
-The diagnostics needed for all four are already recorded per frame, which is convenient but
-not the same as having the reward authored and tuned.
+What remains is tuning. The weights are sized against one episode rather than measured, and
+the ordering — arriving worth more than traversing, traversing worth more than loitering —
+is the intent while the exact numbers are not load-bearing.
 
 **2. An `rl/profiles/endoluminal_navigation.yaml` plus a trainer config.**
 Following the documented schema: `trainer: rlinf`, `algorithm: ppo_actor_critic`,
@@ -366,7 +362,7 @@ mostly works.
 2. Free disk space.
 3. Record 50 clean episodes; convert; fine-tune; validate to level 4.
 4. Use HG-DAgger to add corrections where the policy fails; retrain toward 100 episodes.
-5. Only once IL is rollout-validated: author the reward, measure per-environment step cost,
-   and decide whether RLinf post-training is affordable on available hardware.
+5. Only once IL is rollout-validated: tune the reward weights, measure per-environment step
+   cost, and decide whether RLinf post-training is affordable on available hardware.
 
 Steps 1–4 have standing value on their own. Step 5 depends entirely on them.

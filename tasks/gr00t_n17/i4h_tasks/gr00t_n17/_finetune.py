@@ -103,7 +103,7 @@ def _build_cmd(cfg: TrainConfig, launch_script: Path, dataset_path: str) -> list
     cmd = [
         sys.executable,
         "-m",
-        "policy.scissor_pick_and_place.train._launcher",
+        "i4h_tasks.gr00t_n17._launcher",
         str(launch_script),
         "--base_model_path",
         cfg.base_model_path,
