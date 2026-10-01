@@ -273,6 +273,14 @@ def test_profile_pins_the_n17_training_runtime():
     assert (REPO / profile.model_runtime).is_file()
 
 
+def test_profile_opts_into_shared_gb300_gpu():
+    profile = RLProfile.load(PROFILE_PATH)
+    assert profile.resources is not None
+    assert profile.resources.model_gpu == "0"
+    assert profile.resources.simulator_gpu == "0"
+    assert profile.resources.allow_shared_gpu is True
+
+
 def test_runtime_pythonpath_does_not_shadow_gr00t_17_with_15():
     """PYTHONPATH outranks the venv, so the wrong checkout here wins silently.
 

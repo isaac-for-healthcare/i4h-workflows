@@ -12,8 +12,9 @@ hydra:
 cluster:
   num_nodes: 1
   component_placement:
-    # RLinf model + lightweight environment proxy share GPU 0. The Workflow
-    # Isaac Sim server is launched separately on GPU 1 by i4h_rl.cli.
+    # RLinf model + lightweight environment proxy use logical GPU 0. This
+    # workflow profile colocates its isolated Isaac Sim process on the same
+    # physical GPU; each process therefore sees its selected device as cuda:0.
     actor,env,rollout: 0
 
 runner:

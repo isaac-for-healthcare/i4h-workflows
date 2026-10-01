@@ -45,3 +45,9 @@ simulation:
   env_spacing: 2.0
   presets: physx
   enable_cameras: true
+resources:
+  # GB300 has enough addressable VRAM to colocate the isolated GR00T/RLinf
+  # and Isaac Sim processes. Each process sees the selected device as cuda:0.
+  model_gpu: "0"
+  simulator_gpu: "0"
+  allow_shared_gpu: true

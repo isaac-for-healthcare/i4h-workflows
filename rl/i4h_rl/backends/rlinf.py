@@ -195,13 +195,16 @@ def _sim_env(workflows_root: Path, model_env: dict[str, str], *, gpu: str) -> di
     return env
 
 
-def _gpu_assignment() -> tuple[str, str]:
-    model_gpu = os.environ.get("I4H_RL_MODEL_GPU", "0").strip()
-    sim_gpu = os.environ.get("I4H_RL_SIM_GPU", "1").strip()
+def _gpu_assignment(profile: RLProfile) -> tuple[str, str]:
+    declared = profile.resources
+    default_model_gpu = declared.model_gpu if declared is not None else "0"
+    default_sim_gpu = declared.simulator_gpu if declared is not None else "1"
+    model_gpu = os.environ.get("I4H_RL_MODEL_GPU", default_model_gpu).strip()
+    sim_gpu = os.environ.get("I4H_RL_SIM_GPU", default_sim_gpu).strip()
     if not model_gpu or not sim_gpu:
         raise SystemExit("I4H_RL_MODEL_GPU and I4H_RL_SIM_GPU must name visible physical GPUs")
-    if model_gpu == sim_gpu:
-        raise SystemExit("RLinf model and simulator processes require distinct GPUs")
+    if model_gpu == sim_gpu and (declared is None or not declared.allow_shared_gpu):
+        raise SystemExit("RLinf profile does not allow model and simulator processes to share a GPU")
     return model_gpu, sim_gpu
 
 
@@ -491,6 +494,13 @@ def validate_launch(args: argparse.Namespace, profile: RLProfile, workflows_root
         raise SystemExit(f"--model-path does not exist: {model_path}")
     args.resolved_model_path = model_path
     print(f"model: {model_path}")
+    model_gpu, sim_gpu = _gpu_assignment(profile)
+    args.resolved_model_gpu = model_gpu
+    args.resolved_sim_gpu = sim_gpu
+    placement = f"model={model_gpu}, simulator={sim_gpu}"
+    if model_gpu == sim_gpu:
+        placement += " (shared physical GPU)"
+    print(f"GPU placement: {placement}")
 
 
 def launch(
@@ -511,8 +521,10 @@ def launch(
     model_runtime = _model_runtime_python(workflows_root, args.runtime_python, profile.model_runtime)
     sim_runtime = _sim_runtime_python(workflows_root, args.sim_runtime_python)
     model_env = _runtime_env(workflows_root, profile)
-    model_gpu, sim_gpu = _gpu_assignment()
-    _model_preflight(model_runtime, model_env, require_two_gpus=True)
+    model_gpu = args.resolved_model_gpu
+    sim_gpu = args.resolved_sim_gpu
+    shared_gpu = model_gpu == sim_gpu
+    _model_preflight(model_runtime, model_env, require_two_gpus=not shared_gpu)
     sim_env = _sim_env(workflows_root, model_env, gpu=sim_gpu)
     _sim_preflight(sim_runtime, sim_env)
 
@@ -535,6 +547,7 @@ def launch(
         "simulator_runtime": str(sim_runtime),
         "model_gpu": model_gpu,
         "simulator_gpu": sim_gpu,
+        "shared_gpu": shared_gpu,
         "created_at": datetime.now(UTC).isoformat(),
     }
     if native_checkpoint is not None:

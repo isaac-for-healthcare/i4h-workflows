@@ -27,6 +27,15 @@ class SimulationProfile:
 
 
 @dataclass(frozen=True, slots=True)
+class ResourceProfile:
+    """Physical GPU placement for isolated RLinf processes."""
+
+    model_gpu: str
+    simulator_gpu: str
+    allow_shared_gpu: bool
+
+
+@dataclass(frozen=True, slots=True)
 class RLProfile:
     schema_version: int
     workflow: str
@@ -49,6 +58,7 @@ class RLProfile:
     default_num_envs: int
     default_epochs: int
     simulation: SimulationProfile
+    resources: ResourceProfile | None
 
     @classmethod
     def load(cls, path: Path) -> RLProfile:
@@ -78,6 +88,7 @@ class RLProfile:
             "default_num_envs",
             "default_epochs",
             "simulation",
+            "resources",
         }
         unknown = sorted(set(raw) - allowed)
         if unknown:
@@ -149,6 +160,37 @@ class RLProfile:
             raise ProfileError(f"{path}: simulation.enable_cameras must be bool")
         if cameras and not enable_cameras:
             raise ProfileError(f"{path}: camera observations require simulation.enable_cameras=true")
+
+        resources_raw = raw.get("resources")
+        resources = None
+        if resources_raw is not None:
+            if trainer != "rlinf":
+                raise ProfileError(f"{path}: resources is only supported for RLinf profiles")
+            if not isinstance(resources_raw, dict):
+                raise ProfileError(f"{path}: resources must be dict")
+            resource_unknown = sorted(
+                set(resources_raw) - {"model_gpu", "simulator_gpu", "allow_shared_gpu"}
+            )
+            if resource_unknown:
+                raise ProfileError(f"{path}: unknown resources fields: {', '.join(resource_unknown)}")
+            model_gpu = resources_raw.get("model_gpu")
+            simulator_gpu = resources_raw.get("simulator_gpu")
+            allow_shared_gpu = resources_raw.get("allow_shared_gpu", False)
+            if not isinstance(model_gpu, str) or not model_gpu.strip():
+                raise ProfileError(f"{path}: resources.model_gpu must be a non-empty string")
+            if not isinstance(simulator_gpu, str) or not simulator_gpu.strip():
+                raise ProfileError(f"{path}: resources.simulator_gpu must be a non-empty string")
+            if not isinstance(allow_shared_gpu, bool):
+                raise ProfileError(f"{path}: resources.allow_shared_gpu must be bool")
+            if model_gpu == simulator_gpu and not allow_shared_gpu:
+                raise ProfileError(
+                    f"{path}: identical model and simulator GPUs require resources.allow_shared_gpu=true"
+                )
+            resources = ResourceProfile(
+                model_gpu=model_gpu.strip(),
+                simulator_gpu=simulator_gpu.strip(),
+                allow_shared_gpu=allow_shared_gpu,
+            )
         return cls(
             schema_version=schema_version,
             workflow=workflow,
@@ -172,6 +214,7 @@ class RLProfile:
                 presets=presets,
                 enable_cameras=enable_cameras,
             ),
+            resources=resources,
         )
 
 
