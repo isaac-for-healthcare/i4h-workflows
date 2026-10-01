@@ -134,7 +134,7 @@ The loop is unified in the sense that three separately maintained packages act o
 
 | Stage | Artifact it owns | Role in the loop |
 | --- | --- | --- |
-| `patient_digital_twin`, through `PatientTwin` | `mu_volume.npy`, `metadata.json`, centerline graph, vessel mask, anatomy USD | Attenuation field, insertion path, and the transforms every other stage is expressed in |
+| `patient_digital_twin`, through `PatientTwin` | `hu_volume.npy`, `metadata.json`, centerline graph, vessel mask, anatomy USD | HU field, insertion path, and the transforms every other stage is expressed in |
 | `catheter_vasculature_solver.CathRodSolver` | node positions and orientations in solver-local metres | Advances the rod under Cosserat stretch and Darboux constraints, plus its projections |
 | `xray_simulator` Slang DiffDRR, with `CatheterAttenuation` | the detector image | Marches CT attenuation and catheter attenuation into one Beer-Lambert exponent |
 
@@ -191,7 +191,10 @@ UNIFIED_SIM_LOOP(mu, gamma, A)                     # runner.py owns env.step
 
 ### Precompute: the patient twin
 
-`./tools/patient_twin/run.sh` maps Hounsfield units to a linear attenuation coefficient with a piecewise-linear curve, clamped outside its outer knots:
+`./tools/patient_twin/run.sh` exports unchanged HU intensities on a canonical LPS
+ZYX grid, with spatial metadata, in a schema-2 bundle. When the workflow loads
+the bundle, `xray_simulator` converts HU to attenuation in 1/mm using its named
+piecewise-linear mapping, clamped outside its outer knots:
 
 ```text
 mu(HU) = mu_j + (HU - HU_j) * (mu_{j+1} - mu_j) / (HU_{j+1} - HU_j)     HU in [HU_j, HU_{j+1}]
@@ -199,7 +202,14 @@ mu(HU) = mu_0                                                          HU <= HU_
 mu(HU) = mu_M                                                          HU >= HU_M
 ```
 
-The default `interventional` preset uses knots `(-1000, 0)`, `(-300, 0)`, `(100, 0.0008)`, `(300, 0.0028)`, `(500, 0.0060)`, `(900, 0.0090)`, `(1500, 0.0120)`, `(3000, 0.0200)`, `(8000, 0.0440)` in HU and 1/mm. Soft tissue is deliberately suppressed relative to the two-knot `linear` ramp, because a fluoroscopic beam barely sees it, while contrast, cortical bone, and implant density each keep a slope of their own. The knots are written into `metadata.json` under `hu_to_mu`, so a twin is traceable to the curve that built it and an episode cannot silently mix two attenuation models.
+The default is `linear`, with knots `(-1000, 0)` and `(3000, 0.02)`.
+`./run.sh endoluminal_navigation ... --hu-to-mu interventional` selects knots
+`(-1000, 0)`, `(-300, 0)`, `(100, 0.0008)`, `(300, 0.0028)`, `(500, 0.0060)`,
+`(900, 0.0090)`, `(1500, 0.0120)`, `(3000, 0.0200)`, `(8000, 0.0440)`.
+HU pre-clipping is disabled, matching the patient library's previous defaults;
+endpoint clamping remains part of each mapping. The original HU bundle stays
+unchanged. Schema-1 bundles use their stored attenuation unless a preset is
+explicitly requested, which requires the bundle's HU volume.
 
 Three frames meet in the manifest, and the composition is what keeps the renderer, the solver, and the USD stage from disagreeing:
 
@@ -372,13 +382,18 @@ The renderer produces transmission `exp(-∫μ ds)`, so dense anatomy carries le
 | **Appearance** dropdown in the fluoroscopy panel | `Fluoroscopy` | `Fluoroscopy` draws bone, contrast and the catheter dark on a bright background, as on a cath-lab monitor. `X-ray` inverts it for the film-radiograph look. Also settable in code as `FluoroscopySensorCfg.display_polarity` (`fluoro` or `diagnostic`) to fix the look for a headless or recorded run. |
 | **Window level** and **Window width** sliders | `0.0` and `1.0` | Contrast control, in multiples of the window fitted from the first frame. Narrowing the width raises contrast and clips dense structures earlier; the level shifts the whole tone curve. |
 | **Recalibrate window** button | — | Re-fits the window to the next frame and returns both sliders to neutral. |
-| `./tools/patient_twin/run.sh --hu-to-mu` | `interventional` | Attenuation curve baked into the twin. `interventional` suppresses soft tissue and keeps implant density separated from cortical bone; `linear` reproduces twins built before named curves existed. |
+| `./run.sh endoluminal_navigation --hu-to-mu` | `linear` for HU bundles | Sensor-simulation attenuation preset, selected when loading the volume. `interventional` suppresses soft tissue and uses additional contrast, bone, and implant knots. Legacy bundles retain stored μ unless explicitly remapped. |
 
 Everything in the first three rows is a re-map of the frame already in hand rather than a re-render, so it applies instantly and cannot disturb a run. Polarity only decides which way round the greys go, and switching it preserves the calibrated window, so brightness stays comparable between the two looks. The synthetic CI phantom has no display mapping and keeps its fixed appearance.
 
 Brightness comes from a display window measured once from the first frame of a run and then held fixed, so moving the C-arm or advancing the catheter changes the image only where the anatomy in the beam actually changes. Rescaling every frame by its own range would instead tie background brightness to whatever is in the field of view, which flickers through a sweep and gives a policy a moving target. That fit reflects whatever was in the beam at step zero, which is why a large oblique or a move along the table may warrant **Recalibrate window**. The sliders are expressed as multiples of the fitted width rather than in absolute line-integral units so that the same bounds suit any patient, since the useful range depends on body size and on the μ scaling baked into the twin.
 
-The attenuation curve is deliberately not adjustable at runtime. It is baked into `mu_volume.npy` when the twin is built and uploaded as a GPU volume texture, so changing it means re-running the preprocessor over the whole CT and rebuilding that texture. More importantly it is the twin's physical identity, recorded under `hu_to_mu` in its `metadata.json`, and a live control would let one episode contain frames from several different attenuation models. Rebuild the twin with `--hu-to-mu` to change it; use the window sliders for the viewing-time effect.
+The attenuation curve is selected at launch and held fixed for the episode.
+The launcher records forwarded options, including an explicit `--hu-to-mu`, in
+`run.json` under `arena_args`; the pinned sensor revision defines its curve.
+Changing `--hu-to-mu` on the next run converts the same HU volume and rebuilds
+its GPU texture; rebuilding the patient bundle is unnecessary. Use the window
+sliders for viewing-time adjustments.
 
 ### What Recordings Store
 

@@ -37,6 +37,7 @@ class EndoluminalNavigationScene(Scene):
                     fluoro_backend=resolve_fluoroscopy_backend(self.args.fluoro_backend, self.args.patient_twin),
                     fluoro_device=self.args.fluoro_device,
                     patient_twin_manifest=self.args.patient_twin,
+                    hu_to_mu_preset=getattr(self.args, "hu_to_mu", None),
                 )
             ),
             task=None,
@@ -63,7 +64,9 @@ class EndoluminalNavigationScene(Scene):
             from i4h_arena.medical.patient_volume import PatientVolume
 
             carm_provider = ReferenceProjectionCArmStateProvider(
-                PatientVolume.load(PatientTwin.load(self.args.patient_twin)),
+                PatientVolume.load(
+                    PatientTwin.load(self.args.patient_twin), hu_to_mu_preset=getattr(self.args, "hu_to_mu", None)
+                ),
                 carm_orbit,
                 detector_size_m=detector_size_m,
             )

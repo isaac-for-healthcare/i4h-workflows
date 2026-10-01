@@ -429,6 +429,7 @@ def make_assets(
     fluoro_backend: str = "synthetic",
     fluoro_device: str = "vulkan",
     patient_twin_manifest: str | None = None,
+    hu_to_mu_preset: str | None = None,
 ) -> list[ConfigAsset]:
     """Return the patient/C-arm world and custom image sensor."""
     source = FluoroscopyCatheterNavigationSceneCfg(env_spacing=4.0)
@@ -436,6 +437,7 @@ def make_assets(
     source.fluoroscopy.dsa = fluoro_backend == "slang"
     source.fluoroscopy.slang_device_type = fluoro_device
     source.fluoroscopy.patient_twin_manifest = patient_twin_manifest
+    source.fluoroscopy.hu_to_mu_preset = hu_to_mu_preset
     source.patient = _patient_asset(source.patient, patient_twin_manifest)
     names = (
         "ground",

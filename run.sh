@@ -202,13 +202,13 @@ fi
 RUN_METADATA="$RUN_DIR/run.json"
 RUN_LOG="$RUN_DIR/i4h_arena.log"
 export I4H_RUN_METADATA="$RUN_METADATA"
-light python - "$RUN_METADATA" "$WORKFLOW" "$MODE" "$RUN_DIR" "$RECORD" "$PATIENT_TWIN" "$CALLER_CWD" "$ROOT/run.sh" <<'PY'
+light python - "$RUN_METADATA" "$WORKFLOW" "$MODE" "$RUN_DIR" "$RECORD" "$PATIENT_TWIN" "$CALLER_CWD" "$ROOT/run.sh" "${ARENA_ARGS[@]}" <<'PY'
 from datetime import UTC, datetime
 import json
 from pathlib import Path
 import sys
 
-metadata, workflow, mode, run_dir, recording, patient_twin, caller_cwd, launcher = sys.argv[1:]
+metadata, workflow, mode, run_dir, recording, patient_twin, caller_cwd, launcher, *arena_args = sys.argv[1:]
 Path(metadata).write_text(
     json.dumps(
         {
@@ -220,6 +220,7 @@ Path(metadata).write_text(
             "patient_twin": patient_twin or None,
             "caller_cwd": caller_cwd,
             "launcher": launcher,
+            "arena_args": arena_args,
             "created_at": datetime.now(UTC).isoformat(),
         },
         indent=2,

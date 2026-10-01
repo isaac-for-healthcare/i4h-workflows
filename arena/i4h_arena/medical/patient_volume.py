@@ -23,24 +23,52 @@ class PatientVolume:
     world_m_to_volume_xyz_mm: np.ndarray
 
     @classmethod
-    def load(cls, twin: PatientTwin) -> PatientVolume:
-        attenuation_path = twin.artifacts["attenuation_volume"]
-        metadata_path = twin.artifacts.get("volume_metadata", attenuation_path.with_name("metadata.json"))
+    def load(cls, twin: PatientTwin, *, hu_to_mu_preset: str | None = None) -> PatientVolume:
+        # Preserve legacy cached attenuation unless the caller explicitly remaps HU.
+        use_hu = twin.schema_version == 2 or "attenuation_volume" not in twin.artifacts or hu_to_mu_preset is not None
+        if use_hu and "hu_volume" not in twin.artifacts:
+            raise ValueError("Changing attenuation requires artifacts.hu_volume; this bundle only contains mu")
+        volume_path = twin.artifacts["hu_volume" if use_hu else "attenuation_volume"]
+        metadata_path = twin.artifacts.get("volume_metadata", volume_path.with_name("metadata.json"))
         if not metadata_path.is_file():
             raise FileNotFoundError(
                 f"{twin.source}: volume metadata does not exist: {metadata_path}; "
-                "declare artifacts.volume_metadata or place metadata.json beside attenuation_volume"
+                "declare artifacts.volume_metadata or place metadata.json beside the volume"
             )
         raw = json.loads(metadata_path.read_text(encoding="utf-8"))
         spacing = tuple(float(value) for value in raw["spacing_zyx_mm"])
         if len(spacing) != 3 or min(spacing) <= 0.0 or not np.isfinite(spacing).all():
             raise ValueError(f"{metadata_path}: spacing_zyx_mm must contain three positive finite values")
-        volume = np.load(attenuation_path, mmap_mode="r")
+        volume = np.load(volume_path, mmap_mode="r")
         if volume.ndim != 3:
-            raise ValueError(f"{attenuation_path}: attenuation volume must be ZYX rank 3, got {volume.shape}")
+            raise ValueError(f"{volume_path}: volume must be ZYX rank 3, got {volume.shape}")
         declared_shape = tuple(int(value) for value in raw.get("shape_zyx", volume.shape))
         if declared_shape != volume.shape:
             raise ValueError(f"{metadata_path}: declared shape {declared_shape} does not match {volume.shape}")
+
+        if not np.isfinite(volume).all():
+            raise ValueError(f"{volume_path}: volume contains non-finite values")
+        if use_hu:
+            if (
+                raw.get("intensity_units", "HU" if twin.schema_version == 1 else None) != "HU"
+                or raw.get("array_order", "ZYX" if twin.schema_version == 1 else None) != "ZYX"
+            ):
+                raise ValueError(f"{metadata_path}: HU volume must use HU intensities and ZYX array order")
+            from xray_simulator import DEFAULT_HU_TO_MU_PRESET, HuToMuMapping, PreprocessingSettings, VolumePreprocessor
+
+            mapping = HuToMuMapping.preset(hu_to_mu_preset or DEFAULT_HU_TO_MU_PRESET)
+            volume = (
+                VolumePreprocessor(
+                    hu_volume=volume,
+                    spacing_zyx_mm=spacing,
+                    origin_xyz_mm=tuple(raw["origin_xyz_mm"]) if raw.get("origin_xyz_mm") else None,
+                    source=str(volume_path),
+                    anatomical_frame=raw.get("anatomical_frame"),
+                    settings=PreprocessingSettings(hu_to_mu=mapping),
+                )
+                .preprocess()
+                .mu_volume
+            )
 
         spacing_xyz = np.asarray(spacing[::-1], dtype=np.float64)
         voxel_from_volume_mm = np.diag((*np.reciprocal(spacing_xyz), 1.0))

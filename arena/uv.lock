@@ -1226,7 +1226,7 @@ requires-dist = [
     { name = "qpsolvers", specifier = "==4.8.1" },
     { name = "tqdm", specifier = ">=4.66" },
     { name = "warp-lang", specifier = "==1.13.0" },
-    { name = "xray-simulator", extras = ["slang"], editable = "../third_party/i4h-sensor-simulation-internal/xray-simulator" },
+    { name = "xray-simulator", extras = ["slang"], editable = "../third_party/i4h-sensor-simulation/xray-simulator" },
 ]
 
 [[package]]
@@ -4475,7 +4475,7 @@ wheels = [
 [[package]]
 name = "xray-simulator"
 version = "0.1.0"
-source = { editable = "../third_party/i4h-sensor-simulation-internal/xray-simulator" }
+source = { editable = "../third_party/i4h-sensor-simulation/xray-simulator" }
 dependencies = [
     { name = "numpy", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
     { name = "scipy", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },

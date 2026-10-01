@@ -1,0 +1,211 @@
+{
+  "dataset": "s0011 CT, NVSegment aorta",
+  "patient_revision": "99efd53275c9eb4aedd6dd621ac12875b4a972aa",
+  "sensor_revision": "6981b04ca8d1f124cc403eac31edb99e55883eb3",
+  "bundle": "/tmp/patient-s0011-hu-bundle/patient_twin.yaml",
+  "bundle_schema": 2,
+  "comparison": {
+    "baseline_bundle": "/tmp/patient-s0011-new-cli/patient_twin.yaml",
+    "hu_mask_centerlines_array_identical": true,
+    "default_mu_array_identical": true,
+    "default_mu_max_absolute_error": 0.0,
+    "note": "Same NVSegment environment; isolates HU-to-mu ownership migration."
+  },
+  "defaults": {
+    "preset": "linear",
+    "clip_hu": false,
+    "endpoint_clamping": true
+  },
+  "tests": {
+    "combined_cpu_passed": 508,
+    "combined_cpu_skipped": 1,
+    "arena_volume_and_renderer_passed": 30,
+    "pinned_patient_tool_passed": 7
+  },
+  "headless_reason": "No DISPLAY or WAYLAND_DISPLAY in this session",
+  "rollouts": [
+    {
+      "label": "demo",
+      "mode": "demo",
+      "preset": "linear",
+      "recording": "runs/endoluminal_navigation/20261001_120358/verify.hdf5",
+      "episodes_succeeded": 1,
+      "attempts": 1,
+      "retries": 0,
+      "exit_status": 0,
+      "completion_step": 119,
+      "frames": 118,
+      "action_shape": [
+        118,
+        3
+      ],
+      "state_shape": [
+        118,
+        3
+      ],
+      "camera_shape": [
+        118,
+        1024,
+        1024,
+        3
+      ],
+      "attenuation_shape": [
+        118,
+        1024,
+        1024,
+        1
+      ],
+      "all_samples_finite": true,
+      "first_last_mean_rgb_difference": 3.7567052841186523,
+      "joint_ranges": [
+        0.006799995433539152,
+        0.47999969124794006,
+        0.5549987554550171
+      ],
+      "segments": [
+        {
+          "node": "catheter_sweep",
+          "task": "basic/catheter_sweep",
+          "start": 0,
+          "end": 118
+        }
+      ]
+    },
+    {
+      "label": "linear",
+      "mode": "validate_fluoroscopy",
+      "preset": "linear",
+      "recording": "runs/endoluminal_navigation/20261001_120509/verify.hdf5",
+      "episodes_succeeded": 1,
+      "attempts": 1,
+      "retries": 0,
+      "exit_status": 0,
+      "completion_step": 73,
+      "frames": 72,
+      "action_shape": [
+        72,
+        3
+      ],
+      "state_shape": [
+        72,
+        3
+      ],
+      "camera_shape": [
+        72,
+        1024,
+        1024,
+        3
+      ],
+      "attenuation_shape": [
+        72,
+        1024,
+        1024,
+        1
+      ],
+      "all_samples_finite": true,
+      "first_last_mean_rgb_difference": 3.758000373840332,
+      "joint_ranges": [
+        0.0,
+        0.0,
+        0.5399986505508423
+      ],
+      "segments": [
+        {
+          "node": "fluoroscopy_carm_sweep",
+          "task": "basic/fluoroscopy_carm_sweep",
+          "start": 0,
+          "end": 72
+        }
+      ]
+    },
+    {
+      "label": "interventional",
+      "mode": "validate_fluoroscopy",
+      "preset": "interventional",
+      "recording": "runs/endoluminal_navigation/20261001_120627/verify.hdf5",
+      "episodes_succeeded": 1,
+      "attempts": 1,
+      "retries": 0,
+      "exit_status": 0,
+      "completion_step": 73,
+      "frames": 72,
+      "action_shape": [
+        72,
+        3
+      ],
+      "state_shape": [
+        72,
+        3
+      ],
+      "camera_shape": [
+        72,
+        1024,
+        1024,
+        3
+      ],
+      "attenuation_shape": [
+        72,
+        1024,
+        1024,
+        1
+      ],
+      "all_samples_finite": true,
+      "first_last_mean_rgb_difference": 5.400162696838379,
+      "joint_ranges": [
+        0.0,
+        0.0,
+        0.5399986505508423
+      ],
+      "segments": [
+        {
+          "node": "fluoroscopy_carm_sweep",
+          "task": "basic/fluoroscopy_carm_sweep",
+          "start": 0,
+          "end": 72
+        }
+      ]
+    }
+  ],
+  "runtime_preset_recorded": true,
+  "artifacts": {
+    "centerline_edges.npy": {
+      "shape": [
+        282,
+        2
+      ],
+      "sha256": "e079341e137b986e1693c117cf42926db93023cadd134272fec5d4165cc01277"
+    },
+    "centerline_points_mm.npy": {
+      "shape": [
+        283,
+        3
+      ],
+      "sha256": "edac5aafd8a9d1f7f5b36cac3803ca7bd53067aec426fbf5218aa20b9a2174a2"
+    },
+    "centerline_radii_mm.npy": {
+      "shape": [
+        283
+      ],
+      "sha256": "c1ded36b95f440990e054e9bcb6f7df7a43ae1cb558a9a38ca66780671cf88ce"
+    },
+    "hu_volume.npy": {
+      "shape": [
+        431,
+        311,
+        311
+      ],
+      "sha256": "52c98447fb731268bd3658351b245584aa304da0c7b1da1f62c7d7ef321b571e"
+    },
+    "vessel_mask.npy": {
+      "shape": [
+        431,
+        311,
+        311
+      ],
+      "sha256": "efd89c4f00ace6136a1c35255f9a65ca5ad67b358bae5c483761efed9dfc3114"
+    }
+  },
+  "build_command": "python -m patient_digital_twin --source nvsegment --input /path/to/s0011/ct.nii.gz --classes aorta --bundle-root /path/to/NV-Segment-CTMR --format bundle --output /tmp/patient-s0011-hu-bundle",
+  "rollout_command": "./run.sh endoluminal_navigation --mode <demo|validate_fluoroscopy> --episodes 1 --record verify.hdf5 --patient-twin /tmp/patient-s0011-hu-bundle/patient_twin.yaml --headless [--hu-to-mu interventional]",
+  "visual_inspection": "First and last frames inspected for each recording: visible anatomy and catheter, distinct interventional appearance, changing C-arm projection."
+}

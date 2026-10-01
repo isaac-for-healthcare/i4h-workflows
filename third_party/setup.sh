@@ -11,7 +11,7 @@ WORKFLOW_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 LOG_PREFIX="i4h-workflows third_party setup"
 TARGET="${1:-all}"
-[ "$#" -le 1 ] || { echo "usage: third_party/setup.sh [all|arena|patient-twin|tasks/<policy>]" >&2; exit 2; }
+[ "$#" -le 1 ] || { echo "usage: third_party/setup.sh [all|arena|patient-twin|xray|tasks/<policy>]" >&2; exit 2; }
 
 ISAACLAB_REV="ffff603eafc6b74264a5261cc0183d6a65390d78"
 ISAACLAB_DIR="IsaacLab-ffff603"
@@ -27,7 +27,11 @@ I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-main}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-main}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
-I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-a9f6ff9059be62ca5697f1632ddb4e053626e4a8}"
+# X-ray uses the public HU-mapping API; other sensors keep their existing source.
+I4H_XRAY_SIM_REF="${I4H_XRAY_SIM_REF:-6981b04ca8d1f124cc403eac31edb99e55883eb3}"
+I4H_XRAY_SIM_DIR="i4h-sensor-simulation"
+I4H_XRAY_SIM_URL="${I4H_XRAY_SIM_URL:-https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git}"
+I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-99efd53275c9eb4aedd6dd621ac12875b4a972aa}"
 I4H_DIGITAL_TWIN_DIR="i4h-digital-twin"
 I4H_DIGITAL_TWIN_URL="${I4H_DIGITAL_TWIN_URL:-https://github.com/isaac-for-healthcare/i4h-digital-twin.git}"
 
@@ -159,6 +163,7 @@ arena_checkouts=(
   # tools/patient_twin, not arena, consumes this one. It rides along with the arena target so
   # that a scoped `I4H_THIRD_PARTY_TARGET=arena` still produces a runnable twin pipeline.
   "${I4H_DIGITAL_TWIN_DIR}|${I4H_DIGITAL_TWIN_URL}|${I4H_DIGITAL_TWIN_REF}"
+  "${I4H_XRAY_SIM_DIR}|${I4H_XRAY_SIM_URL}|${I4H_XRAY_SIM_REF}"
 )
 policy_checkouts=(
   "${GR00T_15_DIR}|https://github.com/NVIDIA/Isaac-GR00T.git|${GR00T_15_REV}"
@@ -189,6 +194,9 @@ case "$TARGET" in
     ;;
   patient-twin)
     checkouts=("${arena_checkouts[5]}")
+    ;;
+  xray)
+    checkouts=("${arena_checkouts[6]}")
     ;;
   tasks/gr00t_n15)
     checkouts=("${policy_checkouts[0]}")

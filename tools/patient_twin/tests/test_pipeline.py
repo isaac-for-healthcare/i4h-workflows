@@ -12,7 +12,6 @@ import pytest
 import yaml
 from patient_digital_twin.importers import NVSegmentImporter
 from patient_digital_twin.importers._common import segmentation_anatomy
-from patient_digital_twin.legacy_ct import INTERVENTIONAL, LINEAR, hu_to_mu
 
 from i4h_tools.patient_twin import cli
 from i4h_tools.patient_twin.pipeline import build_patient_twin
@@ -58,7 +57,7 @@ def test_complete_bundle_preserves_patient_placement(tmp_path, inference):
     manifest = yaml.safe_load(path.read_text())
     assert manifest["coordinate_frame"] == "DICOM_LPS"
     assert manifest["patient_id"] == "subject"
-    assert len(manifest["artifacts"]) == 8
+    assert len(manifest["artifacts"]) == 7
     for relative in manifest["artifacts"].values():
         assert (output / relative).is_file()
     center = np.append((np.asarray(SHAPE) - 1) * 0.5, 1.0)
@@ -74,19 +73,24 @@ def test_complete_bundle_preserves_patient_placement(tmp_path, inference):
 def test_stored_slice_order_does_not_change_artifacts(tmp_path, inference):
     for flipped in (False, True):
         _build(_ct(tmp_path / str(flipped), flipped=flipped), tmp_path / f"out_{flipped}")
-    for filename in ("mu_volume.npy", "vessel_mask.npy", "centerline_points_mm.npy"):
+    for filename in ("hu_volume.npy", "vessel_mask.npy", "centerline_points_mm.npy"):
         np.testing.assert_allclose(
             np.load(tmp_path / "out_False" / filename), np.load(tmp_path / "out_True" / filename), atol=1e-5
         )
 
 
-@pytest.mark.parametrize("preset,mapping", [("interventional", INTERVENTIONAL), ("linear", LINEAR)])
-def test_attenuation_matches_recorded_preset(tmp_path, inference, preset, mapping):
+def test_preparation_exports_hu_without_attenuation(tmp_path, inference):
     output = tmp_path / "output"
-    _build(_ct(tmp_path / "subject"), output, hu_to_mu_preset=preset)
+    ct = _ct(tmp_path / "subject")
+    path = _build(ct, output)
     metadata = json.loads((output / "metadata.json").read_text())
-    assert metadata["hu_to_mu"]["preset"] == preset
-    np.testing.assert_allclose(np.load(output / "mu_volume.npy"), hu_to_mu(np.load(output / "hu_volume.npy"), mapping))
+    assert metadata["intensity_units"] == "HU"
+    assert "hu_to_mu" not in metadata
+    assert not (output / "mu_volume.npy").exists()
+    np.testing.assert_array_equal(
+        np.sort(np.load(output / "hu_volume.npy").ravel()), np.sort(nib.load(ct).get_fdata().ravel())
+    )
+    assert yaml.safe_load(path.read_text())["schema_version"] == 2
 
 
 def test_oblique_input_fails_before_inference(tmp_path, monkeypatch):

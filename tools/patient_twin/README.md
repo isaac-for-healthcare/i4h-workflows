@@ -2,7 +2,7 @@
 
 This tool calls `patient_digital_twin.__main__` and returns the `patient_twin.yaml`
 bundle consumed by `endoluminal_navigation`. Model inference, named mesh
-extraction, centerlines, CT conversion, and USD output belong to that library.
+extraction, centerlines, HU export, and USD output belong to that library.
 
 ## Install
 
@@ -45,11 +45,20 @@ a separate compatible GPU environment.
 
 The input is a 3D CT NIfTI in HU; supplied dataset masks are not read.
 `--classes` takes space- or comma-separated names. Output must be a new directory.
-The default format is `bundle`, with CT, attenuation, vessel mask, centerlines,
+The default format is `bundle`, with HU CT, spatial metadata, vessel mask, centerlines,
 anatomy USD, and a manifest that records their LPS-to-world placement. Navigation centerlines are
 calculated from the final CT-grid vessel mask; stored structure graphs are retained
 separately. Patient IDs are derived automatically from the CT folder. Axis-oblique CT must be
-resampled before inference. The attenuation default is `--hu-to-mu linear`.
+resampled before inference.
+
+Attenuation conversion belongs to `xray_simulator` in sensor-simulation and runs
+when the workflow loads the HU bundle. The default is `linear`, without HU
+pre-clipping. Add `--hu-to-mu interventional` to the **workflow** command to select
+the interventional curve; rebuilding the patient bundle is unnecessary. Schema-1
+bundles continue using their stored μ unless a preset is explicitly selected.
+
+`./third_party/setup.sh xray` installs the pinned public sensor-simulation source
+used by Arena. `I4H_XRAY_SIM_URL` and `I4H_XRAY_SIM_REF` override that checkout.
 
 For generation, use `--source nvgenerate --source-root /path/to/NV-Generate-CTMR`
 and omit `--input`. For standalone USD, use the library's

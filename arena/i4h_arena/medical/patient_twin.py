@@ -77,7 +77,7 @@ class PatientTwin:
             raise ValueError(f"{source}: invalid YAML: {exc}") from exc
         if not isinstance(raw, dict):
             raise TypeError(f"{source}: expected a mapping")
-        if int(raw.get("schema_version", 0)) != 1:
+        if int(raw.get("schema_version", 0)) not in (1, 2):
             raise ValueError(f"{source}: unsupported or missing schema_version")
         patient_id = str(raw.get("patient_id", "")).strip()
         if not patient_id:
@@ -94,8 +94,10 @@ class PatientTwin:
         voxel_to_patient_mm = _affine(transforms.get("voxel_to_patient_mm"), "voxel_to_patient_mm")
         world_from_patient_m = _affine(transforms.get("world_from_patient_m"), "world_from_patient_m", rigid=True)
         artifact_values = raw.get("artifacts")
-        if not isinstance(artifact_values, dict) or "attenuation_volume" not in artifact_values:
-            raise ValueError(f"{source}: artifacts.attenuation_volume is required")
+        if not isinstance(artifact_values, dict) or not ({"hu_volume", "attenuation_volume"} & artifact_values.keys()):
+            raise ValueError(f"{source}: artifacts.hu_volume or legacy attenuation_volume is required")
+        if int(raw["schema_version"]) == 2 and "hu_volume" not in artifact_values:
+            raise ValueError(f"{source}: schema 2 requires artifacts.hu_volume")
         artifacts: dict[str, Path] = {}
         for name, value in artifact_values.items():
             if not isinstance(value, str) or not value.strip():
@@ -113,4 +115,5 @@ class PatientTwin:
             world_from_patient_m=world_from_patient_m,
             artifacts=artifacts,
             source=source,
+            schema_version=int(raw["schema_version"]),
         )
