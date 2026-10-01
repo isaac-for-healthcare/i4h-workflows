@@ -13,6 +13,10 @@ scene: endoluminal_navigation
 trainer: rlinf
 algorithm: ppo_actor_critic
 adapter_module: i4h_rl.adapters.endoluminal_navigation
+# The catheter SFT checkpoint is GR00T N1.7, so post-training has to run in
+# the N1.7 task venv. The default N1.5 venv pins Isaac-GR00T-1.5, which has no
+# modality-registration API for N1.7 to load the catheter embodiment through.
+model_runtime: tasks/gr00t_n17/.venv/bin/python
 trainer_config: ../config/endoluminal_navigation_ppo_gr00t.yaml
 train_task_id: I4H-Workflows-Endoluminal-Navigation-RLinf-v0
 eval_task_id: I4H-Workflows-Endoluminal-Navigation-RLinf-Eval-v0

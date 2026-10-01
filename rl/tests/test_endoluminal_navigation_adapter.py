@@ -17,6 +17,7 @@ and a live Isaac Sim, which is the integration this repo cannot run on CPU.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -198,10 +199,10 @@ def test_gr00t_conversion_rejects_a_wrong_state_width(policy_obs):
 # --------------------------------------------------------------------------- #
 # Action mapping
 # --------------------------------------------------------------------------- #
-def _chunk(catheter: float = 0.0, carm: float = 0.0) -> dict[str, np.ndarray]:
+def _chunk(catheter: float = 0.0, carm: float = 0.0, prefix: str = "") -> dict[str, np.ndarray]:
     return {
-        "action.catheter": np.full((2, 1, 3), catheter),
-        "action.carm": np.full((2, 1, 1), carm),
+        f"{prefix}catheter": np.full((2, 1, 3), catheter),
+        f"{prefix}carm": np.full((2, 1, 1), carm),
     }
 
 
@@ -213,22 +214,85 @@ def test_action_is_the_identity_not_a_padded_slice():
     assert np.allclose(action[:, :, 3], -0.25)
 
 
+def test_action_accepts_the_n15_prefixed_spelling():
+    """N1.5 emitted ``action.``-prefixed group names and N1.7 emits them bare.
+
+    Both resolve so that the generation the checkpoint was trained with does
+    not have to be mirrored here; upstream's own N1.7 Libero converter keeps
+    the same tolerance for the same reason.
+    """
+    action = convert_gr00t_to_workflow_action(_chunk(catheter=0.5, carm=-0.25, prefix="action."))
+    assert np.allclose(action[:, :, :3], 0.5)
+    assert np.allclose(action[:, :, 3], -0.25)
+
+
 def test_action_rejects_a_missing_head():
-    with pytest.raises(KeyError, match="action.carm"):
-        convert_gr00t_to_workflow_action({"action.catheter": np.zeros((2, 1, 3))})
+    with pytest.raises(KeyError, match="carm"):
+        convert_gr00t_to_workflow_action({"catheter": np.zeros((2, 1, 3))})
 
 
 def test_action_rejects_a_wrong_head_width():
     chunk = _chunk()
-    chunk["action.catheter"] = np.zeros((2, 1, 7))
+    chunk["catheter"] = np.zeros((2, 1, 7))
     with pytest.raises(ValueError, match=f"{ACTION_DIM} catheter"):
         convert_gr00t_to_workflow_action(chunk)
 
 
 def test_action_honours_the_chunk_size():
-    chunk = {"action.catheter": np.zeros((2, 4, 3)), "action.carm": np.zeros((2, 4, 1))}
+    chunk = {"catheter": np.zeros((2, 4, 3)), "carm": np.zeros((2, 4, 1))}
     assert convert_gr00t_to_workflow_action(chunk, chunk_size=2).shape == (2, 2, ACTION_DIM)
 
 
-def test_action_keys_cover_the_action_space():
-    assert ACTION_KEYS == ("action.catheter", "action.carm")
+def test_action_keys_are_the_registered_modality_groups():
+    """These are the group names ``config_catheter.py`` registers with GR00T."""
+    assert ACTION_KEYS == ("catheter", "carm")
+
+
+# --------------------------------------------------------------------------- #
+# The GR00T generation is wired consistently
+# --------------------------------------------------------------------------- #
+def test_trainer_config_selects_the_n17_model(trainer_config):
+    """The SFT checkpoint reports ``Gr00tN1d7``; RLinf picks by ``model_type``."""
+    assert trainer_config["actor"]["model"]["model_type"] == "gr00t_n1d7"
+
+
+def test_rollout_model_type_tracks_the_actor(trainer_config):
+    """Left unset, RLinf's ``get_model`` defaults to N1.5 and loads the wrong class."""
+    assert trainer_config["rollout"]["model"]["model_type"] == "${actor.model.model_type}"
+
+
+def test_trainer_config_leaves_data_config_class_unset(trainer_config):
+    """Setting it diverts loading to a path that hardcodes the N1.5 class."""
+    assert "data_config_class" not in trainer_config["env"]["train"]["isaaclab"]
+
+
+def test_profile_pins_the_n17_training_runtime():
+    """A task venv pins one GR00T generation, so N1.7 cannot use the N1.5 venv."""
+    profile = RLProfile.load(PROFILE_PATH)
+    assert profile.model_runtime == "tasks/gr00t_n17/.venv/bin/python"
+    assert (REPO / profile.model_runtime).is_file()
+
+
+def test_runtime_pythonpath_does_not_shadow_gr00t_17_with_15():
+    """PYTHONPATH outranks the venv, so the wrong checkout here wins silently.
+
+    The failure that follows is not an import error: GR00T 1.5 has no modality
+    registration, and the action converters are registered per generation, so
+    the mismatch surfaces far from its cause.
+    """
+    from i4h_rl.backends.rlinf import _runtime_env
+
+    entries = _runtime_env(REPO, RLProfile.load(PROFILE_PATH))["PYTHONPATH"].split(os.pathsep)
+    gr00t_sources = [entry for entry in entries if "Isaac-GR00T" in entry]
+    assert [Path(entry).name for entry in gr00t_sources] == ["Isaac-GR00T-1.7"]
+    assert any(entry.endswith("tasks/gr00t_n17") for entry in entries)
+
+
+def test_n15_profiles_keep_their_own_gr00t_source():
+    """Adding the N1.7 runtime must not drag other profiles onto 1.7."""
+    from i4h_rl.backends.rlinf import _runtime_env
+
+    trocar = RLProfile.load(REPO / "rl/profiles/assemble_trocar.yaml")
+    entries = _runtime_env(REPO, trocar)["PYTHONPATH"].split(os.pathsep)
+    assert any(entry.endswith("Isaac-GR00T-1.5") for entry in entries)
+    assert not any("Isaac-GR00T-1.7" in entry for entry in entries)

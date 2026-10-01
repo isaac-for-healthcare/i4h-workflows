@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""GR00T/RLinf mapping for the catheter navigation Scene.
+"""GR00T N1.7/RLinf mapping for the catheter navigation Scene.
 
 This post-trains a checkpoint already fine-tuned on catheter demonstrations.
 The state and action widths below are the catheter's, not a generic robot's,
@@ -22,9 +22,7 @@ pad would silently zero a real control.
 
 from __future__ import annotations
 
-import importlib
 import logging
-import sys
 from typing import Any
 
 import numpy as np
@@ -44,7 +42,11 @@ STATE_WIDTHS = (4, 3, 3, 3, 2)
 STATE_DIM = sum(STATE_WIDTHS)
 
 #: Insertion velocity, axial rotation rate, tip bend rate, C-arm orbit rate.
-ACTION_KEYS = ("action.catheter", "action.carm")
+#: These are the modality group names from ``config_catheter.py``, which is
+#: what the checkpoint was fine-tuned against. N1.5 emitted them with an
+#: ``action.`` prefix and N1.7 emits them bare, so both spellings are accepted
+#: below -- the same tolerance upstream's own N1.7 Libero converter applies.
+ACTION_KEYS = ("catheter", "carm")
 ACTION_WIDTHS = (3, 1)
 ACTION_DIM = sum(ACTION_WIDTHS)
 
@@ -81,7 +83,7 @@ def wrap_workflow_observation(obs: dict[str, Any], *, task_description: str, num
 
 
 def convert_workflow_obs_to_gr00t(env_obs: dict[str, Any]) -> dict[str, Any]:
-    """Convert the bridge schema to the GR00T N1.5 catheter modality contract."""
+    """Convert the bridge schema to the GR00T N1.7 catheter modality contract."""
     import torch
 
     main = env_obs["main_images"]
@@ -106,53 +108,49 @@ def convert_gr00t_to_workflow_action(action_chunk: dict[str, Any], chunk_size: i
     No padding: the concatenation is already the full action space, so an
     unexpected width is an error rather than something to pad around.
     """
-    missing = [key for key in ACTION_KEYS if key not in action_chunk]
+    resolved = []
+    missing = []
+    for key in ACTION_KEYS:
+        name = next((candidate for candidate in (key, f"action.{key}") if candidate in action_chunk), None)
+        if name is None:
+            missing.append(key)
+        else:
+            resolved.append(name)
     if missing:
         raise KeyError(f"GR00T catheter action is missing {missing}; got {sorted(action_chunk)}")
-    controlled = np.concatenate([np.asarray(action_chunk[key])[:, :chunk_size, :] for key in ACTION_KEYS], axis=-1)
+    controlled = np.concatenate([np.asarray(action_chunk[key])[:, :chunk_size, :] for key in resolved], axis=-1)
     if controlled.shape[-1] != ACTION_DIM:
         raise ValueError(f"expected {ACTION_DIM} catheter/C-arm channels, got {controlled.shape[-1]}")
     return controlled
 
 
 def _register_gr00t_converters(simulation_io: Any) -> None:
-    """Register this N1.5 environment against the pinned RLinf registries."""
+    """Register this environment against the pinned RLinf N1.7 registries.
+
+    Each GR00T version keeps its own action registry and reads only that one
+    (``gr00t_n1d7/gr00t_action_model.py`` looks up ``ACTION_CONVERSION_N1D7``),
+    so registering into the wrong version's dict fails as a missing converter
+    at rollout rather than at startup. The observation registry is shared.
+    """
     try:
-        action_registry = simulation_io.ACTION_CONVERSION_N1D5
+        action_registry = simulation_io.ACTION_CONVERSION_N1D7
     except AttributeError as exc:
-        raise RuntimeError("pinned RLinf does not expose the GR00T N1.5 action registry") from exc
+        raise RuntimeError("pinned RLinf does not expose the GR00T N1.7 action registry") from exc
     simulation_io.OBS_CONVERSION[OBS_CONVERTER] = convert_workflow_obs_to_gr00t
     action_registry[OBS_CONVERTER] = convert_gr00t_to_workflow_action
 
 
-def _install_gr00t_n15_data_config_loader() -> None:
-    """Provide the import-string loader expected by the IsaacLab adapter."""
-    from gr00t.experiment import data_config as gr00t_data_config
+def _register_catheter_modality() -> None:
+    """Register the catheter modality the fine-tuned checkpoint expects.
 
-    if hasattr(gr00t_data_config, "load_data_config"):
-        return
-
-    def load_data_config(specification: str):
-        module_name, separator, attribute_name = specification.partition(":")
-        if separator:
-            config_type = getattr(importlib.import_module(module_name), attribute_name)
-            return config_type()
-        try:
-            config = gr00t_data_config.DATA_CONFIG_MAP[specification]
-        except KeyError as exc:
-            raise ValueError(f"unknown GR00T data config: {specification}") from exc
-        return config() if isinstance(config, type) else config
-
-    gr00t_data_config.load_data_config = load_data_config
-
-
-def _install_rlinf_n15_module_alias() -> None:
-    """Bridge the pre-versioned IsaacLab import to RLinf's N1.5 package."""
-    legacy_name = "rlinf.models.embodiment.gr00t.gr00t_action_model"
-    if legacy_name in sys.modules:
-        return
-    current_name = "rlinf.models.embodiment.gr00t.gr00t_n1d5.gr00t_action_model"
-    sys.modules[legacy_name] = importlib.import_module(current_name)
+    N1.7 replaced N1.5's ``data_config_class`` import string with modality
+    configs registered against an embodiment tag, so this imports the same
+    module the fine-tuning run used instead of restating the groups here. Only
+    one config can be registered per tag and ``NEW_EMBODIMENT`` is the only tag
+    open to us, so importing a sibling config in the same process would take
+    the catheter's place.
+    """
+    import i4h_tasks.gr00t_n17.config_catheter  # noqa: F401
 
 
 def _get_workflow_env_class():
@@ -210,8 +208,11 @@ def register() -> None:
     if cfg.get("obs_converter_type") != OBS_CONVERTER:
         raise ValueError(f"expected obs_converter_type={OBS_CONVERTER!r}, got {cfg.get('obs_converter_type')!r}")
     _register_gr00t_converters(simulation_io)
-    _install_gr00t_n15_data_config_loader()
-    _install_rlinf_n15_module_alias()
+    _register_catheter_modality()
+    # With no ``data_config_class`` in the trainer config this only registers
+    # the embodiment tag and returns, which is what we want: its own model
+    # loader hardcodes the N1.5 class, while RLinf's default ``get_model``
+    # dispatches on ``model_type`` and so builds the N1.7 one.
     isaaclab_extension._patch_gr00t_get_model(cfg)
     _registered = True
     logger.info("registered Workflow catheter RL tasks: %s, %s", TRAIN_TASK_ID, EVAL_TASK_ID)

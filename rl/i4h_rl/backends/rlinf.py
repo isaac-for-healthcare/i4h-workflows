@@ -94,18 +94,26 @@ def validate_profile(profile: RLProfile, _workflows_root: Path) -> None:
         raise SystemExit(f"{profile.trainer_config}: train/eval max_episode_steps must be equal and positive")
 
 
-def _model_runtime_python(workflows_root: Path, explicit: str | None) -> Path:
+def _model_runtime_python(workflows_root: Path, explicit: str | None, profile_runtime: str | None = None) -> Path:
+    """Resolve the interpreter that hosts the policy stack being post-trained.
+
+    The profile gets a say because each task venv pins one GR00T generation,
+    and the generations are not interchangeable: the N1.5 venv has no N1.7
+    modality API and vice versa. Profiles that stay on the default are
+    unaffected.
+    """
+    default_runtime = profile_runtime or "tasks/gr00t_n15/.venv/bin/python"
     candidates = (
         explicit,
         os.environ.get("I4H_RL_PYTHON"),
-        str(workflows_root / "tasks/gr00t_n15/.venv/bin/python"),
+        str(workflows_root / default_runtime),
     )
     for candidate in candidates:
         if candidate:
             path = Path(candidate).expanduser()
             if path.is_file():
                 return path if path.is_absolute() else (Path.cwd() / path).absolute()
-    raise SystemExit("no RLinf model runtime found; run setup.sh tasks/gr00t_n15 or set I4H_RL_PYTHON")
+    raise SystemExit(f"no RLinf model runtime found; run setup.sh for {default_runtime} or set I4H_RL_PYTHON")
 
 
 def _sim_runtime_python(workflows_root: Path, explicit: str | None) -> Path:
@@ -122,17 +130,41 @@ def _sim_runtime_python(workflows_root: Path, explicit: str | None) -> Path:
     raise SystemExit("no RLinf simulator runtime found; run setup.sh arena or set I4H_RL_SIM_PYTHON")
 
 
+#: GR00T source checkout per task venv. PYTHONPATH wins over the venv's own
+#: site-packages, so naming the wrong checkout here does not fail loudly -- it
+#: quietly imports the other generation's ``gr00t`` and the model class, the
+#: modality API, and the action converters all disagree with the checkpoint.
+_GR00T_SOURCE = {
+    "gr00t_n15": "Isaac-GR00T-1.5",
+    "gr00t_n17": "Isaac-GR00T-1.7",
+}
+
+
+def _gr00t_task_dir(profile: RLProfile) -> str:
+    """Name the task venv this profile trains in, as a ``tasks/`` child."""
+    runtime = profile.model_runtime or "tasks/gr00t_n15/.venv/bin/python"
+    parts = Path(runtime).parts
+    if "tasks" not in parts:
+        raise SystemExit(f"{profile.workflow}: cannot tell which task venv {runtime!r} belongs to")
+    return parts[parts.index("tasks") + 1]
+
+
 def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
     third_party = workflows_root / "third_party"
     rlinf_dirs = sorted(third_party.glob("RLinf-*"))
     if not rlinf_dirs:
         raise SystemExit("RLinf checkout is missing; run ./third_party/setup.sh")
+    task_dir = _gr00t_task_dir(profile)
+    try:
+        gr00t_source = _GR00T_SOURCE[task_dir]
+    except KeyError:
+        raise SystemExit(f"{profile.workflow}: no GR00T source mapped for tasks/{task_dir}") from None
     roots = (
         workflows_root / "rl",
         workflows_root / "common",
-        workflows_root / "tasks/gr00t_n15",
+        workflows_root / "tasks" / task_dir,
         rlinf_dirs[-1],
-        third_party / "Isaac-GR00T-1.5",
+        third_party / gr00t_source,
         third_party / "IsaacLab-ffff603/source/isaaclab_contrib",
     )
     env = os.environ.copy()
@@ -476,7 +508,7 @@ def launch(
         checkpoint_source = resolve_input_path(workflows_root, args.rl_model_path)
         native_checkpoint = checkpoint_root(weights(checkpoint_source))
 
-    model_runtime = _model_runtime_python(workflows_root, args.runtime_python)
+    model_runtime = _model_runtime_python(workflows_root, args.runtime_python, profile.model_runtime)
     sim_runtime = _sim_runtime_python(workflows_root, args.sim_runtime_python)
     model_env = _runtime_env(workflows_root, profile)
     model_gpu, sim_gpu = _gpu_assignment()
@@ -613,7 +645,7 @@ def export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -
         resolved_train_config = train_config(checkpoint_source, actor_weights)
     if resolved_train_config is not None and not resolved_train_config.is_file():
         raise SystemExit(f"--train-config does not exist: {resolved_train_config}")
-    runtime = _model_runtime_python(workflows_root, args.runtime_python)
+    runtime = _model_runtime_python(workflows_root, args.runtime_python, profile.model_runtime)
     env = _runtime_env(workflows_root, profile)
     _model_preflight(runtime, env, require_two_gpus=False)
     output = resolve_output_path(workflows_root, args.output_dir)

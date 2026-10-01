@@ -34,6 +34,10 @@ class RLProfile:
     trainer: str
     algorithm: str
     adapter_module: str | None
+    #: Repo-relative interpreter hosting the policy stack this profile trains.
+    #: A GR00T generation is pinned per task venv, so profiles on different
+    #: generations cannot share one runtime. ``None`` keeps the N1.5 default.
+    model_runtime: str | None
     trainer_config: Path
     train_task_id: str
     eval_task_id: str
@@ -62,6 +66,7 @@ class RLProfile:
             "trainer",
             "algorithm",
             "adapter_module",
+            "model_runtime",
             "trainer_config",
             "train_task_id",
             "eval_task_id",
@@ -119,6 +124,9 @@ class RLProfile:
                 raise ProfileError(f"{path}: invalid adapter_module import path {adapter_module!r}")
         if trainer == "rlinf" and not adapter_module:
             raise ProfileError(f"{path}: RLinf profiles require adapter_module")
+        model_runtime = raw.get("model_runtime")
+        if model_runtime is not None and (not isinstance(model_runtime, str) or not model_runtime.strip()):
+            raise ProfileError(f"{path}: model_runtime must be a non-empty path")
         if trainer_config.suffix != ".yaml":
             raise ProfileError(f"{path}: trainer_config must be a .yaml file")
         default_num_envs = int(need("default_num_envs", int))
@@ -148,6 +156,7 @@ class RLProfile:
             trainer=trainer,
             algorithm=need("algorithm", str),
             adapter_module=adapter_module,
+            model_runtime=model_runtime,
             trainer_config=trainer_config,
             train_task_id=need("train_task_id", str),
             eval_task_id=need("eval_task_id", str),

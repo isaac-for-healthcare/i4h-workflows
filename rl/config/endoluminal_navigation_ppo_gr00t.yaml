@@ -127,7 +127,13 @@ env:
       obs_converter_type: i4h_catheter_carm
       embodiment_tag: new_embodiment
       embodiment_tag_id: 32
-      data_config_class: i4h_tasks.gr00t_n15.endoluminal_navigation.infer.data_config:CatheterNavigationDataConfig
+      # No `data_config_class`: that is an N1.5 import-string mechanism, and
+      # setting it diverts model loading to the IsaacLab extension's own
+      # loader, which hardcodes the N1.5 model class. Left unset, the
+      # extension registers the embodiment tag and defers to RLinf's
+      # `get_model`, which honours `actor.model.model_type` below. The N1.7
+      # equivalent of the data config is the modality registration the
+      # adapter imports from `i4h_tasks.gr00t_n17.config_catheter`.
   eval:
     env_type: isaaclab
     total_num_envs: 8
@@ -171,6 +177,7 @@ rollout:
     add_BOS: false
     max_new_tokens: null
   model:
+    model_type: ${actor.model.model_type}
     model_path: /models/replace-with-local-sft-checkpoint
     rl_model_path: null
     precision: ${actor.model.precision}
@@ -189,7 +196,11 @@ actor:
   seed: 1234
   enable_offload: false
   model:
-    model_type: gr00t
+    # Selects which GR00T generation RLinf builds. The catheter SFT checkpoint
+    # reports `Gr00tN1d7`, and each generation reads only its own action
+    # converter registry, so a mismatch here surfaces as a missing converter
+    # mid-rollout rather than a load error.
+    model_type: gr00t_n1d7
     model_path: /models/replace-with-local-sft-checkpoint
     precision: bf16
     trust_remote_code: true
