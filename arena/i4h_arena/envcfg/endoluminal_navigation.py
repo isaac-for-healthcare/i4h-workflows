@@ -43,6 +43,7 @@ from i4h_arena.medical.navigation_reward import (
     arrival_reward,
     fold_penalty,
     lateral_offset_penalty,
+    reset_approach_potential,
     reset_route_progress,
     route_progress_reward,
     wall_penetration_penalty,
@@ -64,7 +65,10 @@ class CatheterNavigationTerminationsCfg:
 @configclass
 class CatheterNavigationEventsCfg:
     reset_arrival_progress = EventTermCfg(func=reset_arrival_progress, mode="reset")
+    # Both shaping potentials are differenced across a step, so both have to
+    # forget the previous episode or the reset itself is scored as a move.
     reset_route_progress = EventTermCfg(func=reset_route_progress, mode="reset")
+    reset_approach_potential = EventTermCfg(func=reset_approach_potential, mode="reset")
 
 
 @configclass
@@ -130,6 +134,21 @@ def navigation_observations_cfg(
     )
 
 
+#: Pay per metre of vessel closed.
+PROGRESS_WEIGHT = 150.0
+
+#: Decay length of the approach potential, about five arrival tolerances.
+APPROACH_SCALE_M = 0.025
+
+#: Chosen so the two scales hand off smoothly rather than by taste. The
+#: approach potential's slope at the target is ``1 / APPROACH_SCALE_M`` per
+#: metre, so this weight makes the last millimetre pay what ``progress`` pays
+#: for a millimetre of arc -- which matters because ``progress`` goes flat
+#: inside the final route sample and this term is what takes over there. Any
+#: smaller and the handoff is a cliff the policy coasts off.
+APPROACH_WEIGHT = PROGRESS_WEIGHT * APPROACH_SCALE_M
+
+
 @configclass
 class CatheterNavigationRewardsCfg:
     """Dense navigation objective. Every term is bound by :func:`navigation_rewards_cfg`.
@@ -142,6 +161,12 @@ class CatheterNavigationRewardsCfg:
     ``lateral`` and ``penetration``. That ordering -- arriving worth more than
     traversing, traversing worth more than any amount of loitering -- is the
     intent; the exact numbers are not load-bearing.
+
+    Loitering being worth nothing is load-bearing, and is now structural rather
+    than a property of the numbers. Every positive term is either a difference
+    of a potential, which a stationary tip cannot collect, or ``arrival``,
+    which is gated on the tolerance and terminates. No weight choice
+    reintroduces a payout for holding still short of the target.
     """
 
     progress: RewardTermCfg = MISSING
@@ -173,7 +198,7 @@ def navigation_rewards_cfg(
     return CatheterNavigationRewardsCfg(
         progress=RewardTermCfg(
             func=route_progress_reward,
-            weight=150.0,
+            weight=PROGRESS_WEIGHT,
             params={"route_world_m": route},
         ),
         # Coarse and fine in one term rather than two: remaining arc already
@@ -181,8 +206,8 @@ def navigation_rewards_cfg(
         # last centimetre the 5 mm tolerance is judged on.
         approach=RewardTermCfg(
             func=approach_reward,
-            weight=1.0,
-            params={"target_world_m": tuple(float(value) for value in target_world_m), "scale_m": 0.025},
+            weight=APPROACH_WEIGHT,
+            params={"target_world_m": tuple(float(value) for value in target_world_m), "scale_m": APPROACH_SCALE_M},
         ),
         arrival=RewardTermCfg(
             func=arrival_reward,

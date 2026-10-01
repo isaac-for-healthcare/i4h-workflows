@@ -88,6 +88,12 @@ a reset: the bug is not in the arithmetic but in the lifetime of the buffer it r
 
 ## Term 2: `approach`, and the problem with it
 
+> **Resolved.** The first of the three fixes proposed below was taken: `approach_reward`
+> now pays `Phi_t - Phi_{t-1}`, the weight moved from 1 to 3.75 so the fine scale still
+> hands off cleanly from `progress`, and `reset_approach_potential` clears the stored
+> potential on reset. The analysis is kept as written because the arithmetic below is why
+> the change was made. See `catheter-navigation-reward.md` for the current specification.
+
 ```
 r_app = exp(-d / 0.025)
 ```
@@ -217,10 +223,11 @@ so the reward structure quietly makes success the second-best outcome.
 The specification is accurate and unusually well-justified term by term; every design choice
 is tied to a measurement rather than a convention. The gaps are all cross-term.
 
-1. **`approach` is farmable and beats success.** Stalling just outside the tolerance pays
-   2.6x what arriving pays, because arriving terminates the episode and truncates the
-   stream. Fix by making the term potential-based, gating it on the hold counter, or
-   bootstrapping the value on success termination.
+1. ~~**`approach` is farmable and beats success.**~~ **Fixed.** Stalling just outside the
+   tolerance paid 2.6x what arriving paid, because arriving terminates the episode and
+   truncates the stream. The term is now potential-based, so a stationary tip collects
+   nothing wherever it parks. The other two options — gating on the hold counter, or
+   bootstrapping the value on success termination — were not needed and were not taken.
 2. **`penetration`'s mean dilutes the failure it exists to catch.** Tip-only perforation for
    a whole episode costs about one per cent of a traverse. The weight is not the problem; the
    reduction over 121 particles is.

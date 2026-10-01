@@ -15,7 +15,7 @@ scene's route polyline.
 | Term | Function | Weight | Range/step | Units |
 | --- | --- | --- | --- | --- |
 | `progress` | `route_progress_reward` | +150 | [-2.5e-3, +2.5e-3] | m of arc |
-| `approach` | `approach_reward` | +1 | (0, 1] | dimensionless |
+| `approach` | `approach_reward` | +3.75 | (-1, 1) | dimensionless |
 | `arrival` | `arrival_reward` | +5 | {0, 1} | indicator |
 | `lateral` | `lateral_offset_penalty` | -2 (0 without radii) | [0, inf) | dimensionless |
 | `penetration` | `wall_penetration_penalty` | -200 (0 without radii) | [0, inf) | m |
@@ -55,16 +55,46 @@ task for doing nothing. NaN maps to zero.
 
 Over the 0.66 m s0011 route a full traverse pays about `150 * 0.66 = 99`.
 
-### 2. `approach` — fine-scale terminal guidance
+### 2. `approach` — fine-scale terminal guidance, also potential-based
 
 ```
-r_app = exp(-d / sigma),   sigma = 25 mm
+Phi_t = exp(-d_t / sigma),   sigma = 25 mm
+r_app = Phi_t - Phi_{t-1}
 ```
 
 with `d` the straight-line tip-to-target distance. Remaining arc goes flat once the tip is
 within one route sample of the end, so the progress term carries no gradient across exactly
 the last centimetre the tolerance is judged on. This is the fine-scale companion, mirroring
 the two-scale position reward the ultrasound probe reach task uses.
+
+Like `progress` it pays the **difference**, for the same reason and after the level version
+was priced. At the old weight of 1 the level form paid up to 1 per step for hovering, and
+hovering has no end: at `gamma = 0.995` the best stationary spot just outside the tolerance
+discounted to about 150, against about 84 for holding the arrival and terminating.
+Finishing the task was a pay cut. A smaller weight does not fix that — any positive
+per-step payout for *being* somewhere is collectable forever, and forever beats a bonus
+that terminates. Differenced, a stationary tip earns exactly zero wherever it parks, and
+the only way to collect is to close distance.
+
+The weight is derived, not chosen: `APPROACH_WEIGHT = PROGRESS_WEIGHT * sigma = 3.75`. The
+potential's slope at the target is `1/sigma` per metre, so this makes the last millimetre
+pay what `progress` pays for a millimetre of arc — 0.147 against 0.150 — and the two scales
+hand off without a cliff where `progress` goes flat. Tying it to the progress weight in
+code keeps the handoff from drifting when either is retuned. Note the whole-episode
+payout now telescopes to at most `3.75`, down from a possible 600; `approach` is a
+gradient, not a bank.
+
+Shaping is applied undiscounted, where strict policy invariance wants `gamma * Phi' - Phi`.
+The omission leaves a residual per-step payout of `w * (1 - gamma) * Phi`, about 0.019 at
+the target against the 5.0 that `arrival` pays there, so it cannot recreate the inversion.
+Taking `gamma` as a term parameter was the alternative and is worse: a second copy of the
+trainer's discount, free to drift from it, and a wrong `gamma` breaks the very invariance
+it would be added to guarantee.
+
+Reset must call `reset_approach_potential`, for the reason `progress` needs its own hook:
+an episode ending at the target and resetting to the vessel entry would otherwise
+difference a potential near 1 against one near 0 and bill the agent the entire approach for
+the reset itself.
 
 ### 3. `arrival` — per step, not terminal
 
@@ -174,16 +204,21 @@ itself the alignment mechanism.
 A cross-term reading of these weights, including three problems that follow from the
 constants alone, is in
 [catheter-navigation-reward-analysis.md](catheter-navigation-reward-analysis.md). The
-shortest version: `approach` is collectable by standing still and out-pays arriving,
-`penetration`'s mean over 121 particles dilutes tip perforation to roughly one per cent of
-a traverse, and the clamp on `progress` costs the potential-shaping guarantee this document
-claims for it.
+shortest version: `penetration`'s mean over 121 particles dilutes tip perforation to
+roughly one per cent of a traverse, and the clamp on `progress` costs the potential-shaping
+guarantee this document claims for it. The third problem it raises — `approach` being
+collectable by standing still and out-paying arriving — is the one fixed above.
 
 **The weight ordering is the design intent; the numbers are not tuned.** Arriving worth
 more than traversing, traversing worth more than any amount of loitering. Over the 600-step
 cap and the 0.66 m route: a full traverse pays about 99 through `progress`, the fifteen-step
 hold pays 75 through `arrival`, and a tip pinned against the wall gives up roughly 1.0 per
 step across `lateral` and `penetration`.
+
+Loitering being worth nothing is now structural rather than a property of those numbers.
+Every positive term is either a difference of a potential, which a stationary tip cannot
+collect, or `arrival`, which is gated on the tolerance and terminates. No choice of weights
+reintroduces a payout for holding still short of the target.
 
 **`penetration` at -200 is the term most likely to need moving.** A 1 mm mean penetration
 across the whole rod costs 0.2 per step, so 120 over a full episode — larger than the entire
