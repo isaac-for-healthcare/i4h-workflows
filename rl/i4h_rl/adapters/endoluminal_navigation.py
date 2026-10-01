@@ -18,6 +18,21 @@ Nothing is padded on the action side. The G1 adapter maps 28 controlled
 joints into a 43-DoF action and left-pads the rest; every one of the
 catheter's four channels is commanded, so the mapping is the identity and a
 pad would silently zero a real control.
+
+The observation the policy receives is the checkpoint's, not the Scene's.
+The Scene publishes fifteen numbers, eleven of which describe where the tip
+is and where it still has to go. The fine-tuned checkpoint has no parameters
+for them: its processor declares ``state: [catheter, carm]`` at widths 3 and
+1, and a state projector sized for four numbers cannot read nineteen. So only
+``drive_state`` is forwarded, split exactly as ``catheter.yaml`` splits it,
+and the geometry stays on the environment side where the reward terms use it.
+
+That is a deliberate asymmetry and not an oversight. Handing GR00T groups its
+processor does not declare is not an error that raises -- the loader finds no
+such key and proceeds -- so the extra groups would have been dropped in
+silence while the ones it does want went missing. Widening what the policy
+sees is a fine-tuning change, not a mapping change: retrain with the geometry
+in the modality config, then add it here.
 """
 
 from __future__ import annotations
@@ -49,6 +64,29 @@ STATE_DIM = sum(STATE_WIDTHS)
 ACTION_KEYS = ("catheter", "carm")
 ACTION_WIDTHS = (3, 1)
 ACTION_DIM = sum(ACTION_WIDTHS)
+
+#: The video group the checkpoint's processor declares. The camera is named
+#: once, in ``config_catheter.py``, from the camera the Scene publishes; a
+#: ``_view`` suffix here reached GR00T as an undeclared key and left the
+#: policy running on no image at all.
+GR00T_VIDEO_KEY = "video.fluoroscopy"
+
+GR00T_LANGUAGE_KEY = "annotation.human.task_description"
+
+#: ``(group, start, stop)`` into the bridge state vector, covering
+#: ``drive_state`` only. The bounds are ``catheter.yaml``'s ``state_split``,
+#: which is also what dataset conversion wrote into the ``modality.json`` the
+#: checkpoint was fine-tuned against, so these three agree by construction.
+#: ``i4h_common`` is not on this venv's path, so they are restated here and
+#: checked against the registered modality config at startup instead.
+GR00T_STATE_GROUPS = (
+    ("state.catheter", 0, 3),
+    ("state.carm", 3, 4),
+)
+
+#: How much of the state vector reaches the policy. The remainder is the
+#: navigation geometry, which the reward reads and the checkpoint cannot.
+GR00T_STATE_DIM = GR00T_STATE_GROUPS[-1][2]
 
 
 def _to_rgb(image: Any) -> Any:
@@ -93,13 +131,16 @@ def convert_workflow_obs_to_gr00t(env_obs: dict[str, Any]) -> dict[str, Any]:
     if states.shape[-1] != STATE_DIM:
         raise ValueError(f"expected catheter state width {STATE_DIM}, got {states.shape[-1]}")
     state = states.unsqueeze(1).cpu().numpy()
-    return {
-        "video.fluoroscopy_view": main.unsqueeze(1).cpu().numpy(),
-        "state.catheter": state[:, :, 0:4],
-        "state.tip_pose": state[:, :, 4:10],
-        "state.navigation": state[:, :, 10:15],
-        "annotation.human.task_description": env_obs["task_descriptions"],
+    observation = {
+        GR00T_VIDEO_KEY: main.unsqueeze(1).cpu().numpy(),
+        GR00T_LANGUAGE_KEY: env_obs["task_descriptions"],
     }
+    # Only the drive state. See the module docstring: the navigation geometry
+    # has no projector in this checkpoint, and an undeclared group would be
+    # dropped without complaint.
+    for key, start, stop in GR00T_STATE_GROUPS:
+        observation[key] = state[:, :, start:stop]
+    return observation
 
 
 def convert_gr00t_to_workflow_action(action_chunk: dict[str, Any], chunk_size: int = 1) -> np.ndarray:
@@ -150,7 +191,40 @@ def _register_catheter_modality() -> None:
     open to us, so importing a sibling config in the same process would take
     the catheter's place.
     """
-    import i4h_tasks.gr00t_n17.config_catheter  # noqa: F401
+    from i4h_tasks.gr00t_n17.config_catheter import CATHETER_CONFIG
+
+    _assert_contract_matches(CATHETER_CONFIG)
+
+
+def _assert_contract_matches(modality_config: Any) -> None:
+    """Fail at startup if this module emits groups the checkpoint will not read.
+
+    A group GR00T does not expect is not an error it raises: the loader finds
+    no such key and proceeds, so a renamed video key or a missing state group
+    costs the policy an entire input and shows up only as training that does
+    not improve. The registered config is the same object the fine-tuning run
+    used, so comparing against it turns the whole class of mismatch into a
+    refusal before the first rollout.
+    """
+    expected = {
+        "video": [GR00T_VIDEO_KEY],
+        "state": [key for key, _start, _stop in GR00T_STATE_GROUPS],
+        "action": list(ACTION_KEYS),
+        "language": [GR00T_LANGUAGE_KEY],
+    }
+    for modality, emitted in expected.items():
+        declared = list(modality_config[modality].modality_keys)
+        # State and video keys carry their modality as a prefix in the
+        # observation dict; the config states the bare group name.
+        bare = [key.split(".", 1)[1] if key.startswith(f"{modality}.") else key for key in emitted]
+        if bare != declared:
+            raise ValueError(
+                f"catheter adapter emits {modality} groups {bare} but the registered modality "
+                f"config declares {declared}; the checkpoint would silently ignore the difference"
+            )
+    widths = [stop - start for _key, start, stop in GR00T_STATE_GROUPS]
+    if widths != [3, 1]:
+        raise ValueError(f"catheter state groups must be 3 and 1 wide to match the checkpoint, got {widths}")
 
 
 def _get_workflow_env_class():

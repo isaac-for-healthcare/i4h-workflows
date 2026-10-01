@@ -28,10 +28,15 @@ import yaml
 from i4h_rl.adapters.endoluminal_navigation import (
     ACTION_DIM,
     ACTION_KEYS,
+    GR00T_LANGUAGE_KEY,
+    GR00T_STATE_DIM,
+    GR00T_STATE_GROUPS,
+    GR00T_VIDEO_KEY,
     OBS_CONVERTER,
     STATE_DIM,
     STATE_KEYS,
     STATE_WIDTHS,
+    _assert_contract_matches,
     convert_gr00t_to_workflow_action,
     convert_workflow_obs_to_gr00t,
     wrap_workflow_observation,
@@ -89,12 +94,7 @@ def test_trainer_config_state_order_matches_the_adapter(trainer_config):
 
 def test_trainer_config_slices_match_the_adapter_layout(trainer_config):
     """The YAML slices must index the vector the adapter actually concatenates."""
-    boundaries = np.cumsum((0,) + STATE_WIDTHS)
-    expected = {
-        "state.catheter": [int(boundaries[0]), int(boundaries[1])],
-        "state.tip_pose": [int(boundaries[1]), int(boundaries[3])],
-        "state.navigation": [int(boundaries[3]), int(boundaries[5])],
-    }
+    expected = {key: [start, stop] for key, start, stop in GR00T_STATE_GROUPS}
     declared = {
         entry["gr00t_key"]: entry["slice"]
         for entry in trainer_config["env"]["train"]["isaaclab"]["gr00t_mapping"]["state"]
@@ -102,13 +102,39 @@ def test_trainer_config_slices_match_the_adapter_layout(trainer_config):
     assert declared == expected
 
 
-def test_trainer_config_slices_tile_the_whole_state(trainer_config):
-    """No gap and no overlap: every state number reaches exactly one GR00T group."""
+def test_trainer_config_video_key_matches_the_adapter(trainer_config):
+    """A renamed camera key is not refused by GR00T; it arrives as no image."""
+    video = trainer_config["env"]["train"]["isaaclab"]["gr00t_mapping"]["video"]
+    assert video["main_images"] == GR00T_VIDEO_KEY
+
+
+def test_trainer_config_slices_tile_the_drive_state(trainer_config):
+    """No gap and no overlap over the part the policy reads.
+
+    These used to tile all fifteen numbers, which read the tip pose and the
+    navigation geometry into groups the checkpoint never declared.
+    """
     slices = sorted(entry["slice"] for entry in trainer_config["env"]["train"]["isaaclab"]["gr00t_mapping"]["state"])
     assert slices[0][0] == 0
-    assert slices[-1][1] == STATE_DIM
+    assert slices[-1][1] == GR00T_STATE_DIM
     for earlier, later in zip(slices, slices[1:], strict=False):
         assert earlier[1] == later[0]
+
+
+def test_the_policy_reads_exactly_the_drive_state(trainer_config):
+    """The boundary between what the policy sees and what only the reward sees.
+
+    ``drive_state`` is the first of five observation terms, so the groups stop
+    at its width rather than at the width of the whole vector.
+    """
+    assert STATE_WIDTHS[0] == GR00T_STATE_DIM
+    assert GR00T_STATE_DIM < STATE_DIM
+
+
+def test_the_state_groups_are_as_wide_as_the_checkpoint_expects():
+    """``statistics.json`` holds 3 catheter values and 1 C-arm value, and the
+    state projector is sized from them."""
+    assert [stop - start for _key, start, stop in GR00T_STATE_GROUPS] == [3, 1]
 
 
 def test_trainer_config_declares_this_obs_converter(trainer_config):
@@ -171,17 +197,33 @@ def test_bridge_rejects_a_wrong_state_width(policy_obs):
 
 def test_gr00t_groups_carry_the_right_slices(policy_obs):
     groups = convert_workflow_obs_to_gr00t(_bridge(policy_obs))
-    # Each source term was filled with its own constant, so a mislabeled
-    # slice shows up as the wrong value rather than the wrong shape.
+    # Every source term was filled with its own constant, so a mislabeled
+    # slice shows up as the wrong value rather than the wrong shape. All four
+    # drive values come from term 1, split 3 and 1.
+    assert groups["state.catheter"].shape == (2, 1, 3)
+    assert groups["state.carm"].shape == (2, 1, 1)
     assert np.allclose(groups["state.catheter"], 1.0)
-    assert np.allclose(groups["state.tip_pose"][:, :, :3], 2.0)
-    assert np.allclose(groups["state.tip_pose"][:, :, 3:], 3.0)
-    assert np.allclose(groups["state.navigation"][:, :, :3], 4.0)
-    assert np.allclose(groups["state.navigation"][:, :, 3:], 5.0)
+    assert np.allclose(groups["state.carm"], 1.0)
+
+
+def test_gr00t_is_handed_no_group_it_cannot_read(policy_obs):
+    """The checkpoint declares four keys. A fifth is dropped in silence, so the
+    guard has to be that none is offered rather than that none is accepted."""
+    groups = convert_workflow_obs_to_gr00t(_bridge(policy_obs))
+    assert set(groups) == {GR00T_VIDEO_KEY, GR00T_LANGUAGE_KEY, "state.catheter", "state.carm"}
+
+
+def test_the_navigation_geometry_stays_out_of_the_observation(policy_obs):
+    """Terms 2 through 5 were filled with 2.0 .. 5.0, so any of those values
+    reaching the policy means the geometry leaked back in."""
+    groups = convert_workflow_obs_to_gr00t(_bridge(policy_obs))
+    states = np.concatenate([groups["state.catheter"], groups["state.carm"]], axis=-1)
+    assert states.shape[-1] == GR00T_STATE_DIM
+    assert not np.any(states > 1.0)
 
 
 def test_gr00t_video_key_gains_the_time_axis(policy_obs):
-    assert convert_workflow_obs_to_gr00t(_bridge(policy_obs))["video.fluoroscopy_view"].shape == (2, 1, 8, 8, 3)
+    assert convert_workflow_obs_to_gr00t(_bridge(policy_obs))[GR00T_VIDEO_KEY].shape == (2, 1, 8, 8, 3)
 
 
 def test_gr00t_carries_the_task_description(policy_obs):
@@ -246,6 +288,52 @@ def test_action_honours_the_chunk_size():
 def test_action_keys_are_the_registered_modality_groups():
     """These are the group names ``config_catheter.py`` registers with GR00T."""
     assert ACTION_KEYS == ("catheter", "carm")
+
+
+# --------------------------------------------------------------------------- #
+# The startup guard against silent drift
+# --------------------------------------------------------------------------- #
+class _Group:
+    """Stands in for GR00T's ``ModalityConfig``, which needs the heavy venv."""
+
+    def __init__(self, *keys: str) -> None:
+        self.modality_keys = list(keys)
+
+
+def _registered(**overrides) -> dict[str, _Group]:
+    """What ``config_catheter.CATHETER_CONFIG`` declares."""
+    config = {
+        "video": _Group("fluoroscopy"),
+        "state": _Group("catheter", "carm"),
+        "action": _Group("catheter", "carm"),
+        "language": _Group("annotation.human.task_description"),
+    }
+    config.update(overrides)
+    return config
+
+
+def test_the_guard_passes_against_the_real_registered_groups():
+    """The contract this module emits is the one the checkpoint was trained on."""
+    _assert_contract_matches(_registered())
+
+
+def test_the_guard_catches_a_renamed_camera():
+    """The defect this guard exists for: `video.fluoroscopy_view` reached GR00T
+    as an undeclared key, so the policy trained on no image at all."""
+    with pytest.raises(ValueError, match="video groups"):
+        _assert_contract_matches(_registered(video=_Group("fluoroscopy_view")))
+
+
+def test_the_guard_catches_an_extra_state_group():
+    """Groups the processor does not declare are dropped rather than refused."""
+    with pytest.raises(ValueError, match="state groups"):
+        _assert_contract_matches(_registered(state=_Group("catheter", "carm", "navigation")))
+
+
+def test_the_guard_catches_a_reordered_state_group():
+    """Order is positional in GR00T, so swapping these swaps the projectors."""
+    with pytest.raises(ValueError, match="state groups"):
+        _assert_contract_matches(_registered(state=_Group("carm", "catheter")))
 
 
 # --------------------------------------------------------------------------- #

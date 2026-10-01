@@ -34,6 +34,12 @@ policy_action_dof: 4
 # Tip position (3), tip direction (3), target offset (3), remaining arc and
 # lateral offset (2), drive channels (4). See
 # i4h_arena.medical.navigation_observation.NAVIGATION_STATE_DIM.
+#
+# This is the width the Scene publishes and the bridge carries, not the width
+# the policy reads. The fine-tuned checkpoint declares `state: [catheter,
+# carm]` at widths 3 and 1, so only the four drive channels reach it; the
+# eleven geometry values stay on the environment side, where the reward terms
+# are computed. `GR00T_STATE_GROUPS` in the adapter is the narrower contract.
 state_dof: 15
 cameras:
 - fluoroscopy

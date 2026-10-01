@@ -107,21 +107,24 @@ env:
       - key: tip_direction
       - key: target_offset
       - key: route_state
+      # These are the groups the fine-tuned checkpoint's processor declares,
+      # and they are the whole of what the policy sees. The Scene publishes
+      # eleven further numbers -- tip pose, target offset, route state -- which
+      # stay on the environment side: the checkpoint's state projector is sized
+      # for four values, and a group it does not declare is dropped in silence
+      # rather than refused. The reward terms read that geometry directly, so
+      # withholding it from the policy costs the critic nothing.
       gr00t_mapping:
         video:
-          main_images: video.fluoroscopy_view
+          main_images: video.fluoroscopy
           extra_view_images: []
         state:
-        # Proprioception the drive owns: insertion depth, axial twist, tip
-        # bend, C-arm orbit.
+        # Insertion depth, axial twist, tip bend.
         - gr00t_key: state.catheter
-          slice: [0, 4]
-        # Where the tip is and which way it points.
-        - gr00t_key: state.tip_pose
-          slice: [4, 10]
-        # Where it still has to go: target offset, remaining arc, lateral.
-        - gr00t_key: state.navigation
-          slice: [10, 15]
+          slice: [0, 3]
+        # The gantry angle, which changes the view and nothing in the patient.
+        - gr00t_key: state.carm
+          slice: [3, 4]
       action_mapping:
         prefix_pad: 0
         suffix_pad: 0
