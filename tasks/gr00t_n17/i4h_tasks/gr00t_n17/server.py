@@ -119,13 +119,22 @@ class Gr00tN17Server(PolicyServer):
         so reporting ``joint_position`` for everything made any non-arm
         embodiment unservable. ``joint_position`` stays the default because
         that is what every checkpoint predating this claimed implicitly.
+
+        ``dof`` counts action channels, not joints. The two agree for an
+        embodiment that commands every joint it has, which is every embodiment
+        this backend served until the catheter drive gained a carrier arm: that
+        arm is servo'd along the introducer, so it adds seven joints and no
+        commands. Counting joints there would report 11 against a scene that
+        accepts 4 and the ready handshake would reject its own checkpoint.
+        Embodiments that declare no action names at all fall back to the joint
+        count, which is what they reported before.
         """
         robot = self._robot(session)
         keys = _modality_keys(robot)
         return ActionContract(
             space=str(session.model.get("action_space") or "joint_position"),
             layout="joints",
-            dof=len(robot.joint_names),
+            dof=len(robot.action_names or robot.joint_names),
             gripper="last" if keys and keys[-1] == "gripper" else "none",
         )
 

@@ -7,8 +7,11 @@ Workflows for navigation and intervention through luminal anatomy.
 | Workflow | Demonstration | Supported modes ([guide](../../i4h_workflow_modes/README.md)) |
 | --- | --- | --- |
 | [`endoluminal_navigation`](endoluminal_navigation.py) | Navigate a catheter and movable C-arm with a live fluoroscopy view. | `demo`, `policy_n17`, `teleop`, `replay`, `validate_fluoroscopy`, `idle` |
+| [`endoluminal_navigation_arm`](endoluminal_navigation_arm.py) | The same navigation with the catheter drive carried on a Franka Panda flange. | `demo`, `policy_n17`, `teleop`, `replay`, `idle` |
 
 `demo`, `policy_n17` and `validate_fluoroscopy` are workflow-specific extensions, not standard run modes.
+
+The two workflows drive the same catheter to the same goal and accept the same four velocity channels; the arm holds the drive unit rather than being commanded through it. The arm scene spawns a rigid articulation, so it runs the coupled MJWarp + XPBD solver instead of the rod-only one, which costs throughput.
 
 ## Demonstrations
 
@@ -132,6 +135,8 @@ Roll out a finetuned GR00T N1.7 checkpoint against the same goal the demonstrati
 ```
 
 The mode serves [`gr00t_n17/catheter_navigation`](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation.yaml), which declares no published checkpoint, so `--checkpoint` is required.
+
+Swap the workflow name to roll the same checkpoint out in the arm-borne scene, which serves [`gr00t_n17/catheter_navigation_arm`](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation_arm.yaml) instead. The two manifests differ only in the embodiment they name, which is what lint matches a task to a scene by. A checkpoint finetuned on recordings from either scene serves both: the `catheter` and `carm` modality groups are identical, and the arm's seven servo'd joints arrive as a third `arm` state group the policy does not read.
 
 ## Unified Simulation Loop
 

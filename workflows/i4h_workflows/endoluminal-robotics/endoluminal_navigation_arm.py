@@ -5,6 +5,7 @@
 from i4h_engine.graph import TaskGraph, task
 from i4h_engine.interface import Workflow
 from i4h_workflow_modes.idle import idle
+from i4h_workflow_modes.policy import policy
 from i4h_workflow_modes.replay import replay
 from i4h_workflow_modes.teleop import teleop
 
@@ -32,13 +33,13 @@ WORKFLOW = Workflow(
         "teleop": lambda device="catheter_keyboard", **kwargs: teleop(
             device, until=success, max_seconds=float("inf"), **kwargs
         ),
-        # No policy mode here on purpose. ``gr00t_n17/catheter_navigation``
-        # names embodiment ``catheter`` and this scene provides
-        # ``franka_catheter``, so lint refuses the pairing. Recordings made
-        # here still train that task -- the arm only appends
-        # ``arm.panda_joint*`` state columns, which sit outside the
-        # ``catheter``/``carm`` modality groups the task reads -- so roll a
-        # checkpoint out in ``endoluminal_navigation`` instead.
+        # Serves ``catheter_navigation_arm`` rather than ``catheter_navigation``
+        # only because a task manifest names one embodiment and lint matches it
+        # by name. The checkpoint is the same one: both scenes accept the same
+        # four velocity channels, and the arm appends ``arm.panda_joint*``
+        # columns as a third state group outside the ``catheter``/``carm``
+        # groups the task reads. Train in either scene, roll out in either.
+        "policy_n17": lambda: policy("gr00t_n17/catheter_navigation_arm", until=success),
         "replay": replay,
         "demo": lambda: TaskGraph(description="Deterministic sweep exercising the arm-borne catheter drive.").flow(
             task("basic/catheter_sweep")

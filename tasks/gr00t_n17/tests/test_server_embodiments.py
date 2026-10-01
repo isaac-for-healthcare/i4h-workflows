@@ -64,6 +64,14 @@ def test_the_arm_groups_are_unchanged() -> None:
     assert _modality_keys(get_robot_config("so101")) == ("single_arm", "gripper")
 
 
+def test_the_carrier_arm_shares_the_catheter_groups() -> None:
+    """One checkpoint serves both endoluminal scenes, so the group names the
+    backend slices into have to be the same in both. Without splits of its own
+    this embodiment fell through to the SO-ARM layout and the checkpoint's
+    `action.catheter` was looked up as `action.single_arm`."""
+    assert _modality_keys(get_robot_config("franka_catheter")) == ("catheter", "carm")
+
+
 def test_an_embodiment_with_no_splits_falls_back_to_the_arm_layout() -> None:
     """Every checkpoint predating the splits behaved this way implicitly."""
     bare = replace(get_robot_config("so101"), action_split=())
@@ -115,6 +123,27 @@ def test_the_arm_still_reports_joint_positions_and_a_gripper(server) -> None:
     assert contract.gripper == "last"
 
 
+def test_the_carrier_arm_reports_four_channels_not_eleven_joints(server) -> None:
+    """`dof` counts what is commanded, which is not what is articulated.
+
+    The Franka that carries the drive unit is servo'd along the introducer, so
+    it adds seven joints and no commands. Counting joints here reported 11
+    against a scene that accepts 4, and the runtime rejected the checkpoint for
+    not matching the scene it was built for.
+    """
+    contract = server.action_contract(session("franka_catheter", action_space="catheter_carm_velocity"))
+    assert contract.dof == 4
+    assert contract.space == "catheter_carm_velocity"
+    assert contract.gripper == "none"
+
+
+def test_an_embodiment_that_commands_every_joint_is_unchanged(server) -> None:
+    """Joints and actions agree for the SO-ARM, so the count it reports must
+    not move with the change that made the servo'd arm report fewer."""
+    assert server.action_contract(session("so101")).dof == 6
+    assert server.action_contract(session("catheter", action_space="catheter_carm_velocity")).dof == 4
+
+
 # -- observation shaping -------------------------------------------------
 
 
@@ -126,6 +155,22 @@ def test_the_catheter_state_splits_into_instrument_and_gantry(server) -> None:
     assert groups["carm"].shape == (1, 1, 1)
     np.testing.assert_allclose(groups["catheter"][0, 0], [0.10, 0.20, 0.30])
     np.testing.assert_allclose(groups["carm"][0, 0], [0.40])
+
+
+def test_the_carrier_arm_joints_arrive_as_a_third_group(server) -> None:
+    """The splits have to tile the whole vector for conversion to use them, so
+    the servo'd joints are declared rather than dropped. The leading two groups
+    stay byte-identical to the armless case; GR00T's loader finds no `arm` key
+    in the modality config it was given and proceeds without it.
+    """
+    state = np.arange(11, dtype=np.float32) / 100.0
+    groups = server._state_groups(state, get_robot_config("franka_catheter"))
+    assert sorted(groups) == ["arm", "carm", "catheter"]
+    assert groups["catheter"].shape == (1, 1, 3)
+    assert groups["carm"].shape == (1, 1, 1)
+    assert groups["arm"].shape == (1, 1, 7)
+    np.testing.assert_allclose(groups["catheter"][0, 0], [0.00, 0.01, 0.02])
+    np.testing.assert_allclose(groups["carm"][0, 0], [0.03])
 
 
 def test_the_arm_state_still_splits_five_and_one(server) -> None:

@@ -48,5 +48,35 @@ state_names:
 - arm.panda_joint5
 - arm.panda_joint6
 - arm.panda_joint7
+# GR00T semantic groups, named and bounded exactly as `catheter.yaml` names
+# them so a dataset recorded here carries the same `catheter`/`carm` groups a
+# dataset recorded without the arm does. That is what lets one checkpoint serve
+# both scenes.
+#
+# The groups have to tile the whole vector -- conversion checks that they start
+# at 0, stay contiguous and end at the tensor width -- so the servo'd arm
+# joints are declared as a third state group even though no task reads them.
+# An unread group costs nothing: GR00T's loader finds no such key and proceeds.
+#
+# There is no matching action group, because the arm is driven along the
+# introducer rather than commanded, so `action_split` tiles the same four
+# channels as the armless embodiment.
+state_split:
+- - catheter
+  - 0
+  - 3
+- - carm
+  - 3
+  - 4
+- - arm
+  - 4
+  - 11
+action_split:
+- - catheter
+  - 0
+  - 3
+- - carm
+  - 3
+  - 4
 teleop_devices:
 - catheter_keyboard
