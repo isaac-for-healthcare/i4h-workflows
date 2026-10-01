@@ -129,6 +129,57 @@ def test_actions_are_applied_to_actuation(ctx, bus):
     assert np.allclose(ctx.act.joint_targets["robot"], 1.0)
 
 
+def test_scene_specific_action_space_is_written_through_unchanged(ctx, bus):
+    """A space this proxy has no decoder for goes to the controller verbatim.
+
+    The catheter's four insertion/rotation/bend/orbit rates are not joint
+    positions and not a pose, so there is nothing to decode. Decoding is the
+    only thing that could corrupt them, which is why the row is passed through.
+    """
+    keys = Keys("test-run")
+    ctx.bus, ctx.run_id = bus, "test-run"
+    ctx.act.action_space = "catheter_carm_velocity"
+    ctx.act.dof = 4
+    task = RemoteTask(SPEC, keys=keys)
+    FakeBackend(bus, keys, f"{task.name}-0", dof=4)
+    task.on_enter(ctx, None)
+
+    assert task.tick(ctx) is Status.RUNNING
+
+    assert np.allclose(ctx.act.raw_actions["robot"], 1.0)
+    assert ctx.act.raw_actions["robot"].shape == (ctx.num_envs, 4)
+    # Nothing leaked into the joint-target channel it does not belong to.
+    assert "robot" not in ctx.act.joint_targets
+
+
+def test_action_space_the_scene_rejects_is_fatal(ctx, bus):
+    """The mismatch is caught at the contract, before any action is written."""
+    keys = Keys("test-run")
+    ctx.bus, ctx.run_id = bus, "test-run"
+    ctx.act.action_space = "joint_position"
+    task = RemoteTask(SPEC, keys=keys)
+    backend = FakeBackend(bus, keys, f"{task.name}-0")
+    backend.bus.subscribe(
+        keys.task_spec(f"{task.name}-0"),
+        lambda _k, _p: bus.publish(
+            keys.task_status(f"{task.name}-0"),
+            encode(
+                TaskStatusMsg(
+                    task_uid=f"{task.name}-0",
+                    status="ready",
+                    action_space="catheter_carm_velocity",
+                )
+            ),
+        ),
+    )
+    task.on_enter(ctx, None)
+
+    with pytest.raises(RemoteTaskError, match="does not match this scene"):
+        task.tick(ctx)
+
+    assert ctx.act.raw_actions == {}
+
+
 def test_action_chunk_is_consumed_across_ticks(ctx, bus):
     # A horizon-2 chunk must feed two ticks; the backend only publishes on obs.
     keys = Keys("test-run")
