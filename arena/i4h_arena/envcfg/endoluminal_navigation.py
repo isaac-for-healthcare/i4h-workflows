@@ -32,6 +32,7 @@ from i4h_arena.medical.navigation_goal import (
 )
 from i4h_arena.medical.navigation_observation import (
     drive_state,
+    fluoroscopy_image,
     route_state,
     target_offset,
     tip_direction,
@@ -104,14 +105,14 @@ def navigation_observations_cfg(
     """Bind the navigation observation group to one scene's route and target."""
     return CatheterNavigationObservationsCfg(
         policy=CatheterNavigationObservationsCfg.NavigationObsCfg(
-            # The fluoroscopy sensor follows Arena's image convention
-            # (``data.output["rgb"]``), so the stock image term reads it.
+            # Not the stock image term: it renders on read, and the slang
+            # backend cannot render until the scene binds a C-arm, which is
+            # after the observation manager probes this term's shape.
             fluoroscopy_rgb=ObservationTermCfg(
-                func=base_mdp.image,
+                func=fluoroscopy_image,
                 params={
                     "sensor_cfg": SceneEntityCfg("fluoroscopy"),
                     "data_type": "rgb",
-                    "normalize": False,
                 },
             ),
             tip_position=ObservationTermCfg(func=tip_position),

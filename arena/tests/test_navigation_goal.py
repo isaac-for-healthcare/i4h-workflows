@@ -17,7 +17,9 @@ import torch
 
 from i4h_arena.medical.navigation_goal import (
     ARRIVAL_HOLD_STEPS,
+    ARRIVAL_TOLERANCE_ENV_VAR,
     ARRIVAL_TOLERANCE_M,
+    DEFAULT_ARRIVAL_TOLERANCE_M,
     DRIFT_LOG_ENV_VAR,
     arrival_progress,
     arrival_readout,
@@ -27,6 +29,7 @@ from i4h_arena.medical.navigation_goal import (
     hold_counter,
     reached_navigation_target,
     reset_arrival_progress,
+    resolve_arrival_tolerance_m,
     tip_distance_to_target_m,
 )
 
@@ -312,3 +315,26 @@ def test_an_unusable_route_falls_back_to_the_straight_line():
 
     assert arrival_progress(env).route is None
     assert arrival_status(env) == "Target: 200.0 mm away (arrive within 5 mm)"
+
+
+def test_arrival_tolerance_defaults_when_unset():
+    assert resolve_arrival_tolerance_m({}) == pytest.approx(DEFAULT_ARRIVAL_TOLERANCE_M)
+
+
+def test_arrival_tolerance_reads_millimetres_from_the_environment():
+    assert resolve_arrival_tolerance_m({ARRIVAL_TOLERANCE_ENV_VAR: "7"}) == pytest.approx(0.007)
+
+
+@pytest.mark.parametrize("raw", ["", "   ", "nonsense", "0", "-3", "25"])
+def test_arrival_tolerance_falls_back_on_unusable_values(raw: str):
+    """A typo must not silently make every episode succeed."""
+    assert resolve_arrival_tolerance_m({ARRIVAL_TOLERANCE_ENV_VAR: raw}) == pytest.approx(DEFAULT_ARRIVAL_TOLERANCE_M)
+
+
+def test_arrival_tolerance_accepts_the_upper_bound():
+    assert resolve_arrival_tolerance_m({ARRIVAL_TOLERANCE_ENV_VAR: "20"}) == pytest.approx(0.020)
+
+
+def test_module_tolerance_is_the_resolved_default_in_this_process():
+    """Nothing in the test environment sets the override."""
+    assert ARRIVAL_TOLERANCE_M == pytest.approx(DEFAULT_ARRIVAL_TOLERANCE_M)

@@ -33,7 +33,53 @@ DRIFT_LOG_ENV_VAR = "I4H_CATHETER_DRIFT"
 #: Tip-to-target distance that counts as arrival. Lumens in the shipped twins
 #: are a few millimetres across, so this stays inside one radius; a looser
 #: tolerance would accept a tip parked in the neighbouring branch.
-ARRIVAL_TOLERANCE_M = 0.005
+DEFAULT_ARRIVAL_TOLERANCE_M = 0.005
+
+#: Millimetres, overriding the default for one process.
+#:
+#: Teleoperation on a slow-rendering twin can run out of step budget a few
+#: millimetres short, which records a failure for a drive that was otherwise
+#: clean. Relaxing the tolerance for a collection session is reasonable, but
+#: only against measured geometry: on ``s0011`` no two non-adjacent centerline
+#: points come within 5 mm, exactly one pair comes within 7 mm, and the lumen
+#: at the target has a 9 mm radius, so 7 mm still sits inside one radius there.
+#: The narrow end of that same tree is 3 mm, where 7 mm would span the vessel
+#: and accept a neighbour, so this is a per-twin judgement and not a new
+#: default. An override is logged, because the success labels it produces end
+#: up in recordings that outlive the session.
+ARRIVAL_TOLERANCE_ENV_VAR = "I4H_CATHETER_ARRIVAL_MM"
+
+#: Refuses a value that is not a plausible lumen radius, rather than silently
+#: accepting a typo that would make every episode succeed.
+_MAX_ARRIVAL_TOLERANCE_MM = 20.0
+
+
+def resolve_arrival_tolerance_m(environ: dict[str, str] | None = None) -> float:
+    """Arrival tolerance in metres, from the environment or the default."""
+    raw = (environ if environ is not None else os.environ).get(ARRIVAL_TOLERANCE_ENV_VAR, "")
+    text = str(raw).strip()
+    if not text:
+        return DEFAULT_ARRIVAL_TOLERANCE_M
+    try:
+        millimetres = float(text)
+    except ValueError:
+        _LOGGER.warning("ignoring %s=%r: not a number", ARRIVAL_TOLERANCE_ENV_VAR, raw)
+        return DEFAULT_ARRIVAL_TOLERANCE_M
+    if not 0.0 < millimetres <= _MAX_ARRIVAL_TOLERANCE_MM:
+        _LOGGER.warning(
+            "ignoring %s=%r: expected 0 to %.0f mm", ARRIVAL_TOLERANCE_ENV_VAR, raw, _MAX_ARRIVAL_TOLERANCE_MM
+        )
+        return DEFAULT_ARRIVAL_TOLERANCE_M
+    _LOGGER.warning(
+        "arrival tolerance relaxed to %.1f mm by %s; recorded success labels mean this, not the %.1f mm default",
+        millimetres,
+        ARRIVAL_TOLERANCE_ENV_VAR,
+        DEFAULT_ARRIVAL_TOLERANCE_M * 1000.0,
+    )
+    return millimetres / 1000.0
+
+
+ARRIVAL_TOLERANCE_M = resolve_arrival_tolerance_m()
 
 #: Consecutive control steps the tip has to stay inside the tolerance. Controls
 #: advance at 30 Hz, so this is about half a second, which keeps a tip that
@@ -276,7 +322,9 @@ def reached_navigation_target(
 
 __all__ = [
     "ARRIVAL_HOLD_STEPS",
+    "ARRIVAL_TOLERANCE_ENV_VAR",
     "ARRIVAL_TOLERANCE_M",
+    "DEFAULT_ARRIVAL_TOLERANCE_M",
     "HOLD_COUNTER_ATTR",
     "ArrivalProgress",
     "arrival_progress",
@@ -286,5 +334,6 @@ __all__ = [
     "hold_counter",
     "reached_navigation_target",
     "reset_arrival_progress",
+    "resolve_arrival_tolerance_m",
     "tip_distance_to_target_m",
 ]

@@ -30,6 +30,7 @@ from i4h_arena.medical.navigation_observation import (
     TIP_DIRECTION_DIM,
     TIP_POSITION_DIM,
     drive_state,
+    fluoroscopy_image,
     route_state,
     target_offset,
     tip_direction,
@@ -45,6 +46,7 @@ class _Scene(dict):
     """A scene mapping that can also carry cloned-environment origins."""
 
     env_origins = None
+    sensors: dict = {}
 
 
 class _FakeEnv:
@@ -60,6 +62,17 @@ class _FakeEnv:
 
     def place_tip(self, *tips: tuple[float, float, float]) -> None:
         self.place(*(((0.0, 0.0, 0.0), (tip[0] / 2.0, 0.0, 0.0), tip) for tip in tips))
+
+    def with_fluoroscopy(self, *, renderable: bool, edge: int = 8) -> _FakeEnv:
+        """Attach a detector that either renders or is still awaiting its C-arm."""
+        frames = torch.full((self.num_envs, edge, edge, 3), 7, dtype=torch.uint8)
+        sensor = SimpleNamespace(
+            is_renderable=renderable,
+            cfg=SimpleNamespace(height=edge, width=edge),
+            data=SimpleNamespace(output={"rgb": frames}),
+        )
+        self.scene.sensors = {"fluoroscopy": sensor}
+        return self
 
     def with_drive(self, **channels: float) -> _FakeEnv:
         """Attach an action manager exposing the four drive channels."""
@@ -222,3 +235,46 @@ def test_drive_state_is_per_environment():
     env = _env_at((0.3, 0.0, 0.0), (0.5, 0.0, 0.0)).with_drive(depth=0.25)
     assert drive_state(env).shape == (2, DRIVE_STATE_DIM)
     assert drive_state(env)[:, 0].tolist() == pytest.approx([0.25, 0.25])
+
+
+#: The sensor name the navigation observation group binds.
+_FLUORO = SimpleNamespace(name="fluoroscopy")
+
+
+def test_fluoroscopy_image_serves_zeros_before_the_carm_is_bound():
+    """The slang backend cannot render yet; the shape probe must still succeed.
+
+    This is the regression that took a ``--patient-twin`` run down: the stock
+    image term rendered on read and raised before the scene had bound a C-arm.
+    """
+    env = _env_at((0.3, 0.0, 0.0)).with_fluoroscopy(renderable=False)
+    frame = fluoroscopy_image(env, _FLUORO)
+    assert frame.shape == (1, 8, 8, 3)
+    assert frame.dtype == torch.uint8
+    assert not frame.any()
+
+
+def test_fluoroscopy_image_reads_the_sensor_once_renderable():
+    env = _env_at((0.3, 0.0, 0.0)).with_fluoroscopy(renderable=True)
+    assert (fluoroscopy_image(env, _FLUORO) == 7).all()
+
+
+@pytest.mark.parametrize("renderable", [False, True])
+def test_fluoroscopy_image_width_is_stable_across_binding(renderable: bool):
+    """Both sides of the binding must agree, since IsaacLab fixes width once."""
+    env = _env_at((0.3, 0.0, 0.0), (0.5, 0.0, 0.0)).with_fluoroscopy(renderable=renderable)
+    assert fluoroscopy_image(env, _FLUORO).shape == (2, 8, 8, 3)
+
+
+def test_fluoroscopy_image_does_not_alias_the_sensor_buffer():
+    """A consumer that writes to the observation must not corrupt the sensor."""
+    env = _env_at((0.3, 0.0, 0.0)).with_fluoroscopy(renderable=True)
+    fluoroscopy_image(env, _FLUORO)[:] = 0
+    assert (env.scene.sensors["fluoroscopy"].data.output["rgb"] == 7).all()
+
+
+def test_fluoroscopy_image_assumes_a_sensor_without_the_flag_can_render():
+    """Synthetic-backend sensors predate ``is_renderable`` and always render."""
+    env = _env_at((0.3, 0.0, 0.0)).with_fluoroscopy(renderable=True)
+    del env.scene.sensors["fluoroscopy"].is_renderable
+    assert (fluoroscopy_image(env, _FLUORO) == 7).all()

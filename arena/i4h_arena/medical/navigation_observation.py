@@ -113,6 +113,30 @@ def target_offset(env: Any, target_world_m: Iterable[float]) -> torch.Tensor:
     return target - points[:, -1, :]
 
 
+def fluoroscopy_image(env: Any, sensor_cfg: Any, data_type: str = "rgb") -> torch.Tensor:
+    """``(N, H, W, 3)`` uint8 detector frame, zeros until the C-arm is bound.
+
+    IsaacLab's stock image term cannot serve this sensor. It reads through
+    ``sensor.data``, which renders on demand, and the slang backend refuses to
+    render until the scene binds a C-arm provider -- which happens after the
+    environment is built, so the observation manager's one shape-probing read
+    always precedes it. The synthetic backend tolerates an unbound provider,
+    which is why this only bites with ``--patient-twin``.
+
+    Shape has to be right on that first read even so, because IsaacLab fixes
+    each term's width from it. The sensor has already allocated correctly
+    shaped zero buffers by then, so serve their dimensions.
+    """
+    sensor = env.scene.sensors[sensor_cfg.name]
+    if not getattr(sensor, "is_renderable", True):
+        return torch.zeros(
+            (int(env.num_envs), int(sensor.cfg.height), int(sensor.cfg.width), 3),
+            dtype=torch.uint8,
+            device=env.device,
+        )
+    return sensor.data.output[data_type].clone()
+
+
 def route_state(env: Any, route_world_m: Iterable[Iterable[float]]) -> torch.Tensor:
     """``(N, 2)`` remaining route arc and lateral offset from the centerline, metres.
 
@@ -178,6 +202,7 @@ __all__ = [
     "TIP_DIRECTION_DIM",
     "TIP_POSITION_DIM",
     "drive_state",
+    "fluoroscopy_image",
     "route_state",
     "target_offset",
     "tip_direction",
