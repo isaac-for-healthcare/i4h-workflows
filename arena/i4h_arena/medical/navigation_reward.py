@@ -12,8 +12,13 @@ Three things here are deliberate rather than incidental, and each one exists
 because the obvious version was measured and found exploitable.
 
 Both positive shaping terms pay a *change*, not a level, which is
-potential-based shaping and so leaves the optimal policy untouched. Progress
-differences the remaining arc and approach differences ``exp(-distance/scale)``.
+potential-based shaping. Progress differences the remaining arc and approach
+differences ``exp(-distance/scale)``. Approach is a potential function
+outright, so it leaves the optimal policy untouched. Progress is one only
+while its clamp below is slack; a clamped step is no longer a difference of a
+potential and the invariance theorem does not cover it. That is a deliberate
+trade against the projection discontinuity, and is worth stating in that
+direction rather than the flattering one.
 Approach was a level until it was priced: at one per step for hovering, and
 hovering being unbounded in time, the best stationary spot just outside the
 arrival tolerance discounted to roughly 150 against roughly 84 for holding the
@@ -263,11 +268,22 @@ def wall_penetration_penalty(
     route_world_m: Iterable[Iterable[float]],
     lumen_radii_m: Iterable[float] | None,
 ) -> torch.Tensor:
-    """Mean depth, in metres, by which the rod sits outside the lumen wall.
+    """Deepest point, in metres, at which the rod sits outside the lumen wall.
 
     Every particle, not just the tip: a tip that threads the arch while the
     shaft behind it cuts the corner is the failure this is for. Depth rather
     than a count, so easing off a deep contact pays before the contact clears.
+
+    The worst particle, not the average of them: averaging divides a local
+    perforation by the particle count, so across this rod's 121 particles a
+    tip 1 mm through the wall came to 0.99 over a full episode against a
+    traverse worth 99. The max also keeps the weight meaningful for a rod with
+    a different particle count, and stops the cost drifting with insertion
+    depth as particles parked at the entry stop padding the denominator.
+
+    The trade is that extent no longer registers -- one particle 2 mm out
+    scores the same as twenty -- which ``fold`` partly covers. See
+    ``docs/catheter-navigation-reward-analysis.md`` for the arithmetic.
     """
     positions = env.scene["catheter"].data.positions_world_m
     if positions is None:
@@ -280,7 +296,7 @@ def wall_penetration_penalty(
     if radii is None:
         return torch.zeros(int(env.num_envs), device=env.device)
     _, lateral_m, segment = project_to_route(points, starts, spans, start_arc)
-    return torch.clamp(lateral_m - radii[segment], min=0.0).mean(dim=-1)
+    return torch.clamp(lateral_m - radii[segment], min=0.0).amax(dim=-1)
 
 
 def bend_radius_m(positions: torch.Tensor) -> torch.Tensor:

@@ -154,8 +154,11 @@ dangerous: a per-step payout for being on-axis is collectable without going anyw
 
 ## Term 5: `penetration`, and the dilution problem
 
+**Resolved.** The aggregation below has been replaced by a `max` over particles; the analysis
+is kept because it is the derivation of the weight's meaning. See the end of the section.
+
 ```
-p_pen = mean over all 121 particles of max(0, ell_i - rho(s_i))
+p_pen = mean over all 121 particles of max(0, ell_i - rho(s_i))    # former behaviour
 ```
 
 The specification flags the `-200` weight as the term most likely to need moving, on the
@@ -180,6 +183,17 @@ meaningful event, is diluted by the particle count, and the dilution factor chan
 insertion depth because particles still outside the patient contribute zero. A `max` over
 particles, a sum, or a mean restricted to inserted particles would each behave more sanely.
 As written the weight is also not transferable across scenes with a different segment count.
+
+The `max` was taken. It needs no estimate of how many particles are inserted, keeps the
+weight meaningful across rods with different particle counts, and is continuous in the
+particle positions. Under it the same 1 mm perforation costs `200 * 0.001 * 600 = 120` over
+a full episode, against a traverse worth 99 and an arrival bonus of 75 — so perforating
+throughout is no longer compatible with a winning episode. The trade is that extent no
+longer registers: one particle 2 mm out scores the same as twenty. Both are already serious,
+a shaft cutting a corner still registers at its deepest point, and `fold` prices distributed
+deformation, so this is the preferable direction to lose information in. The consequence to
+watch is that the term now dominates when it fires, and its balance against `lateral` has
+not been retuned since the change.
 
 ## Term 6: `fold`
 
@@ -228,9 +242,15 @@ is tied to a measurement rather than a convention. The gaps are all cross-term.
    truncates the stream. The term is now potential-based, so a stationary tip collects
    nothing wherever it parks. The other two options — gating on the hold counter, or
    bootstrapping the value on success termination — were not needed and were not taken.
-2. **`penetration`'s mean dilutes the failure it exists to catch.** Tip-only perforation for
-   a whole episode costs about one per cent of a traverse. The weight is not the problem; the
-   reduction over 121 particles is.
+2. ~~**`penetration`'s mean dilutes the failure it exists to catch.**~~ **Fixed.** Tip-only
+   perforation for a whole episode cost about one per cent of a traverse. The term now
+   reports the deepest particle instead of the average of all of them, so the same
+   perforation costs 120 against a traverse worth 99 and an episode that perforates
+   throughout can no longer outscore one that does not. A sum or a mean over inserted
+   particles were the alternatives; the `max` was taken because it also makes the weight
+   portable across rods with different particle counts and removes the drift with insertion
+   depth. The cost is extent sensitivity, which `fold` partly covers.
 3. **The shaping theorem does not survive the clamp.** Policy invariance holds only while the
-   clamp is slack. This is an acceptable trade against the projection discontinuity, but it
-   should be stated rather than claimed the other way around.
+   clamp is slack. This is an acceptable trade against the projection discontinuity, and both
+   the specification and the module docstring now state it in that direction. Noted here as
+   a standing caveat rather than an open defect.

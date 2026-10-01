@@ -167,6 +167,12 @@ class CatheterNavigationRewardsCfg:
     of a potential, which a stationary tip cannot collect, or ``arrival``,
     which is gated on the tolerance and terminates. No weight choice
     reintroduces a payout for holding still short of the target.
+
+    ``penetration`` is the one term that breaks the 1.0-per-step scale, and
+    deliberately. It reads zero until the rod is actually through the wall,
+    then 0.2 per step per millimetre of depth, so perforating throughout an
+    episode costs more than the traverse pays. Its balance against ``lateral``
+    has not been retuned since it changed from a mean to a worst-point.
     """
 
     progress: RewardTermCfg = MISSING

@@ -217,11 +217,32 @@ def test_a_rod_inside_the_lumen_is_not_penalized():
 
 
 def test_penetration_is_measured_over_every_particle_not_just_the_tip():
-    """One of three particles 3 mm through a 5 mm wall averages to 1 mm."""
+    """A mid-rod particle 3 mm through a 5 mm wall is a 3 mm penetration.
+
+    The tip and the trailing node are both inside the lumen here, so a
+    tip-only term would read zero. The shaft cutting a corner while the tip
+    threads it is the case this term exists for.
+    """
     env = _FakeEnv()
     env.place(((0.1, 0.0, 0.0), (0.2, 0.008, 0.0), (0.3, 0.0, 0.0)))
 
-    assert wall_penetration_penalty(env, ROUTE, RADII).item() == pytest.approx(0.001, abs=1e-5)
+    assert wall_penetration_penalty(env, ROUTE, RADII).item() == pytest.approx(0.003, abs=1e-5)
+
+
+def test_a_perforation_costs_the_same_however_much_rod_is_inside_the_vessel():
+    """The defect this replaced: averaging over particles diluted the one event
+    the term exists to catch, and diluted it *more* the further the catheter
+    was inserted, because particles still parked at the entry contribute no
+    depth but did count toward the mean. Across the real rod's 121 particles a
+    1 mm perforation averaged to 8.3 um and cost about one per cent of a
+    traverse for a whole episode of driving the tip through tissue.
+    """
+    few, many = _FakeEnv(), _FakeEnv()
+    few.place(((0.1, 0.0, 0.0), (0.2, 0.008, 0.0)))
+    many.place(((0.1, 0.0, 0.0),) * 20 + ((0.2, 0.008, 0.0),))
+
+    assert wall_penetration_penalty(few, ROUTE, RADII).item() == pytest.approx(0.003, abs=1e-5)
+    assert wall_penetration_penalty(many, ROUTE, RADII).item() == pytest.approx(0.003, abs=1e-5)
 
 
 def test_penetration_grades_depth_rather_than_counting_contacts():

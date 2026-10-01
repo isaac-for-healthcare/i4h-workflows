@@ -18,7 +18,7 @@ scene's route polyline.
 | `approach` | `approach_reward` | +3.75 | (-1, 1) | dimensionless |
 | `arrival` | `arrival_reward` | +5 | {0, 1} | indicator |
 | `lateral` | `lateral_offset_penalty` | -2 (0 without radii) | [0, inf) | dimensionless |
-| `penetration` | `wall_penetration_penalty` | -200 (0 without radii) | [0, inf) | m |
+| `penetration` | `wall_penetration_penalty` | -200 (0 without radii) | [0, inf) | m (worst point) |
 | `fold` | `fold_penalty` | -1 | [0, inf) | dimensionless |
 | `action_rate` | `base_mdp.action_rate_l2` | -0.01 | [0, inf) | dimensionless |
 
@@ -125,15 +125,34 @@ that episode scores as near-total success.
 It is a penalty rather than a reward for being centred, because a per-step payout for
 sitting on the axis is collectable without going anywhere.
 
-### 5. `penetration` — mean depth outside the wall
+### 5. `penetration` — deepest point outside the wall
 
 ```
-p_pen = mean_i max(0, ell_i - rho(s_i))
+p_pen = max_i max(0, ell_i - rho(s_i))
 ```
 
 over **every rod particle**, not just the tip: a tip that threads the arch while the shaft
 behind it cuts the corner is the failure this is for. Depth rather than a count, so easing
 off a deep contact pays before the contact clears.
+
+The `max` replaces a mean, and the mean was the defect. Across the rod's 121 particles a tip
+1 mm through the wall averaged to 8.3e-6 m, costing `200 * 8.3e-6 * 600 = 0.99` over a full
+episode against a traverse worth 99 — one per cent, for driving the tip through tissue from
+start to finish. Reaching the "roughly 1.0 per step" this weight was sized for would have
+required all 121 particles 1 mm outside the vessel simultaneously, which is the whole
+catheter outside the anatomy rather than a perforation. The weight was never the problem.
+
+Two further properties follow. The weight now means the same thing in a scene whose rod has a
+different particle count, which a per-particle mean did not. And the cost no longer drifts
+with insertion depth: particles still parked at the entry contribute no depth but did count
+toward the mean, so the same perforation used to be cheaper the further in the catheter was.
+
+What the `max` gives up is extent — one particle 2 mm out and twenty particles 2 mm out now
+score alike. That is the preferable direction to be wrong in: both are already serious, a
+shaft cutting a corner still registers at its deepest point, and `fold` already prices
+distributed deformation. Under the new aggregation a sustained 1 mm perforation costs
+`200 * 0.001 * 600 = 120`, which exceeds both the traverse and the arrival bonus — so an
+episode that perforates throughout can no longer come out ahead of one that does not.
 
 ### 6. `fold` — mean excess curvature
 
@@ -204,10 +223,16 @@ itself the alignment mechanism.
 A cross-term reading of these weights, including three problems that follow from the
 constants alone, is in
 [catheter-navigation-reward-analysis.md](catheter-navigation-reward-analysis.md). The
-shortest version: `penetration`'s mean over 121 particles dilutes tip perforation to
-roughly one per cent of a traverse, and the clamp on `progress` costs the potential-shaping
-guarantee this document claims for it. The third problem it raises — `approach` being
-collectable by standing still and out-paying arriving — is the one fixed above.
+shortest version: the clamp on `progress` costs the potential-shaping guarantee for the
+steps where it binds. The other two problems it raises — `approach` being collectable by
+standing still and out-paying arriving, and `penetration`'s mean diluting tip perforation to
+roughly one per cent of a traverse — are both fixed above.
+
+On the clamp, stated in the honest direction: `approach` is a potential function outright
+and leaves the optimal policy untouched, while `progress` is one only while its ±2.5 mm
+clamp is slack. A clamped step is not a difference of a potential and the invariance theorem
+does not cover it. That is an accepted trade against the projection discontinuity, which
+credited 153 mm of travel against 112 mm actually made on a recorded episode.
 
 **The weight ordering is the design intent; the numbers are not tuned.** Arriving worth
 more than traversing, traversing worth more than any amount of loitering. Over the 600-step
@@ -220,16 +245,20 @@ Every positive term is either a difference of a potential, which a stationary ti
 collect, or `arrival`, which is gated on the tolerance and terminates. No choice of weights
 reintroduces a payout for holding still short of the target.
 
-**`penetration` at -200 is the term most likely to need moving.** A 1 mm mean penetration
-across the whole rod costs 0.2 per step, so 120 over a full episode — larger than the entire
-traverse payout of 99. The mean over all particles also dilutes localized contact heavily,
-so the effective magnitude depends strongly on how much of the rod is inserted. That
-interaction is not obviously stable across an episode.
+**`penetration` at -200 is still the term most likely to need moving**, though for the
+opposite reason to the one originally recorded here. Now that it reports the worst point
+rather than a mean, a sustained 1 mm perforation costs 0.2 per step and 120 over a full
+episode, which is larger than the entire traverse payout of 99. That ordering is deliberate
+— an episode that perforates throughout should not outscore one that does not — but it does
+mean the term now dominates when it fires, and the balance against `lateral` has not been
+retuned since the change.
 
-**Reward hacking is the live risk in a medical task.** This is why the trocar profile pairs
-PPO with a KL penalty against the reference SFT policy. The reward function is not the only
-safety mechanism; the anchor to demonstrated behaviour does real work alongside it, and its
-quality is exactly the quality of the demonstrations.
+**Reward hacking is the live risk in a medical task**, and the usual mitigation is a KL
+penalty anchoring PPO to the reference SFT policy. Note that this is *not currently active*:
+both this profile and `assemble_trocar` set `kl_beta: 0.0`, and RLinf gates both the
+reward-side and loss-side KL terms on `kl_beta > 0`. So the reward function is at present
+the only safety mechanism, with no anchor to demonstrated behaviour behind it. Enabling the
+anchor is a decision worth taking deliberately rather than inheriting the default.
 
 **Sequencing.** Tune this after IL is rollout-validated, not before. Tuning a reward against
 an IL policy that already mostly works is far easier than debugging a reward and a
