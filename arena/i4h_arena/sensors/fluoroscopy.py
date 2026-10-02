@@ -60,6 +60,19 @@ class FluoroscopySensor(SensorBase):
     def patient_twin(self) -> PatientTwin | None:
         return self._patient_twin
 
+    @property
+    def is_renderable(self) -> bool:
+        """Whether reading :attr:`data` can produce a frame rather than raise.
+
+        The slang backend projects through the C-arm, and the scene binds that
+        provider only once the environment exists -- which is after IsaacLab
+        has built the observation manager and asked every term for its shape.
+        An observation term consults this to serve the zero buffers allocated
+        in ``_initialize_impl`` across that one window, instead of failing the
+        run before the scene is finished assembling itself.
+        """
+        return self.cfg.backend != "slang" or self._carm_provider is not None
+
     def bind_catheter_provider(self, provider: CatheterStateProvider) -> None:
         """Connect the physics-owned state source after the environment is built."""
         if not isinstance(provider, CatheterStateProvider):

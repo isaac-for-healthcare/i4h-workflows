@@ -198,18 +198,52 @@ def _write_split_modality(target: Path, *, config, cameras: tuple[str, ...]) -> 
     return path
 
 
+def _split_width(splits: tuple[tuple[str, int, int], ...]) -> int | None:
+    """Columns a split set claims, or ``None`` when it is empty or not contiguous from 0."""
+    cursor = 0
+    for _name, start, end in splits:
+        if start != cursor or end <= start:
+            return None
+        cursor = end
+    return cursor if splits else None
+
+
 def _uses_declared_modality(*, config, state_width: int, action_width: int) -> bool:
     """Whether descriptor splits completely cover the converted tensors."""
+    return _split_width(config.state_split) == state_width and _split_width(config.action_split) == action_width
 
-    def covers(splits: tuple[tuple[str, int, int], ...], width: int) -> bool:
-        cursor = 0
-        for _name, start, end in splits:
-            if start != cursor or end <= start:
-                return False
-            cursor = end
-        return bool(splits) and cursor == width
 
-    return covers(config.state_split, state_width) and covers(config.action_split, action_width)
+def _require_declarable_modality(*, config, robot: str, state_width: int, action_width: int) -> None:
+    """Fail when a descriptor declares GR00T splits that cannot describe the real tensors.
+
+    A descriptor declaring no splits is converting for something other than GR00T and is left
+    alone. One declaring splits that do not tile the real width is a contradiction, and the
+    behaviour was to write no ``modality.json`` at all and still log success -- so a descriptor
+    landing ahead of the code that produces its extra columns yielded a dataset that converted
+    cleanly, trained, and read the wrong columns. Nothing that previously produced a usable
+    dataset reaches this raise: the cases it catches are the ones that silently produced none.
+
+    Checked before the videos are encoded, because the alternative is finding out at the end.
+    """
+    if not (config.state_split or config.action_split):
+        return
+    if _uses_declared_modality(config=config, state_width=state_width, action_width=action_width):
+        return
+    if _uses_g1_wbc_modality(robot=robot, state_width=state_width, action_width=action_width):
+        return
+
+    def claim(splits: tuple[tuple[str, int, int], ...]) -> str:
+        width = _split_width(splits)
+        return "no contiguous range from 0" if width is None else f"{width} columns"
+
+    raise ValueError(
+        f"{config.name}: declared GR00T splits do not describe this recording. "
+        f"state_split covers {claim(config.state_split)} against a converted state width of "
+        f"{state_width}; action_split covers {claim(config.action_split)} against an action "
+        f"width of {action_width}. Splits must start at 0, stay contiguous, and end at the "
+        "tensor width. Either the descriptor is ahead of the code that produces the extra "
+        "columns, or this recording predates the descriptor."
+    )
 
 
 def _uses_g1_wbc_modality(*, robot: str, state_width: int, action_width: int) -> bool:
@@ -374,6 +408,12 @@ def convert(
         sample_actions = _to_policy_joint_coordinates(sample_actions, config)
         action_width = int(sample_actions.shape[-1])
         state_width = int(sample_states.shape[-1]) if sample_states is not None else action_width
+        _require_declarable_modality(
+            config=config,
+            robot=robot,
+            state_width=state_width,
+            action_width=action_width,
+        )
         cameras = camera_keys(data[names[0]])
         features = {
             "observation.state": {

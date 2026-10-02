@@ -6,9 +6,12 @@ Workflows for navigation and intervention through luminal anatomy.
 
 | Workflow | Demonstration | Supported modes ([guide](../../i4h_workflow_modes/README.md)) |
 | --- | --- | --- |
-| [`endoluminal_navigation`](endoluminal_navigation.py) | Navigate a catheter and movable C-arm with a live fluoroscopy view. | `demo`, `teleop`, `validate_fluoroscopy`, `idle` |
+| [`endoluminal_navigation`](endoluminal_navigation.py) | Navigate a catheter and movable C-arm with a live fluoroscopy view. | `demo`, `policy_n17`, `teleop`, `replay`, `validate_fluoroscopy`, `idle` |
+| [`endoluminal_navigation_arm`](endoluminal_navigation_arm.py) | The same navigation with the catheter drive carried on a Franka Panda flange. | `demo`, `policy_n17`, `teleop`, `replay`, `idle` |
 
-`demo` and `validate_fluoroscopy` are workflow-specific extensions, not standard run modes.
+`demo`, `policy_n17` and `validate_fluoroscopy` are workflow-specific extensions, not standard run modes.
+
+The two workflows drive the same catheter to the same goal and accept the same four velocity channels; the arm holds the drive unit rather than being commanded through it. The arm scene spawns a rigid articulation, so it runs the coupled MJWarp + XPBD solver instead of the rod-only one, which costs throughput.
 
 ## Demonstrations
 
@@ -88,6 +91,7 @@ Click inside the Isaac window before using the keyboard. The fluoroscopy window 
 | ----- | --------------------------------------------------- |
 | W / S | Insert / retract catheter                           |
 | A / D | Rotate catheter                                     |
+| Z / C | Steer the tip: curl the distal bend either way      |
 | Q / E | Fine C-arm rotation                                 |
 | R     | Reset the catheter and C-arm to their initial state |
 | L     | Clear a stuck keyboard command                      |
@@ -114,7 +118,25 @@ Add `--record` to store synchronized actions, state, and fluoroscopy frames:
   --record --record-failures
 ```
 
-Recordings are stored under `./runs/endoluminal_navigation/<timestamp>/`. Teleoperation has no completion key, so `--record-failures` preserves the session.
+Recordings are stored under `./runs/endoluminal_navigation/<timestamp>/`.
+
+Teleoperation ends the episode when the catheter tip reaches the distal end of the vessel centerline and holds there, so a demonstration is goal-terminated and stored with a success label. Without a patient twin there is no centerline, the criterion can never fire, and the episode runs to the step cap instead. `--record-failures` additionally keeps the attempts that time out; those are worth having, since a policy trained only on clean runs never learns to recover from a wrong branch.
+
+### Policy rollout
+
+Roll out a finetuned GR00T N1.7 checkpoint against the same goal the demonstrations were terminated on:
+
+```bash
+./run.sh endoluminal_navigation \
+  --mode policy_n17 \
+  --checkpoint /path/to/checkpoint \
+  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml \
+  --episodes 10
+```
+
+The mode serves [`gr00t_n17/catheter_navigation`](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation.yaml), which declares no published checkpoint, so `--checkpoint` is required.
+
+Swap the workflow name to roll the same checkpoint out in the arm-borne scene, which serves [`gr00t_n17/catheter_navigation_arm`](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation_arm.yaml) instead. The two manifests differ only in the embodiment they name, which is what lint matches a task to a scene by. A checkpoint finetuned on recordings from either scene serves both: the `catheter` and `carm` modality groups are identical, and the arm's seven servo'd joints arrive as a third `arm` state group the policy does not read.
 
 ## Unified Simulation Loop
 
@@ -167,7 +189,7 @@ UNIFIED_SIM_LOOP(mu, gamma, A)                     # runner.py owns env.step
   initialise   X_0 = (x_0, q_0, v = 0, w = 0)
                s_0 = 0,  theta_0 = 45 deg
   for k = 1, 2, ...
-      u_k = (v_ins, tau, orbit_rate)               # keyboard/UI -> action tensor
+      u_k = (v_ins, tau, bend_rate, orbit_rate)    # keyboard/UI -> action tensor
       for j = 1..4                                 # decimation
           (X, s) <- Phi^dt_phys(X, s, u_k)
           theta  <- clip(theta + orbit_rate*dt_phys, -30 deg, +90 deg)

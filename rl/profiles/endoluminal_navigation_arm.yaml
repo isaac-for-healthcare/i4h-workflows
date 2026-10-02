@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# GR00T PPO post-training for catheter navigation with the drive on a flange.
+#
+# Same task, same checkpoint, same reward as `endoluminal_navigation`. The arm
+# carries the introducer rather than being commanded through it, so it changes
+# none of the facts PPO is built on: `EndoluminalNavigationArmScene` subclasses
+# the armless Scene and overrides the embodiment, world gravity and the
+# recorded joint columns, never `get_observation_cfg`, `get_rewards_cfg` or
+# `get_termination_cfg`.
+#
+# Point --model-path at a catheter SFT checkpoint, the same one the armless
+# profile takes. A recording from either Scene trains it: the arm appends
+# `arm.panda_joint*` columns that sit outside the `catheter`/`carm` modality
+# groups the checkpoint reads.
+schema_version: 1
+workflow: endoluminal_navigation_arm
+scene: endoluminal_navigation_arm
+trainer: rlinf
+algorithm: ppo_actor_critic
+# The same adapter. It registers this profile's task ids alongside the armless
+# ones and maps one observation contract, because the two Scenes publish the
+# same six observation terms.
+adapter_module: i4h_rl.adapters.endoluminal_navigation
+model_runtime: tasks/gr00t_n17/.venv/bin/python
+# Inherited from the armless Scene along with everything else the twin feeds:
+# route, target and lumen widths. Without one the embodiment publishes no
+# reward or termination config and there is nothing to optimise.
+requires_patient_twin: true
+trainer_config: ../config/endoluminal_navigation_arm_ppo_gr00t.yaml
+train_task_id: I4H-Workflows-Endoluminal-Navigation-Arm-RLinf-v0
+eval_task_id: I4H-Workflows-Endoluminal-Navigation-Arm-RLinf-Eval-v0
+task_description: navigate the catheter through the vessel to the target
+# Insertion velocity, axial rotation rate, tip bend rate, C-arm orbit rate.
+# The arm adds seven joints and no action entries, so this is the armless four:
+# `franka_catheter.yaml` declares the same `action_names` as `catheter.yaml`.
+action_dof: 4
+policy_action_dof: 4
+# Unchanged from the armless profile, and not the eleven columns a recording
+# carries. The RL observation reads `drive_state` off the action terms rather
+# than off the articulation, so it is four values whether or not something is
+# holding the drive unit; the arm joints reach datasets, not PPO.
+state_dof: 15
+cameras:
+- fluoroscopy
+# Half the armless eight, and a guess rather than a measurement. This Scene
+# spawns a rigid articulation, which selects the coupled MJWarp + XPBD solver
+# over the rod-only one, so each step pays for a rigid integrator and two-way
+# flange contact on top of the DRR that already sets the armless step rate.
+# CUDA graph capture is off in both Scenes because the deformable vessel
+# resizes contact scratch as the catheter moves, so there is no capture to
+# amortise the extra solver with. Raise or lower it against a measured step
+# rate before trusting the number.
+default_num_envs: 4
+default_epochs: 500
+simulation:
+  # As in the armless profile, the cloned environments share one absolute
+  # world-space route and are coincident regardless of this value.
+  env_spacing: 2.0
+  presets: physx
+  enable_cameras: true
+resources:
+  # One GB300 hosts the isolated GR00T/RLinf and Isaac Sim processes; each sees
+  # its selected device as cuda:0. Headroom is tighter here than armless, since
+  # MJWarp allocates beside the rod solver.
+  model_gpu: "0"
+  simulator_gpu: "0"
+  allow_shared_gpu: true

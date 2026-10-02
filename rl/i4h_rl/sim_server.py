@@ -22,6 +22,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--env-spacing", type=float, required=True)
     parser.add_argument("--presets", required=True)
     parser.add_argument("--enable-cameras", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--patient-twin", default=None)
+    parser.add_argument("--fluoro-backend", choices=("synthetic", "slang"), default=None)
+    parser.add_argument("--fluoro-device", choices=("cuda", "vulkan"), default="vulkan")
     return parser
 
 
@@ -38,6 +41,14 @@ def _scene_args(args: argparse.Namespace) -> argparse.Namespace:
         episode_steps=args.max_episode_steps,
         no_cameras=not args.enable_cameras,
         enable_cameras=args.enable_cameras,
+        # Set unconditionally, and not only for the scenes that read them. A
+        # Scene reads these straight off the namespace, so a scene that grows a
+        # patient-specific sensor would fail here on a missing attribute rather
+        # than fall back. ``fluoro_backend=None`` lets the scene pick: Slang
+        # when a twin is present, synthetic otherwise.
+        patient_twin=args.patient_twin,
+        fluoro_backend=args.fluoro_backend,
+        fluoro_device=args.fluoro_device,
     )
 
 

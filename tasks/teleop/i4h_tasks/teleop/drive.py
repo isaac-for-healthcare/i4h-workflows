@@ -59,6 +59,19 @@ class Drive(Task):
         name = getattr(inputs, "device", "") or self.device_name
         self._device = make_device(name, **self.device_kwargs)
         self._device.open(ctx)
+        # Checked before the start message, because the keyboard devices
+        # downgrade a missing Kit window to a warning and then read ``None``
+        # for the rest of the run. Announcing a start there hands back a
+        # session that looks driveable, holds pose on every tick, and records
+        # an episode of the operator pressing keys into nothing.
+        if not self._device.attached:
+            self._teardown()
+            raise RuntimeError(
+                f"teleop device {name!r} opened without acquiring its input source, so it would "
+                "hold pose for the whole run. If this is the keyboard, Kit failed to create a "
+                "window: look for 'GLFW initialization failed' earlier in the log and check that "
+                "DISPLAY reaches a live X server."
+            )
         self._frames = 0
         self._ticks = 0
         self._completed = False

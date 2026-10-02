@@ -62,6 +62,7 @@ class ArenaSceneView:
         tcp_sensors: dict[str, str] | None = None,
         camera_aliases: dict[str, str] | None = None,
         joint_state_providers: dict[str, Any] | None = None,
+        diagnostics_provider: Any | None = None,
         root_relative: bool = False,
     ) -> None:
         self._env = env
@@ -79,6 +80,7 @@ class ArenaSceneView:
         self._tcp_sensors = tcp_sensors or {}
         self._camera_aliases = camera_aliases or {}
         self._joint_state_providers = joint_state_providers or {}
+        self._diagnostics_provider = diagnostics_provider
         self._root_relative = root_relative
         self._cache: dict[str, Any] = {}
 
@@ -338,6 +340,23 @@ class ArenaSceneView:
                 encoding="rgb8",
             )
         return self._cache[key]
+
+    def diagnostics(self) -> dict[str, Any]:
+        """Per-frame measurements of the simulation, for a scene that offers any.
+
+        Empty when the scene passed no provider, which is the normal case. The
+        recorder calls this once per recorded frame and nothing else does, so a
+        provider that has to read physics state off the device only pays for
+        that sync while a recording is actually being written.
+        """
+        if self._diagnostics_provider is None:
+            return {}
+        key = "diagnostics"
+        if key not in self._cache:
+            self._cache[key] = dict(self._diagnostics_provider.diagnostics())
+        # Copied out, so a consumer cannot leave the rest of the frame reading a
+        # different rod than the one that was measured.
+        return dict(self._cache[key])
 
     def sensor_signal(self, name: str, output: str) -> np.ndarray | None:
         """Read a sensor output in its native dtype, before any display mapping.

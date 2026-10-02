@@ -39,7 +39,7 @@ from i4h_common.bus.keys import Keys
 from i4h_common.bus.messages import ActionChunk, ObsFrame, TaskSpecMsg, TaskStatusMsg, encode
 from i4h_common.manifest import TaskSpec
 from i4h_common.types import Pose, satisfied
-from i4h_common.world import UnsupportedActuation
+from i4h_common.world import UnsupportedActuation, apply_action
 from i4h_engine.status import Status
 from i4h_engine.task import Task, TickContext
 
@@ -340,6 +340,13 @@ class RemoteTask(Task):
                     ctx.act.set_ee_target(self._to_pose(chunk), robot)
                 if self._gripper == "last":
                     ctx.act.set_gripper(chunk[:, -1], robot)
+            elif self._space == ctx.act.action_space:
+                # A scene-specific encoding this proxy has no decoder for, such
+                # as the catheter's insertion/rotation/bend/orbit rates. The
+                # contract already matched space and dof against the scene, so
+                # the row is what this controller consumes; decoding it here
+                # would be the one thing that could corrupt it.
+                apply_action(ctx.act, chunk, robot)
             else:
                 raise UnsupportedActuation(f"{self.spec.id}: cannot apply action_space={self._space!r}")
 

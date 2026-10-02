@@ -1,0 +1,65 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# GR00T PPO post-training for catheter navigation.
+#
+# This post-trains a checkpoint that has already been fine-tuned on catheter
+# demonstrations; it does not train from scratch. Point --model-path at that
+# SFT checkpoint. Without one there is no catheter modality for GR00T to
+# speak and the run fails at model load rather than partway through training.
+schema_version: 1
+workflow: endoluminal_navigation
+scene: endoluminal_navigation
+trainer: rlinf
+algorithm: ppo_actor_critic
+adapter_module: i4h_rl.adapters.endoluminal_navigation
+# The catheter SFT checkpoint is GR00T N1.7, so post-training has to run in
+# the N1.7 task venv. The default N1.5 venv pins Isaac-GR00T-1.5, which has no
+# modality-registration API for N1.7 to load the catheter embodiment through.
+model_runtime: tasks/gr00t_n17/.venv/bin/python
+# --patient-twin is not optional here, unlike teleop, where a phantom scene is
+# still worth driving. The route, the target, and the lumen widths the reward
+# measures against all come from the twin, so without one the embodiment
+# returns None for every observation, event, reward, and termination config and
+# there is nothing for PPO to optimise.
+requires_patient_twin: true
+trainer_config: ../config/endoluminal_navigation_ppo_gr00t.yaml
+train_task_id: I4H-Workflows-Endoluminal-Navigation-RLinf-v0
+eval_task_id: I4H-Workflows-Endoluminal-Navigation-RLinf-Eval-v0
+task_description: navigate the catheter through the vessel to the target
+# Insertion velocity, axial rotation rate, tip bend rate, C-arm orbit rate.
+# Every channel is controlled, so unlike the G1 there is nothing to pad.
+action_dof: 4
+policy_action_dof: 4
+# Tip position (3), tip direction (3), target offset (3), remaining arc and
+# lateral offset (2), drive channels (4). See
+# i4h_arena.medical.navigation_observation.NAVIGATION_STATE_DIM.
+#
+# This is the width the Scene publishes and the bridge carries, not the width
+# the policy reads. The fine-tuned checkpoint declares `state: [catheter,
+# carm]` at widths 3 and 1, so only the four drive channels reach it; the
+# eleven geometry values stay on the environment side, where the reward terms
+# are computed. `GR00T_STATE_GROUPS` in the adapter is the narrower contract.
+state_dof: 15
+cameras:
+- fluoroscopy
+# Far below the Trocar's 64. The fluoroscopy DRR is rendered per environment
+# per frame at 512x512 and is what sets the step rate, so environment count
+# buys much less here than it does for a scene with ordinary cameras. Raise
+# it only against a measured step rate.
+default_num_envs: 8
+default_epochs: 500
+simulation:
+  # Single-digit spacing is deliberate: the cloned environments currently
+  # share one absolute world-space route, so they are coincident regardless
+  # of this value. Left at a sane number so the figure means something once
+  # the route is made per-environment.
+  env_spacing: 2.0
+  presets: physx
+  enable_cameras: true
+resources:
+  # GB300 has enough addressable VRAM to colocate the isolated GR00T/RLinf
+  # and Isaac Sim processes. Each process sees the selected device as cuda:0.
+  model_gpu: "0"
+  simulator_gpu: "0"
+  allow_shared_gpu: true

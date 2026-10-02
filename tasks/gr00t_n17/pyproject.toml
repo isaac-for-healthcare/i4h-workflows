@@ -14,6 +14,17 @@ dependencies = [
     "gr00t",
     "lmdb==1.7.5",
     "PyYAML>=6.0",
+    # RL post-training host dependencies, on the same pins as the N1.5 task
+    # venv so both RLinf hosts agree. This venv is the runtime named by
+    # rl/profiles/endoluminal_navigation.yaml, and these are imported at module
+    # import rather than lazily: ray by RLinf's scheduler, toml by
+    # isaaclab_contrib, which the catheter adapter loads to reach the RLinf
+    # extension. Inference-only use of this package never touches them.
+    "hydra-core==1.3.2",
+    "ray[default]==2.47.0",
+    "tensorboard",
+    "toml==0.10.2",
+    "tyro>=0.8",
     # deepspeed (gr00t transitive) imports torch.utils.cpp_extension at runtime,
     # which needs setuptools for its CUDA-ops compatibility probe.
     "setuptools>=68",
@@ -68,6 +79,12 @@ override-dependencies = [
     "torch==2.9.0+cu130",
     'torchvision==0.24.0+cu130 ; platform_machine == "x86_64"',
     'torchvision==0.24.0       ; platform_machine == "aarch64"',
+    # Upstream pins 0.4.0 against its own torch 2.7. torchcodec links the torch
+    # C++ ABI, so that wheel aborts with std::bad_alloc the moment it is
+    # imported under the 2.9 pinned above -- which happens inside the dataloader
+    # worker, where the abort surfaces only as "worker exited unexpectedly".
+    # 0.8.0 is the release built against 2.9; 0.7.0 aborts the same way.
+    'torchcodec==0.8.0 ; platform_machine == "x86_64"',
 ]
 
 # Mirrors the pinned Isaac-GR00T N1.7 pyproject (rev `4b1dca9d`) so uv has

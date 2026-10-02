@@ -23,7 +23,7 @@ from i4h_rl.adapters.assemble_trocar import ACTION_KEYS  # noqa: E402
 from i4h_rl.adapters.assemble_trocar import _register_gr00t_converters, convert_gr00t_to_workflow_action
 from i4h_rl.artifacts import checkpoint_iteration  # noqa: E402
 from i4h_rl.artifacts import resolve_input_path, resolve_output_path
-from i4h_rl.backends.rlinf import _sim_ready_timeout  # noqa: E402
+from i4h_rl.backends.rlinf import _gpu_assignment, _sim_ready_timeout  # noqa: E402
 from i4h_rl.backends.rlinf import (
     checkpoint_bundle,
     checkpoint_root,
@@ -207,16 +207,27 @@ def test_train_rl_show_validates_the_full_profile_contract() -> None:
 
 
 def test_supported_workflows_have_rl_profiles() -> None:
-    assert set(available_profiles()) == {"assemble_trocar", "ultrasound_probe_reach"}
+    assert set(available_profiles()) == {
+        "assemble_trocar",
+        "endoluminal_navigation",
+        # Same catheter task and checkpoint, with the drive unit on a flange.
+        "endoluminal_navigation_arm",
+        "ultrasound_probe_reach",
+    }
 
 
 def test_profiles_declare_workflow_adapters_and_simulator_contracts() -> None:
     trocar = load_profile("assemble_trocar")
+    catheter = load_profile("endoluminal_navigation")
     ultrasound = load_profile("ultrasound_probe_reach")
 
     assert trocar.adapter_module == "i4h_rl.adapters.assemble_trocar"
     assert trocar.simulation.enable_cameras is True
     assert trocar.simulation.env_spacing == 6.0
+    assert catheter.resources is not None
+    assert catheter.resources.model_gpu == "0"
+    assert catheter.resources.simulator_gpu == "0"
+    assert catheter.resources.allow_shared_gpu is True
     assert ultrasound.adapter_module == "i4h_rl.adapters.ultrasound_probe_reach"
     assert ultrasound.simulation.enable_cameras is False
     assert ultrasound.simulation.env_spacing == 2.0
@@ -519,6 +530,22 @@ def test_rlinf_simulator_ready_timeout_must_be_positive_and_finite(monkeypatch, 
 
     with pytest.raises(SystemExit, match="must be a positive number"):
         _sim_ready_timeout()
+
+
+def test_only_catheter_rlinf_profile_shares_a_gpu_by_default(monkeypatch) -> None:
+    monkeypatch.delenv("I4H_RL_MODEL_GPU", raising=False)
+    monkeypatch.delenv("I4H_RL_SIM_GPU", raising=False)
+
+    assert _gpu_assignment(load_profile("endoluminal_navigation")) == ("0", "0")
+    assert _gpu_assignment(load_profile("assemble_trocar")) == ("0", "1")
+
+
+def test_non_opted_in_rlinf_profile_rejects_shared_gpu_override(monkeypatch) -> None:
+    monkeypatch.setenv("I4H_RL_MODEL_GPU", "0")
+    monkeypatch.setenv("I4H_RL_SIM_GPU", "0")
+
+    with pytest.raises(SystemExit, match="does not allow"):
+        _gpu_assignment(load_profile("assemble_trocar"))
 
 
 def test_rlinf_evaluation_requires_and_records_tensorboard_metrics(tmp_path: Path, monkeypatch) -> None:
