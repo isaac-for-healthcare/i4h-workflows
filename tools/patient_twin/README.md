@@ -63,7 +63,7 @@ including oblique grids. `volume.npy` and `volume.yaml` describe HU and its full
 affine; anatomy and centerlines use the declared scan frame/units. Centerlines
 come from the retained CT-grid labels. The workflow applies simulator placement
 and unit conversion when loading the bundle; these are no longer baked into exports.
-Older schema-1/2 bundles remain supported.
+Older schema-1 bundles remain supported.
 
 Attenuation conversion belongs to `xray_simulator` in sensor-simulation and runs
 when the workflow loads the HU bundle. The default is `linear`, without HU

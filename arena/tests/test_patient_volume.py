@@ -16,6 +16,7 @@ from i4h_arena.medical.patient_volume import PatientVolume
 def bundle(tmp_path):
     hu = np.array([-1500, -300, 100, 300, 900, 3000, 6000, 9000], dtype=np.float32).reshape(2, 2, 2)
     np.save(tmp_path / "hu.npy", hu)
+    np.save(tmp_path / "mu.npy", np.full((2, 2, 2), 0.123, np.float32))
     metadata = {
         "shape_zyx": [2, 2, 2],
         "spacing_zyx_mm": [2, 1, 1],
@@ -28,11 +29,11 @@ def bundle(tmp_path):
     affine = np.diag([1.0, 1.0, 2.0, 1.0])
     affine[:3, 3] = [10, 20, 30]
     manifest = {
-        "schema_version": 2,
+        "schema_version": 1,
         "patient_id": "test",
         "coordinate_frame": "DICOM_LPS",
         "transforms": {"voxel_to_patient_mm": affine.tolist(), "world_from_patient_m": np.eye(4).tolist()},
-        "artifacts": {"hu_volume": "hu.npy", "volume_metadata": "metadata.json"},
+        "artifacts": {"attenuation_volume": "mu.npy", "hu_volume": "hu.npy", "volume_metadata": "metadata.json"},
     }
     path = tmp_path / "patient_twin.yaml"
     path.write_text(yaml.safe_dump(manifest))
@@ -42,7 +43,6 @@ def bundle(tmp_path):
 @pytest.mark.parametrize(
     "preset,expected",
     [
-        (None, [0, 0.0035, 0.0055, 0.0065, 0.0095, 0.02, 0.02, 0.02]),
         ("linear", [0, 0.0035, 0.0055, 0.0065, 0.0095, 0.02, 0.02, 0.02]),
         ("interventional", [0, 0, 0.0008, 0.0028, 0.009, 0.02, 0.0344, 0.044]),
     ],
@@ -51,7 +51,6 @@ def test_hu_mapping_and_spatial_transform(bundle, preset, expected):
     path, _, _, hu = bundle
     before = {p.name: p.read_bytes() for p in path.parent.iterdir()}
     twin = PatientTwin.load(path)
-    assert twin.schema_version == 2
     volume = PatientVolume.load(twin, hu_to_mu_preset=preset)
     np.testing.assert_allclose(volume.mu_volume.ravel(), expected, atol=1e-8)
     np.testing.assert_array_equal(np.load(path.parent / "hu.npy"), hu)
@@ -63,10 +62,6 @@ def test_hu_mapping_and_spatial_transform(bundle, preset, expected):
 
 def test_legacy_mu_is_preserved_and_explicit_remap_uses_hu(bundle):
     path, manifest, _, _ = bundle
-    manifest["schema_version"] = 1
-    manifest["artifacts"]["attenuation_volume"] = "mu.npy"
-    np.save(path.parent / "mu.npy", np.full((2, 2, 2), 0.123, np.float32))
-    path.write_text(yaml.safe_dump(manifest))
     twin = PatientTwin.load(path)
     np.testing.assert_allclose(PatientVolume.load(twin).mu_volume, 0.123)
     assert PatientVolume.load(twin, hu_to_mu_preset="interventional").mu_volume.flat[1] == 0
@@ -93,7 +88,7 @@ def test_invalid_hu_metadata(bundle, key, value, match):
     metadata[key] = value
     (path.parent / "metadata.json").write_text(json.dumps(metadata))
     with pytest.raises(ValueError, match=match):
-        PatientVolume.load(PatientTwin.load(path))
+        PatientVolume.load(PatientTwin.load(path), hu_to_mu_preset="linear")
 
 
 def test_nonfinite_hu_and_unknown_preset_rejected(bundle):
@@ -103,14 +98,22 @@ def test_nonfinite_hu_and_unknown_preset_rejected(bundle):
     hu.flat[0] = np.nan
     np.save(path.parent / "hu.npy", hu)
     with pytest.raises(ValueError, match="non-finite"):
-        PatientVolume.load(PatientTwin.load(path))
+        PatientVolume.load(PatientTwin.load(path), hu_to_mu_preset="linear")
 
 
-def test_schema_two_requires_hu(bundle):
+def test_schema_two_is_rejected(bundle):
     path, manifest, _, _ = bundle
-    manifest["artifacts"]["attenuation_volume"] = manifest["artifacts"].pop("hu_volume")
+    manifest["schema_version"] = 2
     path.write_text(yaml.safe_dump(manifest))
-    with pytest.raises(ValueError, match="schema 2 requires"):
+    with pytest.raises(ValueError, match="unsupported"):
+        PatientTwin.load(path)
+
+
+def test_schema_one_requires_stored_attenuation(bundle):
+    path, manifest, _, _ = bundle
+    del manifest["artifacts"]["attenuation_volume"]
+    path.write_text(yaml.safe_dump(manifest))
+    with pytest.raises(ValueError, match="schema 1 requires artifacts.attenuation_volume"):
         PatientTwin.load(path)
 
 

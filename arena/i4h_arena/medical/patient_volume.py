@@ -39,7 +39,7 @@ class PatientVolume:
             to_world = twin.world_from_patient_m @ np.diag([0.001, 0.001, 0.001, 1.0])
             return cls(twin, volume.mu_volume, volume.spacing_zyx_mm, to_world, np.linalg.inv(to_world), native)
         # Preserve legacy cached attenuation unless the caller explicitly remaps HU.
-        use_hu = twin.schema_version == 2 or "attenuation_volume" not in twin.artifacts or hu_to_mu_preset is not None
+        use_hu = hu_to_mu_preset is not None
         if use_hu and "hu_volume" not in twin.artifacts:
             raise ValueError("Changing attenuation requires artifacts.hu_volume; this bundle only contains mu")
         volume_path = twin.artifacts["hu_volume" if use_hu else "attenuation_volume"]
@@ -63,14 +63,11 @@ class PatientVolume:
         if not np.isfinite(volume).all():
             raise ValueError(f"{volume_path}: volume contains non-finite values")
         if use_hu:
-            if (
-                raw.get("intensity_units", "HU" if twin.schema_version == 1 else None) != "HU"
-                or raw.get("array_order", "ZYX" if twin.schema_version == 1 else None) != "ZYX"
-            ):
+            if raw.get("intensity_units", "HU") != "HU" or raw.get("array_order", "ZYX") != "ZYX":
                 raise ValueError(f"{metadata_path}: HU volume must use HU intensities and ZYX array order")
-            from xray_simulator import DEFAULT_HU_TO_MU_PRESET, HuToMuMapping, PreprocessingSettings, VolumePreprocessor
+            from xray_simulator import HuToMuMapping, PreprocessingSettings, VolumePreprocessor
 
-            mapping = HuToMuMapping.preset(hu_to_mu_preset or DEFAULT_HU_TO_MU_PRESET)
+            mapping = HuToMuMapping.preset(hu_to_mu_preset)
             volume = (
                 VolumePreprocessor(
                     hu_volume=volume,
