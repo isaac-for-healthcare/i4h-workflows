@@ -20,7 +20,9 @@ dependencies = [
     # import rather than lazily: ray by RLinf's scheduler, toml by
     # isaaclab_contrib, which the catheter adapter loads to reach the RLinf
     # extension. Inference-only use of this package never touches them.
+    "hydra-core==1.3.2",
     "ray[default]==2.47.0",
+    "tensorboard",
     "toml==0.10.2",
     "tyro>=0.8",
     # deepspeed (gr00t transitive) imports torch.utils.cpp_extension at runtime,

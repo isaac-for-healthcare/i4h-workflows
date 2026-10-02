@@ -196,7 +196,9 @@ actor:
     queue_size: 0
   training_backend: fsdp
   micro_batch_size: 2
-  global_batch_size: 256
+  # One update collects 8 rollout epochs * 600 steps * 1 environment =
+  # 4,800 samples. RLinf requires this size to divide evenly.
+  global_batch_size: 240
   seed: 1234
   enable_offload: false
   model:
@@ -251,7 +253,9 @@ actor:
     forward_prefetch: false
     limit_all_gathers: false
     backward_prefetch: null
-    use_orig_params: false
+    # N1.7 freezes part of the pretrained backbone while training the policy
+    # head. FSDP flat parameters cannot mix those requires_grad values.
+    use_orig_params: true
     use_liger_kernel: false
     fsdp_size: -1
     mixed_precision:

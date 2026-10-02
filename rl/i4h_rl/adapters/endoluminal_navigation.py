@@ -38,9 +38,12 @@ in the modality config, then add it here.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 import numpy as np
+
+from i4h_rl.rollout_monitor import RolloutProgressMonitor
 
 logger = logging.getLogger(__name__)
 _registered = False
@@ -248,11 +251,29 @@ def _get_workflow_env_class():
     from rlinf.envs.isaaclab.isaaclab_env import IsaaclabBaseEnv
 
     class WorkflowCatheterEnv(IsaaclabBaseEnv):
+        def __init__(self, *args, **kwargs):
+            self._rollout_monitor = None
+            self._rollout_monitor_recorded = False
+            self._rollout_monitor_steps = 0
+            super().__init__(*args, **kwargs)
+            run_dir = os.environ.get("I4H_RL_RUN_DIR")
+            if run_dir and self.isaaclab_env_id in (TRAIN_TASK_ID, ARM_TRAIN_TASK_ID):
+                self._rollout_monitor = RolloutProgressMonitor(
+                    run_dir,
+                    rollouts_per_update=int(self.cfg.rollout_epoch),
+                )
+
         def _init_isaaclab_env(self):
             from i4h_rl.sim_bridge import RemoteIsaacEnv
 
             self.env = RemoteIsaacEnv.from_environment()
             self.env.reset(seed=self.seed)
+
+        def reset(self, *args, **kwargs):
+            obs = super().reset(*args, **kwargs)
+            self._rollout_monitor_recorded = False
+            self._rollout_monitor_steps = 0
+            return obs
 
         def _wrap_obs(self, obs):
             return wrap_workflow_observation(
@@ -270,12 +291,30 @@ def _get_workflow_env_class():
             episode_info["episode_len"] = self.elapsed_steps.clone()
             episode_info["reward"] = episode_info["return"] / episode_info["episode_len"]
             infos["episode"] = episode_info
+            self._rollout_monitor_steps += 1
+            if (
+                self._rollout_monitor is not None
+                and not self._rollout_monitor_recorded
+                and self._rollout_monitor_steps >= self.cfg.max_episode_steps
+            ):
+                self._rollout_monitor.record(
+                    mean_return=episode_info["return"].float().mean().item(),
+                    mean_reward=episode_info["reward"].float().mean().item(),
+                    mean_episode_length=episode_info["episode_len"].float().mean().item(),
+                    success_rate=episode_info["success_once"].float().mean().item(),
+                )
+                self._rollout_monitor_recorded = True
             return infos
 
         def add_image(self, obs):
             policy = obs.get("policy", obs)
             image = policy.get("fluoroscopy_rgb")
             return None if image is None else _to_rgb(image[0]).cpu().numpy()
+
+        def close(self):
+            if self._rollout_monitor is not None:
+                self._rollout_monitor.close()
+            super().close()
 
     return WorkflowCatheterEnv
 
