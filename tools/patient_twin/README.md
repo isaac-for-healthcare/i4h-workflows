@@ -1,25 +1,22 @@
 # Patient twin preparation
 
-This tool calls `patient_digital_twin.__main__` and returns the `patient_twin.yaml`
-bundle consumed by `endoluminal_navigation`. Model inference, named mesh
-extraction, centerlines, HU export, and USD output belong to that library.
+`run.sh` runs the `patient-digital-twin` command-line tool with `--format bundle`
+in a pinned environment and writes the `patient_twin.yaml` bundle consumed by
+`endoluminal_navigation`. Model inference, named mesh extraction, centerlines, HU
+export, and USD output all belong to that library; this directory only pins it.
 
 ## Install
 
-`third_party/setup.sh` pins the patient library commit that adds this pipeline.
-To test these paired branches before the library commit is published, use a
-local checkout as the source:
+`third_party/setup.sh` pins the patient library commit. To build against a local
+checkout instead, override its source:
 
 ```bash
 I4H_DIGITAL_TWIN_URL=/absolute/path/to/i4h-digital-twin \
   ./third_party/setup.sh patient-twin
-uv sync --project tools/patient_twin --extra dev
 ```
 
-After that commit is available upstream, omit the URL override. Set
-`I4H_DIGITAL_TWIN_REF` to test a different commit. The checkout is kept at
-`third_party/i4h-digital-twin`; existing simulation dependency checkouts are
-independent of it. Install only the optional inference backend you use:
+Set `I4H_DIGITAL_TWIN_REF` to test a different commit. The checkout is kept at
+`third_party/i4h-digital-twin`. Install only the optional inference backend you use:
 
 ```bash
 uv sync --project tools/patient_twin --extra nvsegment
@@ -46,44 +43,33 @@ a separate compatible GPU environment.
 The input is a 3D CT NIfTI, DICOM CT directory, or `volume.yaml`; supplied dataset
 masks are not read. For DICOM, install the tool's `dicom` extra and use
 `--series-uid` if multiple series are present. `--classes` accepts space- or
-comma-separated names. Output must be a new directory.
+comma-separated names. Output must be a new directory. For generation, use
+`--source nvgenerate --source-root /path/to/NV-Generate-CTMR` and omit `--input`.
 
 ```mermaid
 flowchart LR
     C["CT: NIfTI / DICOM / volume.yaml"] --> P["patient-digital-twin: segment + mesh"]
     P --> B["Native scan bundle: HU + YAML + mask + centerlines + USD"]
     B --> X["sensor-simulation: HU → μ + affine ray marching"]
-    B --> W["Workflow: units + patient placement"]
+    B --> W["Workflow: LPS mm + patient placement"]
     X --> F["Navigation + fluoroscopy"]
     W --> F
 ```
 
-Schema-2 bundles preserve source scan axes, spacing, origin, and orientation,
-including oblique grids. `volume.npy` and `volume.yaml` describe HU and its full
-affine; anatomy and centerlines use the declared scan frame/units. Centerlines
-come from the retained CT-grid labels. The workflow applies simulator placement
-and unit conversion when loading the bundle; these are no longer baked into exports.
-Older schema-1 bundles remain supported.
+Bundles (schema 2) preserve the scan as acquired: source array order, spacing,
+origin, and orientation including oblique grids, in the scanner's frame (RAS or
+LPS) and units. `volume.npy` and `volume.yaml` hold HU and its full affine;
+anatomy and centerlines use the same scan frame and units. When the workflow loads
+a bundle, `PatientTwin` converts everything to patient LPS millimetres once and
+places the patient on the table; nothing downstream sees the source frame. Bundles
+from the earlier workflow pipeline (schema 1) are no longer read; rebuild them with
+the command above.
 
 Attenuation conversion belongs to `xray_simulator` in sensor-simulation and runs
-when the workflow loads the HU bundle. Navigation defaults to `interventional`, without HU
-pre-clipping. Add `--hu-to-mu linear` to the **workflow** command to select
-the sensor library's general-purpose linear curve; rebuilding the patient bundle is unnecessary. Schema-1
-bundles continue using their stored μ unless a preset is explicitly selected.
+when the workflow loads the bundle. Navigation defaults to `interventional`,
+without HU pre-clipping; add `--hu-to-mu linear` to the **workflow** command for
+the sensor library's general-purpose linear curve. Rebuilding the bundle is
+unnecessary.
 
-`./third_party/setup.sh xray` installs the pinned public sensor-simulation source
-used by Arena. `I4H_XRAY_SIM_URL` and `I4H_XRAY_SIM_REF` override that checkout.
-
-For generation, use `--source nvgenerate --source-root /path/to/NV-Generate-CTMR`
-and omit `--input`. For standalone USD, use the library's
-`python -m patient_digital_twin --format usd` entry point.
-
-The isolated `patient_digital_twin.legacy_ct` module implements the temporary CT
-artifact compatibility layer. The workflow carries no duplicate CT processing,
-segmentation fallback, or anatomy USD writer.
-
-Run the tool's CPU contract tests with:
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 uv run --project tools/patient_twin --extra dev pytest tools/patient_twin/tests
-```
+`./third_party/setup.sh sensor-simulation` installs the pinned sensor-simulation
+source used by Arena; `I4H_SENSOR_SIM_URL` and `I4H_SENSOR_SIM_REF` override it.

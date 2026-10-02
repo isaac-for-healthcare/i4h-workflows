@@ -115,8 +115,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     simulation.add_argument(
         "--hu-to-mu",
+        choices=("interventional", "linear"),
         default=None,
-        help="sensor attenuation preset: interventional (default for HU bundles) or linear; legacy mu is preserved when omitted",
+        help="HU-to-attenuation preset for patient twins (default: interventional)",
     )
     simulation.add_argument(
         "--patient-twin",

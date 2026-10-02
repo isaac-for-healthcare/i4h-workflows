@@ -81,12 +81,6 @@ SUITES = {
     "tools": (
         TestCommand("trajectory mimic", "tools/mimic", ("tools/mimic/tests",)),
         TestCommand("dataset conversion", "tools/dataset", ("tools/dataset/tests",)),
-        TestCommand(
-            "patient twin",
-            "tools/patient_twin",
-            ("tools/patient_twin/tests",),
-            requires_checkout="third_party/i4h-digital-twin/patient-digital-twin",
-        ),
     ),
     "arena": (
         TestCommand(

@@ -17,10 +17,10 @@ New `workflows/catheter_navigation/` workflow for simulation-driven development 
 
 - **Fluoroscopy Simulator (`fluorosim`):** Slang-based differentiable DRR renderer with fused Beer-Lambert catheter compositing, batched multi-env rendering, DSA pipeline, and detector realism.
 - **Physics Solver:** XPBD Cosserat rod solvers with vessel-mesh containment, track-guided insertion, and hardened bend containment.
-- **Patient Digital Twin:** CT ingestion (DICOM/NIfTI), segmentation, meshing, and centerline extraction; bring your own CT patient data.
+- **Vasculature Digital Twin:** CT ingestion (DICOM/NIfTI), segmentation, meshing, and centerline extraction; bring your own CT patient data.
 - **Interactive Viewport:** Multi-projection C-arm fluoroscopy with guided catheter navigation; fluoro and mesh-rail viewport paths removed in favor of guided-only runtime.
 - **I4H CLI Integration:** Registered workflow with modes `preprocess_ct`, `segment_vessels`, `render_drr`, and `interactive_viewport`; host and Docker execution paths.
-- **Pip-Installable Packages:** Runtime pulls `fluoro-simulator`, `patient-digital-twin`, and `catheter-vasculature-solver` from pinned Git dependencies.
+- **Pip-Installable Packages:** Runtime pulls `fluoro-simulator`, `vasculature-digital-twin`, and `catheter-vasculature-solver` from pinned Git dependencies.
 - **Agent Skills:** Seven `i4h-catheter-navigation*` skills (overview, setup, digital twin, DRR render, viewport, smoke, e2e) with eval prompts and NVSkills signatures.
 
 See [Endoluminal Workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.7.0/workflows/catheter_navigation/README.md).

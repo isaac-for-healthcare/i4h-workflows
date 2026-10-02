@@ -47,7 +47,7 @@ This uses a procedural patient shape, synthetic fluoroscopy, and the default phy
 
 ### Patient CT
 
-Patient preparation preserves the source CT grid. Schema-2 bundles contain native
+Patient preparation preserves the source CT grid. Bundles contain native
 `volume.npy` + `volume.yaml`, aorta labels, centerlines, and USD; the workflow owns
 world placement and sensor-simulation owns HU → μ conversion. NIfTI, DICOM CT,
 and existing volume artifacts are supported; see the [preparation examples](../../../tools/patient_twin/README.md).
@@ -80,14 +80,15 @@ unzip -q ./data/Totalsegmentator_dataset_small_v201.zip -d ./data/TotalSegmentat
 Preparation calls `patient_digital_twin.__main__` to run NV-Segment inference on the CT,
 extract the requested meshes and missing vessel centerlines, and export the complete
 `patient_twin.yaml` bundle. The dataset's supplied masks are not used. CT and navigation
-artifacts retain the source scan frame, units, and array order in a schema-2 bundle.
-The workflow maps these to simulator world meters. Orthogonal oblique scans are supported;
-sheared grids need explicit resampling before centerline extraction. Named C-arm views
-use anatomical LPS directions regardless of how the scan stores its axes.
+artifacts retain the source scan frame, units, and array order. `PatientTwin` converts
+them to patient LPS millimetres once on load, so named C-arm views, the catheter path,
+and the renderer agree regardless of how the scan stores its axes. Orthogonal oblique
+scans are supported; sheared grids need explicit resampling before centerline extraction.
+Bundles from the earlier workflow pipeline (schema 1) are no longer read; rebuild them.
 
 Install the optional backend with `uv sync --project tools/patient_twin --extra nvsegment`
 and prepare the source checkout and checkpoint following the
-[patient pipeline guide](https://github.com/isaac-for-healthcare/i4h-digital-twin/blob/mallan/native-scan-volumes/patient-digital-twin/README.md).
+[patient pipeline guide](https://github.com/isaac-for-healthcare/i4h-digital-twin/blob/1ab525c1e6957d3b1e103c4c086c813dba652894/patient-digital-twin/README.md).
 Inference uses imports in the current environment; `--python` optionally selects a separate one. Use `--source nvgenerate --source-root /path/to/NV-Generate-CTMR`
 without `--input` to generate paired CT/anatomy. See the [builder setup](../../../tools/patient_twin/README.md)
 for the pinned library and local development override. Always choose a new output directory.
@@ -208,8 +209,7 @@ UNIFIED_SIM_LOOP(mu, gamma, A)                     # runner.py owns env.step
 ### Precompute: the patient twin
 
 `./tools/patient_twin/run.sh` exports unchanged HU intensities on the native scan
-grid, with its complete affine and array order in `volume.yaml`, in a schema-2
-bundle. When the workflow loads the bundle, `xray_simulator` converts HU to attenuation in 1/mm using its named
+grid, with its complete affine and array order in `volume.yaml`. When the workflow loads the bundle, `xray_simulator` converts HU to attenuation in 1/mm using its named
 piecewise-linear mapping, clamped outside its outer knots:
 
 ```text
@@ -225,20 +225,19 @@ linear curve with knots `(-1000, 0)` and `(3000, 0.02)`. The interventional knot
 `(900, 0.0090)`, `(1500, 0.0120)`, `(3000, 0.0200)`, `(8000, 0.0440)`.
 HU pre-clipping is disabled, matching the patient library's previous defaults;
 endpoint clamping remains part of each mapping. The original HU bundle stays
-unchanged. Schema-1 bundles use their stored attenuation unless a preset is
-explicitly requested, which requires the bundle's HU volume.
+unchanged.
 
 Three frames meet in the manifest, and the composition is what keeps the renderer, the solver, and the USD stage from disagreeing:
 
 ```text
-voxel -> patient mm     V = voxel_to_patient_mm         # spacing, origin, direction cosines
+scan -> patient mm      P = patient_mm_from_scan        # RAS -> LPS flip and scan units, applied once on load
+voxel -> patient mm     V = P . voxel_to_scan           # spacing, origin, direction cosines (LPS)
 patient mm -> world m   W . S,  S = diag(1e-3,1e-3,1e-3,1)
 voxel -> world m        A_voxel = W . S . V
-volume mm -> world m    A = A_voxel . diag(1/spacing_xyz, 1)
-world m -> volume mm    A^-1                            # the handoff T
+world m -> patient mm   (W . S)^-1                      # the handoff T; the renderer's volume frame is patient mm
 ```
 
-The centerline arrives as a graph rather than a path. `ordered_centerline_path` recovers the primary vessel by running Dijkstra between degree-one endpoints with edge weights `|p_a - p_b| / sqrt(mean radius)`, which biases the path into large vessels rather than into whatever branch happens to be longest, starts from the most caudal endpoint, smooths the result with a `[1/4, 1/2, 1/4]` stencil, and resamples it uniformly at 7.5 mm. Arclength is the cumulative chord length of that polyline, and the rod's initial length is `min(L_path, 0.65 * X extent of the CT)`.
+The centerline arrives as a graph rather than a path. `ordered_centerline_path` recovers the primary vessel by running Dijkstra between degree-one endpoints with edge weights `|p_a - p_b| / sqrt(mean radius)`, which biases the path into large vessels rather than into whatever branch happens to be longest, starts from the most caudal endpoint, smooths the result with a `[1/4, 1/2, 1/4]` stencil, and resamples it uniformly at 7.5 mm. Arclength is the cumulative chord length of that polyline, and the rod's initial length is `min(L_path, 0.65 * left-right extent of the CT)`.
 
 The s0011 CT has a 431x311x311 grid at 1.5 mm isotropic spacing. The resulting path and rod length depend on the requested vessel classes and model output; read the exported graph rather than assuming a fixed path length.
 
@@ -399,17 +398,16 @@ The renderer produces transmission `exp(-∫μ ds)`, so dense anatomy carries le
 | **Appearance** dropdown in the fluoroscopy panel | `Fluoroscopy` | `Fluoroscopy` draws bone, contrast and the catheter dark on a bright background, as on a cath-lab monitor. `X-ray` inverts it for the film-radiograph look. Also settable in code as `FluoroscopySensorCfg.display_polarity` (`fluoro` or `diagnostic`) to fix the look for a headless or recorded run. |
 | **Window level** and **Window width** sliders | `0.0` and `1.0` | Contrast control, in multiples of the window fitted from the first frame. Narrowing the width raises contrast and clips dense structures earlier; the level shifts the whole tone curve. |
 | **Recalibrate window** button | — | Re-fits the window to the next frame and returns both sliders to neutral. |
-| `./run.sh endoluminal_navigation --hu-to-mu` | `interventional` for HU bundles | Sensor-simulation attenuation preset, selected when loading the volume. `interventional` suppresses soft tissue and uses additional contrast, bone, and implant knots. Legacy bundles retain stored μ unless explicitly remapped. |
+| `./run.sh endoluminal_navigation --hu-to-mu` | `interventional` | Sensor-simulation attenuation preset (`interventional` or `linear`), selected when loading the volume. `interventional` suppresses soft tissue and uses additional contrast, bone, and implant knots. |
 
 Everything in the first three rows is a re-map of the frame already in hand rather than a re-render, so it applies instantly and cannot disturb a run. Polarity only decides which way round the greys go, and switching it preserves the calibrated window, so brightness stays comparable between the two looks. The synthetic CI phantom has no display mapping and keeps its fixed appearance.
 
 Brightness comes from a display window measured once from the first frame of a run and then held fixed, so moving the C-arm or advancing the catheter changes the image only where the anatomy in the beam actually changes. Rescaling every frame by its own range would instead tie background brightness to whatever is in the field of view, which flickers through a sweep and gives a policy a moving target. That fit reflects whatever was in the beam at step zero, which is why a large oblique or a move along the table may warrant **Recalibrate window**. The sliders are expressed as multiples of the fitted width rather than in absolute line-integral units so that the same bounds suit any patient, since the useful range depends on body size and on the selected attenuation curve.
 
-The attenuation curve is selected at launch and held fixed for the episode.
-The launcher records forwarded options, including an explicit `--hu-to-mu`, in
-`run.json` under `arena_args`; the pinned sensor revision defines its curve.
-Changing `--hu-to-mu` on the next run converts the same HU volume and rebuilds
-its GPU texture; rebuilding the patient bundle is unnecessary. Use the window
+The attenuation curve is selected at launch and held fixed for the episode; the
+pinned sensor revision defines each preset's knots. Changing `--hu-to-mu` on the
+next run converts the same HU volume and rebuilds its GPU texture; rebuilding the
+patient bundle is unnecessary. Use the window
 sliders for viewing-time adjustments.
 
 ### What Recordings Store

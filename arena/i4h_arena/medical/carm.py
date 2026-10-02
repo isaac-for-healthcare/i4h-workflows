@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 import numpy as np
 
 if TYPE_CHECKING:
-    from .patient_volume import PatientVolume
+    from .patient_twin import PatientTwin
 
 
 def _numpy(value: Any) -> np.ndarray:
@@ -98,13 +98,13 @@ class ReferenceProjectionCArmStateProvider:
 
     def __init__(
         self,
-        patient: PatientVolume,
+        twin: PatientTwin,
         orbit_action: Any,
         *,
         detector_size_m: tuple[float, float],
         source_to_detector_m: float = 1.020,
     ) -> None:
-        self._patient = patient
+        self._twin = twin
         self._orbit_action = orbit_action
         self._detector_size_m = detector_size_m
         self._half_sdd_m = 0.5 * float(source_to_detector_m)
@@ -114,10 +114,8 @@ class ReferenceProjectionCArmStateProvider:
         if angles.shape != (num_envs,):
             raise ValueError(f"C-arm orbit action returned {angles.shape[0]} environments; expected {num_envs}")
         # Named C-arm views are anatomical LPS poses, independent of scan axes.
-        volume_to_world = self._patient.twin.world_from_patient_m[:3, :3].copy()
-        if self._patient.twin.coordinate_frame == "NIFTI_RAS":
-            volume_to_world = volume_to_world @ np.diag([-1.0, -1.0, 1.0])
-        isocenter = self._patient.volume_mm_to_world(self._patient.center_xyz_mm)
+        volume_to_world = self._twin.world_from_patient_m[:3, :3]
+        isocenter = self._twin.isocenter_world_m
         source = np.zeros((num_envs, 3), dtype=np.float64)
         detector = np.zeros_like(source)
         detector_x = np.zeros_like(source)
