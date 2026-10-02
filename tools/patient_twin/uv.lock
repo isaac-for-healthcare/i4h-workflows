@@ -758,7 +758,6 @@ nvsegment = [
 requires-dist = [
     { name = "einops", marker = "extra == 'nvgenerate'", specifier = ">=0.7" },
     { name = "einops", marker = "extra == 'nvsegment'", specifier = ">=0.7" },
-    { name = "fast-simplification", marker = "extra == 'physics'", specifier = ">=0.1" },
     { name = "fire", marker = "extra == 'nvgenerate'", specifier = ">=0.5" },
     { name = "fire", marker = "extra == 'nvsegment'", specifier = ">=0.6" },
     { name = "huggingface-hub", marker = "extra == 'nvgenerate'", specifier = ">=0.20" },
@@ -767,9 +766,9 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'nvsegment'", specifier = ">=3.7" },
     { name = "monai", marker = "extra == 'nvgenerate'", specifier = ">=1.5" },
     { name = "monai", marker = "extra == 'nvsegment'", specifier = ">=1.5" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10" },
     { name = "nibabel", specifier = ">=5.0" },
     { name = "numpy", specifier = ">=1.24" },
-    { name = "pymeshfix", marker = "extra == 'physics'", specifier = ">=0.18" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytorch-ignite", marker = "extra == 'nvsegment'", specifier = ">=0.5" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -777,21 +776,17 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'nvgenerate'", specifier = ">=1.10" },
     { name = "scipy", marker = "extra == 'nvsegment'", specifier = ">=1.10" },
     { name = "scipy", marker = "extra == 'pipeline'", specifier = ">=1.10" },
-    { name = "shapely", marker = "extra == 'physics'", specifier = ">=2.0" },
     { name = "simpleitk", marker = "extra == 'dicom'", specifier = ">=2.3.0" },
     { name = "tensorboard", marker = "extra == 'nvgenerate'", specifier = ">=2.14" },
-    { name = "tetgen", marker = "extra == 'physics'", specifier = ">=0.8" },
     { name = "torch", marker = "extra == 'nvgenerate'", specifier = ">=2.4" },
     { name = "torch", marker = "extra == 'nvsegment'", specifier = ">=2.4" },
     { name = "tqdm", marker = "extra == 'nvgenerate'", specifier = ">=4.65" },
     { name = "tqdm", marker = "extra == 'nvsegment'", specifier = ">=4.65" },
-    { name = "trimesh", marker = "extra == 'physics'", specifier = ">=4.0" },
-    { name = "usd-core", marker = "extra == 'physics'" },
     { name = "usd-core", marker = "extra == 'pipeline'" },
     { name = "usd-core", marker = "extra == 'usd'" },
     { name = "vtk", marker = "extra == 'pipeline'" },
 ]
-provides-extras = ["dicom", "nvsegment", "nvgenerate", "pipeline", "physics", "dev", "mesh", "usd"]
+provides-extras = ["dicom", "nvsegment", "nvgenerate", "pipeline", "dev", "usd"]
 
 [[package]]
 name = "pillow"
