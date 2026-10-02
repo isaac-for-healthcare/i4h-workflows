@@ -282,8 +282,7 @@ def wall_penetration_penalty(
     depth as particles parked at the entry stop padding the denominator.
 
     The trade is that extent no longer registers -- one particle 2 mm out
-    scores the same as twenty -- which ``fold`` partly covers. See
-    ``docs/catheter-navigation-reward-analysis.md`` for the arithmetic.
+    scores the same as twenty -- which ``fold`` partly covers.
     """
     positions = env.scene["catheter"].data.positions_world_m
     if positions is None:
