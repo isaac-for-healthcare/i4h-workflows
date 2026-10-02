@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import json
-
 import numpy as np
 import pytest
 import yaml
@@ -15,46 +13,41 @@ from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.medical.patient_volume import PatientVolume
 from i4h_arena.medical.slang_fluoroscopy import SlangFluoroscopyRenderer, solve_projection_geometry
 
+# 1100 HU maps to 0.01 /mm on the default interventional curve.
+_UNIFORM_HU = 1100.0
+
 
 def _patient_volume(tmp_path, *, with_vessel_mask: bool = False) -> PatientVolume:
-    shape = (4, 4, 4)
-    spacing_zyx = (3.0, 2.0, 1.0)
-    np.save(tmp_path / "mu_volume.npy", np.ones(shape, dtype=np.float32) * 0.01)
-    (tmp_path / "metadata.json").write_text(
-        json.dumps({"shape_zyx": list(shape), "spacing_zyx_mm": list(spacing_zyx)}),
-        encoding="utf-8",
-    )
-    artifacts = {
-        "attenuation_volume": "mu_volume.npy",
-        "volume_metadata": "metadata.json",
-    }
+    from xray_simulator.scan_volume import from_array
+
+    # Spacing (1, 2, 3) mm along x, y, z with voxel corners at the origin, so the volume
+    # frame matches the renderer's default axis-aligned frame.
+    voxel_to_lps_mm = np.diag([1.0, 2.0, 3.0, 1.0])
+    voxel_to_lps_mm[:3, 3] = (0.5, 1.0, 1.5)
+    folder = tmp_path / "bundle"
+    from_array(np.full((4, 4, 4), _UNIFORM_HU, dtype=np.float32), voxel_to_lps_mm, world_frame="LPS").save(folder)
+    artifacts = {"hu_volume": "volume.npy", "volume_metadata": "volume.yaml"}
     if with_vessel_mask:
-        vessel_mask = np.zeros(shape, dtype=np.uint8)
-        vessel_mask[:, 1:3, 1:3] = 1
-        np.save(tmp_path / "vessel_mask.npy", vessel_mask)
+        vessel_mask = np.zeros((4, 4, 4), dtype=np.uint8)
+        vessel_mask[1:3, 1:3, :] = 1
+        np.save(folder / "vessel_mask.npy", vessel_mask)
         artifacts["vessel_mask"] = "vessel_mask.npy"
-    (tmp_path / "patient_twin.yaml").write_text(
+    (folder / "patient_twin.yaml").write_text(
         yaml.safe_dump(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "patient_id": "synthetic",
-                "coordinate_frame": "DICOM_LPS",
-                "transforms": {
-                    "voxel_to_patient_mm": [
-                        [1.0, 0.0, 0.0, 0.0],
-                        [0.0, 2.0, 0.0, 0.0],
-                        [0.0, 0.0, 3.0, 0.0],
-                        [0.0, 0.0, 0.0, 1.0],
-                    ],
-                    "world_from_patient_m": np.eye(4).tolist(),
-                },
+                "coordinate_frame": "LPS",
+                "spatial_unit": "mm",
+                "meters_per_unit": 0.001,
+                "transforms": {"voxel_to_scan": voxel_to_lps_mm.tolist(), "world_from_patient_m": np.eye(4).tolist()},
                 "artifacts": artifacts,
             },
             sort_keys=False,
         ),
         encoding="utf-8",
     )
-    return PatientVolume.load(PatientTwin.load(tmp_path / "patient_twin.yaml"))
+    return PatientVolume.load(PatientTwin.load(folder / "patient_twin.yaml"))
 
 
 def _carm(patient: PatientVolume) -> CArmState:
@@ -92,7 +85,7 @@ def test_reference_projection_provider_reproduces_four_view_angles(tmp_path) -> 
 
     orbit = Orbit()
     provider = ReferenceProjectionCArmStateProvider(
-        patient,
+        patient.twin,
         orbit,
         detector_size_m=(0.6144, 0.6144),
     )
@@ -164,7 +157,7 @@ def test_slang_adapter_builds_dsa_volume_and_cinematic_frame(tmp_path, monkeypat
     captured = {"volumes": [], "configs": []}
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del spacing, origin_xyz_mm
             captured["volumes"].append(np.asarray(volume).copy())
             captured["configs"].append(cfg)
@@ -209,7 +202,7 @@ def test_slang_adapter_renders_fluoro_polarity_on_a_frame_independent_window(tmp
     frames = iter((first_frame, second_frame))
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -237,7 +230,7 @@ def test_switching_to_xray_inverts_the_greys_and_keeps_the_calibrated_window(tmp
     frame[:, 8:16] = 0.02
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -270,7 +263,7 @@ def test_an_unknown_appearance_is_rejected(tmp_path, monkeypatch) -> None:
     from xray_simulator.rendering import diffdrr_slang_renderer
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -293,7 +286,7 @@ def _window_renderer(tmp_path, monkeypatch) -> SlangFluoroscopyRenderer:
     frame[:, 8:16] = 0.02
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -398,7 +391,7 @@ def _ramp_renderer_class(monkeypatch):
     from xray_simulator.rendering import diffdrr_slang_renderer
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -462,7 +455,7 @@ def test_slang_adapter_uses_upstream_renderer_and_composites_catheter(tmp_path, 
     calls = {}
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             calls["shape"] = volume.shape
             calls["spacing"] = spacing
             calls["origin"] = origin_xyz_mm
@@ -515,3 +508,27 @@ def test_slang_adapter_uses_upstream_renderer_and_composites_catheter(tmp_path, 
     assert len(calls["poses"]) == 2
     assert not np.allclose(calls["poses"][0][0], calls["poses"][1][0])
     assert not np.array_equal(output["attenuation"], orbit_output["attenuation"])
+
+
+@pytest.mark.parametrize("angle_deg", [-30, 0, 45, 90])
+def test_reference_carm_is_independent_of_scan_frame_and_orientation(write_patient_bundle, angle_deg):
+    from types import SimpleNamespace
+
+    from conftest import to_scan
+
+    orbit = SimpleNamespace(angle_rad=np.array([np.deg2rad(angle_deg)]))
+    hu = np.zeros((4, 5, 6), dtype=np.float32)
+    snapshots = []
+    for oblique, frame, axes in ((0.0, "LPS", "ijk"), (0.3, "RAS", "kji")):
+        c, s = np.cos(oblique), np.sin(oblique)
+        voxel_to_lps_mm = np.eye(4)
+        voxel_to_lps_mm[:3, :3] = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]]) @ np.diag([1.0, 2.0, 3.0])
+        manifest = write_patient_bundle(
+            hu, to_scan(voxel_to_lps_mm, frame=frame, unit="mm"), frame=frame, array_axes=axes, name=frame
+        )
+        provider = ReferenceProjectionCArmStateProvider(PatientTwin.load(manifest), orbit, detector_size_m=(0.16, 0.16))
+        snapshots.append(provider.snapshot(1))
+    expected, actual = snapshots
+    np.testing.assert_allclose(actual.source_world_m, expected.source_world_m, atol=1e-9)
+    np.testing.assert_allclose(actual.detector_center_world_m, expected.detector_center_world_m, atol=1e-9)
+    np.testing.assert_allclose(actual.detector_x_axis_world, expected.detector_x_axis_world, atol=1e-9)

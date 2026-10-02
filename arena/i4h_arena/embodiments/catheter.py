@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import json
 import math
 from collections.abc import Sequence
 from typing import Any, ClassVar
@@ -18,25 +17,13 @@ from isaaclab.utils.configclass import configclass
 
 from i4h_arena.medical.centerline import ordered_centerline_path
 from i4h_arena.medical.patient_twin import PatientTwin
-from i4h_arena.medical.patient_volume import PatientVolume
 from i4h_arena.medical.xpbd_catheter import XpbdCatheterAsset, XpbdCatheterAssetCfg
 from i4h_common.types import JointState
 
 
 def reference_initial_catheter_length_m(twin: PatientTwin, *, fallback_m: float) -> float:
     """Match the reference viewport's 15%-to-80% CT-width initialization."""
-    metadata_path = twin.artifacts.get("volume_metadata")
-    if metadata_path is None:
-        return float(fallback_m)
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    shape_zyx = np.asarray(metadata.get("shape_zyx"), dtype=np.float64)
-    spacing_zyx_mm = np.asarray(metadata.get("spacing_zyx_mm"), dtype=np.float64)
-    if shape_zyx.shape != (3,) or spacing_zyx_mm.shape != (3,):
-        raise ValueError("volume metadata must contain three-value shape_zyx and spacing_zyx_mm")
-    length_m = 0.65 * float(shape_zyx[2] * spacing_zyx_mm[2]) * 0.001
-    if not np.isfinite(length_m) or length_m <= 0.0:
-        raise ValueError("volume metadata produces an invalid catheter initialization length")
-    return min(float(fallback_m), length_m)
+    return min(float(fallback_m), 0.65 * twin.width_mm * 0.001)
 
 
 class CatheterVelocityAction(ActionTerm):
@@ -232,24 +219,15 @@ class CatheterEmbodiment:
             self._align_to_patient_centerline(PatientTwin.load(patient_twin_manifest))
 
     def _align_to_patient_centerline(self, twin: PatientTwin) -> None:
-        patient = PatientVolume.load(twin)
-        isocenter = patient.volume_mm_to_world(patient.center_xyz_mm)
-        self.action_config.carm_orbit.isocenter_world_m = tuple(float(value) for value in isocenter)
-        centerline_path = twin.artifacts.get("centerline_points")
-        if centerline_path is None:
+        self.action_config.carm_orbit.isocenter_world_m = tuple(float(value) for value in twin.isocenter_world_m)
+        centerline = twin.centerline()
+        if centerline is None:
             return
-        points_patient_mm = np.load(centerline_path)
-        edges_path = twin.artifacts.get("centerline_edges")
-        if edges_path is None:
-            return
-        edges = np.load(edges_path)
-        radii_path = twin.artifacts.get("centerline_radii")
-        radii = np.load(radii_path) if radii_path is not None else None
         path_patient_mm = ordered_centerline_path(
-            points_patient_mm,
-            edges,
+            centerline.points_mm,
+            centerline.edges,
             target_spacing_mm=7.5,
-            radii_mm=radii,
+            radii_mm=centerline.radii_mm,
         )
         path_world_m = twin.patient_mm_to_world(path_patient_mm)
         path_segments = np.linalg.norm(np.diff(path_world_m, axis=0), axis=1)

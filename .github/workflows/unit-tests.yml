@@ -28,32 +28,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # tools/patient_twin builds against the vasculature_digital_twin package, so its suite
-      # needs the component checkout that ./setup.sh provides locally. Pull requests from forks
-      # receive no secrets; scripts/run_tests.py skips the suite when the checkout is absent
-      # rather than failing, so this step is guarded instead of required.
-      - name: Detect component repository access
-        id: components
-        env:
-          TWIN_TOKEN: ${{ secrets.I4H_INTERNAL_READ_TOKEN }}
-        run: |
-          if [ -n "$TWIN_TOKEN" ]; then
-            echo "twin=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "no token for i4h-digital-twin-internal; the patient-twin suite will be skipped"
-          fi
-
-      - name: Checkout the patient digital twin component
-        if: ${{ steps.components.outputs.twin == 'true' }}
-        uses: actions/checkout@v4
-        with:
-          repository: isaac-for-healthcare/i4h-digital-twin-internal
-          # Tracks main, matching the default ref that third_party/setup.sh clones.
-          ref: main
-          path: third_party/i4h-digital-twin-internal
-          token: ${{ secrets.I4H_INTERNAL_READ_TOKEN }}
-          persist-credentials: false
-
       - name: Install uv
         uses: astral-sh/setup-uv@v9.0.0
         with:

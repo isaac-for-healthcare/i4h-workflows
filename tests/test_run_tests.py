@@ -38,8 +38,8 @@ def test_coverage_command_uses_parallel_coverage_data() -> None:
     assert command[-2:] == ["tasks/rsl_rl/tests", "tasks/teleop/tests"]
 
 
-def _patient_twin_command() -> run_tests.TestCommand:
-    return next(command for command in run_tests.SUITES["tools"] if command.name == "patient twin")
+def _arena_command() -> run_tests.TestCommand:
+    return run_tests.SUITES["arena"][0]
 
 
 def _record_suite_runs(monkeypatch, root: Path) -> list[str]:
@@ -52,7 +52,7 @@ def _record_suite_runs(monkeypatch, root: Path) -> list[str]:
     monkeypatch.setattr(run_tests, "ROOT", root)
     monkeypatch.setattr(run_tests.shutil, "which", lambda _name: "uv")
     monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
-    monkeypatch.setattr(sys, "argv", ["run_tests.py", "--suite", "tools"])
+    monkeypatch.setattr(sys, "argv", ["run_tests.py", "--suite", "arena"])
     return projects
 
 
@@ -60,19 +60,18 @@ def test_a_suite_is_skipped_without_its_component_checkout(tmp_path, monkeypatch
     projects = _record_suite_runs(monkeypatch, tmp_path)
 
     assert run_tests.main() == 0
-    assert "tools/patient_twin" not in projects
-    assert "tools/mimic" in projects
-    assert "skipped, no component checkout: patient twin" in capsys.readouterr().out
+    assert "arena" not in projects
+    assert "skipped, no component checkout: IsaacLab Arena" in capsys.readouterr().out
 
 
 def test_a_suite_runs_once_its_component_checkout_exists(tmp_path, monkeypatch) -> None:
-    checkout = _patient_twin_command().requires_checkout
+    checkout = _arena_command().requires_checkout
     assert checkout is not None
     (tmp_path / checkout).mkdir(parents=True)
     projects = _record_suite_runs(monkeypatch, tmp_path)
 
     assert run_tests.main() == 0
-    assert "tools/patient_twin" in projects
+    assert "arena" in projects
 
 
 def test_gpu_smoke_runs_rollout_and_inspects_recording(tmp_path, monkeypatch) -> None:

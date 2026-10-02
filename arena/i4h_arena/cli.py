@@ -114,6 +114,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Slang device used by the patient-backed fluoroscopy renderer",
     )
     simulation.add_argument(
+        "--hu-to-mu",
+        choices=("interventional", "linear"),
+        default=None,
+        help="HU-to-attenuation preset for patient twins (default: interventional)",
+    )
+    simulation.add_argument(
         "--patient-twin",
         default=None,
         help="patient-twin YAML manifest used by patient-specific medical sensors",

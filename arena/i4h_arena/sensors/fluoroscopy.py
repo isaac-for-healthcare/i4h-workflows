@@ -126,7 +126,7 @@ class FluoroscopySensor(SensorBase):
             assert self._patient_twin is not None
             assert carm is not None
             self._renderer = SlangFluoroscopyRenderer(
-                PatientVolume.load(self._patient_twin),
+                PatientVolume.load(self._patient_twin, hu_to_mu_preset=self.cfg.hu_to_mu_preset),
                 carm,
                 width=self.cfg.width,
                 height=self.cfg.height,
@@ -219,6 +219,7 @@ class FluoroscopySensorCfg(SensorBaseCfg):
     height: int = 512
     backend: str = "synthetic"
     patient_twin_manifest: str | None = None
+    hu_to_mu_preset: str | None = None
     world_bounds_m: tuple[float, float, float, float] = (-0.35, 0.35, -0.30, 0.30)
     demo_catheter: bool = False
     step_mm: float = 1.0

@@ -413,13 +413,13 @@ def _patient_asset(fallback: AssetBaseCfg, manifest: str | None) -> AssetBaseCfg
     anatomy = twin.artifacts.get("anatomy_usd")
     if anatomy is None:
         return fallback
-    transform = twin.world_from_patient_m
+    position, rotation, scale = twin.anatomy_world_pose()
     return AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Patient",
-        spawn=sim_utils.UsdFileCfg(usd_path=str(anatomy)),
+        spawn=sim_utils.UsdFileCfg(usd_path=str(anatomy), scale=(scale,) * 3),
         init_state=AssetBaseCfg.InitialStateCfg(
-            pos=tuple(float(value) for value in transform[:3, 3]),
-            rot=_quat_xyzw(transform[:3, :3]),
+            pos=tuple(float(value) for value in position),
+            rot=_quat_xyzw(rotation),
         ),
     )
 
@@ -429,6 +429,7 @@ def make_assets(
     fluoro_backend: str = "synthetic",
     fluoro_device: str = "vulkan",
     patient_twin_manifest: str | None = None,
+    hu_to_mu_preset: str | None = None,
 ) -> list[ConfigAsset]:
     """Return the patient/C-arm world and custom image sensor."""
     source = FluoroscopyCatheterNavigationSceneCfg(env_spacing=4.0)
@@ -436,6 +437,7 @@ def make_assets(
     source.fluoroscopy.dsa = fluoro_backend == "slang"
     source.fluoroscopy.slang_device_type = fluoro_device
     source.fluoroscopy.patient_twin_manifest = patient_twin_manifest
+    source.fluoroscopy.hu_to_mu_preset = hu_to_mu_preset
     source.patient = _patient_asset(source.patient, patient_twin_manifest)
     names = (
         "ground",
