@@ -9,8 +9,7 @@ import nibabel as nib
 import numpy as np
 import pytest
 import yaml
-from patient_digital_twin.importers import NVSegmentImporter
-from patient_digital_twin.importers._common import segmentation_anatomy
+from patient_digital_twin.importers import NVSegmentImporter, segmentation_anatomy
 
 from i4h_tools.patient_twin import cli
 from i4h_tools.patient_twin.pipeline import build_patient_twin
@@ -66,7 +65,7 @@ def test_complete_bundle_preserves_patient_placement(tmp_path, inference):
     assert "world_from_patient_m" not in manifest["transforms"]
     assert np.load(output / "centerline_edges.npy").shape[1] == 2
     assert set(manifest["anatomy"]["structures"]) == {"aorta"}
-    assert set(manifest["centerlines"]) == {"aorta"}
+    assert "centerlines" not in manifest
 
 
 def test_stored_slice_order_is_preserved(tmp_path, inference):

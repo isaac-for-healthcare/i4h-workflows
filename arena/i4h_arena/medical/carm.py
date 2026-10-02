@@ -113,8 +113,10 @@ class ReferenceProjectionCArmStateProvider:
         angles = _numpy(self._orbit_action.angle_rad).reshape(-1)
         if angles.shape != (num_envs,):
             raise ValueError(f"C-arm orbit action returned {angles.shape[0]} environments; expected {num_envs}")
-        volume_to_world = np.array(self._patient.volume_xyz_mm_to_world_m[:3, :3], copy=True)
-        volume_to_world /= np.linalg.norm(volume_to_world, axis=0, keepdims=True)
+        # Named C-arm views are anatomical LPS poses, independent of scan axes.
+        volume_to_world = self._patient.twin.world_from_patient_m[:3, :3].copy()
+        if self._patient.twin.coordinate_frame == "NIFTI_RAS":
+            volume_to_world = volume_to_world @ np.diag([-1.0, -1.0, 1.0])
         isocenter = self._patient.volume_mm_to_world(self._patient.center_xyz_mm)
         source = np.zeros((num_envs, 3), dtype=np.float64)
         detector = np.zeros_like(source)

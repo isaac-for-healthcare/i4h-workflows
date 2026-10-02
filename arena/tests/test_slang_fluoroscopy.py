@@ -515,3 +515,30 @@ def test_slang_adapter_uses_upstream_renderer_and_composites_catheter(tmp_path, 
     assert len(calls["poses"]) == 2
     assert not np.allclose(calls["poses"][0][0], calls["poses"][1][0])
     assert not np.array_equal(output["attenuation"], orbit_output["attenuation"])
+
+
+@pytest.mark.parametrize("angle_deg", [-30, 0, 45, 90])
+def test_reference_carm_is_independent_of_scan_frame_and_orientation(tmp_path, angle_deg):
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    lps = _patient_volume(tmp_path)
+    center_world = lps.volume_mm_to_world(lps.center_xyz_mm)
+    orbit = SimpleNamespace(angle_rad=np.array([np.deg2rad(angle_deg)]))
+    expected = ReferenceProjectionCArmStateProvider(lps, orbit, detector_size_m=(0.16, 0.16)).snapshot(1)
+    for oblique in [0.0, 0.3]:
+        # Same physical center, with a RAS patient frame and different voxel directions.
+        ras_to_world = np.diag([-0.001, -0.001, 0.001, 1.0])
+        affine = np.eye(4)
+        c, s = np.cos(oblique), np.sin(oblique)
+        affine[:3, :3] = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]]) @ np.diag([1., 2., 3.])
+        center_ras = np.array([-1., -1., 1.]) * center_world * 1000
+        affine[:3, 3] = center_ras - affine[:3, :3] @ ((np.array(lps.shape_zyx[::-1]) - 1) / 2)
+        ras = replace(lps, twin=replace(lps.twin, coordinate_frame="NIFTI_RAS",
+                      world_from_patient_m=np.diag([-1., -1., 1., 1.])),
+                      volume_xyz_mm_to_world_m=ras_to_world, world_m_to_volume_xyz_mm=np.linalg.inv(ras_to_world),
+                      voxel_to_volume_mm=affine)
+        actual = ReferenceProjectionCArmStateProvider(ras, orbit, detector_size_m=(0.16, 0.16)).snapshot(1)
+        np.testing.assert_allclose(actual.source_world_m, expected.source_world_m, atol=1e-9)
+        np.testing.assert_allclose(actual.detector_center_world_m, expected.detector_center_world_m, atol=1e-9)
+        np.testing.assert_allclose(actual.detector_x_axis_world, expected.detector_x_axis_world, atol=1e-9)

@@ -66,9 +66,9 @@ and unit conversion when loading the bundle; these are no longer baked into expo
 Older schema-1 bundles remain supported.
 
 Attenuation conversion belongs to `xray_simulator` in sensor-simulation and runs
-when the workflow loads the HU bundle. The default is `linear`, without HU
-pre-clipping. Add `--hu-to-mu interventional` to the **workflow** command to select
-the interventional curve; rebuilding the patient bundle is unnecessary. Schema-1
+when the workflow loads the HU bundle. Navigation defaults to `interventional`, without HU
+pre-clipping. Add `--hu-to-mu linear` to the **workflow** command to select
+the sensor library's general-purpose linear curve; rebuilding the patient bundle is unnecessary. Schema-1
 bundles continue using their stored μ unless a preset is explicitly selected.
 
 `./third_party/setup.sh xray` installs the pinned public sensor-simulation source

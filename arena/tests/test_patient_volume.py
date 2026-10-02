@@ -150,3 +150,7 @@ def test_native_bundle_geometry_and_default_placement(tmp_path, axes, unit, scal
     np.testing.assert_allclose(volume.volume_mm_to_world(point), twin.voxels_to_world(idx[:3]))
     np.testing.assert_allclose(volume.world_to_volume_mm(twin.voxels_to_world(idx[:3])), point)
     assert volume.shape_zyx == values.shape[::-1]
+    np.testing.assert_array_equal(
+        volume.mu_volume, PatientVolume.load(twin, hu_to_mu_preset="interventional").mu_volume
+    )
+    assert not np.array_equal(volume.mu_volume, PatientVolume.load(twin, hu_to_mu_preset="linear").mu_volume)

@@ -11,6 +11,9 @@ import numpy as np
 
 from .patient_twin import PatientTwin
 
+# Preserve navigation contrast from the original patient-twin pipeline.
+_DEFAULT_HU_TO_MU_PRESET = "interventional"
+
 
 @dataclass(frozen=True, slots=True)
 class PatientVolume:
@@ -34,7 +37,7 @@ class PatientVolume:
             native[:3] *= scan.meters_per_unit * 1000
             if not np.allclose(native, twin.voxel_to_patient_mm, atol=1e-6):
                 raise ValueError("Patient manifest and volume YAML disagree on the scan affine")
-            settings = PreprocessingSettings(hu_to_mu=HuToMuMapping.preset(hu_to_mu_preset or "linear"))
+            settings = PreprocessingSettings(hu_to_mu=HuToMuMapping.preset(hu_to_mu_preset or _DEFAULT_HU_TO_MU_PRESET))
             volume = VolumePreprocessor.from_scan(scan, settings=settings).preprocess()
             to_world = twin.world_from_patient_m @ np.diag([0.001, 0.001, 0.001, 1.0])
             return cls(twin, volume.mu_volume, volume.spacing_zyx_mm, to_world, np.linalg.inv(to_world), native)
