@@ -58,7 +58,7 @@ flowchart LR
     W --> F
 ```
 
-Schema-3 bundles preserve source scan axes, spacing, origin, and orientation,
+Schema-2 bundles preserve source scan axes, spacing, origin, and orientation,
 including oblique grids. `volume.npy` and `volume.yaml` describe HU and its full
 affine; anatomy and centerlines use the declared scan frame/units. Centerlines
 come from the retained CT-grid labels. The workflow applies simulator placement

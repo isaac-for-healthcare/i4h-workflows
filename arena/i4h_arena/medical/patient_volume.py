@@ -28,7 +28,7 @@ class PatientVolume:
 
     @classmethod
     def load(cls, twin: PatientTwin, *, hu_to_mu_preset: str | None = None) -> PatientVolume:
-        if twin.schema_version == 3:
+        if twin.schema_version == 2:
             from xray_simulator import HuToMuMapping, PreprocessingSettings, VolumePreprocessor
             from xray_simulator.scan_volume import load_artifact
 

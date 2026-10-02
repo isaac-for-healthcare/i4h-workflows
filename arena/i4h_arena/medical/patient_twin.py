@@ -79,14 +79,14 @@ class PatientTwin:
             raise ValueError(f"{source}: invalid YAML: {exc}") from exc
         if not isinstance(raw, dict):
             raise TypeError(f"{source}: expected a mapping")
-        if int(raw.get("schema_version", 0)) not in (1, 3):
+        if int(raw.get("schema_version", 0)) not in (1, 2):
             raise ValueError(f"{source}: unsupported or missing schema_version")
         patient_id = str(raw.get("patient_id", "")).strip()
         if not patient_id:
             raise ValueError(f"{source}: patient_id is required")
         version = int(raw["schema_version"])
         coordinate_frame = str(raw.get("coordinate_frame", ""))
-        if version == 3:
+        if version == 2:
             coordinate_frame = {"RAS": "NIFTI_RAS", "LPS": "DICOM_LPS"}.get(coordinate_frame, coordinate_frame)
         if coordinate_frame not in _SUPPORTED_COORDINATE_FRAMES:
             raise ValueError(
@@ -98,7 +98,7 @@ class PatientTwin:
             raise TypeError(f"{source}: transforms must be a mapping")
         units = 0.001
         axes = "kji"
-        if version == 3:
+        if version == 2:
             units = float(raw["meters_per_unit"])
             if not np.isfinite(units) or units <= 0:
                 raise ValueError("meters_per_unit must be positive and finite")
@@ -131,7 +131,7 @@ class PatientTwin:
             voxel_to_patient_mm = _affine(transforms.get("voxel_to_patient_mm"), "voxel_to_patient_mm")
             world_from_patient_m = _affine(transforms.get("world_from_patient_m"), "world_from_patient_m", rigid=True)
         artifact_values = raw.get("artifacts")
-        required = "hu_volume" if version == 3 else "attenuation_volume"
+        required = "hu_volume" if version == 2 else "attenuation_volume"
         if not isinstance(artifact_values, dict) or required not in artifact_values:
             raise ValueError(f"{source}: schema {version} requires artifacts.{required}")
         artifacts: dict[str, Path] = {}

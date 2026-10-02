@@ -91,7 +91,7 @@ def test_preparation_exports_hu_without_attenuation(tmp_path, inference):
     np.testing.assert_array_equal(
         np.sort(np.load(output / "volume.npy").ravel()), np.sort(nib.load(ct).get_fdata().ravel())
     )
-    assert yaml.safe_load(path.read_text())["schema_version"] == 3
+    assert yaml.safe_load(path.read_text())["schema_version"] == 2
 
 
 def test_oblique_input_keeps_native_grid(tmp_path, inference):

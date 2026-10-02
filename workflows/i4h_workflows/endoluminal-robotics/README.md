@@ -47,7 +47,7 @@ This uses a procedural patient shape, synthetic fluoroscopy, and the default phy
 
 ### Patient CT
 
-Patient preparation preserves the source CT grid. Schema-3 bundles contain native
+Patient preparation preserves the source CT grid. Schema-2 bundles contain native
 `volume.npy` + `volume.yaml`, aorta labels, centerlines, and USD; the workflow owns
 world placement and sensor-simulation owns HU → μ conversion. NIfTI, DICOM CT,
 and existing volume artifacts are supported; see the [preparation examples](../../../tools/patient_twin/README.md).
@@ -80,7 +80,7 @@ unzip -q ./data/Totalsegmentator_dataset_small_v201.zip -d ./data/TotalSegmentat
 Preparation calls `patient_digital_twin.__main__` to run NV-Segment inference on the CT,
 extract the requested meshes and missing vessel centerlines, and export the complete
 `patient_twin.yaml` bundle. The dataset's supplied masks are not used. CT and navigation
-artifacts retain the source scan frame, units, and array order in a schema-3 bundle.
+artifacts retain the source scan frame, units, and array order in a schema-2 bundle.
 The workflow maps these to simulator world meters. Orthogonal oblique scans are supported;
 sheared grids need explicit resampling before centerline extraction. Named C-arm views
 use anatomical LPS directions regardless of how the scan stores its axes.
@@ -208,7 +208,7 @@ UNIFIED_SIM_LOOP(mu, gamma, A)                     # runner.py owns env.step
 ### Precompute: the patient twin
 
 `./tools/patient_twin/run.sh` exports unchanged HU intensities on the native scan
-grid, with its complete affine and array order in `volume.yaml`, in a schema-3
+grid, with its complete affine and array order in `volume.yaml`, in a schema-2
 bundle. When the workflow loads the bundle, `xray_simulator` converts HU to attenuation in 1/mm using its named
 piecewise-linear mapping, clamped outside its outer knots:
 

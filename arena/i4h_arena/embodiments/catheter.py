@@ -28,7 +28,7 @@ def reference_initial_catheter_length_m(twin: PatientTwin, *, fallback_m: float)
     metadata_path = twin.artifacts.get("volume_metadata")
     if metadata_path is None:
         return float(fallback_m)
-    if twin.schema_version == 3:
+    if twin.schema_version == 2:
         import yaml
 
         metadata = yaml.safe_load(metadata_path.read_text())["output"]

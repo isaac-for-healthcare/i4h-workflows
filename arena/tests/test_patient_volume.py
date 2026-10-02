@@ -101,9 +101,9 @@ def test_nonfinite_hu_and_unknown_preset_rejected(bundle):
         PatientVolume.load(PatientTwin.load(path), hu_to_mu_preset="linear")
 
 
-def test_schema_two_is_rejected(bundle):
+def test_unsupported_schema_is_rejected(bundle):
     path, manifest, _, _ = bundle
-    manifest["schema_version"] = 2
+    manifest["schema_version"] = 999
     path.write_text(yaml.safe_dump(manifest))
     with pytest.raises(ValueError, match="unsupported"):
         PatientTwin.load(path)
@@ -132,7 +132,7 @@ def test_native_bundle_geometry_and_default_placement(tmp_path, axes, unit, scal
     folder = tmp_path / "scan"
     scan.save(folder)
     manifest = {
-        "schema_version": 3,
+        "schema_version": 2,
         "patient_id": "native",
         "coordinate_frame": "RAS",
         "meters_per_unit": scan.meters_per_unit,
