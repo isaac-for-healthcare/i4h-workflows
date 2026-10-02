@@ -5,10 +5,6 @@ logs/
 runs/
 .lerobot-viz/
 
-# Agent scratch space and side-by-side checkouts of this repo
-.scratch/
-cleansetup/
-
 # Python environments, caches, and build output
 .venv/
 __pycache__/
