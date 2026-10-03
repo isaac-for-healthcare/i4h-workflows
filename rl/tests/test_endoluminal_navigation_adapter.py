@@ -120,33 +120,22 @@ def test_trainer_config_video_key_matches_the_adapter(trainer_config):
     assert video["main_images"] == GR00T_VIDEO_KEY
 
 
-def test_trainer_config_slices_tile_the_drive_state(trainer_config):
-    """No gap and no overlap over the part the policy reads.
-
-    These used to tile all fifteen numbers, which read the tip pose and the
-    navigation geometry into groups the checkpoint never declared.
-    """
-    slices = sorted(entry["slice"] for entry in trainer_config["env"]["train"]["isaaclab"]["gr00t_mapping"]["state"])
-    assert slices[0][0] == 0
-    assert slices[-1][1] == GR00T_STATE_DIM
-    for earlier, later in zip(slices, slices[1:], strict=False):
-        assert earlier[1] == later[0]
+def test_trainer_config_slices_select_drive_target_and_route(trainer_config):
+    """The policy receives nine scalars while tip pose remains privileged."""
+    slices = [
+        entry["slice"]
+        for entry in trainer_config["env"]["train"]["isaaclab"]["gr00t_mapping"]["state"]
+    ]
+    assert slices == [[0, 3], [3, 4], [10, 13], [13, 15]]
 
 
-def test_the_policy_reads_exactly_the_drive_state(trainer_config):
-    """The boundary between what the policy sees and what only the reward sees.
-
-    ``drive_state`` is the first of five observation terms, so the groups stop
-    at its width rather than at the width of the whole vector.
-    """
-    assert STATE_WIDTHS[0] == GR00T_STATE_DIM
+def test_the_policy_reads_drive_target_and_route_but_not_tip_pose(trainer_config):
+    assert GR00T_STATE_DIM == STATE_WIDTHS[0] + STATE_WIDTHS[3] + STATE_WIDTHS[4]
     assert GR00T_STATE_DIM < STATE_DIM
 
 
-def test_the_state_groups_are_as_wide_as_the_checkpoint_expects():
-    """``statistics.json`` holds 3 catheter values and 1 C-arm value, and the
-    state projector is sized from them."""
-    assert [stop - start for _key, start, stop in GR00T_STATE_GROUPS] == [3, 1]
+def test_the_state_groups_have_the_new_checkpoint_widths():
+    assert [stop - start for _key, start, stop in GR00T_STATE_GROUPS] == [3, 1, 3, 2]
 
 
 def test_trainer_config_declares_this_obs_converter(trainer_config):
@@ -211,27 +200,40 @@ def test_gr00t_groups_carry_the_right_slices(policy_obs):
     groups = convert_workflow_obs_to_gr00t(_bridge(policy_obs))
     # Every source term was filled with its own constant, so a mislabeled
     # slice shows up as the wrong value rather than the wrong shape. All four
-    # drive values come from term 1, split 3 and 1.
+    # drive values come from term 1, while goal and route come from terms 4/5.
     assert groups["state.catheter"].shape == (2, 1, 3)
     assert groups["state.carm"].shape == (2, 1, 1)
+    assert groups["state.target"].shape == (2, 1, 3)
+    assert groups["state.route"].shape == (2, 1, 2)
     assert np.allclose(groups["state.catheter"], 1.0)
     assert np.allclose(groups["state.carm"], 1.0)
+    assert np.allclose(groups["state.target"], 4.0)
+    assert np.allclose(groups["state.route"], 5.0)
 
 
-def test_gr00t_is_handed_no_group_it_cannot_read(policy_obs):
-    """The checkpoint declares four keys. A fifth is dropped in silence, so the
-    guard has to be that none is offered rather than that none is accepted."""
+def test_gr00t_is_handed_exactly_the_new_checkpoint_groups(policy_obs):
     groups = convert_workflow_obs_to_gr00t(_bridge(policy_obs))
-    assert set(groups) == {GR00T_VIDEO_KEY, GR00T_LANGUAGE_KEY, "state.catheter", "state.carm"}
+    assert set(groups) == {
+        GR00T_VIDEO_KEY,
+        GR00T_LANGUAGE_KEY,
+        "state.catheter",
+        "state.carm",
+        "state.target",
+        "state.route",
+    }
 
 
-def test_the_navigation_geometry_stays_out_of_the_observation(policy_obs):
-    """Terms 2 through 5 were filled with 2.0 .. 5.0, so any of those values
-    reaching the policy means the geometry leaked back in."""
+def test_tip_pose_stays_out_but_navigation_goal_reaches_the_policy(policy_obs):
     groups = convert_workflow_obs_to_gr00t(_bridge(policy_obs))
-    states = np.concatenate([groups["state.catheter"], groups["state.carm"]], axis=-1)
+    states = np.concatenate(
+        [groups["state.catheter"], groups["state.carm"], groups["state.target"], groups["state.route"]],
+        axis=-1,
+    )
     assert states.shape[-1] == GR00T_STATE_DIM
-    assert not np.any(states > 1.0)
+    assert np.any(states == 4.0)
+    assert np.any(states == 5.0)
+    assert not np.any(states == 2.0)
+    assert not np.any(states == 3.0)
 
 
 def test_gr00t_video_key_gains_the_time_axis(policy_obs):
@@ -316,7 +318,7 @@ def _registered(**overrides) -> dict[str, _Group]:
     """What ``config_catheter.CATHETER_CONFIG`` declares."""
     config = {
         "video": _Group("fluoroscopy"),
-        "state": _Group("catheter", "carm"),
+        "state": _Group("catheter", "carm", "target", "route"),
         "action": _Group("catheter", "carm"),
         "language": _Group("annotation.human.task_description"),
     }
@@ -339,13 +341,13 @@ def test_the_guard_catches_a_renamed_camera():
 def test_the_guard_catches_an_extra_state_group():
     """Groups the processor does not declare are dropped rather than refused."""
     with pytest.raises(ValueError, match="state groups"):
-        _assert_contract_matches(_registered(state=_Group("catheter", "carm", "navigation")))
+        _assert_contract_matches(_registered(state=_Group("catheter", "carm", "target", "route", "tip")))
 
 
 def test_the_guard_catches_a_reordered_state_group():
     """Order is positional in GR00T, so swapping these swaps the projectors."""
     with pytest.raises(ValueError, match="state groups"):
-        _assert_contract_matches(_registered(state=_Group("carm", "catheter")))
+        _assert_contract_matches(_registered(state=_Group("carm", "catheter", "target", "route")))
 
 
 # --------------------------------------------------------------------------- #

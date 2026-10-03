@@ -69,10 +69,10 @@ algorithm:
   clip_ratio_c: 3.0
   value_clip: 0.2
   huber_delta: 10.0
-  # The dense reward is potential-based on remaining arc, so a traverse pays
-  # out in small per-step increments over hundreds of steps rather than at
-  # the end. Discounting at 0.99 over a 600-step episode would leave the
-  # early shaping nearly worthless; 0.995 keeps it visible.
+  # Curved centerline progress pays out in small per-step increments over
+  # hundreds of steps rather than at the end. Discounting at 0.99 over a
+  # 600-step episode would leave early progress nearly worthless; 0.995 keeps
+  # it visible.
   gamma: 0.995
   gae_lambda: 0.95
   filter_rewards: false
@@ -123,13 +123,8 @@ env:
       - key: tip_direction
       - key: target_offset
       - key: route_state
-      # These are the groups the fine-tuned checkpoint's processor declares,
-      # and they are the whole of what the policy sees. The Scene publishes
-      # eleven further numbers -- tip pose, target offset, route state -- which
-      # stay on the environment side: the checkpoint's state projector is sized
-      # for four values, and a group it does not declare is dropped in silence
-      # rather than refused. The reward terms read that geometry directly, so
-      # withholding it from the policy costs the critic nothing.
+      # The policy sees drive state plus the task goal and route progress. Tip
+      # position and direction remain simulator-side observations.
       gr00t_mapping:
         video:
           main_images: video.fluoroscopy
@@ -141,6 +136,12 @@ env:
         # The gantry angle, which changes the view and nothing in the patient.
         - gr00t_key: state.carm
           slice: [3, 4]
+        # Vector from catheter tip to the target branch.
+        - gr00t_key: state.target
+          slice: [10, 13]
+        # Remaining centerline arc and lateral offset.
+        - gr00t_key: state.route
+          slice: [13, 15]
       action_mapping:
         prefix_pad: 0
         suffix_pad: 0

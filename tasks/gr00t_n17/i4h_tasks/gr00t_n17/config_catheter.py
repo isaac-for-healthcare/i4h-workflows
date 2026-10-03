@@ -31,7 +31,10 @@ from gr00t.data.types import ActionConfig, ActionFormat, ActionRepresentation, A
 #: situation as SO-ARM's gripper signal.
 CATHETER_CONFIG = {
     "video": ModalityConfig(delta_indices=[0], modality_keys=["fluoroscopy"]),
-    "state": ModalityConfig(delta_indices=[0], modality_keys=["catheter", "carm"]),
+    "state": ModalityConfig(
+        delta_indices=[0],
+        modality_keys=["catheter", "carm", "target", "route"],
+    ),
     "action": ModalityConfig(
         delta_indices=list(range(16)),
         modality_keys=["catheter", "carm"],

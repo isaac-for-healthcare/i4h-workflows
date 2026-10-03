@@ -147,30 +147,37 @@ def test_an_embodiment_that_commands_every_joint_is_unchanged(server) -> None:
 # -- observation shaping -------------------------------------------------
 
 
-def test_the_catheter_state_splits_into_instrument_and_gantry(server) -> None:
-    state = np.array([0.10, 0.20, 0.30, 0.40], dtype=np.float32)
+def test_the_catheter_state_splits_into_drive_target_and_route(server) -> None:
+    state = np.arange(9, dtype=np.float32) / 10.0
     groups = server._state_groups(state, get_robot_config("catheter"))
-    assert sorted(groups) == ["carm", "catheter"]
+    assert sorted(groups) == ["carm", "catheter", "route", "target"]
     assert groups["catheter"].shape == (1, 1, 3)
     assert groups["carm"].shape == (1, 1, 1)
-    np.testing.assert_allclose(groups["catheter"][0, 0], [0.10, 0.20, 0.30])
-    np.testing.assert_allclose(groups["carm"][0, 0], [0.40])
+    assert groups["target"].shape == (1, 1, 3)
+    assert groups["route"].shape == (1, 1, 2)
+    np.testing.assert_allclose(groups["catheter"][0, 0], [0.0, 0.1, 0.2])
+    np.testing.assert_allclose(groups["carm"][0, 0], [0.3])
+    np.testing.assert_allclose(groups["target"][0, 0], [0.4, 0.5, 0.6])
+    np.testing.assert_allclose(groups["route"][0, 0], [0.7, 0.8])
 
 
-def test_the_carrier_arm_joints_arrive_as_a_third_group(server) -> None:
+def test_the_carrier_arm_joints_are_separate_from_goal_state(server) -> None:
     """The splits have to tile the whole vector for conversion to use them, so
-    the servo'd joints are declared rather than dropped. The leading two groups
-    stay byte-identical to the armless case; GR00T's loader finds no `arm` key
-    in the modality config it was given and proceeds without it.
+    the servo'd joints are declared rather than dropped. GR00T reads the four
+    policy groups and ignores the arm group.
     """
-    state = np.arange(11, dtype=np.float32) / 100.0
+    state = np.arange(16, dtype=np.float32) / 100.0
     groups = server._state_groups(state, get_robot_config("franka_catheter"))
-    assert sorted(groups) == ["arm", "carm", "catheter"]
+    assert sorted(groups) == ["arm", "carm", "catheter", "route", "target"]
     assert groups["catheter"].shape == (1, 1, 3)
     assert groups["carm"].shape == (1, 1, 1)
     assert groups["arm"].shape == (1, 1, 7)
+    assert groups["target"].shape == (1, 1, 3)
+    assert groups["route"].shape == (1, 1, 2)
     np.testing.assert_allclose(groups["catheter"][0, 0], [0.00, 0.01, 0.02])
     np.testing.assert_allclose(groups["carm"][0, 0], [0.03])
+    np.testing.assert_allclose(groups["target"][0, 0], [0.11, 0.12, 0.13])
+    np.testing.assert_allclose(groups["route"][0, 0], [0.14, 0.15])
 
 
 def test_the_arm_state_still_splits_five_and_one(server) -> None:

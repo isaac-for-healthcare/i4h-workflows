@@ -50,6 +50,11 @@ observation:
   - rotation_rad
   - tip_bend_rad
   - carm_orbit_rad
+  - target_offset_x_m
+  - target_offset_y_m
+  - target_offset_z_m
+  - route_remaining_m
+  - route_lateral_m
 train:
   output_dir: /tmp/gr00t_catheter_n17
   base_model: nvidia/GR00T-N1.7-3B

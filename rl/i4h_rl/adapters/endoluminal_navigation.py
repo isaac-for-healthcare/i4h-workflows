@@ -93,20 +93,21 @@ GR00T_VIDEO_KEY = "video.fluoroscopy"
 
 GR00T_LANGUAGE_KEY = "annotation.human.task_description"
 
-#: ``(group, start, stop)`` into the bridge state vector, covering
-#: ``drive_state`` only. The bounds are ``catheter.yaml``'s ``state_split``,
-#: which is also what dataset conversion wrote into the ``modality.json`` the
-#: checkpoint was fine-tuned against, so these three agree by construction.
+#: ``(group, start, stop)`` into the bridge state vector. Tip position and
+#: direction remain simulator-only; target and route are policy inputs because
+#: the task's reward and termination depend on them.
 #: ``i4h_common`` is not on this venv's path, so they are restated here and
 #: checked against the registered modality config at startup instead.
 GR00T_STATE_GROUPS = (
     ("state.catheter", 0, 3),
     ("state.carm", 3, 4),
+    ("state.target", 10, 13),
+    ("state.route", 13, 15),
 )
 
-#: How much of the state vector reaches the policy. The remainder is the
-#: navigation geometry, which the reward reads and the checkpoint cannot.
-GR00T_STATE_DIM = GR00T_STATE_GROUPS[-1][2]
+#: Number of scalar state values reaching the policy. The source slices are
+#: intentionally non-contiguous because tip pose stays simulator-side.
+GR00T_STATE_DIM = sum(stop - start for _key, start, stop in GR00T_STATE_GROUPS)
 
 
 def _to_rgb(image: Any) -> Any:
@@ -155,9 +156,6 @@ def convert_workflow_obs_to_gr00t(env_obs: dict[str, Any]) -> dict[str, Any]:
         GR00T_VIDEO_KEY: main.unsqueeze(1).cpu().numpy(),
         GR00T_LANGUAGE_KEY: env_obs["task_descriptions"],
     }
-    # Only the drive state. See the module docstring: the navigation geometry
-    # has no projector in this checkpoint, and an undeclared group would be
-    # dropped without complaint.
     for key, start, stop in GR00T_STATE_GROUPS:
         observation[key] = state[:, :, start:stop]
     return observation
@@ -243,8 +241,11 @@ def _assert_contract_matches(modality_config: Any) -> None:
                 f"config declares {declared}; the checkpoint would silently ignore the difference"
             )
     widths = [stop - start for _key, start, stop in GR00T_STATE_GROUPS]
-    if widths != [3, 1]:
-        raise ValueError(f"catheter state groups must be 3 and 1 wide to match the checkpoint, got {widths}")
+    if widths != [3, 1, 3, 2]:
+        raise ValueError(
+            "catheter state groups must be 3, 1, 3, and 2 wide to match the checkpoint, "
+            f"got {widths}"
+        )
 
 
 def _get_workflow_env_class():

@@ -13,7 +13,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import MISSING
 
-import isaaclab.envs.mdp as base_mdp
 from isaaclab.managers import (
     EventTermCfg,
     ObservationGroupCfg,
@@ -22,7 +21,7 @@ from isaaclab.managers import (
     SceneEntityCfg,
     TerminationTermCfg,
 )
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 
 from i4h_arena.medical.navigation_goal import (
     ARRIVAL_HOLD_STEPS,
@@ -39,11 +38,8 @@ from i4h_arena.medical.navigation_observation import (
     tip_position,
 )
 from i4h_arena.medical.navigation_reward import (
-    approach_reward,
-    arrival_reward,
-    fold_penalty,
+    MAX_STEP_ADVANCE_M,
     lateral_offset_penalty,
-    reset_approach_potential,
     reset_route_progress,
     route_progress_reward,
     wall_penetration_penalty,
@@ -65,10 +61,9 @@ class CatheterNavigationTerminationsCfg:
 @configclass
 class CatheterNavigationEventsCfg:
     reset_arrival_progress = EventTermCfg(func=reset_arrival_progress, mode="reset")
-    # Both shaping potentials are differenced across a step, so both have to
-    # forget the previous episode or the reset itself is scored as a move.
+    # Route progress is differenced across a step, so it must forget the
+    # previous episode or the reset itself would be scored as a move.
     reset_route_progress = EventTermCfg(func=reset_route_progress, mode="reset")
-    reset_approach_potential = EventTermCfg(func=reset_approach_potential, mode="reset")
 
 
 @configclass
@@ -134,54 +129,23 @@ def navigation_observations_cfg(
     )
 
 
-#: Pay per metre of vessel closed.
-PROGRESS_WEIGHT = 150.0
+#: Normalize one physically reachable step along the curved route to one.
+ROUTE_PROGRESS_WEIGHT = 1.0 / MAX_STEP_ADVANCE_M
 
-#: Decay length of the approach potential, about five arrival tolerances.
-APPROACH_SCALE_M = 0.025
+#: Centerline tracking is guidance, not the primary objective.
+LATERAL_WEIGHT = -0.1
 
-#: Chosen so the two scales hand off smoothly rather than by taste. The
-#: approach potential's slope at the target is ``1 / APPROACH_SCALE_M`` per
-#: metre, so this weight makes the last millimetre pay what ``progress`` pays
-#: for a millimetre of arc -- which matters because ``progress`` goes flat
-#: inside the final route sample and this term is what takes over there. Any
-#: smaller and the handoff is a cliff the policy coasts off.
-APPROACH_WEIGHT = PROGRESS_WEIGHT * APPROACH_SCALE_M
+#: Normalize 2.5 mm of wall penetration to a penalty of one.
+PENETRATION_WEIGHT = -1.0 / MAX_STEP_ADVANCE_M
 
 
 @configclass
 class CatheterNavigationRewardsCfg:
-    """Dense navigation objective. Every term is bound by :func:`navigation_rewards_cfg`.
+    """Three terms: advance along the route, track it, and avoid walls."""
 
-    The weights are a starting point sized against one episode rather than a
-    tuned result, and they are the part most likely to need moving. Over the
-    600-step cap and the 0.66 m s0011 route: a full traverse pays about 99
-    through ``progress``, the fifteen-step hold pays 75 through ``arrival``, and
-    a tip pinned against the wall gives up roughly 1.0 per step across
-    ``lateral`` and ``penetration``. That ordering -- arriving worth more than
-    traversing, traversing worth more than any amount of loitering -- is the
-    intent; the exact numbers are not load-bearing.
-
-    Loitering being worth nothing is load-bearing, and is now structural rather
-    than a property of the numbers. Every positive term is either a difference
-    of a potential, which a stationary tip cannot collect, or ``arrival``,
-    which is gated on the tolerance and terminates. No weight choice
-    reintroduces a payout for holding still short of the target.
-
-    ``penetration`` is the one term that breaks the 1.0-per-step scale, and
-    deliberately. It reads zero until the rod is actually through the wall,
-    then 0.2 per step per millimetre of depth, so perforating throughout an
-    episode costs more than the traverse pays. Its balance against ``lateral``
-    has not been retuned since it changed from a mean to a worst-point.
-    """
-
-    progress: RewardTermCfg = MISSING
-    approach: RewardTermCfg = MISSING
-    arrival: RewardTermCfg = MISSING
+    route_progress: RewardTermCfg = MISSING
     lateral: RewardTermCfg = MISSING
     penetration: RewardTermCfg = MISSING
-    fold: RewardTermCfg = MISSING
-    action_rate = RewardTermCfg(func=base_mdp.action_rate_l2, weight=-0.01)
 
 
 def navigation_rewards_cfg(
@@ -189,9 +153,8 @@ def navigation_rewards_cfg(
     *,
     route_world_m: Iterable[Iterable[float]],
     lumen_radii_m: Iterable[float] | None = None,
-    tolerance_m: float = ARRIVAL_TOLERANCE_M,
 ) -> CatheterNavigationRewardsCfg:
-    """Bind the dense reward to one scene's route, lumen widths and target.
+    """Bind the simple reward to one scene's curved route and vessel wall.
 
     Without ``lumen_radii_m`` the lateral and penetration terms have no wall to
     measure against and are wired at zero weight rather than dropped, so the
@@ -202,38 +165,21 @@ def navigation_rewards_cfg(
     radii = None if lumen_radii_m is None else tuple(float(value) for value in lumen_radii_m)
     walled = radii is not None
     return CatheterNavigationRewardsCfg(
-        progress=RewardTermCfg(
+        route_progress=RewardTermCfg(
             func=route_progress_reward,
-            weight=PROGRESS_WEIGHT,
+            weight=ROUTE_PROGRESS_WEIGHT,
             params={"route_world_m": route},
-        ),
-        # Coarse and fine in one term rather than two: remaining arc already
-        # covers the approach at route scale, so what is missing is only the
-        # last centimetre the 5 mm tolerance is judged on.
-        approach=RewardTermCfg(
-            func=approach_reward,
-            weight=APPROACH_WEIGHT,
-            params={"target_world_m": tuple(float(value) for value in target_world_m), "scale_m": APPROACH_SCALE_M},
-        ),
-        arrival=RewardTermCfg(
-            func=arrival_reward,
-            weight=5.0,
-            params={
-                "target_world_m": tuple(float(value) for value in target_world_m),
-                "tolerance_m": float(tolerance_m),
-            },
         ),
         lateral=RewardTermCfg(
             func=lateral_offset_penalty,
-            weight=-2.0 if walled else 0.0,
+            weight=LATERAL_WEIGHT if walled else 0.0,
             params={"route_world_m": route, "lumen_radii_m": radii},
         ),
         penetration=RewardTermCfg(
             func=wall_penetration_penalty,
-            weight=-200.0 if walled else 0.0,
+            weight=PENETRATION_WEIGHT if walled else 0.0,
             params={"route_world_m": route, "lumen_radii_m": radii},
         ),
-        fold=RewardTermCfg(func=fold_penalty, weight=-1.0),
     )
 
 
