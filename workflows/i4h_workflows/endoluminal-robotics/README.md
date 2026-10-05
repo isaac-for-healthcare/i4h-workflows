@@ -27,7 +27,7 @@ Paste any prompt into Claude Code, Codex, or the repository's [Local Agent](../.
 ```text
 Run endoluminal_navigation in demo mode for 1 episode without patient CT data.
 
-Prepare TotalSegmentator sample s0011 as a patient twin.
+Segment the aorta from sample s0011 CT using NV-Segment and export a patient twin.
 Run endoluminal_navigation in demo mode and verify fluoroscopy.
 
 Start endoluminal_navigation teleop with the prepared s0011 patient twin.
@@ -47,6 +47,20 @@ This uses a procedural patient shape, synthetic fluoroscopy, and the default phy
 
 ### Patient CT
 
+Patient preparation preserves the source CT grid. Bundles contain native
+`volume.npy` + `volume.yaml`, aorta labels, centerlines, and USD; the workflow owns
+world placement and sensor-simulation owns HU → μ conversion. NIfTI, DICOM CT,
+and existing volume artifacts are supported; see the [preparation examples](../../../tools/patient_twin/README.md).
+
+```mermaid
+flowchart LR
+    CT["CT"] --> P["Segment + export native bundle"]
+    P --> W["Place patient in simulator"]
+    P --> S["Map HU → μ and render with full affine"]
+    W --> N["Catheter navigation + fluoroscopy"]
+    S --> N
+```
+
 Download the public [TotalSegmentator small dataset](https://zenodo.org/records/10047263) (3.2 GB) and prepare subject `s0011`:
 
 ```bash
@@ -57,19 +71,34 @@ curl -L --fail --show-error \
   -o ./data/Totalsegmentator_dataset_small_v201.zip
 
 unzip -q ./data/Totalsegmentator_dataset_small_v201.zip -d ./data/TotalSegmentator
-./tools/patient_twin/run.sh ./data/TotalSegmentator/s0011
+./tools/patient_twin/run.sh --source nvsegment \
+  --input ./data/TotalSegmentator/s0011/ct.nii.gz --classes aorta \
+  --bundle-root /path/to/NV-Segment-CTMR/NV-Segment-CTMR \
+  --output ./data/patient_twins/s0011_aorta
 ```
 
-Preparation reads the CT and its vessel labels through the `vasculature_digital_twin` package, which resolves each file's own direction cosines and reorients everything onto the canonical LPS patient axes. A study stored feet first, or a label file saved with a different slice order, therefore lands on the same axes as the rest of the twin instead of mirroring the anatomy; the manifest records the frame as `DICOM_LPS` and `metadata.json` keeps the orientation the source was stored in. A genuinely oblique acquisition is rejected rather than reoriented, because the renderer samples an axis-aligned voxel grid.
+Preparation calls `patient_digital_twin.__main__` to run NV-Segment inference on the CT,
+extract the requested meshes and missing vessel centerlines, and export the complete
+`patient_twin.yaml` bundle. The dataset's supplied masks are not used. CT and navigation
+artifacts retain the source scan frame, units, and array order. `PatientTwin` converts
+them to patient LPS millimetres once on load, so named C-arm views, the catheter path,
+and the renderer agree regardless of how the scan stores its axes. Orthogonal oblique
+scans are supported; sheared grids need explicit resampling before centerline extraction.
+Bundles from the earlier workflow pipeline (schema 1) are no longer read; rebuild them.
 
-For a subject that ships a CT and no `segmentations/` directory, pass `--segment-vessels` to derive the vasculature with the package's own segmenter instead of reading label files.
+Install the optional backend with `uv sync --project tools/patient_twin --extra nvsegment`
+and prepare the source checkout and checkpoint following the
+[patient pipeline guide](https://github.com/isaac-for-healthcare/i4h-digital-twin/blob/9a779a4d5cb630a304155462e8ea4d440636a2b1/patient-digital-twin/README.md).
+Inference uses imports in the current environment; `--python` optionally selects a separate one. Use `--source nvgenerate --source-root /path/to/NV-Generate-CTMR`
+without `--input` to generate paired CT/anatomy. See the [builder setup](../../../tools/patient_twin/README.md)
+for the pinned library and local development override. Always choose a new output directory.
 
 Run the demo using the generated manifest:
 
 ```bash
 ./run.sh endoluminal_navigation \
   --mode demo \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+  --patient-twin ./data/patient_twins/s0011_aorta/patient_twin.yaml
 ```
 
 ### Keyboard teleoperation
@@ -79,7 +108,7 @@ Launch teleoperation:
 ```bash
 ./run.sh endoluminal_navigation \
   --teleop \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+  --patient-twin ./data/patient_twins/s0011_aorta/patient_twin.yaml
 ```
 
 Click inside the Isaac window before using the keyboard. The fluoroscopy window provides image, C-arm view, velocity, and brightness controls.
@@ -100,7 +129,7 @@ This mode succeeds only if moving the C-arm changes the fluoroscopy image:
 ./run.sh endoluminal_navigation \
   --mode validate_fluoroscopy \
   --episodes 2 \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+  --patient-twin ./data/patient_twins/s0011_aorta/patient_twin.yaml
 ```
 
 ### Recording
@@ -110,7 +139,7 @@ Add `--record` to store synchronized actions, state, and fluoroscopy frames:
 ```bash
 ./run.sh endoluminal_navigation \
   --teleop \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml \
+  --patient-twin ./data/patient_twins/s0011_aorta/patient_twin.yaml \
   --record --record-failures
 ```
 
@@ -122,7 +151,7 @@ The loop is unified in the sense that three separately maintained packages act o
 
 | Stage | Artifact it owns | Role in the loop |
 | --- | --- | --- |
-| `vasculature_digital_twin`, through `PatientTwin` | `mu_volume.npy`, `metadata.json`, centerline graph, vessel mask, anatomy USD | Attenuation field, insertion path, and the transforms every other stage is expressed in |
+| `patient_digital_twin`, through `PatientTwin` | `volume.npy`, `volume.yaml`, centerline graph, vessel mask, anatomy USD | HU field, insertion path, and the transforms every other stage is expressed in |
 | `catheter_vasculature_solver.CathRodSolver` | node positions and orientations in solver-local metres | Advances the rod under Cosserat stretch and Darboux constraints, plus its projections |
 | `xray_simulator` Slang DiffDRR, with `CatheterAttenuation` | the detector image | Marches CT attenuation and catheter attenuation into one Beer-Lambert exponent |
 
@@ -179,7 +208,9 @@ UNIFIED_SIM_LOOP(mu, gamma, A)                     # runner.py owns env.step
 
 ### Precompute: the patient twin
 
-`./tools/patient_twin/run.sh` maps Hounsfield units to a linear attenuation coefficient with a piecewise-linear curve, clamped outside its outer knots:
+`./tools/patient_twin/run.sh` exports unchanged HU intensities on the native scan
+grid, with its complete affine and array order in `volume.yaml`. When the workflow loads the bundle, `xray_simulator` converts HU to attenuation in 1/mm using its named
+piecewise-linear mapping, clamped outside its outer knots:
 
 ```text
 mu(HU) = mu_j + (HU - HU_j) * (mu_{j+1} - mu_j) / (HU_{j+1} - HU_j)     HU in [HU_j, HU_{j+1}]
@@ -187,21 +218,28 @@ mu(HU) = mu_0                                                          HU <= HU_
 mu(HU) = mu_M                                                          HU >= HU_M
 ```
 
-The default `interventional` preset uses knots `(-1000, 0)`, `(-300, 0)`, `(100, 0.0008)`, `(300, 0.0028)`, `(500, 0.0060)`, `(900, 0.0090)`, `(1500, 0.0120)`, `(3000, 0.0200)`, `(8000, 0.0440)` in HU and 1/mm. Soft tissue is deliberately suppressed relative to the two-knot `linear` ramp, because a fluoroscopic beam barely sees it, while contrast, cortical bone, and implant density each keep a slope of their own. The knots are written into `metadata.json` under `hu_to_mu`, so a twin is traceable to the curve that built it and an episode cannot silently mix two attenuation models.
+Navigation defaults to `interventional`, preserving the original pipeline's contrast.
+`./run.sh endoluminal_navigation ... --hu-to-mu linear` selects the sensor library's
+linear curve with knots `(-1000, 0)` and `(3000, 0.02)`. The interventional knots are
+`(-1000, 0)`, `(-300, 0)`, `(100, 0.0008)`, `(300, 0.0028)`, `(500, 0.0060)`,
+`(900, 0.0090)`, `(1500, 0.0120)`, `(3000, 0.0200)`, `(8000, 0.0440)`.
+HU pre-clipping is disabled, matching the patient library's previous defaults;
+endpoint clamping remains part of each mapping. The original HU bundle stays
+unchanged.
 
 Three frames meet in the manifest, and the composition is what keeps the renderer, the solver, and the USD stage from disagreeing:
 
 ```text
-voxel -> patient mm     V = voxel_to_patient_mm         # spacing, origin, direction cosines
+scan -> patient mm      P = patient_mm_from_scan        # RAS -> LPS flip and scan units, applied once on load
+voxel -> patient mm     V = P . voxel_to_scan           # spacing, origin, direction cosines (LPS)
 patient mm -> world m   W . S,  S = diag(1e-3,1e-3,1e-3,1)
 voxel -> world m        A_voxel = W . S . V
-volume mm -> world m    A = A_voxel . diag(1/spacing_xyz, 1)
-world m -> volume mm    A^-1                            # the handoff T
+world m -> patient mm   (W . S)^-1                      # the handoff T; the renderer's volume frame is patient mm
 ```
 
-The centerline arrives as a graph rather than a path. `ordered_centerline_path` recovers the primary vessel by running Dijkstra between degree-one endpoints with edge weights `|p_a - p_b| / sqrt(mean radius)`, which biases the path into large vessels rather than into whatever branch happens to be longest, starts from the most caudal endpoint, smooths the result with a `[1/4, 1/2, 1/4]` stencil, and resamples it uniformly at 7.5 mm. Arclength is the cumulative chord length of that polyline, and the rod's initial length is `min(L_path, 0.65 * X extent of the CT)`.
+The centerline arrives as a graph rather than a path. `ordered_centerline_path` recovers the primary vessel by running Dijkstra between degree-one endpoints with edge weights `|p_a - p_b| / sqrt(mean radius)`, which biases the path into large vessels rather than into whatever branch happens to be longest, starts from the most caudal endpoint, smooths the result with a `[1/4, 1/2, 1/4]` stencil, and resamples it uniformly at 7.5 mm. Arclength is the cumulative chord length of that polyline, and the rod's initial length is `min(L_path, 0.65 * left-right extent of the CT)`.
 
-For the `s0011` twin this yields a 431x311x311 grid at 1.5 mm isotropic spacing (646.5 x 466.5 x 466.5 mm), `mu` in `[0, 0.0234]` 1/mm, a 303.2 mm rod of `N = 40` segments so `l = 7.58 mm`, and `r = 0.5 mm`.
+The s0011 CT has a 431x311x311 grid at 1.5 mm isotropic spacing. The resulting path and rod length depend on the requested vessel classes and model output; read the exported graph rather than assuming a fixed path length.
 
 ### Control
 
@@ -360,13 +398,17 @@ The renderer produces transmission `exp(-∫μ ds)`, so dense anatomy carries le
 | **Appearance** dropdown in the fluoroscopy panel | `Fluoroscopy` | `Fluoroscopy` draws bone, contrast and the catheter dark on a bright background, as on a cath-lab monitor. `X-ray` inverts it for the film-radiograph look. Also settable in code as `FluoroscopySensorCfg.display_polarity` (`fluoro` or `diagnostic`) to fix the look for a headless or recorded run. |
 | **Window level** and **Window width** sliders | `0.0` and `1.0` | Contrast control, in multiples of the window fitted from the first frame. Narrowing the width raises contrast and clips dense structures earlier; the level shifts the whole tone curve. |
 | **Recalibrate window** button | — | Re-fits the window to the next frame and returns both sliders to neutral. |
-| `./tools/patient_twin/run.sh --hu-to-mu` | `interventional` | Attenuation curve baked into the twin. `interventional` suppresses soft tissue and keeps implant density separated from cortical bone; `linear` reproduces twins built before named curves existed. |
+| `./run.sh endoluminal_navigation --hu-to-mu` | `interventional` | Sensor-simulation attenuation preset (`interventional` or `linear`), selected when loading the volume. `interventional` suppresses soft tissue and uses additional contrast, bone, and implant knots. |
 
 Everything in the first three rows is a re-map of the frame already in hand rather than a re-render, so it applies instantly and cannot disturb a run. Polarity only decides which way round the greys go, and switching it preserves the calibrated window, so brightness stays comparable between the two looks. The synthetic CI phantom has no display mapping and keeps its fixed appearance.
 
-Brightness comes from a display window measured once from the first frame of a run and then held fixed, so moving the C-arm or advancing the catheter changes the image only where the anatomy in the beam actually changes. Rescaling every frame by its own range would instead tie background brightness to whatever is in the field of view, which flickers through a sweep and gives a policy a moving target. That fit reflects whatever was in the beam at step zero, which is why a large oblique or a move along the table may warrant **Recalibrate window**. The sliders are expressed as multiples of the fitted width rather than in absolute line-integral units so that the same bounds suit any patient, since the useful range depends on body size and on the μ scaling baked into the twin.
+Brightness comes from a display window measured once from the first frame of a run and then held fixed, so moving the C-arm or advancing the catheter changes the image only where the anatomy in the beam actually changes. Rescaling every frame by its own range would instead tie background brightness to whatever is in the field of view, which flickers through a sweep and gives a policy a moving target. That fit reflects whatever was in the beam at step zero, which is why a large oblique or a move along the table may warrant **Recalibrate window**. The sliders are expressed as multiples of the fitted width rather than in absolute line-integral units so that the same bounds suit any patient, since the useful range depends on body size and on the selected attenuation curve.
 
-The attenuation curve is deliberately not adjustable at runtime. It is baked into `mu_volume.npy` when the twin is built and uploaded as a GPU volume texture, so changing it means re-running the preprocessor over the whole CT and rebuilding that texture. More importantly it is the twin's physical identity, recorded under `hu_to_mu` in its `metadata.json`, and a live control would let one episode contain frames from several different attenuation models. Rebuild the twin with `--hu-to-mu` to change it; use the window sliders for the viewing-time effect.
+The attenuation curve is selected at launch and held fixed for the episode; the
+pinned sensor revision defines each preset's knots. Changing `--hu-to-mu` on the
+next run converts the same HU volume and rebuilds its GPU texture; rebuilding the
+patient bundle is unnecessary. Use the window
+sliders for viewing-time adjustments.
 
 ### What Recordings Store
 

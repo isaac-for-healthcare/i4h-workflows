@@ -73,7 +73,7 @@ isaaclab-assets = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_asse
 leisaac = { path = "../third_party/leisaac-cd61a20/source/leisaac", editable = true }
 isaaclab-arena = { path = "../third_party/IsaacLab-Arena-0a1b8c2", editable = true }
 catheter-vasculature-solver = { path = "../third_party/i4h-physics-simulation-internal/physics_simulation/endoluminal/catheter-vasculature-solver", editable = true }
-xray-simulator = { path = "../third_party/i4h-sensor-simulation-internal/xray-simulator", editable = true }
+xray-simulator = { path = "../third_party/i4h-sensor-simulation/xray-simulator", editable = true }
 torch = [
     { index = "pytorch-cu128", marker = "platform_machine == 'x86_64'" },
     { index = "pytorch-cu130", marker = "platform_machine == 'aarch64'" },

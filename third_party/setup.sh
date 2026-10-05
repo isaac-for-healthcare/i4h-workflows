@@ -11,7 +11,7 @@ WORKFLOW_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 LOG_PREFIX="i4h-workflows third_party setup"
 TARGET="${1:-all}"
-[ "$#" -le 1 ] || { echo "usage: third_party/setup.sh [all|arena|tasks/<policy>]" >&2; exit 2; }
+[ "$#" -le 1 ] || { echo "usage: third_party/setup.sh [all|arena|patient-twin|sensor-simulation|tasks/<policy>]" >&2; exit 2; }
 
 ISAACLAB_REV="ffff603eafc6b74264a5261cc0183d6a65390d78"
 ISAACLAB_DIR="IsaacLab-ffff603"
@@ -21,16 +21,17 @@ ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
 ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
-# The three i4h component repositories track main so that workflow integration always builds
-# against current upstream. Their directory names carry no revision for that reason: the uv
-# source paths in arena/ and tools/patient_twin/ point here and must stay valid as main moves.
-# Export the matching *_REF variable to pin one to a commit when bisecting a break.
+# Physics follows main. Sensor simulation and the patient twin are pinned together because
+# they share the native scan bundle format. Override *_REF to test another revision and
+# *_URL to build against a local checkout.
 I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-main}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
-I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-main}"
-I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
-I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-main}"
-I4H_DIGITAL_TWIN_DIR="i4h-digital-twin-internal"
+I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-c95ba5caa8ef9b849f3beec03df03cc763ac5a5f}"
+I4H_SENSOR_SIM_DIR="i4h-sensor-simulation"
+I4H_SENSOR_SIM_URL="${I4H_SENSOR_SIM_URL:-https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git}"
+I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-9a779a4d5cb630a304155462e8ea4d440636a2b1}"
+I4H_DIGITAL_TWIN_DIR="i4h-digital-twin"
+I4H_DIGITAL_TWIN_URL="${I4H_DIGITAL_TWIN_URL:-https://github.com/isaac-for-healthcare/i4h-digital-twin.git}"
 
 GR00T_15_REV="17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1"
 GR00T_15_DIR="Isaac-GR00T-1.5"
@@ -156,10 +157,10 @@ arena_checkouts=(
   "${LEISAAC_DIR}|https://github.com/LightwheelAI/leisaac.git|${LEISAAC_REV}"
   "${ISAACLAB_ARENA_DIR}|https://github.com/isaac-sim/IsaacLab-Arena.git|${ISAACLAB_ARENA_REV}"
   "${I4H_PHYSICS_SIM_DIR}|${INTERNAL_GITHUB_BASE}/i4h-physics-simulation-internal.git|${I4H_PHYSICS_SIM_REF}"
-  "${I4H_SENSOR_SIM_DIR}|${INTERNAL_GITHUB_BASE}/i4h-sensor-simulation-internal.git|${I4H_SENSOR_SIM_REF}"
+  "${I4H_SENSOR_SIM_DIR}|${I4H_SENSOR_SIM_URL}|${I4H_SENSOR_SIM_REF}"
   # tools/patient_twin, not arena, consumes this one. It rides along with the arena target so
   # that a scoped `I4H_THIRD_PARTY_TARGET=arena` still produces a runnable twin pipeline.
-  "${I4H_DIGITAL_TWIN_DIR}|${INTERNAL_GITHUB_BASE}/i4h-digital-twin-internal.git|${I4H_DIGITAL_TWIN_REF}"
+  "${I4H_DIGITAL_TWIN_DIR}|${I4H_DIGITAL_TWIN_URL}|${I4H_DIGITAL_TWIN_REF}"
 )
 policy_checkouts=(
   "${GR00T_15_DIR}|https://github.com/NVIDIA/Isaac-GR00T.git|${GR00T_15_REV}"
@@ -187,6 +188,12 @@ case "$TARGET" in
       "https://github.com/isaac-sim/IsaacSim.git" \
       "${ISAACSIM_SKILLS_REV}" \
       "skills"
+    ;;
+  patient-twin)
+    checkouts=("${arena_checkouts[5]}")
+    ;;
+  sensor-simulation)
+    checkouts=("${arena_checkouts[4]}")
     ;;
   tasks/gr00t_n15)
     checkouts=("${policy_checkouts[0]}")
