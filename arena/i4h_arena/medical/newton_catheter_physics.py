@@ -1086,17 +1086,17 @@ def newton_physics_cfg(spec: CatheterRodSpec) -> Any:
     coupled manager gets selected: the cfg carries its own manager, so adding an
     arm changes the solver cfg and nothing else here.
 
-    CUDA graph capture is disabled whenever a deformable vessel is in play. The
-    vessel's containment allocates and resizes contact scratch as the catheter
-    advances, which a captured graph cannot express. An arm disables it too,
-    because MJWarp's contact counts vary with the arm's pose.
+    CUDA graph capture is off unconditionally, because the rod managers reject
+    it outright: replay bypasses the Python pending-control latch in the rod's
+    step, so a captured graph keeps reissuing the commands from capture time and
+    ignores every later one. Capture was already impossible with a deformable
+    vessel, whose containment resizes contact scratch as the catheter advances,
+    or with an arm, whose MJWarp contact counts vary with its pose; the latch
+    extends that to a bare rod, which is the only case this used to allow.
     """
     from isaaclab_newton.physics import NewtonCfg
 
-    return NewtonCfg(
-        solver_cfg=newton_solver_cfg(spec),
-        use_cuda_graph=not (spec.wants_vessel or spec.rigid_bodies_enabled),
-    )
+    return NewtonCfg(solver_cfg=newton_solver_cfg(spec), use_cuda_graph=False)
 
 
 class CatheterRodHandle:

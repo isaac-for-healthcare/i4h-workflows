@@ -11,48 +11,47 @@ MODEL_INIT and in the right order against stubs rather than a live stack.
 
 from __future__ import annotations
 
+import math
 import sys
 import types
 from types import SimpleNamespace
-
-import math
 
 import numpy as np
 import pytest
 
 from i4h_arena.medical.newton_catheter_physics import (
+    BEND_STIFFNESS_ENV_VAR,
     CLEANUP_ROUNDS_ENV_VAR,
     CLEANUP_SWEEPS_ENV_VAR,
     CONTAINMENT_STAGE_ENV_VAR,
     DAMPING_ENV_VAR,
-    INTERIOR_CONTAINMENT_ENV_VAR,
     DEFAULT_NUM_SEGMENTS,
     GRAVITY_NEUTRAL_BUOYANCY,
     GRAVITY_WORLD_Z_UP,
-    VESSEL_COMPLIANCE_ENV_VAR,
+    INTERIOR_CONTAINMENT_ENV_VAR,
     REST_CURVATURE_ENV_VAR,
     SEGMENT_COUNT_ENV_VAR,
-    BEND_STIFFNESS_ENV_VAR,
     TIP_EDGES_ENV_VAR,
+    VESSEL_COMPLIANCE_ENV_VAR,
     CatheterRodHandle,
     CatheterRodSpec,
     bend_radii_m,
     bend_stiffness_override,
-    max_faithful_tip_bend_rad,
-    cleanup_sweeps_override,
     cleanup_rounds_override,
+    cleanup_sweeps_override,
     containment_report,
     containment_stage_override,
     interior_containment_override,
+    max_faithful_tip_bend_rad,
     nearest_on_polyline,
-    rod_damping_override,
     rest_curvature_override,
+    rod_damping_override,
     seeded_rest_curvature_scale,
     segment_count_override,
     segment_inverse_inertia,
-    tip_bend_stiffness_profile,
     tip_bend_polyline_turn_rad,
     tip_bend_rest_component,
+    tip_bend_stiffness_profile,
     tip_edge_count_override,
     vessel_compliance_override,
 )
@@ -1108,15 +1107,25 @@ def test_solver_overrides_win(stub_isaac):
     assert cfg.bend_stiffness == pytest.approx(0.5)
 
 
-def test_cuda_graph_is_disabled_when_a_vessel_is_present(stub_isaac):
-    """Vessel containment resizes contact scratch, which a captured graph cannot express."""
+@pytest.mark.parametrize(
+    "spec",
+    [
+        CatheterRodSpec(patient_twin_manifest="twin.yaml"),
+        CatheterRodSpec(patient_twin_manifest=None),
+        CatheterRodSpec(patient_twin_manifest=None, rigid_bodies_enabled=True),
+    ],
+    ids=["vessel", "bare_rod", "arm"],
+)
+def test_cuda_graph_is_disabled_for_every_catheter_scene(stub_isaac, spec):
+    """The rod managers raise on capture, so a bare rod may not ask for it either.
+
+    The bare rod is the case worth covering: a vessel resizes contact scratch and
+    an arm's contact counts vary with its pose, so both were already excluded on
+    their own merits, and only this one relies on the latch.
+    """
     from i4h_arena.medical.newton_catheter_physics import newton_physics_cfg
 
-    with_vessel = newton_physics_cfg(CatheterRodSpec(patient_twin_manifest="twin.yaml"))
-    without_vessel = newton_physics_cfg(CatheterRodSpec(patient_twin_manifest=None))
-
-    assert with_vessel.use_cuda_graph is False
-    assert without_vessel.use_cuda_graph is True
+    assert newton_physics_cfg(spec).use_cuda_graph is False
 
 
 def test_physics_cfg_does_not_set_class_type(stub_isaac):
@@ -1143,7 +1152,7 @@ def test_a_particle_only_scene_stays_on_the_rod_solver(stub_isaac):
 
 @pytest.mark.parametrize("segments", [20, 40, 80, 120])
 def test_refinement_keeps_the_material_multiplier(stub_isaac, segments):
-    from i4h_arena.medical.newton_catheter_physics import rod_solver_cfg, coupled_solver_cfg
+    from i4h_arena.medical.newton_catheter_physics import coupled_solver_cfg, rod_solver_cfg
 
     spec = CatheterRodSpec(rigid_bodies_enabled=True, num_segments=segments)
     assert not hasattr(rod_solver_cfg(spec), "bend_stiffness")
@@ -1233,16 +1242,6 @@ def test_soft_contact_overrides_win(stub_isaac):
     )
 
     assert cfg.soft_contact_mu == pytest.approx(0.1)
-
-
-def test_cuda_graph_is_disabled_when_an_arm_is_present(stub_isaac):
-    """MJWarp's contact counts vary with the arm's pose, which a captured graph
-    cannot express, so an arm disables capture even without a vessel."""
-    from i4h_arena.medical.newton_catheter_physics import newton_physics_cfg
-
-    cfg = newton_physics_cfg(CatheterRodSpec(patient_twin_manifest=None, rigid_bodies_enabled=True))
-
-    assert cfg.use_cuda_graph is False
 
 
 # --------------------------------------------------------------------------- #

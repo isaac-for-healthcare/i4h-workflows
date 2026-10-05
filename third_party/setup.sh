@@ -26,19 +26,13 @@ ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
 # source paths in arena/ and tools/patient_twin/ point here and must stay valid as main moves.
 # Export the matching *_REF variable to pin one to a commit when bisecting a break.
 #
-# The physics simulation is the exception, and pinned rather than floating, because the
-# catheter scenes call a coupled-arm solver contract that is not on main yet: register_rod,
-# set_root_pose_gpu, proximal_reaction and the interior-containment parameters. On main the
-# checkout succeeds and the failure surfaces later as a missing attribute during solver
-# initialization, which reads like a scene bug rather than a stale dependency. Revert this to
-# `main` once wip/catheter-containment-and-tip-bend merges; the pin is not a preference about
-# how this repo should track upstream.
-#
-# Pinned by commit rather than by branch so it cannot move underneath a run, and tagged
-# `catheter-coupled-arm-v1` so the commit stays reachable: `checkout_ref` fetches a bare SHA
-# with `git fetch origin <sha>`, which the server only serves while some ref reaches it, and
-# a wip/ branch is not a durable guarantee of that.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-a3b9ca53c2700f29e9d954c8a6ca0b122774143e}"
+# The physics simulation was the exception, pinned to wip/catheter-containment-and-tip-bend
+# while the coupled-arm solver contract the catheter scenes call -- register_rod,
+# set_root_pose_gpu, proximal_reaction and the interior-containment parameters -- lived only
+# on that branch. It merged in PR #3, so the pin is gone and this tracks main with the rest.
+# The contract check below stays, because a ref from before that merge still fails as a
+# missing attribute during solver initialization rather than as a stale dependency.
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-main}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-main}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
@@ -226,10 +220,11 @@ for spec in "${checkouts[@]}"; do
 done
 
 # A ref that resolves cleanly can still be the wrong solver. The catheter scenes need a
-# coupled-arm contract that main does not carry, and without it setup succeeds and the run
-# fails much later as a missing attribute during solver initialization -- which reads like a
-# scene bug. Fail here instead, while the ref that produced the tree is still in hand and
-# before Isaac Sim or RLinf has started.
+# coupled-arm contract that main has carried only since PR #3, so an older pin or a bisect
+# ref can land a tree without it, and then setup succeeds and the run fails much later as a
+# missing attribute during solver initialization -- which reads like a scene bug. Fail here
+# instead, while the ref that produced the tree is still in hand and before Isaac Sim or
+# RLinf has started.
 #
 # A presence check on the source rather than a signature check: these are Warp solver methods
 # whose call sites are built at runtime, so there is nothing importable to introspect without
@@ -244,9 +239,9 @@ if [[ -d "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}/.git" ]]; then
   if [[ "${#missing_solver_api[@]}" -gt 0 ]]; then
     echo "[${LOG_PREFIX}] i4h-physics-simulation @ ${I4H_PHYSICS_SIM_REF} does not carry the" >&2
     echo "[${LOG_PREFIX}] coupled-arm solver contract: ${missing_solver_api[*]}" >&2
-    echo "[${LOG_PREFIX}] The catheter arm scenes need wip/catheter-containment-and-tip-bend" >&2
-    echo "[${LOG_PREFIX}] (tag catheter-coupled-arm-v1). Unset I4H_PHYSICS_SIM_REF to take the" >&2
-    echo "[${LOG_PREFIX}] pinned default, or set it to that tag or commit." >&2
+    echo "[${LOG_PREFIX}] The catheter arm scenes need main at or after PR #3. Unset" >&2
+    echo "[${LOG_PREFIX}] I4H_PHYSICS_SIM_REF to take main, or set it to a commit that" >&2
+    echo "[${LOG_PREFIX}] carries the contract." >&2
     exit 1
   fi
   echo "[${LOG_PREFIX}] i4h-physics-simulation carries the coupled-arm solver contract"
