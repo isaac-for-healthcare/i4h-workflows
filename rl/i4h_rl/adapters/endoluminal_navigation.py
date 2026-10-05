@@ -20,25 +20,28 @@ catheter's four channels is commanded, so the mapping is the identity and a
 pad would silently zero a real control.
 
 The observation the policy receives is the checkpoint's, not the Scene's.
-The Scene publishes fifteen numbers, eleven of which describe where the tip
-is and where it still has to go. The fine-tuned checkpoint has no parameters
-for them: its processor declares ``state: [catheter, carm]`` at widths 3 and
-1, and a state projector sized for four numbers cannot read nineteen. So only
-``drive_state`` is forwarded, split exactly as ``catheter.yaml`` splits it,
-and the geometry stays on the environment side where the reward terms use it.
+The Scene publishes fifteen numbers; the checkpoint declares nine of them,
+as ``state: [catheter, carm, target, route]`` at widths 3, 1, 3 and 2. The
+four drive channels and the navigation goal reach the policy; tip position
+and direction do not, because the reward computes against them environment-
+side and a projector sized for nine cannot read fifteen.
 
-That is a deliberate asymmetry and not an oversight. Handing GR00T groups its
-processor does not declare is not an error that raises -- the loader finds no
-such key and proceeds -- so the extra groups would have been dropped in
-silence while the ones it does want went missing. Widening what the policy
-sees is a fine-tuning change, not a mapping change: retrain with the geometry
-in the modality config, then add it here.
+Which nine is a property of the checkpoint, not of this file, and handing
+GR00T a group its processor does not declare is not an error that raises --
+the loader finds no such key and proceeds, so the extra group is dropped in
+silence while the ones it wants go missing. That is why
+:func:`_assert_checkpoint_matches` reads the groups out of the checkpoint
+directory at startup rather than trusting the modality config that ships
+beside this module: the two are widened by the same change and agree with
+each other whatever the file on disk was trained on.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -199,7 +202,13 @@ def _register_gr00t_converters(simulation_io: Any) -> None:
     action_registry[OBS_CONVERTER] = convert_gr00t_to_workflow_action
 
 
-def _register_catheter_modality() -> None:
+#: Where a GR00T fine-tuning run records the groups it normalized against.
+#: Written from the dataset before the first optimizer step, so every
+#: checkpoint carries it, including one abandoned after a handful of steps.
+CHECKPOINT_STATISTICS = "experiment_cfg/dataset_statistics.json"
+
+
+def _register_catheter_modality(full_cfg: dict[str, Any]) -> None:
     """Register the catheter modality the fine-tuned checkpoint expects.
 
     N1.7 replaced N1.5's ``data_config_class`` import string with modality
@@ -208,21 +217,104 @@ def _register_catheter_modality() -> None:
     one config can be registered per tag and ``NEW_EMBODIMENT`` is the only tag
     open to us, so importing a sibling config in the same process would take
     the catheter's place.
+
+    Both guards run: the registered config catches a typo in this module, and
+    the checkpoint catches the case the registered config cannot see.
     """
     from i4h_tasks.gr00t_n17.config_catheter import CATHETER_CONFIG
 
     _assert_contract_matches(CATHETER_CONFIG)
+    isaaclab = full_cfg.get("env", {}).get("train", {}).get("isaaclab", {})
+    model_path = _resolve_checkpoint_path(full_cfg)
+    _assert_checkpoint_matches(
+        _checkpoint_contract(model_path, str(isaaclab.get("embodiment_tag", "new_embodiment"))),
+        source=model_path,
+    )
+
+
+def _resolve_checkpoint_path(full_cfg: dict[str, Any]) -> str:
+    """The fine-tuned checkpoint the run loads.
+
+    The actor and the rollout name it separately, and two different
+    checkpoints would train one policy against another's outputs, so they are
+    checked for agreement here. An unresolved ``${...}`` on the rollout side
+    means it defers to the actor, which is the intended wiring; only a second
+    literal path can disagree.
+    """
+    actor = str(full_cfg.get("actor", {}).get("model", {}).get("model_path", "") or "").strip()
+    rollout = str(full_cfg.get("rollout", {}).get("model", {}).get("model_path", "") or "").strip()
+    if not actor:
+        raise ValueError("trainer config sets no actor.model.model_path to check the contract against")
+    if rollout and not rollout.startswith("${") and rollout != actor:
+        raise ValueError(f"actor loads {actor} but rollout loads {rollout}")
+    return actor
+
+
+def _checkpoint_contract(model_path: str, embodiment_tag: str) -> dict[str, dict[str, int]]:
+    """``{"state": {group: width}, ...}`` the checkpoint was fine-tuned on.
+
+    Read off the normalization statistics because they are the only part of a
+    checkpoint that names its groups: the processor config records widths and
+    shapes but not what they are called. A group the run never saw has no
+    entry to normalize against, and the length of a group's ``min`` vector is
+    the width its projector was sized for.
+    """
+    statistics = Path(model_path).expanduser() / CHECKPOINT_STATISTICS
+    if not statistics.is_file():
+        raise FileNotFoundError(
+            f"no {CHECKPOINT_STATISTICS} under {model_path}; a checkpoint that does not record "
+            "what it was fine-tuned on cannot be checked against this adapter"
+        )
+    recorded = json.loads(statistics.read_text(encoding="utf-8"))
+    if embodiment_tag not in recorded:
+        raise ValueError(f"{statistics} records embodiments {sorted(recorded)}, not {embodiment_tag!r}")
+    tagged = recorded[embodiment_tag]
+    return {
+        modality: {group: len(values["min"]) for group, values in tagged.get(modality, {}).items()}
+        for modality in ("state", "action")
+    }
+
+
+def _assert_checkpoint_matches(contract: dict[str, dict[str, int]], *, source: str) -> None:
+    """Fail at startup if the checkpoint was fine-tuned on different groups.
+
+    :func:`_assert_contract_matches` compares this module against the modality
+    config that ships beside it, which catches a typo here but nothing about
+    the file ``model_path`` points at: one change widens both, so they agree
+    with each other whatever is on disk. A checkpoint predating the widening
+    loads without complaint and drops ``state.target`` and ``state.route``,
+    which is exactly the silent-input failure the other guard exists to stop.
+
+    Names and widths, not order: the statistics are a JSON object and their
+    key order is the dataset's, not evidence of how the projectors are laid
+    out. Order stays with the guard that reads the modality config, where it
+    is declared rather than inferred.
+    """
+    emitted = {
+        "state": {key.split(".", 1)[1]: stop - start for key, start, stop in GR00T_STATE_GROUPS},
+        "action": dict(zip(ACTION_KEYS, ACTION_WIDTHS, strict=True)),
+    }
+    for modality, groups in emitted.items():
+        trained = contract.get(modality, {})
+        if groups != trained:
+            raise ValueError(
+                f"catheter adapter emits {modality} groups {groups} but the checkpoint at "
+                f"{source} was fine-tuned on {trained}; the difference would be dropped in silence"
+            )
 
 
 def _assert_contract_matches(modality_config: Any) -> None:
-    """Fail at startup if this module emits groups the checkpoint will not read.
+    """Fail at startup if this module disagrees with the modality config beside it.
 
-    A group GR00T does not expect is not an error it raises: the loader finds
-    no such key and proceeds, so a renamed video key or a missing state group
+    The config is registered against the embodiment tag and is what names the
+    groups at load time, so a renamed video key or a reordered state group
     costs the policy an entire input and shows up only as training that does
-    not improve. The registered config is the same object the fine-tuning run
-    used, so comparing against it turns the whole class of mismatch into a
-    refusal before the first rollout.
+    not improve. Order is positional in GR00T, which is why this compares
+    sequences rather than sets.
+
+    Scope: this and the config are in the same source tree and move together.
+    :func:`_assert_checkpoint_matches` is the one that can tell you the
+    checkpoint disagrees.
     """
     expected = {
         "video": [GR00T_VIDEO_KEY],
@@ -242,10 +334,7 @@ def _assert_contract_matches(modality_config: Any) -> None:
             )
     widths = [stop - start for _key, start, stop in GR00T_STATE_GROUPS]
     if widths != [3, 1, 3, 2]:
-        raise ValueError(
-            "catheter state groups must be 3, 1, 3, and 2 wide to match the checkpoint, "
-            f"got {widths}"
-        )
+        raise ValueError("catheter state groups must be 3, 1, 3, and 2 wide to match the checkpoint, " f"got {widths}")
 
 
 def _get_workflow_env_class():
@@ -339,7 +428,7 @@ def register() -> None:
     if cfg.get("obs_converter_type") != OBS_CONVERTER:
         raise ValueError(f"expected obs_converter_type={OBS_CONVERTER!r}, got {cfg.get('obs_converter_type')!r}")
     _register_gr00t_converters(simulation_io)
-    _register_catheter_modality()
+    _register_catheter_modality(isaaclab_extension._load_full_cfg())
     # With no ``data_config_class`` in the trainer config this only registers
     # the embodiment tag and returns, which is what we want: its own model
     # loader hardcodes the N1.5 class, while RLinf's default ``get_model``

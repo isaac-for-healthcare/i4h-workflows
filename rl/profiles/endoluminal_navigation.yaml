@@ -37,9 +37,11 @@ policy_action_dof: 4
 #
 # This is the width the Scene publishes and the bridge carries, not the width
 # the policy reads. The fine-tuned checkpoint declares `state: [catheter,
-# carm]` at widths 3 and 1, so only the four drive channels reach it; the
-# eleven geometry values stay on the environment side, where the reward terms
-# are computed. `GR00T_STATE_GROUPS` in the adapter is the narrower contract.
+# carm, target, route]` at widths 3, 1, 3 and 2, so nine of these fifteen
+# reach it; tip position and direction stay on the environment side, where
+# the reward terms are computed. `GR00T_STATE_GROUPS` in the adapter is the
+# narrower contract, and the adapter checks it against the groups recorded in
+# the checkpoint directory at startup.
 state_dof: 15
 cameras:
 - fluoroscopy

@@ -17,6 +17,8 @@ and a live Isaac Sim, which is the integration this repo cannot run on CPU.
 
 from __future__ import annotations
 
+import copy
+import json
 import os
 from pathlib import Path
 
@@ -30,6 +32,7 @@ from i4h_rl.adapters.endoluminal_navigation import (
     ACTION_KEYS,
     ARM_EVAL_TASK_ID,
     ARM_TRAIN_TASK_ID,
+    CHECKPOINT_STATISTICS,
     EVAL_TASK_ID,
     GR00T_LANGUAGE_KEY,
     GR00T_STATE_DIM,
@@ -41,7 +44,10 @@ from i4h_rl.adapters.endoluminal_navigation import (
     STATE_WIDTHS,
     TASK_IDS,
     TRAIN_TASK_ID,
+    _assert_checkpoint_matches,
     _assert_contract_matches,
+    _checkpoint_contract,
+    _resolve_checkpoint_path,
     convert_gr00t_to_workflow_action,
     convert_workflow_obs_to_gr00t,
     wrap_workflow_observation,
@@ -122,15 +128,12 @@ def test_trainer_config_video_key_matches_the_adapter(trainer_config):
 
 def test_trainer_config_slices_select_drive_target_and_route(trainer_config):
     """The policy receives nine scalars while tip pose remains privileged."""
-    slices = [
-        entry["slice"]
-        for entry in trainer_config["env"]["train"]["isaaclab"]["gr00t_mapping"]["state"]
-    ]
+    slices = [entry["slice"] for entry in trainer_config["env"]["train"]["isaaclab"]["gr00t_mapping"]["state"]]
     assert slices == [[0, 3], [3, 4], [10, 13], [13, 15]]
 
 
 def test_the_policy_reads_drive_target_and_route_but_not_tip_pose(trainer_config):
-    assert GR00T_STATE_DIM == STATE_WIDTHS[0] + STATE_WIDTHS[3] + STATE_WIDTHS[4]
+    assert STATE_WIDTHS[0] + STATE_WIDTHS[3] + STATE_WIDTHS[4] == GR00T_STATE_DIM
     assert GR00T_STATE_DIM < STATE_DIM
 
 
@@ -327,7 +330,7 @@ def _registered(**overrides) -> dict[str, _Group]:
 
 
 def test_the_guard_passes_against_the_real_registered_groups():
-    """The contract this module emits is the one the checkpoint was trained on."""
+    """What this module emits is what the modality config beside it declares."""
     _assert_contract_matches(_registered())
 
 
@@ -348,6 +351,99 @@ def test_the_guard_catches_a_reordered_state_group():
     """Order is positional in GR00T, so swapping these swaps the projectors."""
     with pytest.raises(ValueError, match="state groups"):
         _assert_contract_matches(_registered(state=_Group("carm", "catheter", "target", "route")))
+
+
+# --------------------------------------------------------------------------- #
+# The startup guard against a checkpoint trained on something else
+# --------------------------------------------------------------------------- #
+def _trained(**overrides) -> dict[str, dict[str, int]]:
+    """Groups and widths as a fine-tuning run records them."""
+    contract = {
+        "state": {"catheter": 3, "carm": 1, "target": 3, "route": 2},
+        "action": {"catheter": 3, "carm": 1},
+    }
+    contract.update(overrides)
+    return contract
+
+
+def _write_checkpoint(directory: Path, contract: dict[str, dict[str, int]], tag: str = "new_embodiment") -> str:
+    statistics = directory / CHECKPOINT_STATISTICS
+    statistics.parent.mkdir(parents=True, exist_ok=True)
+    recorded = {
+        tag: {
+            modality: {group: {"min": [0.0] * width, "max": [1.0] * width} for group, width in groups.items()}
+            for modality, groups in contract.items()
+        }
+    }
+    statistics.write_text(json.dumps(recorded), encoding="utf-8")
+    return str(directory)
+
+
+def test_the_checkpoint_guard_passes_on_a_matching_checkpoint(tmp_path):
+    path = _write_checkpoint(tmp_path, _trained())
+
+    _assert_checkpoint_matches(_checkpoint_contract(path, "new_embodiment"), source=path)
+
+
+def test_the_checkpoint_guard_catches_a_checkpoint_from_before_the_widening(tmp_path):
+    """The defect this guard exists for, and the one the registered-config
+    guard cannot see: both sides of the source tree were widened together, so
+    they agree with each other while the checkpoint on disk drops two groups.
+    """
+    path = _write_checkpoint(tmp_path, _trained(state={"catheter": 3, "carm": 1}))
+
+    with pytest.raises(ValueError, match="state groups"):
+        _assert_checkpoint_matches(_checkpoint_contract(path, "new_embodiment"), source=path)
+
+
+def test_the_checkpoint_guard_catches_a_group_of_the_wrong_width(tmp_path):
+    """A right-sized projector on a renamed axis is still the wrong policy."""
+    path = _write_checkpoint(tmp_path, _trained(state={"catheter": 3, "carm": 1, "target": 2, "route": 2}))
+
+    with pytest.raises(ValueError, match="state groups"):
+        _assert_checkpoint_matches(_checkpoint_contract(path, "new_embodiment"), source=path)
+
+
+def test_the_checkpoint_guard_catches_a_narrowed_action_head(tmp_path):
+    path = _write_checkpoint(tmp_path, _trained(action={"catheter": 3}))
+
+    with pytest.raises(ValueError, match="action groups"):
+        _assert_checkpoint_matches(_checkpoint_contract(path, "new_embodiment"), source=path)
+
+
+def test_a_checkpoint_that_records_nothing_is_refused_rather_than_assumed(tmp_path):
+    with pytest.raises(FileNotFoundError, match="cannot be checked"):
+        _checkpoint_contract(str(tmp_path), "new_embodiment")
+
+
+def test_a_checkpoint_under_another_embodiment_tag_is_refused(tmp_path):
+    path = _write_checkpoint(tmp_path, _trained(), tag="gr1")
+
+    with pytest.raises(ValueError, match="records embodiments"):
+        _checkpoint_contract(path, "new_embodiment")
+
+
+def test_the_real_trainer_config_names_one_checkpoint(trainer_config):
+    """Actor and rollout load the same file, or one trains against the other's
+    outputs. The shipped config leaves a placeholder, so this checks the
+    wiring rather than the path."""
+    assert _resolve_checkpoint_path(trainer_config) == trainer_config["actor"]["model"]["model_path"]
+
+
+def test_a_rollout_pointed_at_a_second_checkpoint_is_refused(trainer_config):
+    disagreeing = copy.deepcopy(trainer_config)
+    disagreeing["rollout"]["model"]["model_path"] = "/models/some-other-checkpoint"
+
+    with pytest.raises(ValueError, match="rollout loads"):
+        _resolve_checkpoint_path(disagreeing)
+
+
+def test_an_unresolved_rollout_interpolation_defers_to_the_actor(trainer_config):
+    """`${actor.model.model_path}` is the intended wiring, not a disagreement."""
+    deferring = copy.deepcopy(trainer_config)
+    deferring["rollout"]["model"]["model_path"] = "${actor.model.model_path}"
+
+    assert _resolve_checkpoint_path(deferring) == deferring["actor"]["model"]["model_path"]
 
 
 # --------------------------------------------------------------------------- #
