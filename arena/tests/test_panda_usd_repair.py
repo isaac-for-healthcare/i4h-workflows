@@ -18,6 +18,8 @@ is the property under test and a mocked stage could not answer it.
 from __future__ import annotations
 
 import pytest
+from pxr import Usd, UsdGeom, UsdPhysics
+
 from i4h_arena.embodiments.panda_usd_repair import (
     anchor_root_to_world,
     orient_joints_away_from_root,
@@ -25,7 +27,6 @@ from i4h_arena.embodiments.panda_usd_repair import (
     repair_layer_path,
     strip_collision_geometry,
 )
-from pxr import Usd, UsdGeom, UsdPhysics
 
 ROOT = "/panda"
 LINKS = ("panda_link0", "panda_link1", "panda_link2")

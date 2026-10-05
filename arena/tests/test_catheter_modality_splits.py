@@ -16,6 +16,7 @@ of a dataset that converts and then will not train.
 from __future__ import annotations
 
 import pytest
+
 from i4h_common.config import get_robot_config
 
 CATHETER_GROUP = "catheter"

@@ -25,10 +25,9 @@ from typing import Any
 
 import numpy as np
 import pytest
+import yaml
 
 from i4h_arena.medical.newton_catheter_physics import tip_bend_rest_component
-
-import yaml
 
 ARENA = Path(__file__).parents[1] / "i4h_arena"
 PLAIN_CATHETER = ARENA / "embodiments" / "catheter.py"

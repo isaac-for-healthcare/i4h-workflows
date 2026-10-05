@@ -189,9 +189,7 @@ class Episode:
         try:
             return self.group[f"{DIAGNOSTICS_GROUP}/{name}"][()]
         except KeyError as exc:
-            raise EpisodeError(
-                f"{self.name}: no diagnostic {name!r}; recorded {self.diagnostics}"
-            ) from exc
+            raise EpisodeError(f"{self.name}: no diagnostic {name!r}; recorded {self.diagnostics}") from exc
 
     @property
     def segments(self) -> tuple[Segment, ...]:
@@ -212,9 +210,7 @@ class Episode:
         for name in self.diagnostics:
             length = self.group[f"{DIAGNOSTICS_GROUP}/{name}"].shape[0]
             if length != total:
-                raise EpisodeError(
-                    f"{self.name}: diagnostic {name} has {length} frames, actions have {total}"
-                )
+                raise EpisodeError(f"{self.name}: diagnostic {name} has {length} frames, actions have {total}")
         for segment in self.segments:
             if not 0 <= segment.start <= segment.end <= total:
                 raise EpisodeError(

@@ -32,9 +32,7 @@ class _Actuation:
 
 
 def test_sweep_emits_catheter_commands_and_carm_orbit() -> None:
-    task = CatheterSweep(
-        settle_s=0, hold_s=0, bend_s=0, advance_s=0.1, rotate_s=0.1, retract_s=0.1, orbit_s=0.1
-    )
+    task = CatheterSweep(settle_s=0, hold_s=0, bend_s=0, advance_s=0.1, rotate_s=0.1, retract_s=0.1, orbit_s=0.1)
     act = _Actuation()
     ctx = SimpleNamespace(act=act, dt=0.1, num_envs=1)
     task.on_enter(ctx, object())

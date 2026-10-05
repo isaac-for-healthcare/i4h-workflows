@@ -21,6 +21,7 @@ from i4h_engine.status import Status, WorkflowStatus
 from i4h_engine.task import TickContext
 from i4h_tasks.basic.testing.fake_scene import FakeActuation, FakeScene
 from i4h_tasks.teleop.devices import (
+    KEY_LOG_ENV_VAR,
     BusDevice,
     CatheterKeyboardDevice,
     InputDevice,
@@ -29,7 +30,6 @@ from i4h_tasks.teleop.devices import (
     keyboard_event_input_name,
     make_device,
 )
-from i4h_tasks.teleop.devices import KEY_LOG_ENV_VAR
 from i4h_tasks.teleop.drive import Drive
 
 DT = 1 / 60

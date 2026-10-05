@@ -68,16 +68,8 @@ class RolloutProgressMonitor:
         self._write_progress(status="waiting_for_rollout", metrics={})
 
     def _write_progress(self, *, status: str, metrics: dict[str, float | None]) -> None:
-        rollout_index = (
-            (self._completed_total - 1) % self.rollouts_per_update + 1
-            if self._completed_total
-            else 0
-        )
-        update_index = (
-            (self._completed_total - 1) // self.rollouts_per_update
-            if self._completed_total
-            else 0
-        )
+        rollout_index = (self._completed_total - 1) % self.rollouts_per_update + 1 if self._completed_total else 0
+        update_index = (self._completed_total - 1) // self.rollouts_per_update if self._completed_total else 0
         average_duration = (
             sum(self._current_update_durations) / len(self._current_update_durations)
             if self._current_update_durations
@@ -92,9 +84,7 @@ class RolloutProgressMonitor:
             "rollout_index": rollout_index,
             "rollouts_per_update": self.rollouts_per_update,
             "completed_rollouts_total": self._completed_total,
-            "estimated_seconds_to_update": (
-                average_duration * remaining if average_duration is not None else None
-            ),
+            "estimated_seconds_to_update": (average_duration * remaining if average_duration is not None else None),
             "metrics": metrics,
         }
         self._temporary_path.write_text(
@@ -120,12 +110,8 @@ class RolloutProgressMonitor:
             "monitor/rollout_duration_seconds": duration,
             **{f"monitor/{key}": value for key, value in finite_metrics.items()},
         }
-        average_duration = sum(self._current_update_durations) / len(
-            self._current_update_durations
-        )
-        scalars["monitor/estimated_seconds_to_update"] = average_duration * (
-            self.rollouts_per_update - rollout_index
-        )
+        average_duration = sum(self._current_update_durations) / len(self._current_update_durations)
+        scalars["monitor/estimated_seconds_to_update"] = average_duration * (self.rollouts_per_update - rollout_index)
         for tag, value in scalars.items():
             if value is not None:
                 self._writer.add_scalar(tag, value, self._completed_total)

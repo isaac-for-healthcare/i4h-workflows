@@ -43,7 +43,11 @@ repos:
       - id: codespell
         # RLinf's public checkpoint-conversion module and Hydra keys spell this
         # identifier ``convertor``; changing it would break the integration.
-        args: [--ignore-words-list=convertor]
+        # ``crate`` is the name of USD's binary layer format -- what the ``.usdc``
+        # extension stands for -- so it is the right word, not a typo for create.
+        # Quoted because a bare comma inside a YAML flow sequence would split the
+        # list into a second argument that codespell reads as a path.
+        args: ["--ignore-words-list=convertor,crate"]
         exclude: '(\.svg|\.patch)$'
         additional_dependencies:
         - tomli
