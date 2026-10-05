@@ -52,6 +52,22 @@ UntilPredicate = Callable[[TickContext], Any]
 READY_TIMEOUT_ENV = "I4H_BACKEND_READY_TIMEOUT_S"
 DEFAULT_READY_TIMEOUT_S = 120.0
 
+ACTION_TIMEOUT_ENV = "I4H_BACKEND_ACTION_TIMEOUT_S"
+DEFAULT_ACTION_TIMEOUT_S = 30.0
+
+
+def _timeout_from_env(name: str, default_s: float) -> float:
+    override = os.environ.get(name)
+    if not override:
+        return default_s
+    try:
+        value = float(override)
+    except ValueError as exc:
+        raise RuntimeError(f"{name}={override} is not a number") from exc
+    if value <= 0.0:
+        raise RuntimeError(f"{name}={override} must be positive")
+    return value
+
 
 def default_ready_timeout_s() -> float:
     """Seconds to wait for a backend, overridable with ``$I4H_BACKEND_READY_TIMEOUT_S``.
@@ -59,16 +75,19 @@ def default_ready_timeout_s() -> float:
     The default suits a warm model cache. A first run downloads the checkpoint
     inside this window, and a multi-GB one does not finish within it.
     """
-    override = os.environ.get(READY_TIMEOUT_ENV)
-    if not override:
-        return DEFAULT_READY_TIMEOUT_S
-    try:
-        value = float(override)
-    except ValueError as exc:
-        raise RuntimeError(f"{READY_TIMEOUT_ENV}={override} is not a number") from exc
-    if value <= 0.0:
-        raise RuntimeError(f"{READY_TIMEOUT_ENV}={override} must be positive")
-    return value
+    return _timeout_from_env(READY_TIMEOUT_ENV, DEFAULT_READY_TIMEOUT_S)
+
+
+def default_action_timeout_s() -> float:
+    """Seconds to wait for one action, overridable with ``$I4H_BACKEND_ACTION_TIMEOUT_S``.
+
+    The default suits a backend whose kernels are already warm. A first
+    inference is not that: a 1.1B-parameter diffusion head compiling its
+    kernels took longer than this on a GB300, so the episode was failed at step
+    zero and the action that did arrive was published into a closed session --
+    which reads as a transport fault rather than as a timeout.
+    """
+    return _timeout_from_env(ACTION_TIMEOUT_ENV, DEFAULT_ACTION_TIMEOUT_S)
 
 
 class RemoteTaskError(RuntimeError):
@@ -94,7 +113,7 @@ class RemoteTask(Task):
         until: UntilPredicate | None = None,
         max_steps: int | None = None,
         ready_timeout_s: float | None = None,
-        action_timeout_s: float = 30.0,
+        action_timeout_s: float | None = None,
         keys: Keys | None = None,
         name: str | None = None,
         **params: Any,
@@ -106,7 +125,7 @@ class RemoteTask(Task):
         self.until = until
         self.max_steps = max_steps
         self.ready_timeout_s = default_ready_timeout_s() if ready_timeout_s is None else ready_timeout_s
-        self.action_timeout_s = action_timeout_s
+        self.action_timeout_s = default_action_timeout_s() if action_timeout_s is None else action_timeout_s
         self.params = params
         self._keys = keys
         self._uid = ""

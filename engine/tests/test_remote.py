@@ -21,7 +21,14 @@ from i4h_common.bus.messages import ActionChunk, ObsFrame, TaskSpecMsg, TaskStat
 from i4h_common.manifest import BackendSpec, TaskSpec
 from i4h_engine.executor import Engine
 from i4h_engine.graph import TaskGraph, node
-from i4h_engine.remote import DEFAULT_READY_TIMEOUT_S, READY_TIMEOUT_ENV, RemoteTask, RemoteTaskError
+from i4h_engine.remote import (
+    ACTION_TIMEOUT_ENV,
+    DEFAULT_ACTION_TIMEOUT_S,
+    DEFAULT_READY_TIMEOUT_S,
+    READY_TIMEOUT_ENV,
+    RemoteTask,
+    RemoteTaskError,
+)
 from i4h_engine.status import Status, WorkflowStatus
 
 SPEC = TaskSpec(
@@ -268,6 +275,28 @@ def test_ready_timeout_reads_the_environment(monkeypatch):
 def test_ready_timeout_rejects_a_useless_value(monkeypatch, value):
     monkeypatch.setenv(READY_TIMEOUT_ENV, value)
     with pytest.raises(RuntimeError, match=READY_TIMEOUT_ENV):
+        RemoteTask(SPEC)
+
+
+def test_action_timeout_reads_the_environment(monkeypatch):
+    """A backend's first inference is not its steady-state one.
+
+    Thirty seconds suits warm kernels. A 1.1B-parameter diffusion head
+    compiling them failed the episode at step zero, and the action that did
+    arrive was published into a session already torn down -- so the visible
+    error named the transport rather than the budget that caused it.
+    """
+    monkeypatch.delenv(ACTION_TIMEOUT_ENV, raising=False)
+    assert RemoteTask(SPEC).action_timeout_s == DEFAULT_ACTION_TIMEOUT_S
+    monkeypatch.setenv(ACTION_TIMEOUT_ENV, "300")
+    assert RemoteTask(SPEC).action_timeout_s == 300.0
+    assert RemoteTask(SPEC, action_timeout_s=0.05).action_timeout_s == 0.05
+
+
+@pytest.mark.parametrize("value", ["soon", "0", "-1"])
+def test_action_timeout_rejects_a_useless_value(monkeypatch, value):
+    monkeypatch.setenv(ACTION_TIMEOUT_ENV, value)
+    with pytest.raises(RuntimeError, match=ACTION_TIMEOUT_ENV):
         RemoteTask(SPEC)
 
 
