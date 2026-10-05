@@ -4,12 +4,15 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Callable
 from typing import Any
 
 from i4h_arena.adapters.scene_view import ArenaSceneView
 from i4h_arena.scenes.base import Scene, SensorDisplayControlSpec, SensorSliderSpec
+
+logger = logging.getLogger("i4h_arena.scene")
 
 
 def resolve_fluoroscopy_backend(requested: str | None, patient_twin: str | None) -> str:
@@ -191,6 +194,11 @@ class EndoluminalNavigationScene(Scene):
         preferred over per-asset ``get_world_poses()``. It returns ``None`` when
         no provider is present or the prims are not registered with it, leaving
         the caller to fall back rather than losing the C-arm entirely.
+
+        Any construction failure falls back, because the fallback is a supported
+        path and refusing to build the scene over it would be worse. It is
+        logged, though: without that, a run that quietly stopped using the
+        provider is indistinguishable from one that never had it.
         """
         try:
             from isaaclab.sim import SimulationContext
@@ -208,7 +216,17 @@ class EndoluminalNavigationScene(Scene):
                 detector_paths=[f"{root[index]}/CArm/Orbit/Detector" for index in range(num_envs)],
                 detector_size_m=detector_size_m,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - every construction failure is a fall back
+            # Warning rather than debug, and with the traceback, because
+            # ``SceneDataCArmStateProvider`` raises during construction on
+            # purpose and the message is the diagnosis: a Lab revision whose
+            # ``create_mapping`` does not restrict the output reports the
+            # transform count it actually got. Rendering continues on the
+            # per-prim path, so this line is the only trace of the downgrade.
+            logger.warning(
+                "C-arm SceneDataProvider unavailable; reading the source and detector prims directly",
+                exc_info=True,
+            )
             return None
 
     def default_sensor_views(self) -> tuple[str, ...]:

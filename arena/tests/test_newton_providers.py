@@ -11,6 +11,7 @@ the index arithmetic and the environment fan-out under test without Isaac Sim.
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 
 import numpy as np
@@ -310,3 +311,40 @@ def test_carm_rejects_unpaired_prim_paths():
             detector_paths=["/c"],
             detector_size_m=(0.5, 0.5),
         )
+
+
+# --------------------------------------------------------------------------- #
+# The scene's fall back is audible
+# --------------------------------------------------------------------------- #
+def test_the_scene_logs_before_falling_back_to_the_prims(caplog, monkeypatch):
+    """The other side of the two refusals above.
+
+    ``SceneDataCArmStateProvider`` raises during construction so the caller can
+    fall back instead of dying mid-episode, which only works as a contract if
+    the reason survives. The caller catches everything, so without the log a
+    revision that silently stopped restricting the mapping looks exactly like a
+    stack that never offered a provider.
+    """
+    import sys
+    import types
+
+    from i4h_arena.scenes.endoluminal_navigation import EndoluminalNavigationScene
+
+    # The same unrestricted mapping as the test above, reached the way the
+    # scene reaches it, so the failure under test is the designed one rather
+    # than whichever import happens to be missing from the test environment.
+    backend = FakeSceneDataProvider(np.concatenate((_identity_transforms(1), _identity_transforms(3)), axis=0))
+    sim = types.ModuleType("isaaclab.sim")
+    sim.SimulationContext = SimpleNamespace(instance=lambda: SimpleNamespace(get_scene_data_provider=lambda: backend))
+    monkeypatch.setitem(sys.modules, "isaaclab.sim", sim)
+
+    env = SimpleNamespace(unwrapped=SimpleNamespace(num_envs=1, scene=SimpleNamespace(env_prim_paths=["/World/env_0"])))
+
+    with caplog.at_level(logging.WARNING, logger="i4h_arena.scene"):
+        assert EndoluminalNavigationScene._scene_data_carm_provider(env, (0.3, 0.3)) is None
+
+    assert "SceneDataProvider" in caplog.text
+    # The traceback, not just the sentence: the reason was raised deliberately
+    # and a message naming only the symptom would discard it.
+    assert caplog.records[-1].exc_info is not None
+    assert "not restricting" in caplog.text
