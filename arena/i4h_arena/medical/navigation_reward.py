@@ -181,6 +181,24 @@ def _segment_radii(env: Any, lumen_radii_m: Iterable[float] | None, segments: in
     return radii
 
 
+#: Elements of an ``(envs, particles, segments)`` projection to hold at once.
+#:
+#: :func:`project_to_route` broadcasts to that shape, and to three copies of it
+#: with a trailing 3, so a whole rod costs about ``11 * envs * particles *
+#: segments`` floats. For this rod's 121 particles against the longest of the
+#: patient twins at 95 segments that is 4 MB at 8 environments, 518 MB at 1024
+#: and 2.1 GB at 4096. The budget caps the transient near 180 MB instead, at
+#: the price of a Python loop whose trip count is one until the product grows
+#: past it -- so nothing changes at the scale the profiles run today.
+PROJECTION_ELEMENT_BUDGET = 4_000_000
+
+
+def _particle_chunk(envs: int, segments: int, particles: int) -> int:
+    """Particles to project at once, so the transient stays within budget."""
+    per_particle = max(1, envs * segments)
+    return max(1, min(particles, PROJECTION_ELEMENT_BUDGET // per_particle))
+
+
 def project_to_route(
     points: torch.Tensor,
     starts: torch.Tensor,
@@ -391,10 +409,12 @@ def wall_penetration_penalty(
     # for every environment in the batch, and masking an infinity afterwards
     # yields nan rather than zero.
     valid = torch.isfinite(points).flatten(1).all(dim=-1)
-    _, lateral_m, segment = project_to_route(
-        torch.where(valid.view(-1, 1, 1), points, starts[0]), starts, spans, start_arc
-    )
-    return torch.clamp(lateral_m - radii[segment], min=0.0).amax(dim=-1) * valid
+    finite = torch.where(valid.view(-1, 1, 1), points, starts[0])
+    depth_m = torch.zeros(int(points.shape[0]), dtype=points.dtype, device=points.device)
+    for chunk in finite.split(_particle_chunk(int(points.shape[0]), int(starts.shape[0]), int(points.shape[1])), dim=1):
+        _, lateral_m, segment = project_to_route(chunk, starts, spans, start_arc)
+        depth_m = torch.maximum(depth_m, torch.clamp(lateral_m - radii[segment], min=0.0).amax(dim=-1))
+    return depth_m * valid
 
 
 def route_length_m(route_world_m: Iterable[Iterable[float]]) -> float:

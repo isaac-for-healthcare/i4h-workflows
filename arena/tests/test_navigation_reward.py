@@ -21,6 +21,7 @@ import torch
 
 from i4h_arena.medical.navigation_reward import (
     MAX_STEP_ADVANCE_M,
+    _particle_chunk,
 )
 from i4h_arena.medical.navigation_reward import _route_tensors as _build_route_tensors
 from i4h_arena.medical.navigation_reward import (
@@ -491,3 +492,33 @@ def test_step_advance_clears_the_drive_ceiling(source: Path, class_name: str):
 
     assert ceiling_m == pytest.approx(DOCUMENTED_CEILING_M)
     assert MAX_STEP_ADVANCE_M > ceiling_m
+
+
+# --------------------------------------------------------------------------- #
+# Chunking the wall projection changes its cost, not its answer
+# --------------------------------------------------------------------------- #
+def test_one_pass_at_the_scale_the_profiles_run():
+    """8 environments stay a single pass, so the loop costs nothing today."""
+    assert _particle_chunk(envs=8, segments=95, particles=121) == 121
+
+
+def test_a_large_batch_is_split_rather_than_allocated_whole():
+    assert _particle_chunk(envs=4096, segments=95, particles=121) < 121
+
+
+def test_a_chunked_wall_penalty_matches_an_unchunked_one(monkeypatch):
+    """Every particle is projected against every segment either way, so the
+    per-particle depths are unchanged and the max over them is too."""
+    env = _FakeEnv(num_envs=3)
+    env.place(
+        tuple((index / 10.0, 0.004, 0.0) for index in range(11)),
+        tuple((index / 10.0, 0.0, 0.0) for index in range(11)),
+        tuple((index / 10.0, 0.0, 0.009) for index in range(11)),
+    )
+    whole = wall_penetration_penalty(env, ROUTE, RADII)
+
+    monkeypatch.setattr("i4h_arena.medical.navigation_reward.PROJECTION_ELEMENT_BUDGET", 1)
+    split = wall_penetration_penalty(env, ROUTE, RADII)
+
+    assert _particle_chunk(envs=3, segments=10, particles=11) == 1
+    assert torch.equal(whole, split)
