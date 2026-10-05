@@ -18,16 +18,9 @@ import pytest
 import torch
 
 from i4h_arena.medical.navigation_reward import (
-    APPROACH_POTENTIAL_ATTR,
     MAX_STEP_ADVANCE_M,
-    approach_potential,
-    approach_reward,
-    arrival_reward,
-    bend_radius_m,
-    fold_penalty,
     lateral_offset_penalty,
     project_to_route,
-    reset_approach_potential,
     reset_route_progress,
     route_length_m,
     route_progress_reward,
@@ -38,8 +31,6 @@ from i4h_arena.medical.navigation_reward import (
 ROUTE = tuple((index / 10.0, 0.0, 0.0) for index in range(11))
 #: A 5 mm-radius lumen the whole way along.
 RADII = tuple(0.005 for _ in ROUTE)
-#: The end of that route, where the approach terms are measured from.
-TARGET = (1.0, 0.0, 0.0)
 
 
 class _FakeEnv:
@@ -251,159 +242,6 @@ def test_penetration_grades_depth_rather_than_counting_contacts():
     deep.place(((0.2, 0.011, 0.0),) * 2)
 
     assert wall_penetration_penalty(deep, ROUTE, RADII) > wall_penetration_penalty(shallow, ROUTE, RADII)
-
-
-# --------------------------------------------------------------------------- #
-# Folding
-# --------------------------------------------------------------------------- #
-def test_a_straight_rod_has_infinite_bend_radius():
-    positions = torch.tensor([[[0.0, 0.0, 0.0], [0.1, 0.0, 0.0], [0.2, 0.0, 0.0]]])
-
-    assert torch.isinf(bend_radius_m(positions)).all()
-
-
-def test_bend_radius_matches_the_circle_through_three_points():
-    """A right-angle triple on a 10 mm grid circumscribes a circle of r = 5*sqrt(2)."""
-    positions = torch.tensor([[[0.0, 0.01, 0.0], [0.0, 0.0, 0.0], [0.01, 0.0, 0.0]]])
-
-    assert bend_radius_m(positions).item() == pytest.approx(0.01 / (2.0**0.5), abs=1e-5)
-
-
-def test_a_gentle_anatomical_bend_is_not_called_a_fold():
-    env = _FakeEnv()
-    env.place(((0.0, 0.05, 0.0), (0.0, 0.0, 0.0), (0.05, 0.0, 0.0)))
-
-    assert fold_penalty(env).item() == pytest.approx(0.0)
-
-
-def test_folding_is_graded_rather_than_flagged():
-    """A boolean fired on nine frames in ten of a real episode, so it carried
-    no gradient. A tighter crease has to cost strictly more than a looser one.
-    """
-    loose, tight = _FakeEnv(), _FakeEnv()
-    loose.place(((0.0, 0.004, 0.0), (0.0, 0.0, 0.0), (0.004, 0.0, 0.0)))
-    tight.place(((0.0, 0.001, 0.0), (0.0, 0.0, 0.0), (0.001, 0.0, 0.0)))
-
-    assert 0.0 < fold_penalty(loose).item() < fold_penalty(tight).item()
-
-
-def test_a_rod_too_short_to_have_an_interior_node_is_not_folded():
-    env = _FakeEnv()
-    env.place(((0.0, 0.0, 0.0), (0.1, 0.0, 0.0)))
-
-    assert fold_penalty(env).item() == pytest.approx(0.0)
-
-
-# --------------------------------------------------------------------------- #
-# Arrival and approach
-# --------------------------------------------------------------------------- #
-def test_arrival_pays_every_step_the_tip_holds_inside_the_tolerance():
-    """The hold the success criterion requires has to be worth something."""
-    env = _env_at((1.0, 0.0, 0.0), (0.9, 0.0, 0.0))
-
-    assert arrival_reward(env, (1.0, 0.0, 0.0)).tolist() == pytest.approx([1.0, 0.0])
-
-
-def test_the_approach_potential_still_has_a_gradient_inside_the_last_centimetre():
-    """Remaining arc goes flat within one route sample of the end, so the term
-    that decides the 5 mm tolerance needs its own finer scale."""
-    near = _env_at((0.998, 0.0, 0.0))
-    far = _env_at((0.99, 0.0, 0.0))
-
-    assert approach_potential(near, TARGET, 0.025) > approach_potential(far, TARGET, 0.025)
-
-
-def test_a_tip_parked_short_of_the_target_earns_nothing_however_long_it_waits():
-    """The term was a level and the level was collectable by doing nothing.
-
-    Hovering has no end, so any positive per-step payout for merely being close
-    beats a finite arrival bonus that terminates: at the old weight the best
-    stationary spot outside the tolerance discounted to about 150 against about
-    84 for arriving. Finishing was a pay cut, so the fix is not a smaller
-    weight but a term a stationary tip cannot collect at all.
-    """
-    env = _env_at((0.994, 0.0, 0.0))
-    approach_reward(env, TARGET, 0.025)
-
-    held = [approach_reward(env, TARGET, 0.025).item() for _ in range(20)]
-
-    assert held == pytest.approx([0.0] * 20)
-    assert sum(held) == pytest.approx(0.0)
-
-
-def test_approach_pays_for_closing_distance_and_charges_the_same_to_give_it_back():
-    """Symmetry is the whole of the property. An asymmetric version pays for a
-    round trip, which is a tip oscillating in place with extra steps."""
-    env = _env_at((0.99, 0.0, 0.0))
-    approach_reward(env, TARGET, 0.025)
-
-    env.place_tip((0.998, 0.0, 0.0))
-    closed = approach_reward(env, TARGET, 0.025).item()
-    env.place_tip((0.99, 0.0, 0.0))
-    gave_back = approach_reward(env, TARGET, 0.025).item()
-
-    assert closed > 0.0
-    assert gave_back == pytest.approx(-closed)
-
-
-def test_an_approach_and_a_retreat_are_worth_the_same_whatever_route_they_take():
-    """Telescoping, which is what leaves the optimal policy untouched: the sum
-    over a path depends on its endpoints only, so wandering earns nothing."""
-    direct = _env_at((0.9, 0.0, 0.0))
-    scenic = _env_at((0.9, 0.0, 0.0))
-    approach_reward(direct, TARGET, 0.025)
-    approach_reward(scenic, TARGET, 0.025)
-
-    direct.place_tip((0.99, 0.0, 0.0))
-    straight = approach_reward(direct, TARGET, 0.025).item()
-    wandered = 0.0
-    for tip in ((0.95, 0.0, 0.0), (0.8, 0.0, 0.0), (0.97, 0.0, 0.0), (0.99, 0.0, 0.0)):
-        scenic.place_tip(tip)
-        wandered += approach_reward(scenic, TARGET, 0.025).item()
-
-    assert wandered == pytest.approx(straight, abs=1e-6)
-
-
-def test_approach_pays_nothing_on_the_first_step_of_an_episode():
-    """Nothing to difference against, and the alternative is paying the whole
-    potential for however close the reset happened to place the tip."""
-    env = _env_at((0.999, 0.0, 0.0))
-
-    assert approach_reward(env, TARGET, 0.025).tolist() == pytest.approx([0.0])
-
-
-def test_a_reset_environment_is_not_charged_for_being_moved_back_to_the_entry():
-    """An episode ends at the target and resets to the vessel entry. Without
-    the reset hook that teleport differences a potential near one against one
-    near zero and bills the agent the entire approach for the reset."""
-    env = _env_at((0.999, 0.0, 0.0), (0.999, 0.0, 0.0))
-    approach_reward(env, TARGET, 0.025)
-    approach_reward(env, TARGET, 0.025)
-
-    reset_approach_potential(env, torch.tensor([0]))
-    # The reset one is teleported back to the entry; its neighbour backs off a
-    # little under its own power, which it should still be charged for.
-    env.place_tip((0.0, 0.0, 0.0), (0.99, 0.0, 0.0))
-    paid = approach_reward(env, TARGET, 0.025)
-
-    assert paid[0].item() == pytest.approx(0.0)
-    assert paid[1].item() < 0.0
-
-
-def test_resetting_every_environment_clears_the_stored_potential():
-    env = _env_at((0.999, 0.0, 0.0))
-    approach_reward(env, TARGET, 0.025)
-
-    reset_approach_potential(env)
-
-    assert not hasattr(env, APPROACH_POTENTIAL_ATTR)
-    assert approach_reward(env, TARGET, 0.025).tolist() == pytest.approx([0.0])
-
-
-def test_approach_pays_nothing_before_newton_has_particles():
-    env = _FakeEnv()
-
-    assert approach_reward(env, TARGET, 0.025).tolist() == pytest.approx([0.0])
 
 
 # --------------------------------------------------------------------------- #

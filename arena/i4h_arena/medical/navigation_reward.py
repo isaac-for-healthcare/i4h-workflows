@@ -8,23 +8,28 @@ from the route -- re-expressed batched in torch because rewards are read for
 every environment on every step and the readout version is a single-point numpy
 projection behind an ``lru_cache``.
 
-Three things here are deliberate rather than incidental, and each one exists
-because the obvious version was measured and found exploitable.
+:class:`~i4h_arena.envcfg.endoluminal_navigation.CatheterNavigationRewardsCfg`
+configures three terms and no others: ``route_progress``, ``lateral`` and
+``penetration``, defined below in that order. That is the whole reward PPO
+optimizes; this module holds nothing that is not part of it.
 
-Both positive shaping terms pay a *change*, not a level, which is
-potential-based shaping. Progress differences the remaining arc and approach
-differences ``exp(-distance/scale)``. Approach is a potential function
-outright, so it leaves the optimal policy untouched. Progress is one only
-while its clamp below is slack; a clamped step is no longer a difference of a
-potential and the invariance theorem does not cover it. That is a deliberate
-trade against the projection discontinuity, and is worth stating in that
-direction rather than the flattering one.
-Approach was a level until it was priced: at one per step for hovering, and
-hovering being unbounded in time, the best stationary spot just outside the
-arrival tolerance discounted to roughly 150 against roughly 84 for holding the
-arrival and terminating, so the task paid better unfinished. A level-valued
-positive term is collectable by standing still, and standing still is always
-available.
+Three things about it are deliberate rather than incidental, and each one
+exists because the obvious version was measured and found exploitable.
+
+Progress pays a *change*, not a level, which is potential-based shaping: it
+differences the remaining arc, so a stationary tip collects nothing wherever it
+is parked. It is a difference of a potential only while its clamp below is
+slack; a clamped step is not, and the invariance theorem does not cover it.
+That is a deliberate trade against the projection discontinuity, and is worth
+stating in that direction rather than the flattering one.
+
+There is no level-valued positive term, which is why an earlier approach bonus
+was dropped rather than given a smaller weight. Paid at one per step for
+hovering, and hovering being unbounded in time, the best stationary spot just
+outside the arrival tolerance out-valued holding the arrival and terminating
+under the weights of the time: the task paid better unfinished. Anything
+collectable by standing still will be collected, because standing still is
+always available.
 
 Progress is also clamped to what insertion can physically deliver in one
 control step. Nearest-point projection onto a route that doubles back is not
@@ -34,10 +39,10 @@ crediting 153 mm of travel against 112 mm actually made. Unclamped, the surplus
 is free return for wiggling the tip across the arch rather than advancing
 through it.
 
-Wall contact and folding are paid as depths and curvatures, not as booleans. A
-boolean fold flag fires on roughly nine frames in ten of a recorded episode,
-which makes it a constant offset the advantage estimator subtracts away rather
-than a gradient pointing anywhere.
+Wall contact is paid as a depth, not a boolean. A flag that fires on most
+frames is a constant offset the advantage estimator subtracts away rather than
+a gradient pointing anywhere -- the fold flag this reward used to carry fired
+on roughly nine frames in ten of a recorded episode.
 
 Being *off the axis* is charged for separately from being *short of the end*.
 Distance along the vessel and distance from its centerline are independent, and
@@ -55,18 +60,10 @@ from typing import Any
 
 import torch
 
-from i4h_arena.medical.navigation_goal import (
-    ARRIVAL_TOLERANCE_M,
-    catheter_tip_world_m,
-    tip_distance_to_target_m,
-)
+from i4h_arena.medical.navigation_goal import catheter_tip_world_m
 
 #: Attribute holding the previous step's remaining arc, for the progress term.
 REMAINING_ARC_ATTR = "_catheter_remaining_arc_m"
-
-#: Attribute holding the previous step's approach potential, for the same
-#: reason and handled the same way.
-APPROACH_POTENTIAL_ATTR = "_catheter_approach_potential"
 
 #: Cache for the route tensors, keyed by device so a term does not rebuild the
 #: polyline on every call. The route is fixed for the life of the scene.
@@ -82,11 +79,6 @@ RADII_CACHE_ATTR = "_catheter_lumen_radii_cache"
 #: covers the tip travelling slightly further than the root it is fed from
 #: while the shaft straightens.
 MAX_STEP_ADVANCE_M = 0.0025
-
-#: Bend radius at or below which a node counts as folded, matching
-#: :func:`~i4h_arena.medical.newton_catheter_physics.containment_report`. The
-#: s0011 route's own tightest curve is 13.1 mm, so anatomy cannot trip it.
-FOLD_RADIUS_M = 0.010
 
 
 def _route_tensors(
@@ -281,8 +273,9 @@ def wall_penetration_penalty(
     a different particle count, and stops the cost drifting with insertion
     depth as particles parked at the entry stop padding the denominator.
 
-    The trade is that extent no longer registers -- one particle 2 mm out
-    scores the same as twenty -- which ``fold`` partly covers.
+    The trade is that extent no longer registers: one particle 2 mm out scores
+    the same as twenty, and nothing else in the configured reward charges for
+    the difference.
     """
     positions = env.scene["catheter"].data.positions_world_m
     if positions is None:
@@ -298,132 +291,6 @@ def wall_penetration_penalty(
     return torch.clamp(lateral_m - radii[segment], min=0.0).amax(dim=-1)
 
 
-def bend_radius_m(positions: torch.Tensor) -> torch.Tensor:
-    """Radius of curvature at every interior node, batched over environments.
-
-    The circumradius of each consecutive triple, matching
-    :func:`~i4h_arena.medical.newton_catheter_physics.bend_radii_m` so a reward
-    and a diagnostic cannot disagree about what counts as a fold. Straight and
-    coincident runs come back as ``inf``, which reads as no bend.
-    """
-    back = positions[:, 1:-1] - positions[:, :-2]
-    forward = positions[:, 2:] - positions[:, 1:-1]
-    span = positions[:, 2:] - positions[:, :-2]
-    twice_area = torch.linalg.norm(torch.cross(back, forward, dim=-1), dim=-1)
-    sides = torch.linalg.norm(back, dim=-1) * torch.linalg.norm(forward, dim=-1) * torch.linalg.norm(span, dim=-1)
-    return torch.where(
-        twice_area > 0.0,
-        sides / (2.0 * twice_area.clamp_min(1e-12)),
-        torch.full_like(twice_area, float("inf")),
-    )
-
-
-def fold_penalty(env: Any, fold_radius_m: float = FOLD_RADIUS_M) -> torch.Tensor:
-    """How hard the rod is folded, as mean excess curvature past the fold radius.
-
-    ``relu(fold_radius / radius - 1)`` per interior node: zero for any bend
-    gentler than the threshold, and growing without bound as a node creases.
-    Dimensionless, so it does not change meaning if the segment count changes,
-    and continuous, which the boolean version this replaces was not.
-    """
-    positions = env.scene["catheter"].data.positions_world_m
-    if positions is None:
-        return torch.zeros(int(env.num_envs), device=env.device)
-    points = torch.as_tensor(positions, dtype=torch.float32, device=env.device)
-    if points.shape[1] < 3 or not torch.isfinite(points).all():
-        return torch.zeros(int(env.num_envs), device=env.device)
-    radii = bend_radius_m(points)
-    excess = torch.clamp(float(fold_radius_m) / radii - 1.0, min=0.0)
-    return torch.nan_to_num(excess, nan=0.0, posinf=0.0).mean(dim=-1)
-
-
-def arrival_reward(
-    env: Any,
-    target_world_m: Iterable[float],
-    tolerance_m: float = ARRIVAL_TOLERANCE_M,
-) -> torch.Tensor:
-    """One for every step the tip spends inside the arrival tolerance.
-
-    Paid per step rather than once at termination so that the hold the success
-    criterion requires is itself worth something. A single terminal bonus leaves
-    the fifteen steps of holding unpaid, and an agent that has already banked
-    the approach has no reason to spend them.
-    """
-    within = tip_distance_to_target_m(env, target_world_m) <= float(tolerance_m)
-    return within.to(dtype=torch.float32)
-
-
-def approach_potential(
-    env: Any,
-    target_world_m: Iterable[float],
-    scale_m: float,
-) -> torch.Tensor:
-    """``exp(-distance / scale)``: one at the target, decaying over ``scale_m``.
-
-    The potential itself, which is not the reward. Separate from
-    :func:`approach_reward` so a test and a readout can ask what the shaping is
-    built on without going through a difference that needs two steps to mean
-    anything.
-    """
-    distance_m = tip_distance_to_target_m(env, target_world_m)
-    return torch.nan_to_num(torch.exp(-distance_m / float(scale_m)), nan=0.0, posinf=0.0)
-
-
-def approach_reward(
-    env: Any,
-    target_world_m: Iterable[float],
-    scale_m: float,
-) -> torch.Tensor:
-    """Change in straight-line closeness to the target, for the last few millimetres.
-
-    Remaining arc goes flat once the tip is within one route sample of the end,
-    so it cannot guide the final approach that the 5 mm tolerance is decided on.
-    This is the fine-scale companion, mirroring the two-scale position reward
-    the ultrasound probe reach task uses.
-
-    The *change*, for the reason progress pays a change: paid as a level this
-    term rewards sitting still near the target. At the previous weight of 1.0
-    the level form paid up to 1.0 every step for hovering, and hovering has no
-    end, so at the configured discount the best stationary spot just outside
-    the tolerance was worth roughly 150 against roughly 84 for holding the
-    arrival and terminating. Finishing the task was a pay cut. Differenced, a
-    stationary tip earns exactly nothing wherever it is parked, and the only
-    way to collect is to close distance.
-
-    Undiscounted, where strict policy invariance wants ``gamma * phi' - phi``.
-    The omission leaves a residual per-step payout of
-    ``weight * (1 - gamma) * phi``, which is about 0.019 at the target against
-    the 5.0 arrival pays there, so it cannot recreate the inversion. Taking
-    ``gamma`` as a parameter was the alternative and is worse: it would be a
-    second copy of the trainer's discount, free to drift from it, and a wrong
-    ``gamma`` breaks the invariance it was added to guarantee.
-    """
-    potential = approach_potential(env, target_world_m, scale_m)
-    previous = getattr(env, APPROACH_POTENTIAL_ATTR, None)
-    setattr(env, APPROACH_POTENTIAL_ATTR, potential.clone())
-    if previous is None or previous.shape != potential.shape:
-        return torch.zeros_like(potential)
-    # A reset environment carries nan until it takes its first step.
-    return torch.nan_to_num(potential - previous, nan=0.0)
-
-
-def reset_approach_potential(env: Any, env_ids: Any = None) -> None:
-    """Drop the stored potential so a reset environment earns no phantom step.
-
-    The counterpart of :func:`reset_route_progress`, and needed for the same
-    reason: an episode that ends at the target and resets to the vessel entry
-    would otherwise difference a potential near one against a potential near
-    zero and be charged the whole approach for the reset itself.
-    """
-    stored = getattr(env, APPROACH_POTENTIAL_ATTR, None)
-    if stored is None:
-        return
-    if env_ids is None:
-        delattr(env, APPROACH_POTENTIAL_ATTR)
-        return
-    stored[env_ids] = float("nan")
-
-
 def route_length_m(route_world_m: Iterable[Iterable[float]]) -> float:
     """Total arc length of a route, for sizing progress weights against the task."""
     path = [tuple(float(value) for value in point) for point in route_world_m]
@@ -431,19 +298,11 @@ def route_length_m(route_world_m: Iterable[Iterable[float]]) -> float:
 
 
 __all__ = [
-    "APPROACH_POTENTIAL_ATTR",
-    "FOLD_RADIUS_M",
     "MAX_STEP_ADVANCE_M",
     "REMAINING_ARC_ATTR",
-    "approach_potential",
-    "approach_reward",
-    "arrival_reward",
-    "bend_radius_m",
-    "fold_penalty",
     "lateral_offset_penalty",
     "project_to_route",
     "remaining_arc_state",
-    "reset_approach_potential",
     "reset_route_progress",
     "route_length_m",
     "route_progress_reward",
