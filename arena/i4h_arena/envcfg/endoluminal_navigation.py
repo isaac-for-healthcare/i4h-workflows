@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import MISSING
 
+import isaaclab.envs.mdp as base_mdp
 from isaaclab.managers import (
     EventTermCfg,
     ObservationGroupCfg,
@@ -48,14 +49,25 @@ from i4h_arena.medical.navigation_reward import (
 
 @configclass
 class CatheterNavigationTerminationsCfg:
-    """Arrival only.
+    """Arrival, and running out of time.
 
-    No ``time_out`` term on purpose: the runner already enforces the step
-    budget, and it runs teleop without one. Adding a time out here would start
-    resetting an interactive session that is expected to keep going.
+    ``time_out`` is declared ``time_out=True`` so Isaac Lab reports it as
+    truncation rather than termination, which is what a value function needs to
+    tell a step budget apart from an outcome: ``rsl_rl.algorithms.ppo`` adds
+    ``gamma * value`` for every environment flagged in ``extras["time_outs"]``,
+    and that flag is the ``time_out=True`` terms and nothing else. Without the
+    term it is false forever, so an episode whose only other ending is arrival
+    does not end at all -- and a policy that has not learned to arrive yet
+    never sees a reset.
+
+    The RLinf bridge caps episodes itself, so it does not need this. The stock
+    RSL-RL runner does not, and ``app.py`` strips the term for interactive runs
+    where the workflow runner owns the budget. Declared here so every consumer
+    gets the signal and the one that must not have it removes it explicitly.
     """
 
     success: TerminationTermCfg = MISSING
+    time_out: TerminationTermCfg = TerminationTermCfg(func=base_mdp.time_out, time_out=True)
 
 
 @configclass

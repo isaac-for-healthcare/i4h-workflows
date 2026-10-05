@@ -96,6 +96,24 @@ class EndoluminalNavigationScene(Scene):
     def configure_env_cfg(self, env_cfg: Any) -> None:
         from isaaclab.envs.common import ViewerCfg
 
+        # From the manifest rather than left at the framework's 50 s default,
+        # which at this scene's 30 Hz is 1500 control steps against the 600 the
+        # manifest and both PPO configs agree on. The `time_out` term turns
+        # this length into truncation, so a wrong one here is a third step
+        # budget that silently outvotes the other two.
+        #
+        # No ``+ 1`` as the other scenes use. That extra step leaves the
+        # workflow runner's own cap to end the episode first, but `app.py`
+        # strips the term on that path, so the only consumers are the RL
+        # trainers, which should truncate at the cap itself. The division is
+        # exact at these numbers: 600 / 30 is 20.0, and Isaac Lab recovers 600
+        # from it, where 601 / 30 rounds up to 602.
+        #
+        # ``getattr`` rather than the attribute the other scenes read directly:
+        # ``--episode-steps`` is an arena CLI option, and this scene also runs
+        # under the RSL-RL interop parser, which does not define it.
+        steps = getattr(self.args, "episode_steps", None) or self.spec.max_steps
+        env_cfg.episode_length_s = steps / self.spec.control_hz
         # A wider three-quarter view keeps the detector, arc, support, patient, and table
         # visible together in the viewport's narrower docked layout.
         env_cfg.viewer = ViewerCfg(eye=(2.45, -1.65, 1.65), lookat=(-0.25, 0.12, 0.78))

@@ -74,6 +74,44 @@ def test_distance_is_measured_from_the_tip_to_the_target():
     assert tip_distance_to_target_m(env, TARGET).item() == pytest.approx(0.1)
 
 
+def test_the_step_budget_is_reported_as_truncation_not_termination():
+    """``rsl_rl.algorithms.ppo`` bootstraps on ``extras["time_outs"]``, which is
+    the ``time_out=True`` terms and nothing else. Without one, an episode whose
+    only other ending is arrival never ends, and a policy that cannot arrive
+    yet never sees a reset.
+    """
+    from i4h_arena.envcfg.endoluminal_navigation import navigation_terminations_cfg
+
+    cfg = navigation_terminations_cfg(TARGET)
+
+    assert cfg.time_out.time_out is True
+    assert cfg.success.time_out is False
+
+
+def test_the_episode_length_matches_the_manifest_step_cap():
+    """Three places name the budget -- the manifest, both PPO configs, and this
+    length. The framework default is 50 s, which at 30 Hz is 1500 steps against
+    the 600 the others agree on, and the ``time_out`` term would make that
+    silently outvote them.
+    """
+    import math
+    from pathlib import Path
+
+    import yaml
+
+    manifests = Path(__file__).resolve().parents[1] / "i4h_arena/scenes/manifest"
+    for name in ("endoluminal_navigation", "endoluminal_navigation_arm"):
+        spec = yaml.safe_load((manifests / f"{name}.yaml").read_text(encoding="utf-8"))
+        steps = int(spec["max_steps"])
+        length_s = steps / float(spec["control_hz"])
+
+        # What Isaac Lab recomputes from the length: controls advance at
+        # ``1 / (sim.dt * decimation)``, which the embodiment pins to 30 Hz.
+        # Round-trips exactly, which is why this does not carry the extra step
+        # the other scenes add -- 601 / 30 comes back as 602.
+        assert math.ceil(length_s / (1.0 / 30.0)) == steps
+
+
 def test_endoluminal_navigation_uses_the_demonstration_arrival_tolerance():
     from i4h_arena.envcfg.endoluminal_navigation import (
         ENDOLUMINAL_ARRIVAL_TOLERANCE_M,
