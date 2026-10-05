@@ -55,7 +55,7 @@ as near-total success.
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable
+from collections.abc import Hashable, Iterable
 from typing import Any, NamedTuple
 
 import torch
@@ -65,8 +65,10 @@ from i4h_arena.medical.navigation_goal import catheter_tip_world_m
 #: Attribute holding the previous step's remaining arc, for the progress term.
 REMAINING_ARC_ATTR = "_catheter_remaining_arc_m"
 
-#: Cache for the route tensors, keyed by device so a term does not rebuild the
-#: polyline on every call. The route is fixed for the life of the scene.
+#: Cache for the route tensors, so a term does not rebuild the polyline on
+#: every call. Keyed by the route itself and not only by device: one entry per
+#: route is what makes a second route on the same device a miss rather than a
+#: silent substitution of the first.
 ROUTE_CACHE_ATTR = "_catheter_route_cache"
 
 #: Cache for the per-segment lumen radii, separate from the route so a term
@@ -85,20 +87,47 @@ TIP_STATE_CACHE_ATTR = "_catheter_tip_route_state"
 MAX_STEP_ADVANCE_M = 0.0025
 
 
+def _cache_key(values: Any) -> Hashable:
+    """A key that tells one route, or one set of radii, from another.
+
+    The configs pass tuples of floats, which are hashable as they stand, so
+    the hot path costs a hash and no conversion. Anything else is normalized,
+    which costs no more than building the tensors would have.
+    """
+    try:
+        hash(values)
+    except TypeError:
+        return tuple(tuple(float(value) for value in point) for point in values)
+    return values
+
+
 def _route_tensors(
     env: Any,
     route_world_m: Iterable[Iterable[float]],
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """``(starts, spans, start_arc)`` for the route, built once per device.
+    """``(starts, spans, start_arc)`` for the route, built once per route.
 
     ``start_arc`` is the cumulative arc at each segment's start, so a projection
     landing a fraction along segment *i* has arc ``start_arc[i] + fraction *
-    |spans[i]|``. Cached on the env because the route is fixed for the life of
-    the scene and every term projects onto it on every step.
+    |spans[i]|``. Cached on the env because every term projects onto the route
+    on every step.
+
+    One entry per route rather than one per device. A single slot keyed on the
+    device alone is correct only while the env never sees a second route, which
+    holds today because the reward, observation and termination configs are all
+    built from the same ``rod_spec.initial_path_world_m`` -- and stops holding
+    the moment a twin is randomized per episode, at which point the stale route
+    is returned silently. The dict grows by the number of distinct routes, so
+    twelve twins is twelve entries.
     """
+    key = (str(env.device), _cache_key(route_world_m))
     cache = getattr(env, ROUTE_CACHE_ATTR, None)
-    if cache is not None and cache[0] == str(env.device):
-        return cache[1]
+    if cache is None:
+        cache = {}
+        setattr(env, ROUTE_CACHE_ATTR, cache)
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
     path = torch.as_tensor(
         [tuple(float(value) for value in point) for point in route_world_m],
         dtype=torch.float32,
@@ -111,7 +140,7 @@ def _route_tensors(
     lengths = torch.linalg.norm(spans, dim=-1)
     start_arc = torch.cat((torch.zeros(1, device=env.device), torch.cumsum(lengths, dim=0)[:-1]))
     tensors = (starts, spans, start_arc)
-    setattr(env, ROUTE_CACHE_ATTR, (str(env.device), tensors))
+    cache[key] = tensors
     return tensors
 
 
@@ -120,17 +149,27 @@ def _segment_radii(env: Any, lumen_radii_m: Iterable[float] | None, segments: in
 
     Cached separately from the route so that a term reading the route alone
     cannot poison the cache for one that needs the wall too.
+
+    ``segments`` is part of the key, not just the widths: what is stored is
+    already truncated to it, so a slot keyed on the device alone would hand a
+    shorter route's slice to a longer one. Same reason the route cache keys on
+    the route -- see :func:`_route_tensors`.
     """
     if lumen_radii_m is None:
         return None
+    key = (str(env.device), _cache_key(lumen_radii_m), int(segments))
     cache = getattr(env, RADII_CACHE_ATTR, None)
-    if cache is not None and cache[0] == str(env.device):
-        return cache[1]
+    if cache is None:
+        cache = {}
+        setattr(env, RADII_CACHE_ATTR, cache)
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
     radii = torch.as_tensor([float(value) for value in lumen_radii_m], dtype=torch.float32, device=env.device)
     if radii.shape[0] < segments:
         raise ValueError(f"lumen radii cover {radii.shape[0]} of {segments} route segments")
     radii = radii[:segments]
-    setattr(env, RADII_CACHE_ATTR, (str(env.device), radii))
+    cache[key] = radii
     return radii
 
 

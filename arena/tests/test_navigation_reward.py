@@ -19,6 +19,10 @@ import torch
 
 from i4h_arena.medical.navigation_reward import (
     MAX_STEP_ADVANCE_M,
+)
+from i4h_arena.medical.navigation_reward import _route_tensors as _build_route_tensors
+from i4h_arena.medical.navigation_reward import (
+    _segment_radii,
     lateral_offset_penalty,
     project_to_route,
     reset_route_progress,
@@ -250,6 +254,62 @@ def test_penetration_grades_depth_rather_than_counting_contacts():
     deep.place(((0.2, 0.011, 0.0),) * 2)
 
     assert wall_penetration_penalty(deep, ROUTE, RADII) > wall_penetration_penalty(shallow, ROUTE, RADII)
+
+
+# --------------------------------------------------------------------------- #
+# The caches distinguish one route from another
+# --------------------------------------------------------------------------- #
+#: Half as long as ``ROUTE`` and along a different axis, so a term handed this
+#: after ``ROUTE`` cannot agree with one handed ``ROUTE`` by coincidence.
+OTHER_ROUTE = tuple((0.0, index / 20.0, 0.0) for index in range(11))
+
+
+def _cached_arc(env: _FakeEnv, route: tuple[tuple[float, float, float], ...]) -> float:
+    """Total arc of the route as the cache hands it back."""
+    _starts, spans, start_arc = _build_route_tensors(env, route)
+    return float(start_arc[-1] + torch.linalg.norm(spans[-1]))
+
+
+def test_a_second_route_is_not_served_the_first_one_s_tensors():
+    """The caches used to key on the device alone, so one env could only ever
+    hold one route. Correct while every config is built from the same
+    ``rod_spec``, wrong the moment a twin is randomized per episode."""
+    env = _env_at((0.4, 0.0, 0.0))
+
+    assert _cached_arc(env, ROUTE) == pytest.approx(1.0)
+    assert _cached_arc(env, OTHER_ROUTE) == pytest.approx(0.5)
+    # Back to the first, which must not have been evicted by the second.
+    assert _cached_arc(env, ROUTE) == pytest.approx(1.0)
+
+
+def test_a_second_set_of_radii_is_not_served_the_first_one_s():
+    env = _env_at((0.4, 0.004, 0.0))
+    narrow = tuple(0.001 for _ in ROUTE)
+
+    wide_penalty = lateral_offset_penalty(env, ROUTE, RADII)
+    narrow_penalty = lateral_offset_penalty(env, ROUTE, narrow)
+
+    assert narrow_penalty.item() > wide_penalty.item()
+
+
+def test_a_shorter_route_does_not_get_a_longer_one_s_radius_slice():
+    """What the radii cache stores is already truncated to the segment count,
+    so the count has to be part of the key and not only the widths."""
+    env = _env_at((0.4, 0.004, 0.0))
+
+    lateral_offset_penalty(env, ROUTE, RADII)
+    radii = _segment_radii(env, RADII, 4)
+
+    assert radii is not None
+    assert int(radii.shape[0]) == 4
+
+
+def test_a_route_the_configs_did_not_normalize_is_still_cacheable():
+    """The signature takes any iterable, and a list of lists is unhashable."""
+    env = _env_at((0.4, 0.0, 0.0))
+    listed = [list(point) for point in ROUTE]
+
+    assert _cached_arc(env, listed) == pytest.approx(_cached_arc(env, ROUTE))
 
 
 # --------------------------------------------------------------------------- #
