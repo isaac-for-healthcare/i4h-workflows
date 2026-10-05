@@ -120,7 +120,7 @@ Add `--record` to store synchronized actions, state, and fluoroscopy frames:
 
 Recordings are stored under `./runs/endoluminal_navigation/<timestamp>/`.
 
-Teleoperation ends the episode when the catheter tip reaches the distal end of the vessel centerline and holds there, so a demonstration is goal-terminated and stored with a success label. Without a patient twin there is no centerline, the criterion can never fire, and the episode runs to the step cap instead. `--record-failures` additionally keeps the attempts that time out; those are worth having, since a policy trained only on clean runs never learns to recover from a wrong branch.
+Teleoperation ends the episode when the catheter tip reaches the distal end of the vessel centerline and holds there, so a demonstration is goal-terminated and stored with a success label. Without a patient twin there is no centerline, the criterion can never fire, and the episode runs to the step cap instead. `--record-failures` additionally keeps attempts that time out for diagnosis. To teach recovery with IL, collect demonstrations that show a successful correction from a wrong branch.
 
 ### Policy rollout
 
@@ -136,7 +136,231 @@ Roll out a finetuned GR00T N1.7 checkpoint against the same goal the demonstrati
 
 The mode serves [`gr00t_n17/catheter_navigation`](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation.yaml), which declares no published checkpoint, so `--checkpoint` is required.
 
-Swap the workflow name to roll the same checkpoint out in the arm-borne scene, which serves [`gr00t_n17/catheter_navigation_arm`](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation_arm.yaml) instead. The two manifests differ only in the embodiment they name, which is what lint matches a task to a scene by. A checkpoint finetuned on recordings from either scene serves both: the `catheter` and `carm` modality groups are identical, and the arm's seven servo'd joints arrive as a third `arm` state group the policy does not read.
+Swap the workflow name to roll the same checkpoint out in the arm-borne scene, which serves [`gr00t_n17/catheter_navigation_arm`](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation_arm.yaml) instead. Both scenes use the same policy groups: `catheter`, `carm`, `target`, and `route`. The arm's seven servo'd joints are additional recorded state that GR00T does not consume. The arm task is inference-only; recordings from either scene train the shared `gr00t_n17/catheter_navigation` task.
+
+## IL to RL Pipeline and Training Strategy
+
+Imitation learning (IL) teaches GR00T N1.7 to copy demonstrated velocity commands. Reinforcement learning (RL) then lets that checkpoint interact with the simulator and updates it with PPO according to the navigation reward. These are separate training stages: the remote Task owns IL, and `rl/` owns vectorized simulation and online RL outside Workflow run modes.
+
+```text
+Teleoperation -> HDF5 recordings -> LeRobot dataset -> GR00T N1.7 IL checkpoint
+    -> baseline Isaac Sim evaluation -> RLinf PPO -> native RL checkpoint
+    -> RL evaluation -> GR00T export -> policy_n17 evaluation in Isaac Sim
+```
+
+### Model inputs and actions
+
+The current [modality configuration](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/config_catheter.py) consumes a fluoroscopy image, a language instruction, and nine numeric state values:
+
+| Input group | Values | Meaning |
+| --- | --- | --- |
+| `video.fluoroscopy` | One image, resized to 256 × 256 by the Task | Current X-ray projection |
+| `state.catheter` | 3 | Insertion depth, axial rotation, and tip bend |
+| `state.carm` | 1 | C-arm orbit angle |
+| `state.target` | 3 | Target minus tip position in world XYZ, in metres |
+| `state.route` | 2 | Remaining curved-route distance and tip lateral offset, in metres |
+| Language | Task description | What navigation task to perform |
+
+The RL Scene additionally publishes the tip's 3-D position and direction, producing a 15-value environment state. The [RL adapter](../../../rl/i4h_rl/adapters/endoluminal_navigation.py) maps only the nine values above into GR00T. The arm's joint positions are not policy inputs.
+
+The four outputs are insertion velocity (m/s), axial rotation rate (rad/s), tip bend rate (rad/s), and C-arm orbit rate (rad/s). They are commands to move the instrument and imaging gantry, rather than desired XYZ tip coordinates. IL predicts 16-step action sequences; the RL configuration uses one action chunk for its PPO policy.
+
+Older checkpoints trained with only `catheter` and `carm` state do not have the current target/route contract. Reconvert compatible demonstrations and fine-tune with the current modality configuration and normalization statistics before using those checkpoints with this profile. Changing the input configuration alone does not teach an existing checkpoint to use the new values.
+
+### 1. Collect and convert demonstrations
+
+Use a patient twin so recording, goal labels, and reward all refer to the same route. For the intended Franka deployment, collect and validate in `endoluminal_navigation_arm`, which uses the coupled MJWarp + XPBD solver. Its four command channels match the armless scene, but the carrier arm changes the simulated dynamics.
+
+```bash
+./run.sh endoluminal_navigation_arm --teleop \
+  --patient-twin /absolute/path/to/patient_twin.yaml \
+  --record --record-failures
+```
+
+Keep successful, well-controlled demonstrations for the initial IL dataset. Retain failed recordings for diagnosis; blindly copying failed actions does not teach recovery. Demonstrate recovery explicitly when it should become policy behavior.
+
+Inspect the actual HDF5 file, then convert it into a new dataset directory:
+
+```bash
+RUN_DIR="$(pwd)/runs/endoluminal_navigation_arm/$(date +%Y%m%d_%H%M%S)"
+DATASET_DIR="$RUN_DIR/lerobot/local/catheter_navigation"
+uv run --project tools/dataset i4h-dataset inspect /absolute/path/to/recording.hdf5 --segments
+uv run --project tools/dataset i4h-dataset convert \
+  /absolute/path/to/recording.hdf5 "$DATASET_DIR" \
+  --robot franka_catheter --repo-id local/catheter_navigation \
+  --patient-twin /absolute/path/to/patient_twin.yaml \
+  --successful-only \
+  --task "Steer the catheter along the vessel and stop at the target branch"
+```
+
+For armless recordings, use `--robot catheter`. The [converter](../../../tools/dataset/i4h_tools/dataset/cli.py) derives the five target/route columns from the recorded tip trajectory and the twin's route. It requires the `diagnostics/tip_world_m` trajectory; an old recording without that trajectory cannot supply these columns merely by naming a patient twin. Verify nonzero episode count, camera videos, episode parquet files, and `meta/info.json`, `meta/stats.json`, and `meta/modality.json` before training.
+
+The converter also accepts multiple HDF5 inputs before the output path. This allows recordings of subjects `s0058`, `s0223`, and `s0250` to share one dataset and normalization statistics. For that case, omit `--patient-twin`: each recording must have a sibling `run.json` identifying its own twin. Do not assign one anatomy's route to all three subjects. Use recordings from the same embodiment descriptor in one conversion.
+
+### 2. Fine-tune and evaluate GR00T N1.7
+
+Both embodiments train the [shared catheter Task](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation.yaml). Resolve the configuration first:
+
+```bash
+uv run --project tasks/gr00t_n17 i4h-tasks-gr00t-n17-train \
+  --task gr00t_n17/catheter_navigation \
+  --dataset "$DATASET_DIR" --output-dir "$RUN_DIR/il_checkpoints" \
+  --max-steps 10000 --save-steps 1000 --batch-size 32 --num-gpus 1 \
+  --dry-run
+```
+
+Remove `--dry-run` to train. These example values match the Task defaults: base model `nvidia/GR00T-N1.7-3B`, 10,000 optimizer steps, and checkpoints every 1,000 steps. The training wrapper defaults to learning rate `1e-4`, training the projector and diffusion model while leaving the language backbone and vision tower frozen. The resolved dry-run output is the authority for an individual run.
+
+Select an actual saved checkpoint directory and establish a baseline with the [policy rollout command](#policy-rollout), using the arm workflow for arm deployment. Compare success, final route distance, and wall behavior across repeated episodes. A lower IL loss means closer agreement with demonstration commands; it does not establish navigation success.
+
+### 3. Post-train with RLinf PPO
+
+The [arm profile](../../../rl/profiles/endoluminal_navigation_arm.yaml) selects RLinf and requires a patient twin plus a compatible local IL checkpoint. Preview it, then resolve a short, one-anatomy smoke run:
+
+```bash
+./train.sh rl show endoluminal_navigation_arm
+./train.sh rl endoluminal_navigation_arm \
+  --model-path /absolute/path/to/il_checkpoint \
+  --patient-twin /absolute/path/to/patient_twin.yaml \
+  --num-envs 1 --epochs 2 --dry-run
+```
+
+Remove `--dry-run` to run. For a training run, choose the environment count and epoch budget explicitly. Logs and checkpoints go under `runs/endoluminal_navigation_arm/<timestamp>/`; `--run-dir` can name a new directory in that layout.
+
+Profiles default to model GPU 0 and simulator GPU 1, with separate Python processes to isolate their dependencies. A single GPU is supported by prefixing the command with `I4H_RL_SIM_GPU=0`; model, simulation, and rendering then share its memory. The defaults of four arm environments and eight armless environments are starting estimates, not measured hardware limits. Measure memory and step throughput before raising them.
+
+The current [PPO configuration](../../../rl/config/endoluminal_navigation_arm_ppo_gr00t.yaml) uses:
+
+| Parameter | Default | Interpretation |
+| --- | --- | --- |
+| PPO epochs | 500 | Maximum outer collection/update cycles |
+| Rollout batches per update | 8 | Collect all eight before a PPO update |
+| Steps per rollout / episode budget | 600 | At most 20 seconds of simulated control time at 30 Hz |
+| PPO passes | 4 | Reuse the collected batch for four optimizer passes |
+| Discount `gamma` / GAE `lambda` | 0.995 / 0.95 | Weight future reward and smooth advantage estimates |
+| Policy / value learning rate | `5e-6` / `1e-4` | Update the action policy slowly and its reward predictor faster |
+| PPO clip ratio | 0.2 | Limit the change in action probability |
+| Micro / global batch size | 2 / 240 | Per-device working batch and optimizer batch size |
+| Precision / training backend | bf16 / FSDP | Model arithmetic and parameter handling |
+| Checkpoint interval | 2 | Save every two outer epochs |
+
+With `N` environments, a collection cycle has a configured budget of `8 × 600 × N` environment steps. Global batch size must divide the trainer's collected sample count; action chunking affects how those samples are represented. Slow wall-clock rollout time is possible even though an episode represents only 20 simulated seconds.
+
+### Dense reward: advance, follow the route, avoid the wall
+
+The reward quantities are implemented in [navigation_reward.py](../../../arena/i4h_arena/medical/navigation_reward.py). Their weights and the final three-term wiring are in [`navigation_rewards_cfg`](../../../arena/i4h_arena/envcfg/endoluminal_navigation.py). Isaac Lab's reward manager sums the weighted terms with control-step time scaling:
+
+```text
+delta_s = clamp(previous_remaining - current_remaining, -0.0025, +0.0025)
+lateral_cost = max(tip_lateral - 0.5 * local_lumen_radius, 0) / local_lumen_radius
+wall_depth = max_over_rod_particles(max(particle_lateral - local_lumen_radius, 0))
+
+reward = dt_control * (400 * delta_s - 0.1 * lateral_cost - 400 * wall_depth)
+dt_control = 1/30 second
+```
+
+| Term | Simple meaning | How to interpret it |
+| --- | --- | --- |
+| `route_progress` | Pay for moving forward along the curved vessel | Forward progress is positive, retreat is negative, standing still earns zero. The ±2.5 mm clamp limits reward from jumps in nearest-route projection. |
+| `lateral` | Charge for straying too far from the planned centerline | The inner half of the local radius is free. Beyond it, the cost grows with deviation relative to vessel size. |
+| `penetration` | Charge for the deepest rod point outside the modeled lumen | Measures the whole catheter, including the shaft. A 2.5 mm violation cancels a maximum-scale progress term for that step before the lateral cost. |
+
+Remaining distance is measured along an ordered 3-D centerline polyline, including its curves. The shared [route builder](../../../common/i4h_common/navigation_route.py) resamples the route at 7.5 mm spacing for both simulation and dataset conversion. The tip is projected onto the nearest segment, and remaining arc equals total route length minus the projected arc position. These sampled points describe one continuous route; the policy is not rewarded for reaching discrete waypoints in sequence. At bifurcations, the selected route encodes the intended branch. Reward can favor that route, but the policy must also receive useful goal cues and demonstrations to steer into it.
+
+The wall cost approximates the lumen with route points and local radii; it is not a tissue-damage model. If radii are absent, both lateral and penetration weights are zero. No approach bonus, arrival bonus, fold flag penalty, or action-rate penalty is configured. Reward is feedback used during training, rather than another observation passed to GR00T.
+
+Success is a separate [termination criterion](../../../arena/i4h_arena/medical/navigation_goal.py): the tip must stay within the configured straight-line target tolerance for 15 consecutive control steps (about 0.5 seconds). The endoluminal default is **8 mm**, overridable with `I4H_CATHETER_ARRIVAL_MM`; the generic medical helper defaults to 5 mm. Keep the same tolerance when collecting, training, and comparing evaluations. The 600-step budget is a timeout/truncation, not success. High route progress alone cannot establish arrival or safe navigation.
+
+### Monitoring in TensorBoard and Weights & Biases
+
+Open the run's events using the TensorBoard installation in the GR00T environment:
+
+```bash
+tasks/gr00t_n17/.venv/bin/tensorboard \
+  --logdir /absolute/path/to/rl_run/tensorboard --port 6006
+```
+
+Look in **Scalars** (or the scalar cards in the **Time Series** view). The [rollout monitor](../../../rl/i4h_rl/rollout_monitor.py) flushes metrics after each completed rollout batch, while PPO loss appears only after all eight batches and the optimizer update. Its scalar step is the total completed rollout count. Values describe completed batches, not live tip motion between them.
+
+| Metric | Meaning | Useful interpretation |
+| --- | --- | --- |
+| `monitor/success_rate` | Fraction of environments that satisfied arrival at least once in that batch | Zero means no observed arrival; it does not mean zero movement. With one environment the batch value is 0 or 1, so compare many batches. |
+| `monitor/mean_return` | Mean accumulated reward across environments | Compare trends with the same anatomy, weights, tolerance, and horizon. Higher can mean better progress or fewer costs; it is not itself success. |
+| `monitor/mean_reward` | Mean of accumulated reward divided by elapsed steps | Average reward per step, rather than total episode return or an individual reward term. |
+| `monitor/mean_episode_length` | Mean elapsed episode steps in the adapter | Reaching the budget with zero success suggests timeout. Interpret alongside success because a shorter run alone need not be better. |
+| `monitor/rollout_index`, `monitor/progress_fraction` | Position within the eight batches for the current update | Confirms collection is advancing; resets its cycle after each update. |
+| `monitor/rollout_duration_seconds`, `monitor/estimated_seconds_to_update` | Measured batch duration and estimated remaining collection time | Throughput indicators; the estimate does not include the upcoming PPO optimization time. |
+| PPO policy/value losses and optimizer statistics | Policy update size and error in predicted return | Useful for diagnosing unstable updates. Their decline alone does not prove the catheter is reaching the target. |
+
+`rollout_progress.json` in the run directory provides the same small batch-progress summary for external monitoring. A process being alive, a monitor event file, and a successful rollout are different observations. For assessing learning, prioritize success over repeated evaluations, remaining curved-route distance, lateral deviation, and wall penetration. The latter geometry diagnostics must be read from available simulator logs or explicitly added as metrics; the monitor above does not currently emit them.
+
+RLinf defaults to TensorBoard. After authenticating with `tasks/gr00t_n17/.venv/bin/wandb login`, enable both trainer backends with the additional argument `--set 'runner.logger.logger_backends=[tensorboard,wandb]'`. The custom `monitor/*` writer remains a TensorBoard writer; enabling the trainer's W&B backend does not automatically mirror that writer's scalars.
+
+### Anatomy curriculum, evaluation, and checkpoint handoff
+
+Start with an IL baseline and a short one-anatomy RL run to verify compatible inputs, finite rewards, PPO updates, and saved checkpoints. Then evaluate whether progress improves without increasing wall violations. For Franka deployment, include the arm scene in both training and evaluation even when an armless run is useful for faster diagnostics.
+
+The current RL launcher takes one `--patient-twin` per run; increasing `--num-envs` creates more environments on that same anatomy. To continue across `s0058`, `s0223`, and `s0250`, run explicit stages and use `--resume-dir /absolute/path/to/previous_rl_run` with the same compatible `--model-path`. Resume restores training state; it is not automatic per-episode anatomy sampling. Sequential anatomy stages can forget earlier subjects, so re-evaluate all training subjects after each stage and reserve additional anatomies for held-out evaluation. Mixed-anatomy IL data can provide a broader initialization before this sequence.
+
+RLinf saves native actor weights under `actor/model_state_dict/full_weights.pt` inside its checkpoints. On successful completion, the wrapper writes `checkpoint.json` in the run directory to identify the latest weights, base checkpoint, and trainer configuration. Those native weights need export before normal GR00T Workflow serving:
+
+```bash
+./train.sh rl endoluminal_navigation_arm --eval \
+  --checkpoint /absolute/path/to/rl_run \
+  --patient-twin /absolute/path/to/patient_twin.yaml --num-envs 1
+
+./train.sh rl export endoluminal_navigation_arm \
+  --checkpoint /absolute/path/to/rl_run \
+  --output-dir /absolute/path/to/exported_gr00t_checkpoint
+
+./run.sh endoluminal_navigation_arm --mode policy_n17 \
+  --checkpoint /absolute/path/to/exported_gr00t_checkpoint \
+  --patient-twin /absolute/path/to/patient_twin.yaml --episodes 10
+```
+
+Use the run directory containing `checkpoint.json`, or a supported native checkpoint path with its corresponding configuration. Inspect the evaluation output and visibly validate the exported policy in Isaac Sim; written checkpoint files alone do not demonstrate task success. Keep the physics setup, solver revision, arrival tolerance, input contract, and patient twin traceable with the run artifacts.
+
+### Validate checkpoints and check whether the policy is learning
+
+Checkpoint validation has two parts: confirm that inference can load the model, then measure what it does in the simulator. Apply both to the IL checkpoint and to each selected RL checkpoint after export.
+
+First, run a load check through the actual GR00T serving backend. Set `CHECKPOINT` to the IL checkpoint directory or the exported RL checkpoint directory:
+
+```bash
+CHECKPOINT=/absolute/path/to/gr00t_checkpoint
+uv run --project tasks/gr00t_n17 python -m i4h_tasks.gr00t_n17.server \
+  --namespace catheter-checkpoint-smoke \
+  --preload gr00t_n17/catheter_navigation_arm \
+  --checkpoint "$CHECKPOINT" --preload-only
+```
+
+A successful exit confirms model loading; the simulator rollout still needs to verify that the observation/action contract works and the catheter navigates. Run repeated episodes and retain failures so that the recordings show the complete evaluation rather than only successful attempts:
+
+```bash
+EVAL_RUN="$(pwd)/runs/endoluminal_navigation_arm/$(date +%Y%m%d_%H%M%S)"
+./run.sh endoluminal_navigation_arm --mode policy_n17 \
+  --checkpoint "$CHECKPOINT" \
+  --patient-twin /absolute/path/to/patient_twin.yaml \
+  --episodes 20 --record --record-failures --run-dir "$EVAL_RUN"
+```
+
+Repeat this for an early and a later IL checkpoint, then for the initial IL checkpoint and selected exported RL checkpoints. Use fresh evaluation directories. Compare the same anatomies, initial conditions, sampling settings, solver revision, control rate, arrival tolerance, and 600-step budget. Repeat on held-out anatomies as well as training subjects. Twenty episodes is a useful first comparison, not a guarantee of a reliable success estimate; repeated identical deterministic episodes only test repeatability, so include varied valid starts or additional subjects when assessing robustness.
+
+For a native RL checkpoint, also run the RLinf `--eval` command in the previous subsection. It performs evaluation without PPO updates and writes `evaluation.json` containing `eval/success_once`, `eval/return`, `eval/episode_len`, and `eval/num_trajectories`. For RLinf, `--episodes` is not an episode-count control; evaluation volume comes from the environment count and evaluation rollout configuration. Read the reported trajectory count. The wrapper reports failure when no task success is observed, even if the simulator completed its evaluation normally.
+
+| Comparison | Evidence of improvement | What it does not establish |
+| --- | --- | --- |
+| Arrival success across matched evaluation episodes | A higher fraction reaches and holds at the target | One lucky success does not establish reliable navigation |
+| Final remaining route distance, including failed episodes | Less vessel remains when success is still zero | Minimum distance reached once can hide retreat or unstable motion |
+| Lateral offset and deepest wall penetration over the trajectory | More progress with equal or lower deviation and penetration | Shorter route distance achieved by cutting through the wall is not an improvement |
+| Completion steps among successful episodes | Reaches and holds sooner with similar wall behavior | A short failed or prematurely stopped episode is not better |
+| Performance on held-out anatomies | Gains extend beyond the training route | Better performance on one training subject may be memorization |
+
+Use simulator readouts and recorded trajectories to assess the geometry rows; they are not all automatically included in `monitor/*` or `evaluation.json`. Report both the number of successful episodes and the number evaluated, and preserve timeout/failure results. A reward increase is useful supporting evidence only when the reward configuration is unchanged and wall behavior also improves.
+
+For IL, falling training loss means the model better matches training demonstrations. Check simulator behavior and performance on demonstrations or anatomies excluded from training to see whether that improvement generalizes. For RL, falling PPO or value loss means the optimizer is fitting its collected data; compare independent evaluation runs against the unchanged IL baseline to establish navigation improvement. If success remains zero but remaining route distance decreases without higher lateral offset or penetration, that is measurable partial progress. If those quantities and success are unchanged across several checkpoint evaluations, the losses alone do not support a claim that navigation is improving.
+
+For a real procedure, target offset and route distances require a registered anatomical plan and a compatible estimate of the tip's 3-D position. A fluoroscopy image alone does not directly supply these simulator values. Match the observations available on the real system before deploying a policy trained with them.
 
 ## Unified Simulation Loop
 
