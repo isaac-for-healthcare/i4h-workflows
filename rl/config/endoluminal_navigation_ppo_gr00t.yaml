@@ -206,8 +206,13 @@ actor:
     queue_size: 0
   training_backend: fsdp
   micro_batch_size: 2
-  # One update collects 8 rollout epochs * 600 steps * 1 environment =
-  # 4,800 samples. RLinf requires this size to divide evenly.
+  # Constrained only by `micro_batch_size` * actor world size, which is all
+  # RLinf asserts for an embodied FSDP run; it does not need to divide the
+  # rollout, and `io_struct._get_global_batches` tolerates one that does not.
+  # A rollout is rollout_epoch * max_steps_per_rollout_epoch * envs =
+  # 8 * 600 * 8 = 38,400 samples, where the env count comes from the profile's
+  # `default_num_envs` by way of `--num-envs`; the `total_num_envs` above is
+  # overwritten by the launcher and cannot change this arithmetic.
   global_batch_size: 240
   seed: 1234
   enable_offload: false
