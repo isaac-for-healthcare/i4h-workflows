@@ -73,6 +73,18 @@ def test_distance_is_measured_from_the_tip_to_the_target():
     assert tip_distance_to_target_m(env, TARGET).item() == pytest.approx(0.1)
 
 
+def test_endoluminal_navigation_uses_the_demonstration_arrival_tolerance():
+    from i4h_arena.envcfg.endoluminal_navigation import (
+        ENDOLUMINAL_ARRIVAL_TOLERANCE_M,
+        navigation_terminations_cfg,
+    )
+
+    cfg = navigation_terminations_cfg(TARGET)
+
+    assert ENDOLUMINAL_ARRIVAL_TOLERANCE_M == pytest.approx(0.008)
+    assert cfg.success.params["tolerance_m"] == pytest.approx(0.008)
+
+
 def test_a_missing_polyline_never_counts_as_arrival():
     """Newton has no particles to read until its model is finalized."""
     env = _FakeEnv(None)

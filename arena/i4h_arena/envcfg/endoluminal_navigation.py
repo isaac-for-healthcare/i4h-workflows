@@ -25,7 +25,6 @@ from isaaclab.utils.configclass import configclass
 
 from i4h_arena.medical.navigation_goal import (
     ARRIVAL_HOLD_STEPS,
-    ARRIVAL_TOLERANCE_M,
     reached_navigation_target,
     reset_arrival_progress,
 )
@@ -138,6 +137,11 @@ LATERAL_WEIGHT = -0.1
 #: Normalize 2.5 mm of wall penetration to a penalty of one.
 PENETRATION_WEIGHT = -1.0 / MAX_STEP_ADVANCE_M
 
+#: Endoluminal demonstrations are labelled successful within 8 mm of the
+#: target. Keep the RL termination aligned with that data contract while the
+#: shared medical navigation default remains the stricter 5 mm.
+ENDOLUMINAL_ARRIVAL_TOLERANCE_M = 0.008
+
 
 @configclass
 class CatheterNavigationRewardsCfg:
@@ -186,7 +190,7 @@ def navigation_rewards_cfg(
 def navigation_terminations_cfg(
     target_world_m: Iterable[float],
     *,
-    tolerance_m: float = ARRIVAL_TOLERANCE_M,
+    tolerance_m: float = ENDOLUMINAL_ARRIVAL_TOLERANCE_M,
     hold_steps: int = ARRIVAL_HOLD_STEPS,
     route_world_m: Iterable[Iterable[float]] | None = None,
 ) -> CatheterNavigationTerminationsCfg:
@@ -220,6 +224,7 @@ __all__ = [
     "CatheterNavigationObservationsCfg",
     "CatheterNavigationRewardsCfg",
     "CatheterNavigationTerminationsCfg",
+    "ENDOLUMINAL_ARRIVAL_TOLERANCE_M",
     "navigation_observations_cfg",
     "navigation_rewards_cfg",
     "navigation_terminations_cfg",
