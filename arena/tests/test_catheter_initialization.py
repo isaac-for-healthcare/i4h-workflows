@@ -191,6 +191,7 @@ def test_reset_restores_all_pose_buffers_without_reallocation_or_neighbor_change
 def test_scene_reset_publishes_both_newton_states_and_survives_readback(rod_factory, monkeypatch):
     import sys
     import types
+
     import warp as wp
     from catheter_vasculature_solver import RodParticleBridge, RodParticleRange
 
@@ -225,3 +226,49 @@ def test_scene_reset_publishes_both_newton_states_and_survives_readback(rod_fact
     before = states[0].particle_q.numpy().copy()
     publish_reset_state(rod, particle_range, states, [])
     np.testing.assert_array_equal(states[0].particle_q.numpy(), before)
+
+
+def _soft_runs(stiffness: np.ndarray) -> tuple[int, int]:
+    """Softened edge count and how many separate softened stretches there are.
+
+    A correct taper is one stretch at the distal end of each rod, so the run
+    count is what distinguishes a tapered rod from the same profile stamped
+    repeatedly along one.
+    """
+    ratio = stiffness[:, 0] / stiffness[:, 0].max()
+    soft = (ratio < 0.95).astype(int)
+    return int(soft.sum()), int(np.diff(soft).clip(min=0).sum() + soft[0])
+
+
+@pytest.mark.parametrize("envs", [1, 4])
+def test_the_tip_taper_reaches_the_buffers_the_solve_reads(rod_factory, envs):
+    """Every rod gets one taper, in both workspaces.
+
+    The batched workspace is a separate allocation seeded by tiling, and the
+    batched solve reads only it, so tapering `_ws` alone leaves the tip as stiff
+    as the shaft in every multi-rod run. The per-rod edge count has to come from
+    each workspace too: `_ws` is one rod wide whatever the environment count is,
+    so recovering it by division stamps the profile once per environment along
+    that single rod -- and 120 edges divide evenly by the 8 and 4 environments
+    the RL profiles ask for, so no size check refuses it.
+    """
+    import warp as wp
+
+    from i4h_arena.medical.catheter_initialization import solver_workspaces
+    from i4h_arena.medical.newton_catheter_physics import _taper_tip_bend_stiffness
+
+    edges, tip = 24, 6
+    rod = rod_factory(edges=edges, envs=envs)
+    _taper_tip_bend_stiffness(rod, num_tip_edges=tip, tip_fraction=0.2)
+
+    workspaces = solver_workspaces(rod)
+    assert len(workspaces) == (2 if envs > 1 else 1)
+    for workspace in workspaces:
+        stiffness = wp.to_torch(workspace.bend_stiffness).numpy()
+        rods = stiffness.shape[0] // edges
+        softened, runs = _soft_runs(stiffness)
+        assert runs == rods, f"{rods} rods should carry {rods} tapers, found {runs}"
+        assert softened == rods * (tip - 1), (workspace, softened)
+        # And it is the distal end of each rod that softened, not the proximal.
+        per_rod = stiffness[:, 0].reshape(rods, edges)
+        assert (per_rod[:, -1] < per_rod[:, 0]).all()

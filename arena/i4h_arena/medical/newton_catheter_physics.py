@@ -289,7 +289,7 @@ def vessel_compliance_override(environ: Any = None) -> tuple[float, float, float
     in ``[0, 1]`` -- so ``"0.5,0.01,0.01"`` restates the defaults. They share a
     variable because they trade off against each other: how much of a contact
     correction the wall takes, and how much of the resulting motion survives to
-    the next step. Returns ``None`` when unset or unparseable, leaving the
+    the next step. Returns ``None`` when unset or unparsable, leaving the
     spec's values alone, since a mistyped diagnostic should not pick the
     physics.
     """
@@ -347,20 +347,30 @@ def tip_bend_stiffness_profile(
 
 
 def _taper_tip_bend_stiffness(solver: Any, *, num_tip_edges: int, tip_fraction: float) -> None:
-    """Apply :func:`tip_bend_stiffness_profile` to a built solver's edges."""
+    """Apply :func:`tip_bend_stiffness_profile` to a built solver's edges.
+
+    Every workspace, because they hold separate allocations and the batched
+    solve reads only the batched one. The rod length comes from each workspace's
+    own edge count rather than from dividing its buffer by the environment
+    count: the single-rod workspace is one rod wide whatever the environment
+    count is, so dividing it repeats the profile once per environment along a
+    single rod.
+    """
     import warp as wp
 
-    workspace = solver._ws
-    stiffness = wp.to_torch(workspace.bend_stiffness)
-    total_edges = int(stiffness.shape[0])
-    num_envs = max(int(getattr(solver, "num_envs", 1)), 1)
-    if total_edges % num_envs:
-        raise RuntimeError(f"{total_edges} edges do not divide across {num_envs} environments")
-    per_env = total_edges // num_envs
-    shaft = stiffness.view(num_envs, per_env, 3)[0, 0].clone()
-    profile = tip_bend_stiffness_profile(1.0, per_env, num_tip_edges, tip_fraction)
-    scale = stiffness.new_tensor(profile).unsqueeze(-1)
-    stiffness.view(num_envs, per_env, 3).copy_((shaft * scale).expand(num_envs, per_env, 3))
+    from .catheter_initialization import solver_workspaces, workspace_edges_per_env
+
+    for workspace in solver_workspaces(solver):
+        stiffness = wp.to_torch(workspace.bend_stiffness)
+        total_edges = int(stiffness.shape[0])
+        per_env = workspace_edges_per_env(workspace)
+        if per_env <= 0 or total_edges % per_env:
+            raise RuntimeError(f"{total_edges} edges are not a whole number of {per_env}-edge rods")
+        rods = total_edges // per_env
+        shaft = stiffness.view(rods, per_env, 3)[0, 0].clone()
+        profile = tip_bend_stiffness_profile(1.0, per_env, num_tip_edges, tip_fraction)
+        scale = stiffness.new_tensor(profile).unsqueeze(-1)
+        stiffness.view(rods, per_env, 3).copy_((shaft * scale).expand(rods, per_env, 3))
 
 
 def segment_inverse_inertia(mass_kg: float, radius_m: float, segment_length_m: float) -> float:
@@ -401,8 +411,10 @@ def _apply_physical_rotational_inertia(solver: Any, *, radius_m: float, segment_
     """
     import warp as wp
 
+    from .catheter_initialization import solver_workspaces
+
     inv_inertia = None
-    for workspace in (getattr(solver, "_ws", None), getattr(solver, "_bws", None)):
+    for workspace in solver_workspaces(solver):
         diagonal = getattr(workspace, "inv_inertia_local_diag", None)
         if diagonal is None:
             continue
@@ -695,23 +707,19 @@ def _seed_shaft_rest_darboux(
     import torch
     import warp as wp
 
+    from .catheter_initialization import solver_workspaces, workspace_edges_per_env
+
     seeded = torch.as_tensor(np.asarray(positions_world_m, dtype=np.float32)).reshape(-1, 3)
     full_curvature = rest_darboux_along_polyline(seeded, segment_length_m) * float(scale)
 
-    # Both workspaces can exist, and the batched solve reads only the batched
-    # buffers, so writing one of them alone would silently do nothing.
-    for workspace, edges_attr in ((solver._bws, "num_edges_per_rod"), (solver._ws, "num_edges")):
-        if workspace is None:
-            continue
-        num_edges = int(getattr(workspace, edges_attr, 0) or 0)
+    for workspace in solver_workspaces(solver):
+        num_edges = workspace_edges_per_env(workspace)
         shaft = num_edges - max(int(num_tip_edges), 0)
         if num_edges <= 0 or shaft <= 0:
             continue
         rest = wp.to_torch(workspace.rest_darboux)
-        # Env count from the buffers rather than an attribute, whose name differs
-        # between the two workspaces.
-        num_envs = max(rest.shape[0] // num_edges, 1)
-        rest = rest.view(num_envs, num_edges, 3)
+        rods = max(rest.shape[0] // num_edges, 1)
+        rest = rest.view(rods, num_edges, 3)
         if full_curvature.shape[0] < shaft:
             raise RuntimeError(
                 f"polyline gives {full_curvature.shape[0]} edge curvatures, " f"too few for {shaft} shaft edges"

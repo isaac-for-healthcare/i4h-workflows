@@ -67,6 +67,57 @@ def rod_frames_along_polyline(positions_world_m: np.ndarray) -> np.ndarray:
     return frames.astype(np.float32)
 
 
+def solver_workspaces(solver: Any) -> tuple[Any, ...]:
+    """The rod solver's live constraint buffers, batched one first.
+
+    ``XPBDRodSolver`` keeps its state on two workspaces and exposes neither.
+    ``_ws`` always exists and is sized for a single rod; ``_bws`` is built only
+    when the solver was asked for more than one environment, holds
+    ``num_envs * num_edges_per_rod``, and is seeded by tiling the single-rod
+    values. They are separate allocations from then on, and the batched solve
+    reads only the batched ones, so anything that writes material properties
+    has to write both or it writes nothing that matters.
+
+    Collected here because getting that wrong is quiet. ``bend_stiffness`` was
+    tapered on ``_ws`` alone, which left the taper inert in every multi-rod run
+    and, because the per-environment edge count was recovered by dividing a
+    single-rod buffer by the environment count, stamped the profile once per
+    environment down one rod. A rod of 120 edges divides evenly by the 8 and 4
+    environments the profiles ask for, so no size check caught it.
+
+    One reach rather than four, and the one place to change when physics-sim
+    grows a public accessor. It already has the shape for one: ``velocities``
+    is ``self._bws.velocities if self._bws is not None else self._ws.velocities``.
+    The three buffers this layer writes -- ``bend_stiffness``,
+    ``inv_inertia_local_diag`` and ``rest_darboux`` -- are not among the ones
+    exposed that way.
+
+    Batched first so a caller that only needs one buffer reads the one the
+    solve will actually use.
+    """
+    workspaces = (getattr(solver, "_bws", None), getattr(solver, "_ws", None))
+    live = tuple(workspace for workspace in workspaces if workspace is not None)
+    if not live:
+        raise RuntimeError(
+            "rod solver exposes no workspace; `_ws`/`_bws` are private and may have been renamed upstream"
+        )
+    return live
+
+
+def workspace_edges_per_env(workspace: Any) -> int:
+    """Edges of one rod in ``workspace``, whichever name it files them under.
+
+    The batched workspace counts ``num_edges_per_rod`` and the single-rod one
+    ``num_edges``. Same quantity, and asking for the wrong one returns zero
+    rather than failing, so both names are tried here instead of at each site.
+    """
+    for name in ("num_edges_per_rod", "num_edges"):
+        edges = int(getattr(workspace, name, 0) or 0)
+        if edges > 0:
+            return edges
+    return 0
+
+
 def initialize_rod_state(solver: Any, positions_world_m: np.ndarray) -> None:
     """Seed current, predicted and reset state before stepping or graph capture.
 
@@ -79,9 +130,7 @@ def initialize_rod_state(solver: Any, positions_world_m: np.ndarray) -> None:
     if points.shape != (solver.num_points, 3):
         raise ValueError(f"positions must have shape ({solver.num_points}, 3), got {points.shape}")
     frames = rod_frames_along_polyline(points)
-    for workspace in (solver._ws, solver._bws):
-        if workspace is None:
-            continue
+    for workspace in solver_workspaces(solver):
         copies = workspace.positions.shape[0] // len(points)
         positions = np.tile(points, (copies, 1))
         orientations = np.tile(frames, (copies, 1))
