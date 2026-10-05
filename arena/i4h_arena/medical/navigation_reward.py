@@ -56,7 +56,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, NamedTuple
 
 import torch
 
@@ -72,6 +72,10 @@ ROUTE_CACHE_ATTR = "_catheter_route_cache"
 #: Cache for the per-segment lumen radii, separate from the route so a term
 #: that needs only the route cannot deny the wall to one that needs both.
 RADII_CACHE_ATTR = "_catheter_lumen_radii_cache"
+
+#: Cache for the step's tip projection, as ``(step, state)``. Dropped on
+#: reset by :func:`reset_tip_route_state`.
+TIP_STATE_CACHE_ATTR = "_catheter_tip_route_state"
 
 #: Largest advance one control step can make, in metres. The drive clamps
 #: insertion to 0.05 m/s (``CatheterDriveSpec.max_insertion_velocity_mps``) and
@@ -155,23 +159,73 @@ def project_to_route(
     return arc_m, lateral_m, segment
 
 
-def tip_route_state(
-    env: Any,
-    route_world_m: Iterable[Iterable[float]],
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None:
-    """``(remaining_m, lateral_m, total_m)`` for every environment's tip.
+class TipRouteState(NamedTuple):
+    """One projection of every tip onto the route, shared by every term."""
 
-    ``None`` before Newton finalizes its model, when there are no particles and
-    the tip reads as infinite. Every term treats that as "pay nothing" rather
-    than guessing, since a projection of an infinite point is meaningless.
+    remaining_m: torch.Tensor
+    lateral_m: torch.Tensor
+    total_m: torch.Tensor
+    segment: torch.Tensor
+    #: Per environment, false where the tip is not a finite point.
+    valid: torch.Tensor
+
+
+def reset_tip_route_state(env: Any, env_ids: Any = None) -> None:
+    """Drop the cached projection so a reset environment is re-projected.
+
+    Isaac Lab computes rewards, then resets, then observations, all under one
+    ``common_step_counter``. Without this the observation handed to a reset
+    environment is the projection of where its tip was before the rod was
+    re-seeded, which is the staleness the upstream comment at
+    ``manager_based_rl_env.py`` ("done after reset to get the correct
+    observations for reset envs") exists to avoid.
+
+    The whole cache goes rather than the reset rows: it is one projection to
+    rebuild, against a partial update that has to agree with ``env_ids``.
     """
-    tip = catheter_tip_world_m(env)
-    if not torch.isfinite(tip).all():
-        return None
+    if hasattr(env, TIP_STATE_CACHE_ATTR):
+        delattr(env, TIP_STATE_CACHE_ATTR)
+
+
+def tip_route_state(env: Any, route_world_m: Iterable[Iterable[float]]) -> TipRouteState:
+    """Where every environment's tip sits on the route.
+
+    ``valid`` is per environment. Before Newton finalizes its model there are
+    no particles and it is false everywhere; a rod that diverges on its own
+    makes it false for that one environment. The distinction is the point: a
+    batch-wide test zeroed progress, the lateral penalty and the route
+    observation for all eight environments whenever one of them exploded, and
+    a zeroed route observation reads as remaining arc zero, which is the
+    signature of a perfect arrival.
+
+    A non-finite tip is substituted with the route's first point *before*
+    projecting rather than masked after. Projecting an infinity gives an
+    infinite offset, and ``inf * 0`` is ``nan``, so the order is the
+    difference between a zero and a poisoned batch. It also leaves the
+    unreadable environment reading as parked at the vessel entrance with the
+    whole route ahead of it -- a guess, but not one that can be mistaken for
+    arrival.
+
+    Cached for the step because Isaac Lab computes each reward term and each
+    observation separately and all of them want this one projection. The mask
+    stays a tensor throughout, so nothing here forces a host synchronization;
+    the batch-wide ``torch.isfinite(tip).all()`` it replaces was called in a
+    Python conditional three times per step.
+    """
+    step = int(getattr(env, "common_step_counter", -1))
+    cached = getattr(env, TIP_STATE_CACHE_ATTR, None)
+    if cached is not None and cached[0] == step:
+        return cached[1]
     starts, spans, start_arc = _route_tensors(env, route_world_m)
     total_m = start_arc[-1] + torch.linalg.norm(spans[-1])
-    arc_m, lateral_m, _ = project_to_route(tip, starts, spans, start_arc)
-    return torch.clamp(total_m - arc_m, min=0.0), lateral_m, total_m
+    tip = catheter_tip_world_m(env)
+    valid = torch.isfinite(tip).all(dim=-1)
+    arc_m, lateral_m, segment = project_to_route(
+        torch.where(valid.unsqueeze(-1), tip, starts[0]), starts, spans, start_arc
+    )
+    state = TipRouteState(torch.clamp(total_m - arc_m, min=0.0), lateral_m, total_m, segment, valid)
+    setattr(env, TIP_STATE_CACHE_ATTR, (step, state))
+    return state
 
 
 def remaining_arc_state(env: Any) -> torch.Tensor | None:
@@ -208,17 +262,18 @@ def route_progress_reward(
     a one-sided clamp would pay more for a round trip than for standing still.
     """
     state = tip_route_state(env, route_world_m)
-    if state is None:
-        return torch.zeros(int(env.num_envs), device=env.device)
-    remaining_m, _, _ = state
+    remaining_m = state.remaining_m
+    # An unreadable tip is stored as nan rather than as the arc its substituted
+    # position projects to, which is the whole route: differencing against that
+    # on the step it becomes readable again would pay out the entire task.
     previous = getattr(env, REMAINING_ARC_ATTR, None)
-    setattr(env, REMAINING_ARC_ATTR, remaining_m.clone())
+    setattr(env, REMAINING_ARC_ATTR, torch.where(state.valid, remaining_m, torch.full_like(remaining_m, float("nan"))))
     if previous is None or previous.shape != remaining_m.shape:
         return torch.zeros_like(remaining_m)
     limit = abs(float(max_step_advance_m))
     advance = torch.clamp(previous - remaining_m, -limit, limit)
-    # A reset environment carries nan until it takes its first step.
-    return torch.nan_to_num(advance, nan=0.0)
+    # A reset environment, and one whose tip was unreadable last step, carry nan.
+    return torch.nan_to_num(advance, nan=0.0) * state.valid
 
 
 def lateral_offset_penalty(
@@ -243,16 +298,15 @@ def lateral_offset_penalty(
     against the wall in a branch.
     """
     state = tip_route_state(env, route_world_m)
-    if state is None:
-        return torch.zeros(int(env.num_envs), device=env.device)
-    _, lateral_m, _ = state
-    starts, spans, start_arc = _route_tensors(env, route_world_m)
+    starts, _spans, _start_arc = _route_tensors(env, route_world_m)
     radii = _segment_radii(env, lumen_radii_m, int(starts.shape[0]))
     if radii is None:
         return torch.zeros(int(env.num_envs), device=env.device)
-    _, _, segment = project_to_route(catheter_tip_world_m(env), starts, spans, start_arc)
-    allowed = radii[segment].clamp_min(1e-6)
-    return torch.clamp(lateral_m - float(free_fraction) * allowed, min=0.0) / allowed
+    # The segment comes off the shared projection. This used to project the
+    # same tip onto the same route a second time to recover it.
+    allowed = radii[state.segment].clamp_min(1e-6)
+    offset = torch.clamp(state.lateral_m - float(free_fraction) * allowed, min=0.0) / allowed
+    return offset * state.valid
 
 
 def wall_penetration_penalty(
@@ -281,14 +335,19 @@ def wall_penetration_penalty(
     if positions is None:
         return torch.zeros(int(env.num_envs), device=env.device)
     points = torch.as_tensor(positions, dtype=torch.float32, device=env.device)
-    if not torch.isfinite(points).all():
-        return torch.zeros(int(env.num_envs), device=env.device)
     starts, spans, start_arc = _route_tensors(env, route_world_m)
     radii = _segment_radii(env, lumen_radii_m, int(starts.shape[0]))
     if radii is None:
         return torch.zeros(int(env.num_envs), device=env.device)
-    _, lateral_m, segment = project_to_route(points, starts, spans, start_arc)
-    return torch.clamp(lateral_m - radii[segment], min=0.0).amax(dim=-1)
+    # Per environment and substituted before projecting, for the reason
+    # :func:`tip_route_state` is: one diverged rod used to zero the wall cost
+    # for every environment in the batch, and masking an infinity afterwards
+    # yields nan rather than zero.
+    valid = torch.isfinite(points).flatten(1).all(dim=-1)
+    _, lateral_m, segment = project_to_route(
+        torch.where(valid.view(-1, 1, 1), points, starts[0]), starts, spans, start_arc
+    )
+    return torch.clamp(lateral_m - radii[segment], min=0.0).amax(dim=-1) * valid
 
 
 def route_length_m(route_world_m: Iterable[Iterable[float]]) -> float:
@@ -300,10 +359,13 @@ def route_length_m(route_world_m: Iterable[Iterable[float]]) -> float:
 __all__ = [
     "MAX_STEP_ADVANCE_M",
     "REMAINING_ARC_ATTR",
+    "TIP_STATE_CACHE_ATTR",
+    "TipRouteState",
     "lateral_offset_penalty",
     "project_to_route",
     "remaining_arc_state",
     "reset_route_progress",
+    "reset_tip_route_state",
     "route_length_m",
     "route_progress_reward",
     "tip_route_state",

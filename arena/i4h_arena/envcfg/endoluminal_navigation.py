@@ -42,6 +42,7 @@ from i4h_arena.medical.navigation_reward import (
     MAX_STEP_ADVANCE_M,
     lateral_offset_penalty,
     reset_route_progress,
+    reset_tip_route_state,
     route_progress_reward,
     wall_penetration_penalty,
 )
@@ -76,6 +77,10 @@ class CatheterNavigationEventsCfg:
     # Route progress is differenced across a step, so it must forget the
     # previous episode or the reset itself would be scored as a move.
     reset_route_progress = EventTermCfg(func=reset_route_progress, mode="reset")
+    # IsaacLab rewards, then resets, then observes, all under one step
+    # counter, so the step's cached tip projection has to go with the reset
+    # or the new episode's first observation describes the old tip.
+    reset_tip_route_state = EventTermCfg(func=reset_tip_route_state, mode="reset")
 
 
 @configclass

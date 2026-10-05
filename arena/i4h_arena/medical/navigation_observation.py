@@ -56,14 +56,25 @@ def _zeros(env: Any, width: int) -> torch.Tensor:
 
 
 def _polyline(env: Any) -> torch.Tensor | None:
-    """The catheter polyline as finite float32, or ``None`` when unreadable."""
+    """The catheter polyline as finite float32, or ``None`` when unreadable.
+
+    ``None`` only for a shape this module cannot read at all, which really is
+    a property of the whole batch. A rod that diverges is not, and testing it
+    batch-wide meant one of them zeroed the tip readings for all eight. Its
+    points are replaced with its environment origin instead, which leaves the
+    three terms below reading as parked at the entry pointing nowhere with the
+    target still the full distance away -- the same thing their zeros already
+    mean for an unbound rod, and never mistakable for arrival.
+    """
     positions = env.scene["catheter"].data.positions_world_m
     if positions is None:
         return None
     points = torch.as_tensor(positions, dtype=torch.float32, device=env.device)
-    if points.ndim != 3 or points.shape[1] < 2 or not torch.isfinite(points).all():
+    if points.ndim != 3 or points.shape[1] < 2:
         return None
-    return points
+    valid = torch.isfinite(points).flatten(1).all(dim=-1)
+    origin = _env_origins(env, points[:, 0, :]).unsqueeze(1)
+    return torch.where(valid.view(-1, 1, 1), points, origin)
 
 
 def _env_origins(env: Any, like: torch.Tensor) -> torch.Tensor:
@@ -144,12 +155,16 @@ def route_state(env: Any, route_world_m: Iterable[Iterable[float]]) -> torch.Ten
     left; lateral offset says whether the tip is threading the lumen or riding
     its wall. They are independent, and a policy given only the first cannot
     tell a good approach from one pinned against the outside of a curve.
+
+    Not zeroed when the tip is unreadable, which is what this used to do: a
+    remaining arc of zero is the signature of a perfect arrival, so an
+    exploded rod -- or any rod, since the test was batch-wide -- reported the
+    task complete. The substitution in :func:`tip_route_state` puts an
+    unreadable tip at the vessel entrance instead, which reads as the whole
+    route still ahead.
     """
     state = tip_route_state(env, route_world_m)
-    if state is None:
-        return _zeros(env, ROUTE_STATE_DIM)
-    remaining_m, lateral_m, _ = state
-    return torch.stack((remaining_m, lateral_m), dim=-1).to(dtype=torch.float32)
+    return torch.stack((state.remaining_m, state.lateral_m), dim=-1).to(dtype=torch.float32)
 
 
 def drive_state(env: Any) -> torch.Tensor:

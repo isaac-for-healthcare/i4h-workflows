@@ -193,6 +193,33 @@ def test_route_state_reports_remaining_arc_and_lateral_offset():
     assert lateral == pytest.approx(0.02, abs=1e-4)
 
 
+def test_one_exploded_rod_does_not_zero_the_batch_s_tip_readings():
+    """A batch-wide finiteness test meant one diverged rod reported every tip
+    at its origin, every direction unknown, and every target reached."""
+    env = _env_at((0.4, 0.0, 0.0))
+    env.num_envs = 2
+    healthy = env.scene["catheter"].data.positions_world_m
+    exploded = torch.full_like(healthy, float("inf"))
+    env.scene["catheter"].data.positions_world_m = torch.cat((healthy, exploded))
+
+    assert tip_position(env)[0].tolist() == pytest.approx([0.4, 0.0, 0.0])
+    assert tip_direction(env)[0].tolist() == pytest.approx([1.0, 0.0, 0.0])
+    assert torch.isfinite(target_offset(env, (1.0, 0.0, 0.0))).all()
+
+
+def test_an_unreadable_rod_does_not_report_the_target_reached():
+    """Zeroing the offset says the tip is on the target. An unreadable rod
+    reads as still at the entry, the full distance away."""
+    env = _env_at((0.4, 0.0, 0.0))
+    env.scene["catheter"].data.positions_world_m = torch.full_like(
+        env.scene["catheter"].data.positions_world_m, float("inf")
+    )
+
+    offset = target_offset(env, (1.0, 0.0, 0.0))
+
+    assert torch.linalg.norm(offset).item() == pytest.approx(float(torch.linalg.norm(torch.tensor((1.0, 0.0, 0.0)))))
+
+
 def test_route_state_separates_arc_from_alignment():
     """The recorded failure: nearly all the arc closed, badly off the axis."""
     on_axis = route_state(_env_at((0.99, 0.0, 0.0)), ROUTE).squeeze(0)

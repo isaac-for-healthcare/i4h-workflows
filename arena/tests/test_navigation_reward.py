@@ -22,8 +22,10 @@ from i4h_arena.medical.navigation_reward import (
     lateral_offset_penalty,
     project_to_route,
     reset_route_progress,
+    reset_tip_route_state,
     route_length_m,
     route_progress_reward,
+    tip_route_state,
     wall_penetration_penalty,
 )
 
@@ -39,10 +41,16 @@ class _FakeEnv:
     def __init__(self, num_envs: int = 1) -> None:
         self.num_envs = num_envs
         self.device = "cpu"
+        # The terms share one projection per value of this counter, so moving
+        # the rod without advancing it would be a second read of the same step
+        # and is answered from the cache -- correctly, and not what a test that
+        # means "one step later" is asking.
+        self.common_step_counter = 0
         self.scene = {"catheter": SimpleNamespace(data=SimpleNamespace(positions_world_m=None))}
 
     def place(self, *polylines: tuple[tuple[float, float, float], ...]) -> None:
         self.scene["catheter"].data.positions_world_m = torch.tensor(polylines, dtype=torch.float32)
+        self.common_step_counter += 1
 
     def place_tip(self, *tips: tuple[float, float, float]) -> None:
         """Give each environment a short polyline ending at ``tips[i]``."""
@@ -242,6 +250,95 @@ def test_penetration_grades_depth_rather_than_counting_contacts():
     deep.place(((0.2, 0.011, 0.0),) * 2)
 
     assert wall_penetration_penalty(deep, ROUTE, RADII) > wall_penetration_penalty(shallow, ROUTE, RADII)
+
+
+# --------------------------------------------------------------------------- #
+# One diverged rod does not speak for the batch
+# --------------------------------------------------------------------------- #
+def _with_one_exploded_rod() -> _FakeEnv:
+    """Two environments, the second one's tip blown to infinity."""
+    env = _FakeEnv(num_envs=2)
+    env.place_tip((0.2, 0.004, 0.0), (0.5, 0.004, 0.0))
+    points = env.scene["catheter"].data.positions_world_m.clone()
+    points[1, -1, :] = float("inf")
+    env.scene["catheter"].data.positions_world_m = points
+    env.common_step_counter += 1
+    return env
+
+
+def test_one_exploded_rod_does_not_zero_its_neighbours():
+    """The defect: a batch-wide finiteness test meant one diverged rod zeroed
+    progress, the lateral penalty and the route observation for every
+    environment, so seven healthy ones were told nothing they did mattered.
+    """
+    env = _with_one_exploded_rod()
+
+    lateral = lateral_offset_penalty(env, ROUTE, RADII)
+    penetration = wall_penetration_penalty(env, ROUTE, RADII)
+
+    assert lateral[0].item() > 0.0
+    assert lateral[1].item() == pytest.approx(0.0)
+    assert penetration[1].item() == pytest.approx(0.0)
+
+
+def test_an_unreadable_tip_is_substituted_before_projecting_not_masked_after():
+    """``inf * 0`` is ``nan``, so masking the result of projecting an infinity
+    poisons the batch instead of zeroing one row."""
+    env = _with_one_exploded_rod()
+
+    state = tip_route_state(env, ROUTE)
+
+    assert torch.isfinite(state.lateral_m).all()
+    assert torch.isfinite(lateral_offset_penalty(env, ROUTE, RADII)).all()
+    assert state.valid.tolist() == [True, False]
+
+
+def test_an_unreadable_tip_reads_as_the_whole_route_ahead_not_as_arrival():
+    """Zeroing the route observation reports remaining arc zero, which is the
+    signature of a perfect arrival. An unreadable rod must not claim the task
+    is done."""
+    env = _with_one_exploded_rod()
+
+    state = tip_route_state(env, ROUTE)
+
+    assert state.remaining_m[1].item() == pytest.approx(state.total_m.item())
+
+
+def test_a_tip_that_comes_back_is_not_paid_for_the_route_it_never_travelled():
+    """The substituted position projects to the start of the route. Stored as
+    an arc, the step it became readable again would difference the whole route
+    and pay out the entire task."""
+    env = _with_one_exploded_rod()
+    route_progress_reward(env, ROUTE)
+
+    env.place_tip((0.2, 0.004, 0.0), (0.5, 0.004, 0.0))
+
+    assert route_progress_reward(env, ROUTE).tolist() == pytest.approx([0.0, 0.0], abs=1e-6)
+
+
+def test_the_projection_is_shared_by_every_term_within_one_step():
+    """Three terms and an observation wanted the same projection of the same
+    tip, and the batch-wide test each one ran was a host synchronization."""
+    env = _env_at((0.2, 0.004, 0.0))
+
+    first = tip_route_state(env, ROUTE)
+
+    assert tip_route_state(env, ROUTE) is first
+
+
+def test_a_reset_environment_is_re_projected_rather_than_served_the_stale_step():
+    """IsaacLab rewards, then resets, then observes, all under one step
+    counter, so the cache has to go with the reset or the new episode's first
+    observation describes where the old tip was."""
+    env = _env_at((0.9, 0.0, 0.0))
+    before = tip_route_state(env, ROUTE).remaining_m.item()
+
+    env.scene["catheter"].data.positions_world_m = torch.tensor(
+        [[(0.0, 0.0, 0.0), (0.05, 0.0, 0.0), (0.1, 0.0, 0.0)]], dtype=torch.float32
+    )
+    reset_tip_route_state(env)
+
+    assert tip_route_state(env, ROUTE).remaining_m.item() > before
 
 
 # --------------------------------------------------------------------------- #
