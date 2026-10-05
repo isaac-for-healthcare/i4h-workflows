@@ -373,6 +373,48 @@ def monitor_owns_run_dir(seed_offset: int) -> bool:
     return int(seed_offset) == 0
 
 
+#: Where ``route_state`` lands in the concatenated bridge vector. Derived from
+#: the key order rather than written as 13, so reordering ``STATE_KEYS`` moves
+#: this with it instead of silently reporting a different pair of columns.
+ROUTE_STATE_START = sum(STATE_WIDTHS[: STATE_KEYS.index("route_state")])
+
+
+def _resets_every_env(args: tuple, kwargs: dict) -> bool:
+    """Whether a ``reset`` call clears all envs rather than a named subset.
+
+    The base signature is ``reset(seed=None, env_ids=None)``, so the subset
+    arrives either way round. Every reset is whole today -- RLinf resets at the
+    top of a rollout epoch and its partial path runs only under ``auto_reset``,
+    which that class pins to false -- so this keeps the measurement honest if
+    that changes rather than fixing a live fault.
+    """
+    return kwargs.get("env_ids", args[1] if len(args) > 1 else None) is None
+
+
+def route_progress_metrics(route_state: Any, origin_remaining_m: Any) -> dict[str, float]:
+    """How far down the vessel the tip travelled, and how far off-centre it ran.
+
+    The return alone cannot say. ``route_progress`` pays metres of arc closed
+    while ``lateral`` and ``penetration`` only subtract, so one return value is
+    consistent both with a catheter that barely moved and with one that covered
+    the distance while scraping the wall -- and those want opposite fixes.
+
+    Taken from the route observation rather than from the reward manager's
+    per-term episode sums. IsaacLab does compute those, but RLinf's env base
+    passes a fresh ``{}`` in place of the step's ``extras`` before any subclass
+    sees it, so they never reach this process. The two route columns are already
+    policy inputs, so this costs one host sync on the step that records.
+    """
+    if route_state is None or origin_remaining_m is None:
+        return {}
+    remaining = route_state[:, 0].float()
+    return {
+        "mean_remaining_m": float(remaining.mean()),
+        "mean_advance_m": float((origin_remaining_m.float() - remaining).mean()),
+        "mean_abs_lateral_m": float(route_state[:, 1].float().abs().mean()),
+    }
+
+
 def _get_workflow_env_class():
     from rlinf.envs.isaaclab.isaaclab_env import IsaaclabBaseEnv
 
@@ -382,6 +424,10 @@ def _get_workflow_env_class():
             self._rollout_monitor_recorded = False
             self._rollout_monitor_steps = 0
             self._rollout_monitor_threshold = 0
+            # Before `super().__init__`, which resets and so wraps an
+            # observation while this object is still being built.
+            self._route_state = None
+            self._route_origin_m = None
             seed_offset = kwargs.get("seed_offset", args[2] if len(args) > 2 else 0)
             super().__init__(*args, **kwargs)
             run_dir = os.environ.get("I4H_RL_RUN_DIR")
@@ -403,17 +449,28 @@ def _get_workflow_env_class():
             self.env.reset(seed=self.seed)
 
         def reset(self, *args, **kwargs):
+            # Cleared before the reset, not after: the base class wraps the
+            # reset observation on the way out, and that observation is what
+            # seeds the arc this episode is measured from. Only on a whole
+            # reset -- re-seeding every env when some of them carried on would
+            # charge their advance so far to the episode that follows.
+            if _resets_every_env(args, kwargs):
+                self._route_origin_m = None
             obs = super().reset(*args, **kwargs)
             self._rollout_monitor_recorded = False
             self._rollout_monitor_steps = 0
             return obs
 
         def _wrap_obs(self, obs):
-            return wrap_workflow_observation(
+            wrapped = wrap_workflow_observation(
                 obs,
                 task_description=self.task_description,
                 num_envs=self.num_envs,
             )
+            self._route_state = wrapped["states"][:, ROUTE_STATE_START : ROUTE_STATE_START + 2]
+            if self._route_origin_m is None:
+                self._route_origin_m = self._route_state[:, 0].clone()
+            return wrapped
 
         def _record_metrics(self, step_reward, terminations, infos):
             episode_info = {}
@@ -435,6 +492,7 @@ def _get_workflow_env_class():
                     mean_reward=episode_info["reward"].float().mean().item(),
                     mean_episode_length=episode_info["episode_len"].float().mean().item(),
                     success_rate=episode_info["success_once"].float().mean().item(),
+                    **route_progress_metrics(self._route_state, self._route_origin_m),
                 )
                 self._rollout_monitor_recorded = True
             return infos

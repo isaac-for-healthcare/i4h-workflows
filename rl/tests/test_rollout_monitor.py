@@ -131,3 +131,90 @@ def test_only_the_first_env_worker_writes_the_run_directory():
     assert monitor_owns_run_dir(0)
     assert not monitor_owns_run_dir(1)
     assert not monitor_owns_run_dir(7)
+
+
+# --------------------------------------------------------------------------- #
+# What the recorded numbers say about the run
+# --------------------------------------------------------------------------- #
+def test_the_route_columns_are_found_by_name_not_by_a_written_offset():
+    """`route_state` is last today; the offset must follow it if that changes,
+    because the wrong pair of columns reads as a plausible distance."""
+    from i4h_rl.adapters.endoluminal_navigation import (
+        ROUTE_STATE_START,
+        STATE_KEYS,
+        STATE_WIDTHS,
+    )
+
+    assert STATE_KEYS[-1] == "route_state", "the offset is derived, but this pins today's layout"
+    assert ROUTE_STATE_START == sum(STATE_WIDTHS[:-1]) == 13
+
+
+def test_advance_and_lateral_separate_a_stuck_run_from_a_scraping_one():
+    """The return cannot tell these apart. `route_progress` pays metres closed
+    and the other two terms only subtract, so one return value fits both a
+    catheter that barely moved and one that covered ground while hugging the
+    wall -- and they want opposite fixes.
+    """
+    import torch
+
+    from i4h_rl.adapters.endoluminal_navigation import route_progress_metrics
+
+    origin = torch.tensor([0.4212, 0.4212])
+    # One env stuck a millimetre in and centred, one well down the vessel and
+    # pressed against the wall.
+    route = torch.tensor([[0.4200, 0.0005], [0.3012, -0.0090]])
+
+    metrics = route_progress_metrics(route, origin)
+    assert metrics["mean_advance_m"] == pytest.approx((0.0012 + 0.1200) / 2, abs=1e-6)
+    assert metrics["mean_remaining_m"] == pytest.approx((0.4200 + 0.3012) / 2, abs=1e-6)
+    # Absolute: which side of the centreline the tip sits on is not the point.
+    assert metrics["mean_abs_lateral_m"] == pytest.approx((0.0005 + 0.0090) / 2, abs=1e-6)
+
+
+def test_nothing_is_reported_before_an_observation_has_been_seen():
+    """Recording a zero advance the policy never earned would read as a stuck
+    run. An absent key is honest; a fabricated zero is not."""
+    import torch
+
+    from i4h_rl.adapters.endoluminal_navigation import route_progress_metrics
+
+    assert route_progress_metrics(None, None) == {}
+    assert route_progress_metrics(torch.zeros((2, 2)), None) == {}
+
+
+def test_the_route_metrics_reach_the_progress_file_and_tensorboard(tmp_path):
+    """The point of measuring advance is reading it mid-run, so check it lands
+    where a run is actually watched rather than only that it was computed."""
+    import torch
+
+    from i4h_rl.adapters.endoluminal_navigation import route_progress_metrics
+
+    writer = FakeWriter()
+    monitor = RolloutProgressMonitor(tmp_path, rollouts_per_update=8, writer_factory=lambda _path: writer)
+    # The 20261005_080734 epoch, whose 0.4976 return was all anyone could read.
+    monitor.record(
+        mean_return=0.4976,
+        **route_progress_metrics(torch.tensor([[0.419956, 0.0005]]), torch.tensor([0.4212])),
+    )
+
+    metrics = json.loads((tmp_path / "rollout_progress.json").read_text())["metrics"]
+    # `route_progress` pays 400 per metre, so 400 x 1.244 mm is the entire
+    # return: the penalties took nothing and the catheter simply did not move.
+    # That is the reading the return alone could not distinguish from a
+    # catheter that crossed the vessel and was penalised back down to 0.4976.
+    assert metrics["mean_advance_m"] * 400 == pytest.approx(0.4976, abs=1e-4)
+    assert metrics["mean_abs_lateral_m"] == pytest.approx(0.0005, abs=1e-6)
+    assert any(tag == "monitor/mean_advance_m" for tag, _value, _step in writer.scalars)
+
+
+def test_a_reset_of_only_some_envs_leaves_the_others_measured_from_their_start():
+    """Re-seeding every env when some carried on would charge the advance they
+    had already made to the episode that follows, reading as a sudden stall."""
+    from i4h_rl.adapters.endoluminal_navigation import _resets_every_env
+
+    assert _resets_every_env((), {})
+    assert _resets_every_env((7,), {"env_ids": None})
+    # Positional, which is how the base signature `reset(seed, env_ids)` takes
+    # it, and by keyword.
+    assert not _resets_every_env((7, [0, 2]), {})
+    assert not _resets_every_env((), {"env_ids": [0, 2]})
