@@ -1,0 +1,138 @@
+#usda 1.0
+(
+    defaultPrim = "World"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+# Synthetic replacements for missing textures; see README.md for provenance.
+# Reference the original scene so its geometry, physics and other assets stay upstream.
+def "World" (
+    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.5.0/132c82d/Props/Organs/organs.usd@</World>
+)
+{
+    over "organ_shaders"
+    {
+        over "Looks"
+        {
+            over "c_organ_graph_bladder"
+            {
+                over "diffuseReflectionColor_texture"
+                {
+                    asset inputs:texture = @./materials/organs/Bladder/Bladder_topo_blender_diffuseReflectionColor.1001.png@ (
+                        colorSpace = "sRGB"
+                    )
+                    over "file_texture"
+                    {
+                        asset inputs:texture (
+                            colorSpace = "sRGB"
+                        )
+                    }
+                }
+                over "normalmap_texture"
+                {
+                    asset inputs:texture = @./materials/organs/Bladder/Bladder_topo_blender_geometryNormal.1001.png@ (
+                        colorSpace = "raw"
+                    )
+                }
+                over "specularReflectionRoughness_texture"
+                {
+                    asset inputs:texture = @./materials/organs/Bladder/Bladder_topo_blender_specularReflectionRoughness.1001.png@ (
+                        colorSpace = "raw"
+                    )
+                    over "file_texture"
+                    {
+                        asset inputs:texture (
+                            colorSpace = "raw"
+                        )
+                    }
+                }
+                over "subsurfaceWeight_texture"
+                {
+                    asset inputs:texture = @./materials/organs/Bladder/Bladder_topo_blender_subsurfaceWeight.1001.png@ (
+                        colorSpace = "raw"
+                    )
+                    over "file_texture"
+                    {
+                        asset inputs:texture (
+                            colorSpace = "raw"
+                        )
+                    }
+                }
+                over "normalmap_texture_01"
+                {
+                    asset inputs:texture = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.5.0/132c82d/Props/Organs/materials/human_skin_normal_detail.jpg@ (
+                        colorSpace = "raw"
+                    )
+                }
+            }
+            over "c_organ_graph_prostate"
+            {
+                over "diffuseReflectionColor_texture"
+                {
+                    asset inputs:texture = @./materials/organs/Bladder/Bladder_topo_blender_diffuseReflectionColor.1001.png@ (
+                        colorSpace = "sRGB"
+                    )
+                    over "file_texture"
+                    {
+                        asset inputs:texture (
+                            colorSpace = "sRGB"
+                        )
+                    }
+                }
+                over "normalmap_texture"
+                {
+                    asset inputs:texture = @./materials/organs/Bladder/Bladder_topo_blender_geometryNormal.1001.png@ (
+                        colorSpace = "raw"
+                    )
+                }
+                over "specularReflectionRoughness_texture"
+                {
+                    asset inputs:texture = @./materials/organs/Bladder/Bladder_topo_blender_specularReflectionRoughness.1001.png@ (
+                        colorSpace = "raw"
+                    )
+                    over "file_texture"
+                    {
+                        asset inputs:texture (
+                            colorSpace = "raw"
+                        )
+                    }
+                }
+                over "subsurfaceWeight_texture"
+                {
+                    asset inputs:texture = @./materials/organs/Bladder/Bladder_topo_blender_subsurfaceWeight.1001.png@ (
+                        colorSpace = "raw"
+                    )
+                    over "file_texture"
+                    {
+                        asset inputs:texture (
+                            colorSpace = "raw"
+                        )
+                    }
+                }
+                over "normalmap_texture_01"
+                {
+                    asset inputs:texture = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.5.0/132c82d/Props/Organs/materials/human_skin_normal_detail.jpg@ (
+                        colorSpace = "raw"
+                    )
+                }
+            }
+        }
+    }
+    over "OR_Room"
+    {
+        over "Over_GRP_Room_Additions_merged"
+        {
+            over "Looks"
+            {
+                over "M_Plastic_Wall_BLUE"
+                {
+                    over "Shader"
+                    {
+                        uniform asset info:mdl:sourceAsset = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.5.0/132c82d/Props/Organs/materials/operating_room/Base/Plastics/Plastic.mdl@
+                    }
+                }
+            }
+        }
+    }
+}
