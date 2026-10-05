@@ -589,6 +589,16 @@ class CatheterEmbodiment:
         env_cfg.decimation = 4
         env_cfg.sim.render_interval = 4
         env_cfg.scene.replicate_physics = False
+        # Zero for the reason ``franka_catheter.py`` zeroes it: every rod is
+        # seeded from the same absolute centerline, so the cloned environments
+        # are coincident whatever this says. Left positive, the origins are a
+        # non-zero grid under coincident rods, and ``tip_position`` -- which is
+        # reported relative to the origin -- hands the policy a per-environment
+        # constant of metres for one identical physical state, in a channel
+        # whose real range is centimetres of travel. The RL profile cannot
+        # express this: ``i4h_rl.profile`` requires a positive spacing, so the
+        # override has to happen here.
+        env_cfg.scene.env_spacing = 0.0
 
         self.rod_spec.num_envs = int(getattr(env_cfg.scene, "num_envs", 1))
         self.rod_spec.device = str(getattr(env_cfg.sim, "device", self.rod_spec.device))

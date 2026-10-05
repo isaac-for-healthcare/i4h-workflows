@@ -172,3 +172,28 @@ def test_the_paired_configs_differ_only_in_experiment_name() -> None:
         "the rod-only and coupled-solver configs have drifted apart; a gap "
         "between their per-term rewards is no longer attributable to the solver."
     )
+
+
+@pytest.mark.parametrize(
+    ("source", "embodiment"),
+    [(CATHETER_SOURCE, "CatheterEmbodiment"), (FRANKA_SOURCE, "FrankaCatheterEmbodiment")],
+)
+def test_both_catheter_embodiments_pin_the_env_spacing_to_zero(source: Path, embodiment: str) -> None:
+    """Coincident rods make a positive spacing a bug rather than a preference.
+
+    ``add_catheter_rod_to_builder`` adds the same absolute positions
+    ``num_envs`` times, so the rods sit on each other whatever the spacing
+    says. A non-zero spacing then leaves the environment origins on a grid
+    under coincident rods, and ``tip_position`` -- the one observation reported
+    relative to its origin -- returns a per-environment constant of metres for
+    one identical physical state, in a channel whose real range is centimetres.
+
+    Pinned for both embodiments because the Franka variant zeroed it for the
+    arm's sake and the plain one inherited a positive default, which is how the
+    two came to disagree. The RL profile cannot express zero at all:
+    ``i4h_rl.profile`` rejects a non-positive ``env_spacing``, so this override
+    is the only place it can happen.
+    """
+    body = ast.unparse(_method(_class_def(source, embodiment), "modify_env_cfg"))
+
+    assert "env_cfg.scene.env_spacing = 0.0" in body

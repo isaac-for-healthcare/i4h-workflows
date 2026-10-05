@@ -12,10 +12,18 @@ Two choices here are worth stating.
 Positions are relative rather than absolute. The tip is offset by the cloned
 environment's origin and the target is given as the vector *from* the tip, so a
 policy learns "steer toward the goal" rather than memorizing one patient's
-world coordinates. That the cloned environments currently share one absolute
-route (see :func:`~i4h_arena.medical.navigation_goal.tip_distance_to_target_m`)
-makes the offset a no-op today, but it is what the terms will need the moment
-the envs are actually spread apart.
+world coordinates. It is what the terms will need the moment the envs are
+actually spread apart.
+
+The origin offset is a no-op only because the embodiment makes it one. Every
+rod is seeded from the same absolute centerline, so the cloned environments are
+coincident; a positive ``env_spacing`` on top of that would leave the origins a
+non-zero grid while the rods sat on each other, and this one term would report a
+per-environment constant of metres for one identical physical state. So
+``CatheterEmbodiment.modify_env_cfg`` pins ``env_spacing`` to zero, as the
+Franka variant already did. Nothing else here subtracts an origin: the route
+and target parameters are absolute, and the target is read as an offset from
+the tip, which is origin-free whatever the spacing is.
 
 The drive state is included, and it is not redundant with the tip pose. The tip
 bend is about the catheter's local X axis and axial twist is what aims that
