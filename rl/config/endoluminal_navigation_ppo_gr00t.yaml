@@ -75,7 +75,15 @@ env:
     total_num_envs: 8
     auto_reset: false
     ignore_terminations: false
-    use_rel_reward: true
+    # Required by `IsaaclabBaseEnv.__init__` but inert: the only reader is
+    # `_calc_step_reward`, which has no caller in the pinned RLinf's IsaacLab
+    # path, so the scene's reward reaches PPO untouched. `reward_coef` below,
+    # and the one under `algorithm`, are dead for the same reason. False rather
+    # than true because `route_progress_reward` is already a per-step
+    # difference of remaining arc length, so if upstream wires the method the
+    # way `frankasim` and `genesis` do -- passing the real reward rather than
+    # the termination flag -- differencing it again would be wrong.
+    use_rel_reward: false
     seed: 0
     group_size: 1
     reward_coef: 1.0
@@ -144,7 +152,8 @@ env:
     total_num_envs: 8
     auto_reset: true
     ignore_terminations: true
-    use_rel_reward: true
+    # Inert here too; see `train.use_rel_reward`.
+    use_rel_reward: false
     seed: 0
     group_size: 1
     reward_coef: 1.0
