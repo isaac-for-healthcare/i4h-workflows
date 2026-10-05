@@ -23,13 +23,11 @@ slack; a clamped step is not, and the invariance theorem does not cover it.
 That is a deliberate trade against the projection discontinuity, and is worth
 stating in that direction rather than the flattering one.
 
-There is no level-valued positive term, which is why an earlier approach bonus
-was dropped rather than given a smaller weight. Paid at one per step for
-hovering, and hovering being unbounded in time, the best stationary spot just
-outside the arrival tolerance out-valued holding the arrival and terminating
-under the weights of the time: the task paid better unfinished. Anything
-collectable by standing still will be collected, because standing still is
-always available.
+There is no level-valued positive term. One paid at a constant rate is
+collectable by standing still, and standing still is always available: with
+hovering unbounded in time, the best stationary spot just outside the arrival
+tolerance out-values holding the arrival and terminating, so the task pays
+better unfinished.
 
 Progress is also clamped to what insertion can physically deliver in one
 control step. Nearest-point projection onto a route that doubles back is not
@@ -41,8 +39,8 @@ through it.
 
 Wall contact is paid as a depth, not a boolean. A flag that fires on most
 frames is a constant offset the advantage estimator subtracts away rather than
-a gradient pointing anywhere -- the fold flag this reward used to carry fired
-on roughly nine frames in ten of a recorded episode.
+a gradient pointing anywhere, and the fold condition held on roughly nine
+frames in ten of a recorded episode.
 
 Being *off the axis* is charged for separately from being *short of the end*.
 Distance along the vessel and distance from its centerline are independent, and

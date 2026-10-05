@@ -13,12 +13,14 @@ flagged. Each runs against a fake env rather than a live Newton model.
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 import torch
 
+import i4h_arena.medical.navigation_reward as nr
 from i4h_arena.medical.navigation_reward import (
     MAX_STEP_ADVANCE_M,
     _particle_chunk,
@@ -522,3 +524,46 @@ def test_a_chunked_wall_penalty_matches_an_unchunked_one(monkeypatch):
 
     assert _particle_chunk(envs=3, segments=10, particles=11) == 1
     assert torch.equal(whole, split)
+
+
+# --------------------------------------------------------------------------- #
+# The docstring's term list is checked, not asserted
+# --------------------------------------------------------------------------- #
+#: Where the reward terms are declared, read statically because the module
+#: pulls in ``isaaclab``.
+ENVCFG_SOURCE = Path(__file__).resolve().parents[1] / "i4h_arena/envcfg/endoluminal_navigation.py"
+REWARD_CFG_CLASS = "CatheterNavigationRewardsCfg"
+COUNT_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}
+
+
+def _annotated_fields(path: Path, class_name: str) -> list[str]:
+    """Annotated field names of a class, in declaration order."""
+    for node in ast.walk(ast.parse(path.read_text())):
+        if isinstance(node, ast.ClassDef) and node.name == class_name:
+            return [
+                statement.target.id
+                for statement in node.body
+                if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name)
+            ]
+    raise AssertionError(f"{class_name} not found in {path.name}")
+
+
+def test_the_docstring_names_the_terms_the_config_actually_has():
+    """The claim that rotted into the dead-term P0, now mechanically checked.
+
+    A module docstring enumerating what is configured cannot be verified by
+    reading the module, which is why that enumeration went stale once already
+    while it described three terms nothing registered. Measurements justifying
+    a live term are falsifiable against the code beside them; a list of terms
+    living in another file is not, so it gets a test instead.
+    """
+    docstring = ast.get_docstring(ast.parse(Path(nr.__file__).read_text()))
+    sentence = re.search(r"configures (\w+) terms and no others: (.+?)\.", docstring, re.S)
+    assert sentence is not None, "the docstring no longer enumerates the terms in the expected shape"
+
+    named = re.findall(r"``(\w+)``", sentence.group(2))
+    declared = _annotated_fields(ENVCFG_SOURCE, REWARD_CFG_CLASS)
+
+    assert named == declared
+    # The count word too, or adding a fourth term leaves "three" standing.
+    assert sentence.group(1) == COUNT_WORDS[len(declared)]
