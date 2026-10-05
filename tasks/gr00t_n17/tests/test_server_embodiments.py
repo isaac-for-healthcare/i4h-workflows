@@ -21,7 +21,9 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+
 from i4h_common.bus.inproc import InProcBus
+from i4h_common.bus.messages import ObsFrame
 from i4h_common.config import get_robot_config
 from i4h_common.server import Session
 
@@ -186,6 +188,40 @@ def test_the_arm_state_still_splits_five_and_one(server) -> None:
     assert groups["single_arm"].shape == (1, 1, 5)
     assert groups["gripper"].shape == (1, 1, 1)
     np.testing.assert_allclose(groups["gripper"][0, 0], [5.0])
+
+
+def test_columns_beyond_the_joints_survive_being_ordered(server) -> None:
+    """Ordering by joint name must not drop the goal columns after them.
+
+    Selecting only the joints left a four-wide vector for splits that index
+    nine, so ``target`` and ``route`` sliced to nothing and the failure landed
+    in GR00T's normalizer as a mask-width error, far from the cause.
+    """
+    catheter = get_robot_config("catheter")
+    frame = ObsFrame(
+        # Joints deliberately out of the embodiment's order, which is the whole
+        # reason this reorders by name rather than trusting the arrival order.
+        state=[0.3, 0.0, 0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8],
+        state_names=[
+            "carm_orbit_rad",
+            "insertion_m",
+            "rotation_rad",
+            "tip_bend_rad",
+            *catheter.state_names[4:],
+        ],
+    )
+    ordered = server._ordered_state(frame, catheter)
+    assert ordered.shape == (9,)
+    np.testing.assert_allclose(ordered, [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8])
+
+
+def test_an_embodiment_whose_state_is_only_joints_is_unchanged(server) -> None:
+    so101 = get_robot_config("so101")
+    frame = ObsFrame(
+        state=[5.0, 0.0, 1.0, 2.0, 3.0, 4.0],
+        state_names=[so101.joint_names[-1], *so101.joint_names[:-1]],
+    )
+    np.testing.assert_allclose(server._ordered_state(frame, so101), [0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
 
 
 def test_the_action_chunk_is_concatenated_in_group_order(server) -> None:

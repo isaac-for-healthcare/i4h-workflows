@@ -21,6 +21,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+
 from i4h_common.config import get_robot_config
 from i4h_common.paths import workflow_root
 from i4h_common.training import task_spec
@@ -110,6 +111,23 @@ def test_the_control_rate_matches_the_scene_that_records_the_data(spec) -> None:
 
 def test_the_state_names_match_the_embodiment(spec, catheter) -> None:
     assert tuple(spec.observation["state_names"]) == catheter.state_names
+
+
+def test_every_state_column_past_the_joints_has_a_term_to_fill_it(spec, catheter) -> None:
+    """Declaring wider state than the joints provide requires saying where the
+    rest comes from, or a rollout hands the checkpoint a short vector and the
+    groups past the end arrive empty.
+
+    Only the count is asserted. Which Scene term supplies which column is the
+    Scene's business, and pinning the names here would duplicate the manifest
+    rather than check it.
+    """
+    extra = len(spec.observation["state_names"]) - len(catheter.joint_names)
+    terms = spec.observation.get("state_terms", ())
+    if extra <= 0:
+        assert not terms, "nothing to fill, so naming terms would widen the vector past its declaration"
+        return
+    assert terms, f"{extra} state columns past the joints and no state_terms to supply them"
 
 
 def test_the_manifest_modality_config_resolves(spec) -> None:

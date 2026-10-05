@@ -10,6 +10,7 @@ stand-in for one. No zenoh, no torch, no policy stack.
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -315,3 +316,60 @@ def test_observation_carries_state_names_from_the_scene(ctx, bus):
     # Joint names come from the live scene, not from a manifest copy of them.
     assert backend.obs_seen[0].state_names == list(ctx.scene.joints().names)
     assert len(backend.obs_seen[0].state) == 6
+
+
+#: Six joints plus the five columns a navigation goal needs, as the catheter
+#: tasks declare them.
+GOAL_NAMES = ["tx", "ty", "tz", "remaining", "lateral"]
+GOAL_SPEC = replace(
+    SPEC,
+    observation={
+        "state_terms": ["target_offset", "route_state"],
+        "state_names": [f"j{index}" for index in range(6)] + GOAL_NAMES,
+    },
+)
+
+
+def _with_goal_terms(ctx):
+    ctx.scene.observations[("policy", "target_offset")] = np.array([[0.1, 0.2, 0.3]], dtype=np.float32)
+    ctx.scene.observations[("policy", "route_state")] = np.array([[0.4, 0.5]], dtype=np.float32)
+
+
+def test_declared_state_terms_are_appended_after_the_joints(ctx, bus):
+    """A task graded on something it does not drive still gets to see it."""
+    keys = Keys("test-run")
+    ctx.bus, ctx.run_id = bus, "test-run"
+    _with_goal_terms(ctx)
+    task = RemoteTask(GOAL_SPEC, keys=keys)
+    backend = FakeBackend(bus, keys, f"{task.name}-0")
+    task.on_enter(ctx, None)
+    task.tick(ctx)
+
+    frame = backend.obs_seen[0]
+    assert len(frame.state) == 11, "six joints and five goal columns"
+    assert frame.state[6:] == pytest.approx([0.1, 0.2, 0.3, 0.4, 0.5])
+    # Joints keep the names the Scene reported so a consumer can still order by
+    # them; only the appended tail takes the declared names.
+    assert frame.state_names == list(ctx.scene.joints().names) + GOAL_NAMES
+
+
+def test_a_state_vector_narrower_than_its_declaration_is_refused(ctx, bus):
+    """Forgetting the terms must fail here, not inside a normalizer later."""
+    keys = Keys("test-run")
+    ctx.bus, ctx.run_id = bus, "test-run"
+    task = RemoteTask(replace(GOAL_SPEC, observation={"state_names": GOAL_SPEC.observation["state_names"]}), keys=keys)
+    FakeBackend(bus, keys, f"{task.name}-0")
+    task.on_enter(ctx, None)
+    with pytest.raises(ValueError, match="declares 11 state names but the scene offers 6"):
+        task.tick(ctx)
+
+
+def test_a_missing_state_term_names_what_the_scene_does_offer(ctx, bus):
+    keys = Keys("test-run")
+    ctx.bus, ctx.run_id = bus, "test-run"
+    ctx.scene.observations[("policy", "target_offset")] = np.array([[0.1, 0.2, 0.3]], dtype=np.float32)
+    task = RemoteTask(GOAL_SPEC, keys=keys)
+    FakeBackend(bus, keys, f"{task.name}-0")
+    task.on_enter(ctx, None)
+    with pytest.raises(KeyError, match="route_state"):
+        task.tick(ctx)

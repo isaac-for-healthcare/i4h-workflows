@@ -291,8 +291,39 @@ class RemoteTask(Task):
 
     # -- helpers ---------------------------------------------------------
     def _observation(self, ctx: TickContext) -> ObsFrame:
-        """Build the frame the manifest's ``observation`` block asks for."""
+        """Build the frame the manifest's ``observation`` block asks for.
+
+        The robot's own joints, then whatever ``state_terms`` names, because a
+        policy's state is not always just the thing it drives: the catheter is
+        graded on reaching a target, and the columns describing that target come
+        from Scene observation terms rather than from any joint.
+
+        ``state_names`` is checked against the assembled width rather than
+        trusted. The two disagreeing is not a visible failure downstream -- the
+        consumer slices the vector by the groups its checkpoint declares, and a
+        group past the end slices to nothing, which surfaces as a normalizer
+        complaining about a mask much later and in another process.
+        """
         joints = ctx.scene.joints()
+        state = [float(value) for value in joints.pos[0]]
+        names = list(joints.names)
+        for term in self.spec.observation.get("state_terms", ()):
+            group, _, name = str(term).rpartition(":")
+            values = np.asarray(ctx.scene.observation(group or "policy", name))
+            state.extend(float(value) for value in values[0])
+        declared = [str(value) for value in self.spec.observation.get("state_names", ())]
+        if declared:
+            if len(declared) != len(state):
+                raise ValueError(
+                    f"{self.spec.id}: observation declares {len(declared)} state names but the scene "
+                    f"offers {len(state)} values ({len(names)} joints + "
+                    f"{len(state) - len(names)} from state_terms); "
+                    f"declare the missing terms or correct state_names"
+                )
+            # Joint names stay as the Scene reported them so the consumer can
+            # still order by them; only the appended columns take declared
+            # names, which an embodiment may spell differently from its joints.
+            names += declared[len(names) :]
         images: dict[str, bytes] = {}
         shapes: dict[str, list[int]] = {}
         for camera_name in self.spec.requires.get("cameras", ()):
@@ -304,8 +335,8 @@ class RemoteTask(Task):
         return ObsFrame(
             task_uid=self._uid,
             step=ctx.node_step,
-            state=[float(v) for v in joints.pos[0]],
-            state_names=list(joints.names),
+            state=state,
+            state_names=names,
             images=images,
             image_shapes=shapes,
         )

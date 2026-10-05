@@ -45,6 +45,14 @@ observation:
   image_size:
   - 256
   - 256
+  # The drive channels come from the catheter's joints; these two Scene
+  # observation terms supply the five columns after them, in this order.
+  # Conversion derives the same five from the route, so a recording and a live
+  # rollout present the same vector -- without them a rollout hands the
+  # checkpoint four columns where it expects nine.
+  state_terms:
+  - target_offset
+  - route_state
   state_names:
   - insertion_m
   - rotation_rad

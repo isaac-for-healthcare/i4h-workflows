@@ -53,6 +53,12 @@ observation:
   # The full recorded vector, arm included, in `franka_catheter` joint order.
   # The policy reads catheter, C-arm, target, and route groups. The carrier
   # arm remains simulator context and is not consumed by this checkpoint.
+  #
+  # The eleven joints are the embodiment's own; these two Scene observation
+  # terms supply the five goal columns that follow them.
+  state_terms:
+  - target_offset
+  - route_state
   state_names:
   - insertion_m
   - rotation_rad

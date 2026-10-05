@@ -34,6 +34,8 @@ class FakeScene:
         self.tcp_pose = Pose.identity(num_envs)
         self.gripper = np.zeros(num_envs, dtype=np.float32)
         self.terminations: dict[str, np.ndarray] = {}
+        #: Named observation terms, keyed ``(group, name)``, each ``(N, width)``.
+        self.observations: dict[tuple[str, str], np.ndarray] = {}
 
     @property
     def num_envs(self) -> int:
@@ -61,6 +63,12 @@ class FakeScene:
 
     def home_joints(self, robot: str = "robot") -> np.ndarray:
         return self.home
+
+    def observation(self, group: str, name: str) -> np.ndarray:
+        if (group, name) not in self.observations:
+            available = sorted(term for owner, term in self.observations if owner == group)
+            raise KeyError(f"no observation {group}.{name}; available in {group}: {available}")
+        return self.observations[(group, name)]
 
     def tcp(self, robot: str = "robot") -> Pose:
         return self.tcp_pose

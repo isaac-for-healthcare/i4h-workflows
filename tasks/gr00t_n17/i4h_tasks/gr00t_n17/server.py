@@ -215,7 +215,14 @@ class Gr00tN17Server(PolicyServer):
         missing = [name for name in robot.joint_names if name not in by_name]
         if missing:
             raise ValueError(f"observation is missing robot joints {missing}; got {frame.state_names}")
-        return state[[by_name[name] for name in robot.joint_names]]
+        ordered = [by_name[name] for name in robot.joint_names]
+        # Anything the joints did not claim, in the order it arrived. The state
+        # vector is wider than the joints wherever the task is graded on
+        # something the robot does not drive, and `state_split` indexes the
+        # whole width, so selecting only joints leaves the later groups empty.
+        claimed = set(ordered)
+        ordered += [index for index in range(len(frame.state_names)) if index not in claimed]
+        return state[ordered]
 
 
 def _resolve_model_path(path: str) -> str:
