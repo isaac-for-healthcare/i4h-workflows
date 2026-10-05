@@ -10,6 +10,7 @@ rather than per episode — neither is expressible against a flat episode.
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from queue import Queue
@@ -20,6 +21,7 @@ import h5py
 import numpy as np
 
 from i4h_common.episode import DIAGNOSTICS_GROUP, Segment, write_segments
+from i4h_common.run_overrides import environment_overrides
 from i4h_engine.events import EventKind, WorkflowEvent
 
 logger = logging.getLogger("i4h_arena.recording")
@@ -244,6 +246,12 @@ class EpisodeRecorder:
                 group.create_dataset(measurement, data=values)
 
         demo.attrs["success"] = bool(result.succeeded)
+        # Beside ``success`` rather than only in the run directory's metadata,
+        # because the episode is what gets converted, pooled and trained on,
+        # and the criterion that produced the flag has to survive that. For a
+        # catheter run this carries ``I4H_CATHETER_ARRIVAL_MM``, without which
+        # the flag is a boolean whose meaning is only in whoever's shell.
+        demo.attrs["overrides"] = json.dumps(environment_overrides(), sort_keys=True)
         demo.attrs["num_samples"] = len(self._actions)
         demo.attrs["workflow"] = self.workflow.name
         demo.attrs["mode"] = self.workflow.mode

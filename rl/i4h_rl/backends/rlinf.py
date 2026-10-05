@@ -18,7 +18,7 @@ from pathlib import Path
 
 import yaml
 
-from i4h_rl.artifacts import resolve_input_path, resolve_output_path, resolve_run_dir, write_json
+from i4h_rl.artifacts import environment_overrides, resolve_input_path, resolve_output_path, resolve_run_dir, write_json
 from i4h_rl.profile import RLProfile
 
 
@@ -548,6 +548,9 @@ def launch(
         "model_gpu": model_gpu,
         "simulator_gpu": sim_gpu,
         "shared_gpu": shared_gpu,
+        # The physics and success criterion this run was given from the
+        # environment, which nothing recorded before.
+        "overrides": environment_overrides(),
         "created_at": datetime.now(UTC).isoformat(),
     }
     if native_checkpoint is not None:

@@ -15,7 +15,14 @@ from pathlib import Path
 
 import yaml
 
-from i4h_rl.artifacts import checkpoint_iteration, resolve_input_path, resolve_output_path, resolve_run_dir, write_json
+from i4h_rl.artifacts import (
+    checkpoint_iteration,
+    environment_overrides,
+    resolve_input_path,
+    resolve_output_path,
+    resolve_run_dir,
+    write_json,
+)
 from i4h_rl.profile import RLProfile
 
 
@@ -205,6 +212,9 @@ def launch(
         "algorithm": profile.algorithm,
         "run_dir": str(run_dir),
         "num_envs": min(num_envs, args.episodes) if args.only_eval else num_envs,
+        # As in the RLinf backend: the knobs read from the environment, so
+        # two runs of one profile cannot differ in physics invisibly.
+        "overrides": environment_overrides(),
         "created_at": datetime.now(UTC).isoformat(),
     }
     if args.only_eval:
