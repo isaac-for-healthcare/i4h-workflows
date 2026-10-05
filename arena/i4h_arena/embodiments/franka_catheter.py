@@ -45,7 +45,13 @@ from isaaclab.utils import math as math_utils
 from isaaclab.utils.configclass import configclass
 
 from i4h_arena.assets.constants import FRANKA_PANDA_HAND_USD
-from i4h_arena.embodiments.catheter import CArmOrbitAction, CArmOrbitActionCfg, CatheterEmbodiment, _CatheterSceneCfg
+from i4h_arena.embodiments.catheter import (
+    CArmOrbitAction,
+    CArmOrbitActionCfg,
+    CatheterEmbodiment,
+    FlatRLObservations,
+    _CatheterSceneCfg,
+)
 from i4h_arena.medical.catheter_drive import (
     FlangeMountedIntroducer,
     IntroducerDriveSpec,
@@ -141,6 +147,27 @@ _FINGER_VELOCITY_LIMIT_M_S = 0.2
 _FINGER_STIFFNESS = 2000.0
 _FINGER_DAMPING = 100.0
 
+#: The joint properties every actuator here has to state rather than inherit.
+#:
+#: ``ActuatorBase`` falls back to the value read off the USD asset whenever a
+#: parameter is left ``None``, and under this scene's ``replicate_physics =
+#: False`` the Newton articulation hands those readings back batched for one
+#: environment instead of for ``num_envs``. The fallback then fails its own
+#: shape check, so the scene cannot build with more than one environment at
+#: all. That is why only idle, teleop and replay ever ran here -- each is a
+#: single environment -- and why online RL could not start.
+#:
+#: Zero is what the asset resolves to today, so stating it changes no dynamics;
+#: it only keeps the fallback from running. This does diverge from Isaac Lab's
+#: stock Franka, which asks for ``armature=1e-3``; adopting that figure is a
+#: dynamics change for the coupled solver and belongs in its own commit.
+_STATED_JOINT_PROPERTIES: dict[str, float] = {
+    "armature": 0.0,
+    "friction": 0.0,
+    "dynamic_friction": 0.0,
+    "viscous_friction": 0.0,
+}
+
 #: Distance from the ``panda_hand`` frame to the point between the fingertips,
 #: along the hand's approach axis. The servo commands the hand, but the thing
 #: that has to land on the introducer is the grip, so every target is offset
@@ -221,6 +248,7 @@ FRANKA_PANDA_CATHETER_CFG = ArticulationCfg(
             velocity_limit_sim=_PROXIMAL_VELOCITY_LIMIT_RAD_S,
             stiffness=_SERVO_STIFFNESS,
             damping=_SERVO_DAMPING,
+            **_STATED_JOINT_PROPERTIES,
         ),
         "panda_forearm": ImplicitActuatorCfg(
             joint_names_expr=["panda_joint[5-7]"],
@@ -228,6 +256,7 @@ FRANKA_PANDA_CATHETER_CFG = ArticulationCfg(
             velocity_limit_sim=_DISTAL_VELOCITY_LIMIT_RAD_S,
             stiffness=_SERVO_STIFFNESS,
             damping=_SERVO_DAMPING,
+            **_STATED_JOINT_PROPERTIES,
         ),
         "panda_hand": ImplicitActuatorCfg(
             joint_names_expr=["panda_finger_joint.*"],
@@ -239,6 +268,7 @@ FRANKA_PANDA_CATHETER_CFG = ArticulationCfg(
             # reads as dropping the drive unit.
             stiffness=_FINGER_STIFFNESS,
             damping=_FINGER_DAMPING,
+            **_STATED_JOINT_PROPERTIES,
         ),
     },
     soft_joint_pos_limit_factor=1.0,
@@ -823,6 +853,38 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
     def modify_env_cfg(self, env_cfg: Any) -> Any:
         """Keep the parent's rates, rebuild physics, and seed the arm's pose."""
         env_cfg = super().modify_env_cfg(env_cfg)
+        # Back on, against the parent's choice, because this scene has an
+        # articulation and the parent does not.
+        #
+        # Without replication the Newton model gets one Robot however many
+        # environments the scene asks for, so the solver's joint buffers stay
+        # one environment wide while Isaac Lab writes ``num_envs`` wide into
+        # them. The failure is a Warp copy rejecting a 72-byte source into a
+        # 36-byte destination -- nine joints' worth against nine times four --
+        # raised from upstream's ``write_data_to_sim`` with nothing in it
+        # naming this scene.
+        #
+        # The rod does not mind. It never travelled through Isaac Lab's prim
+        # cloning in the first place: ``CatheterRodHandle`` puts its particles
+        # into the Newton ModelBuilder directly, ``num_envs`` of them, on
+        # MODEL_INIT. Replication only governs the articulation here.
+        env_cfg.scene.replicate_physics = True
+        # Collapsed to zero, because replicating the arm is only half of
+        # agreeing with the rod: the arm now lands at its environment's origin
+        # while every rod stays at one absolute world position.
+        #
+        # ``add_catheter_rod_to_builder`` adds the same positions ``num_envs``
+        # times and ``CathRodSolver`` takes one ``track_start`` and one
+        # ``track_path``, so coincident rods are what the solver is built for,
+        # not an oversight to correct here. Spacing the arms away from them
+        # instead leaves environment k's flange a spacing away from the rod it
+        # is supposed to be driving, and the two-way drive contact pulls the
+        # rod to non-finite positions inside a couple of PPO iterations.
+        #
+        # Zero costs nothing but the spread-out viewport. Newton gives each
+        # environment its own world, so the overlapping arms never see each
+        # other, exactly as the overlapping rods already do not.
+        env_cfg.scene.env_spacing = 0.0
         env_cfg.sim.physics = newton_physics_cfg(self.rod_spec)
         self._seed_the_arm_pose_on_reset(env_cfg)
         return env_cfg
@@ -858,6 +920,30 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
         )
 
 
+class FrankaCatheterRLEmbodiment(FlatRLObservations, FrankaCatheterEmbodiment):
+    """Arm-borne catheter on the coupled solver, with flat observations for RSL-RL.
+
+    Same fifteen observation columns, same four action channels and the same
+    reward as the armless RL variant. What differs is underneath:
+    ``rigid_bodies_enabled`` puts an articulation in the model, which is what
+    selects the coupled MJWarp + XPBD integrator, and naming the flange as the
+    drive body makes the contact two-way. So the wire pushes back on the arm,
+    and the arm's servo error moves the wire's entry.
+
+    Holding the observation and the reward fixed is the experiment. The reward
+    was shown learnable against the rod alone; running the identical objective
+    here asks whether it survives the coupling, and a gap between the two runs
+    is attributable to the solver rather than to the objective or the policy.
+
+    The arm contributes no observation and no action because it is a
+    positioner, not a second agent: it is servo'd to hold the introducer on the
+    access site. Its seven joints reach the recorded state, which is why the
+    manifest is sixteen wide where the observation is fifteen.
+    """
+
+    name = "franka_catheter_rl"
+
+
 __all__ = [
     "ARM_BASE_HEIGHT_M",
     "ARM_BASE_YAW_QUAT",
@@ -871,5 +957,6 @@ __all__ = [
     "ArmDrivenCatheterAction",
     "ArmDrivenCatheterActionCfg",
     "FrankaCatheterEmbodiment",
+    "FrankaCatheterRLEmbodiment",
     "make_franka_panda_catheter_cfg",
 ]

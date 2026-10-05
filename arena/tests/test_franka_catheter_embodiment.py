@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 import yaml
 
 ARENA = Path(__file__).parents[1] / "i4h_arena"
@@ -75,6 +74,13 @@ def module_constant_expr(name: str) -> str:
 
 def module_constant_node(name: str) -> ast.expr:
     for statement in ast.parse(source()).body:
+        # ``AnnAssign`` too, because an annotated module-level constant is
+        # still a constant and reading one should not depend on whether its
+        # author chose to write the type down.
+        if isinstance(statement, ast.AnnAssign):
+            if getattr(statement.target, "id", None) == name and statement.value is not None:
+                return statement.value
+            continue
         if not isinstance(statement, ast.Assign):
             continue
         if any(getattr(target, "id", None) == name for target in statement.targets):
@@ -459,3 +465,63 @@ def test_insertion_does_not_depend_on_arm_travel() -> None:
     assert "self._processed_actions[:, 0], self._processed_actions[:, 1], dt" in body
     # The abandoned gearbox differenced the flange pose to get a feed rate.
     assert "_drive.compute" not in body
+
+
+def test_every_actuator_states_its_joint_properties() -> None:
+    """What lets this scene run with more than one environment.
+
+    ``ActuatorBase`` falls back to the joint property read off the USD asset
+    whenever the config leaves it ``None``. Under this scene's
+    ``replicate_physics = False`` the Newton articulation returns those
+    readings batched for a single environment, so the fallback fails its own
+    shape check and the scene cannot build at ``num_envs > 1`` -- it fails at
+    startup with a tensor-shape error that names no joint property and no
+    actuator.
+
+    Single-environment modes never noticed, which is every mode this scene had
+    until online RL arrived. Dropping any of these four would re-break
+    multi-environment training while idle, teleop and replay kept passing.
+    """
+    stated = module_constant("_STATED_JOINT_PROPERTIES")
+    assert set(stated) == {"armature", "friction", "dynamic_friction", "viscous_friction"}
+
+    actuators = [
+        node
+        for node in ast.walk(module_constant_node("FRANKA_PANDA_CATHETER_CFG"))
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "ImplicitActuatorCfg"
+    ]
+    assert len(actuators) == 3, f"expected shoulder, forearm and hand; found {len(actuators)}"
+
+    for actuator in actuators:
+        splatted = [
+            keyword.value.id
+            for keyword in actuator.keywords
+            if keyword.arg is None and isinstance(keyword.value, ast.Name)
+        ]
+        joints = next(ast.unparse(keyword.value) for keyword in actuator.keywords if keyword.arg == "joint_names_expr")
+        assert "_STATED_JOINT_PROPERTIES" in splatted, (
+            f"the actuator on {joints} leaves joint properties to the USD fallback, "
+            f"which cannot be read at num_envs > 1"
+        )
+
+
+def test_the_arm_is_placed_where_the_rod_actually_is() -> None:
+    """The two settings that have to agree for parallel environments to work.
+
+    Replication is what gives Newton one arm per environment instead of one
+    arm for all of them. Zero spacing is what then puts each of those arms
+    where its rod is: ``add_catheter_rod_to_builder`` adds the same positions
+    ``num_envs`` times and ``CathRodSolver`` takes a single ``track_start``, so
+    coincident rods are what the pinned solver is built for. Spacing the arms
+    out leaves environment k's flange a spacing away from the rod it drives,
+    and the two-way drive contact pulls the rod to non-finite positions within
+    a couple of PPO iterations.
+
+    Either one alone is broken: replication without zero spacing diverges, and
+    zero spacing without replication still writes ``num_envs`` joint targets
+    into a one-environment buffer.
+    """
+    body = source().partition("def modify_env_cfg")[2].partition("def _seed_the_arm_pose_on_reset")[0]
+
+    assert "env_cfg.scene.replicate_physics = True" in body
+    assert "env_cfg.scene.env_spacing = 0.0" in body

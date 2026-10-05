@@ -35,15 +35,34 @@ class EndoluminalNavigationScene(Scene):
         """
         return getattr(self._embodiment, "navigation_target_world_m", None)
 
+    @property
+    def _wants_flat_rl_observations(self) -> bool:
+        """Whether this run is an online RSL-RL trainer rather than a workflow mode.
+
+        Gated rather than always on so that teleop, replay and the N1.7
+        rollouts keep the named, image-bearing observation group their bridge
+        reads. ``rl_observations`` is what the RSL-RL registration callback
+        sets; ``rl_training_mode`` is Isaac Lab's own flag on the stock
+        scripts, and either alone is enough.
+
+        Read by the arm-borne subclass too, so the two scenes cannot drift into
+        disagreeing about what counts as a training run.
+        """
+        return bool(getattr(self.args, "rl_observations", False)) or bool(getattr(self.args, "rl_training_mode", False))
+
     def _make_embodiment(self) -> Any:
         """Build the embodiment this scene drives.
 
         Overridden by the arm-borne variant, which swaps in a drive carried on a
         robot flange and takes the scene onto the coupled MJWarp + rod solver.
-        """
-        from i4h_arena.embodiments.catheter import CatheterEmbodiment
 
-        return CatheterEmbodiment(patient_twin_manifest=self.args.patient_twin)
+        Online RSL-RL takes the camera-free variant instead, whose observation
+        group is one flat vector.
+        """
+        from i4h_arena.embodiments.catheter import CatheterEmbodiment, CatheterRLEmbodiment
+
+        embodiment = CatheterRLEmbodiment if self._wants_flat_rl_observations else CatheterEmbodiment
+        return embodiment(patient_twin_manifest=self.args.patient_twin)
 
     def build(self) -> Any:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -65,6 +84,13 @@ class EndoluminalNavigationScene(Scene):
                 )
             ),
             task=None,
+            # Registers the Gym ID under the kwarg Isaac Lab's stock RSL-RL
+            # scripts read their agent config from, so `train_rsl_rl.py --task
+            # endoluminal_navigation` resolves without a second env definition.
+            # Harmless for the other modes: nothing reads it unless the trainer
+            # asks for it.
+            rl_framework_entry_point="rsl_rl_cfg_entry_point",
+            rl_policy_cfg="i4h_arena.agents.rsl_rl:ProfiledRslRlRunnerCfg",
         )
 
     def configure_env_cfg(self, env_cfg: Any) -> None:

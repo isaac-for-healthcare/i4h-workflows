@@ -222,6 +222,13 @@ def _resolve_model_path(path: str) -> str:
     expanded = os.path.expanduser(path)
     if os.path.exists(expanded):
         return expanded
+    # A filesystem path that is not there is a missing checkpoint, not a hub
+    # repo. Saying so beats the HFValidationError that asking the hub about an
+    # absolute path produces, which reads as a credentials or naming problem
+    # when the real answer is that training never got far enough to save. A
+    # repo id is `namespace/name`, so one separator is still hub-shaped.
+    if os.path.isabs(expanded) or expanded.startswith(("./", "../", "~")) or expanded.count("/") > 1:
+        raise FileNotFoundError(f"no checkpoint at {expanded}")
     from huggingface_hub import snapshot_download
 
     logger.info("downloading %s", path)

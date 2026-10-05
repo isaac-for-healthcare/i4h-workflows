@@ -30,6 +30,7 @@ from i4h_arena.medical.newton_catheter_physics import (
 from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.medical.patient_volume import PatientVolume
 from i4h_arena.medical.xpbd_catheter import XpbdCatheterAsset, XpbdCatheterAssetCfg
+from i4h_common.navigation_route import ROUTE_SPACING_MM
 from i4h_common.types import JointState
 
 #: Route left ahead of the tip at reset, which is the navigation an episode is
@@ -405,10 +406,14 @@ class CatheterEmbodiment:
         edges = np.load(edges_path)
         radii_path = twin.artifacts.get("centerline_radii")
         radii = np.load(radii_path) if radii_path is not None else None
+        # Spacing comes from i4h_common rather than a literal here because
+        # dataset conversion resamples the same centerline to label the goal
+        # columns. Two different spacings produce two plausible routes and two
+        # sets of arc figures that mean different things, with nothing raising.
         path_patient_mm, lumen_radii_mm = ordered_centerline_lumen(
             points_patient_mm,
             edges,
-            target_spacing_mm=7.5,
+            target_spacing_mm=ROUTE_SPACING_MM,
             radii_mm=radii,
         )
         path_world_m = twin.patient_mm_to_world(path_patient_mm)
@@ -594,3 +599,42 @@ class CatheterEmbodiment:
         # is being built and before the model is finalized.
         self._rod_handle = CatheterRodHandle(self.rod_spec).install()
         return env_cfg
+
+
+class FlatRLObservations:
+    """Mixin dropping the fluoroscopy view and flattening the navigation group.
+
+    The navigation group leaves its terms unconcatenated and carries the
+    fluoroscopy view, because the RLinf bridge composes GR00T's modality dict
+    out of named keys. An RSL-RL actor wants a single vector and cannot
+    concatenate an image with fifteen scalars, so the view is dropped here and
+    the rest flattened.
+
+    Dropping the image is the point rather than a concession. These embodiments
+    exist to ask whether the navigation reward is learnable from the geometry
+    alone, and eleven of those fifteen numbers are ones the N1.7 checkpoint
+    never receives. If a small MLP with all fifteen cannot learn the objective,
+    the objective is the problem; if it can, what remains is an observability
+    problem on the policy side.
+
+    A mixin rather than a method on each because the arm-borne embodiment does
+    not override ``get_observation_cfg`` either: the arm is a servo'd
+    positioner, so it adds recorded joint columns but no observation and no
+    action channel. The same fifteen columns describe both scenes, and one
+    implementation covers them.
+    """
+
+    def get_observation_cfg(self) -> Any:
+        config = super().get_observation_cfg()
+        if config is None:
+            # No twin, so no route to navigate and nothing to train against.
+            return None
+        config.policy.fluoroscopy_rgb = None
+        config.policy.concatenate_terms = True
+        return config
+
+
+class CatheterRLEmbodiment(FlatRLObservations, CatheterEmbodiment):
+    """Catheter on the rod-only solver, with flat observations for online RSL-RL."""
+
+    name: str = "catheter_rl"

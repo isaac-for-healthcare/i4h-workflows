@@ -4,10 +4,9 @@
 from __future__ import annotations
 
 import numpy as np
-
 import pytest
 
-from i4h_arena.medical.centerline import (
+from i4h_common.centerline import (
     _smooth_along_arc,
     ordered_centerline_lumen,
     ordered_centerline_path,

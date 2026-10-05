@@ -49,9 +49,18 @@ class EndoluminalNavigationArmScene(EndoluminalNavigationScene):
         env_cfg.sim.gravity = (0.0, 0.0, 0.0)
 
     def _make_embodiment(self) -> Any:
-        from i4h_arena.embodiments.franka_catheter import FrankaCatheterEmbodiment
+        """Build the flange-carried drive, which is what selects the coupled solver.
 
-        return FrankaCatheterEmbodiment(patient_twin_manifest=self.args.patient_twin)
+        Mirrors the armless gate: online RSL-RL takes the camera-free variant so
+        the actor reads one flat vector, and every other mode keeps the named,
+        image-bearing group. Both variants put an articulation in the model, so
+        the choice does not change the integrator -- this scene is on coupled
+        MJWarp + XPBD either way.
+        """
+        from i4h_arena.embodiments.franka_catheter import FrankaCatheterEmbodiment, FrankaCatheterRLEmbodiment
+
+        embodiment = FrankaCatheterRLEmbodiment if self._wants_flat_rl_observations else FrankaCatheterEmbodiment
+        return embodiment(patient_twin_manifest=self.args.patient_twin)
 
     def _joint_state_providers(self, env: Any, catheter: Any, carm_orbit: Any) -> dict[str, Any]:
         """Append the servo'd arm joints after the catheter and C-arm columns.
