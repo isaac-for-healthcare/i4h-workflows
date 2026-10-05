@@ -696,3 +696,43 @@ def test_trocar_registers_the_n15_action_converter() -> None:
 
     assert simulation_io.OBS_CONVERSION["i4h_g1_dex3"] is not None
     assert simulation_io.ACTION_CONVERSION_N1D5["i4h_g1_dex3"] is convert_gr00t_to_workflow_action
+
+
+# --------------------------------------------------------------------------- #
+# The two RLinf hosts
+# --------------------------------------------------------------------------- #
+#: Task venvs that can serve as `model_runtime`. The profiles name the N1.7 one;
+#: anything that names none falls back to N1.5 (`backends.rlinf` line 145).
+RLINF_HOSTS = ("tasks/gr00t_n15/pyproject.toml", "tasks/gr00t_n17/pyproject.toml")
+
+
+def _pyproject(relative: str) -> dict:
+    import tomllib
+
+    return tomllib.loads((ROOT / relative).read_text())
+
+
+@pytest.mark.parametrize("relative", RLINF_HOSTS)
+def test_the_rl_host_is_installed_unless_it_is_refused(relative: str):
+    """A plain sync has to keep the post-training host, because one venv is
+    the inference server, the SFT trainer and the RL training process at once.
+
+    This is why the group is a default group and not an optional extra: `uv
+    sync` prunes an extra it was not asked for, so an inference-only sync of
+    the shared venv would leave the RL host unable to import ray, and would do
+    it where only RLinf's scheduler can notice.
+    """
+    config = _pyproject(relative)
+    assert config["dependency-groups"]["rl"], "the post-training host must be declared"
+    assert config["tool"]["uv"]["default-groups"] == ["rl"]
+
+
+def test_both_rl_hosts_pin_the_same_post_training_stack():
+    """`hydra-core` and `tensorboard` were undeclared on the N1.5 side and in
+    its venv only by accident -- hydra through Isaac-GR00T 1.5's own pyproject,
+    which 1.7 dropped, and tensorboard through nothing at all. Either host can
+    be the `model_runtime`, so a difference between them is a difference in
+    whether a run starts.
+    """
+    groups = {relative: _pyproject(relative)["dependency-groups"]["rl"] for relative in RLINF_HOSTS}
+    assert len(set(map(tuple, groups.values()))) == 1, groups
