@@ -12,6 +12,8 @@ flagged. Each runs against a fake env rather than a live Newton model.
 
 from __future__ import annotations
 
+import ast
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -406,3 +408,86 @@ def test_a_reset_environment_is_re_projected_rather_than_served_the_stale_step()
 # --------------------------------------------------------------------------- #
 def test_route_length_sums_the_polyline():
     assert route_length_m(ROUTE) == pytest.approx(1.0)
+
+
+# --------------------------------------------------------------------------- #
+# The clamp still clears the drive it was sized against
+# --------------------------------------------------------------------------- #
+#: The embodiments that declare the insertion ceiling. Read statically because
+#: both modules import ``isaaclab``.
+DRIVE_SOURCES = (
+    (Path(__file__).resolve().parents[1] / "i4h_arena/embodiments/catheter.py", "CatheterVelocityActionCfg"),
+    (
+        Path(__file__).resolve().parents[1] / "i4h_arena/embodiments/franka_catheter.py",
+        "ArmDrivenCatheterActionCfg",
+    ),
+)
+#: Where ``catheter.py`` sets the physics step and the control decimation.
+SIM_SOURCE = DRIVE_SOURCES[0][0]
+
+
+def _class_default(path: Path, class_name: str, field: str) -> float:
+    """One annotated class-level default, read without importing Isaac Sim."""
+    for node in ast.walk(ast.parse(path.read_text())):
+        if not isinstance(node, ast.ClassDef) or node.name != class_name:
+            continue
+        for statement in node.body:
+            if isinstance(statement, ast.AnnAssign) and getattr(statement.target, "id", None) == field:
+                return float(ast.literal_eval(statement.value))
+    raise AssertionError(f"{class_name}.{field} not found in {path.name}")
+
+
+def _number(node: ast.AST) -> float:
+    """A float from a literal or a product or quotient of literals.
+
+    ``sim.dt`` is written ``1.0 / 120.0`` to keep the rate readable, which
+    ``ast.literal_eval`` will not evaluate.
+    """
+    if isinstance(node, ast.BinOp):
+        left, right = _number(node.left), _number(node.right)
+        if isinstance(node.op, ast.Div):
+            return left / right
+        if isinstance(node.op, ast.Mult):
+            return left * right
+        raise AssertionError(f"unsupported operator in {ast.unparse(node)}")
+    return float(ast.literal_eval(node))
+
+
+def _attribute_assignment(path: Path, dotted: str) -> float:
+    """The value assigned to a dotted attribute path, e.g. ``env_cfg.sim.dt``."""
+    for node in ast.walk(ast.parse(path.read_text())):
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            names = []
+            while isinstance(target, ast.Attribute):
+                names.append(target.attr)
+                target = target.value
+            if isinstance(target, ast.Name):
+                names.append(target.id)
+            if ".".join(reversed(names)) == dotted:
+                return _number(node.value)
+    raise AssertionError(f"no assignment to {dotted} in {path.name}")
+
+
+#: The per-step ceiling ``MAX_STEP_ADVANCE_M``'s docstring quotes, in metres.
+DOCUMENTED_CEILING_M = 0.002
+
+
+@pytest.mark.parametrize(("source", "class_name"), DRIVE_SOURCES, ids=lambda value: getattr(value, "stem", value))
+def test_step_advance_clears_the_drive_ceiling(source: Path, class_name: str):
+    """The clamp exceeds what the drive can feed, and the quoted ceiling is real.
+
+    Both halves earn their place. The docstring used to quote a velocity
+    neither embodiment declared, so the stated ceiling was wrong while the
+    value stayed accidentally safe -- the equality is what catches that. The
+    inequality catches an embodiment raising its limit past the clamp, or the
+    control rate moving under it.
+    """
+    velocity_mps = _class_default(source, class_name, "max_insertion_velocity_mps")
+    physics_dt_s = _attribute_assignment(SIM_SOURCE, "env_cfg.sim.dt")
+    decimation = _attribute_assignment(SIM_SOURCE, "env_cfg.decimation")
+    ceiling_m = velocity_mps * physics_dt_s * decimation
+
+    assert ceiling_m == pytest.approx(DOCUMENTED_CEILING_M)
+    assert MAX_STEP_ADVANCE_M > ceiling_m

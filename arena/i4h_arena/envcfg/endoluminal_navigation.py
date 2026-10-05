@@ -152,8 +152,16 @@ ROUTE_PROGRESS_WEIGHT = 1.0 / MAX_STEP_ADVANCE_M
 #: Centerline tracking is guidance, not the primary objective.
 LATERAL_WEIGHT = -0.1
 
-#: Normalize 2.5 mm of wall penetration to a penalty of one.
-PENETRATION_WEIGHT = -1.0 / MAX_STEP_ADVANCE_M
+#: Penetration depth, in metres, that scores a penalty of one. Equal to
+#: ``MAX_STEP_ADVANCE_M`` on purpose, so a full-scale wall violation cancels a
+#: full step of advance, but its own constant because the two measure
+#: different things: a depth into the vessel wall against a ceiling on drive
+#: speed divided by the control rate. Retuning the clamp should not reweight
+#: wall contact behind the author's back.
+PENETRATION_SCALE_M = 0.0025
+
+#: Normalize a full-scale penetration to a penalty of one.
+PENETRATION_WEIGHT = -1.0 / PENETRATION_SCALE_M
 
 #: Endoluminal demonstrations are labelled successful within 8 mm of the
 #: target, so the RL termination defaults to that while the shared medical

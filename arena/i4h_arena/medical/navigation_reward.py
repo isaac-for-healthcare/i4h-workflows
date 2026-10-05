@@ -80,10 +80,18 @@ RADII_CACHE_ATTR = "_catheter_lumen_radii_cache"
 TIP_STATE_CACHE_ATTR = "_catheter_tip_route_state"
 
 #: Largest advance one control step can make, in metres. The drive clamps
-#: insertion to 0.05 m/s (``CatheterDriveSpec.max_insertion_velocity_mps``) and
-#: controls advance at 30 Hz, so 1.67 mm is the physical ceiling; the margin
-#: covers the tip travelling slightly further than the root it is fed from
-#: while the shaft straightens.
+#: insertion to 0.060 m/s (``max_insertion_velocity_mps`` on
+#: ``CatheterVelocityActionCfg`` and on its arm-driven counterpart
+#: ``ArmDrivenCatheterActionCfg``) and controls advance at 30 Hz, from a
+#: ``sim.dt`` of 1/120 with ``decimation`` of 4, so 2 mm is the physical
+#: ceiling; the margin above it covers the tip travelling slightly further
+#: than the root it is fed from while the shaft straightens.
+#:
+#: Named rather than derived because this module is the shared medical layer
+#: and the limit belongs to two specific embodiments, so deriving it would
+#: invert the dependency and would have to pick between them.
+#: ``test_step_advance_clears_the_drive_ceiling`` holds the number to the two
+#: they declare.
 MAX_STEP_ADVANCE_M = 0.0025
 
 
