@@ -88,7 +88,7 @@ Bundles from the earlier workflow pipeline (schema 1) are no longer read; rebuil
 
 Install the optional backend with `uv sync --project tools/patient_twin --extra nvsegment`
 and prepare the source checkout and checkpoint following the
-[patient pipeline guide](https://github.com/isaac-for-healthcare/i4h-digital-twin/blob/1ab525c1e6957d3b1e103c4c086c813dba652894/patient-digital-twin/README.md).
+[patient pipeline guide](https://github.com/isaac-for-healthcare/i4h-digital-twin/blob/9a779a4d5cb630a304155462e8ea4d440636a2b1/patient-digital-twin/README.md).
 Inference uses imports in the current environment; `--python` optionally selects a separate one. Use `--source nvgenerate --source-root /path/to/NV-Generate-CTMR`
 without `--input` to generate paired CT/anatomy. See the [builder setup](../../../tools/patient_twin/README.md)
 for the pinned library and local development override. Always choose a new output directory.
