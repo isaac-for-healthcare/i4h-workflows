@@ -240,7 +240,6 @@ actor:
     action_dim: 4
     num_action_chunks: 1
     denoising_steps: 4
-    policy_setup: widowx_bridge
     obs_converter_type: ${env.train.isaaclab.obs_converter_type}
     embodiment_tag: ${env.train.isaaclab.embodiment_tag}
     add_value_head: true
