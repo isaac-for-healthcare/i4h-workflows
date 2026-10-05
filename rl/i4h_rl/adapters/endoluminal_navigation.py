@@ -337,6 +337,42 @@ def _assert_contract_matches(modality_config: Any) -> None:
         raise ValueError("catheter state groups must be 3, 1, 3, and 2 wide to match the checkpoint, " f"got {widths}")
 
 
+def monitor_step_threshold(cfg) -> int:
+    """Steps after which one rollout epoch's metrics are final.
+
+    The smaller of the episode length and the epoch's own step budget, because
+    either can be the thing that ends collection. With ``auto_reset: false``
+    RLinf runs ``max_steps_per_rollout_epoch // num_action_chunks`` chunk steps
+    per epoch and resets at the top of the next one, and it asserts that the
+    budget divides by the chunk width, so the budget is exactly how many env
+    steps an epoch delivers.
+
+    Reading ``max_episode_steps`` alone is what this used to do, and the two are
+    equal in the shipped profiles, so the count landed on the threshold on the
+    epoch's final step with nothing to spare. Lower the budget -- the obvious
+    knob for a shorter rollout -- and the threshold becomes unreachable, so the
+    monitor stops recording entirely and reports no error, since nothing in
+    RLinf relates the two keys.
+    """
+    steps = [int(getattr(cfg, name, 0) or 0) for name in ("max_episode_steps", "max_steps_per_rollout_epoch")]
+    reachable = [value for value in steps if value > 0]
+    if not reachable:
+        raise ValueError("env config declares neither max_episode_steps nor max_steps_per_rollout_epoch")
+    return min(reachable)
+
+
+def monitor_owns_run_dir(seed_offset: int) -> bool:
+    """Whether this env worker is the one that may write the run directory.
+
+    ``RolloutProgressMonitor`` writes a fixed ``rollout_progress.json`` and one
+    TensorBoard directory, so a second worker would overwrite the first rather
+    than add to it. Only one worker exists today -- the backend starts a single
+    simulator behind a single bridge socket, and both profiles place ``env`` on
+    one node -- so this is a guard against a placement change, not a live fault.
+    """
+    return int(seed_offset) == 0
+
+
 def _get_workflow_env_class():
     from rlinf.envs.isaaclab.isaaclab_env import IsaaclabBaseEnv
 
@@ -345,9 +381,16 @@ def _get_workflow_env_class():
             self._rollout_monitor = None
             self._rollout_monitor_recorded = False
             self._rollout_monitor_steps = 0
+            self._rollout_monitor_threshold = 0
+            seed_offset = kwargs.get("seed_offset", args[2] if len(args) > 2 else 0)
             super().__init__(*args, **kwargs)
             run_dir = os.environ.get("I4H_RL_RUN_DIR")
-            if run_dir and self.isaaclab_env_id in (TRAIN_TASK_ID, ARM_TRAIN_TASK_ID):
+            if (
+                run_dir
+                and self.isaaclab_env_id in (TRAIN_TASK_ID, ARM_TRAIN_TASK_ID)
+                and monitor_owns_run_dir(seed_offset)
+            ):
+                self._rollout_monitor_threshold = monitor_step_threshold(self.cfg)
                 self._rollout_monitor = RolloutProgressMonitor(
                     run_dir,
                     rollouts_per_update=int(self.cfg.rollout_epoch),
@@ -385,7 +428,7 @@ def _get_workflow_env_class():
             if (
                 self._rollout_monitor is not None
                 and not self._rollout_monitor_recorded
-                and self._rollout_monitor_steps >= self.cfg.max_episode_steps
+                and self._rollout_monitor_steps >= self._rollout_monitor_threshold
             ):
                 self._rollout_monitor.record(
                     mean_return=episode_info["return"].float().mean().item(),
