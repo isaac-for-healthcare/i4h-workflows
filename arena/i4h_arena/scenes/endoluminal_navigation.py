@@ -142,14 +142,11 @@ class EndoluminalNavigationScene(Scene):
                 PatientVolume.load(PatientTwin.load(self.args.patient_twin)),
                 carm_orbit,
                 detector_size_m=detector_size_m,
-                # The detector covers 307 mm of a 510 mm route, so a fixed
-                # isocenter leaves roughly 40% of every episode with the tip off
-                # the frame. An operator can still work from the distance
-                # readout; a policy trained on those frames cannot, since the
-                # action has no visible cause in the image it is paired with.
-                # Opt-in until a live run confirms the frame, because panning is
-                # the first thing to give the renderer a non-zero pose
-                # translation and the first attempt rendered an unusable image.
+                # On by default, and opt-out through the environment.
+                # ``follow_tip_enabled`` holds why, along with the render that
+                # confirmed the panned frame -- restating it here is how this
+                # comment came to describe the feature as still opt-in long
+                # after that render had settled it.
                 tip_source=catheter if follow_tip_enabled() else None,
             )
         else:
