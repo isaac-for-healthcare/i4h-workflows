@@ -471,12 +471,20 @@ def test_profile_pins_the_n17_training_runtime():
     assert (REPO / profile.model_runtime).is_file()
 
 
-def test_profile_opts_into_shared_gb300_gpu():
+def test_profile_permits_a_shared_gpu_without_defaulting_to_one():
+    """Two separate things, and this profile used to conflate them.
+
+    ``allow_shared_gpu`` is the permission the single-GPU host this stack is
+    developed on needs, since the default device pair names a card it does not
+    have. The device pair is the default everyone else gets, and defaulting it
+    to colocation stranded the second card on any host with two and did so for
+    a combined footprint nobody has measured -- the GR00T PPO config still
+    points ``model_path`` at a placeholder.
+    """
     profile = RLProfile.load(PROFILE_PATH)
     assert profile.resources is not None
-    assert profile.resources.model_gpu == "0"
-    assert profile.resources.simulator_gpu == "0"
     assert profile.resources.allow_shared_gpu is True
+    assert (profile.resources.model_gpu, profile.resources.simulator_gpu) == ("0", "1")
 
 
 # --------------------------------------------------------------------------- #

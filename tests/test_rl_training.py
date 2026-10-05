@@ -23,8 +23,9 @@ from i4h_rl.adapters.assemble_trocar import ACTION_KEYS  # noqa: E402
 from i4h_rl.adapters.assemble_trocar import _register_gr00t_converters, convert_gr00t_to_workflow_action
 from i4h_rl.artifacts import checkpoint_iteration  # noqa: E402
 from i4h_rl.artifacts import resolve_input_path, resolve_output_path
-from i4h_rl.backends.rlinf import _gpu_assignment, _sim_ready_timeout  # noqa: E402
-from i4h_rl.backends.rlinf import (
+from i4h_rl.backends.rlinf import (  # noqa: E402
+    _gpu_assignment,
+    _sim_ready_timeout,
     checkpoint_bundle,
     checkpoint_root,
     finalize_evaluation,
@@ -226,7 +227,7 @@ def test_profiles_declare_workflow_adapters_and_simulator_contracts() -> None:
     assert trocar.simulation.env_spacing == 6.0
     assert catheter.resources is not None
     assert catheter.resources.model_gpu == "0"
-    assert catheter.resources.simulator_gpu == "0"
+    assert catheter.resources.simulator_gpu == "1"
     assert catheter.resources.allow_shared_gpu is True
     assert ultrasound.adapter_module == "i4h_rl.adapters.ultrasound_probe_reach"
     assert ultrasound.simulation.enable_cameras is False
@@ -532,12 +533,34 @@ def test_rlinf_simulator_ready_timeout_must_be_positive_and_finite(monkeypatch, 
         _sim_ready_timeout()
 
 
-def test_only_catheter_rlinf_profile_shares_a_gpu_by_default(monkeypatch) -> None:
+def test_no_rlinf_profile_colocates_the_model_and_simulator_by_default(monkeypatch) -> None:
+    """Separate devices everywhere, including the two that permit sharing.
+
+    The catheter profiles were the only ones that declared ``resources`` at
+    all, and they declared one device for both processes. That shipped
+    colocation as the default for a footprint nobody had measured -- the GR00T
+    PPO config still points ``model_path`` at a placeholder -- and it silently
+    stranded the second card on any host that had one.
+    """
     monkeypatch.delenv("I4H_RL_MODEL_GPU", raising=False)
     monkeypatch.delenv("I4H_RL_SIM_GPU", raising=False)
 
+    for name in ("endoluminal_navigation", "endoluminal_navigation_arm", "assemble_trocar"):
+        assert _gpu_assignment(load_profile(name)) == ("0", "1"), name
+
+
+def test_a_profile_that_permits_sharing_lets_one_gpu_host_opt_in(monkeypatch) -> None:
+    """``allow_shared_gpu`` is the permission, not the setting.
+
+    A single-GPU host cannot use the default above: device 1 does not exist
+    there. It is also where this stack is developed, so the escape hatch has
+    to work without editing the profile.
+    """
+    monkeypatch.setenv("I4H_RL_MODEL_GPU", "0")
+    monkeypatch.setenv("I4H_RL_SIM_GPU", "0")
+
     assert _gpu_assignment(load_profile("endoluminal_navigation")) == ("0", "0")
-    assert _gpu_assignment(load_profile("assemble_trocar")) == ("0", "1")
+    assert _gpu_assignment(load_profile("endoluminal_navigation_arm")) == ("0", "0")
 
 
 def test_non_opted_in_rlinf_profile_rejects_shared_gpu_override(monkeypatch) -> None:

@@ -60,8 +60,18 @@ simulation:
   presets: physx
   enable_cameras: true
 resources:
-  # GB300 has enough addressable VRAM to colocate the isolated GR00T/RLinf
-  # and Isaac Sim processes. Each process sees the selected device as cuda:0.
+  # Separate devices by default, as every other profile gets implicitly. The
+  # GR00T/RLinf and Isaac Sim processes are isolated and each sees its selected
+  # device as cuda:0, so nothing here requires them to be the same card, and
+  # the footprint of the two together has not been measured on this stack --
+  # the GR00T PPO config still points `model_path` at a placeholder, so the
+  # colocated path has never run. An unmeasured default belongs on the safe
+  # side.
+  #
+  # `allow_shared_gpu` stays true because this workload is known to tolerate
+  # colocation on a large card, and on a single-GPU host it has no choice: the
+  # default below names a device that does not exist there. It is the
+  # permission, not the setting. Share with `I4H_RL_SIM_GPU=0`.
   model_gpu: "0"
-  simulator_gpu: "0"
+  simulator_gpu: "1"
   allow_shared_gpu: true
