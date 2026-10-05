@@ -10,6 +10,7 @@ fake env rather than needing a live Newton model.
 
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 
 import pytest
@@ -76,13 +77,17 @@ def test_distance_is_measured_from_the_tip_to_the_target():
 def test_endoluminal_navigation_uses_the_demonstration_arrival_tolerance():
     from i4h_arena.envcfg.endoluminal_navigation import (
         ENDOLUMINAL_ARRIVAL_TOLERANCE_M,
+        ENDOLUMINAL_DEFAULT_ARRIVAL_TOLERANCE_M,
         navigation_terminations_cfg,
     )
 
     cfg = navigation_terminations_cfg(TARGET)
 
-    assert ENDOLUMINAL_ARRIVAL_TOLERANCE_M == pytest.approx(0.008)
-    assert cfg.success.params["tolerance_m"] == pytest.approx(0.008)
+    assert ENDOLUMINAL_DEFAULT_ARRIVAL_TOLERANCE_M == pytest.approx(0.008)
+    # Against the resolved value rather than the literal, because the
+    # termination has to follow an override and the test must not assert that
+    # it does not.
+    assert cfg.success.params["tolerance_m"] == pytest.approx(ENDOLUMINAL_ARRIVAL_TOLERANCE_M)
 
 
 def test_a_missing_polyline_never_counts_as_arrival():
@@ -345,6 +350,23 @@ def test_arrival_tolerance_falls_back_on_unusable_values(raw: str):
 
 def test_arrival_tolerance_accepts_the_upper_bound():
     assert resolve_arrival_tolerance_m({ARRIVAL_TOLERANCE_ENV_VAR: "20"}) == pytest.approx(0.020)
+
+
+def test_a_specialty_default_is_still_overridable():
+    """The variable has to reach a criterion that starts somewhere other than 5 mm."""
+    assert resolve_arrival_tolerance_m({}, default_m=0.008) == pytest.approx(0.008)
+    assert resolve_arrival_tolerance_m({ARRIVAL_TOLERANCE_ENV_VAR: "12"}, default_m=0.008) == pytest.approx(0.012)
+
+
+def test_a_specialty_default_survives_an_unusable_override():
+    assert resolve_arrival_tolerance_m({ARRIVAL_TOLERANCE_ENV_VAR: "nonsense"}, default_m=0.008) == pytest.approx(0.008)
+
+
+def test_an_override_naming_the_default_is_not_announced_as_a_change(caplog):
+    with caplog.at_level(logging.WARNING):
+        resolve_arrival_tolerance_m({ARRIVAL_TOLERANCE_ENV_VAR: "8"}, default_m=0.008)
+
+    assert "arrival tolerance set to" not in caplog.text
 
 
 def test_module_tolerance_is_the_resolved_default_in_this_process():

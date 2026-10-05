@@ -39,14 +39,16 @@ DEFAULT_ARRIVAL_TOLERANCE_M = 0.005
 #:
 #: Teleoperation on a slow-rendering twin can run out of step budget a few
 #: millimetres short, which records a failure for a drive that was otherwise
-#: clean. Relaxing the tolerance for a collection session is reasonable, but
-#: only against measured geometry: on ``s0011`` no two non-adjacent centerline
-#: points come within 5 mm, exactly one pair comes within 7 mm, and the lumen
-#: at the target has a 9 mm radius, so 7 mm still sits inside one radius there.
-#: The narrow end of that same tree is 3 mm, where 7 mm would span the vessel
-#: and accept a neighbour, so this is a per-twin judgement and not a new
-#: default. An override is logged, because the success labels it produces end
-#: up in recordings that outlive the session.
+#: clean. Moving the tolerance for a collection session is reasonable, but only
+#: against measured geometry, and the figure to measure is how close the route
+#: comes to its own end rather than the lumen radius there. On ``s0011`` the
+#: target sits in a 4.5 mm radius, but ignoring the last 20 mm of route the
+#: nearest the route comes back to its endpoint is 22 mm, so 8 mm cannot accept
+#: a neighbouring branch even though it is wider than the lumen. Somewhere
+#: else on that same tree the branches run 3 mm apart and 8 mm would span
+#: them, so this is a per-twin judgement and not a new default. An override is
+#: logged, because the success labels it produces end up in recordings that
+#: outlive the session.
 ARRIVAL_TOLERANCE_ENV_VAR = "I4H_CATHETER_ARRIVAL_MM"
 
 #: Refuses a value that is not a plausible lumen radius, rather than silently
@@ -54,29 +56,46 @@ ARRIVAL_TOLERANCE_ENV_VAR = "I4H_CATHETER_ARRIVAL_MM"
 _MAX_ARRIVAL_TOLERANCE_MM = 20.0
 
 
-def resolve_arrival_tolerance_m(environ: dict[str, str] | None = None) -> float:
-    """Arrival tolerance in metres, from the environment or the default."""
+def resolve_arrival_tolerance_m(
+    environ: dict[str, str] | None = None,
+    *,
+    default_m: float = DEFAULT_ARRIVAL_TOLERANCE_M,
+) -> float:
+    """Arrival tolerance in metres, from the environment or ``default_m``.
+
+    A specialty whose demonstrations were labelled at its own tolerance passes
+    that as ``default_m`` rather than hardcoding it past this function, so the
+    override still reaches it. A constant that bypasses the environment makes
+    the variable a no-op for whichever criterion uses it while the others go on
+    honouring it, which is worse than either tolerance on its own.
+    """
     raw = (environ if environ is not None else os.environ).get(ARRIVAL_TOLERANCE_ENV_VAR, "")
     text = str(raw).strip()
     if not text:
-        return DEFAULT_ARRIVAL_TOLERANCE_M
+        return default_m
     try:
         millimetres = float(text)
     except ValueError:
         _LOGGER.warning("ignoring %s=%r: not a number", ARRIVAL_TOLERANCE_ENV_VAR, raw)
-        return DEFAULT_ARRIVAL_TOLERANCE_M
+        return default_m
     if not 0.0 < millimetres <= _MAX_ARRIVAL_TOLERANCE_MM:
         _LOGGER.warning(
             "ignoring %s=%r: expected 0 to %.0f mm", ARRIVAL_TOLERANCE_ENV_VAR, raw, _MAX_ARRIVAL_TOLERANCE_MM
         )
-        return DEFAULT_ARRIVAL_TOLERANCE_M
-    _LOGGER.warning(
-        "arrival tolerance relaxed to %.1f mm by %s; recorded success labels mean this, not the %.1f mm default",
-        millimetres,
-        ARRIVAL_TOLERANCE_ENV_VAR,
-        DEFAULT_ARRIVAL_TOLERANCE_M * 1000.0,
-    )
-    return millimetres / 1000.0
+        return default_m
+    tolerance_m = millimetres / 1000.0
+    # Silent when the override names the value already in force: with several
+    # defaults in play the same variable is a change to one criterion and a
+    # no-op for another, and warning about the no-op would report a 5 mm
+    # default being replaced by 5 mm.
+    if not math.isclose(tolerance_m, default_m):
+        _LOGGER.warning(
+            "arrival tolerance set to %.1f mm by %s; recorded success labels mean this, not the %.1f mm default",
+            millimetres,
+            ARRIVAL_TOLERANCE_ENV_VAR,
+            default_m * 1000.0,
+        )
+    return tolerance_m
 
 
 ARRIVAL_TOLERANCE_M = resolve_arrival_tolerance_m()

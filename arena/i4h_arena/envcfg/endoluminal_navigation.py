@@ -27,6 +27,7 @@ from i4h_arena.medical.navigation_goal import (
     ARRIVAL_HOLD_STEPS,
     reached_navigation_target,
     reset_arrival_progress,
+    resolve_arrival_tolerance_m,
 )
 from i4h_arena.medical.navigation_observation import (
     drive_state,
@@ -138,9 +139,16 @@ LATERAL_WEIGHT = -0.1
 PENETRATION_WEIGHT = -1.0 / MAX_STEP_ADVANCE_M
 
 #: Endoluminal demonstrations are labelled successful within 8 mm of the
-#: target. Keep the RL termination aligned with that data contract while the
-#: shared medical navigation default remains the stricter 5 mm.
-ENDOLUMINAL_ARRIVAL_TOLERANCE_M = 0.008
+#: target, so the RL termination defaults to that while the shared medical
+#: navigation default stays at the stricter 5 mm.
+ENDOLUMINAL_DEFAULT_ARRIVAL_TOLERANCE_M = 0.008
+
+#: Resolved through the same environment variable as every other arrival
+#: criterion. ``catheter.py`` builds the termination without naming a
+#: tolerance, so a constant here would make ``I4H_CATHETER_ARRIVAL_MM`` a no-op
+#: for the one workflow it exists to serve: the collection session would log
+#: and label at the tolerance it asked for while the episode ended at 8 mm.
+ENDOLUMINAL_ARRIVAL_TOLERANCE_M = resolve_arrival_tolerance_m(default_m=ENDOLUMINAL_DEFAULT_ARRIVAL_TOLERANCE_M)
 
 
 @configclass
@@ -225,6 +233,7 @@ __all__ = [
     "CatheterNavigationRewardsCfg",
     "CatheterNavigationTerminationsCfg",
     "ENDOLUMINAL_ARRIVAL_TOLERANCE_M",
+    "ENDOLUMINAL_DEFAULT_ARRIVAL_TOLERANCE_M",
     "navigation_observations_cfg",
     "navigation_rewards_cfg",
     "navigation_terminations_cfg",
