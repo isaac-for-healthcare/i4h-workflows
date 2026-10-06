@@ -52,6 +52,20 @@ def _scene_args(args: argparse.Namespace) -> argparse.Namespace:
     )
 
 
+def _drop_time_out(env_cfg) -> None:
+    """Leave ending an episode on length to RLinf, which caps it at ``--max-episode-steps``.
+
+    Isaac Lab resets a timed-out environment inside ``step`` and only then
+    computes observations, so its time-out hands RLinf the next episode's
+    reset observation on the step RLinf truncates. RLinf resets at the top of
+    every rollout epoch (or itself, under ``auto_reset``), so that reset is
+    also redundant. Terminations that are not about length stay.
+    """
+    terminations = getattr(env_cfg, "terminations", None)
+    if terminations is not None and hasattr(terminations, "time_out"):
+        terminations.time_out = None
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     from isaaclab.app import AppLauncher
@@ -70,6 +84,7 @@ def main(argv: list[str] | None = None) -> int:
         scene.configure_args(scene_args)
         gym_id, env_cfg = scene.gym_spec()
         env_cfg.scene.num_envs = args.num_envs
+        _drop_time_out(env_cfg)
         render_mode = "rgb_array" if args.enable_cameras else None
         env = gym.make(gym_id, cfg=env_cfg, render_mode=render_mode).unwrapped
 

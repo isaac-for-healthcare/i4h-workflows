@@ -359,6 +359,32 @@ def test_sim_server_accepts_profile_selected_scene_settings() -> None:
     assert scene_args.no_cameras is True
 
 
+def test_sim_server_leaves_the_episode_length_to_rlinf() -> None:
+    """Isaac Lab resets a timed-out env before it observes, so its time-out
+    at RLinf's own cap turned the last observation of every rollout into the
+    next episode's reset state, and the route metrics read no advance."""
+    from types import SimpleNamespace
+
+    from i4h_rl.sim_server import _drop_time_out
+
+    success = object()
+    env_cfg = SimpleNamespace(terminations=SimpleNamespace(time_out=object(), success=success))
+
+    _drop_time_out(env_cfg)
+
+    assert env_cfg.terminations.time_out is None
+    assert env_cfg.terminations.success is success
+
+
+def test_sim_server_tolerates_scenes_without_a_time_out() -> None:
+    from types import SimpleNamespace
+
+    from i4h_rl.sim_server import _drop_time_out
+
+    _drop_time_out(SimpleNamespace(terminations=None))
+    _drop_time_out(SimpleNamespace(terminations=SimpleNamespace(success=object())))
+
+
 def test_probe_reach_profile_uses_rsl_rl_without_images() -> None:
     profile = load_profile("ultrasound_probe_reach")
     assert profile.trainer == "rsl_rl"
