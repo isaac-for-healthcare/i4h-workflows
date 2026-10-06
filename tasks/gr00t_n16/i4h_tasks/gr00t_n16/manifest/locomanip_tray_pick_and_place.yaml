@@ -25,9 +25,9 @@ model:
   action_chunk_length: 16
   execution_steps: 16
   control_hz: 30.0
-  policy_joints_config_path: third_party/IsaacLab-Arena-0a1b8c2/isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml
-  action_joints_config_path: third_party/IsaacLab-Arena-0a1b8c2/isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
-  state_joints_config_path: third_party/IsaacLab-Arena-0a1b8c2/isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
+  policy_joints_config_path: third_party/IsaacLab-Arena-311d0f0/isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml
+  action_joints_config_path: third_party/IsaacLab-Arena-311d0f0/isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
+  state_joints_config_path: third_party/IsaacLab-Arena-311d0f0/isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
   pov_cam_names_sim:
   - obs_key: head
     video_key: ego_view

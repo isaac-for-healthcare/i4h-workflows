@@ -42,7 +42,7 @@ packages = ["i4h_tasks"]
 
 [tool.uv.sources]
 i4h-common = { path = "../../common", editable = true }
-isaaclab-arena = { path = "../../third_party/IsaacLab-Arena-0a1b8c2", editable = true }
+isaaclab-arena = { path = "../../third_party/IsaacLab-Arena-311d0f0", editable = true }
 gr00t = { path = "../../third_party/Isaac-GR00T-1.6", editable = true }
 torch = { index = "pytorch-cu130" }
 torchvision = { index = "pytorch-cu130" }
