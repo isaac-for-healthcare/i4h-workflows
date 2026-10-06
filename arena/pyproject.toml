@@ -80,7 +80,7 @@ isaaclab-tasks-experimental = { path = "../third_party/IsaacLab-6864dd1/source/i
 isaaclab-teleop = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_teleop", editable = true }
 isaaclab-visualizers = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_visualizers", editable = true }
 leisaac = { path = "../third_party/leisaac-cd61a20/source/leisaac", editable = true }
-isaaclab-arena = { path = "../third_party/IsaacLab-Arena-311d0f0", editable = true }
+isaaclab-arena = { path = "../third_party/IsaacLab-Arena-5660182", editable = true }
 catheter-vasculature-solver = { path = "../third_party/i4h-physics-simulation-internal/physics_simulation/endoluminal/catheter-vasculature-solver", editable = true }
 xray-simulator = { path = "../third_party/i4h-sensor-simulation-internal/xray-simulator", editable = true }
 torch = { index = "pytorch-cu130" }  # Isaac Lab 3.0's torch index on both architectures

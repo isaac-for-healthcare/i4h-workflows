@@ -1,22 +1,27 @@
 diff --git a/isaaclab_arena/environments/isaaclab_arena_manager_based_env_cfg.py b/isaaclab_arena/environments/isaaclab_arena_manager_based_env_cfg.py
-index ce619a732..39cd0b6ab 100644
+index dc0d3b826..875b7be37 100644
 --- a/isaaclab_arena/environments/isaaclab_arena_manager_based_env_cfg.py
 +++ b/isaaclab_arena/environments/isaaclab_arena_manager_based_env_cfg.py
 @@ -16,7 +16,6 @@ from isaaclab.utils.configclass import configclass
- from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
+ from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, NewtonMJWarpManager
  from isaaclab_physx.physics import PhysxCfg
  from isaaclab_physx.renderers import IsaacRtxRendererGlobalSettingsCfg
 -from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_global_settings
  from isaaclab_tasks.utils import PresetCfg
  
  
-@@ -89,6 +88,10 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
+@@ -106,6 +105,15 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
  
  def apply_arena_global_settings() -> None:
      """Apply Arena's process-global RTX and physics settings before environment construction."""
 +    # Imported here: the RTX utilities import omni.usd, so a module-level import keeps kitless (Newton-only)
-+    # environments from importing this configuration at all.
-+    from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_global_settings
++    # environments from importing this configuration at all. Without Kit there are no RTX or carb settings to apply.
++    try:
++        from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_global_settings
++    except ModuleNotFoundError as error:
++        if not (error.name or "").startswith("omni"):
++            raise
++        return
 +
      apply_isaac_rtx_global_settings(
          IsaacRtxRendererGlobalSettingsCfg(

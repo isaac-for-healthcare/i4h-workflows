@@ -18,9 +18,12 @@ ISAACLAB_REV="6864dd126fd8efd04aaebe06bc9d00c1b9b989dc"
 ISAACLAB_DIR="IsaacLab-6864dd1"
 LEISAAC_REV="cd61a20c75f7b72c347538089602201349af6dc8"
 LEISAAC_DIR="leisaac-cd61a20"
-# The newest IsaacLab-Arena whose Isaac Lab submodule (bb0c8e1) is on release/3.0.0.
-ISAACLAB_ARENA_REV="311d0f0fc6724eb953313f04765f76d947982c40"
-ISAACLAB_ARENA_DIR="IsaacLab-Arena-311d0f0"
+# IsaacLab-Arena main (2026-10-06): the task API the i4h aorta task uses (CompletionCriteria,
+# TaskTerminationCfg) arrived after the last Arena whose own Isaac Lab submodule is on release/3.0.0
+# (311d0f0, submodule bb0c8e1); this Arena's submodule is a develop commit, but it installs against the
+# Isaac Lab 6864dd1 checkout above (verified kitless: import, the patches below, the aorta task).
+ISAACLAB_ARENA_REV="5660182ae7365c5db3aec4019bb30274f7045b5a"
+ISAACLAB_ARENA_DIR="IsaacLab-Arena-5660182"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
 # The three i4h component repositories track main so that workflow integration always builds
