@@ -26,7 +26,13 @@ from i4h_arena.medical.patient_volume import PatientVolume
 from i4h_arena.medical.slang_fluoroscopy import SlangFluoroscopyRenderer, solve_projection_geometry
 
 
-def _patient_volume(tmp_path, *, with_vessel_mask: bool = False) -> PatientVolume:
+def _patient_volume(
+    tmp_path,
+    *,
+    with_vessel_mask: bool = False,
+    coordinate_frame: str = "DICOM_LPS",
+    world_from_lps_m: np.ndarray | None = None,
+) -> PatientVolume:
     shape = (4, 4, 4)
     spacing_zyx = (3.0, 2.0, 1.0)
     np.save(tmp_path / "mu_volume.npy", np.ones(shape, dtype=np.float32) * 0.01)
@@ -43,20 +49,17 @@ def _patient_volume(tmp_path, *, with_vessel_mask: bool = False) -> PatientVolum
         vessel_mask[:, 1:3, 1:3] = 1
         np.save(tmp_path / "vessel_mask.npy", vessel_mask)
         artifacts["vessel_mask"] = "vessel_mask.npy"
+    patient_from_lps = np.diag((-1.0, -1.0, 1.0, 1.0)) if coordinate_frame == "NIFTI_RAS" else np.eye(4)
+    world_from_lps_m = np.eye(4) if world_from_lps_m is None else world_from_lps_m
     (tmp_path / "patient_twin.yaml").write_text(
         yaml.safe_dump(
             {
                 "schema_version": 1,
                 "patient_id": "synthetic",
-                "coordinate_frame": "DICOM_LPS",
+                "coordinate_frame": coordinate_frame,
                 "transforms": {
-                    "voxel_to_patient_mm": [
-                        [1.0, 0.0, 0.0, 0.0],
-                        [0.0, 2.0, 0.0, 0.0],
-                        [0.0, 0.0, 3.0, 0.0],
-                        [0.0, 0.0, 0.0, 1.0],
-                    ],
-                    "world_from_patient_m": np.eye(4).tolist(),
+                    "voxel_to_patient_mm": (patient_from_lps @ np.diag((1.0, 2.0, 3.0, 1.0))).tolist(),
+                    "world_from_patient_m": (world_from_lps_m @ patient_from_lps).tolist(),
                 },
                 "artifacts": artifacts,
             },
@@ -94,7 +97,8 @@ def test_scene_carm_provider_reads_isaac_xyzw_quaternions() -> None:
     np.testing.assert_allclose(state.detector_x_axis_world, [[0.0, 1.0, 0.0]], atol=1e-6)
 
 
-def test_reference_projection_provider_aims_the_named_views_at_the_patient(tmp_path) -> None:
+@pytest.mark.parametrize("coordinate_frame", ["DICOM_LPS", "NIFTI_RAS"])
+def test_reference_projection_provider_aims_the_named_views_at_the_patient(tmp_path, coordinate_frame) -> None:
     """AP must run anterior-posterior, and the obliques must sweep about the body.
 
     The frame used to be taken from the volume's storage axes. On a real twin
@@ -107,10 +111,10 @@ def test_reference_projection_provider_aims_the_named_views_at_the_patient(tmp_p
     replaced compared the projection against the volume frame and passed
     throughout, because agreeing with the volume frame was the bug.
 
-    The fixture's ``world_from_patient_m`` is the identity, so world axes are the
-    patient's own left, posterior and superior.
+    Both fixture conventions put patient left, posterior and superior along
+    the positive world axes.
     """
-    patient = _patient_volume(tmp_path)
+    patient = _patient_volume(tmp_path, coordinate_frame=coordinate_frame)
     left = np.array([1.0, 0.0, 0.0])
     posterior = np.array([0.0, 1.0, 0.0])
     superior = np.array([0.0, 0.0, 1.0])
@@ -148,6 +152,49 @@ def test_reference_projection_provider_aims_the_named_views_at_the_patient(tmp_p
     # means the head is drawn at the top rather than upside down.
     vertical = np.cross(anterior, state.detector_x_axis_world[0])
     np.testing.assert_allclose(vertical, -superior, atol=1e-6)
+
+
+@pytest.mark.parametrize("rotated", [False, True], ids=["identity", "rotated-and-translated"])
+def test_lps_and_ras_produce_identical_carm_poses_and_renderer_geometry(tmp_path, rotated) -> None:
+    world_from_lps_m = np.eye(4)
+    if rotated:
+        from scipy.spatial.transform import Rotation
+
+        world_from_lps_m[:3, :3] = Rotation.from_euler("xyz", [23.0, -37.0, 61.0], degrees=True).as_matrix()
+        world_from_lps_m[:3, 3] = [0.4, -0.2, 1.3]
+    patients = []
+    states = []
+    angles = np.deg2rad([0.0, 45.0, 90.0, -30.0])
+    for frame in ("DICOM_LPS", "NIFTI_RAS"):
+        directory = tmp_path / frame
+        directory.mkdir()
+        patient = _patient_volume(directory, coordinate_frame=frame, world_from_lps_m=world_from_lps_m)
+        original_transform = patient.twin.world_from_patient_m.copy()
+        provider = ReferenceProjectionCArmStateProvider(
+            patient, types.SimpleNamespace(angle_rad=angles), detector_size_m=(0.6144, 0.6144)
+        )
+        states.append(provider.snapshot(len(angles)))
+        patients.append(patient)
+        np.testing.assert_array_equal(patient.twin.world_from_patient_m, original_transform)
+
+    np.testing.assert_allclose(patients[0].volume_xyz_mm_to_world_m, patients[1].volume_xyz_mm_to_world_m)
+    for name in ("source_world_m", "detector_center_world_m", "detector_x_axis_world"):
+        np.testing.assert_allclose(getattr(states[0], name), getattr(states[1], name), atol=1e-12)
+    for index in range(len(angles)):
+        projections = [
+            solve_projection_geometry(patient, state, width=64, height=64, env_index=index)
+            for patient, state in zip(patients, states, strict=True)
+        ]
+        for name in (
+            "rotation_zxy_rad",
+            "translation_xyz_mm",
+            "local_to_volume",
+            "isocenter_volume_mm",
+            "source_to_detector_mm",
+            "source_to_isocenter_mm",
+            "pixel_spacing_mm",
+        ):
+            np.testing.assert_allclose(getattr(projections[0], name), getattr(projections[1], name), atol=1e-9)
 
 
 # --------------------------------------------------------------------------- #

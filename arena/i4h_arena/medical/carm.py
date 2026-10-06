@@ -31,7 +31,7 @@ def _quat_xyzw_rotate(quaternion: np.ndarray, vector: np.ndarray) -> np.ndarray:
     return vec + 2.0 * np.cross(xyz, np.cross(xyz, vec) + w * vec)
 
 
-SUPPORTED_PATIENT_FRAME = "DICOM_LPS"
+SUPPORTED_PATIENT_FRAMES = ("DICOM_LPS", "NIFTI_RAS")
 
 
 def anatomical_projection_basis(twin: Any) -> np.ndarray:
@@ -66,8 +66,8 @@ def anatomical_projection_basis(twin: Any) -> np.ndarray:
       the image; the beam and orbit axes cannot.
 
     Args:
-        twin: Patient twin carrying ``coordinate_frame`` and
-            ``world_from_patient_m``.
+        twin: Patient twin carrying a ``DICOM_LPS`` or ``NIFTI_RAS``
+            ``coordinate_frame`` and ``world_from_patient_m``.
 
     Returns:
         ``(3, 3)`` orthonormal right-handed matrix whose columns are world-space
@@ -78,18 +78,21 @@ def anatomical_projection_basis(twin: Any) -> np.ndarray:
             patient-to-world transform is not a rotation.
     """
     frame = str(getattr(twin, "coordinate_frame", ""))
-    if frame != SUPPORTED_PATIENT_FRAME:
+    if frame not in SUPPORTED_PATIENT_FRAMES:
         raise ValueError(
             f"patient twin declares coordinate_frame={frame!r}; the projection basis is only "
-            f"defined for {SUPPORTED_PATIENT_FRAME!r}, whose axes are left, posterior, superior"
+            f"defined for {SUPPORTED_PATIENT_FRAMES!r}"
         )
     rotation = np.asarray(twin.world_from_patient_m, dtype=np.float64)[:3, :3]
     norms = np.linalg.norm(rotation, axis=0)
     if not np.isfinite(norms).all() or norms.min() <= 1.0e-9:
         raise ValueError("patient twin world_from_patient_m has a degenerate rotation")
     rotation = rotation / norms
-    # Columns of world_from_patient are the world directions of the patient axes,
-    # which in LPS are left, posterior and superior.
+    # Express both conventions as world-space left, posterior and superior.
+    # RAS reverses the first two patient axes; normalization above made a copy,
+    # so this does not modify the twin's transform or its volume coordinates.
+    if frame == "NIFTI_RAS":
+        rotation[:, :2] *= -1.0
     left, posterior, superior = rotation[:, 0], rotation[:, 1], rotation[:, 2]
     basis = np.column_stack((-left, -superior, -posterior))
     if not np.allclose(basis.T @ basis, np.eye(3), atol=1.0e-6):
