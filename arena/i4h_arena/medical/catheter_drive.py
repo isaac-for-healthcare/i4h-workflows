@@ -43,6 +43,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 import torch
 
 _LOGGER = logging.getLogger(__name__)
@@ -636,11 +637,153 @@ class RouteRailedIntroducer:
         self._twist_rad[env_ids] = 0.0
 
 
+def blend_quat(start: torch.Tensor, end: torch.Tensor, weight: torch.Tensor | float) -> torch.Tensor:
+    """Normalized linear blend between two w-first quaternions.
+
+    The two poses are close together at every step of an approach, where a
+    normalized blend and a true slerp are indistinguishable. Flipping the far
+    end onto the near hemisphere first is the part that matters: without it the
+    blend takes the long way round and the wrist spins a full turn.
+    """
+    end = torch.where((start * end).sum(dim=-1, keepdim=True) < 0.0, -end, end)
+    return torch.nn.functional.normalize(torch.lerp(start, end, weight), dim=-1)
+
+
+class HolderApproach:
+    """Walks each environment's grip from its spawn pose onto the introducer.
+
+    Every environment keeps its own clock, because Isaac Lab resets environments
+    one at a time as their episodes end. An arm walking back from home must not
+    drag the arms already parked on their access sites into the approach with it.
+
+    The blend runs from a start pose fixed when the target is latched. Blending
+    from the previous command instead compounds the weights, which delivers the
+    arm in a fraction of the duration and with a jerk in the first steps -- the
+    full IK error the duration exists to spread out.
+
+    Which environments are moving is decided on the host. Everything the
+    decision depends on -- the step length and which environments reset -- is known there
+    already, so the decision never waits on the GPU, and :attr:`parked` is a host
+    mask the solver takes without a copy back.
+    """
+
+    def __init__(self, duration_s: float, num_envs: int, device: str | torch.device = "cpu"):
+        if duration_s <= 0.0:
+            raise ValueError(f"approach duration must be positive, got {duration_s}")
+        self._duration_s = float(duration_s)
+        self._device = torch.device(device)
+        self._latched = np.zeros(num_envs, dtype=bool)
+        self._elapsed_s = np.zeros(num_envs, dtype=np.float64)
+
+        identity = torch.zeros((num_envs, 4), device=self._device)
+        identity[:, 0] = 1.0
+        self._start_pos = torch.zeros((num_envs, 3), device=self._device)
+        self._start_quat = identity.clone()
+        self._target_pos = torch.zeros_like(self._start_pos)
+        self._target_quat = identity.clone()
+        self._command_pos = torch.zeros_like(self._start_pos)
+        self._command_quat = identity
+
+    @property
+    def command_pos(self) -> torch.Tensor:
+        """The flange position the servo is given this step, per environment."""
+        return self._command_pos
+
+    @property
+    def command_quat(self) -> torch.Tensor:
+        """The flange orientation the servo is given this step, w-first."""
+        return self._command_quat
+
+    @property
+    def pending(self) -> np.ndarray:
+        """Environments with no target yet, so the introducer has to be resolved for them."""
+        return ~self._latched
+
+    @property
+    def parked(self) -> np.ndarray:
+        """Environments whose grip has finished travelling onto the introducer."""
+        return self._latched & (self._elapsed_s >= self._duration_s)
+
+    def hold(self, pos: torch.Tensor, quat: torch.Tensor) -> None:
+        """Command ``pos``/``quat`` to every environment that has no target yet."""
+        pending = self.pending
+        if not pending.any():
+            return
+        select = self._on_device(pending)
+        self._command_pos.copy_(torch.where(select, pos, self._command_pos))
+        self._command_quat.copy_(torch.where(select, quat, self._command_quat))
+
+    def latch(
+        self,
+        start_pos: torch.Tensor,
+        start_quat: torch.Tensor,
+        target_pos: torch.Tensor,
+        target_quat: torch.Tensor,
+    ) -> None:
+        """Fix both ends of the approach for every environment that has no target yet.
+
+        Environments already latched keep the approach they are part-way
+        through, whatever is passed for them.
+        """
+        pending = self.pending
+        if not pending.any():
+            return
+        select = self._on_device(pending)
+        for buffer, value in (
+            (self._start_pos, start_pos),
+            (self._start_quat, start_quat),
+            (self._target_pos, target_pos),
+            (self._target_quat, target_quat),
+            (self._command_pos, start_pos),
+            (self._command_quat, start_quat),
+        ):
+            buffer.copy_(torch.where(select, value, buffer))
+        self._elapsed_s[pending] = 0.0
+        self._latched[pending] = True
+
+    def advance(self, dt: float) -> None:
+        """Move every latched, unparked environment one step along its approach."""
+        moving = self._latched & (self._elapsed_s < self._duration_s)
+        if not moving.any():
+            return
+        elapsed = self._elapsed_s[moving] + dt
+        # Summed steps fall short by rounding -- ten 0.1 s steps make
+        # 0.9999999999999999 s -- which would hold the wire detached a step
+        # longer than the duration.
+        self._elapsed_s[moving] = np.where(self._duration_s - elapsed < 1e-9, self._duration_s, elapsed)
+        # Smoothstep rather than linear, so the arm leaves and arrives at rest
+        # instead of stepping straight to full commanded speed.
+        fraction = self._elapsed_s / self._duration_s
+        weight = torch.as_tensor(
+            fraction * fraction * (3.0 - 2.0 * fraction), dtype=self._command_pos.dtype, device=self._device
+        )[:, None]
+        select = self._on_device(moving)
+        pos = torch.lerp(self._start_pos, self._target_pos, weight)
+        quat = blend_quat(self._start_quat, self._target_quat, weight)
+        self._command_pos.copy_(torch.where(select, pos, self._command_pos))
+        self._command_quat.copy_(torch.where(select, quat, self._command_quat))
+
+    def reset(self, env_ids: torch.Tensor | np.ndarray | list[int] | None = None) -> None:
+        """Forget the target, so the introducer is resolved again from where the rod lands."""
+        if env_ids is None:
+            self._latched[:] = False
+            self._elapsed_s[:] = 0.0
+            return
+        ids = env_ids.detach().cpu().numpy() if isinstance(env_ids, torch.Tensor) else np.asarray(env_ids)
+        self._latched[ids] = False
+        self._elapsed_s[ids] = 0.0
+
+    def _on_device(self, mask: np.ndarray) -> torch.Tensor:
+        return torch.as_tensor(mask, device=self._device)[:, None]
+
+
 __all__ = [
     "FlangeMountedIntroducer",
+    "HolderApproach",
     "LumenClamp",
     "RouteRailedIntroducer",
     "IntroducerDriveSpec",
+    "blend_quat",
     "frame_along",
     "quat_about_axis",
     "quat_to_w_first",

@@ -54,6 +54,7 @@ from i4h_arena.embodiments.catheter import (
 )
 from i4h_arena.medical.catheter_drive import (
     FlangeMountedIntroducer,
+    HolderApproach,
     IntroducerDriveSpec,
     LumenClamp,
 )
@@ -385,16 +386,11 @@ class ArmDrivenCatheterAction(ActionTerm):
         # Where the introducer is only becomes knowable once the rod exists, so
         # the pose the arm is asked to hold is resolved on the first step it
         # can be, and the arm is walked onto it from wherever it spawned.
-        self._target_pos = torch.zeros((self.num_envs, 3), device=self.device)
-        self._target_quat = torch.zeros((self.num_envs, 4), device=self.device)
-        self._target_quat[:, 0] = 1.0
-        self._target_latched = False
-        # What the servo is actually given this step. It equals the target once
-        # the arm has arrived, and lags it during the approach.
-        self._command_pos = torch.zeros_like(self._target_pos)
-        self._command_quat = torch.zeros_like(self._target_quat)
-        self._command_quat[:, 0] = 1.0
-        self._approach_s = 0.0
+        self._approach = HolderApproach(_APPROACH_S, self.num_envs, device=self.device)
+        # The parked mask last handed to the solver, or None when it has to be
+        # sent again. The solver resets the coupling of every environment it is
+        # told is detached, so the mask goes only when it changes.
+        self._root_motion_sent: np.ndarray | None = None
 
     @property
     def action_dim(self) -> int:
@@ -433,9 +429,7 @@ class ArmDrivenCatheterAction(ActionTerm):
         if frame is None:
             # The rod is not built yet, so there is no introducer to go to.
             # Hold the spawn pose rather than servoing at a stale target.
-            if not self._target_latched:
-                self._command_pos.copy_(flange_pos)
-                self._command_quat.copy_(flange_quat)
+            self._approach.hold(flange_pos, flange_quat)
             self._servo_arm()
             self._hold_the_grip()
             return
@@ -446,9 +440,9 @@ class ArmDrivenCatheterAction(ActionTerm):
         # Latching the reached pose is what left the hand holding nothing 30 cm
         # away, since the home pose is an IK solution posed for clearance and
         # was never solved against the access site.
-        if not self._target_latched:
+        if self._approach.pending.any():
             self._aim_at_the_introducer(flange_pos, flange_quat, root_pos, tangent)
-        self._advance_the_approach(dt)
+        self._approach.advance(dt)
 
         # Once parked, the commanded pose does not move: the introducer is
         # taped to the patient and the wire runs through it. What the servo
@@ -458,11 +452,17 @@ class ArmDrivenCatheterAction(ActionTerm):
         self._hold_the_grip()
 
         insertion, rotation = self._introducer.advance(self._processed_actions[:, 0], self._processed_actions[:, 1], dt)
-        # The flange moves the length of the approach before it parks, and the
-        # introducer transports the wire rigidly with it. Reading transport
-        # while the arm is still on its way would drag the wire across the
-        # patient behind a hand that has not reached the access site yet.
-        transport = self._introducer.transport(flange_pos) if self._parked else torch.zeros_like(flange_pos)
+        # The coupled manager transports the root using the rigid solver's
+        # new pose in every substep. Adding the previous flange displacement
+        # here would count that motion twice. Until the hand reaches the access
+        # site the wire is detached, so neither transport nor reaction applies.
+        from catheter_vasculature_solver.isaaclab_integration import NewtonCoupledMJWarpXPBDRodManager
+
+        parked = self._approach.parked
+        if self._root_motion_sent is None or not np.array_equal(parked, self._root_motion_sent):
+            NewtonCoupledMJWarpXPBDRodManager.set_root_motion_enabled(parked)
+            self._root_motion_sent = parked
+        transport = torch.zeros_like(flange_pos)
         root_target, quat_target = self._introducer.root_target(
             root_pos,
             root_quat,
@@ -486,9 +486,11 @@ class ArmDrivenCatheterAction(ActionTerm):
         self._processed_actions[selected] = 0.0
         # Resolve the introducer again from wherever the rod lands after the
         # reset, and walk onto it again from the spawn pose. The wire retracts;
-        # the drive's own geometry is hardware and stays.
-        self._target_latched = False
-        self._approach_s = 0.0
+        # the drive's own geometry is hardware and stays. Only the environments
+        # being reset start over; the rest stay parked where they are.
+        self._approach.reset(env_ids)
+        # The solver needs the attachment state again after its own reset.
+        self._root_motion_sent = None
         # A reset returns a straight wire, so the steer goes with it.
         self._tip_bend_angle[selected] = 0.0
         self._introducer.reset(None if env_ids is None else torch.as_tensor(env_ids, device=self.device))
@@ -537,11 +539,6 @@ class ArmDrivenCatheterAction(ActionTerm):
         data = self._robot.data
         return data.body_pos_w.torch[:, self._body_idx], data.body_quat_w.torch[:, self._body_idx]
 
-    @property
-    def _parked(self) -> bool:
-        """Has the grip finished travelling onto the introducer?"""
-        return self._target_latched and self._approach_s >= _APPROACH_S
-
     def _aim_at_the_introducer(
         self,
         flange_pos: torch.Tensor,
@@ -555,7 +552,8 @@ class ArmDrivenCatheterAction(ActionTerm):
         from the rod, while the grip goes on the sheath's hub -- a sheath's
         length back up that heading, outside the patient. Both are read from
         the rod rather than configured, which is what keeps this correct when
-        the patient twin moves the access site.
+        the patient twin moves the access site. Computed for every environment
+        and taken only by those without a target yet.
         """
         wire = torch.nn.functional.normalize(tangent, dim=-1, eps=1e-9)
         # A rod whose first segment is degenerate reports no heading. Keeping
@@ -563,12 +561,12 @@ class ArmDrivenCatheterAction(ActionTerm):
         wire = torch.where(wire.norm(dim=-1, keepdim=True) > 0.5, wire, self._approach_axis(flange_quat))
         approach = self._tilted_out_of(wire)
 
-        self._target_pos.copy_(root_pos - approach * (_SHEATH_LENGTH_M + _HAND_TO_GRIP_M))
-        self._target_quat.copy_(self._hand_quat_facing(approach))
-        self._command_pos.copy_(flange_pos)
-        self._command_quat.copy_(flange_quat)
-        self._approach_s = 0.0
-        self._target_latched = True
+        self._approach.latch(
+            flange_pos,
+            flange_quat,
+            root_pos - approach * (_SHEATH_LENGTH_M + _HAND_TO_GRIP_M),
+            self._hand_quat_facing(approach),
+        )
 
     def _tilted_out_of(self, wire: torch.Tensor) -> torch.Tensor:
         """Raise the drive unit's axis off the wire by the puncture angle.
@@ -606,31 +604,6 @@ class ArmDrivenCatheterAction(ActionTerm):
         rotation = torch.stack((across, torch.linalg.cross(feed, across), feed), dim=-1)
         return math_utils.quat_from_matrix(rotation)
 
-    def _advance_the_approach(self, dt: float) -> None:
-        """Walk the commanded pose from the spawn pose onto the introducer."""
-        if self._parked:
-            return
-        self._approach_s = min(self._approach_s + dt, _APPROACH_S)
-        # Smoothstep rather than linear, so the arm leaves and arrives at rest
-        # instead of stepping straight to full commanded speed.
-        alpha = self._approach_s / _APPROACH_S
-        alpha = alpha * alpha * (3.0 - 2.0 * alpha)
-
-        self._command_pos.lerp_(self._target_pos, alpha)
-        self._command_quat.copy_(self._slerp(self._command_quat, self._target_quat, alpha))
-
-    @staticmethod
-    def _slerp(start: torch.Tensor, end: torch.Tensor, alpha: float) -> torch.Tensor:
-        """Normalized linear blend between two w-first quaternions.
-
-        The two poses are close together at every step of the approach, where
-        a normalized blend and a true slerp are indistinguishable. Flipping the
-        far end onto the near hemisphere first is the part that matters: without
-        it the blend takes the long way round and the wrist spins a full turn.
-        """
-        end = torch.where((start * end).sum(dim=-1, keepdim=True) < 0.0, -end, end)
-        return torch.nn.functional.normalize(torch.lerp(start, end, alpha), dim=-1)
-
     def _hold_the_grip(self) -> None:
         """Command the fingers onto the drive unit's barrel."""
         if self._finger_ids:
@@ -643,7 +616,7 @@ class ArmDrivenCatheterAction(ActionTerm):
         root_quat = data.root_quat_w.torch
 
         target_pos_b, target_quat_b = math_utils.subtract_frame_transforms(
-            root_pos, root_quat, self._command_pos, self._command_quat
+            root_pos, root_quat, self._approach.command_pos, self._approach.command_quat
         )
         self._ik.set_command(torch.cat((target_pos_b, target_quat_b), dim=-1))
 

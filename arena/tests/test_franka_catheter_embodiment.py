@@ -254,7 +254,17 @@ def test_the_wire_is_not_dragged_along_during_the_approach() -> None:
     before it arrives would tow the wire behind it."""
     body = source().partition("def apply_actions")[2].partition("def reset")[0]
 
-    assert "if self._parked else torch.zeros_like(flange_pos)" in body
+    assert "parked = self._approach.parked" in body
+    assert "set_root_motion_enabled(parked)" in body
+
+
+def test_a_partial_reset_resends_the_attachment_mask() -> None:
+    """The solver forgets which wires are attached when it resets its own
+    rods, and the mask is otherwise only sent when it changes."""
+    body = source().partition("    def reset")[2].partition("    def joint_state")[0]
+
+    assert "self._approach.reset(env_ids)" in body
+    assert "self._root_motion_sent = None" in body
 
 
 def test_the_drive_is_tilted_out_of_the_vessel_it_feeds() -> None:
@@ -445,9 +455,10 @@ def test_the_wire_is_placed_from_the_realized_flange_not_the_request() -> None:
     """
     body = source().partition("def apply_actions")[2].partition("def reset")[0]
 
-    # The realized pose is what gets transported into the wire ...
-    assert "self._introducer.transport(flange_pos)" in body
-    # ... and the wire's own state is what it is transported from.
+    # The manager owns holder motion; the controller must not add it again.
+    assert "self._introducer.transport(flange_pos)" not in body
+    assert "transport = torch.zeros_like(flange_pos)" in body
+    # Roller commands still start from the wire's current state.
     assert "self._proximal_frame()" in body
     assert "self._asset.place_proximal(root_target, quat_target" in body
 

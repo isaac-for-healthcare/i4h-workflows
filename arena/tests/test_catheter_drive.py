@@ -33,6 +33,7 @@ import logging
 import math
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 torch = pytest.importorskip("torch")
@@ -44,9 +45,11 @@ XPBD_CATHETER = ARENA / "medical" / "xpbd_catheter.py"
 from i4h_arena.medical.catheter_drive import (  # noqa: E402
     FEED_LOG_ENV_VAR,
     FlangeMountedIntroducer,
+    HolderApproach,
     IntroducerDriveSpec,
     LumenClamp,
     RouteRailedIntroducer,
+    blend_quat,
     feed_log_seconds,
     frame_along,
     quat_to_w_first,
@@ -890,3 +893,98 @@ def test_both_drives_sample_the_probe_before_commanding():
 
         assert "self._log_insertion()" in body, f"{name} does not sample insertion"
         assert "self._log_probe()" in body, f"{name} does not sample the probe"
+
+
+def _poses(*xs: float) -> tuple[torch.Tensor, torch.Tensor]:
+    """One identity-oriented pose per environment, at ``x`` along the X axis."""
+    pos = torch.tensor([[x, 0.0, 0.0] for x in xs])
+    quat = torch.zeros((len(xs), 4))
+    quat[:, 0] = 1.0
+    return pos, quat
+
+
+def _smoothstep(fraction: float) -> float:
+    return fraction * fraction * (3.0 - 2.0 * fraction)
+
+
+def test_the_approach_follows_its_schedule_instead_of_compounding() -> None:
+    """Blending from the previous command rather than the start pose
+    compounds the weights: by a tenth of the way the arm was already 13 % of
+    the way there instead of 10 %, and it arrived long before its second."""
+    approach = HolderApproach(1.0, num_envs=1)
+    approach.latch(*_poses(0.0), *_poses(1.0))
+
+    for step in range(1, 11):
+        approach.advance(0.1)
+
+        assert float(approach.command_pos[0, 0]) == pytest.approx(_smoothstep(step / 10), abs=1e-6), step
+    assert approach.parked.tolist() == [True]
+
+
+def test_a_partial_reset_leaves_the_other_arms_parked() -> None:
+    """Isaac Lab resets environments one at a time. Clearing one shared latch
+    sent every parked arm back into the approach and detached its wire."""
+    approach = HolderApproach(0.5, num_envs=3)
+    approach.latch(*_poses(0.0, 0.0, 0.0), *_poses(1.0, 2.0, 3.0))
+    for _ in range(5):
+        approach.advance(0.1)
+    assert approach.parked.tolist() == [True, True, True]
+
+    approach.reset(torch.tensor([1]))
+
+    assert approach.parked.tolist() == [True, False, True]
+    assert approach.pending.tolist() == [False, True, False]
+
+
+def test_relatching_takes_only_the_environments_that_were_reset() -> None:
+    """The introducer is re-resolved for every environment at once, and the
+    arms that never reset must keep the target they are holding."""
+    approach = HolderApproach(0.5, num_envs=2)
+    approach.latch(*_poses(0.0, 0.0), *_poses(1.0, 2.0))
+    for _ in range(5):
+        approach.advance(0.1)
+    approach.reset([1])
+
+    approach.latch(*_poses(9.0, 0.5), *_poses(9.0, 4.0))
+    approach.advance(0.1)
+
+    assert approach.command_pos[:, 0].tolist() == pytest.approx([1.0, 0.5 + 3.5 * _smoothstep(0.2)])
+    for _ in range(4):
+        approach.advance(0.1)
+    assert approach.command_pos[:, 0].tolist() == pytest.approx([1.0, 4.0])
+    assert approach.parked.tolist() == [True, True]
+
+
+def test_holding_moves_only_the_arms_without_a_target() -> None:
+    approach = HolderApproach(1.0, num_envs=2)
+    approach.latch(*_poses(0.0, 0.0), *_poses(1.0, 1.0))
+    approach.reset([0])
+
+    approach.hold(*_poses(7.0, 7.0))
+
+    assert approach.command_pos[:, 0].tolist() == [7.0, 0.0]
+
+
+def test_the_parked_mask_is_a_host_array_the_solver_takes_without_a_copy() -> None:
+    approach = HolderApproach(1.0, num_envs=2)
+
+    assert isinstance(approach.parked, np.ndarray)
+    assert approach.parked.dtype == np.bool_
+
+
+def test_an_approach_needs_time_to_happen_in() -> None:
+    with pytest.raises(ValueError, match="positive"):
+        HolderApproach(0.0, num_envs=1)
+
+
+def test_the_quaternion_blend_takes_the_short_way_round_per_environment() -> None:
+    """``q`` and ``-q`` are the same orientation, and blending toward the wrong
+    sign spins the wrist a full turn on the way."""
+    quarter = torch.tensor([math.cos(math.pi / 8), 0.0, 0.0, math.sin(math.pi / 8)])
+    start = torch.tensor([[1.0, 0.0, 0.0, 0.0]] * 2)
+    end = torch.stack((quarter, -quarter))
+
+    halfway = blend_quat(start, end, torch.tensor([[0.5], [0.5]]))
+
+    assert torch.allclose(halfway[0], halfway[1])
+    assert float(halfway[0, 0]) > math.cos(math.pi / 8)
