@@ -81,14 +81,30 @@ def test_remaining_arc_falls_monotonically_along_the_route() -> None:
     assert remaining[-1] == pytest.approx(0.0)
 
 
-def test_a_duplicated_route_sample_does_not_send_the_tip_nowhere() -> None:
-    """Extracted centerlines do contain repeated points, and a nan would win the argmin."""
-    path = np.array([[0.0, 0.0, 0.0], [0.5, 0.0, 0.0], [0.5, 0.0, 0.0], [1.0, 0.0, 0.0]])
+@pytest.mark.parametrize(
+    "route_x",
+    [
+        [0.0, 0.0, 0.5, 1.0],
+        [0.0, 0.5, 0.5, 1.0],
+        [0.0, 0.5, 1.0, 1.0],
+        [0.0, 0.5, 0.5, 0.5, 1.0],
+    ],
+    ids=["repeated-start", "repeated-middle", "repeated-end", "consecutive-repeats"],
+)
+def test_repeated_vertices_preserve_route_distances(route_x: list[float]) -> None:
+    """Repeated vertices add no arc, including for tips beyond the repeat."""
+    path = np.zeros((len(route_x), 3))
+    path[:, 0] = route_x
     route = NavigationRoute(path_world_m=path, lumen_radii_m=None, target_world_m=path[-1].copy())
-    columns = goal_columns(np.array([[0.25, 0.0, 0.0]]), route)
+    tips = np.zeros((5, 3))
+    tips[:, 0] = [0.0, 0.25, 0.5, 0.75, 1.0]
+    arc, lateral = project_to_route(path, tips)
+    columns = goal_columns(tips, route)
 
     assert np.isfinite(columns).all()
-    assert columns[0, 3] == pytest.approx(0.75)
+    assert arc == pytest.approx([0.0, 0.25, 0.5, 0.75, 1.0])
+    assert lateral == pytest.approx(np.zeros(5))
+    assert columns[:, 3] == pytest.approx([1.0, 0.75, 0.5, 0.25, 0.0])
 
 
 def test_a_non_finite_tip_sample_yields_zeros_rather_than_poisoning_the_dataset() -> None:

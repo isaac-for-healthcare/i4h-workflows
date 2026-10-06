@@ -135,7 +135,7 @@ def project_to_route(path_world_m: np.ndarray, points_world_m: np.ndarray) -> tu
     spans = ends - starts
     lengths_sq = np.einsum("sj,sj->s", spans, spans)
     safe = np.where(lengths_sq > 0.0, lengths_sq, 1.0)
-    lengths = np.sqrt(safe)
+    lengths = np.sqrt(lengths_sq)
     start_arc = np.concatenate(([0.0], np.cumsum(lengths)[:-1]))
 
     offset = points[:, None, :] - starts
