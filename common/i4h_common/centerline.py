@@ -17,10 +17,6 @@ def _arc_length_samples(points: np.ndarray, spacing: float) -> np.ndarray:
     return np.linspace(0.0, total, max(2, int(np.ceil(total / spacing)) + 1))
 
 
-def _resample_polyline(points: np.ndarray, spacing: float) -> np.ndarray:
-    return sample_polyline(points, _arc_length_samples(points, spacing))
-
-
 def sample_polyline_scalar(points: np.ndarray, values: np.ndarray, distances: np.ndarray) -> np.ndarray:
     """Sample per-vertex scalars along a polyline at arc-length distances.
 

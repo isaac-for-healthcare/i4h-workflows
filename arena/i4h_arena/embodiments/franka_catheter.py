@@ -316,9 +316,6 @@ _PROCEDURE_FLOOR_TOP_M = 0.028
 #: lays the arm on its side pointing away from the table.
 ARM_BASE_YAW_QUAT = (0.0, 0.0, 0.7071067811865476, 0.7071067811865476)
 
-#: Recorded joint names contributed by the arm, in ``FRANKA_JOINT_NAMES`` order.
-ARM_STATE_NAMES = tuple(f"arm.{joint}" for joint in FRANKA_JOINT_NAMES)
-
 
 class ArmDrivenCatheterAction(ActionTerm):
     """Hold the drive unit on the access site and feed the wire through it.
@@ -795,10 +792,6 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
         self.rod_spec.drive_mount_local = (0.0, 0.0, _HAND_TO_GRIP_M)
         self.rod_spec.__post_init__()
 
-    @property
-    def arm_base_world_m(self) -> tuple[float, float, float]:
-        return tuple(float(value) for value in self.scene_config.robot.init_state.pos)
-
     def _park_the_cart_beside_the_table(self) -> None:
         """Stand the cart on the floor beside the access site and mount the arm.
 
@@ -922,7 +915,6 @@ __all__ = [
     "ARM_BASE_YAW_QUAT",
     "ARM_CART_FOOTPRINT_M",
     "ARM_CART_XY_OFFSET_M",
-    "ARM_STATE_NAMES",
     "FRANKA_FLANGE_BODY",
     "FRANKA_JOINT_NAMES",
     "FRANKA_PANDA_CATHETER_CFG",

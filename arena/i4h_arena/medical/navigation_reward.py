@@ -291,11 +291,6 @@ def tip_route_state(env: Any, route_world_m: Iterable[Iterable[float]]) -> TipRo
     return state
 
 
-def remaining_arc_state(env: Any) -> torch.Tensor | None:
-    """The remaining arc the progress term last saw, or ``None`` before step one."""
-    return getattr(env, REMAINING_ARC_ATTR, None)
-
-
 def reset_route_progress(env: Any, env_ids: Any = None) -> None:
     """Drop the stored remaining arc so a reset environment earns no phantom step.
 
@@ -428,7 +423,6 @@ __all__ = [
     "TipRouteState",
     "lateral_offset_penalty",
     "project_to_route",
-    "remaining_arc_state",
     "reset_route_progress",
     "reset_tip_route_state",
     "route_length_m",
