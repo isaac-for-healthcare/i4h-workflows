@@ -89,6 +89,31 @@ class NewtonRodCatheterStateProvider:
         )
 
     def snapshot(self, num_envs: int) -> CatheterState:
+        """The polyline for the renderer, with any non-finite rod left undrawn.
+
+        ``CatheterState`` rejects non-finite positions, and one rod diverging is
+        a per-environment event: it should cost that environment its catheter in
+        the image, not raise for every environment in the batch. A count of zero
+        valid nodes is what both renderers already skip.
+        """
+        polylines = self.positions_world_m(num_envs)
+        finite = np.isfinite(polylines).all(axis=(1, 2))
+        valid_nodes = np.where(finite, self._num_points, 0).astype(np.int32)
+        if not finite.all():
+            polylines = np.where(finite[:, None, None], polylines, 0.0).astype(np.float32)
+        return CatheterState(
+            positions_world_m=polylines,
+            valid_nodes=valid_nodes,
+            radius_m=self._radius_m,
+        )
+
+    def positions_world_m(self, num_envs: int) -> np.ndarray:
+        """Particle positions shaped ``(num_envs, num_points, 3)``, unvalidated.
+
+        Non-finite values are passed through rather than rejected, because the
+        reward, termination and observation terms detect them per environment
+        and substitute a fallback for that environment alone.
+        """
         if num_envs != self._num_envs:
             raise ValueError(f"catheter spans {self._num_envs} environment(s), requested {num_envs}")
         state = self._state_getter()
@@ -107,11 +132,7 @@ class NewtonRodCatheterStateProvider:
                 f"length {len(positions)}"
             )
         polylines = positions[self._offset : end].reshape(self._num_envs, self._num_points, 3)
-        return CatheterState(
-            positions_world_m=polylines + self._origin_world_m,
-            valid_nodes=np.full(self._num_envs, self._num_points, dtype=np.int32),
-            radius_m=self._radius_m,
-        )
+        return polylines + self._origin_world_m
 
 
 class SceneDataCArmStateProvider:

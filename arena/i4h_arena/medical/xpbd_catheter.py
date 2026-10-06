@@ -439,13 +439,13 @@ class XpbdCatheterAsset(SensorBase):
 
     def _refresh_positions(self) -> None:
         try:
-            state = self._catheter_provider().snapshot(self._num_envs)
+            positions = self._catheter_provider().positions_world_m(self._num_envs)
         except RuntimeError:
             # Before the model is finalized there are no particles to read.
             return
-        self._data.positions_world_m = torch.as_tensor(
-            state.positions_world_m, device=self._device, dtype=torch.float32
-        )
+        # Not `snapshot()`: a diverged rod has to reach the terms that mask it
+        # per environment as the non-finite values it is.
+        self._data.positions_world_m = torch.as_tensor(positions, device=self._device, dtype=torch.float32)
 
     def _log_probe(self) -> None:
         """Report containment and chord spread, when the probe is switched on.

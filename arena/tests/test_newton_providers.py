@@ -166,6 +166,61 @@ def test_from_particle_range_derives_points_per_env():
     assert state.positions_world_m.shape == (NUM_ENVS, NUM_POINTS, 3)
 
 
+def _provider_with_a_diverged_env(diverged: int = 1) -> NewtonRodCatheterStateProvider:
+    values = _particles(NUM_POINTS * NUM_ENVS).numpy().copy()
+    values[diverged * NUM_POINTS + 2] = np.nan
+    return NewtonRodCatheterStateProvider(
+        lambda: SimpleNamespace(particle_q=FakeWarpArray(values)),
+        offset=0,
+        num_points=NUM_POINTS,
+        num_envs=NUM_ENVS,
+        radius_m=0.001,
+    )
+
+
+def test_one_diverged_rod_leaves_the_others_drawn():
+    """A single non-finite environment must not take the whole batch's image with it."""
+    healthy = NewtonRodCatheterStateProvider(
+        lambda: SimpleNamespace(particle_q=_particles(NUM_POINTS * NUM_ENVS)),
+        offset=0,
+        num_points=NUM_POINTS,
+        num_envs=NUM_ENVS,
+        radius_m=0.001,
+    ).snapshot(NUM_ENVS)
+
+    state = _provider_with_a_diverged_env(diverged=1).snapshot(NUM_ENVS)
+
+    np.testing.assert_array_equal(state.valid_nodes, [NUM_POINTS, 0, NUM_POINTS])
+    assert np.isfinite(state.positions_world_m).all()
+    np.testing.assert_array_equal(state.positions_world_m[[0, 2]], healthy.positions_world_m[[0, 2]])
+
+
+def test_raw_positions_carry_the_divergence_through():
+    """The scene's terms mask a non-finite rod per environment, so it has to reach them."""
+    provider = _provider_with_a_diverged_env(diverged=1)
+
+    positions = provider.positions_world_m(NUM_ENVS)
+
+    assert positions.shape == (NUM_ENVS, NUM_POINTS, 3)
+    finite = np.isfinite(positions).all(axis=(1, 2))
+    np.testing.assert_array_equal(finite, [True, False, True])
+
+
+def test_raw_positions_apply_the_world_origin_offset():
+    particles = _particles(NUM_POINTS)
+    origin = np.array([1.5, -2.0, 0.25], dtype=np.float32)
+    provider = NewtonRodCatheterStateProvider(
+        lambda: SimpleNamespace(particle_q=particles),
+        offset=0,
+        num_points=NUM_POINTS,
+        num_envs=1,
+        radius_m=0.001,
+        origin_world_m=origin,
+    )
+
+    np.testing.assert_allclose(provider.positions_world_m(1)[0], particles.numpy() + origin)
+
+
 # --------------------------------------------------------------------------- #
 # C-arm provider
 # --------------------------------------------------------------------------- #
