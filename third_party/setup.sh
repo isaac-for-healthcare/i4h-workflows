@@ -13,12 +13,17 @@ LOG_PREFIX="i4h-workflows third_party setup"
 TARGET="${1:-all}"
 [ "$#" -le 1 ] || { echo "usage: third_party/setup.sh [all|arena|tasks/<policy>]" >&2; exit 2; }
 
-ISAACLAB_REV="ffff603eafc6b74264a5261cc0183d6a65390d78"
-ISAACLAB_DIR="IsaacLab-ffff603"
+# Isaac Lab release/3.0.0 (Newton 1.6.1, Warp 1.17.0, Isaac Sim 6.1.0.0), shared with i4h-physics-simulation.
+ISAACLAB_REV="6864dd126fd8efd04aaebe06bc9d00c1b9b989dc"
+ISAACLAB_DIR="IsaacLab-6864dd1"
 LEISAAC_REV="cd61a20c75f7b72c347538089602201349af6dc8"
 LEISAAC_DIR="leisaac-cd61a20"
-ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
-ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
+# IsaacLab-Arena main (2026-10-06): the task API the i4h aorta task uses (CompletionCriteria,
+# TaskTerminationCfg) arrived after the last Arena whose own Isaac Lab submodule is on release/3.0.0
+# (311d0f0, submodule bb0c8e1); this Arena's submodule is a develop commit, but it installs against the
+# Isaac Lab 6864dd1 checkout above (verified kitless: import, the patches below, the aorta task).
+ISAACLAB_ARENA_REV="5660182ae7365c5db3aec4019bb30274f7045b5a"
+ISAACLAB_ARENA_DIR="IsaacLab-Arena-5660182"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
 # The three i4h component repositories track main so that workflow integration always builds
@@ -227,13 +232,13 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}/.git" ]]; then
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_arena_wbc_default_base_height.patch"
 
-  apply_patch_once "IsaacLab-Arena Newton import" \
-    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
-    "${THIRD_PARTY_DIR}/isaaclab_arena_newton_import.patch"
-
   apply_patch_once "IsaacLab-Arena lazy registration" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_arena_lazy_registration.patch"
+
+  apply_patch_once "IsaacLab-Arena kitless RTX import" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_arena_kitless_rtx_import.patch"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEROBOT_DIR}/.git" ]]; then

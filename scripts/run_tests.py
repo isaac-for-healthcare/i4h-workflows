@@ -94,7 +94,7 @@ SUITES = {
             "arena",
             ("arena/tests",),
             project_has_dev_extra=False,
-            requires_checkout="third_party/IsaacLab-Arena-0a1b8c2",
+            requires_checkout="third_party/IsaacLab-Arena-5660182",
         ),
     ),
 }

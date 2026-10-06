@@ -17,6 +17,7 @@ import yaml
 
 from i4h_rl.artifacts import checkpoint_iteration, resolve_input_path, resolve_output_path, resolve_run_dir, write_json
 from i4h_rl.profile import RLProfile
+from i4h_rl.third_party import isaaclab_dir
 
 
 def validate_profile(profile: RLProfile, _workflows_root: Path) -> None:
@@ -229,10 +230,12 @@ def launch(
             return return_code or 1
         return 0
 
-    train_script = workflows_root / "third_party/IsaacLab-ffff603/scripts/reinforcement_learning/rsl_rl/train.py"
+    train_script = isaaclab_dir(workflows_root) / "scripts/reinforcement_learning/train.py"  # Lab 3.0's unified trainer
     command = [
         str(runtime),
         str(train_script),
+        "--rl_library",
+        "rsl_rl",
         "--external_callback",
         "i4h_rl.rsl_rl_interop.environment_registration_callback",
         "--task",

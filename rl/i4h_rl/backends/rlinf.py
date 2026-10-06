@@ -20,6 +20,7 @@ import yaml
 
 from i4h_rl.artifacts import resolve_input_path, resolve_output_path, resolve_run_dir, write_json
 from i4h_rl.profile import RLProfile
+from i4h_rl.third_party import isaaclab_dir
 
 
 def _config(profile: RLProfile) -> dict[str, object]:
@@ -133,7 +134,7 @@ def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
         workflows_root / "tasks/gr00t_n15",
         rlinf_dirs[-1],
         third_party / "Isaac-GR00T-1.5",
-        third_party / "IsaacLab-ffff603/source/isaaclab_contrib",
+        isaaclab_dir(workflows_root) / "source/isaaclab_contrib",
     )
     env = os.environ.copy()
     env.pop("VIRTUAL_ENV", None)

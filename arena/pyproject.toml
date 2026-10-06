@@ -13,6 +13,10 @@ dependencies = [
     "i4h-tasks-teleop",
     "catheter-vasculature-solver",
     "xray-simulator[slang]",
+    "i4h-isaaclab[apps,endoluminal]",
+    "i4h-physics",
+    "i4h-assessment",
+    "i4h-endoluminal",
     "numpy>=2,<3",
     "Pillow>=10.0",
     "h5py>=3.10",
@@ -21,21 +25,26 @@ dependencies = [
     "pyzmq>=26,<28",
     "PyYAML>=6.0",
     "tqdm>=4.66",
-    "isaacsim[all,extscache]==6.0.1",
+    # Isaac Lab 3.0 keeps every third-party requirement in its root isaaclab-dev project (Isaac Sim 6.1.0.0, Newton
+    # 1.6.1, Warp 1.17.0, torch 2.12.0); the workspace members are named too so their path sources apply.
+    "isaaclab-dev[isaacsim,ov,mimic,teleop,rsl-rl]",
     "isaaclab",
+    "isaaclab-assets",
     "isaaclab-contrib",
+    "isaaclab-experimental",
     "isaaclab-mimic",
     "isaaclab-newton",
     "isaaclab-ov",
     "isaaclab-physx",
-    "isaaclab-rl[rsl-rl]",
+    "isaaclab-ppisp",
+    "isaaclab-rl",
     "isaaclab-tasks",
+    "isaaclab-tasks-experimental",
     "isaaclab-teleop",
     "isaaclab-visualizers",
-    "isaaclab-assets",
     "leisaac",
     "isaaclab-arena",
-    "warp-lang==1.13.0",
+    "warp-lang==1.17.0",
     "osqp>=0.6.7.post3",
     "qpsolvers==4.8.1",
 ]
@@ -59,38 +68,35 @@ i4h-tasks-rsl-rl = { path = "../tasks/rsl_rl", editable = true }
 i4h-tasks-ik = { path = "../tasks/ik", editable = true }
 i4h-tasks-teleop = { path = "../tasks/teleop", editable = true }
 isaacsim = { index = "nvidia" }
-isaaclab = { path = "../third_party/IsaacLab-ffff603/source/isaaclab", editable = true }
-isaaclab-contrib = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_contrib", editable = true }
-isaaclab-mimic = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_mimic", editable = true }
-isaaclab-newton = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_newton", editable = true }
-isaaclab-ov = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_ov", editable = true }
-isaaclab-physx = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_physx", editable = true }
-isaaclab-rl = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_rl", editable = true }
-isaaclab-tasks = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_tasks", editable = true }
-isaaclab-teleop = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_teleop", editable = true }
-isaaclab-visualizers = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_visualizers", editable = true }
-isaaclab-assets = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_assets", editable = true }
+isaaclab-dev = { path = "../third_party/IsaacLab-6864dd1", editable = true }
+isaaclab = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab", editable = true }
+isaaclab-assets = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_assets", editable = true }
+isaaclab-contrib = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_contrib", editable = true }
+isaaclab-experimental = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_experimental", editable = true }
+isaaclab-mimic = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_mimic", editable = true }
+isaaclab-newton = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_newton", editable = true }
+isaaclab-ov = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_ov", editable = true }
+isaaclab-physx = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_physx", editable = true }
+isaaclab-ppisp = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_ppisp", editable = true }
+isaaclab-rl = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_rl", editable = true }
+isaaclab-tasks = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_tasks", editable = true }
+isaaclab-tasks-experimental = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_tasks_experimental", editable = true }
+isaaclab-teleop = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_teleop", editable = true }
+isaaclab-visualizers = { path = "../third_party/IsaacLab-6864dd1/source/isaaclab_visualizers", editable = true }
 leisaac = { path = "../third_party/leisaac-cd61a20/source/leisaac", editable = true }
-isaaclab-arena = { path = "../third_party/IsaacLab-Arena-0a1b8c2", editable = true }
+isaaclab-arena = { path = "../third_party/IsaacLab-Arena-5660182", editable = true }
 catheter-vasculature-solver = { path = "../third_party/i4h-physics-simulation-internal/physics_simulation/endoluminal/catheter-vasculature-solver", editable = true }
 xray-simulator = { path = "../third_party/i4h-sensor-simulation-internal/xray-simulator", editable = true }
-torch = [
-    { index = "pytorch-cu128", marker = "platform_machine == 'x86_64'" },
-    { index = "pytorch-cu130", marker = "platform_machine == 'aarch64'" },
-]
-torchvision = [
-    { index = "pytorch-cu128", marker = "platform_machine == 'x86_64'" },
-    { index = "pytorch-cu130", marker = "platform_machine == 'aarch64'" },
-]
+i4h-isaaclab = { path = "../third_party/i4h-physics-simulation-internal/numerical_sim/isaaclab", editable = true }
+i4h-physics = { path = "../third_party/i4h-physics-simulation-internal/numerical_sim/physics", editable = true }
+i4h-assessment = { path = "../third_party/i4h-physics-simulation-internal/numerical_sim/assessment", editable = true }
+i4h-endoluminal = { path = "../third_party/i4h-physics-simulation-internal/numerical_sim/endoluminal", editable = true }
+torch = { index = "pytorch-cu130" }  # Isaac Lab 3.0's torch index on both architectures
+torchvision = { index = "pytorch-cu130" }
 
 [[tool.uv.index]]
 name = "nvidia"
 url = "https://pypi.nvidia.com"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
 [[tool.uv.index]]
@@ -108,15 +114,22 @@ prerelease = "allow"
 python-preference = "only-managed"
 override-dependencies = [
     "coverage==7.4.4",
-    'usd-core>=25.11,<26 ; platform_machine == "x86_64"',
     "numpy>=2,<3",
     "packaging==26.0",
     "gymnasium==1.2.1",
     'pywin32==306 ; sys_platform == "win32"',
-    "torch==2.10.0",
-    "torchvision==0.25.0",
+    "torch==2.12.0",
+    "torchvision==0.27.0",
     "uvicorn>=0.31.1",
-    "warp-lang==1.13.0",
+    "warp-lang==1.17.0",
+    # Isaac Lab 3.0's own overrides (its root pyproject): overrides do not propagate from a dependency, and the
+    # isaacsim 6.1 extras pin older versions of these. pxr comes from usd-exchange (no usd-core).
+    "mujoco~=3.12.0",
+    "mujoco-warp~=3.12.0",
+    "newton[sim]==1.6.1",
+    "newton-usd-schemas>=0.5.0",
+    "usd-exchange==3.0.0",
+    "usd-optimize~=1.3.0",
     "websockets==12.0",
 ]
 
