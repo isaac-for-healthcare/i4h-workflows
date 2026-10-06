@@ -32,10 +32,10 @@ deliberately -- it can only wiggle and see what happens. Insertion depth is
 likewise distinct from tip position: they disagree exactly when the shaft is
 buckling, which is the failure the operator most needs the policy to feel.
 
-Every term returns zeros of its declared width when the rod is not readable
-yet, rather than propagating the infinities the tip reads before Newton
-finalizes its model. IsaacLab concatenates observation terms into a fixed-width
-vector, so a term that changed shape or emitted a nan would take the run down.
+Numeric state terms keep their declared widths when the rod is not readable,
+using finite fallback values rather than propagating infinities into the policy.
+The image term binds the live geometry sources before its first read during
+shape discovery.
 """
 
 from __future__ import annotations
@@ -55,8 +55,16 @@ TARGET_OFFSET_DIM = 3
 ROUTE_STATE_DIM = 2
 DRIVE_STATE_DIM = 4
 
-#: Total width of :func:`navigation_observations_cfg`'s concatenated group.
+#: Total numeric state width, excluding the separately shaped image term.
 NAVIGATION_STATE_DIM = TIP_POSITION_DIM + TIP_DIRECTION_DIM + TARGET_OFFSET_DIM + ROUTE_STATE_DIM + DRIVE_STATE_DIM
+
+
+def fluoroscopy_rgb(env: Any) -> torch.Tensor:
+    """Live RGB, including during observation-manager shape discovery."""
+    from .fluoroscopy_sources import bind_fluoroscopy_sources
+
+    bind_fluoroscopy_sources(env)
+    return env.scene["fluoroscopy"].data.output["rgb"].clone()
 
 
 def _zeros(env: Any, width: int) -> torch.Tensor:
@@ -137,10 +145,9 @@ def fluoroscopy_image(env: Any, sensor_cfg: Any, data_type: str = "rgb") -> torc
 
     IsaacLab's stock image term cannot serve this sensor. It reads through
     ``sensor.data``, which renders on demand, and the slang backend refuses to
-    render until the scene binds a C-arm provider -- which happens after the
-    environment is built, so the observation manager's one shape-probing read
-    always precedes it. The synthetic backend tolerates an unbound provider,
-    which is why this only bites with ``--patient-twin``.
+    render until a C-arm provider is bound. This low-level reader tolerates an
+    early call by returning zeros. Navigation groups use :func:`fluoroscopy_rgb`
+    to bind both providers and return a live image during shape discovery.
 
     Shape has to be right on that first read even so, because IsaacLab fixes
     each term's width from it. The sensor has already allocated correctly
@@ -226,6 +233,7 @@ __all__ = [
     "TIP_POSITION_DIM",
     "drive_state",
     "fluoroscopy_image",
+    "fluoroscopy_rgb",
     "route_state",
     "target_offset",
     "tip_direction",

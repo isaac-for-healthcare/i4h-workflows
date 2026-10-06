@@ -19,7 +19,6 @@ from isaaclab.managers import (
     ObservationGroupCfg,
     ObservationTermCfg,
     RewardTermCfg,
-    SceneEntityCfg,
     TerminationTermCfg,
 )
 from isaaclab.utils.configclass import configclass
@@ -32,7 +31,7 @@ from i4h_arena.medical.navigation_goal import (
 )
 from i4h_arena.medical.navigation_observation import (
     drive_state,
-    fluoroscopy_image,
+    fluoroscopy_rgb,
     route_state,
     target_offset,
     tip_direction,
@@ -121,16 +120,9 @@ def navigation_observations_cfg(
     """Bind the navigation observation group to one scene's route and target."""
     return CatheterNavigationObservationsCfg(
         policy=CatheterNavigationObservationsCfg.NavigationObsCfg(
-            # Not the stock image term: it renders on read, and the slang
-            # backend cannot render until the scene binds a C-arm, which is
-            # after the observation manager probes this term's shape.
-            fluoroscopy_rgb=ObservationTermCfg(
-                func=fluoroscopy_image,
-                params={
-                    "sensor_cfg": SceneEntityCfg("fluoroscopy"),
-                    "data_type": "rgb",
-                },
-            ),
+            # Shape discovery runs before make_view(), so the image term
+            # binds the sensor's live sources before attempting to render.
+            fluoroscopy_rgb=ObservationTermCfg(func=fluoroscopy_rgb),
             tip_position=ObservationTermCfg(func=tip_position),
             tip_direction=ObservationTermCfg(func=tip_direction),
             target_offset=ObservationTermCfg(

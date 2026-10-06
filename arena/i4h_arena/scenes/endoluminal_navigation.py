@@ -4,15 +4,12 @@
 
 from __future__ import annotations
 
-import logging
 import math
 from collections.abc import Callable
 from typing import Any
 
 from i4h_arena.adapters.scene_view import ArenaSceneView
 from i4h_arena.scenes.base import Scene, SensorDisplayControlSpec, SensorSliderSpec
-
-logger = logging.getLogger("i4h_arena.scene")
 
 
 def resolve_fluoroscopy_backend(requested: str | None, patient_twin: str | None) -> str:
@@ -123,39 +120,11 @@ class EndoluminalNavigationScene(Scene):
         env_cfg.sim.render.enable_translucency = True
 
     def make_view(self, env: Any) -> ArenaSceneView:
+        from i4h_arena.medical.fluoroscopy_sources import bind_fluoroscopy_sources
+
+        bind_fluoroscopy_sources(env.unwrapped)
         catheter = env.unwrapped.scene["catheter"]
         carm_orbit = env.unwrapped.action_manager.get_term("carm_orbit")
-        fluoroscopy = env.unwrapped.scene["fluoroscopy"]
-        fluoroscopy.bind_catheter_provider(catheter)
-        from i4h_arena.medical.carm import (
-            ReferenceProjectionCArmStateProvider,
-            SceneCArmStateProvider,
-            follow_tip_enabled,
-        )
-
-        detector_size_m = (0.6144, 0.6144)
-        if self.args.patient_twin:
-            from i4h_arena.medical.patient_twin import PatientTwin
-            from i4h_arena.medical.patient_volume import PatientVolume
-
-            carm_provider = ReferenceProjectionCArmStateProvider(
-                PatientVolume.load(PatientTwin.load(self.args.patient_twin)),
-                carm_orbit,
-                detector_size_m=detector_size_m,
-                # On by default, and opt-out through the environment.
-                # ``follow_tip_enabled`` holds why, along with the render that
-                # confirmed the panned frame -- restating it here is how this
-                # comment came to describe the feature as still opt-in long
-                # after that render had settled it.
-                tip_source=catheter if follow_tip_enabled() else None,
-            )
-        else:
-            carm_provider = self._scene_data_carm_provider(env, detector_size_m) or SceneCArmStateProvider(
-                env.unwrapped.scene["xray_source"],
-                env.unwrapped.scene["detector"],
-                detector_size_m=detector_size_m,
-            )
-        fluoroscopy.bind_carm_provider(carm_provider)
 
         from i4h_arena.medical.catheter_diagnostics import CatheterEpisodeDiagnostics
 
@@ -182,49 +151,6 @@ class EndoluminalNavigationScene(Scene):
         from i4h_arena.embodiments.catheter import CatheterCArmJointStateProvider
 
         return {"robot": CatheterCArmJointStateProvider(catheter, carm_orbit)}
-
-    @staticmethod
-    def _scene_data_carm_provider(env: Any, detector_size_m: tuple[float, float]) -> Any | None:
-        """Read C-arm poses through SceneDataProvider when one is available.
-
-        The provider is the backend-agnostic path for body transforms, so it is
-        preferred over per-asset ``get_world_poses()``. It returns ``None`` when
-        no provider is present or the prims are not registered with it, leaving
-        the caller to fall back rather than losing the C-arm entirely.
-
-        Any construction failure falls back, because the fallback is a supported
-        path and refusing to build the scene over it would be worse. It is
-        logged, though: without that, a run that quietly stopped using the
-        provider is indistinguishable from one that never had it.
-        """
-        try:
-            from isaaclab.sim import SimulationContext
-
-            from i4h_arena.medical.newton_providers import SceneDataCArmStateProvider
-
-            provider = SimulationContext.instance().get_scene_data_provider()
-            if provider is None:
-                return None
-            num_envs = int(env.unwrapped.num_envs)
-            root = env.unwrapped.scene.env_prim_paths
-            return SceneDataCArmStateProvider(
-                provider,
-                source_paths=[f"{root[index]}/CArm/Orbit/Source" for index in range(num_envs)],
-                detector_paths=[f"{root[index]}/CArm/Orbit/Detector" for index in range(num_envs)],
-                detector_size_m=detector_size_m,
-            )
-        except Exception:  # noqa: BLE001 - every construction failure is a fall back
-            # Warning rather than debug, and with the traceback, because
-            # ``SceneDataCArmStateProvider`` raises during construction on
-            # purpose and the message is the diagnosis: a Lab revision whose
-            # ``create_mapping`` does not restrict the output reports the
-            # transform count it actually got. Rendering continues on the
-            # per-prim path, so this line is the only trace of the downgrade.
-            logger.warning(
-                "C-arm SceneDataProvider unavailable; reading the source and detector prims directly",
-                exc_info=True,
-            )
-            return None
 
     def default_sensor_views(self) -> tuple[str, ...]:
         return ("fluoroscopy",)

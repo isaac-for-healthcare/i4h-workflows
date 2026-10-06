@@ -383,7 +383,7 @@ def test_the_scene_logs_before_falling_back_to_the_prims(caplog, monkeypatch):
     import sys
     import types
 
-    from i4h_arena.scenes.endoluminal_navigation import EndoluminalNavigationScene
+    from i4h_arena.medical.fluoroscopy_sources import _scene_data_carm_provider
 
     # The same unrestricted mapping as the test above, reached the way the
     # scene reaches it, so the failure under test is the designed one rather
@@ -396,7 +396,7 @@ def test_the_scene_logs_before_falling_back_to_the_prims(caplog, monkeypatch):
     env = SimpleNamespace(unwrapped=SimpleNamespace(num_envs=1, scene=SimpleNamespace(env_prim_paths=["/World/env_0"])))
 
     with caplog.at_level(logging.WARNING, logger="i4h_arena.scene"):
-        assert EndoluminalNavigationScene._scene_data_carm_provider(env, (0.3, 0.3)) is None
+        assert _scene_data_carm_provider(env.unwrapped, (0.3, 0.3)) is None
 
     assert "SceneDataProvider" in caplog.text
     # The traceback, not just the sentence: the reason was raised deliberately
