@@ -46,7 +46,7 @@ Run the procedural demonstration without patient data:
 ./run.sh endoluminal_navigation --mode demo
 ```
 
-This uses a procedural patient shape, synthetic fluoroscopy, and the default physics settings. Newton is not required.
+This uses a procedural patient shape, synthetic fluoroscopy, and the default physics settings. The catheter still runs on the Newton rod solver, but with no vessel to contain it.
 
 ### Patient CT
 
@@ -93,6 +93,8 @@ Click inside the Isaac window before using the keyboard. The fluoroscopy window 
 | A / D | Rotate catheter                                     |
 | Z / C | Steer the tip: curl the distal bend either way      |
 | Q / E | Fine C-arm rotation                                 |
+| 1 – 4 | C-arm view presets: AP, LAO-45, Lateral, RAO-30     |
+| X     | Toggle the simulated contrast (DSA) view            |
 | R     | Reset the catheter and C-arm to their initial state |
 | L     | Clear a stuck keyboard command                      |
 
@@ -393,11 +395,11 @@ h           XPBD substep; dt_phys physics step; dt_ctrl control step
 | --- | --- | --- |
 | Control step `dt_ctrl` | 1/30 s | `env_cfg.decimation = 4` over `sim.dt` |
 | Physics step `dt_phys` | 1/120 s | `env_cfg.sim.dt` |
-| XPBD substep `h` | 1/480 s | `XpbdCatheterAssetCfg.solver_substeps = 4` |
+| XPBD substep `h` | 1/120 s | One rod substep per physics step: `NewtonCfg.num_substeps` and `XPBDRodSolverCfg.num_substeps` both default to 1 |
 | Fluoroscopy frame | 1/15 s | `FluoroscopySensorCfg.update_period` |
 | Viewport render | 1/30 s | `env_cfg.sim.render_interval = 4` |
 
-The nesting is exact rather than approximate: one action is clamped once per control step and then applied on all four physics steps of that step, and each of those calls `CathRodSolver.step(1/120)`, which subdivides into four XPBD substeps. Sixteen substeps therefore separate two consecutive actions. Imaging is not part of that chain — the sensor is pulled, not pushed, so when the 1/15 s period has elapsed it takes a fresh `CatheterState` snapshot and a fresh `CArmState` at that instant. A frame is never composed from a stale polyline and a current C-arm pose, and no frame is rendered twice.
+The nesting is exact rather than approximate: one action is clamped once per control step and then applied on all four physics steps of that step, and each physics step advances the rod by one XPBD substep inside Newton. Four substeps therefore separate two consecutive actions. Imaging is not part of that chain — the sensor is pulled, not pushed, so when the 1/15 s period has elapsed it takes a fresh `CatheterState` snapshot and a fresh `CArmState` at that instant. A frame is never composed from a stale polyline and a current C-arm pose, and no frame is rendered twice.
 
 One control step is the composition
 
@@ -414,7 +416,7 @@ UNIFIED_SIM_LOOP(mu, gamma, A)                     # runner.py owns env.step
                s_0 = 0,  theta_0 = 45 deg
   for k = 1, 2, ...
       u_k = (v_ins, tau, bend_rate, orbit_rate)    # keyboard/UI -> action tensor
-      for j = 1..4                                 # decimation
+      for j = 1..4                                 # decimation, one XPBD substep each
           (X, s) <- Phi^dt_phys(X, s, u_k)
           theta  <- clip(theta + orbit_rate*dt_phys, -30 deg, +90 deg)
       S_k <- T(x)                                  # spans in volume millimetres
@@ -445,28 +447,29 @@ volume mm -> world m    A = A_voxel . diag(1/spacing_xyz, 1)
 world m -> volume mm    A^-1                            # the handoff T
 ```
 
-The centerline arrives as a graph rather than a path. `ordered_centerline_path` recovers the primary vessel by running Dijkstra between degree-one endpoints with edge weights `|p_a - p_b| / sqrt(mean radius)`, which biases the path into large vessels rather than into whatever branch happens to be longest, starts from the most caudal endpoint, smooths the result with a `[1/4, 1/2, 1/4]` stencil, and resamples it uniformly at 7.5 mm. Arclength is the cumulative chord length of that polyline, and the rod's initial length is `min(L_path, 0.65 * X extent of the CT)`.
+The centerline arrives as a graph rather than a path. `ordered_centerline_path` recovers the primary vessel by running Dijkstra between degree-one endpoints with edge weights `|p_a - p_b| / sqrt(mean radius)`, which biases the path into large vessels rather than into whatever branch happens to be longest, starts from the most caudal endpoint, smooths the result with a `[1/4, 1/2, 1/4]` stencil, and resamples it uniformly at 7.5 mm. Arclength is the cumulative chord length of that polyline. The rod's initial length is `L_path - 0.12 m` (`route_initial_catheter_length_m`), so every twin leaves the same 120 mm of route to insert within the 600-step budget; a route shorter than that allowance is seeded nearly whole.
 
-For the `s0011` twin this yields a 431x311x311 grid at 1.5 mm isotropic spacing (646.5 x 466.5 x 466.5 mm), `mu` in `[0, 0.0234]` 1/mm, a 303.2 mm rod of `N = 40` segments so `l = 7.58 mm`, and `r = 0.5 mm`.
+For the `s0011` twin this yields a 431x311x311 grid at 1.5 mm isotropic spacing (646.5 x 466.5 x 466.5 mm), `mu` in `[0, 0.0234]` 1/mm, a 646 mm route and so a rod of about 526 mm, divided into `N = 120` segments (`DEFAULT_NUM_SEGMENTS`) so `l` is about 4.4 mm, and `r = 0.5 mm`.
 
 ### Control
 
-Keyboard and UI input becomes one action tensor per control step: two components for the catheter and one for the C-arm. `CatheterVelocityAction` clamps insertion to +/-0.030 m/s and axial rotation to +/-1.5 rad/s; the panel's velocity slider spans 1 to 30 mm/s and defaults to 16 mm/s. `CArmOrbitAction` clamps the orbit rate to +/-0.6 rad/s and integrates it into an angle bounded to `[-30, +90]` degrees, starting at 45. The runner additionally refuses to step on a non-finite action, which localises a bad command to the step that produced it.
+Keyboard and UI input becomes one action tensor per control step: three components for the catheter and one for the C-arm. `CatheterVelocityAction` clamps insertion to +/-0.060 m/s, axial rotation to +/-1.5 rad/s, and the tip bend rate to +/-1.5 rad/s, integrating the last into a tip bend angle held within +/-1.5 rad. The panel's velocity slider spans 1 to 60 mm/s and defaults to 9 mm/s, because a sustained 30 mm/s feed drives the shaft through the wall on this scene. `CArmOrbitAction` clamps the orbit rate to +/-0.6 rad/s and integrates it into an angle bounded to `[-30, +90]` degrees, starting at 45. The runner additionally refuses to step on a non-finite action, which localises a bad command to the step that produced it.
 
 ### Physics advance
 
-With a patient twin the workflow runs the guided path, and this is the part of the loop that is deliberately kinematic today:
+With a patient twin only the proximal end is prescribed; the rest of the rod is solved:
 
 ```text
-Phi^dt_phys(X, s, u)                                # XpbdCatheterAsset.advance
-  apply_proximal_control(0, tau, dt_phys)           # push suppressed; the guide owns advance
-  X <- (S^h)^4 (X)                                  # CathRodSolver.step(dt_phys)
-  s <- clip(s + v_ins*dt_phys, 0, L_path - L_rod)
-  x_i <- gamma(s + i*L_rod/N),  i = 0..N            # every node, not just the root
-  v <- 0
+Phi^dt_phys(X, s, u)                                # CatheterVelocityAction.apply_actions
+  s <- clip(s + v_ins*dt_phys, ...)                 # RouteRailedIntroducer: arc length is the state
+  x_0, q_0 <- gamma(s), twist(tau)                  # place_proximal; the root has zero inverse mass
+  beta <- clip(beta + bend_rate*dt_phys, -1.5, 1.5) # set_tip_bend
+  X <- S^h(X)                                       # one XPBD substep inside Newton
 ```
 
-The rod is swept along the centerline: all node positions are prescribed by arclength and the XPBD result is overwritten each physics step. Insertion moves the polyline; axial rotation advances the recorded virtual joint and the node frames but cannot change the projected shape, because positions are prescribed. Without a twin the guide is absent, `track_enabled` becomes true, and the same solver runs its dynamic path — the root follows `apply_proximal_control` (translate along the local tangent, rotate about it) and the rest of the rod is governed by the constraint solve and the track projection.
+The rod's shape is seeded from the centerline once, at reset, and is not resampled afterwards. The drive integrates insertion into the root's arc length along the route and places the root there, so it stays on the vessel however long insertion is held and a command the route cannot take is not recorded as insertion.
+
+Track guidance holds the shaft that has already been traversed onto the route, and leaves a free distal window of 1.5 times the 120 mm insertion allowance. Inside that window the shaft and tip are governed by the constraint solve and by containment against the twin's deformable vessel wall. Axial rotation turns the material frames, and with them the plane the tip bend curls in. Without a twin there is no route or vessel: the root is fed along its own tangent and the rod moves freely.
 
 ### One XPBD substep
 
@@ -485,9 +488,9 @@ S^h(X)                                              # XPBDRodSolver._substep
                w <- 2 Im(q* . q^-1)/h,  q <- q*
 ```
 
-`g` is zeroed for this scene, since a catheter inside a vessel is not a falling rod. The material defaults are `E = 1e9` Pa, `nu = 0.3` so `G = E/(2(1+nu)) = 3.85e8` Pa, bend multiplier `b_x = b_y = 0.1`, twist multiplier `b_z = 0.4`, and `d = 0.01` per substep. Compliance is inversely proportional to `h^2`, so it is the substep and not the control rate that sets the effective stiffness: at `h = 1/480` and `l = 7.58 mm` the bend compliance is about 0.30. The damping is per substep, so 0.01 at 480 Hz removes roughly 99% of residual velocity per second, which is the role the standalone viewport gives its per-frame 0.82 dissipation factor.
+`g` is zeroed for this scene, since a catheter inside a vessel is not a falling rod. The material defaults are `E = 1e9` Pa, `nu = 0.3` so `G = E/(2(1+nu)) = 3.85e8` Pa, bend multiplier `b_x = b_y = 0.1`, twist multiplier `b_z = 0.4`, and `d = 0.01` per substep. Compliance is inversely proportional to `h^2`, so it is the substep and not the control rate that sets the effective stiffness. The damping is per substep, so 0.01 at 120 Hz removes roughly 70% of residual velocity per second, which is the role the standalone viewport gives its per-frame 0.82 dissipation factor.
 
-The steerable tip is a rest shape rather than a force. `set_tip_bend(0.35)` writes a rest Darboux vector `(beta/n_tip, 0, 0)` onto each of the last `n_tip = 8` edges and zero elsewhere, so the bend constraint drives the tip toward a 0.35 rad arc and the solver resists straightening it.
+The steerable tip is a rest shape rather than a force. Every physics step, `set_tip_bend(beta)` writes a rest Darboux vector `(sin(beta/(2 n_tip - 1)), 0, 0)` onto each of the last `n_tip` edges, so the bend constraint drives the tip polyline toward a turn of `beta` about the tip's local X axis and the solver resists straightening it. `beta` is the tip bend angle integrated from the `Z`/`C` rate command, and `n_tip` covers `tip_length_m = 25 mm` rounded up to whole segments, six at the `s0011` segment length. Axial rotation aims the bend at a branch.
 
 ### The Cosserat constraint solve
 
@@ -526,7 +529,7 @@ Pi_A(x*)  track guidance                            # non-tip nodes only
   x*_i <- x*_i + kappa ( a + t d - x*_i ),  kappa = 0.65
 ```
 
-In this workflow `Pi_M` is inert because no collision mesh is bound (`collision_enabled=False`), and `Pi_A` runs only when there is no guide path, that is only without a patient twin. The vessel mesh the twin produces is currently used for visualisation, not for containment; wiring it in is the single change that turns the guided sweep into vessel-constrained mechanics.
+In this workflow the static-mesh form of `Pi_M` stays off (`collision_enabled=False`). With a patient twin, containment instead runs against a deformable vessel built from the twin's centerline and lumen radii, inside the rod solver's own kernels, alternating with the elastic solve for `contact_coupling_iterations = 32` rounds per substep. Running both would apply two independent wall constraints to the same catheter. `Pi_A` runs as track guidance on the shaft already traversed, leaving the free distal window described under [Physics advance](#physics-advance). Without a twin, neither runs.
 
 ### Geometry handoff
 
@@ -633,12 +636,10 @@ The shaft's diameter comes from the physics side, as `CatheterState.radius_m`, s
 
 ## Current Limitations
 
-This is an integration demonstration, not validated intravascular mechanics. There is no dose model, the C-arm is single-plane rather than biplane, and nothing in this workflow publishes on the Zenoh bus. The green catheter guidance is presentation-only.
+This is an integration demonstration, not validated intravascular mechanics. There is no dose model, the C-arm is single-plane rather than biplane, and the only Zenoh traffic is the remote-task link `policy_n17` uses to reach its policy server. The green catheter guidance is presentation-only.
 
-Vessel-wall collision exists in `CathRodSolver` but is switched off here: the scene builds the solver with `collision_mesh=None` and `collision_enabled=False` until a patient collision mesh is bound. The rod is therefore drawn inside anatomy that cannot yet push back on it, and that is the main gap between this loop and intravascular mechanics.
+The vessel wall is a deformable vessel built from the twin's centerline and lumen radii, not the segmented vessel surface, and it is not a tissue model: it keeps the rod inside the lumen without modelling vessel injury. The solver's static-mesh collision path is unused. Containment is a projection, so the rod can still end up partly outside the lumen; the RL reward measures that against the same radii and penalises it.
 
-With a patient twin the catheter is swept along the centerline rather than solved against the vessel wall, as described under [Physics advance](#physics-advance). Insertion therefore moves the polyline, while axial rotation advances the recorded virtual joint and the node frames without changing the projected shape. Image formation is unaffected: the swept polyline attenuates the beam exactly as a solved one would.
-
-The loop runs a single environment, and both `XpbdCatheterAsset.snapshot` and the Slang renderer reject anything else. The constraint is upstream: `CathRodSolver` implements vessel collision and track guidance on its single-environment substep only, and raises rather than silently dropping those projections when asked for a batch. Vectorized data generation needs that batched path finished first. The solver also defaults to `solver_device = "cpu"`.
+The rod physics runs batched across environments. Patient fluoroscopy does not: the pinned `xray_simulator` release behind the Slang renderer supports one environment, and it raises on a batch rather than rendering one of them.
 
 Ray marching uses `FluoroscopySensorCfg.step_mm = 1.0` against the twin's 1.5 mm voxels, which is coarser than the 0.75 mm half-spacing that would sample every voxel along a ray. That is a deliberate trade for an interactive frame rate; lower it when line-integral accuracy matters more than throughput.
