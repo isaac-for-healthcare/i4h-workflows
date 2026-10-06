@@ -117,7 +117,7 @@ def _export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) 
         "--epochs": args.epochs,
         "--episodes": args.episodes,
         "--sim-runtime-python": args.sim_runtime_python,
-        "--patient-twin": args.patient_twin,
+        "--patient-twin": args.patient_twin if profile.trainer != "rsl_rl" else None,
     }
     used = [name for name, value in unsupported.items() if value]
     if used:
@@ -129,6 +129,10 @@ def _export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) 
     output = resolve_output_path(workflows_root, args.output_dir)
     if output.exists() and (not output.is_dir() or any(output.iterdir())):
         raise SystemExit(f"--output-dir must be absent or empty: {output}")
+    # RSL-RL export evaluates the policy in its scene before writing the
+    # bundle, so it needs the same anatomy as training and evaluation.
+    if profile.trainer == "rsl_rl":
+        args.resolved_patient_twin = _resolve_patient_twin(args, profile, workflows_root)
     backend = load_backend(profile.trainer)
     validate_workflow_contract(profile, workflows_root)
     backend.validate_profile(profile, workflows_root)

@@ -132,6 +132,7 @@ def _evaluation_command(
     episodes: int,
     num_envs: int,
     output: Path,
+    patient_twin: Path | None = None,
     export_policy: Path | None = None,
 ) -> list[str]:
     command = [
@@ -155,6 +156,8 @@ def _evaluation_command(
     ]
     if profile.adapter_module:
         command.extend(("--adapter-module", profile.adapter_module))
+    if patient_twin is not None:
+        command.extend(("--patient-twin", str(patient_twin)))
     if export_policy is not None:
         command.extend(("--export-policy", str(export_policy)))
     return command
@@ -163,12 +166,6 @@ def _evaluation_command(
 def validate_launch(args: argparse.Namespace, _profile: RLProfile, _workflows_root: Path) -> None:
     if args.sim_runtime_python:
         raise SystemExit("--sim-runtime-python is only valid for RLinf workflows")
-    if getattr(args, "resolved_patient_twin", None) is not None:
-        # This backend builds its environment from a registered task id rather
-        # than through sim_server, so there is nowhere to hand the twin. Refused
-        # rather than ignored, so a patient-specific run cannot appear to have
-        # trained on a twin it never saw.
-        raise SystemExit("RSL-RL does not pass --patient-twin to the scene; use an RLinf profile")
     if args.model_path:
         raise SystemExit("RSL-RL trains from scratch; do not pass --model-path")
     if args.resume_dir:
@@ -192,6 +189,7 @@ def launch(
     epochs: int,
     overrides: tuple[str, ...],
 ) -> int:
+    patient_twin = getattr(args, "resolved_patient_twin", None)
     checkpoint: Path | None = None
     if args.only_eval:
         checkpoint = resolve_input_path(workflows_root, args.rl_model_path)
@@ -217,6 +215,8 @@ def launch(
         "overrides": environment_overrides(),
         "created_at": datetime.now(UTC).isoformat(),
     }
+    if patient_twin is not None:
+        metadata["patient_twin"] = str(patient_twin)
     if args.only_eval:
         metadata.update({"checkpoint": str(checkpoint), "episodes": args.episodes})
     else:
@@ -233,6 +233,7 @@ def launch(
             episodes=args.episodes,
             num_envs=min(num_envs, args.episodes),
             output=evaluation,
+            patient_twin=patient_twin,
         )
         print(f"run dir: {run_dir}")
         print("launch: " + shlex.join(command), flush=True)
@@ -264,6 +265,8 @@ def launch(
         profile.simulation.presets,
         f"agent.experiment_name={run_dir}",
     ]
+    if patient_twin is not None:
+        command.extend(("--patient-twin", str(patient_twin)))
     if args.video:
         command.append("--video")
     command.extend(overrides)
@@ -295,6 +298,7 @@ def launch(
 def export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -> int:
     if args.train_config:
         raise SystemExit("--train-config is only valid when exporting an RLinf checkpoint")
+    patient_twin = getattr(args, "resolved_patient_twin", None)
     checkpoint = resolve_input_path(workflows_root, args.rl_model_path)
     if not checkpoint.is_file():
         raise SystemExit(f"RSL-RL checkpoint does not exist: {checkpoint}")
@@ -312,6 +316,7 @@ def export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -
         episodes=1,
         num_envs=1,
         output=evaluation,
+        patient_twin=patient_twin,
         export_policy=policy,
     )
     print(f"workflow: {profile.workflow}")
@@ -337,6 +342,8 @@ def export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -
         "action_dof": profile.action_dof,
         "created_at": datetime.now(UTC).isoformat(),
     }
+    if patient_twin is not None:
+        manifest["patient_twin"] = str(patient_twin)
     write_json(output / "policy.json", manifest)
     print(f"export complete: {policy}")
     return 0
