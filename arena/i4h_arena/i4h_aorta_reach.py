@@ -90,8 +90,12 @@ class PhysicsAsset(AssetBase):
         self.commands = wp.to_torch(self.physics.commands)
         self.targets = wp.to_torch(self.physics.targets)
         self.assessment = single_target_assessor(
-            self.physics, target=self.spec["target"]["position"], radius=self.spec["radius"],
-            hold=self.spec["hold"], timeout=self.spec["timeout"])
+            self.physics,
+            target=self.spec["target"]["position"],
+            radius=self.spec["radius"],
+            hold=self.spec["hold"],
+            timeout=self.spec["timeout"],
+        )
         self.rows = wp.to_torch(self.assessment.rows)
         self.reward = wp.to_torch(self.assessment.action_reward)
         self.history = wp.to_torch(self.assessment.history)
@@ -372,8 +376,7 @@ def make_cfg(num_envs=1, *, captured=True, decimation=1, validate_evidence=False
 
 
 def make_env(num_envs=1, *, captured=True, decimation=1, validate_evidence=False):
-    cfg, kwargs = make_cfg(num_envs, captured=captured, decimation=decimation,
-                           validate_evidence=validate_evidence)
+    cfg, kwargs = make_cfg(num_envs, captured=captured, decimation=decimation, validate_evidence=validate_evidence)
     return AortaReachEnv(cfg, **kwargs)
 
 

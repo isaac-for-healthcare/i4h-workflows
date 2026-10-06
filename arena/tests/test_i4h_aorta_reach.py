@@ -171,10 +171,12 @@ def test_hold_interruption_and_terminal_export(env, monkeypatch):
     set_test_target_at_tip(asset)
     boundary = []
     update = asset.update
+
     def save_boundary(dt):
         update(dt)
         asset.to_torch()
         boundary.append(asset.q.clone())
+
     monkeypatch.setattr(asset, "update", save_boundary)
     for _ in range((30 + decimation - 1) // decimation - 1):
         _, reward, term, trunc, _ = env.step(action(env))
@@ -185,12 +187,10 @@ def test_hold_interruption_and_terminal_export(env, monkeypatch):
     assert extras["new_terminal"].all() and (extras["terminal_task"][:, 11] == 1).all()
     completion_time = (64 + 8 + decimation + 30) * env.physics_dt
     assert torch.allclose(extras["terminal_task"][:, 9], torch.full_like(asset.rows[:, 9], completion_time))
-    assert torch.allclose(extras["terminal_history"][:, 0, 1],
-                          torch.full_like(asset.history[:, 0, 1], completion_time))
+    assert torch.allclose(extras["terminal_history"][:, 0, 1], torch.full_like(asset.history[:, 0, 1], completion_time))
     assert torch.equal(extras["final_obs"]["policy"][:, :576], boundary[-1].flatten(1))
     assert (extras["final_obs"]["task"][:, 11] == 1).all()
-    terminal = {key: extras[key] for key in
-                ("terminal_task", "terminal_history", "terminal_progress", "new_terminal")}
+    terminal = {key: extras[key] for key in ("terminal_task", "terminal_history", "terminal_progress", "new_terminal")}
     assert not asset.rows[:, 9].any()  # Assessment resets with physics during autoreset.
     _, reward, term, trunc, _ = env.step(action(env))
     assert not reward.any() and not term.any() and not trunc.any()
@@ -239,8 +239,9 @@ def test_timeout_notification_is_one_action_pulse(env):
     asset.to_warp()
     _, _, _, trunc, extras = env.step(action(env))
     assert trunc.all() and extras["new_terminal"].all()
-    exported = {key: extras[key].clone() for key in
-                ("terminal_task", "terminal_history", "terminal_progress", "new_terminal")}
+    exported = {
+        key: extras[key].clone() for key in ("terminal_task", "terminal_history", "terminal_progress", "new_terminal")
+    }
     _, _, term, trunc, extras = env.step(action(env))
     assert not term.any() and not trunc.any() and not extras["new_terminal"].any()
     reset_episode(env, torch.arange(env.num_envs, device=env.device))
@@ -280,11 +281,14 @@ def test_failed_construction_cleans_hook_and_callback():
     cfg, _ = make_cfg()
     previous_hooks = list(NewtonManager._per_world_builder_hooks)
     previous_callbacks = list(I4hNewtonManager.on_solver)
+
     def callback(sim):
         pass
+
     with pytest.raises(RuntimeError, match="construction failed"):
-        with construction_context(cfg.sim.physics.solver_cfg, device=cfg.sim.device,
-                                  envs=cfg.scene.num_envs, on_solver=callback):
+        with construction_context(
+            cfg.sim.physics.solver_cfg, device=cfg.sim.device, envs=cfg.scene.num_envs, on_solver=callback
+        ):
             raise RuntimeError("construction failed")
     assert NewtonManager._per_world_builder_hooks == previous_hooks
     assert I4hNewtonManager.on_solver == previous_callbacks
@@ -299,6 +303,7 @@ def test_constructor_failure_releases_runtime(monkeypatch):
 
     def fail(self, sim):
         raise RuntimeError("binding failed")
+
     with monkeypatch.context() as patch:
         patch.setattr(AortaReachEnv, "_bind_physics", fail)
         cfg, kwargs = make_cfg()
@@ -318,10 +323,12 @@ def test_early_terminal_latches_but_final_obs_is_action_boundary(env, monkeypatc
     asset = env.scene["catheter"]
     boundary = []
     update = asset.update
+
     def save_boundary(dt):
         update(dt)
         asset.to_torch()
         boundary.append(asset.q.clone())
+
     monkeypatch.setattr(asset, "update", save_boundary)
     # Timeout on the first sample, with enough action motion to distinguish the boundary.
     wp.to_torch(asset.assessment.elapsed).fill_(120 - env.physics_dt)
@@ -377,10 +384,12 @@ def test_failure_after_binding_invalidates_new_owner(monkeypatch):
 
     original = AortaReachEnv._bind_physics
     owners = []
+
     def fail_after_bind(self, sim):
         original(self, sim)
         owners.append((sim.physics, self.scene["catheter"].evidence))
         raise RuntimeError("after binding")
+
     monkeypatch.setattr(AortaReachEnv, "_bind_physics", fail_after_bind)
     cfg, kwargs = make_cfg(decimation=4)
     with pytest.raises(RuntimeError, match="after binding"):
@@ -400,12 +409,15 @@ def test_asset_defers_assessment_until_action_boundary(env, schedule, monkeypatc
     initial = asset.rows.clone()
     consume = asset.assessment.consume
     calls = []
+
     def counted(*args, **kwargs):
         calls.append(True)
         return consume(*args, **kwargs)
+
     monkeypatch.setattr(asset.assessment, "consume", counted)
     steps = 0
     updates = 0
+
     def update_scene(dt):
         nonlocal steps, updates
         assert dt == pytest.approx(env.physics_dt)
@@ -427,6 +439,7 @@ def test_asset_defers_assessment_until_action_boundary(env, schedule, monkeypatc
             env.observation_manager.compute()
             assert len(calls) == 1
             assert all(torch.equal(a, b) for a, b in zip(before, snapshot(asset)))
+
     monkeypatch.setattr(env.scene, "update", update_scene)
     _, reward, term, trunc, extras = env.step(action(env))
     assert steps == env.cfg.decimation and len(calls) == 1
@@ -457,8 +470,10 @@ def test_rejected_evidence_preserves_state_and_reset_recovers(env, fault):
     assert asset._remaining_steps == remaining
     for a, saved in zip(arrays, before):
         assert np.array_equal(a.numpy(), saved)
-    assert all(torch.equal(a, b) for a, b in zip(exported,
-               [asset.terminal_rows, asset.terminal_history, asset.terminal_progress]))
+    assert all(
+        torch.equal(a, b)
+        for a, b in zip(exported, [asset.terminal_rows, asset.terminal_history, asset.terminal_progress])
+    )
     env.reset()
     obs, reward, term, trunc, _ = env.step(action(env))
     assert torch.isfinite(obs["policy"]).all()
