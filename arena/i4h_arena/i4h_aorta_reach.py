@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES.
 # SPDX-License-Identifier: Apache-2.0
-"""Bounded, kitless Arena feasibility task over i4h's unchanged aorta physics."""
+"""Bounded, kitless Arena feasibility task over i4h's unchanged aorta physics.
+
+The physics is an i4h component (``i4h_isaaclab.component``): ``make_cfg`` declares it from the ``aorta_static``
+case and ``AortaReachEnv`` builds through its handle, which rebinds the scene's catheter asset after every solver
+build. The scene has no rigid bodies, so i4h steps alone (``configure(rigid=False)``)."""
 
 from __future__ import annotations
 
@@ -8,8 +12,7 @@ import torch
 import warp as wp
 from i4h_endoluminal.assessment import single_target_assessor
 from i4h_endoluminal.bindings import CatheterBinding
-from i4h_isaaclab.composition import read_case, sim_settings
-from i4h_isaaclab.newton_manager import I4hNewtonManager, I4hSolverCfg, construction_context
+from i4h_isaaclab.component import I4hComponent, I4hComponentCfg
 from isaaclab.assets import AssetBase, AssetBaseCfg
 from isaaclab.managers import (
     ActionTerm,
@@ -330,16 +333,22 @@ class AortaReachTask(TaskBase):
         return []
 
 
+CASE = "aorta_static"  # i4h_endoluminal's catheter in the static aorta
+
+
 def make_cfg(num_envs=1, *, captured=True, decimation=1, validate_evidence=False):
     if isinstance(decimation, bool) or not isinstance(decimation, int) or decimation < 1:
         raise ValueError("decimation must be a positive integer")
+    physics = I4hComponentCfg.from_case(CASE)
+
     def configure(cfg):
-        cfg.sim.dt = sim_settings(read_case("aorta"))["dt"]
+        cfg.sim.dt = physics.sim["dt"]
         cfg.sim.render_interval = 1
         cfg.decimation = decimation
         cfg.scene.catheter.validate_evidence = validate_evidence
         cfg.scene.replicate_physics = True  # The public world hook supplies local particles.
-        cfg.sim.physics = NewtonCfg(solver_cfg=I4hSolverCfg(case=read_case("aorta")), num_substeps=1, use_cuda_graph=captured)
+        cfg.sim.physics = NewtonCfg(use_cuda_graph=captured)
+        I4hComponent(physics).configure(cfg.sim, rigid=False)  # no rigid bodies in this scene: i4h steps alone
         cfg.compute_final_obs = True
         cfg.apply_rtx_global_settings = False
         return cfg
@@ -372,9 +381,10 @@ class AortaReachEnv(IsaacLabArenaManagerBasedRLEnv):
     def __init__(self, cfg, **kwargs):
         if isinstance(cfg.decimation, bool) or not isinstance(cfg.decimation, int) or cfg.decimation < 1:
             raise ValueError("decimation must be a positive integer")
+        self.component = I4hComponent.from_solver_cfg(cfg.sim.physics.solver_cfg)
+        self.component.on_rebuild(lambda component: self._bind_physics(component.sim))  # after every solver build
         try:
-            with construction_context(cfg.sim.physics.solver_cfg, device=cfg.sim.device,
-                                      envs=cfg.scene.num_envs, on_solver=self._bind_physics):
+            with self.component.construction(device=cfg.sim.device, envs=cfg.scene.num_envs):
                 super().__init__(cfg, **kwargs)
         except BaseException:
             if SimulationContext.instance() is not None:
@@ -404,8 +414,7 @@ class AortaReachEnv(IsaacLabArenaManagerBasedRLEnv):
         super()._reset_idx(env_ids)
 
     def close(self):
-        if self._bind_physics in I4hNewtonManager.on_solver:
-            I4hNewtonManager.on_solver.remove(self._bind_physics)
+        self.component.detach()
         super().close()
 
 

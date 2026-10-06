@@ -13,6 +13,10 @@ dependencies = [
     "i4h-tasks-teleop",
     "catheter-vasculature-solver",
     "xray-simulator[slang]",
+    "i4h-isaaclab[apps,endoluminal]",
+    "i4h-physics",
+    "i4h-assessment",
+    "i4h-endoluminal",
     "numpy>=2,<3",
     "Pillow>=10.0",
     "h5py>=3.10",
@@ -83,6 +87,10 @@ leisaac = { path = "../third_party/leisaac-cd61a20/source/leisaac", editable = t
 isaaclab-arena = { path = "../third_party/IsaacLab-Arena-5660182", editable = true }
 catheter-vasculature-solver = { path = "../third_party/i4h-physics-simulation-internal/physics_simulation/endoluminal/catheter-vasculature-solver", editable = true }
 xray-simulator = { path = "../third_party/i4h-sensor-simulation-internal/xray-simulator", editable = true }
+i4h-isaaclab = { path = "../third_party/i4h-physics-simulation-internal/numerical_sim/isaaclab", editable = true }
+i4h-physics = { path = "../third_party/i4h-physics-simulation-internal/numerical_sim/physics", editable = true }
+i4h-assessment = { path = "../third_party/i4h-physics-simulation-internal/numerical_sim/assessment", editable = true }
+i4h-endoluminal = { path = "../third_party/i4h-physics-simulation-internal/numerical_sim/endoluminal", editable = true }
 torch = { index = "pytorch-cu130" }  # Isaac Lab 3.0's torch index on both architectures
 torchvision = { index = "pytorch-cu130" }
 

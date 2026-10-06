@@ -44,6 +44,9 @@ def test_arena_project_follows_the_pins():
             assert source["path"] == f"{lab}/source/{name.replace('-', '_')}", name
             assert name in project["project"]["dependencies"], f"{name}: a workspace member must be named directly"
     assert sources["isaaclab-arena"]["path"] == f"../third_party/{pin('ISAACLAB_ARENA_DIR')}"
+    physics = f"../third_party/{pin('I4H_PHYSICS_SIM_DIR')}/numerical_sim"  # the i4h component repos track main
+    for name in ("i4h-physics", "i4h-assessment", "i4h-endoluminal", "i4h-isaaclab"):
+        assert sources[name]["path"] == f"{physics}/{name.removeprefix('i4h-')}", name
     overrides = project["tool"]["uv"]["override-dependencies"]
     assert "warp-lang==1.17.0" in overrides and "newton[sim]==1.6.1" in overrides
     assert not any(o.startswith("usd-core") for o in overrides), "pxr comes from Isaac Lab's usd-exchange"
