@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# The same navigation task, declared for the scene whose catheter drive rides
+# on a Franka flange.
+#
+# This exists only because `embodiment` is matched by name. `merged_requires`
+# folds it into the capabilities lint checks against a Scene, so one manifest
+# admits exactly one embodiment and `catheter_navigation` cannot name both
+# `catheter` and `franka_catheter`. Everything a checkpoint actually cares
+# about is identical between the two: the arm is servo'd along the introducer
+# rather than commanded, so both scenes accept the same four
+# `catheter_carm_velocity` channels, and `franka_catheter` declares the same
+# `catheter`, `carm`, `target`, and `route` groups the armless embodiment does.
+# The arm's seven joints arrive as an `arm` state group that this task does not
+# read.
+#
+# Deliberately no `train:` block. A `train:` block marks a task finetunable,
+# and there is nothing separate to train here -- a recording made in either
+# scene carries the same policy-visible state columns, so both train
+# `gr00t_n17/catheter_navigation` and the checkpoint that comes out serves
+# either scene. A second training declaration would only be a copy to keep in
+# step.
+
+summary: Navigate the arm-carried catheter tip to the target vessel branch under fluoroscopy (N1.7 backend)
+prompt: Steer the catheter along the vessel and stop at the target branch
+embodiment: franka_catheter
+cameras:
+- fluoroscopy
+# Insertion and rotation are rates, not joint positions. The carrier arm does
+# not change that: it holds the drive unit, it is not commanded through this.
+requires:
+  action_space: catheter_carm_velocity
+model:
+  # Finetuned from `gr00t_n17/catheter_navigation` recordings, so there is no
+  # published checkpoint here either and a rollout must pass --checkpoint.
+  embodiment_tag: new_embodiment
+  action_horizon: 16
+  execution_steps: 16
+  # 120 Hz physics with decimation 4, matching the arm scene manifest.
+  control_hz: 30.0
+  # Reported on the ready handshake against the scene's own action space. The
+  # backend derives the width from `action_names`, which is four here and not
+  # the eleven joints this embodiment carries.
+  action_space: catheter_carm_velocity
+  # The same modality config the armless task uses, because the group names it
+  # registers are the ones both embodiments declare.
+  modality_config: config_catheter
+observation:
+  image_size:
+  - 256
+  - 256
+  # The full recorded vector, arm included, in `franka_catheter` joint order.
+  # The policy reads catheter, C-arm, target, and route groups. The carrier
+  # arm remains simulator context and is not consumed by this checkpoint.
+  #
+  # The eleven joints are the embodiment's own; these two Scene observation
+  # terms supply the five goal columns that follow them.
+  state_terms:
+  - target_offset
+  - route_state
+  state_names:
+  - insertion_m
+  - rotation_rad
+  - tip_bend_rad
+  - carm_orbit_rad
+  - arm.panda_joint1
+  - arm.panda_joint2
+  - arm.panda_joint3
+  - arm.panda_joint4
+  - arm.panda_joint5
+  - arm.panda_joint6
+  - arm.panda_joint7
+  - target_offset_x_m
+  - target_offset_y_m
+  - target_offset_z_m
+  - route_remaining_m
+  - route_lateral_m

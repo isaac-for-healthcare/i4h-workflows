@@ -32,6 +32,16 @@ def environment_registration_callback() -> list[str]:
     add_isaaclab_arena_cli_args(parser)
     parser.add_argument("--task", required=True)
     parser.add_argument("--rl_training_mode", action="store_true")
+    # The Arena CLI has no notion of a patient twin, but the medical scenes
+    # resolve their route, target and lumen widths from one, and return None for
+    # every reward and termination config without it. Left defaulting to None so
+    # such a scene fails on the missing twin rather than quietly training
+    # against a vessel that is not there.
+    parser.add_argument("--patient-twin", dest="patient_twin", default=None)
+    # Both default to None so the scene's own resolver picks the backend from
+    # whether a twin is present, exactly as it does under the workflow CLI.
+    parser.add_argument("--fluoro-backend", dest="fluoro_backend", default=None)
+    parser.add_argument("--fluoro-device", dest="fluoro_device", default=None)
     args, remaining_args = parser.parse_known_args()
 
     if not _simulation_is_running():

@@ -39,7 +39,7 @@ from i4h_common.bus.keys import Keys
 from i4h_common.bus.messages import ActionChunk, ObsFrame, TaskSpecMsg, TaskStatusMsg, encode
 from i4h_common.manifest import TaskSpec
 from i4h_common.types import Pose, satisfied
-from i4h_common.world import UnsupportedActuation
+from i4h_common.world import UnsupportedActuation, apply_action
 from i4h_engine.status import Status
 from i4h_engine.task import Task, TickContext
 
@@ -52,6 +52,22 @@ UntilPredicate = Callable[[TickContext], Any]
 READY_TIMEOUT_ENV = "I4H_BACKEND_READY_TIMEOUT_S"
 DEFAULT_READY_TIMEOUT_S = 120.0
 
+ACTION_TIMEOUT_ENV = "I4H_BACKEND_ACTION_TIMEOUT_S"
+DEFAULT_ACTION_TIMEOUT_S = 30.0
+
+
+def _timeout_from_env(name: str, default_s: float) -> float:
+    override = os.environ.get(name)
+    if not override:
+        return default_s
+    try:
+        value = float(override)
+    except ValueError as exc:
+        raise RuntimeError(f"{name}={override} is not a number") from exc
+    if value <= 0.0:
+        raise RuntimeError(f"{name}={override} must be positive")
+    return value
+
 
 def default_ready_timeout_s() -> float:
     """Seconds to wait for a backend, overridable with ``$I4H_BACKEND_READY_TIMEOUT_S``.
@@ -59,16 +75,19 @@ def default_ready_timeout_s() -> float:
     The default suits a warm model cache. A first run downloads the checkpoint
     inside this window, and a multi-GB one does not finish within it.
     """
-    override = os.environ.get(READY_TIMEOUT_ENV)
-    if not override:
-        return DEFAULT_READY_TIMEOUT_S
-    try:
-        value = float(override)
-    except ValueError as exc:
-        raise RuntimeError(f"{READY_TIMEOUT_ENV}={override} is not a number") from exc
-    if value <= 0.0:
-        raise RuntimeError(f"{READY_TIMEOUT_ENV}={override} must be positive")
-    return value
+    return _timeout_from_env(READY_TIMEOUT_ENV, DEFAULT_READY_TIMEOUT_S)
+
+
+def default_action_timeout_s() -> float:
+    """Seconds to wait for one action, overridable with ``$I4H_BACKEND_ACTION_TIMEOUT_S``.
+
+    The default suits a backend whose kernels are already warm. A first
+    inference is not that: a 1.1B-parameter diffusion head compiling its
+    kernels took longer than this on a GB300, so the episode was failed at step
+    zero and the action that did arrive was published into a closed session --
+    which reads as a transport fault rather than as a timeout.
+    """
+    return _timeout_from_env(ACTION_TIMEOUT_ENV, DEFAULT_ACTION_TIMEOUT_S)
 
 
 class RemoteTaskError(RuntimeError):
@@ -94,7 +113,7 @@ class RemoteTask(Task):
         until: UntilPredicate | None = None,
         max_steps: int | None = None,
         ready_timeout_s: float | None = None,
-        action_timeout_s: float = 30.0,
+        action_timeout_s: float | None = None,
         keys: Keys | None = None,
         name: str | None = None,
         **params: Any,
@@ -106,7 +125,7 @@ class RemoteTask(Task):
         self.until = until
         self.max_steps = max_steps
         self.ready_timeout_s = default_ready_timeout_s() if ready_timeout_s is None else ready_timeout_s
-        self.action_timeout_s = action_timeout_s
+        self.action_timeout_s = default_action_timeout_s() if action_timeout_s is None else action_timeout_s
         self.params = params
         self._keys = keys
         self._uid = ""
@@ -291,8 +310,39 @@ class RemoteTask(Task):
 
     # -- helpers ---------------------------------------------------------
     def _observation(self, ctx: TickContext) -> ObsFrame:
-        """Build the frame the manifest's ``observation`` block asks for."""
+        """Build the frame the manifest's ``observation`` block asks for.
+
+        The robot's own joints, then whatever ``state_terms`` names, because a
+        policy's state is not always just the thing it drives: the catheter is
+        graded on reaching a target, and the columns describing that target come
+        from Scene observation terms rather than from any joint.
+
+        ``state_names`` is checked against the assembled width rather than
+        trusted. The two disagreeing is not a visible failure downstream -- the
+        consumer slices the vector by the groups its checkpoint declares, and a
+        group past the end slices to nothing, which surfaces as a normalizer
+        complaining about a mask much later and in another process.
+        """
         joints = ctx.scene.joints()
+        state = [float(value) for value in joints.pos[0]]
+        names = list(joints.names)
+        for term in self.spec.observation.get("state_terms", ()):
+            group, _, name = str(term).rpartition(":")
+            values = np.asarray(ctx.scene.observation(group or "policy", name))
+            state.extend(float(value) for value in values[0])
+        declared = [str(value) for value in self.spec.observation.get("state_names", ())]
+        if declared:
+            if len(declared) != len(state):
+                raise ValueError(
+                    f"{self.spec.id}: observation declares {len(declared)} state names but the scene "
+                    f"offers {len(state)} values ({len(names)} joints + "
+                    f"{len(state) - len(names)} from state_terms); "
+                    f"declare the missing terms or correct state_names"
+                )
+            # Joint names stay as the Scene reported them so the consumer can
+            # still order by them; only the appended columns take declared
+            # names, which an embodiment may spell differently from its joints.
+            names += declared[len(names) :]
         images: dict[str, bytes] = {}
         shapes: dict[str, list[int]] = {}
         for camera_name in self.spec.requires.get("cameras", ()):
@@ -304,8 +354,8 @@ class RemoteTask(Task):
         return ObsFrame(
             task_uid=self._uid,
             step=ctx.node_step,
-            state=[float(v) for v in joints.pos[0]],
-            state_names=list(joints.names),
+            state=state,
+            state_names=names,
             images=images,
             image_shapes=shapes,
         )
@@ -340,6 +390,13 @@ class RemoteTask(Task):
                     ctx.act.set_ee_target(self._to_pose(chunk), robot)
                 if self._gripper == "last":
                     ctx.act.set_gripper(chunk[:, -1], robot)
+            elif self._space == ctx.act.action_space:
+                # A scene-specific encoding this proxy has no decoder for, such
+                # as the catheter's insertion/rotation/bend/orbit rates. The
+                # contract already matched space and dof against the scene, so
+                # the row is what this controller consumes; decoding it here
+                # would be the one thing that could corrupt it.
+                apply_action(ctx.act, chunk, robot)
             else:
                 raise UnsupportedActuation(f"{self.spec.id}: cannot apply action_space={self._space!r}")
 

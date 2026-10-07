@@ -9,6 +9,7 @@ Layout::
         actions            (T, A)      or obs/actions on compatible files
         obs/joint_pos      (T, D)
         obs/<camera>       (T, H, W, 3) uint8
+        diagnostics/<name> (T,) or (T, K) float32
         segments           (S,)
 
 ``segments`` is a structured array of
@@ -16,6 +17,12 @@ Layout::
 frame range. It is optional, and readers must tolerate its absence. With it,
 ``mimic`` can augment a single skill and ``annotator`` can label per skill
 instead of per episode — neither is expressible against a flat episode.
+
+``diagnostics`` holds per-frame measurements of the simulation rather than
+observations, so a recording can be judged after the fact instead of only by
+watching it. It is optional and scene-specific, and readers must tolerate its
+absence. It sits outside ``obs`` so that everything walking observations is
+unaffected by it. Frames a measurement was not reported for hold ``nan``.
 """
 
 from __future__ import annotations
@@ -30,6 +37,7 @@ import numpy as np
 
 DATA_GROUP = "data"
 SEGMENTS = "segments"
+DIAGNOSTICS_GROUP = "diagnostics"
 
 #: h5py structured dtype for the segments dataset.
 SEGMENT_DTYPE = np.dtype(
@@ -93,6 +101,14 @@ def camera_keys(demo: h5py.Group) -> list[str]:
         for name, dataset in obs.items()
         if isinstance(dataset, h5py.Dataset) and dataset.dtype == np.uint8 and dataset.ndim == 4
     )
+
+
+def diagnostic_keys(demo: h5py.Group) -> list[str]:
+    """Names of per-frame diagnostic datasets, or ``[]`` when none were written."""
+    group = demo.get(DIAGNOSTICS_GROUP)
+    if group is None:
+        return []
+    return sorted(name for name, value in group.items() if isinstance(value, h5py.Dataset))
 
 
 def write_segments(demo: h5py.Group, segments: Sequence[Segment]) -> None:
@@ -165,6 +181,17 @@ class Episode:
         return self.group[f"obs/{name}"][()]
 
     @property
+    def diagnostics(self) -> list[str]:
+        return diagnostic_keys(self.group)
+
+    def diagnostic(self, name: str) -> np.ndarray:
+        """One per-frame measurement. Absent frames hold ``nan``."""
+        try:
+            return self.group[f"{DIAGNOSTICS_GROUP}/{name}"][()]
+        except KeyError as exc:
+            raise EpisodeError(f"{self.name}: no diagnostic {name!r}; recorded {self.diagnostics}") from exc
+
+    @property
     def segments(self) -> tuple[Segment, ...]:
         return read_segments(self.group)
 
@@ -180,6 +207,10 @@ class Episode:
         if states_path and self.group[states_path].shape[0] != actions.shape[0]:
             raise EpisodeError(f"{self.name}: {states_path} length does not match actions")
         total = actions.shape[0]
+        for name in self.diagnostics:
+            length = self.group[f"{DIAGNOSTICS_GROUP}/{name}"].shape[0]
+            if length != total:
+                raise EpisodeError(f"{self.name}: diagnostic {name} has {length} frames, actions have {total}")
         for segment in self.segments:
             if not 0 <= segment.start <= segment.end <= total:
                 raise EpisodeError(

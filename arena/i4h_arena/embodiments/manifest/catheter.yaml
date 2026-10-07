@@ -5,14 +5,70 @@ name: catheter
 joint_names:
 - insertion_m
 - rotation_rad
+- tip_bend_rad
 - carm_orbit_rad
 action_names:
 - insertion_velocity_mps
 - rotation_rate_radps
+- tip_bend_rate_radps
 - carm_orbit_rate_radps
+# The four drive channels, then the five numbers that say where the catheter is
+# being asked to go. Without the goal columns a policy is graded on reaching a
+# target it cannot observe, and can only succeed by memorising one anatomy.
+#
+# `target_offset_*` is the vector from tip to target in *world* axes, not tip-local,
+# so a policy needs its own heading to act on it. `tip_direction` is published by
+# the Scene and is the obvious next addition if these five prove insufficient.
+#
+# `route_remaining_m` and `route_lateral_m` are the pair the reward is built on, in
+# that order, matching `navigation_observation.route_state`. They are independent:
+# remaining arc says how much vessel is left, lateral offset says whether the tip
+# is threading the lumen or riding its wall.
 state_names:
 - insertion_m
 - rotation_rad
+- tip_bend_rad
 - carm_orbit_rad
+- target_offset_x_m
+- target_offset_y_m
+- target_offset_z_m
+- route_remaining_m
+- route_lateral_m
+# GR00T semantic groups, which dataset conversion turns into `modality.json`.
+# Two groups rather than one because they are different kinds of command: the
+# catheter channels move the instrument inside the patient, while the C-arm
+# channel moves the imaging gantry and changes only the view. A policy that
+# navigates can be trained on the catheter group alone with the C-arm group
+# treated as context.
+#
+# The groups have to tile the whole vector -- conversion checks that they start
+# at 0, stay contiguous and end at the tensor width -- so the C-arm is declared
+# even where it is not commanded.
+#
+# `target` and `route` are separate groups rather than one `goal` block because
+# they are different kinds of quantity -- a direction to steer in versus two
+# scalars about position along and across the vessel -- and GR00T's processor
+# declares groups individually, so splitting them leaves the option of training
+# on one without the other.
+state_split:
+- - catheter
+  - 0
+  - 3
+- - carm
+  - 3
+  - 4
+- - target
+  - 4
+  - 7
+- - route
+  - 7
+  - 9
+action_split:
+- - catheter
+  - 0
+  - 3
+- - carm
+  - 3
+  - 4
 teleop_devices:
 - catheter_keyboard

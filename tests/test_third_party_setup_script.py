@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Focused tests for private third-party repository transport selection."""
+"""Private repository transport selection and physics solver compatibility checks."""
 
 from __future__ import annotations
 
@@ -9,15 +9,32 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 THIRD_PARTY_SETUP = ROOT / "third_party" / "setup.sh"
+SOLVER_API = ("register_rod", "set_root_pose_gpu", "proximal_reaction")
 
 
-def _run_setup(tmp_path: Path, root_origin: str) -> tuple[subprocess.CompletedProcess[str], str]:
+def _run_setup(
+    tmp_path: Path,
+    root_origin: str,
+    *,
+    solver_api: tuple[str, ...] = SOLVER_API,
+) -> tuple[subprocess.CompletedProcess[str], str]:
     workspace = tmp_path / "workspace"
     third_party = workspace / "third_party"
     third_party.mkdir(parents=True)
     shutil.copy2(THIRD_PARTY_SETUP, third_party / "setup.sh")
+
+    # Fake Git does not populate working trees. Supply the solver source that
+    # setup inspects so transport tests model a compatible component checkout.
+    physics = third_party / "i4h-physics-simulation-internal" / "xpbd_rod"
+    physics.mkdir(parents=True)
+    (physics / "solver.py").write_text(
+        "\n\n".join(f"def {name}():\n    pass\n" for name in solver_api),
+        encoding="utf-8",
+    )
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -73,6 +90,7 @@ def test_private_repositories_follow_ssh_root_origin(tmp_path: Path) -> None:
 
     assert result.returncode == 0, result.stderr
     assert "private repository transport: ssh" in result.stdout
+    assert "carries the coupled-arm solver contract" in result.stdout
     assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
     assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-sensor-simulation-internal.git" in git_log
     assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-digital-twin-internal.git" in git_log
@@ -102,3 +120,17 @@ def test_private_repositories_default_to_https_without_root_origin(tmp_path: Pat
     assert result.returncode == 0, result.stderr
     assert "private repository transport: https" in result.stdout
     assert "https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
+
+
+@pytest.mark.parametrize("missing_symbol", SOLVER_API)
+def test_physics_checkout_missing_required_solver_api_is_rejected(tmp_path: Path, missing_symbol: str) -> None:
+    result, _ = _run_setup(
+        tmp_path,
+        "https://github.com/isaac-for-healthcare/i4h-workflows.git",
+        solver_api=tuple(symbol for symbol in SOLVER_API if symbol != missing_symbol),
+    )
+
+    assert result.returncode == 1
+    assert f"coupled-arm solver contract: {missing_symbol}\n" in result.stderr
+    assert "I4H_PHYSICS_SIM_REF" in result.stderr
+    assert "carries the coupled-arm solver contract" not in result.stdout
