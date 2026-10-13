@@ -304,6 +304,24 @@ run_agent() {
     export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
     export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-${I4H_AGENT_SKILL_GPU}}"
 
+    # Reserve the name before OpenCode can lazily create its first shell. flock
+    # releases the reservation on exit, including crashes, without stale locks.
+    need flock
+    local session_lock_dir="${XDG_RUNTIME_DIR:-/tmp}/i4h-agent-sessions-$(id -u)"
+    (umask 077; mkdir -p "${session_lock_dir}")
+    [[ -O "${session_lock_dir}" && ! -L "${session_lock_dir}" ]] || {
+        echo "error: unsafe agent session lock directory" >&2
+        exit 1
+    }
+    chmod 700 "${session_lock_dir}"
+    local session_lock_name session_lock_fd
+    session_lock_name="$(printf '%s' "${I4H_TMUX_SESSION}" | sha256sum | cut -d ' ' -f 1)"
+    exec {session_lock_fd}>"${session_lock_dir}/${session_lock_name}.lock"
+    flock -n "${session_lock_fd}" || {
+        echo "error: tmux session ${I4H_TMUX_SESSION} is already reserved" >&2
+        exit 1
+    }
+
     # Each invocation owns its shell and closes it on normal exit or a signal.
     # Refuse an existing explicit session rather than deleting another run's shell.
     if tmux has-session -t "=${I4H_TMUX_SESSION}" 2>/dev/null; then

@@ -117,3 +117,69 @@ def test_agent_closes_its_tmux_session(tmp_path, termination):
             process.kill()
             process.communicate()
         subprocess.run(["tmux", "kill-session", "-t", f"={session}"], capture_output=True)
+
+
+def test_prefix_session_is_not_reused(tmp_path):
+    session = f"i4h-prefix-{uuid.uuid4().hex}"
+    other = session + "-long"
+    subprocess.run(["tmux", "new-session", "-d", "-s", other, "sleep 60"], check=True)
+    env = dict(os.environ, I4H_TMUX_SESSION=session, I4H_AGENT_REPO_ROOT=str(tmp_path))
+    result = subprocess.run(
+        [str(ROOT / "local-agent/tmux-shell.sh"), "-c", "printf isolated"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "isolated"
+    for name in (session, other):
+        assert subprocess.run(["tmux", "has-session", "-t", f"={name}"], capture_output=True).returncode == 0
+    pane = subprocess.check_output(["tmux", "capture-pane", "-p", "-S", "-", "-t", f"={other}:"], text=True)
+    assert "source" not in pane
+
+
+def test_concurrent_launch_cannot_claim_reserved_session(tmp_path):
+    agent_dir = tmp_path / "local-agent"
+    shutil.copytree(ROOT / "local-agent", agent_dir, ignore=shutil.ignore_patterns("opencode.json", ".run"))
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for name, source in {
+        "curl": "#!/bin/sh\nexit 0\n",
+        "opencode": (
+            "#!/usr/bin/env python3\nimport os,time\nfrom pathlib import Path\n"
+            "Path(os.environ['TEST_READY']).touch()\ntime.sleep(60)\n"
+        ),
+    }.items():
+        path = bin_dir / name
+        path.write_text(source)
+        path.chmod(0o755)
+    session = f"i4h-race-{uuid.uuid4().hex}"
+    ready = tmp_path / "ready"
+    env = dict(
+        os.environ,
+        PATH=f"{bin_dir}:{os.environ['PATH']}",
+        I4H_AGENT_PROFILE="nvidia-hosted",
+        I4H_AGENT_API_KEY="fake-key",
+        I4H_AGENT_REPO_ROOT=str(tmp_path),
+        I4H_AGENT_OPENCODE_BIN=str(bin_dir / "opencode"),
+        I4H_TMUX_SESSION=session,
+        TEST_READY=str(ready),
+        XDG_RUNTIME_DIR=str(tmp_path),
+    )
+    argv = [str(agent_dir / "run.sh"), "agent", "test"]
+    first = subprocess.Popen(argv, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        deadline = time.monotonic() + 15
+        while not ready.exists() and first.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert ready.exists()
+        # OpenCode has started but has not created a tmux pane yet.
+        assert subprocess.run(["tmux", "has-session", "-t", f"={session}"], capture_output=True).returncode != 0
+        second = subprocess.run(argv, env=env, capture_output=True, text=True, timeout=10)
+        assert second.returncode == 1
+        assert "already reserved" in second.stderr
+        assert first.poll() is None
+    finally:
+        first.terminate()
+        first.communicate(timeout=10)
