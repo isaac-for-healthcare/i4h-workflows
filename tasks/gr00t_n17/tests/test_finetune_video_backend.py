@@ -1,0 +1,133 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+"""Pick a camera-video decoder the fine-tune can actually import.
+
+GR00T defaults to torchcodec and raises instead of falling back when it is
+missing, which fails the first DataLoader batch. A ``--dry-run`` never decodes a
+frame, so it passed on Linux aarch64 while every real run there died at step 0.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import importlib
+import types
+from pathlib import Path
+
+import pytest
+
+from i4h_tasks.gr00t_n17 import _finetune
+
+TASK_ID = "gr00t_n17/catheter_navigation"
+
+
+def _only_importable(monkeypatch, available: set[str], failure: Exception | None = None) -> None:
+    real_import = importlib.import_module
+
+    def import_module(name: str, *args, **kwargs):
+        if name not in _finetune.VIDEO_BACKENDS:
+            return real_import(name, *args, **kwargs)
+        if name not in available:
+            raise failure or ImportError(name)
+        return types.ModuleType(name)
+
+    monkeypatch.setattr(_finetune.importlib, "import_module", import_module)
+
+
+def test_torchcodec_wins_where_it_imports(monkeypatch) -> None:
+    _only_importable(monkeypatch, {"torchcodec", "decord"})
+    assert _finetune.resolve_video_backend() == "torchcodec"
+
+
+def test_decord_is_used_where_torchcodec_is_missing(monkeypatch) -> None:
+    """The Linux aarch64 install: decord2 present, no torchcodec."""
+    _only_importable(monkeypatch, {"decord"})
+    assert _finetune.TrainConfig(dataset_path=["d"]).video_backend == "decord"
+
+
+def test_a_torchcodec_whose_native_libraries_fail_to_load_is_skipped(monkeypatch) -> None:
+    _only_importable(monkeypatch, {"decord"}, failure=RuntimeError("Could not load libtorchcodec"))
+    assert _finetune.resolve_video_backend() == "decord"
+
+
+def test_no_backend_fails_before_training_starts(monkeypatch) -> None:
+    _only_importable(monkeypatch, set())
+    with pytest.raises(SystemExit, match="no video backend"):
+        _finetune.TrainConfig(dataset_path=["d"])
+
+
+def test_an_explicit_backend_is_kept(monkeypatch) -> None:
+    _only_importable(monkeypatch, {"torchcodec", "decord"})
+    assert _finetune.TrainConfig(dataset_path=["d"], video_backend="decord").video_backend == "decord"
+
+
+def test_the_dry_run_reports_the_backend_a_real_run_would_use(tmp_path: Path, capsys, monkeypatch) -> None:
+    from i4h_tasks.gr00t_n17.train import main
+
+    _only_importable(monkeypatch, {"decord"})
+    assert main(["--task", TASK_ID, "--dataset", str(tmp_path), "--dry-run"]) == 0
+    assert "video_backend = 'decord'" in capsys.readouterr().out
+
+
+def test_the_cli_flag_overrides_the_automatic_choice(tmp_path: Path, capsys) -> None:
+    from i4h_tasks.gr00t_n17.train import main
+
+    assert main(["--task", TASK_ID, "--dataset", str(tmp_path), "--video-backend", "decord", "--dry-run"]) == 0
+    assert "video_backend = 'decord'" in capsys.readouterr().out
+
+
+def test_the_backend_reaches_the_shim_ahead_of_the_launch_script() -> None:
+    script = Path("/groot/gr00t/experiment/launch_finetune.py")
+    cmd = _finetune._build_cmd(_finetune.TrainConfig(dataset_path=["d"], video_backend="decord"), script, "d")
+    assert cmd.index("--video-backend=decord") < cmd.index(str(script))
+
+
+def test_the_shim_files_the_backend_under_the_data_config() -> None:
+    from i4h_tasks.gr00t_n17._launcher import split_shim_args
+
+    overrides, rest = split_shim_args(["--video-backend=decord", "launch.py", "--max_steps", "5"])
+    assert overrides == {"data": {"video_backend": "decord"}}
+    assert rest == ["launch.py", "--max_steps", "5"]
+
+
+def test_without_options_the_shim_passes_the_argv_through() -> None:
+    from i4h_tasks.gr00t_n17._launcher import split_shim_args
+
+    assert split_shim_args(["launch.py", "--max_steps", "5"]) == ({}, ["launch.py", "--max_steps", "5"])
+
+
+def test_the_shim_rejects_an_unknown_backend() -> None:
+    from i4h_tasks.gr00t_n17._launcher import split_shim_args
+
+    with pytest.raises(SystemExit):
+        split_shim_args(["--video-backend=opencv", "launch.py"])
+
+
+def test_the_backend_survives_the_launchers_own_config_load(monkeypatch) -> None:
+    """``launch_finetune.py`` calls ``get_default_config().load_dict(...)`` and the loader reads ``config.data``."""
+    base_config = pytest.importorskip("gr00t.configs.base_config", reason="needs the gr00t_n17 venv")
+    from i4h_tasks.gr00t_n17._launcher import install_config_overrides
+
+    assert base_config.get_default_config().data.video_backend == "torchcodec"
+    monkeypatch.setattr(base_config, "get_default_config", base_config.get_default_config)
+    monkeypatch.setattr(base_config.Config, "load_dict", base_config.Config.load_dict)
+    install_config_overrides({"data": {"video_backend": "decord"}})
+
+    config = base_config.get_default_config().load_dict({"data": {"download_cache": False, "datasets": []}})
+    assert config.data.video_backend == "decord"
+
+
+def test_the_saved_config_still_loads(monkeypatch, tmp_path: Path) -> None:
+    """The checkpoint's ``config.yaml`` is ``yaml.dump(config)`` and is read back with ``yaml.Loader``."""
+    base_config = pytest.importorskip("gr00t.configs.base_config", reason="needs the gr00t_n17 venv")
+    yaml = pytest.importorskip("yaml")
+    from i4h_tasks.gr00t_n17._launcher import install_config_overrides
+
+    monkeypatch.setattr(base_config, "get_default_config", base_config.get_default_config)
+    monkeypatch.setattr(base_config.Config, "load_dict", base_config.Config.load_dict)
+    install_config_overrides({"data": {"video_backend": "decord"}})
+    config = base_config.get_default_config().load_dict({"data": {"download_cache": False, "datasets": []}})
+
+    assert set(vars(config)) == {f.name for f in dataclasses.fields(base_config.Config)}
+    restored = yaml.load(yaml.dump(config), Loader=yaml.Loader)
+    assert restored.data.video_backend == "decord"
