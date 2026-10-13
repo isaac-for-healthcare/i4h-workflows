@@ -21,22 +21,14 @@ ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
 ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
-# The i4h component repositories track main so that workflow integration always builds
-# against current upstream. Their directory names carry no revision for that reason: the uv
-# source paths in arena/ and tools/patient_twin/ point here and must stay valid as main moves.
-# Export the matching *_REF variable to pin one to a commit when bisecting a break.
-#
-# The physics simulation was the exception, pinned to wip/catheter-containment-and-tip-bend
-# while the coupled-arm solver contract the catheter scenes call -- register_rod,
-# set_root_pose_gpu, proximal_reaction and the interior-containment parameters -- lived only
-# on that branch. It merged in PR #3, so the pin is gone and this tracks main with the rest.
-# The contract check below stays, because a ref from before that merge still fails as a
-# missing attribute during solver initialization rather than as a stale dependency.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-main}"
+# Release component versions match the v0.9 QA plan. Keep the checkout directory
+# names stable because uv path sources refer to them. Export *_REF to bisect or
+# test another component revision; the solver compatibility check still applies.
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-v0.9-rc1}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
-I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-main}"
+I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-v0.9.0-rc1}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
-I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-main}"
+I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-v0.9.0-rc1}"
 I4H_DIGITAL_TWIN_DIR="i4h-digital-twin-internal"
 
 GR00T_15_REV="17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1"
@@ -163,10 +155,10 @@ arena_checkouts=(
   "${LEISAAC_DIR}|https://github.com/LightwheelAI/leisaac.git|${LEISAAC_REV}"
   "${ISAACLAB_ARENA_DIR}|https://github.com/isaac-sim/IsaacLab-Arena.git|${ISAACLAB_ARENA_REV}"
   "${I4H_PHYSICS_SIM_DIR}|${INTERNAL_GITHUB_BASE}/i4h-physics-simulation-internal.git|${I4H_PHYSICS_SIM_REF}"
-  "${I4H_SENSOR_SIM_DIR}|${INTERNAL_GITHUB_BASE}/i4h-sensor-simulation-internal.git|${I4H_SENSOR_SIM_REF}"
+  "${I4H_SENSOR_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git|${I4H_SENSOR_SIM_REF}"
   # tools/patient_twin, not arena, consumes this one. It rides along with the arena target so
   # that a scoped `I4H_THIRD_PARTY_TARGET=arena` still produces a runnable twin pipeline.
-  "${I4H_DIGITAL_TWIN_DIR}|${INTERNAL_GITHUB_BASE}/i4h-digital-twin-internal.git|${I4H_DIGITAL_TWIN_REF}"
+  "${I4H_DIGITAL_TWIN_DIR}|https://github.com/isaac-for-healthcare/i4h-digital-twin.git|${I4H_DIGITAL_TWIN_REF}"
 )
 policy_checkouts=(
   "${GR00T_15_DIR}|https://github.com/NVIDIA/Isaac-GR00T.git|${GR00T_15_REV}"
@@ -240,7 +232,7 @@ if [[ -d "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}/.git" ]]; then
     echo "[${LOG_PREFIX}] i4h-physics-simulation @ ${I4H_PHYSICS_SIM_REF} does not carry the" >&2
     echo "[${LOG_PREFIX}] coupled-arm solver contract: ${missing_solver_api[*]}" >&2
     echo "[${LOG_PREFIX}] The catheter arm scenes need main at or after PR #3. Unset" >&2
-    echo "[${LOG_PREFIX}] I4H_PHYSICS_SIM_REF to take main, or set it to a commit that" >&2
+    echo "[${LOG_PREFIX}] I4H_PHYSICS_SIM_REF to use the release default, or set it to a commit that" >&2
     echo "[${LOG_PREFIX}] carries the contract." >&2
     exit 1
   fi

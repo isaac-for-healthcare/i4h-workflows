@@ -92,8 +92,8 @@ def test_private_repositories_follow_ssh_root_origin(tmp_path: Path) -> None:
     assert "private repository transport: ssh" in result.stdout
     assert "carries the coupled-arm solver contract" in result.stdout
     assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
-    assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-sensor-simulation-internal.git" in git_log
-    assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-digital-twin-internal.git" in git_log
+    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git" in git_log
+    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-digital-twin.git" in git_log
 
 
 def test_private_repositories_follow_https_root_origin(tmp_path: Path) -> None:
@@ -107,8 +107,8 @@ def test_private_repositories_follow_https_root_origin(tmp_path: Path) -> None:
     assert (
         "remote set-url origin https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
     )
-    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-sensor-simulation-internal.git" in git_log
-    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-digital-twin-internal.git" in git_log
+    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git" in git_log
+    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-digital-twin.git" in git_log
 
 
 def test_private_repositories_default_to_https_without_root_origin(tmp_path: Path) -> None:
@@ -134,3 +134,17 @@ def test_physics_checkout_missing_required_solver_api_is_rejected(tmp_path: Path
     assert f"coupled-arm solver contract: {missing_symbol}\n" in result.stderr
     assert "I4H_PHYSICS_SIM_REF" in result.stderr
     assert "carries the coupled-arm solver contract" not in result.stdout
+
+
+def test_release_component_refs_are_fetched(tmp_path: Path) -> None:
+    result, git_log = _run_setup(tmp_path, "")
+    assert result.returncode == 0, result.stderr
+    for component, ref in (
+        ("physics-simulation", "v0.9-rc1"),
+        ("sensor-simulation", "v0.9.0-rc1"),
+        ("digital-twin", "v0.9.0-rc1"),
+    ):
+        assert any(
+            f"i4h-{component}-internal fetch" in line and line.endswith(f"origin {ref}")
+            for line in git_log.splitlines()
+        )
