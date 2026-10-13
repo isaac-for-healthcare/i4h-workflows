@@ -6,9 +6,11 @@ import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-_ASSET_ROOT = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.7.0/724f82e"
-G1_INSPIRE_USD_PATH = f"{_ASSET_ROOT}/Robots/UnitreeG1/g1_29dof_with_inspire_rev_1_0/g1_29dof_with_inspire_rev_1_0.usd"
-H2_SHARPA_USD_PATH = f"{_ASSET_ROOT}/Robots/UnitreeH2/h2_with_sharpa/H2_with_sharpa_flat.usd"
+#: Mirrors ``i4h_arena.assets.constants.ASSET_PATH``; kept literal so CPU tests
+#: can load this module without the package installed.
+_ASSET_ROOT = "omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/v0.9.0/"
+G1_INSPIRE_USD_PATH = f"{_ASSET_ROOT}Robots/UnitreeG1/g1_29dof_with_inspire_rev_1_0/g1_29dof_with_inspire_rev_1_0.usd"
+H2_SHARPA_USD_PATH = f"{_ASSET_ROOT}Robots/UnitreeH2/h2_with_sharpa/H2_with_sharpa_flat.usd"
 # ---------------------------------------------------------------------------
 # H2 + Sharpa non-USD asset resolution (urdf/ + teleop_configs/)
 # ---------------------------------------------------------------------------
