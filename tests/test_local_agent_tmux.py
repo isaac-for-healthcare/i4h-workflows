@@ -183,3 +183,42 @@ def test_concurrent_launch_cannot_claim_reserved_session(tmp_path):
     finally:
         first.terminate()
         first.communicate(timeout=10)
+
+
+def test_tmux_server_started_by_agent_does_not_keep_reservation(tmp_path):
+    # The agent's first shell starts the tmux server, which must not inherit the lock.
+    subprocess.run(["tmux", "kill-server"], capture_output=True)
+    agent_dir = tmp_path / "local-agent"
+    shutil.copytree(ROOT / "local-agent", agent_dir, ignore=shutil.ignore_patterns("opencode.json", ".run"))
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    # A shell stub keeps inherited fds, like OpenCode does; Python's subprocess would close them.
+    for name, source in {
+        "curl": "#!/bin/sh\nexit 0\n",
+        "opencode": (
+            '#!/bin/sh\n"$TEST_ADAPTER" -c true || exit 3\ntmux new-session -d -s "keeper-$$" \'sleep 120\' || exit 4\n'
+        ),
+    }.items():
+        path = bin_dir / name
+        path.write_text(source)
+        path.chmod(0o755)
+    session = f"i4h-reuse-{uuid.uuid4().hex}"
+    env = dict(
+        os.environ,
+        PATH=f"{bin_dir}:{os.environ['PATH']}",
+        I4H_AGENT_PROFILE="nvidia-hosted",
+        I4H_AGENT_API_KEY="fake-key",
+        I4H_AGENT_REPO_ROOT=str(tmp_path),
+        I4H_AGENT_OPENCODE_BIN=str(bin_dir / "opencode"),
+        I4H_TMUX_SESSION=session,
+        TEST_ADAPTER=str(agent_dir / "tmux-shell.sh"),
+        XDG_RUNTIME_DIR=str(tmp_path),
+    )
+    argv = [str(agent_dir / "run.sh"), "agent", "test"]
+    first = subprocess.run(argv, env=env, capture_output=True, text=True, timeout=30)
+    assert first.returncode == 0, first.stdout + first.stderr
+    assert subprocess.run(["tmux", "has-session", "-t", f"={session}"], capture_output=True).returncode != 0
+    sessions = subprocess.check_output(["tmux", "list-sessions", "-F", "#S"], text=True).split()
+    assert any(name.startswith("keeper-") for name in sessions)
+    second = subprocess.run(argv, env=env, capture_output=True, text=True, timeout=30)
+    assert second.returncode == 0, second.stdout + second.stderr

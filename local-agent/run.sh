@@ -354,14 +354,16 @@ run_agent() {
     esac
 
     cd "${I4H_AGENT_REPO_ROOT}"
+    # Close the lock fd in OpenCode so a tmux server it daemonizes cannot inherit
+    # the reservation; this process holds the lock until OpenCode exits.
     if [[ $# -eq 0 ]]; then
         [[ ${#session_args[@]} -eq 0 ]] || {
             echo "error: --continue/--session requires a non-interactive prompt" >&2
             exit 2
         }
-        "${I4H_AGENT_OPENCODE_BIN}" --model "local/${served_name}" <&0 &
+        "${I4H_AGENT_OPENCODE_BIN}" --model "local/${served_name}" <&0 {session_lock_fd}>&- &
     else
-        "${I4H_AGENT_OPENCODE_BIN}" run --model "local/${served_name}" "${session_args[@]}" "$*" </dev/null &
+        "${I4H_AGENT_OPENCODE_BIN}" run --model "local/${served_name}" "${session_args[@]}" "$*" </dev/null {session_lock_fd}>&- &
     fi
     agent_pid=$!
     local status=0
