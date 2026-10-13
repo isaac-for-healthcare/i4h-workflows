@@ -98,7 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--presets", choices=("physx", "newton"), default=None, help="override scene physics backend"
     )
     simulation.add_argument("--spacing", type=float, default=4.0, dest="env_spacing")
-    simulation.add_argument("--no-cameras", action="store_true")
+    simulation.add_argument("--no-cameras", action="store_true", help="disable scene cameras and record without images")
     simulation.add_argument("--headless", action="store_true")
     simulation.add_argument("--device", default="cuda:0", help="CUDA device for the simulation")
     simulation.add_argument(
