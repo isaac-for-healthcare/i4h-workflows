@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """USD path constants shared across the workflow Arena envs."""
 
-from pathlib import Path
-
-ASSET_PATH = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.5.0/132c82d/"
+ASSET_PATH = (
+    "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/v0.9.0/c02e5b5e3d71/"
+)
 
 # Backgrounds
 MAIN_BACKGROUND_USD = ASSET_PATH + "Props/Rheo/main_new_light.usd"
@@ -41,8 +41,8 @@ BOARD_USD = ASSET_PATH + "Props/Board/board.usd"
 BLOCK_USD = ASSET_PATH + "Props/PegBlock/block.usd"
 NEEDLE_USD = ASSET_PATH + "Props/SutureNeedle/needle.usd"
 NEEDLE_SDF_USD = ASSET_PATH + "Props/SutureNeedle/needle_sdf.usd"
-# Keep the upstream scene and override its broken material paths with packaged replacements.
-ORGANS_USD = str(Path(__file__).resolve().parent / "usd" / "organs" / "organs.usda")
+# The published scene contains the repaired material inputs and replacement maps.
+ORGANS_USD = ASSET_PATH + "Props/Organs/organs.usd"
 SCISSOR_TABLE_USD = ASSET_PATH + "Props/Table/table.usd"
 SCISSORS_USD = ASSET_PATH + "Props/SurgicalInstruments/SurgicalScissors.usd"
 SCISSOR_TRAY_USD = ASSET_PATH + "Props/SurgicalInstruments/SurgicalTray.usd"

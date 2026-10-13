@@ -92,12 +92,17 @@ def test_external_material_paths_and_geometry_are_preserved(composed_stage):
     assert composed_stage.GetAttributeAtPath("/World/Geometry.physics:mass").Get() == 0.75
 
 
-def test_workflow_uses_packaged_layer_and_original_scene():
+def test_workflow_uses_published_repaired_catalog():
     spec = importlib.util.spec_from_file_location("asset_constants", ASSETS / "constants.py")
     constants = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(constants)
-    assert Path(constants.ORGANS_USD) == LAYER.resolve()
-    layer = Sdf.Layer.FindOrOpen(constants.ORGANS_USD)
+    assert "/Healthcare/v0.9.0/" in constants.ASSET_PATH
+    assert constants.ORGANS_USD == constants.ASSET_PATH + "Props/Organs/organs.usd"
+    assert constants.DVRK_PSM_USD.startswith(constants.ASSET_PATH)
+
+
+def test_release_recipe_references_original_scene():
+    layer = Sdf.Layer.FindOrOpen(str(LAYER))
     assert layer.defaultPrim == "World"
     assert layer.GetPrimAtPath("/World").referenceList.prependedItems == [
         Sdf.Reference(UPSTREAM + "organs.usd", "/World")
@@ -121,3 +126,45 @@ def test_override_only_authors_material_attributes():
     # Ten organ texture values, one wall material, and six connected-input color-space opinions.
     assert len(attributes) == 17
     assert sum(attr.HasDefaultValue() for attr in attributes) == 11
+
+
+def test_release_repair_preserves_original_scene_and_uses_relative_paths(composed_stage):
+    spec = importlib.util.spec_from_file_location("prepare_release", LAYER.with_name("prepare_release.py"))
+    repair = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(repair)
+    reference = composed_stage.GetRootLayer().GetPrimAtPath("/World").referenceList.prependedItems[0]
+    original = Sdf.Layer.FindOrOpen(reference.assetPath)
+    source_bytes = Path(original.identifier).read_bytes()
+    assert repair.apply_material_repairs(original) == 17
+    stage = Usd.Stage.Open(original)
+    assert stage.GetAttributeAtPath("/World/Geometry.size").Get() == 0.2
+    assert stage.GetAttributeAtPath("/World/Geometry.physics:mass").Get() == 0.75
+    assert not original.GetPrimAtPath("/World").referenceList.prependedItems
+    for material in MATERIALS:
+        for shader, (channel, space) in CHANNELS.items():
+            path = f"/World/organ_shaders/Looks/{material}/{shader}"
+            attr = stage.GetAttributeAtPath(path + ".inputs:texture")
+            assert attr.Get().path == f"./materials/organs/Bladder/Bladder_topo_blender_{channel}.1001.png"
+            assert attr.GetColorSpace() == space
+            if shader != "normalmap_texture":
+                child = stage.GetAttributeAtPath(path + "/file_texture.inputs:texture")
+                assert child.GetConnections() == [Sdf.Path(path + ".inputs:texture")]
+                assert child.GetColorSpace() == space
+        skin = stage.GetAttributeAtPath(f"/World/organ_shaders/Looks/{material}/normalmap_texture_01.inputs:texture")
+        assert skin.Get().path == "./materials/human_skin_normal_detail.jpg"
+        assert skin.GetColorSpace() == "raw"
+    assert stage.GetAttributeAtPath(WALL + ".info:mdl:sourceAsset").Get().path == (
+        "./materials/operating_room/Base/Plastics/Plastic.mdl"
+    )
+    assert Path(original.identifier).read_bytes() == source_bytes
+
+
+def test_release_repair_refuses_unrelated_scene():
+    spec = importlib.util.spec_from_file_location("prepare_release", LAYER.with_name("prepare_release.py"))
+    repair = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(repair)
+    layer = Sdf.Layer.CreateAnonymous()
+    before = layer.ExportToString()
+    with pytest.raises(ValueError, match="Missing original material attribute"):
+        repair.apply_material_repairs(layer)
+    assert layer.ExportToString() == before

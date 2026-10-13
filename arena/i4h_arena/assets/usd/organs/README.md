@@ -4,10 +4,16 @@ The surgical organ scene uses a public USD file (a file describing a 3D scene).
 That file points to four missing Bladder texture maps, a skin texture on an
 artist's Windows computer, and a malformed path for a wall material.
 
-`organs.usda` is a small override layer. It loads the original scene and changes
-only the affected material inputs. `ORGANS_USD` in `assets/constants.py` selects
-this layer automatically; no manual asset download or cache editing is needed.
-The original scene and its remaining assets still require network access.
+`ORGANS_USD` in `assets/constants.py` selects the repaired original scene from
+`v0.9.0/c02e5b5e3d71/Props/Organs/organs.usd`. All shared asset constants
+use that complete catalog, including robots and props. Upload the prepared
+`v0.9.0` directory under `Assets/Isaac/Healthcare/` before using this branch.
+
+`organs.usda` remains a reference repair recipe for the original `0.5.0` scene.
+It is not the workflow entry point and must never be uploaded as `organs.usd`,
+which would create a self-reference. The release applies only its material
+values and color spaces to the original root layer, preserving geometry,
+physics, connections, and relative dependencies.
 
 ## What is included
 
@@ -29,8 +35,9 @@ The source scene points both its bladder and prostate materials at the missing
 Bladder maps. This layer preserves that sharing. It does not claim that a
 bladder texture is an accurate prostate material.
 
-The existing skin-detail image and wall `Plastic.mdl` are referenced through
-their working URLs inside the original versioned asset package.
+The release uses relative paths for the existing skin-detail image and wall
+`Plastic.mdl`, so both resolve inside the new package. The reference recipe
+retains the original working URLs for offline authoring tests.
 
 ## Texture provenance and limits
 
@@ -47,6 +54,28 @@ or evaluation datasets. Restore the original maps if they become available.
 
 The generated maps are contributed under this repository's Apache-2.0 license.
 This directory does not redistribute the upstream scene or its other assets.
+
+## Prepare the original scene for publication
+
+After copying the complete catalog, copy the four PNGs into the staged
+`Props/Organs/materials/organs/Bladder/` directory. Preserve the prompts,
+provenance, and Apache-2.0 license alongside them. Then run:
+
+```bash
+python arena/i4h_arena/assets/usd/organs/prepare_release.py \
+  /path/to/staged/Props/Organs/organs.usd \
+  /path/to/staged/Props/Organs/organs.repaired.usd
+```
+
+The tool requires OpenUSD. It leaves the original file on disk unchanged and
+refuses an existing output or a scene missing the expected material attributes.
+Validate the sibling output, then replace `organs.usd` in the staging copy.
+The `v0.9.0` upload folder has already undergone these steps.
+
+Upload the entire `v0.9.0` folder to `Assets/Isaac/Healthcare/` in the staging
+bucket, then production after QA. Keep the `c02e5b5e3d71` directory inside
+it. The supplied folder includes the entire previous catalog, so the other
+workflow constants continue to resolve. No S3 upload is performed by this tool.
 
 ## Check the fix
 
