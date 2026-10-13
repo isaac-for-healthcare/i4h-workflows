@@ -136,7 +136,9 @@ def test_physics_checkout_missing_required_solver_api_is_rejected(tmp_path: Path
     assert "carries the coupled-arm solver contract" not in result.stdout
 
 
-def test_release_component_refs_are_fetched(tmp_path: Path) -> None:
+def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for variable in ("I4H_PHYSICS_SIM_REF", "I4H_SENSOR_SIM_REF", "I4H_DIGITAL_TWIN_REF"):
+        monkeypatch.delenv(variable, raising=False)
     result, git_log = _run_setup(tmp_path, "")
     assert result.returncode == 0, result.stderr
     for component, ref in (
