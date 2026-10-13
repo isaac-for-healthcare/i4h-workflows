@@ -8,8 +8,23 @@ The examples use the local tag `i4h-workflows:local`.
 
 ## Build
 
+The current release candidate checks out private i4h component repositories.
+Your GitHub account must have read access to them. Authenticate with `gh auth login`,
+then make its token available to BuildKit without typing the token into shell history:
+
+```bash
+export GH_TOKEN="$(gh auth token)"
+```
+
+The build commands below mount this token only for dependency setup. It is not a
+build argument, image environment variable, or Git remote URL, and BuildKit does
+not store the secret in image layers. Do not put the token in the build context.
+Users without access to the private components need a published image or a release
+with public component sources; supplying an unrelated token will not grant access.
+
 ```bash
 docker build \
+  --secret id=github_token,env=GH_TOKEN \
   --cache-to type=inline \
   -f docker/Dockerfile \
   -t i4h-workflows:local .
@@ -19,11 +34,14 @@ Build the optional full image when download size matters less than immediate sta
 
 ```bash
 docker build \
+  --secret id=github_token,env=GH_TOKEN \
   --target full \
   --cache-to type=inline \
   -f docker/Dockerfile \
   -t i4h-workflows:full .
 ```
+
+After building, remove the temporary environment variable with `unset GH_TOKEN`.
 
 The Dockerfile uses NVIDIA's Ubuntu 24.04 base for both amd64 and arm64. Isaac Sim, PyTorch, and their CUDA libraries come from the component locks instead of being duplicated by a larger base image.
 
