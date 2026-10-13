@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Deliberately identical to endoluminal_navigation_ppo_rsl_rl.yaml apart from
+# the experiment name. The observation is the same fifteen columns, the action
+# the same four channels and the reward the same seven terms; what differs is
+# the integrator, because the arm's articulation selects coupled MJWarp + XPBD
+# and makes the wire's contact with the flange two-way.
+#
+# Keeping every hyperparameter fixed is what makes the pair a measurement: a
+# gap between this run's per-term rewards and the rod-only run's is
+# attributable to the coupling rather than to tuning. Resist tuning this file
+# on its own; if a change is warranted, change both.
+schema_version: 1
+backend: rsl_rl
+runner:
+  num_steps_per_env: 24
+  max_iterations: 400
+  save_interval: 25
+  experiment_name: endoluminal_navigation_arm_rsl
+  # The arm contributes no observation group of its own: it is servo'd to hold
+  # the introducer, so its seven joints reach the recorded state but never the
+  # actor. `policy` is the same 15-wide vector as the armless scene.
+  obs_groups:
+    actor: [policy]
+    critic: [policy]
+policy:
+  init_noise_std: 0.6
+  # The fifteen inputs span millimetre-scale lateral offsets and metre-scale
+  # remaining arc, so normalization is doing real work rather than being
+  # inherited boilerplate.
+  actor_obs_normalization: true
+  critic_obs_normalization: true
+  actor_hidden_dims: [256, 128, 64]
+  critic_hidden_dims: [256, 128, 64]
+  activation: elu
+algorithm:
+  value_loss_coef: 1.0
+  use_clipped_value_loss: true
+  clip_param: 0.2
+  entropy_coef: 0.005
+  num_learning_epochs: 5
+  num_mini_batches: 4
+  learning_rate: 0.0003
+  schedule: adaptive
+  # 0.995, not the 0.98 the probe-reach example uses, because the reward was
+  # designed and analysed at this discount. See the armless config for the
+  # arithmetic; it is the same reward and the same figure.
+  gamma: 0.995
+  lam: 0.95
+  desired_kl: 0.01
+  max_grad_norm: 1.0

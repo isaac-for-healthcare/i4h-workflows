@@ -5,9 +5,45 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+#: Wiring set by ``run.sh``, not behaviour. See ``i4h_common.run_overrides``,
+#: which this mirrors: ``rl`` depends on PyYAML alone and cannot import the
+#: light package, and a prefix scan is small enough to state twice.
+LAUNCHER_VARIABLES = frozenset(
+    {
+        "I4H_RECORD_PATH",
+        "I4H_RUN_DIR",
+        "I4H_RUN_METADATA",
+        "I4H_SETUP_PROJECTS",
+        "I4H_THIRD_PARTY_TARGET",
+        "I4H_VENV_ROOT",
+        "I4H_WORKFLOWS",
+        "I4H_WORKFLOWS_REPO_URL",
+    }
+)
+
+
+def environment_overrides(environ: dict[str, str] | None = None) -> dict[str, str]:
+    """Set ``I4H_*`` variables that change behaviour, sorted by name.
+
+    A training run reads physics out of the environment -- the catheter has
+    seventeen such knobs, covering damping, segment count, stiffness,
+    containment and the arrival tolerance -- and recorded none of them, so two
+    runs of one profile could differ in physics with nothing on disk to say so.
+    The GPU assignment is already recorded separately and is also read from
+    here, which is why it appears twice; the duplication is cheaper than
+    deciding which overrides count.
+    """
+    source = os.environ if environ is None else environ
+    return {
+        name: str(value)
+        for name, value in sorted(source.items())
+        if name.startswith("I4H_") and name not in LAUNCHER_VARIABLES and str(value).strip()
+    }
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:

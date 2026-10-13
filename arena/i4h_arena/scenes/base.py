@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import importlib
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -164,6 +165,14 @@ class Scene(ABC):
 
     def sensor_view_sliders(self) -> dict[str, tuple[SensorSliderSpec, ...]]:
         """Live workflow controls displayed beside each sensor image."""
+        return {}
+
+    def sensor_view_readouts(self, env: Any) -> dict[str, Callable[[], str]]:
+        """Per-frame status line shown under each sensor image.
+
+        Teleop is where this earns its place: the operator is driving toward a
+        termination criterion they cannot otherwise see.
+        """
         return {}
 
     def relative_ee(self) -> bool:

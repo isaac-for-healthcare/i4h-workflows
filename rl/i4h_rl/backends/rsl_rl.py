@@ -15,7 +15,14 @@ from pathlib import Path
 
 import yaml
 
-from i4h_rl.artifacts import checkpoint_iteration, resolve_input_path, resolve_output_path, resolve_run_dir, write_json
+from i4h_rl.artifacts import (
+    checkpoint_iteration,
+    environment_overrides,
+    resolve_input_path,
+    resolve_output_path,
+    resolve_run_dir,
+    write_json,
+)
 from i4h_rl.profile import RLProfile
 
 
@@ -125,6 +132,7 @@ def _evaluation_command(
     episodes: int,
     num_envs: int,
     output: Path,
+    patient_twin: Path | None = None,
     export_policy: Path | None = None,
 ) -> list[str]:
     command = [
@@ -148,6 +156,8 @@ def _evaluation_command(
     ]
     if profile.adapter_module:
         command.extend(("--adapter-module", profile.adapter_module))
+    if patient_twin is not None:
+        command.extend(("--patient-twin", str(patient_twin)))
     if export_policy is not None:
         command.extend(("--export-policy", str(export_policy)))
     return command
@@ -179,6 +189,7 @@ def launch(
     epochs: int,
     overrides: tuple[str, ...],
 ) -> int:
+    patient_twin = getattr(args, "resolved_patient_twin", None)
     checkpoint: Path | None = None
     if args.only_eval:
         checkpoint = resolve_input_path(workflows_root, args.rl_model_path)
@@ -199,8 +210,13 @@ def launch(
         "algorithm": profile.algorithm,
         "run_dir": str(run_dir),
         "num_envs": min(num_envs, args.episodes) if args.only_eval else num_envs,
+        # As in the RLinf backend: the knobs read from the environment, so
+        # two runs of one profile cannot differ in physics invisibly.
+        "overrides": environment_overrides(),
         "created_at": datetime.now(UTC).isoformat(),
     }
+    if patient_twin is not None:
+        metadata["patient_twin"] = str(patient_twin)
     if args.only_eval:
         metadata.update({"checkpoint": str(checkpoint), "episodes": args.episodes})
     else:
@@ -217,6 +233,7 @@ def launch(
             episodes=args.episodes,
             num_envs=min(num_envs, args.episodes),
             output=evaluation,
+            patient_twin=patient_twin,
         )
         print(f"run dir: {run_dir}")
         print("launch: " + shlex.join(command), flush=True)
@@ -248,6 +265,8 @@ def launch(
         profile.simulation.presets,
         f"agent.experiment_name={run_dir}",
     ]
+    if patient_twin is not None:
+        command.extend(("--patient-twin", str(patient_twin)))
     if args.video:
         command.append("--video")
     command.extend(overrides)
@@ -279,6 +298,7 @@ def launch(
 def export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -> int:
     if args.train_config:
         raise SystemExit("--train-config is only valid when exporting an RLinf checkpoint")
+    patient_twin = getattr(args, "resolved_patient_twin", None)
     checkpoint = resolve_input_path(workflows_root, args.rl_model_path)
     if not checkpoint.is_file():
         raise SystemExit(f"RSL-RL checkpoint does not exist: {checkpoint}")
@@ -296,6 +316,7 @@ def export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -
         episodes=1,
         num_envs=1,
         output=evaluation,
+        patient_twin=patient_twin,
         export_policy=policy,
     )
     print(f"workflow: {profile.workflow}")
@@ -321,6 +342,8 @@ def export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -
         "action_dof": profile.action_dof,
         "created_at": datetime.now(UTC).isoformat(),
     }
+    if patient_twin is not None:
+        manifest["patient_twin"] = str(patient_twin)
     write_json(output / "policy.json", manifest)
     print(f"export complete: {policy}")
     return 0

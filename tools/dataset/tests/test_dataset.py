@@ -19,6 +19,7 @@ from i4h_tools.dataset.cli import (
     _write_g1_wbc_modality,
     _write_split_modality,
     build_parser,
+    convert,
 )
 
 
@@ -38,6 +39,21 @@ def test_column_names_use_exact_descriptor() -> None:
 def test_convert_defaults_to_decord_compatible_video() -> None:
     args = build_parser().parse_args(["convert", "input.hdf5", "output", "--robot", "g1"])
     assert args.video_codec == "h264"
+
+
+def test_convert_takes_several_recordings_into_one_dataset() -> None:
+    args = build_parser().parse_args(["convert", "a.hdf5", "b.hdf5", "c.hdf5", "out", "--robot", "catheter"])
+
+    assert args.input == [Path("a.hdf5"), Path("b.hdf5"), Path("c.hdf5")]
+    assert args.output == Path("out")
+
+
+def test_convert_rejects_one_twin_for_several_recordings() -> None:
+    # One manifest cannot describe two anatomies, and silently measuring the
+    # second recording's goal columns against the first one's route would
+    # mislabel it rather than fail.
+    with pytest.raises(ValueError, match="cannot describe several recordings"):
+        convert([Path("a.hdf5"), Path("b.hdf5")], Path("out"), robot="catheter", patient_twin=Path("twin.yaml"))
 
 
 def test_translation_counts_motion_in_either_direction() -> None:

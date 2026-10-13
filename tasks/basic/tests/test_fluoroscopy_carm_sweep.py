@@ -14,7 +14,7 @@ from i4h_tasks.basic.medical.fluoroscopy_carm_sweep import FluoroscopyCArmSweep
 
 class _Actuation:
     action_space = "catheter_carm_velocity"
-    dof = 3
+    dof = 4
 
     def __init__(self) -> None:
         self.value = np.zeros((1, 3), dtype=np.float32)
@@ -45,9 +45,9 @@ def test_carm_sweep_requires_a_changed_fluoroscopy_frame() -> None:
     task.on_enter(ctx, object())
 
     assert task.tick(ctx) is Status.RUNNING
-    np.testing.assert_allclose(ctx.act.value, [[0.0, 0.0, 0.45]])
+    np.testing.assert_allclose(ctx.act.value, [[0.0, 0.0, 0.0, 0.45]])
     assert task.tick(ctx) is Status.RUNNING
-    np.testing.assert_allclose(ctx.act.value, [[0.0, 0.0, -0.45]])
+    np.testing.assert_allclose(ctx.act.value, [[0.0, 0.0, 0.0, -0.45]])
     assert task.tick(ctx) is Status.SUCCESS
     assert task.on_exit(ctx).max_frame_delta == 10.0
 

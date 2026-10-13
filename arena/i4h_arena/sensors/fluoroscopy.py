@@ -60,8 +60,23 @@ class FluoroscopySensor(SensorBase):
     def patient_twin(self) -> PatientTwin | None:
         return self._patient_twin
 
+    @property
+    def is_renderable(self) -> bool:
+        """Whether reading :attr:`data` can produce a frame rather than raise.
+
+        The slang backend projects through the C-arm, so reads before provider
+        binding cannot render. Navigation observations bind the providers
+        themselves; other readers can use this flag to defer rendering.
+        """
+        return self.cfg.backend != "slang" or self._carm_provider is not None
+
+    @property
+    def state_providers_bound(self) -> bool:
+        """Whether both live geometry sources are ready for image formation."""
+        return self._catheter_provider is not None and self._carm_provider is not None
+
     def bind_catheter_provider(self, provider: CatheterStateProvider) -> None:
-        """Connect the physics-owned state source after the environment is built."""
+        """Connect the physics-owned state source before the first image read."""
         if not isinstance(provider, CatheterStateProvider):
             raise TypeError("provider must implement CatheterStateProvider")
         self._catheter_provider = provider

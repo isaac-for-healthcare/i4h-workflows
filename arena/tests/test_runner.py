@@ -77,3 +77,36 @@ def test_live_reset_rebuilds_actuation_and_restarts_recording() -> None:
         "record:drive:teleop/drive",
         "windows",
     ]
+
+
+def _runner_with(mode: str, *, requested: int | None, resolved: int) -> runner.SimulationRunner:
+    simulation = object.__new__(runner.SimulationRunner)
+    simulation.workflow = SimpleNamespace(mode=mode)
+    simulation._requested_max_steps = requested
+    simulation.max_steps = resolved
+    return simulation
+
+
+def test_idle_never_takes_a_step_budget() -> None:
+    """Render-only ticks take no physics step, so a cap would only limit looking."""
+    assert _runner_with("idle", requested=600, resolved=600)._engine_max_steps() is None
+
+
+def test_policy_modes_use_the_resolved_budget() -> None:
+    assert _runner_with("policy", requested=None, resolved=600)._engine_max_steps() == 600
+
+
+def test_teleop_stays_uncapped_when_no_cap_was_asked_for() -> None:
+    """A demonstration is not cut off underneath the person giving it."""
+    assert _runner_with("teleop", requested=None, resolved=600)._engine_max_steps() is None
+
+
+def test_teleop_honours_an_explicit_cap() -> None:
+    """Without this a failing attempt never ends, so it is never written out.
+
+    Teleop runs ``until=success`` with no time limit. An attempt that will not
+    succeed has no other way to terminate, and an episode that never terminates
+    is never finalized -- which is what left ``--record-failures`` with nothing
+    to record.
+    """
+    assert _runner_with("teleop", requested=600, resolved=600)._engine_max_steps() == 600

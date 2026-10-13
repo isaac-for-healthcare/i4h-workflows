@@ -14,6 +14,7 @@ dependencies = [
     "gr00t",
     "lmdb==1.7.5",
     "PyYAML>=6.0",
+    "tyro>=0.8",
     # deepspeed (gr00t transitive) imports torch.utils.cpp_extension at runtime,
     # which needs setuptools for its CUDA-ops compatibility probe.
     "setuptools>=68",
@@ -28,6 +29,32 @@ dependencies = [
 # `onnxscript` / `decord` are pulled in on demand by the optional upstream TRT
 # build path (they conflict with gr00t's declared `onnx==1.15.0` pin, so we
 # don't lock them here).
+
+# The RLinf post-training host, on the same pins as the N1.5 task so both hosts
+# agree. Inference never touches these, but nothing here can be lazy: ray is
+# imported by RLinf's scheduler and toml by isaaclab_contrib, which the catheter
+# adapter loads to reach the RLinf extension.
+#
+# A default dependency group rather than an optional extra, because a plain
+# `uv sync` prunes an extra it was not asked for, and one venv serves three
+# roles -- the inference server, SFT training, and the RL training process
+# itself, as the `model_runtime` named by rl/profiles/endoluminal_navigation.yaml.
+# An inference-only sync would therefore disarm the RL host sharing the venv,
+# and would do it silently, since these resolve at module import inside RLinf
+# rather than anywhere the launcher can report. Opting out stays possible and
+# is now the explicit act it should be:
+#
+#     uv sync --project tasks/gr00t_n17 --no-group rl
+#
+# which saves about 240 MB of an 11.5 GB venv, the rest being torch, flash-attn
+# and tensorrt.
+[dependency-groups]
+rl = [
+    "hydra-core==1.3.2",
+    "ray[default]==2.47.0",
+    "tensorboard",
+    "toml==0.10.2",
+]
 
 [project.scripts]
 i4h-tasks-gr00t-n17 = "i4h_tasks.gr00t_n17.server:main"
@@ -60,6 +87,7 @@ url = "https://download.pytorch.org/whl/cu130"
 explicit = true
 
 [tool.uv]
+default-groups = ["rl"]
 environments = [
     'sys_platform == "linux" and platform_machine == "x86_64"',
     'sys_platform == "linux" and platform_machine == "aarch64"',
@@ -68,6 +96,12 @@ override-dependencies = [
     "torch==2.9.0+cu130",
     'torchvision==0.24.0+cu130 ; platform_machine == "x86_64"',
     'torchvision==0.24.0       ; platform_machine == "aarch64"',
+    # Upstream pins 0.4.0 against its own torch 2.7. torchcodec links the torch
+    # C++ ABI, so that wheel aborts with std::bad_alloc the moment it is
+    # imported under the 2.9 pinned above -- which happens inside the dataloader
+    # worker, where the abort surfaces only as "worker exited unexpectedly".
+    # 0.8.0 is the release built against 2.9; 0.7.0 aborts the same way.
+    'torchcodec==0.8.0 ; platform_machine == "x86_64"',
 ]
 
 # Mirrors the pinned Isaac-GR00T N1.7 pyproject (rev `4b1dca9d`) so uv has

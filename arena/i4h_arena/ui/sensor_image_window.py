@@ -5,14 +5,17 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import weakref
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import partial
 from typing import Any, TypeVar
 
 import numpy as np
 
 from i4h_common.types import CameraFrame
+
+logger = logging.getLogger("i4h_arena.ui")
 
 CONTROL_COLUMNS = 2
 _CONTROL_ROW_HEIGHT = 28
@@ -79,6 +82,7 @@ class SensorImageWindow:
         appearances: tuple[tuple[str, str], ...] = (),
         display_controls: tuple[Any, ...] = (),
         sliders: tuple[Any, ...] = (),
+        readout: Callable[[], str] | None = None,
         controls: dict[str, float] | None = None,
         columns: int = CONTROL_COLUMNS,
         width: int = 560,
@@ -102,6 +106,8 @@ class SensorImageWindow:
         self._display_controls = display_controls
         self._display_control_sliders: dict[str, Any] = {}
         self._sliders = sliders
+        self._readout = readout
+        self._readout_label = None
         self._controls = controls if controls is not None else {}
         self._control_sliders: dict[str, Any] = {}
         self._input = None
@@ -142,6 +148,8 @@ class SensorImageWindow:
                 with ui.CollapsableFrame("IMAGE TUNING", collapsed=True, height=0), ui.VStack(spacing=4):
                     self._build_control_rows(tuning_rows, columns)
             ui.ImageWithProvider(self._provider)
+            if readout is not None:
+                self._readout_label = ui.Label("", height=_CONTROL_ROW_HEIGHT)
         asyncio.ensure_future(self._dock_async(display_title))
         if self._keyboard_toggles or self._projection_presets:
             self._setup_keyboard()
@@ -270,8 +278,26 @@ class SensorImageWindow:
         import carb
         import omni.appwindow
 
+        app_window = omni.appwindow.get_default_app_window()
+        if app_window is None:
+            # Kit could not start its windowing plugin, which it reports far
+            # earlier as "GLFW initialization failed" and "IAppWindow::startup
+            # failed". By the time it reaches here the only trace is a missing
+            # app window, so say what actually happened rather than letting the
+            # attribute lookup raise. The keys lost here are brightness and the
+            # C-arm presets, which is not worth ending a run over -- but the
+            # same missing window takes teleop's keys with it, and a teleop
+            # recording that cannot receive input writes empty episodes.
+            logger.warning(
+                "%s: no Isaac application window, so its keyboard shortcuts are inactive. "
+                "Kit failed to start windowing (look for 'GLFW initialization failed' earlier "
+                "in this log); keyboard teleop will not receive keys either.",
+                self.name,
+            )
+            return
+
         self._input = carb.input.acquire_input_interface()
-        self._keyboard = omni.appwindow.get_default_app_window().get_keyboard()
+        self._keyboard = app_window.get_keyboard()
         self._keyboard_sub = self._input.subscribe_to_keyboard_events(
             self._keyboard,
             lambda event, *args, obj=weakref.proxy(self): obj._on_keyboard_event(event, *args),
@@ -336,12 +362,25 @@ class SensorImageWindow:
             image_window.dock_in(viewport, self._ui.DockPosition.RIGHT, 0.4)
 
     def update(self) -> None:
+        self._update_readout()
         _label, output = self._outputs[self._output_index]
         frame = self._view.camera(self.name, output=output)
         if frame is None:
             return
         rgba = frame_rgba(frame)
         self._provider.set_bytes_data(rgba.flatten().data, [frame.width, frame.height])
+
+    def _update_readout(self) -> None:
+        """Refresh the status line, retiring it rather than ending the run if it raises."""
+        if self._readout is None or self._readout_label is None:
+            return
+        try:
+            text = self._readout()
+        except Exception:
+            logger.exception("%s: status readout failed and is now off for this run", self.name)
+            self._readout = None
+            return
+        self._readout_label.text = text
 
     def close(self) -> None:
         if self._input is not None and self._keyboard is not None and self._keyboard_sub is not None:

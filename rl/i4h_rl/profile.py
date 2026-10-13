@@ -27,6 +27,15 @@ class SimulationProfile:
 
 
 @dataclass(frozen=True, slots=True)
+class ResourceProfile:
+    """Physical GPU placement for isolated RLinf processes."""
+
+    model_gpu: str
+    simulator_gpu: str
+    allow_shared_gpu: bool
+
+
+@dataclass(frozen=True, slots=True)
 class RLProfile:
     schema_version: int
     workflow: str
@@ -34,6 +43,17 @@ class RLProfile:
     trainer: str
     algorithm: str
     adapter_module: str | None
+    #: Repo-relative interpreter hosting the policy stack this profile trains.
+    #: A GR00T generation is pinned per task venv, so profiles on different
+    #: generations cannot share one runtime. ``None`` keeps the N1.5 default.
+    model_runtime: str | None
+    #: Whether this scene needs ``--patient-twin`` to produce a trainable
+    #: environment. The catheter does: its route, target, and lumen widths all
+    #: come from the twin, and without one the embodiment publishes no
+    #: observation, event, reward, or termination config at all. Declaring it
+    #: turns that into one refusal up front instead of a missing-key failure
+    #: raised by the adapter after Isaac Sim has finished starting.
+    requires_patient_twin: bool
     trainer_config: Path
     train_task_id: str
     eval_task_id: str
@@ -45,6 +65,7 @@ class RLProfile:
     default_num_envs: int
     default_epochs: int
     simulation: SimulationProfile
+    resources: ResourceProfile | None
 
     @classmethod
     def load(cls, path: Path) -> RLProfile:
@@ -62,6 +83,8 @@ class RLProfile:
             "trainer",
             "algorithm",
             "adapter_module",
+            "model_runtime",
+            "requires_patient_twin",
             "trainer_config",
             "train_task_id",
             "eval_task_id",
@@ -73,6 +96,7 @@ class RLProfile:
             "default_num_envs",
             "default_epochs",
             "simulation",
+            "resources",
         }
         unknown = sorted(set(raw) - allowed)
         if unknown:
@@ -119,6 +143,12 @@ class RLProfile:
                 raise ProfileError(f"{path}: invalid adapter_module import path {adapter_module!r}")
         if trainer == "rlinf" and not adapter_module:
             raise ProfileError(f"{path}: RLinf profiles require adapter_module")
+        model_runtime = raw.get("model_runtime")
+        if model_runtime is not None and (not isinstance(model_runtime, str) or not model_runtime.strip()):
+            raise ProfileError(f"{path}: model_runtime must be a non-empty path")
+        requires_patient_twin = raw.get("requires_patient_twin", False)
+        if not isinstance(requires_patient_twin, bool):
+            raise ProfileError(f"{path}: requires_patient_twin must be bool")
         if trainer_config.suffix != ".yaml":
             raise ProfileError(f"{path}: trainer_config must be a .yaml file")
         default_num_envs = int(need("default_num_envs", int))
@@ -141,6 +171,35 @@ class RLProfile:
             raise ProfileError(f"{path}: simulation.enable_cameras must be bool")
         if cameras and not enable_cameras:
             raise ProfileError(f"{path}: camera observations require simulation.enable_cameras=true")
+
+        resources_raw = raw.get("resources")
+        resources = None
+        if resources_raw is not None:
+            if trainer != "rlinf":
+                raise ProfileError(f"{path}: resources is only supported for RLinf profiles")
+            if not isinstance(resources_raw, dict):
+                raise ProfileError(f"{path}: resources must be dict")
+            resource_unknown = sorted(set(resources_raw) - {"model_gpu", "simulator_gpu", "allow_shared_gpu"})
+            if resource_unknown:
+                raise ProfileError(f"{path}: unknown resources fields: {', '.join(resource_unknown)}")
+            model_gpu = resources_raw.get("model_gpu")
+            simulator_gpu = resources_raw.get("simulator_gpu")
+            allow_shared_gpu = resources_raw.get("allow_shared_gpu", False)
+            if not isinstance(model_gpu, str) or not model_gpu.strip():
+                raise ProfileError(f"{path}: resources.model_gpu must be a non-empty string")
+            if not isinstance(simulator_gpu, str) or not simulator_gpu.strip():
+                raise ProfileError(f"{path}: resources.simulator_gpu must be a non-empty string")
+            if not isinstance(allow_shared_gpu, bool):
+                raise ProfileError(f"{path}: resources.allow_shared_gpu must be bool")
+            if model_gpu == simulator_gpu and not allow_shared_gpu:
+                raise ProfileError(
+                    f"{path}: identical model and simulator GPUs require resources.allow_shared_gpu=true"
+                )
+            resources = ResourceProfile(
+                model_gpu=model_gpu.strip(),
+                simulator_gpu=simulator_gpu.strip(),
+                allow_shared_gpu=allow_shared_gpu,
+            )
         return cls(
             schema_version=schema_version,
             workflow=workflow,
@@ -148,6 +207,8 @@ class RLProfile:
             trainer=trainer,
             algorithm=need("algorithm", str),
             adapter_module=adapter_module,
+            model_runtime=model_runtime,
+            requires_patient_twin=requires_patient_twin,
             trainer_config=trainer_config,
             train_task_id=need("train_task_id", str),
             eval_task_id=need("eval_task_id", str),
@@ -163,6 +224,7 @@ class RLProfile:
                 presets=presets,
                 enable_cameras=enable_cameras,
             ),
+            resources=resources,
         )
 
 

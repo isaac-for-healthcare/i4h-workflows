@@ -21,10 +21,17 @@ ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
 ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
-# The three i4h component repositories track main so that workflow integration always builds
+# The i4h component repositories track main so that workflow integration always builds
 # against current upstream. Their directory names carry no revision for that reason: the uv
 # source paths in arena/ and tools/patient_twin/ point here and must stay valid as main moves.
 # Export the matching *_REF variable to pin one to a commit when bisecting a break.
+#
+# The physics simulation was the exception, pinned to wip/catheter-containment-and-tip-bend
+# while the coupled-arm solver contract the catheter scenes call -- register_rod,
+# set_root_pose_gpu, proximal_reaction and the interior-containment parameters -- lived only
+# on that branch. It merged in PR #3, so the pin is gone and this tracks main with the rest.
+# The contract check below stays, because a ref from before that merge still fails as a
+# missing attribute during solver initialization rather than as a stale dependency.
 I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-main}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-main}"
@@ -211,6 +218,34 @@ for spec in "${checkouts[@]}"; do
   IFS="|" read -r name url ref <<<"${spec}"
   checkout_ref "${name}" "${url}" "${ref}"
 done
+
+# A ref that resolves cleanly can still be the wrong solver. The catheter scenes need a
+# coupled-arm contract that main has carried only since PR #3, so an older pin or a bisect
+# ref can land a tree without it, and then setup succeeds and the run fails much later as a
+# missing attribute during solver initialization -- which reads like a scene bug. Fail here
+# instead, while the ref that produced the tree is still in hand and before Isaac Sim or
+# RLinf has started.
+#
+# A presence check on the source rather than a signature check: these are Warp solver methods
+# whose call sites are built at runtime, so there is nothing importable to introspect without
+# standing up the solver, and `proximal_reaction` may be a property rather than a def. A ref
+# that lacks the contract does not mention the names at all, which is the case worth catching.
+if [[ -d "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}/.git" ]]; then
+  missing_solver_api=()
+  for symbol in register_rod set_root_pose_gpu proximal_reaction; do
+    grep -rqw --include='*.py' "${symbol}" "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}" \
+      || missing_solver_api+=("${symbol}")
+  done
+  if [[ "${#missing_solver_api[@]}" -gt 0 ]]; then
+    echo "[${LOG_PREFIX}] i4h-physics-simulation @ ${I4H_PHYSICS_SIM_REF} does not carry the" >&2
+    echo "[${LOG_PREFIX}] coupled-arm solver contract: ${missing_solver_api[*]}" >&2
+    echo "[${LOG_PREFIX}] The catheter arm scenes need main at or after PR #3. Unset" >&2
+    echo "[${LOG_PREFIX}] I4H_PHYSICS_SIM_REF to take main, or set it to a commit that" >&2
+    echo "[${LOG_PREFIX}] carries the contract." >&2
+    exit 1
+  fi
+  echo "[${LOG_PREFIX}] i4h-physics-simulation carries the coupled-arm solver contract"
+fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEISAAC_DIR}/.git" ]]; then
   apply_patch_once "leisaac HDF5/CUDA" \

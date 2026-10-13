@@ -5,7 +5,7 @@ impl: i4h_arena.scenes.endoluminal_navigation:EndoluminalNavigationScene
 description: "Endoluminal navigation with a patient digital twin and custom fluoroscopy sensor."
 embodiment: catheter
 action_space: catheter_carm_velocity
-dof: 3
+dof: 4
 gripper: false
 cameras:
 - fluoroscopy
@@ -13,4 +13,7 @@ objects: []
 robots:
 - robot
 max_steps: 600
-control_hz: 60.0
+# The embodiment runs physics at 120 Hz with decimation 4, so controls advance
+# at 30 Hz. This was inheriting the 60.0 default and disagreeing with the scene
+# it describes; recordings and policy manifests read this value.
+control_hz: 30.0

@@ -97,3 +97,59 @@ def test_scene_owned_footprint_is_batched():
         view.footprint_half_extents("table"),
         [[0.64, 0.4], [0.64, 0.4]],
     )
+
+
+# --------------------------------------------------------------------------- #
+# Diagnostics
+#
+# Optional per-frame measurements of the simulation, supplied by the scene the
+# same way joint state providers are. Only the recorder reads them.
+# --------------------------------------------------------------------------- #
+class _CountingProvider:
+    def __init__(self):
+        self.calls = 0
+
+    def diagnostics(self):
+        self.calls += 1
+        return {"arc_excess_mm": float(self.calls)}
+
+
+def _bare_env():
+    return SimpleNamespace(unwrapped=SimpleNamespace(scene={}, num_envs=1))
+
+
+def test_a_scene_without_a_provider_reports_nothing():
+    """The common case, and it has to cost nothing rather than raise."""
+    assert ArenaSceneView(_bare_env()).diagnostics() == {}
+
+
+def test_the_provider_supplies_the_measurements():
+    provider = _CountingProvider()
+
+    values = ArenaSceneView(_bare_env(), diagnostics_provider=provider).diagnostics()
+
+    assert values == {"arc_excess_mm": 1.0}
+
+
+def test_measurements_are_read_once_per_tick():
+    """Reading rod state costs a device-to-host copy, so two calls within one
+    frame must not pay for it twice -- nor report two different rods."""
+    provider = _CountingProvider()
+    view = ArenaSceneView(_bare_env(), diagnostics_provider=provider)
+
+    first = view.diagnostics()
+    assert view.diagnostics() == first
+    assert provider.calls == 1
+
+    view.invalidate()
+    assert view.diagnostics() == {"arc_excess_mm": 2.0}
+    assert provider.calls == 2
+
+
+def test_the_caller_cannot_corrupt_the_cached_measurements():
+    provider = _CountingProvider()
+    view = ArenaSceneView(_bare_env(), diagnostics_provider=provider)
+
+    view.diagnostics()["arc_excess_mm"] = 999.0
+
+    assert view.diagnostics() == {"arc_excess_mm": 1.0}

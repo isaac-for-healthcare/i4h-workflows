@@ -28,6 +28,9 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     os.environ.setdefault("RLINF_EXT_MODULE", "i4h_rl.extension")
     os.environ["RLINF_CONFIG_FILE"] = str(args.config.resolve())
+    # Ray workers inherit this and use it for eagerly-flushed rollout
+    # monitoring before the main RLinf runner reaches its optimizer logger.
+    os.environ["I4H_RL_RUN_DIR"] = str(args.run_dir.resolve())
 
     import torch.multiprocessing as mp
     from hydra import compose, initialize_config_dir

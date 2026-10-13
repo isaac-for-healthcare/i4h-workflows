@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+schema_version: 1
+backend: rsl_rl
+runner:
+  num_steps_per_env: 24
+  max_iterations: 400
+  save_interval: 25
+  experiment_name: endoluminal_navigation_rsl
+  # The catheter publishes a single group. CatheterRLEmbodiment strips the
+  # fluoroscopy term from it and sets concatenate_terms, so `policy` arrives as
+  # one 15-wide vector; there is no second task group to name here.
+  obs_groups:
+    actor: [policy]
+    critic: [policy]
+policy:
+  init_noise_std: 0.6
+  # The fifteen inputs span millimetre-scale lateral offsets and metre-scale
+  # remaining arc, so normalization is doing real work rather than being
+  # inherited boilerplate.
+  actor_obs_normalization: true
+  critic_obs_normalization: true
+  actor_hidden_dims: [256, 128, 64]
+  critic_hidden_dims: [256, 128, 64]
+  activation: elu
+algorithm:
+  value_loss_coef: 1.0
+  use_clipped_value_loss: true
+  clip_param: 0.2
+  entropy_coef: 0.005
+  num_learning_epochs: 5
+  num_mini_batches: 4
+  learning_rate: 0.0003
+  schedule: adaptive
+  # 0.995, not the 0.98 the probe-reach example uses, because the reward was
+  # designed and analysed at this discount. It is the figure that makes the
+  # approach term's arithmetic work out: at 0.995 a parked tip just outside the
+  # arrival tolerance used to discount to about 150 against about 84 for
+  # arriving and terminating, which is the inversion the potential form fixed.
+  # Training at a shorter horizon would not reproduce the behaviour the reward
+  # was reasoned about, and this run exists to test that reasoning.
+  gamma: 0.995
+  lam: 0.95
+  desired_kl: 0.01
+  max_grad_norm: 1.0

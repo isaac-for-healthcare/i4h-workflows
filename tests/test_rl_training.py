@@ -23,8 +23,9 @@ from i4h_rl.adapters.assemble_trocar import ACTION_KEYS  # noqa: E402
 from i4h_rl.adapters.assemble_trocar import _register_gr00t_converters, convert_gr00t_to_workflow_action
 from i4h_rl.artifacts import checkpoint_iteration  # noqa: E402
 from i4h_rl.artifacts import resolve_input_path, resolve_output_path
-from i4h_rl.backends.rlinf import _sim_ready_timeout  # noqa: E402
-from i4h_rl.backends.rlinf import (
+from i4h_rl.backends.rlinf import (  # noqa: E402
+    _gpu_assignment,
+    _sim_ready_timeout,
     checkpoint_bundle,
     checkpoint_root,
     finalize_evaluation,
@@ -207,16 +208,27 @@ def test_train_rl_show_validates_the_full_profile_contract() -> None:
 
 
 def test_supported_workflows_have_rl_profiles() -> None:
-    assert set(available_profiles()) == {"assemble_trocar", "ultrasound_probe_reach"}
+    assert set(available_profiles()) == {
+        "assemble_trocar",
+        "endoluminal_navigation",
+        # Same catheter task and checkpoint, with the drive unit on a flange.
+        "endoluminal_navigation_arm",
+        "ultrasound_probe_reach",
+    }
 
 
 def test_profiles_declare_workflow_adapters_and_simulator_contracts() -> None:
     trocar = load_profile("assemble_trocar")
+    catheter = load_profile("endoluminal_navigation")
     ultrasound = load_profile("ultrasound_probe_reach")
 
     assert trocar.adapter_module == "i4h_rl.adapters.assemble_trocar"
     assert trocar.simulation.enable_cameras is True
     assert trocar.simulation.env_spacing == 6.0
+    assert catheter.resources is not None
+    assert catheter.resources.model_gpu == "0"
+    assert catheter.resources.simulator_gpu == "1"
+    assert catheter.resources.allow_shared_gpu is True
     assert ultrasound.adapter_module == "i4h_rl.adapters.ultrasound_probe_reach"
     assert ultrasound.simulation.enable_cameras is False
     assert ultrasound.simulation.env_spacing == 2.0
@@ -345,6 +357,32 @@ def test_sim_server_accepts_profile_selected_scene_settings() -> None:
     assert scene_args.episode_steps == 200
     assert scene_args.env_spacing == 3.5
     assert scene_args.no_cameras is True
+
+
+def test_sim_server_leaves_the_episode_length_to_rlinf() -> None:
+    """Isaac Lab resets a timed-out env before it observes, so its time-out
+    at RLinf's own cap turned the last observation of every rollout into the
+    next episode's reset state, and the route metrics read no advance."""
+    from types import SimpleNamespace
+
+    from i4h_rl.sim_server import _drop_time_out
+
+    success = object()
+    env_cfg = SimpleNamespace(terminations=SimpleNamespace(time_out=object(), success=success))
+
+    _drop_time_out(env_cfg)
+
+    assert env_cfg.terminations.time_out is None
+    assert env_cfg.terminations.success is success
+
+
+def test_sim_server_tolerates_scenes_without_a_time_out() -> None:
+    from types import SimpleNamespace
+
+    from i4h_rl.sim_server import _drop_time_out
+
+    _drop_time_out(SimpleNamespace(terminations=None))
+    _drop_time_out(SimpleNamespace(terminations=SimpleNamespace(success=object())))
 
 
 def test_probe_reach_profile_uses_rsl_rl_without_images() -> None:
@@ -521,6 +559,44 @@ def test_rlinf_simulator_ready_timeout_must_be_positive_and_finite(monkeypatch, 
         _sim_ready_timeout()
 
 
+def test_no_rlinf_profile_colocates_the_model_and_simulator_by_default(monkeypatch) -> None:
+    """Separate devices everywhere, including the two that permit sharing.
+
+    The catheter profiles were the only ones that declared ``resources`` at
+    all, and they declared one device for both processes. That shipped
+    colocation as the default for a footprint nobody had measured -- the GR00T
+    PPO config still points ``model_path`` at a placeholder -- and it silently
+    stranded the second card on any host that had one.
+    """
+    monkeypatch.delenv("I4H_RL_MODEL_GPU", raising=False)
+    monkeypatch.delenv("I4H_RL_SIM_GPU", raising=False)
+
+    for name in ("endoluminal_navigation", "endoluminal_navigation_arm", "assemble_trocar"):
+        assert _gpu_assignment(load_profile(name)) == ("0", "1"), name
+
+
+def test_a_profile_that_permits_sharing_lets_one_gpu_host_opt_in(monkeypatch) -> None:
+    """``allow_shared_gpu`` is the permission, not the setting.
+
+    A single-GPU host cannot use the default above: device 1 does not exist
+    there. It is also where this stack is developed, so the escape hatch has
+    to work without editing the profile.
+    """
+    monkeypatch.setenv("I4H_RL_MODEL_GPU", "0")
+    monkeypatch.setenv("I4H_RL_SIM_GPU", "0")
+
+    assert _gpu_assignment(load_profile("endoluminal_navigation")) == ("0", "0")
+    assert _gpu_assignment(load_profile("endoluminal_navigation_arm")) == ("0", "0")
+
+
+def test_non_opted_in_rlinf_profile_rejects_shared_gpu_override(monkeypatch) -> None:
+    monkeypatch.setenv("I4H_RL_MODEL_GPU", "0")
+    monkeypatch.setenv("I4H_RL_SIM_GPU", "0")
+
+    with pytest.raises(SystemExit, match="does not allow"):
+        _gpu_assignment(load_profile("assemble_trocar"))
+
+
 def test_rlinf_evaluation_requires_and_records_tensorboard_metrics(tmp_path: Path, monkeypatch) -> None:
     run_dir = tmp_path / "eval"
     event = run_dir / "tensorboard/events.out.tfevents.test"
@@ -646,3 +722,43 @@ def test_trocar_registers_the_n15_action_converter() -> None:
 
     assert simulation_io.OBS_CONVERSION["i4h_g1_dex3"] is not None
     assert simulation_io.ACTION_CONVERSION_N1D5["i4h_g1_dex3"] is convert_gr00t_to_workflow_action
+
+
+# --------------------------------------------------------------------------- #
+# The two RLinf hosts
+# --------------------------------------------------------------------------- #
+#: Task venvs that can serve as `model_runtime`. The profiles name the N1.7 one;
+#: anything that names none falls back to N1.5 (`backends.rlinf` line 145).
+RLINF_HOSTS = ("tasks/gr00t_n15/pyproject.toml", "tasks/gr00t_n17/pyproject.toml")
+
+
+def _pyproject(relative: str) -> dict:
+    import tomllib
+
+    return tomllib.loads((ROOT / relative).read_text())
+
+
+@pytest.mark.parametrize("relative", RLINF_HOSTS)
+def test_the_rl_host_is_installed_unless_it_is_refused(relative: str):
+    """A plain sync has to keep the post-training host, because one venv is
+    the inference server, the SFT trainer and the RL training process at once.
+
+    This is why the group is a default group and not an optional extra: `uv
+    sync` prunes an extra it was not asked for, so an inference-only sync of
+    the shared venv would leave the RL host unable to import ray, and would do
+    it where only RLinf's scheduler can notice.
+    """
+    config = _pyproject(relative)
+    assert config["dependency-groups"]["rl"], "the post-training host must be declared"
+    assert config["tool"]["uv"]["default-groups"] == ["rl"]
+
+
+def test_both_rl_hosts_pin_the_same_post_training_stack():
+    """`hydra-core` and `tensorboard` were undeclared on the N1.5 side and in
+    its venv only by accident -- hydra through Isaac-GR00T 1.5's own pyproject,
+    which 1.7 dropped, and tensorboard through nothing at all. Either host can
+    be the `model_runtime`, so a difference between them is a difference in
+    whether a run starts.
+    """
+    groups = {relative: _pyproject(relative)["dependency-groups"]["rl"] for relative in RLINF_HOSTS}
+    assert len(set(map(tuple, groups.values()))) == 1, groups

@@ -130,6 +130,56 @@ def test_appearance_selection_tolerates_a_view_without_the_hook() -> None:
     assert window._appearance_index == 0  # noqa: SLF001
 
 
+def _window_with_readout(readout) -> SensorImageWindow:
+    window = object.__new__(SensorImageWindow)
+    window.name = "fluoroscopy"
+    window._readout = readout  # noqa: SLF001
+    window._readout_label = types.SimpleNamespace(text="")  # noqa: SLF001
+    return window
+
+
+def test_the_readout_text_lands_on_the_status_line() -> None:
+    window = _window_with_readout(lambda: "Target: 27.4 mm away (arrive within 5 mm)")
+
+    window._update_readout()  # noqa: SLF001
+
+    assert window._readout_label.text == "Target: 27.4 mm away (arrive within 5 mm)"  # noqa: SLF001
+
+
+def test_a_failing_readout_retires_instead_of_ending_the_run() -> None:
+    """A teleop recording is expensive; a broken status line must not cost one."""
+
+    def broken() -> str:
+        raise RuntimeError("no termination manager yet")
+
+    window = _window_with_readout(broken)
+
+    window._update_readout()  # noqa: SLF001
+
+    assert window._readout is None  # noqa: SLF001
+    window._update_readout()  # noqa: SLF001
+
+
+def test_the_status_line_refreshes_before_the_first_frame_arrives() -> None:
+    window = _window_with_readout(lambda: "Target: waiting for the catheter")
+    window._outputs = (("RGB", "rgb"),)  # noqa: SLF001
+    window._output_index = 0  # noqa: SLF001
+    window._view = types.SimpleNamespace(camera=lambda name, output: None)  # noqa: SLF001
+
+    window.update()
+
+    assert window._readout_label.text == "Target: waiting for the catheter"  # noqa: SLF001
+
+
+def test_a_window_without_a_readout_has_no_status_line() -> None:
+    window = object.__new__(SensorImageWindow)
+    window.name = "wrist"
+    window._readout = None  # noqa: SLF001
+    window._readout_label = None  # noqa: SLF001
+
+    window._update_readout()  # noqa: SLF001
+
+
 def test_scene_reset_restores_default_projection() -> None:
     window = object.__new__(SensorImageWindow)
     window._projection_presets = (("AP", "1", 0.0), ("LAO-45", "2", -0.785))  # noqa: SLF001

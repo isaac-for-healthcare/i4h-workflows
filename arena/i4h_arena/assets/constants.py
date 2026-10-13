@@ -6,6 +6,12 @@
 #: signing in to isaac-dev.ov.nvidia.com.
 ASSET_PATH = "omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/v0.9.0/"
 
+#: Isaac's own asset root, for robots the healthcare bundle does not carry.
+#: Pinned to 5.0 deliberately: the Franka below is absent from the 6.0 layout,
+#: which is what sent the catheter workflow to the healthcare bundle's
+#: gripperless Panda in the first place.
+ISAAC_ASSET_PATH = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.0/Isaac/"
+
 # Backgrounds
 MAIN_BACKGROUND_USD = ASSET_PATH + "Props/Rheo/main_new_light.usd"
 TROCAR_ASSEMBLY_SCENE_USD = ASSET_PATH + "Props/Lightwheel/scene03.usd"
@@ -32,6 +38,11 @@ TRAY_TROCAR_ASSEMBLY_USD = ASSET_PATH + "Props/Lightwheel/Assets/SurgicalTray001
 
 # Ultrasound liver-scan task props
 PANDA_USD = ASSET_PATH + "Robots/Franka/Collected_panda_assembly/panda_assembly.usda"
+
+#: Isaac Lab's stock Franka, which the healthcare bundle's Panda above is not:
+#: this one carries the two-finger hand (``panda_hand`` and the two finger
+#: joints) that a catheter drive unit has to be held by to be seen being held.
+FRANKA_PANDA_HAND_USD = ISAAC_ASSET_PATH + "IsaacLab/Robots/FrankaEmika/panda_instanceable.usd"
 PHANTOM_USD = ASSET_PATH + "Props/ABDPhantom/phantom.usda"
 TABLE_WITH_COVER_USD = ASSET_PATH + "Props/VentionTable/BlackCover/table_with_cover.usd"
 

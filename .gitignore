@@ -24,6 +24,11 @@ htmlcov/
 .cache/
 .nv/
 
+# Editor settings and local scratch space
+.vscode/
+.scratch/
+cleansetup/
+
 # Local environment files may contain model or service credentials.
 .env
 .env.*

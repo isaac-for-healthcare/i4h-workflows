@@ -208,6 +208,8 @@ import json
 from pathlib import Path
 import sys
 
+from i4h_common.run_overrides import environment_overrides
+
 metadata, workflow, mode, run_dir, recording, patient_twin, caller_cwd, launcher = sys.argv[1:]
 Path(metadata).write_text(
     json.dumps(
@@ -220,6 +222,9 @@ Path(metadata).write_text(
             "patient_twin": patient_twin or None,
             "caller_cwd": caller_cwd,
             "launcher": launcher,
+            # What this shell changed about the run. The arrival tolerance in
+            # here is what the recording's success labels mean.
+            "overrides": environment_overrides(),
             "created_at": datetime.now(UTC).isoformat(),
         },
         indent=2,

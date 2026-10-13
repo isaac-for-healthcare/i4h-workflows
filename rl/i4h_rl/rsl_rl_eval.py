@@ -29,6 +29,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", required=True)
     parser.add_argument("--export-policy", help="optional TorchScript policy.pt output path")
     parser.add_argument("--adapter-module", help="optional workflow adapter exposing evaluation_metrics(env)")
+    parser.add_argument("--patient-twin", default=None, help="patient-twin YAML used to construct the scene")
+    parser.add_argument("--fluoro-backend", default=None)
+    parser.add_argument("--fluoro-device", default=None)
     return parser
 
 
@@ -157,6 +160,8 @@ def main() -> int:
             "success_rate": successes / args.episodes,
             "results": completed,
         }
+        if args.patient_twin is not None:
+            result["patient_twin"] = str(Path(args.patient_twin).expanduser().resolve())
         for name in metric_minima:
             result[f"mean_min_{name}"] = sum(float(item[f"min_{name}"]) for item in completed) / args.episodes
         if args.export_policy:
