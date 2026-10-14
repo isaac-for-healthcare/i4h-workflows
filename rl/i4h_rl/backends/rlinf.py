@@ -20,6 +20,7 @@ import yaml
 
 from i4h_rl.artifacts import environment_overrides, resolve_input_path, resolve_output_path, resolve_run_dir, write_json
 from i4h_rl.profile import RLProfile
+from i4h_rl.runtime import apply_arm_openmp_env
 
 
 def _config(profile: RLProfile) -> dict[str, object]:
@@ -192,6 +193,7 @@ def _sim_env(workflows_root: Path, model_env: dict[str, str], *, gpu: str) -> di
     env = model_env.copy()
     env["PYTHONPATH"] = os.pathsep.join(str(path) for path in sim_roots)
     env["CUDA_VISIBLE_DEVICES"] = gpu
+    apply_arm_openmp_env(env)
     return env
 
 
