@@ -473,11 +473,11 @@ print(json.dumps(metrics, sort_keys=True))
     return True
 
 
-def verify_evaluation_video(run_dir: Path, runtime: Path, env: dict[str, str]) -> bool:
+def verify_evaluation_video(video_dir: Path, runtime: Path, env: dict[str, str]) -> bool:
     """A requested video is part of the result, even when a worker only warns."""
-    videos = sorted((run_dir / "video/eval").rglob("*.mp4"))
+    videos = sorted(video_dir.rglob("*.mp4"))
     if not videos or any(path.stat().st_size == 0 for path in videos):
-        print(f"requested evaluation video is missing or empty under {run_dir / 'video/eval'}", file=sys.stderr)
+        print(f"requested evaluation video is missing or empty under {video_dir}", file=sys.stderr)
         return False
     probe = """
 import imageio.v3 as iio
@@ -590,11 +590,10 @@ def launch(
     epochs: int,
     overrides: tuple[str, ...],
 ) -> int:
-    from i4h_rl.composition import compose_config, configure_video
+    from i4h_rl.composition import compose_config, configure_video, eval_video_dir
 
-    require_video = configure_video(
-        compose_config(profile.trainer_config, overrides), only_eval=args.only_eval, video=args.video
-    )
+    config = compose_config(profile.trainer_config, overrides)
+    require_video = configure_video(config, only_eval=args.only_eval, video=args.video)
     model_path = args.resolved_model_path
     native_checkpoint: Path | None = None
     if args.only_eval:
@@ -728,7 +727,7 @@ def launch(
     if return_code != 0:
         return return_code
     if args.only_eval:
-        if require_video and not verify_evaluation_video(run_dir, model_runtime, model_env):
+        if require_video and not verify_evaluation_video(eval_video_dir(config, run_dir), model_runtime, model_env):
             return 1
         if not finalize_evaluation(run_dir, metadata, runtime=model_runtime, env=model_env):
             print(

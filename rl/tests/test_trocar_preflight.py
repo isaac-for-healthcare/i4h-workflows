@@ -137,6 +137,15 @@ def test_video_policy(profile, only_eval, flag, configured):
     assert cfg.env.train.video_cfg.raise_on_error is False
 
 
+def test_eval_video_dir_follows_run_dir_and_overrides(profile, tmp_path):
+    from i4h_rl.composition import compose_config, eval_video_dir
+
+    run_dir = tmp_path / "run"
+    assert eval_video_dir(compose_config(profile.trainer_config), run_dir) == run_dir.resolve() / "video/eval"
+    custom = compose_config(profile.trainer_config, [f"env.eval.video_cfg.video_base_dir={tmp_path / 'videos'}"])
+    assert eval_video_dir(custom, run_dir) == tmp_path / "videos"
+
+
 def test_launcher_composition_errors_precede_heavy_imports(profile, checkpoint, tmp_path):
     import os
     import subprocess

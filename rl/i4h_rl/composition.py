@@ -28,3 +28,10 @@ def configure_video(cfg: DictConfig, *, only_eval: bool, video: bool) -> bool:
         cfg.env.train.video_cfg.raise_on_error = False
         cfg.env.eval.video_cfg.raise_on_error = only_eval and requested
     return only_eval and requested
+
+
+def eval_video_dir(cfg: DictConfig, run_dir: Path) -> Path:
+    """Where the launcher's config writes evaluation videos for this run."""
+    with open_dict(cfg):
+        cfg.runner.logger.log_path = str(run_dir.resolve())
+    return Path(cfg.env.eval.video_cfg.video_base_dir)

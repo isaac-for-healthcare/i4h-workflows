@@ -106,29 +106,33 @@ def test_evaluation_rejects_corrupt_or_empty_video(tmp_path):
     directory = tmp_path / "video/eval/seed_0"
     directory.mkdir(parents=True)
     path = directory / "0.mp4"
-    assert not rlinf.verify_evaluation_video(tmp_path, Path(sys.executable), os.environ.copy())
+    assert not rlinf.verify_evaluation_video(tmp_path / "video/eval", Path(sys.executable), os.environ.copy())
     path.touch()
-    assert not rlinf.verify_evaluation_video(tmp_path, Path(sys.executable), os.environ.copy())
+    assert not rlinf.verify_evaluation_video(tmp_path / "video/eval", Path(sys.executable), os.environ.copy())
     path.write_bytes(b"not an mp4")
-    assert not rlinf.verify_evaluation_video(tmp_path, Path(sys.executable), os.environ.copy())
+    assert not rlinf.verify_evaluation_video(tmp_path / "video/eval", Path(sys.executable), os.environ.copy())
 
 
 def test_evaluation_accepts_decodable_video(recorder, tmp_path):
     directory = tmp_path / "video/eval/seed_0"
     directory.mkdir(parents=True)
     recorder._save_video([np.zeros((64, 64, 3), np.uint8)], str(directory / "0.mp4"))
-    assert rlinf.verify_evaluation_video(tmp_path, Path(sys.executable), os.environ.copy())
+    assert rlinf.verify_evaluation_video(tmp_path / "video/eval", Path(sys.executable), os.environ.copy())
 
 
+@pytest.mark.parametrize("custom_dir", [False, True])
 @pytest.mark.parametrize("requested_by", ["flag", "config"])
 @pytest.mark.parametrize("contents", [None, b"corrupt mp4"])
-def test_launcher_reports_video_failure_without_metrics_error(tmp_path, monkeypatch, capsys, requested_by, contents):
+def test_launcher_reports_video_failure_without_metrics_error(
+    tmp_path, monkeypatch, capsys, requested_by, contents, custom_dir
+):
     import argparse
 
     from i4h_rl.profile import RLProfile
 
     profile = RLProfile.load(ROOT / "rl/profiles/assemble_trocar.yaml")
     run_dir = tmp_path / "run"
+    video_dir = tmp_path / "custom_videos" if custom_dir else run_dir / "video/eval"
     args = argparse.Namespace(
         resolved_model_path=tmp_path,
         only_eval=True,
@@ -157,9 +161,8 @@ def test_launcher_reports_video_failure_without_metrics_error(tmp_path, monkeypa
         def __init__(self, *args, **kwargs):
             (run_dir / "simulator.ready").touch()
             if contents is not None:
-                directory = run_dir / "video/eval"
-                directory.mkdir(parents=True)
-                (directory / "0.mp4").write_bytes(contents)
+                video_dir.mkdir(parents=True)
+                (video_dir / "0.mp4").write_bytes(contents)
 
         def poll(self):
             return 0
@@ -177,9 +180,13 @@ def test_launcher_reports_video_failure_without_metrics_error(tmp_path, monkeypa
 
     monkeypatch.setattr(rlinf.subprocess, "run", probe)
     overrides = ("env.eval.video_cfg.save_video=true",) if requested_by == "config" else ()
+    if custom_dir:
+        overrides += (f"env.eval.video_cfg.video_base_dir={video_dir}",)
     assert rlinf.launch(args, profile, ROOT, num_envs=1, epochs=1, overrides=overrides) == 1
     error = capsys.readouterr().err
     assert "requested evaluation video" in error
+    if contents is None:
+        assert str(video_dir) in error
     assert "metrics" not in error
 
 
