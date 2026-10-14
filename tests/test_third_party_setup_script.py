@@ -142,9 +142,9 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
     result, git_log = _run_setup(tmp_path, "")
     assert result.returncode == 0, result.stderr
     for component, ref in (
-        ("physics-simulation", "v0.9-rc1"),
-        ("sensor-simulation", "v0.9.0-rc1"),
-        ("digital-twin", "v0.9.0-rc1"),
+        ("physics-simulation", "v0.9.0-rc2"),
+        ("sensor-simulation", "v0.9.0-rc2"),
+        ("digital-twin", "v0.9.0-rc2"),
     ):
         assert any(
             f"i4h-{component}-internal fetch" in line and line.endswith(f"origin {ref}")

@@ -24,11 +24,11 @@ ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
 # Release component versions match the v0.9 QA plan. Keep the checkout directory
 # names stable because uv path sources refer to them. Export *_REF to bisect or
 # test another component revision; the solver compatibility check still applies.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-v0.9-rc1}"
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-v0.9.0-rc2}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
-I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-v0.9.0-rc1}"
+I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-v0.9.0-rc2}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
-I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-v0.9.0-rc1}"
+I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-v0.9.0-rc2}"
 I4H_DIGITAL_TWIN_DIR="i4h-digital-twin-internal"
 
 GR00T_15_REV="17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1"
