@@ -50,7 +50,7 @@ def test_no_published_checkpoint_is_claimed(spec) -> None:
     assert spec.trainable
 
 
-def test_one_token_per_fingertip(spec) -> None:
+def test_one_feature_set_per_fingertip(spec) -> None:
     assert spec.model["tactile"]["num_tokens"] == len(FINGERTIPS)
 
 

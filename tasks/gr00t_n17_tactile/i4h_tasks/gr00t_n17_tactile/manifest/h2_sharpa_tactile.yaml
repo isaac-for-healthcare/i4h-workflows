@@ -52,7 +52,7 @@ model:
       hf_repo: Sharpa-Robotics/sharpawave-deform-encoder
       file: sharpawave_deform_autoencoder.safetensors
     kinematics:
-      # Fingertip forward kinematics for the spatial anchor of every token.
+      # Fingertip forward kinematics for the spatial anchor of every fingertip's features.
       git_repo: https://github.com/sharpa-robotics/sharpa-urdf-usd-xml
       left_urdf_dir: wave_01/left_sharpa_wave
       right_urdf_dir: wave_01/right_sharpa_wave

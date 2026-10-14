@@ -58,8 +58,8 @@
 <text text-anchor="start" x="374.5" y="-135.2" font-family="Liberation Sans" font-weight="bold" font-size="16.00">DiT action head</text>
 <text text-anchor="start" x="260" y="-122.4" font-family="Liberation Sans" font-size="12.00">32 blocks · width 1536 · tokens = [state ; action] · one t per sample</text>
 <text text-anchor="start" x="227" y="-110.4" font-family="Liberation Sans" font-size="12.00">16 cross&#45;attn blocks (KV = VL embeddings) interleaved with 16 self&#45;attn blocks</text>
-<text text-anchor="start" x="235" y="-98.4" font-family="Liberation Sans" font-weight="bold" font-size="12.00" fill="#4a7a00">+ attn_tactile</text>
-<text text-anchor="start" x="308" y="-98.4" font-family="Liberation Sans" font-size="12.00" fill="#4a7a00"> (zero&#45;init to_out, KV = SAT tokens) in the 16 cross&#45;attn blocks</text>
+<text text-anchor="start" x="231" y="-98.4" font-family="Liberation Sans" font-weight="bold" font-size="12.00" fill="#4a7a00">+ attn_tactile</text>
+<text text-anchor="start" x="304" y="-98.4" font-family="Liberation Sans" font-size="12.00" fill="#4a7a00"> (zero&#45;init to_out, KV = SAT features) in the 16 cross&#45;attn blocks</text>
 </g>
 <!-- vlm&#45;&gt;dit -->
 <g id="edge3" class="edge">
@@ -107,7 +107,7 @@
 <path fill="#c5e0b4" stroke="#4a7a00" stroke-width="2.2" d="M1186.5,-267C1186.5,-267 740.5,-267 740.5,-267 734.5,-267 728.5,-261 728.5,-255 728.5,-255 728.5,-219 728.5,-219 728.5,-213 734.5,-207 740.5,-207 740.5,-207 1186.5,-207 1186.5,-207 1192.5,-207 1198.5,-213 1198.5,-219 1198.5,-219 1198.5,-255 1198.5,-255 1198.5,-261 1192.5,-267 1186.5,-267"/>
 <text text-anchor="start" x="916" y="-245.2" font-family="Liberation Sans" font-weight="bold" font-size="16.00">SATEncoder</text>
 <text text-anchor="start" x="746.5" y="-232.4" font-family="Liberation Sans" font-size="12.00">Sharpa DeformAE (frozen) → 512 · FK (URDF) → Fourier → FiLM · + pos_embed</text>
-<text text-anchor="start" x="783.5" y="-220.4" font-family="Liberation Sans" font-size="12.00">T&#45;Rex VQ&#45;VAE (frozen) → z_q 256 · concat → SAT tokens (N × 768)</text>
+<text text-anchor="start" x="780" y="-220.4" font-family="Liberation Sans" font-size="12.00">T&#45;Rex VQ&#45;VAE (frozen) → z_q 256 · concat → SAT features (N × 768)</text>
 </g>
 <!-- deform&#45;&gt;sat -->
 <g id="edge6" class="edge">
@@ -133,7 +133,7 @@
 <title>sat&#45;&gt;dit</title>
 <path fill="none" stroke="#4a7a00" stroke-width="2.2" d="M828.64,-206.94C761.25,-192.42 678.95,-174.68 607.01,-159.18"/>
 <polygon fill="#4a7a00" stroke="#4a7a00" stroke-width="2.2" points="607.45,-155.69 596.93,-157 605.97,-162.53 607.45,-155.69"/>
-<text text-anchor="middle" x="792" y="-178.6" font-family="Liberation Sans" font-size="13.00" fill="#4a7a00">tactile cross&#45;attn KV</text>
+<text text-anchor="middle" x="834" y="-178.6" font-family="Liberation Sans" font-size="13.00" fill="#4a7a00">tactile cross&#45;attn KV (per fingertip)</text>
 </g>
 <!-- out -->
 <g id="node10" class="node">

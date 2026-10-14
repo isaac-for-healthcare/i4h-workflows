@@ -35,7 +35,7 @@ _RELATIVE_JOINTS = ActionConfig(
 H2_SHARPA_TACTILE_CONFIG = {
     "video": ModalityConfig(delta_indices=[0], modality_keys=["high", "left_wrist_view", "right_wrist_view"]),
     # The hand joint groups serve twice: as state, and as the joint angles the
-    # fingertip forward kinematics reads to place every tactile token.
+    # fingertip forward kinematics reads to place every fingertip's tactile features.
     "state": ModalityConfig(delta_indices=[0], modality_keys=["left_arm", "right_arm", "left_hand", "right_hand"]),
     "action": ModalityConfig(
         delta_indices=list(range(ACTION_HORIZON)),

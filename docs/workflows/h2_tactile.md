@@ -2,7 +2,7 @@
 
 A Unitree H2 with two SharpaWave hands, driven by a GR00T N1.7 policy that is
 conditioned on fingertip tactile data: ten deformation maps and ten 6-axis
-force histories enter the action head as tokens next to vision, state and
+force histories condition the action head next to vision, state and
 language. The pipeline runs on the real robot. It is temporarily not connected
 to the simulation workflows in this repository, because no Isaac Sim scene
 produces SharpaWave tactile data yet; the task declares what such a scene
@@ -19,14 +19,14 @@ README.
 
 ![GR00T N1.7 with fingertip tactile conditioning](images/h2_tactile_gr00t_n17.svg)
 
-- **One token per fingertip.** A frozen SharpaWave encoder turns the 240x240
-  deformation map into 512 features. A frozen T-Rex VQ-VAE turns the last 16
-  frames of 6-axis force into a 256-d code. The two are concatenated, modulated
-  (FiLM) and positioned by the fingertip's pose, which forward kinematics
-  computes on the hand joints recorded with the frame, so a token says *what*
-  is felt and *where*.
-- **Zero-initialised cross-attention.** The tokens enter the N1.7 action head
-  through an additional cross-attention in each of its 16 cross-attention
+- **Two tactile signals per fingertip.** A frozen SharpaWave encoder turns the
+  240x240 deformation map into 512 features. A frozen T-Rex VQ-VAE turns the
+  last 16 frames of 6-axis force into a 256-d code. The two are concatenated
+  per fingertip, modulated (FiLM) and positioned by the fingertip's pose, which
+  forward kinematics computes on the hand joints recorded with the frame, so
+  the features say *what* is felt and *where*.
+- **Zero-initialised cross-attention.** The per-fingertip features enter the
+  N1.7 action head through an additional cross-attention in each of its 16 cross-attention
   blocks whose output projection starts at zero. A freshly patched checkpoint
   is numerically the vanilla one; finetuning moves the tactile weights.
 - **Delay augmentation.** Training shifts the tactile stream by a random delay
@@ -93,7 +93,7 @@ features, declared under `tactile` and `tactile_force` in `meta/modality.json`.
 | `observation.tactile_180.force` | float32 | 6 x 60 | the six 180 Hz force samples before each row (archival; not consumed by this stack yet) |
 
 Fingertips are ordered left thumb, index, middle, ring, pinky, then the right
-hand in the same order, everywhere: dataset columns, model tokens, the live
+hand in the same order, everywhere: dataset columns, model inputs, the live
 stream after the subscriber has mapped the sensor's channel numbering.
 
 ## The sensor interface
@@ -104,8 +104,8 @@ force history, an **encoder** that maps one frame to a fixed-width feature per
 fingertip, and **kinematics** that place every fingertip for the spatial
 anchor. `tactile/sharpa.py` implements them for the SharpaWave hands from
 public sources. The encoder weights, the hand URDFs and the wire format are
-the SharpaWave-specific parts; the token path in the model, the delay
-augmentation, the per-step refresh and the cascade are not, so another
+the SharpaWave-specific parts; the tactile cross-attention in the model, the
+delay augmentation, the per-step refresh and the cascade are not, so another
 fingertip sensor with its own pretrained encoder would plug in at that
 interface. No such second sensor is planned in this work.
 

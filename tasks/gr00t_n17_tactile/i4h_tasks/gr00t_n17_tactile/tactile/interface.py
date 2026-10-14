@@ -7,7 +7,7 @@ implementations live in ``sharpa.py``. A different fingertip sensor plugs in by
 providing the same three things: a *source* that delivers frames, an *encoder*
 that turns one frame into a fixed-width feature per fingertip, and the
 *kinematics* that place every fingertip in the hand frame so the model can
-anchor each tactile token spatially.
+anchor each fingertip's tactile features spatially.
 """
 
 from __future__ import annotations
