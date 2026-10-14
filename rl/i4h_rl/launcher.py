@@ -8,6 +8,8 @@ import argparse
 import os
 from pathlib import Path
 
+from i4h_rl.composition import compose_config, configure_video
+
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Launch Workflow RLinf training/evaluation.")
@@ -26,6 +28,7 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    cfg = compose_config(args.config, args.overrides)
     os.environ.setdefault("RLINF_EXT_MODULE", "i4h_rl.extension")
     os.environ["RLINF_CONFIG_FILE"] = str(args.config.resolve())
     # Ray workers inherit this and use it for eagerly-flushed rollout
@@ -33,8 +36,6 @@ def main(argv: list[str] | None = None) -> int:
     os.environ["I4H_RL_RUN_DIR"] = str(args.run_dir.resolve())
 
     import torch.multiprocessing as mp
-    from hydra import compose, initialize_config_dir
-    from hydra.core.global_hydra import GlobalHydra
     from omegaconf import OmegaConf, open_dict
     from rlinf.config import validate_cfg
     from rlinf.runners.embodied_eval_runner import EmbodiedEvalRunner
@@ -46,9 +47,6 @@ def main(argv: list[str] | None = None) -> int:
     from rlinf.workers.rollout.hf.huggingface_worker import MultiStepRolloutWorker
 
     mp.set_start_method("spawn", force=True)
-    GlobalHydra.instance().clear()
-    initialize_config_dir(config_dir=str(args.config.resolve().parent), version_base="1.3")
-    cfg = compose(config_name=args.config.stem, overrides=args.overrides)
     with open_dict(cfg):
         cfg.runner.logger.log_path = str(args.run_dir.resolve())
         cfg.runner.max_epochs = args.max_epochs
@@ -67,8 +65,7 @@ def main(argv: list[str] | None = None) -> int:
             cfg.runner.resume_dir = str(args.resume_dir.resolve())
         if args.rl_model_path:
             cfg.rollout.model.rl_model_path = str(args.rl_model_path.resolve())
-        if args.video:
-            cfg.env.eval.video_cfg.save_video = True
+    configure_video(cfg, only_eval=args.only_eval, video=args.video)
     cfg = validate_cfg(cfg)
     print(OmegaConf.to_yaml(cfg, resolve=True), flush=True)
 

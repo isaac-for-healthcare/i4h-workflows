@@ -283,6 +283,12 @@ if [[ -d "${THIRD_PARTY_DIR}/${GR00T_15_DIR}/.git" ]]; then
     "${THIRD_PARTY_DIR}/gr00t_action_head_future_tokens.patch"
 fi
 
+if [[ -d "${THIRD_PARTY_DIR}/${RLINF_DIR}/.git" ]]; then
+  apply_patch_once "RLinf video encoding and collective error propagation" \
+    "${THIRD_PARTY_DIR}/${RLINF_DIR}" \
+    "${THIRD_PARTY_DIR}/rlinf_training_failures.patch"
+fi
+
 OPENPI_DIR="${THIRD_PARTY_DIR}/${OPENPI_DIR_NAME}"
 OPENPI_PYPROJECT="${OPENPI_DIR}/pyproject.toml"
 OPENPI_UTILS="${OPENPI_DIR}/src/openpi/training/utils.py"

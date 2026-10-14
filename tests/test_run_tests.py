@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "run_tests.py"
 SPEC = importlib.util.spec_from_file_location("i4h_run_tests", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
@@ -124,3 +126,35 @@ def test_gpu_smoke_requires_episode_summary(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
 
     assert not run_tests._run_gpu_smoke(run_tests.GPU_SMOKES[2], timeout=30)
+
+
+@pytest.mark.parametrize("suite", ["ci", "rl"])
+def test_rl_suite_executes_when_source_exists(tmp_path, monkeypatch, suite):
+    (tmp_path / "third_party/RLinf-a4b6abe").mkdir(parents=True)
+    projects = _record_suite_runs(monkeypatch, tmp_path)
+    monkeypatch.setattr(sys, "argv", ["run_tests.py", "--suite", suite])
+    assert run_tests.main() == 0
+    assert "rl" in projects
+
+
+def test_ci_requires_rl_source(tmp_path, monkeypatch):
+    _record_suite_runs(monkeypatch, tmp_path)
+    monkeypatch.setenv("CI", "true")
+    monkeypatch.setattr(sys, "argv", ["run_tests.py", "--suite", "rl"])
+    assert run_tests.main() == 1
+
+
+def test_engine_fakes_survive_collecting_an_rl_test():
+    # pytest loads all requested conftest modules before collecting imports.
+    # An unrelated RL conftest previously displaced engine's bare imports.
+    import os
+
+    root = SCRIPT.parents[1]
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "engine/tests/test_graph.py", "rl/tests/test_rlinf_recording.py", "-q"],
+        cwd=root,
+        env={**os.environ, "CI": "true", "PYTHONPATH": str(root / "rl")},
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
