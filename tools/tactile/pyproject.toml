@@ -1,12 +1,11 @@
 [project]
 name = "i4h-tools-tactile"
 version = "0.1.0"
-description = "Inspect, visualise and convert fingertip tactile recordings in LeRobot datasets."
+description = "Inspect and convert fingertip tactile recordings in LeRobot datasets."
 requires-python = ">=3.11, <3.13"
 dependencies = [
     "i4h-common",
     "numpy>=1.23.5,<3",
-    "opencv-python-headless>=4.8",
 ]
 
 [project.optional-dependencies]

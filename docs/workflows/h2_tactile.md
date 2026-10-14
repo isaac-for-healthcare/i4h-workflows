@@ -121,7 +121,6 @@ patched Isaac-GR00T checkout is described in
 
 - The GR00T patch series, and with it the bodies of the encoder, kinematics
   and force-encoder wrappers, policy loading and the server binding.
-- `i4h-tactile viz`.
 - The robot-side bridge: a small script and a container on the onboard
   computer that read the SharpaWave SDK and publish the ZMQ stream. A
   deployment detail, documented with the follow-up.
@@ -131,7 +130,7 @@ patched Isaac-GR00T checkout is described in
 ## Roadmap
 
 - Land the follow-ups for the N1.7 stack in this release cycle: patch series,
-  encoder wrappers, deployment client, `viz`.
+  encoder wrappers, deployment client.
 - Connect to Isaac Sim once a SharpaWave tactile simulation exists. The task
   already declares `requires: tactile: sharpa_wave_fingertip`; a scene that
   provides it gets a workflow module composed like the other humanoid

@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Inspect, visualise and convert fingertip tactile recordings.
+"""Inspect and convert fingertip tactile recordings.
 
 A tactile LeRobot dataset is an ordinary LeRobot v2.x dataset with, per frame,
 one single-channel video feature per fingertip (``observation.tactile.<name>``)
@@ -30,16 +30,11 @@ CONVERTER_MODULE = "unitree_lerobot.utils.convert_h2_sharpa_180_to_lerobot_v21"
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="i4h-tactile", description="Inspect and visualise tactile recordings.")
+    parser = argparse.ArgumentParser(prog="i4h-tactile", description="Inspect tactile recordings.")
     sub = parser.add_subparsers(dest="command", required=True)
 
     inspect_cmd = sub.add_parser("inspect", help="summarise the tactile columns of a LeRobot dataset")
     inspect_cmd.add_argument("dataset", type=Path, help="LeRobot v2.x dataset root (the directory holding meta/)")
-
-    viz_cmd = sub.add_parser("viz", help="render one episode's fingertip maps and force traces to a video")
-    viz_cmd.add_argument("dataset", type=Path)
-    viz_cmd.add_argument("--episode", type=int, default=0)
-    viz_cmd.add_argument("--output", type=Path, default=None, help="defaults to <dataset>/tactile_<episode>.mp4")
 
     convert_cmd = sub.add_parser("convert", help="print the capture-to-LeRobot conversion command")
     convert_cmd.add_argument("raw_dir", type=Path, help="recording directory produced by the capture pipeline")
@@ -91,11 +86,6 @@ def print_summary(dataset: Path, summary: dict[str, Any]) -> None:
         print("  warning: info.json has no tactile_path; the GR00T loader will skip the fingertip maps")
 
 
-def viz(dataset: Path, episode: int, output: Path | None) -> Path:
-    """Tile the ten fingertip maps next to their force traces, one video per episode."""
-    raise NotImplementedError("viz lands with the code follow-up; the frame layout is fixed by `inspect`")
-
-
 def convert_command(raw_dir: Path, output_dir: Path, repo_id: str, task_description: str) -> str:
     argv = [
         "python",
@@ -120,9 +110,6 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="[i4h-tactile] %(message)s")
     if args.command == "inspect":
         print_summary(args.dataset, inspect(args.dataset))
-        return 0
-    if args.command == "viz":
-        print(viz(args.dataset, args.episode, args.output))
         return 0
     print(f"# converter: {CONVERTER}")
     print(convert_command(args.raw_dir, args.output_dir, args.repo_id, args.task_description))

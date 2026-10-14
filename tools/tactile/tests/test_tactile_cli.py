@@ -9,11 +9,9 @@ import json
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from i4h_tools.tactile.cli import build_parser, convert_command, inspect, main  # noqa: E402
+from i4h_tools.tactile.cli import convert_command, inspect, main  # noqa: E402
 
 FINGERTIPS = ("left_thumb", "left_index", "right_thumb")
 
@@ -68,10 +66,3 @@ def test_convert_points_at_the_public_converter(tmp_path: Path) -> None:
     assert "convert_h2_sharpa_180_to_lerobot_v21" in command
     assert "--repo-id lab/h2-pads" in command
     assert "--tactile-model-profile bimanual" in command
-
-
-def test_viz_is_declared_but_not_yet_available(tmp_path: Path) -> None:
-    args = build_parser().parse_args(["viz", str(tmp_path), "--episode", "2"])
-    assert args.episode == 2
-    with pytest.raises(NotImplementedError):
-        main(["viz", str(tmp_path)])
