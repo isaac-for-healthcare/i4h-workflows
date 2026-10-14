@@ -27,6 +27,9 @@
 #   --checkpoint PATH     override the configured policy checkpoint
 #   --prompt TEXT         override the policy instruction
 #   --policy-endpoint HOST:PORT connect to an external policy service over Zenoh
+#   --no-cameras          run without scene cameras (image-free recordings)
+#   --view-sensor NAME    open a live camera sensor window; repeatable
+#   --no-sensor-view      disable scene-selected live sensor windows
 #   --headless            run without the interactive viewport
 #   --presets NAME        physics backend override: physx or newton (scene default)
 #   --cloudxr-env PATH    CloudXR environment file for XR teleoperation

@@ -7,7 +7,7 @@
     "expected_behavior": [
       "routes to i4h-workflow-train-rl rather than supervised finetuning or rollout validation",
       "resolves the assemble_trocar RL profile and g1_trocar Scene",
-      "requires a local compatible GR00T SFT or base checkpoint",
+      "requires a compatible Trocar SFT or RL checkpoint with new_embodiment metadata",
       "verifies camera, state, 28-D policy action to 43-D Scene action, reward, and termination contracts",
       "dry-runs the exact RLinf PPO configuration before training",
       "preflights the isolated GR00T/RLinf controller and Isaac Sim/Arena simulator runtimes and requires two visible local GPUs",
@@ -123,15 +123,12 @@
     "id": "i4h-workflow-train-rl-specialty-trocar-pretrained-model",
     "question": "Use NVIDIA's pretrained GR00T N1.5 3B model from Hugging Face to RL post-train\nassemble_trocar.\nEvaluate and export the result, then validate assemble_trocar.",
     "expected_skill": "i4h-workflow-train-rl",
-    "ground_truth": "This hospital-automation specialty prompt downloads NVIDIA's pretrained GR00T N1.5 3B model to a local directory and uses it as the starting checkpoint for the maintained assemble_trocar RLinf lifecycle.",
+    "ground_truth": "The unadapted GR00T N1.5 base checkpoint lacks the configured new_embodiment modality and normalization metadata. Reject direct Trocar RL launch during dry-run and select a compatible Trocar SFT/RL checkpoint before training.",
     "expected_behavior": [
-      "routes to i4h-workflow-train-rl",
-      "downloads nvidia/GR00T-N1.5-3B from Hugging Face to a local directory",
-      "passes the downloaded local directory to --model-path rather than passing the repository ID",
-      "explains that the pretrained model is a starting checkpoint rather than a trained Trocar policy",
-      "uses the maintained assemble_trocar RLinf PPO profile and two isolated GPU runtimes",
-      "dry-runs before post-training",
-      "evaluates and exports the result before validating assemble_trocar policy mode"
+      "explains that the unadapted base checkpoint lacks new_embodiment metadata",
+      "requires a compatible Trocar SFT or RL checkpoint, such as the workflow pinned GR00T-N1.5-RL-Rheo-AssembleTrocar model",
+      "checks checkpoint metadata during dry-run before Isaac Sim starts",
+      "does not fabricate normalization statistics or rename an unrelated embodiment tag"
     ]
   }
 ]

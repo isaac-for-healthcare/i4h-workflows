@@ -37,7 +37,7 @@ Expands the Agentic workflow from five pre-trained environments to eleven regist
 - **Scene-Edit Bridge:** Per-env bridge port from YAML (`arena.bridge_port`); resolve via `arena/run.sh bridge-url --env <env>`.
 - **E2E Pipeline:** Headless camera rendering in record/replay/validate stages; vLLM annotator gains `wait`/`ensure` modes.
 
-See the historical [workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.7.0/workflows/agentic/README.md) and [architecture](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.7.0/workflows/agentic/DESIGN.md).
+See the historical [workflow README](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.7.0/workflows/agentic/README.md).
 
 ### Rheo Deformable Cloth
 
@@ -275,4 +275,4 @@ See [Robotic Surgery Workflow README](https://github.com/isaac-for-healthcare/i4
 
 - Bring Your Own Patient: Import custom CT or MRI scans into USD for simulation.
 - Bring Your Own Robot: Import custom robot models (CAD/URDF) and replace components.
-- [Sim2Real Transition](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.1.0/workflows/robotic_ultrasound/docs/sim2real/README.md): Adapt simulation-trained policies for physical deployment using DDS.
+- [Sim2Real Transition](https://github.com/isaac-for-healthcare/i4h-workflows/blob/v0.1.0/tutorials/sim2real/README.md): Adapt simulation-trained policies for physical deployment using DDS.
