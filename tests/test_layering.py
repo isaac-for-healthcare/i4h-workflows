@@ -189,7 +189,7 @@ RULES = [
             ),
         )
         # gr00t_n16 uses the Arena G1 WBC joint-remapping implementation.
-        for name in ("gr00t_n15", "gr00t_n17", "openpi_pi0")
+        for name in ("gr00t_n15", "gr00t_n17", "gr00t_n17_tactile", "openpi_pi0")
     ],
     LayerRule(
         "tasks/gr00t_n16/i4h_tasks",
@@ -843,7 +843,7 @@ def test_scenes_do_not_require_a_declared_home_pose():
     assert "home_joints()" in seeding
 
 
-REMOTE_STACKS = ("gr00t_n15", "gr00t_n16", "gr00t_n17", "openpi_pi0")
+REMOTE_STACKS = ("gr00t_n15", "gr00t_n16", "gr00t_n17", "gr00t_n17_tactile", "openpi_pi0")
 
 
 def _manifests():
