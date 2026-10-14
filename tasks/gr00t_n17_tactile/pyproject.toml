@@ -1,0 +1,63 @@
+[project]
+name = "i4h-tasks-gr00t-n17-tactile"
+version = "0.1.0"
+description = "GR00T N1.7 policy service with fingertip tactile conditioning (Unitree H2 + SharpaWave hands)."
+requires-python = ">=3.11, <3.12"
+dependencies = [
+    "i4h-common",
+    "numpy>=1.23.5,<2",
+    "PyYAML>=6.0",
+    "huggingface_hub>=0.24",
+]
+# Enabled with the code follow-up, once third_party/setup.sh provides the
+# patched checkout (patches/README.md). Until then the project stays light, so
+# `--print-server-info`, `--dry-run` and the tests run without a model stack:
+#
+#     "gr00t",       # [tool.uv.sources] gr00t = { path = "../../third_party/Isaac-GR00T-1.7-tactile", editable = true }
+#     "timm>=1.0",   # ConvNeXt-V2 backbone of the frozen SharpaWave deform encoder
+#
+# pyzmq (live tactile stream) and torch come in through the gr00t pin, exactly
+# as they do for tasks/gr00t_n17; declaring them here again would only invite
+# a second, conflicting pin.
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+i4h-tasks-gr00t-n17-tactile = "i4h_tasks.gr00t_n17_tactile.server:main"
+i4h-tasks-gr00t-n17-tactile-train = "i4h_tasks.gr00t_n17_tactile.train:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["i4h_tasks"]
+
+[tool.uv.sources]
+i4h-common = { path = "../../common", editable = true }
+# gr00t resolves to ../../third_party/Isaac-GR00T-1.7-tactile: the same
+# Isaac-GR00T N1.7 revision that tasks/gr00t_n17 pins (4b1dca9d), in a second
+# checkout that carries the tactile patch series (patches/README.md), so the
+# vanilla stack is never touched. third_party/setup.sh gains the checkout and
+# the `apply_patch_once` call in the code follow-up.
+
+[tool.uv]
+environments = [
+    'sys_platform == "linux" and platform_machine == "x86_64"',
+    'sys_platform == "linux" and platform_machine == "aarch64"',
+]
+# The torch / torchvision / flash-attn / torchcodec pins, the pytorch-cu130
+# index and the gr00t dependency-metadata block are identical to
+# tasks/gr00t_n17/pyproject.toml and are copied from there when the code lands.
+# They are left out of this draft so that it states only what is specific to
+# the tactile stack.
+
+[tool.ruff]
+line-length = 120
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

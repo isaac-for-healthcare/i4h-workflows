@@ -72,6 +72,8 @@ SUITES = {
                 "tasks/basic/tests",
                 "tasks/gr00t_n15/tests",
                 "tasks/gr00t_n16/tests",
+                "tasks/gr00t_n17_tactile/tests",
+                "tools/tactile/tests",
                 "tasks/ik/tests",
                 "tasks/rsl_rl/tests",
                 "tasks/teleop/tests",

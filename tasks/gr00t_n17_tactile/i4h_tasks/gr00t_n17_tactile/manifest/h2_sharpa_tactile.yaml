@@ -1,0 +1,103 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# One remote task: a bimanual Unitree H2 with SharpaWave hands, driven by a
+# GR00T N1.7 checkpoint that is conditioned on fingertip tactile data. Nothing
+# can import this stack (its torch pins conflict with Isaac's), so its
+# declaration is data.
+#
+# summary / embodiment / cameras / requires are read in the light venv.
+# model / observation / train             are read only by this stack's
+#                                         server.py and train.py, in its own venv.
+# `train:` present -> finetunable.
+#
+# The task is the embodiment plus its sensor configuration, not one
+# manipulation task. The same recipe is finetuned per dataset (dressing pads,
+# bottle caps, ...), so the dataset is a parameter of train.py, the checkpoint
+# a parameter of server.py, and the language instruction comes from the
+# dataset at training time and from the client at deployment time. That is why
+# there is no `prompt` here and no second manifest per object.
+
+summary: Bimanual H2 + SharpaWave manipulation with fingertip tactile conditioning (N1.7 backend)
+embodiment: h2_sharpa
+cameras:
+- high
+- left_wrist_view
+- right_wrist_view
+# No Arena scene provides fingertip tactile data today, which is why no
+# workflow module references this task yet: the pipeline runs on the real
+# robot. When a scene offers `tactile: sharpa_wave_fingertip`, lint can match
+# it to this task without any change here.
+requires:
+  tactile: sharpa_wave_fingertip
+model:
+  # No published checkpoint for this task, so a rollout passes --checkpoint.
+  # Naming a `repo` here would imply one exists.
+  embodiment_tag: new_embodiment
+  # Selects config.py: H2 + SharpaWave modalities plus the two tactile
+  # categories. Read by both this stack's server.py and its train.py.
+  modality_config: config
+  action_horizon: 32
+  execution_steps: 16
+  control_hz: 30.0
+  # Everything below is consumed by the tactile side of the model. Sources are
+  # public; the stack downloads weights from the Hugging Face repos named here
+  # and reads the URDFs from a pinned checkout under third_party/.
+  tactile:
+    # Fingertips in canonical order: left thumb..pinky, then right thumb..pinky.
+    num_tokens: 10
+    # Width of the frozen SharpaWave deform encoder's output per fingertip.
+    feature_dim: 512
+    deform_encoder:
+      hf_repo: Sharpa-Robotics/sharpawave-deform-encoder
+      file: sharpawave_deform_autoencoder.safetensors
+    kinematics:
+      # Fingertip forward kinematics for the spatial anchor of every token.
+      git_repo: https://github.com/sharpa-robotics/sharpa-urdf-usd-xml
+      left_urdf_dir: wave_01/left_sharpa_wave
+      right_urdf_dir: wave_01/right_sharpa_wave
+    force:
+      enabled: true
+      # Causal window of 6-axis fingertip force, one row per 30 Hz frame.
+      window: 16
+      encoder_hf_repo: miniFranka/T-Rex_midtrain_mecka23k_ucb100_vqvae_epoch6
+    delay_aug:
+      # Two-version delay augmentation conditioned on the flow time tau.
+      enabled: true
+      tau_split: 0.5
+      force_delay_max: 16
+    dropout_prob: 0.1
+  inference:
+    # Re-read the live tactile stream once per denoising step ("per-step") or
+    # once per action chunk ("per-chunk").
+    tactile_refresh: per-step
+    # Slow/fast cascade: re-plan the tail of the chunk with fresh tactile data.
+    # Needs a checkpoint trained with delay_aug.
+    cascade: false
+    cascade_fast_loops: 2
+observation:
+  # 58 values: 7 + 7 arm joints, then 22 + 22 hand joints. Same layout for
+  # state and action; see config.py.
+  state_groups:
+    left_arm: [0, 7]
+    right_arm: [7, 14]
+    left_hand: [14, 36]
+    right_hand: [36, 58]
+  tactile:
+    deform:
+      # One single-channel map per fingertip, stored as a video feature
+      # `observation.tactile.<fingertip>` in the LeRobot dataset.
+      shape: [240, 240]
+      dtype: uint8
+    force:
+      # Ten fingertips x six axes, stored as `observation.tactile.force`.
+      shape: [60]
+      dtype: float32
+train:
+  output_dir: /tmp/gr00t_h2_sharpa_tactile
+  base_model: nvidia/GR00T-N1.7-3B
+  max_steps: 10000
+  save_steps: 1000
+  batch_size: 32
+  tune_visual: true
+  state_dropout_prob: 0.5
