@@ -178,6 +178,16 @@ def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
     env["RLINF_CONFIG_FILE"] = str(profile.trainer_config)
     env["REPO_PATH"] = str(rlinf_dirs[-1])
     env["RAY_ENABLE_UV_RUN_RUNTIME_ENV"] = "0"
+    # A documented Trocar rollout phase takes longer than RLinf's 180-minute
+    # default. Keep the QA-qualified timeout overridable by the caller.
+    if profile.workflow == "assemble_trocar":
+        env.setdefault("RLINF_TIMEOUT", "720")
+    if "RLINF_TIMEOUT" in env:
+        try:
+            if int(env["RLINF_TIMEOUT"]) <= 0:
+                raise ValueError
+        except ValueError as exc:
+            raise SystemExit("RLINF_TIMEOUT must be a positive integer number of minutes") from exc
     return env
 
 
@@ -393,7 +403,10 @@ def finalize_evaluation(
     *,
     runtime: Path,
     env: dict[str, str],
+    require_video: bool = False,
 ) -> bool:
+    if require_video and not verify_evaluation_video(run_dir, runtime, env):
+        return False
     event_dir = run_dir / "tensorboard"
     events = sorted(event_dir.glob("events.out.tfevents.*"))
     if not events or not any(path.stat().st_size > 0 for path in events):
@@ -467,6 +480,32 @@ print(json.dumps(metrics, sort_keys=True))
     return True
 
 
+def verify_evaluation_video(run_dir: Path, runtime: Path, env: dict[str, str]) -> bool:
+    """A requested video is part of the result, even when a worker only warns."""
+    videos = sorted((run_dir / "video/eval").rglob("*.mp4"))
+    if not videos or any(path.stat().st_size == 0 for path in videos):
+        print(f"requested evaluation video is missing or empty under {run_dir / 'video/eval'}", file=sys.stderr)
+        return False
+    probe = """
+import imageio.v3 as iio
+import sys
+for path in sys.argv[1:]:
+    frame = iio.imread(path, plugin="pyav", index=0)
+    assert frame.ndim == 3 and frame.size > 0, path
+"""
+    result = subprocess.run(
+        [str(runtime), "-c", probe, *(str(path) for path in videos)],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode:
+        print(f"requested evaluation video cannot be decoded: {result.stderr.strip()}", file=sys.stderr)
+        return False
+    return True
+
+
 def validate_launch(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -> None:
     bundle: dict[str, object] | None = None
     if args.only_eval:
@@ -492,6 +531,27 @@ def validate_launch(args: argparse.Namespace, profile: RLProfile, workflows_root
     model_path = resolve_input_path(workflows_root, model_value)
     if not model_path.exists():
         raise SystemExit(f"--model-path does not exist: {model_path}")
+    from omegaconf import OmegaConf
+
+    # Compose the same numeric overrides as the heavy launcher, without
+    # importing GR00T, Ray, or Isaac Sim into dry-run discovery.
+    config = OmegaConf.merge(OmegaConf.create(_config(profile)), OmegaConf.from_dotlist(args.overrides))
+    # N1.7 carries its checkpoint contract in dataset_statistics.json instead.
+    if _gr00t_task_dir(profile) == "gr00t_n15":
+        tag = str(config.env.train.isaaclab.embodiment_tag)
+        metadata_path = model_path / "experiment_cfg/metadata.json"
+        try:
+            metadata = json.loads(metadata_path.read_text())
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"cannot read checkpoint embodiment metadata {metadata_path}: {exc}") from exc
+        if not isinstance(metadata, dict) or not isinstance(metadata.get(tag), dict) or not metadata[tag]:
+            raise SystemExit(
+                f"{metadata_path} has no metadata for embodiment {tag!r}; use a checkpoint fine-tuned for "
+                "the workflow's modalities and normalization statistics, not an unadapted base model"
+            )
+    if not args.only_eval:
+        num_envs = args.num_envs if args.num_envs is not None else profile.default_num_envs
+        validate_training_batch(config, num_envs)
     args.resolved_model_path = model_path
     print(f"model: {model_path}")
     model_gpu, sim_gpu = _gpu_assignment(profile)
@@ -501,6 +561,31 @@ def validate_launch(args: argparse.Namespace, profile: RLProfile, workflows_root
     if model_gpu == sim_gpu:
         placement += " (shared physical GPU)"
     print(f"GPU placement: {placement}")
+
+
+def validate_training_batch(config, num_envs: int) -> None:
+    """Reject unsupported sample/batch combinations before collecting hours of rollouts."""
+    values = (
+        config.env.train.rollout_epoch,
+        config.env.train.max_steps_per_rollout_epoch,
+        config.actor.model.num_action_chunks,
+        config.actor.global_batch_size,
+        num_envs,
+    )
+    if any(isinstance(value, bool) or not isinstance(value, int) or value <= 0 for value in values):
+        raise SystemExit(
+            "rollout epochs, steps, action chunks, global batch size, and environment count "
+            "must be positive integers"
+        )
+    epochs, steps, chunks, batch, num_envs = values
+    if steps % chunks:
+        raise SystemExit(f"rollout steps {steps} must be divisible by num_action_chunks {chunks}")
+    samples = epochs * (steps // chunks) * num_envs
+    if samples % batch:
+        raise SystemExit(
+            f"{samples} rollout samples are not divisible by actor.global_batch_size={batch}; "
+            "choose a dividing batch size or a compatible environment count"
+        )
 
 
 def launch(
@@ -645,7 +730,7 @@ def launch(
     if return_code != 0:
         return return_code
     if args.only_eval:
-        if not finalize_evaluation(run_dir, metadata, runtime=model_runtime, env=model_env):
+        if not finalize_evaluation(run_dir, metadata, runtime=model_runtime, env=model_env, require_video=args.video):
             print(
                 f"RLinf evaluation exited successfully but produced no complete metrics under {run_dir}",
                 file=sys.stderr,
