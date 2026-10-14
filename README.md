@@ -30,6 +30,7 @@ See [DESIGN.md](DESIGN.md) for detailed architecture and ownership rules.
 - Linux driver `580.95.05` (the Isaac Sim 6.0 tested version) or a compatible newer production-branch driver
 - Some training profiles require more VRAM or multiple GPUs; see the workflow-specific documentation
 - `uv` and `git`
+- CUDA Toolkit 13.0, only to render patient-CT fluoroscopy on the CUDA device (`--fluoro-device cuda`) or to run the standalone `xray-simulator` CLI, whose default device is CUDA. Slang's CUDA device loads the toolkit's unversioned `libnvrtc.so`; the versioned library in the pip wheels is not enough. The default `--fluoro-device vulkan` and the rest of the stack take their CUDA libraries from pip wheels.
 - Network access for Python packages, third-party checkouts, models, and assets
 - Tens of GB for dependencies, plus additional model-cache space (large checkpoints such as GR00T N1.7 can require several dozen GB)
 - Optional for natural-language prompts: Claude Code, Codex, or the repository's [Local Agent](local-agent/README.md). Tested with Opus 4.8 (1M context) and GPT-5.5 at low or medium reasoning effort.

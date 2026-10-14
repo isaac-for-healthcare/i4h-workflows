@@ -75,6 +75,8 @@ Run the demo using the generated manifest:
   --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
 ```
 
+Patient-CT fluoroscopy renders with Slang on Vulkan by default. Passing `--fluoro-device cuda` also needs CUDA Toolkit 13.0 on the host (see the [requirements](../../../README.md#requirements)); without it, the run stops with an error naming the missing `libnvrtc.so`.
+
 ### Keyboard teleoperation
 
 Launch teleoperation:
