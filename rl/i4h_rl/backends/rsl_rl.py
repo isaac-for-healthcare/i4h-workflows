@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import platform
 import shlex
 import shutil
 import subprocess
@@ -25,6 +24,7 @@ from i4h_rl.artifacts import (
     write_json,
 )
 from i4h_rl.profile import RLProfile
+from i4h_rl.runtime import apply_arm_openmp_env
 
 
 def validate_profile(profile: RLProfile, _workflows_root: Path) -> None:
@@ -112,16 +112,7 @@ def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
     # EULA acceptance itself or stdin-less agent/CI launches stop at a prompt.
     if not env.get("OMNI_KIT_ACCEPT_EULA"):
         env["OMNI_KIT_ACCEPT_EULA"] = "YES"
-    # Match run.sh on ARM: Isaac Sim and torch ship conflicting libgomp
-    # libraries. Load the system copy first and reserve enough static TLS.
-    # Both training and evaluation launch Kit with this environment.
-    if platform.machine() == "aarch64":
-        system_libgomp = sorted(Path("/lib").glob("*/libgomp.so.1"))
-        if system_libgomp:
-            existing_preload = env.get("LD_PRELOAD", "")
-            env["LD_PRELOAD"] = str(system_libgomp[0]) + (f":{existing_preload}" if existing_preload else "")
-        if not env.get("GLIBC_TUNABLES"):
-            env["GLIBC_TUNABLES"] = "glibc.rtld.optional_static_tls=2000000"
+    apply_arm_openmp_env(env)
     return env
 
 
