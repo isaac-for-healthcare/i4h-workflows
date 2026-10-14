@@ -63,6 +63,7 @@ Workflows are organized by clinical robotics specialty. The specialty affects so
 | Preview | Workflow | Purpose | Robot | Policy readiness | Rule-based |
 | --- | --- | --- | --- | --- | --- |
 | ![Fluoroscopy scene](docs/workflows/images/thumbnail-fluoroscopy_catheter_navigation.webp) | [`endoluminal_navigation`](workflows/i4h_workflows/endoluminal-robotics/README.md) | Navigate a catheter with live fluoroscopy in `demo` mode. | XPBD catheter + orbital C-arm | — | — |
+| ![Fluoroscopy scene](docs/workflows/images/thumbnail-fluoroscopy_catheter_navigation.webp) | [`endoluminal_navigation_arm`](workflows/i4h_workflows/endoluminal-robotics/README.md) | Navigate a catheter carried on a Franka Panda flange with live fluoroscopy. | Franka Panda + XPBD catheter + orbital C-arm | GR00T N1.7 training required | — |
 
 ### [Hospital Automation Robotics](workflows/i4h_workflows/hospital-automation-robotics/README.md)
 
