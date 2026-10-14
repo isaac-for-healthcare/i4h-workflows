@@ -131,3 +131,5 @@ TRAIN_RUN="$PWD/runs/assemble_trocar/YYYYMMDD_HHMMSS"
 ```
 
 RLinf PPO post-training is a separate training lifecycle, not a workflow run mode.
+
+Across RLinf profiles, optional training and periodic evaluation recordings warn on encoder or writer-close failures. Standalone evaluation requires a decodable video when requested with `--video` or effective `env.eval.video_cfg.save_video=true`; video failures return nonzero with a video diagnostic. `--set` uses Hydra 1.3.2 in both dry-run preflight and launch, including `+` additions and `++` forced overrides.

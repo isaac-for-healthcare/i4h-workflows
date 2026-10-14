@@ -88,6 +88,7 @@ SUITES = {
             requires_checkout="third_party/i4h-digital-twin-internal/patient-digital-twin/vasculature_digital_twin",
         ),
     ),
+    "rl": (TestCommand("RL CPU regressions", "rl", ("rl/tests",), requires_checkout="third_party/RLinf-a4b6abe"),),
     "arena": (
         TestCommand(
             "IsaacLab Arena",
@@ -250,7 +251,7 @@ def main() -> int:
     if args.coverage:
         _clear_coverage_artifacts()
     if args.suite == "ci":
-        selected = ("light", "tools")
+        selected = ("light", "tools", "rl")
     elif args.suite == "all":
         selected = tuple(SUITES)
     elif args.suite == "gpu":
@@ -265,6 +266,8 @@ def main() -> int:
             missing = command.missing_checkout()
             if missing is not None:
                 print(f"    skipped: {missing.relative_to(ROOT)} is missing; run ./setup.sh to clone it")
+                if suite == "rl" and os.environ.get("CI"):
+                    failures.append(command.name)
                 skipped.append(command.name)
                 continue
             result = _run_command(command.argv(coverage=args.coverage), timeout=args.timeout)

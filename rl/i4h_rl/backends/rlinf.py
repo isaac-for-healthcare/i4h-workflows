@@ -19,6 +19,7 @@ from pathlib import Path
 import yaml
 
 from i4h_rl.artifacts import environment_overrides, resolve_input_path, resolve_output_path, resolve_run_dir, write_json
+from i4h_rl.composition import compose_config, configure_video
 from i4h_rl.profile import RLProfile
 
 
@@ -266,19 +267,11 @@ def _sim_preflight(sim_runtime: Path, env: dict[str, str]) -> None:
 
 def _episode_steps(profile: RLProfile, *, only_eval: bool, overrides: tuple[str, ...]) -> int:
     section = "eval" if only_eval else "train"
-    raw = _config(profile)
-    try:
-        value = int(raw["env"][section]["max_episode_steps"])
-    except (KeyError, TypeError, ValueError) as exc:
-        raise SystemExit(f"{profile.trainer_config}: env.{section}.max_episode_steps must be an integer") from exc
+    config = compose_config(profile.trainer_config, overrides)
     override_key = f"env.{section}.max_episode_steps"
-    for override in overrides:
-        key, _, setting = override.partition("=")
-        if key == override_key:
-            try:
-                value = int(setting)
-            except ValueError as exc:
-                raise SystemExit(f"{override_key} must be an integer") from exc
+    value = config.env[section].max_episode_steps
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise SystemExit(f"{override_key} must be an integer")
     if value < 1:
         raise SystemExit(f"{override_key} must be positive")
     return value
@@ -403,10 +396,7 @@ def finalize_evaluation(
     *,
     runtime: Path,
     env: dict[str, str],
-    require_video: bool = False,
 ) -> bool:
-    if require_video and not verify_evaluation_video(run_dir, runtime, env):
-        return False
     event_dir = run_dir / "tensorboard"
     events = sorted(event_dir.glob("events.out.tfevents.*"))
     if not events or not any(path.stat().st_size > 0 for path in events):
@@ -531,11 +521,7 @@ def validate_launch(args: argparse.Namespace, profile: RLProfile, workflows_root
     model_path = resolve_input_path(workflows_root, model_value)
     if not model_path.exists():
         raise SystemExit(f"--model-path does not exist: {model_path}")
-    from omegaconf import OmegaConf
-
-    # Compose the same numeric overrides as the heavy launcher, without
-    # importing GR00T, Ray, or Isaac Sim into dry-run discovery.
-    config = OmegaConf.merge(OmegaConf.create(_config(profile)), OmegaConf.from_dotlist(args.overrides))
+    config = compose_config(profile.trainer_config, args.overrides)
     # N1.7 carries its checkpoint contract in dataset_statistics.json instead.
     if _gr00t_task_dir(profile) == "gr00t_n15":
         tag = str(config.env.train.isaaclab.embodiment_tag)
@@ -597,6 +583,9 @@ def launch(
     epochs: int,
     overrides: tuple[str, ...],
 ) -> int:
+    require_video = configure_video(
+        compose_config(profile.trainer_config, overrides), only_eval=args.only_eval, video=args.video
+    )
     model_path = args.resolved_model_path
     native_checkpoint: Path | None = None
     if args.only_eval:
@@ -730,7 +719,9 @@ def launch(
     if return_code != 0:
         return return_code
     if args.only_eval:
-        if not finalize_evaluation(run_dir, metadata, runtime=model_runtime, env=model_env, require_video=args.video):
+        if require_video and not verify_evaluation_video(run_dir, model_runtime, model_env):
+            return 1
+        if not finalize_evaluation(run_dir, metadata, runtime=model_runtime, env=model_env):
             print(
                 f"RLinf evaluation exited successfully but produced no complete metrics under {run_dir}",
                 file=sys.stderr,

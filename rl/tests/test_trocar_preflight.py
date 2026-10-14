@@ -62,9 +62,12 @@ def test_default_64_env_config_accepts_compatible_metadata(profile, checkpoint, 
     assert args.resolved_model_path == checkpoint
 
 
-def test_original_2048_batch_fails_in_preflight(profile, checkpoint):
+@pytest.mark.parametrize("prefix", ["", "++"])
+def test_original_2048_batch_fails_in_preflight(profile, checkpoint, prefix):
     with pytest.raises(SystemExit, match="128000 rollout samples.*2048"):
-        rlinf.validate_launch(launch_args(checkpoint, overrides=["actor.global_batch_size=2048"]), profile, ROOT)
+        rlinf.validate_launch(
+            launch_args(checkpoint, overrides=[f"{prefix}actor.global_batch_size=2048"]), profile, ROOT
+        )
 
 
 def test_batch_override_and_environment_override_are_respected(profile, checkpoint):
@@ -101,3 +104,67 @@ def test_n17_keeps_its_existing_checkpoint_contract(tmp_path, monkeypatch):
     # must not become a new requirement for its dry-run discovery.
     rlinf.validate_launch(launch_args(tmp_path), profile, ROOT)
     assert "RLINF_TIMEOUT" not in rlinf._runtime_env(ROOT, profile)
+
+
+@pytest.mark.parametrize(
+    "override", ["+actor.global_batch_size=2048", "actor.global_batch_size", "actor.global_batch_size=["]
+)
+def test_invalid_hydra_override_is_concise(profile, checkpoint, override):
+    with pytest.raises(SystemExit, match="cannot compose RLinf config"):
+        rlinf.validate_launch(launch_args(checkpoint, overrides=[override]), profile, ROOT)
+
+
+def test_hydra_additions_and_repeated_composition(profile):
+    from i4h_rl.composition import compose_config
+
+    for _ in range(3):
+        cfg = compose_config(profile.trainer_config, ["+actor.review_value=42", "++actor.global_batch_size=1024"])
+        assert cfg.actor.review_value == 42
+        assert cfg.actor.global_batch_size == 1024
+        assert compose_config(profile.trainer_config).actor.global_batch_size == 2000
+    assert rlinf._episode_steps(profile, only_eval=False, overrides=("++env.train.max_episode_steps=42",)) == 42
+
+
+@pytest.mark.parametrize("only_eval", [False, True])
+@pytest.mark.parametrize("flag, configured", [(False, False), (True, False), (False, True)])
+def test_video_policy(profile, only_eval, flag, configured):
+    from i4h_rl.composition import compose_config, configure_video
+
+    cfg = compose_config(profile.trainer_config, [f"env.eval.video_cfg.save_video={str(configured).lower()}"])
+    required = configure_video(cfg, only_eval=only_eval, video=flag)
+    assert required == (only_eval and (flag or configured))
+    assert cfg.env.eval.video_cfg.raise_on_error == required
+    assert cfg.env.train.video_cfg.raise_on_error is False
+
+
+def test_launcher_composition_errors_precede_heavy_imports(profile, checkpoint, tmp_path):
+    import os
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "i4h_rl.launcher",
+            "--config",
+            str(profile.trainer_config),
+            "--model-path",
+            str(checkpoint),
+            "--run-dir",
+            str(tmp_path / "run"),
+            "--num-envs",
+            "64",
+            "--max-epochs",
+            "1",
+            "--set",
+            "actor.global_batch_size=[",
+        ],
+        env={**os.environ, "PYTHONPATH": str(ROOT / "rl")},
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode != 0
+    assert "cannot compose RLinf config" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert "ModuleNotFoundError" not in result.stderr

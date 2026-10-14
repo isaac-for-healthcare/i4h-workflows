@@ -214,6 +214,8 @@ TRAIN_RUN="$PWD/runs/assemble_trocar/YYYYMMDD_HHMMSS"
   --episodes 1
 ```
 
+Across RLinf profiles, optional training and periodic evaluation recordings warn on encoder or writer-close failures. Standalone evaluation requires a decodable video when requested with `--video` or effective `env.eval.video_cfg.save_video=true`; video failures return nonzero with a video diagnostic. `--set` uses Hydra 1.3.2 in both dry-run preflight and launch, including `+` additions and `++` forced overrides.
+
 Treat the native trainer checkpoint as the training result and evaluate it before export. The GR00T inference export is runtime packaging for the remote Task, not a substitute for checkpoint evaluation. Require exit status 0, requested evaluation episodes when the trainer exposes them, non-empty metrics, expected checkpoint/export artifacts, and normal Workflow simulator success. Never claim success from loss curves or training exit alone.
 
 ## Troubleshooting

@@ -1,10 +1,28 @@
 diff --git a/rlinf/envs/wrappers/record_video.py b/rlinf/envs/wrappers/record_video.py
-index c79b2e9..c6e8661 100644
+index c79b2e9..21dbcf6 100644
 --- a/rlinf/envs/wrappers/record_video.py
 +++ b/rlinf/envs/wrappers/record_video.py
-@@ -476,11 +476,11 @@ class RecordVideo(gym.Wrapper):
+@@ -56,6 +56,7 @@ class RecordVideo(gym.Wrapper):
+         video_cfg: Video configuration object/dict. Common fields:
+             ``video_base_dir`` (output directory root),
+             ``fps`` (optional FPS override),
++            ``raise_on_error`` (raise on encoding/closing failures; defaults to false),
+             ``info_on_video`` (whether to render overlay text),
+             ``extra_info_on_video`` (list of ``info`` keys to render).
+         fps: Explicit FPS override. If ``None``, FPS is resolved from
+@@ -73,6 +74,7 @@ class RecordVideo(gym.Wrapper):
+             raise AttributeError("Environment must have 'seed' attribute")
+ 
+         self.video_cfg = video_cfg
++        self.raise_on_error = bool(getattr(video_cfg, "raise_on_error", False))
+         self.render_images: list[np.ndarray] = []
+         self.video_cnt = 0
+         self._num_envs = getattr(env, "num_envs", 1)
+@@ -475,15 +477,25 @@ class RecordVideo(gym.Wrapper):
+     def _save_video(self, frames: list[np.ndarray], mp4_path: str) -> None:
          """Save frames to disk (runs in background)."""
          video_writer = None
++        error = None
          try:
 -            video_writer = imageio.get_writer(mp4_path, fps=self._fps)
 +            video_writer = imageio.get_writer(mp4_path, fps=self._fps, format="pyav", codec="libx264", is_batch=False)
@@ -12,10 +30,23 @@ index c79b2e9..c6e8661 100644
                  video_writer.append_data(img)
          except Exception as exc:
 -            warnings.warn(f"Failed to save video {mp4_path}: {exc}")
-+            raise RuntimeError(f"Failed to save video {mp4_path}: {exc}") from exc
++            error = exc
          finally:
              if video_writer is not None:
-                 video_writer.close()
+-                video_writer.close()
++                try:
++                    video_writer.close()
++                except Exception as exc:
++                    if error is None:
++                        error = exc
++        if error is not None:
++            message = f"Failed to save video {mp4_path}: {error}"
++            if self.raise_on_error:
++                raise RuntimeError(message) from error
++            warnings.warn(message)
+ 
+     def _prune_futures(self) -> None:
+         """Remove finished futures to avoid unbounded growth."""
 diff --git a/rlinf/scheduler/collective/async_work.py b/rlinf/scheduler/collective/async_work.py
 index ec5c52a..b1e5b26 100644
 --- a/rlinf/scheduler/collective/async_work.py
