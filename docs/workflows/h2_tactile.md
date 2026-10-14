@@ -17,7 +17,7 @@ README.
 
 ## The model
 
-![GR00T N1.7 with fingertip tactile conditioning](images/h2_tactile_gr00t_n17.svg)
+![SaTA + T-Rex tactile integration into GR00T N1.7](images/h2_tactile_architecture.png)
 
 - **Two tactile signals per fingertip.** A frozen SharpaWave encoder turns the
   240x240 deformation map into 512 features. A frozen T-Rex VQ-VAE turns the
