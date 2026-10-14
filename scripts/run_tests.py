@@ -27,6 +27,7 @@ class TestCommand:
     # environment before `./setup.sh` has cloned it, so they are skipped rather than run
     # and reported as a failure.
     requires_checkout: str | None = None
+    pytest_args: tuple[str, ...] = ()
 
     def missing_checkout(self) -> Path | None:
         if self.requires_checkout is None:
@@ -54,9 +55,10 @@ class TestCommand:
                 "-m",
                 "pytest",
                 "-ra",
+                *self.pytest_args,
                 *self.paths,
             ]
-        return [*argv, "pytest", "-ra", *self.paths]
+        return [*argv, "pytest", "-ra", *self.pytest_args, *self.paths]
 
 
 SUITES = {
@@ -89,7 +91,15 @@ SUITES = {
             requires_checkout="third_party/i4h-digital-twin-internal/patient-digital-twin/vasculature_digital_twin",
         ),
     ),
-    "rl": (TestCommand("RL CPU regressions", "rl", ("rl/tests",), requires_checkout="third_party/RLinf-a4b6abe"),),
+    "rl": (
+        TestCommand(
+            "RL CPU regressions",
+            "rl",
+            ("rl/tests",),
+            requires_checkout="third_party/RLinf-a4b6abe",
+            pytest_args=("-p", "i4h_rl.pytest_ci"),
+        ),
+    ),
     "arena": (
         TestCommand(
             "IsaacLab Arena",

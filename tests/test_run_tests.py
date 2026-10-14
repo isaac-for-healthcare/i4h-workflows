@@ -142,3 +142,19 @@ def test_ci_requires_rl_source(tmp_path, monkeypatch):
     monkeypatch.setenv("CI", "true")
     monkeypatch.setattr(sys, "argv", ["run_tests.py", "--suite", "rl"])
     assert run_tests.main() == 1
+
+
+def test_engine_fakes_survive_collecting_an_rl_test():
+    # pytest loads all requested conftest modules before collecting imports.
+    # An unrelated RL conftest previously displaced engine's bare imports.
+    import os
+
+    root = SCRIPT.parents[1]
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "engine/tests/test_graph.py", "rl/tests/test_rlinf_recording.py", "-q"],
+        cwd=root,
+        env={**os.environ, "CI": "true", "PYTHONPATH": str(root / "rl")},
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
