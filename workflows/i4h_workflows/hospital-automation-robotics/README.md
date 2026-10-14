@@ -74,7 +74,7 @@ The agent runs the selected workflow, verifies the episode result, and inspects 
 
 ## Assemble Trocar RL Post-training
 
-Start with either an existing GR00T N1.5 checkpoint or [NVIDIA's pretrained model](https://huggingface.co/nvidia/GR00T-N1.5-3B).
+Start with a GR00T N1.5 checkpoint fine-tuned for Trocar. It must contain `new_embodiment` modality and normalization metadata. The unadapted `nvidia/GR00T-N1.5-3B` base model lacks this metadata and cannot be used directly.
 
 ### Train with an AI Agent
 
@@ -83,8 +83,8 @@ RL post-train assemble_trocar with this checkpoint:
   /absolute/path/to/gr00t-checkpoint
 Evaluate and export the result, then validate the workflow.
 
-RL post-train assemble_trocar with NVIDIA's pretrained GR00T N1.5 3B
-  checkpoint from Hugging Face.
+RL post-train assemble_trocar with the pinned
+  nvidia/GR00T-N1.5-RL-Rheo-AssembleTrocar checkpoint from Hugging Face.
 Evaluate and export the result, then validate the workflow.
 ```
 
@@ -98,10 +98,11 @@ Choose a starting checkpoint, then run the training preflight:
 # Option 1: use an existing downloaded checkpoint.
 GR00T_MODEL_DIR=/absolute/path/to/gr00t-checkpoint
 
-# Option 2: download NVIDIA's pretrained model.
-# tasks/gr00t_n15/.venv/bin/hf download nvidia/GR00T-N1.5-3B \
-#   --local-dir ./data/models/GR00T-N1.5-3B
-# GR00T_MODEL_DIR="$PWD/data/models/GR00T-N1.5-3B"
+# Option 2: download the workflow's compatible Trocar checkpoint.
+# tasks/gr00t_n15/.venv/bin/hf download nvidia/GR00T-N1.5-RL-Rheo-AssembleTrocar \
+#   --revision b54e14286ed3f8392d614741748739e09c7fefe4 \
+#   --local-dir ./data/models/GR00T-N1.5-RL-Rheo-AssembleTrocar
+# GR00T_MODEL_DIR="$PWD/data/models/GR00T-N1.5-RL-Rheo-AssembleTrocar"
 
 ./train.sh rl assemble_trocar \
   --model-path "$GR00T_MODEL_DIR" \
@@ -110,7 +111,7 @@ GR00T_MODEL_DIR=/absolute/path/to/gr00t-checkpoint
   --dry-run
 ```
 
-The pretrained model is a starting checkpoint, not a trained Trocar policy.
+The dry run checks checkpoint embodiment metadata and whether the rollout samples divide evenly into PPO batches. Training disables automatic episode recording. `RLINF_TIMEOUT` defaults to 720 minutes; set it explicitly to override the collective timeout for your rollout duration.
 
 Trocar training requires two visible GPUs: one for GR00T N1.5/RLinf and one for Isaac Sim/Arena. After the dry run passes, remove `--dry-run` to train. Then evaluate and export the generated run bundle:
 
@@ -130,3 +131,5 @@ TRAIN_RUN="$PWD/runs/assemble_trocar/YYYYMMDD_HHMMSS"
 ```
 
 RLinf PPO post-training is a separate training lifecycle, not a workflow run mode.
+
+Across RLinf profiles, optional training and periodic evaluation recordings warn on encoder or writer-close failures. Standalone evaluation requires a decodable video when requested with `--video` or effective `env.eval.video_cfg.save_video=true`; video failures return nonzero with a video diagnostic. `--set` uses Hydra 1.3.2 in both dry-run preflight and launch, including `+` additions and `++` forced overrides.

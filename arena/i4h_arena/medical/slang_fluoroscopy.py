@@ -18,6 +18,7 @@ from .catheter_attenuation import CatheterAttenuation, CatheterMaterial
 from .centerline import ordered_centerline_path
 from .fluoroscopy_guidance import draw_catheter_guidance
 from .patient_volume import PatientVolume
+from .slang_cuda import DEVICE_FAILURE, cuda_device_error
 
 logger = logging.getLogger("i4h_arena.fluoroscopy")
 
@@ -214,7 +215,12 @@ class SlangFluoroscopyRenderer:
         )
         # The renderer takes origin_xyz_mm ahead of the config, and leaving it at the default
         # keeps the volume centred, which is the frame solve_projection_geometry poses into.
-        self._renderer = SlangDiffDRRRenderer(patient.mu_volume, patient.spacing_zyx_mm, cfg=base_config)
+        try:
+            self._renderer = SlangDiffDRRRenderer(patient.mu_volume, patient.spacing_zyx_mm, cfg=base_config)
+        except RuntimeError as error:
+            if device_type == "cuda" and DEVICE_FAILURE in str(error):
+                raise RuntimeError(cuda_device_error(error)) from error
+            raise
         self._dsa_renderer = None
         if self._dsa:
             vessel_mask = _contrast_bolus_mask(patient)

@@ -45,10 +45,14 @@ jobs:
           prune-cache: false
           cache-python: true
           cache-dependency-glob: |
+            rl/uv.lock
             workflows/uv.lock
             tools/dataset/uv.lock
             tools/mimic/uv.lock
             tools/patient_twin/uv.lock
+
+      - name: Provision pinned RLinf CPU regression source
+        run: bash scripts/setup_rl_cpu.sh
 
       - name: Run CPU tests with coverage
         run: python scripts/run_tests.py --suite ci --coverage
@@ -70,3 +74,20 @@ jobs:
           path: coverage.xml
           if-no-files-found: error
           retention-days: 14
+
+  draft-rl-tests:
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == true }}
+    name: Draft RL CPU regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          version: "0.11.8"
+          enable-cache: true
+          cache-dependency-glob: rl/uv.lock
+      - name: Provision pinned RLinf CPU regression source
+        run: bash scripts/setup_rl_cpu.sh
+      - name: Run RL CPU suite
+        run: python scripts/run_tests.py --suite rl

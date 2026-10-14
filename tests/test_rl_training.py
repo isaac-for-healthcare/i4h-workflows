@@ -150,6 +150,14 @@ def test_sim_bridge_close_is_idempotent_when_server_has_exited() -> None:
     assert connection.close_count == 1
 
 
+def _gr00t_n15_checkpoint(path: Path) -> Path:
+    """Minimal SFT checkpoint that passes the RLinf embodiment-metadata preflight."""
+    metadata = path / "experiment_cfg/metadata.json"
+    metadata.parent.mkdir(parents=True)
+    metadata.write_text(json.dumps({"new_embodiment": {"modalities": {"state": {}}}}))
+    return path
+
+
 def test_train_rl_list_and_dry_run_do_not_require_simulator(tmp_path: Path) -> None:
     env = os.environ.copy()
     env["I4H_WORKFLOWS"] = str(ROOT)
@@ -165,8 +173,7 @@ def test_train_rl_list_and_dry_run_do_not_require_simulator(tmp_path: Path) -> N
     )
     assert "assemble_trocar\trlinf\tppo_actor_critic\tg1_trocar" in listed.stdout
 
-    model = tmp_path / "sft-checkpoint"
-    model.mkdir()
+    model = _gr00t_n15_checkpoint(tmp_path / "sft-checkpoint")
     dry = subprocess.run(
         [
             str(ROOT / "train.sh"),
@@ -655,8 +662,7 @@ def test_rlinf_evaluation_records_metrics_but_fails_without_task_success(tmp_pat
 
 
 def test_trocar_eval_resolves_base_model_from_checkpoint_bundle(tmp_path: Path) -> None:
-    base_model = tmp_path / "groot-sft"
-    base_model.mkdir()
+    base_model = _gr00t_n15_checkpoint(tmp_path / "groot-sft")
     run_dir = tmp_path / "train-run"
     weights = run_dir / "checkpoints/global_step_4/actor/model_state_dict/full_weights.pt"
     weights.parent.mkdir(parents=True)

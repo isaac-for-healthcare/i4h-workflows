@@ -47,6 +47,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tune-visual", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--tune-projector", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--tune-diffusion-model", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument(
+        "--video-backend",
+        choices=("torchcodec", "decord"),
+        default=None,
+        help="camera video decoder; unset uses torchcodec when installed, else decord (Linux aarch64)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="resolve config and print it, then stop")
     parser.add_argument("--verbose", action="store_true")
     return parser
@@ -86,6 +92,7 @@ def main(argv: list[str] | None = None) -> int:
             ("tune_visual", args.tune_visual),
             ("tune_projector", args.tune_projector),
             ("tune_diffusion_model", args.tune_diffusion_model),
+            ("video_backend", args.video_backend),
         )
         if v is not None
     }
@@ -109,6 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         for field_name in sorted(vars(cfg)):
             print(f"  {field_name} = {getattr(cfg, field_name)!r}")
+        _finetune.check_video_codecs(cfg.dataset_path[0], cfg.video_backend)
         return 0
 
     _finetune.run(cfg)
