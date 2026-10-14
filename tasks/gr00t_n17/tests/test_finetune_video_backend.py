@@ -28,7 +28,7 @@ def _only_importable(monkeypatch, available: set[str], failure: Exception | None
         if name not in _finetune.VIDEO_BACKENDS:
             return real_import(name, *args, **kwargs)
         if name not in available:
-            raise failure or ImportError(name)
+            raise failure or ModuleNotFoundError(f"No module named {name!r}", name=name)
         return types.ModuleType(name)
 
     monkeypatch.setattr(_finetune.importlib, "import_module", import_module)
@@ -39,15 +39,30 @@ def test_torchcodec_wins_where_it_imports(monkeypatch) -> None:
     assert _finetune.resolve_video_backend() == "torchcodec"
 
 
-def test_decord_is_used_where_torchcodec_is_missing(monkeypatch) -> None:
+def test_decord_is_used_where_torchcodec_is_missing(monkeypatch, caplog) -> None:
     """The Linux aarch64 install: decord2 present, no torchcodec."""
     _only_importable(monkeypatch, {"decord"})
-    assert _finetune.TrainConfig(dataset_path=["d"]).video_backend == "decord"
+    with caplog.at_level("INFO", logger=_finetune.logger.name):
+        assert _finetune.TrainConfig(dataset_path=["d"]).video_backend == "decord"
+    assert "torchcodec is not installed" in caplog.text
 
 
-def test_a_torchcodec_whose_native_libraries_fail_to_load_is_skipped(monkeypatch) -> None:
-    _only_importable(monkeypatch, {"decord"}, failure=RuntimeError("Could not load libtorchcodec"))
-    assert _finetune.resolve_video_backend() == "decord"
+@pytest.mark.parametrize(
+    "failure",
+    [
+        RuntimeError("Could not load libtorchcodec"),
+        OSError("libavutil.so.58: cannot open shared object file"),
+        ModuleNotFoundError("No module named 'torch._C'", name="torch._C"),
+    ],
+)
+def test_an_installed_torchcodec_that_fails_to_import_stops_the_run(monkeypatch, failure) -> None:
+    """A broken install must not quietly switch decoder; the error names why."""
+    _only_importable(monkeypatch, {"decord"}, failure=failure)
+    with pytest.raises(SystemExit, match=r"torchcodec is installed but failed to import") as caught:
+        _finetune.resolve_video_backend()
+    assert str(failure) in str(caught.value)
+    assert "--video-backend decord" in str(caught.value)
+    assert caught.value.__cause__ is failure
 
 
 def test_no_backend_fails_before_training_starts(monkeypatch) -> None:
@@ -74,6 +89,53 @@ def test_the_cli_flag_overrides_the_automatic_choice(tmp_path: Path, capsys) -> 
 
     assert main(["--task", TASK_ID, "--dataset", str(tmp_path), "--video-backend", "decord", "--dry-run"]) == 0
     assert "video_backend = 'decord'" in capsys.readouterr().out
+
+
+def _dataset_with_video(root: Path, encoder: str) -> Path:
+    """Write a five-frame camera video where LeRobot v2.1 keeps them."""
+    av = pytest.importorskip("av")
+    import numpy as np
+
+    try:
+        av.codec.Codec(encoder, "w")
+    except Exception:  # noqa: BLE001 - PyAV raises UnknownCodecError or a plain ValueError by version
+        pytest.skip(f"PyAV has no {encoder} encoder")
+    video = root / "videos" / "chunk-000" / "observation.images.cam" / "episode_000000.mp4"
+    video.parent.mkdir(parents=True)
+    with av.open(str(video), "w") as container:
+        stream = container.add_stream(encoder, rate=30)
+        stream.width, stream.height, stream.pix_fmt = 64, 64, "yuv420p"
+        for _ in range(5):
+            frame = av.VideoFrame.from_ndarray(np.zeros((64, 64, 3), np.uint8), format="rgb24")
+            container.mux(stream.encode(frame))
+        container.mux(stream.encode())
+    return root
+
+
+def test_an_av1_dataset_is_refused_before_decord_trains_on_it(tmp_path: Path) -> None:
+    dataset = _dataset_with_video(tmp_path, "libsvtav1")
+    with pytest.raises(SystemExit, match=r"encoded as av1.*--video-codec h264"):
+        _finetune.check_video_codecs(str(dataset), "decord")
+
+
+def test_an_h264_dataset_trains_with_decord(tmp_path: Path) -> None:
+    _finetune.check_video_codecs(str(_dataset_with_video(tmp_path, "libx264")), "decord")
+
+
+def test_torchcodec_reads_av1_so_its_datasets_are_not_probed(tmp_path: Path) -> None:
+    _finetune.check_video_codecs(str(_dataset_with_video(tmp_path, "libsvtav1")), "torchcodec")
+
+
+def test_a_dataset_without_videos_is_not_probed(tmp_path: Path) -> None:
+    _finetune.check_video_codecs(str(tmp_path), "decord")
+
+
+def test_the_dry_run_refuses_an_av1_dataset_for_decord(tmp_path: Path) -> None:
+    from i4h_tasks.gr00t_n17.train import main
+
+    dataset = _dataset_with_video(tmp_path, "libsvtav1")
+    with pytest.raises(SystemExit, match="encoded as av1"):
+        main(["--task", TASK_ID, "--dataset", str(dataset), "--video-backend", "decord", "--dry-run"])
 
 
 def test_the_backend_reaches_the_shim_ahead_of_the_launch_script() -> None:

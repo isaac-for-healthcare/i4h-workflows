@@ -51,7 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--video-backend",
         choices=("torchcodec", "decord"),
         default=None,
-        help="camera video decoder; unset uses torchcodec when it imports, else decord (Linux aarch64)",
+        help="camera video decoder; unset uses torchcodec when installed, else decord (Linux aarch64)",
     )
     parser.add_argument("--dry-run", action="store_true", help="resolve config and print it, then stop")
     parser.add_argument("--verbose", action="store_true")
@@ -116,6 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         for field_name in sorted(vars(cfg)):
             print(f"  {field_name} = {getattr(cfg, field_name)!r}")
+        _finetune.check_video_codecs(cfg.dataset_path[0], cfg.video_backend)
         return 0
 
     _finetune.run(cfg)
