@@ -45,7 +45,7 @@ uv run --project tasks/gr00t_n17_tactile i4h-tasks-gr00t-n17-tactile-train \
   --dataset /data/h2_sharpa_pads_lerobot --dry-run
 
 # Tests; also part of the light suite in scripts/run_tests.py.
-uv run --project tasks/gr00t_n17_tactile --extra dev pytest
+uv run --project tasks/gr00t_n17_tactile --extra dev pytest tasks/gr00t_n17_tactile/tests
 ```
 
 The project resolves without a model stack in this draft: the `gr00t` and
