@@ -19,7 +19,6 @@ from pathlib import Path
 import yaml
 
 from i4h_rl.artifacts import environment_overrides, resolve_input_path, resolve_output_path, resolve_run_dir, write_json
-from i4h_rl.composition import compose_config, configure_video
 from i4h_rl.profile import RLProfile
 
 
@@ -266,6 +265,8 @@ def _sim_preflight(sim_runtime: Path, env: dict[str, str]) -> None:
 
 
 def _episode_steps(profile: RLProfile, *, only_eval: bool, overrides: tuple[str, ...]) -> int:
+    from i4h_rl.composition import compose_config
+
     section = "eval" if only_eval else "train"
     config = compose_config(profile.trainer_config, overrides)
     override_key = f"env.{section}.max_episode_steps"
@@ -521,6 +522,10 @@ def validate_launch(args: argparse.Namespace, profile: RLProfile, workflows_root
     model_path = resolve_input_path(workflows_root, model_value)
     if not model_path.exists():
         raise SystemExit(f"--model-path does not exist: {model_path}")
+    from i4h_rl.composition import compose_config
+
+    # Hydra/OmegaConf stay out of module import so the light workflow venv can
+    # collect this backend without the RL project's dependencies.
     config = compose_config(profile.trainer_config, args.overrides)
     # N1.7 carries its checkpoint contract in dataset_statistics.json instead.
     if _gr00t_task_dir(profile) == "gr00t_n15":
@@ -583,6 +588,8 @@ def launch(
     epochs: int,
     overrides: tuple[str, ...],
 ) -> int:
+    from i4h_rl.composition import compose_config, configure_video
+
     require_video = configure_video(
         compose_config(profile.trainer_config, overrides), only_eval=args.only_eval, video=args.video
     )
