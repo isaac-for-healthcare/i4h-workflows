@@ -4,12 +4,8 @@
 
 from __future__ import annotations
 
-import ctypes
-import glob
 import logging
-import os
 from dataclasses import dataclass, replace
-from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -22,6 +18,7 @@ from .catheter_attenuation import CatheterAttenuation, CatheterMaterial
 from .centerline import ordered_centerline_path
 from .fluoroscopy_guidance import draw_catheter_guidance
 from .patient_volume import PatientVolume
+from .slang_cuda import DEVICE_FAILURE, cuda_device_error
 
 logger = logging.getLogger("i4h_arena.fluoroscopy")
 
@@ -33,42 +30,6 @@ _DISPLAY_CONTROL_BOUNDS = {
     "window_level": (-1.0, 1.0),
     "window_width": (0.25, 4.0),
 }
-
-# Slang's CUDA device loads the CUDA Toolkit's unversioned libnvrtc.so; the versioned
-# libnvrtc.so.N that pip wheels ship is not enough. These are the locations slangpy searches
-# before falling back to the dynamic loader.
-_NVRTC_LIBRARY = "libnvrtc.so"
-_CUDA_INSTALL_GLOB = "/usr/local/cuda*"
-_SYSTEM_LIBRARY_GLOB = "/usr/lib/*-linux-gnu"
-
-
-def find_cuda_nvrtc() -> str | None:
-    """Return where Slang's CUDA device would load NVRTC from, or None if it cannot."""
-    roots = [os.environ["CUDA_PATH"]] if os.environ.get("CUDA_PATH") else []
-    roots += sorted(glob.glob(_CUDA_INSTALL_GLOB))
-    directories: list[str] = []
-    for root in roots:
-        directories += [f"{root}/lib64", f"{root}/lib", *sorted(glob.glob(f"{root}/targets/*/lib"))]
-    directories += sorted(glob.glob(_SYSTEM_LIBRARY_GLOB))
-    for directory in directories:
-        candidate = Path(directory, _NVRTC_LIBRARY)
-        if candidate.is_file():
-            return str(candidate)
-    try:
-        ctypes.CDLL(_NVRTC_LIBRARY)
-    except OSError:
-        return None
-    return _NVRTC_LIBRARY
-
-
-def _require_cuda_nvrtc() -> None:
-    if find_cuda_nvrtc() is None:
-        raise RuntimeError(
-            "the CUDA fluoroscopy device needs the CUDA Toolkit's libnvrtc.so (CUDA 13.0 for this stack), "
-            "which was not found under CUDA_PATH, /usr/local/cuda*, the system library directories, or the "
-            "loader path; install the CUDA Toolkit (for example cuda-toolkit-13-0) or render with "
-            "--fluoro-device vulkan"
-        )
 
 
 def _contrast_bolus_mask(patient: PatientVolume) -> np.ndarray:
@@ -238,8 +199,6 @@ class SlangFluoroscopyRenderer:
             tuple(round(float(value), 6) for value in carm.detector_center_world_m[0]),
         )
 
-        if device_type == "cuda":
-            _require_cuda_nvrtc()
         from xray_simulator.rendering.diffdrr_slang_renderer import SlangDiffDRRConfig, SlangDiffDRRRenderer
 
         projection = self._projection
@@ -256,7 +215,12 @@ class SlangFluoroscopyRenderer:
         )
         # The renderer takes origin_xyz_mm ahead of the config, and leaving it at the default
         # keeps the volume centred, which is the frame solve_projection_geometry poses into.
-        self._renderer = SlangDiffDRRRenderer(patient.mu_volume, patient.spacing_zyx_mm, cfg=base_config)
+        try:
+            self._renderer = SlangDiffDRRRenderer(patient.mu_volume, patient.spacing_zyx_mm, cfg=base_config)
+        except RuntimeError as error:
+            if device_type == "cuda" and DEVICE_FAILURE in str(error):
+                raise RuntimeError(cuda_device_error(error)) from error
+            raise
         self._dsa_renderer = None
         if self._dsa:
             vessel_mask = _contrast_bolus_mask(patient)

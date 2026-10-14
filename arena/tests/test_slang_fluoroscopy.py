@@ -831,87 +831,48 @@ def test_slang_adapter_uses_upstream_renderer_and_composites_catheter(tmp_path, 
     assert not np.array_equal(output["attenuation"], orbit_output["attenuation"])
 
 
-def _no_system_nvrtc(monkeypatch, tmp_path) -> None:
-    from i4h_arena.medical import slang_fluoroscopy
+def _renderer_raising(monkeypatch, error: Exception) -> None:
+    from xray_simulator.rendering import diffdrr_slang_renderer
 
-    monkeypatch.delenv("CUDA_PATH", raising=False)
-    monkeypatch.setattr(slang_fluoroscopy, "_CUDA_INSTALL_GLOB", str(tmp_path / "no-cuda*"))
-    monkeypatch.setattr(slang_fluoroscopy, "_SYSTEM_LIBRARY_GLOB", str(tmp_path / "no-lib*"))
+    def fail(*args, **kwargs):
+        raise error
 
-    def missing(name):
-        raise OSError(f"{name}: cannot open shared object file")
+    monkeypatch.setattr(diffdrr_slang_renderer, "SlangDiffDRRRenderer", fail)
 
-    monkeypatch.setattr(slang_fluoroscopy.ctypes, "CDLL", missing)
+
+def test_a_cuda_device_failure_explains_nvrtc(tmp_path, monkeypatch) -> None:
+    from i4h_arena.medical import slang_cuda
+
+    monkeypatch.setattr(slang_cuda, "describe_cuda_nvrtc", lambda: "no libnvrtc.so was found")
+    device_error = RuntimeError("Failed to create device!")
+    _renderer_raising(monkeypatch, device_error)
+    patient = _patient_volume(tmp_path)
+
+    with pytest.raises(RuntimeError, match=r"CUDA device.*no libnvrtc\.so was found.*--fluoro-device vulkan") as caught:
+        SlangFluoroscopyRenderer(patient, _carm(patient), width=64, height=64, step_mm=1.0, device_type="cuda")
+    assert caught.value.__cause__ is device_error
 
 
 @pytest.mark.parametrize(
-    "layout",
-    ["cuda-13.0/lib64", "cuda-13.0/targets/sbsa-linux/lib", "cuda-13.0/targets/x86_64-linux/lib"],
+    "device_type, message",
+    [("cuda", "shader compilation failed"), ("vulkan", "Failed to create device!")],
 )
-def test_nvrtc_is_found_where_slang_searches_an_installed_toolkit(tmp_path, monkeypatch, layout) -> None:
-    from i4h_arena.medical import slang_fluoroscopy
-
-    _no_system_nvrtc(monkeypatch, tmp_path)
-    monkeypatch.setattr(slang_fluoroscopy, "_CUDA_INSTALL_GLOB", str(tmp_path / "cuda*"))
-    library = tmp_path / layout / "libnvrtc.so"
-    library.parent.mkdir(parents=True)
-    library.touch()
-
-    assert slang_fluoroscopy.find_cuda_nvrtc() == str(library)
-
-
-def test_nvrtc_is_found_through_cuda_path(tmp_path, monkeypatch) -> None:
-    from i4h_arena.medical import slang_fluoroscopy
-
-    _no_system_nvrtc(monkeypatch, tmp_path)
-    library = tmp_path / "toolkit" / "lib64" / "libnvrtc.so"
-    library.parent.mkdir(parents=True)
-    library.touch()
-    monkeypatch.setenv("CUDA_PATH", str(tmp_path / "toolkit"))
-
-    assert slang_fluoroscopy.find_cuda_nvrtc() == str(library)
-
-
-def test_only_a_versioned_wheel_nvrtc_is_not_enough(tmp_path, monkeypatch) -> None:
-    from i4h_arena.medical import slang_fluoroscopy
-
-    _no_system_nvrtc(monkeypatch, tmp_path)
-    monkeypatch.setattr(slang_fluoroscopy, "_CUDA_INSTALL_GLOB", str(tmp_path / "cuda*"))
-    wheel = tmp_path / "cuda-wheel" / "lib" / "libnvrtc.so.13"
-    wheel.parent.mkdir(parents=True)
-    wheel.touch()
-
-    assert slang_fluoroscopy.find_cuda_nvrtc() is None
-
-
-def test_nvrtc_on_the_loader_path_is_accepted(tmp_path, monkeypatch) -> None:
-    from i4h_arena.medical import slang_fluoroscopy
-
-    _no_system_nvrtc(monkeypatch, tmp_path)
-    loaded = []
-    monkeypatch.setattr(slang_fluoroscopy.ctypes, "CDLL", loaded.append)
-
-    assert slang_fluoroscopy.find_cuda_nvrtc() == "libnvrtc.so"
-    assert loaded == ["libnvrtc.so"]
-
-
-def test_the_cuda_device_without_nvrtc_fails_before_the_renderer_starts(tmp_path, monkeypatch) -> None:
-    from xray_simulator.rendering import diffdrr_slang_renderer
-
-    _no_system_nvrtc(monkeypatch, tmp_path)
-    started = []
-    monkeypatch.setattr(diffdrr_slang_renderer, "SlangDiffDRRRenderer", lambda *args, **kwargs: started.append(1))
+def test_other_renderer_failures_pass_through_unchanged(tmp_path, monkeypatch, device_type, message) -> None:
+    error = RuntimeError(message)
+    _renderer_raising(monkeypatch, error)
     patient = _patient_volume(tmp_path)
 
-    with pytest.raises(RuntimeError, match="libnvrtc.so.*cuda-toolkit-13-0.*--fluoro-device vulkan"):
-        SlangFluoroscopyRenderer(patient, _carm(patient), width=64, height=64, step_mm=1.0, device_type="cuda")
-    assert started == []
+    with pytest.raises(RuntimeError) as caught:
+        SlangFluoroscopyRenderer(patient, _carm(patient), width=64, height=64, step_mm=1.0, device_type=device_type)
+    assert caught.value is error
 
 
-def test_the_vulkan_device_does_not_need_the_cuda_toolkit(tmp_path, monkeypatch) -> None:
+def test_a_working_cuda_device_is_never_refused(tmp_path, monkeypatch) -> None:
     from xray_simulator.rendering import diffdrr_slang_renderer
 
-    _no_system_nvrtc(monkeypatch, tmp_path)
+    from i4h_arena.medical import slang_cuda
+
+    monkeypatch.setattr(slang_cuda, "find_cuda_nvrtc", lambda: None)
     started = []
 
     class FakeRenderer:
@@ -921,5 +882,5 @@ def test_the_vulkan_device_does_not_need_the_cuda_toolkit(tmp_path, monkeypatch)
     monkeypatch.setattr(diffdrr_slang_renderer, "SlangDiffDRRRenderer", FakeRenderer)
     patient = _patient_volume(tmp_path)
 
-    SlangFluoroscopyRenderer(patient, _carm(patient), width=64, height=64, step_mm=1.0, device_type="vulkan")
-    assert started == ["vulkan"]
+    SlangFluoroscopyRenderer(patient, _carm(patient), width=64, height=64, step_mm=1.0, device_type="cuda")
+    assert started == ["cuda"]
