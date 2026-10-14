@@ -364,9 +364,10 @@ fi
 # the symptom is a crash deep in OpenMP rather than anything that names the
 # clash. Preloading one settles it.
 if [ "$(uname -m)" = "aarch64" ]; then
-  sys_libgomp="$(ls /lib/*/libgomp.so.1 2>/dev/null | head -1 || true)"
-  [ -n "$sys_libgomp" ] && export LD_PRELOAD="${sys_libgomp}${LD_PRELOAD:+:$LD_PRELOAD}"
-  export GLIBC_TUNABLES="${GLIBC_TUNABLES:-glibc.rtld.optional_static_tls=2000000}"
+  # Share the ARM preload order and TLS defaults with both RL backends.
+  # runtime.py uses only stdlib and quotes caller values before shell export.
+  arm_openmp_env="$(light python "$ROOT/rl/i4h_rl/runtime.py" --shell)"
+  eval "$arm_openmp_env"
 else
   torch_libgomp="$(env -u VIRTUAL_ENV uv run --project arena --no-sync python -c \
     'import pathlib, torch; print(pathlib.Path(torch.__file__).parent / "lib" / "libgomp.so.1")' 2>/dev/null || true)"

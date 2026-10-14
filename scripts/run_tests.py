@@ -72,6 +72,7 @@ SUITES = {
                 "tasks/basic/tests",
                 "tasks/gr00t_n15/tests",
                 "tasks/gr00t_n16/tests",
+                "rl/tests/test_rsl_rl_arm_runtime.py",
                 "tasks/ik/tests",
                 "tasks/rsl_rl/tests",
                 "tasks/teleop/tests",
