@@ -81,6 +81,29 @@ By contrast, an unknown workflow or an unknown mode is rejected immediately, wit
 options listed, so a fast rejection means the command was wrong and a slow one means the
 environment was.
 
+## `Failed to create device!` from Slang fluoroscopy
+
+Patient-CT fluoroscopy on the CUDA device (`--fluoro-device cuda`) and the standalone
+`xray-simulator` CLI, whose default device is CUDA, stop with slangpy's
+`RuntimeError: Failed to create device!` when Slang cannot load the CUDA Toolkit's NVRTC.
+The launcher checks this before Isaac Sim starts and reports
+`--fluoro-device cuda: Slang could not create a CUDA device`, together with the first
+`libnvrtc.so` it found and that library's version.
+
+Slang compiles its shaders with NVRTC and loads the toolkit's unversioned `libnvrtc.so`. The
+pip wheels ship only the versioned `libnvrtc.so.N`, so they are not enough. Fix it in one of
+these ways:
+
+- **Render on Vulkan.** `--fluoro-device vulkan`, the default, does not use NVRTC.
+- **Install a CUDA Toolkit.** CUDA 12.x or 13.x works if it is no newer than the CUDA version
+  `nvidia-smi` reports: shaders that a newer NVRTC emits are rejected by an older driver. CUDA
+  12.1 with driver 580 and CUDA 13.2 with driver 610 are known to work. Slang looks under
+  `CUDA_PATH` and `/usr/local/cuda*` and on the loader path; set `CUDA_PATH` to choose a
+  toolkit when several are installed.
+
+To see what is installed, run `ls /usr/local/cuda*/lib64/libnvrtc.so*`. A toolkit directory
+without `libnvrtc.so` is a partial install, such as one that only provides driver headers.
+
 ## The same `--seed` produces a different outcome
 
 Episode outcomes can differ between runs at a fixed seed, and the runner logs
