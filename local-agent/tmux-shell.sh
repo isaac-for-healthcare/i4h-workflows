@@ -7,7 +7,9 @@ set -uo pipefail
 SESSION="${I4H_TMUX_SESSION:-i4h_local_agent}"
 REPO_ROOT="${I4H_AGENT_REPO_ROOT:-$PWD}"
 RUNDIR="${REPO_ROOT}/.run/local-agent-tmux.$(id -u)"
+umask 077
 mkdir -p "${RUNDIR}"
+chmod 700 "${RUNDIR}"
 
 cmd=""
 while [[ $# -gt 0 ]]; do
@@ -41,23 +43,28 @@ while ! mkdir "${lock_dir}" 2>/dev/null; do
     sleep 0.1
 done
 printf '%s\n' "$$" > "${lock_dir}/owner"
+env_file=""
 release_lock() {
+    [[ -z "${env_file}" ]] || rm -f "${env_file}"
     rm -f "${lock_dir}/owner"
     rmdir "${lock_dir}" 2>/dev/null || true
 }
 trap release_lock EXIT INT TERM
 
-if ! tmux has-session -t "${SESSION}" 2>/dev/null; then
-    tmux new-session -d -s "${SESSION}" -x 220 -y 50 -c "${I4H_TMUX_CWD:-$PWD}"
-    tmux send-keys -t "${SESSION}" 'export PS1="" PROMPT_COMMAND="" HISTFILE=/dev/null' Enter
-    [[ -n "${I4H_TMUX_CWD:-}" ]] && tmux send-keys -t "${SESSION}" "cd $(printf '%q' "${I4H_TMUX_CWD}")" Enter
+if ! tmux has-session -t "=${SESSION}" 2>/dev/null; then
+    # Keep credentials out of pane text and scrollback. Only the private file's
+    # path is sent to tmux; the shell removes the file immediately after loading.
+    env_file="$(mktemp "${RUNDIR}/env.XXXXXX")"
     for variable in I4H_LOCAL_AGENT I4H_WORKFLOWS REPO_ROOT I4H_AGENT_BASE_URL I4H_AGENT_VL_BASE_URL I4H_AGENT_VL_MODEL I4H_AGENT_VL_API_KEY CUDA_VISIBLE_DEVICES CUDA_DEVICE_ORDER DISPLAY XAUTHORITY PATH; do
-        [[ -n "${!variable:-}" ]] && tmux send-keys -t "${SESSION}" "export ${variable}=$(printf '%q' "${!variable}")" Enter
+        [[ -n "${!variable:-}" ]] && printf 'export %s=%q\n' "${variable}" "${!variable}" >> "${env_file}"
     done
+    tmux new-session -d -s "${SESSION}" -x 220 -y 50 -c "${I4H_TMUX_CWD:-$PWD}" 'bash --noprofile --norc'
+    tmux send-keys -t "=${SESSION}:" 'set +x; export PS1="" PROMPT_COMMAND="" HISTFILE=/dev/null' Enter
+    tmux send-keys -t "=${SESSION}:" "source $(printf '%q' "${env_file}"); rm -f $(printf '%q' "${env_file}")" Enter
     sleep 0.3
 else
-    tmux send-keys -t "${SESSION}" C-c 2>/dev/null
-    tmux send-keys -t "${SESSION}" C-u 2>/dev/null
+    tmux send-keys -t "=${SESSION}:" C-c 2>/dev/null
+    tmux send-keys -t "=${SESSION}:" C-u 2>/dev/null
     sleep 0.15
 fi
 
@@ -70,13 +77,13 @@ printf '%s\n' "${cmd}" > "${cmd_file}"
 : > "${output_file}"
 
 runline="touch $(printf '%q' "${started_file}") ; { source $(printf '%q' "${cmd_file}") ; } > $(printf '%q' "${output_file}") 2>&1 ; echo \$? > $(printf '%q' "${rc_file}")"
-tmux send-keys -t "${SESSION}" "${runline}" Enter
+tmux send-keys -t "=${SESSION}:" "${runline}" Enter
 
 grace="${I4H_TMUX_START_GRACE:-25}"
 waited=0
 resent=0
 while [[ ! -f "${rc_file}" ]]; do
-    tmux has-session -t "${SESSION}" 2>/dev/null || {
+    tmux has-session -t "=${SESSION}" 2>/dev/null || {
         [[ -f "${output_file}" ]] && sed -n '1,200p' "${output_file}"
         echo "tmux-shell: session ended" >&2
         rm -f "${cmd_file}" "${output_file}" "${started_file}"
@@ -86,13 +93,13 @@ while [[ ! -f "${rc_file}" ]]; do
         waited=$((waited + 1))
         if (( waited >= grace )); then
             if (( resent == 0 )); then
-                tmux send-keys -t "${SESSION}" C-u 2>/dev/null
-                tmux send-keys -t "${SESSION}" "${runline}" Enter
+                tmux send-keys -t "=${SESSION}:" C-u 2>/dev/null
+                tmux send-keys -t "=${SESSION}:" "${runline}" Enter
                 resent=1
                 waited=0
             else
                 echo "tmux-shell: command did not execute; resetting session" >&2
-                tmux kill-session -t "${SESSION}" 2>/dev/null
+                tmux kill-session -t "=${SESSION}" 2>/dev/null
                 rm -f "${cmd_file}" "${output_file}" "${started_file}"
                 exit 1
             fi
