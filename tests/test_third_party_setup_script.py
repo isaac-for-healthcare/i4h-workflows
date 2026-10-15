@@ -67,8 +67,8 @@ def _run_setup(
         "  exit 0\n"
         "fi\n"
         "if [ \"${1:-}\" = 'rev-parse' ]; then\n"
-        # A fresh checkout has recorded no release tags yet, so setup must fetch them.
-        '  case "$*" in *refs/tags/*) exit 1 ;; esac\n'
+        # A fresh checkout holds no pinned commits or release tags yet, so setup must fetch them.
+        '  case "$*" in "rev-parse --verify --quiet "*) exit 1 ;; esac\n'
         "  printf '%s\\n' '1111111111111111111111111111111111111111'\n"
         "fi\n",
         encoding="utf-8",
@@ -155,9 +155,9 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
     result, git_log = _run_setup(tmp_path, "")
     assert result.returncode == 0, result.stderr
     for component, ref in (
-        ("physics-simulation", "v0.9.0-rc2"),
-        ("sensor-simulation", "v0.9.0-rc2"),
-        ("digital-twin", "v0.9.0-rc2"),
+        ("physics-simulation", "c6fa58acfcbcb233c76bd3ca253d8011f3285f97"),
+        ("sensor-simulation", "f7bc77c9a1ab7661343c56858e178eaa5ffc206a"),
+        ("digital-twin", "ca68500f2eaa9c1fb504dd5963ffb27a9cf6d4cd"),
     ):
         assert any(
             f"i4h-{component}-internal fetch" in line and line.endswith(f"origin {ref}")
@@ -220,23 +220,26 @@ def _commit(remote: Path, text: str) -> str:
     return _git("rev-parse", "HEAD", cwd=remote)
 
 
-@pytest.mark.parametrize("annotated", [True, False], ids=["annotated", "lightweight"])
-def test_release_tag_rerun_does_not_contact_origin(tmp_path: Path, annotated: bool) -> None:
+@pytest.mark.parametrize("kind", ["annotated", "lightweight", "commit"])
+def test_release_ref_rerun_does_not_contact_origin(tmp_path: Path, kind: str) -> None:
     # The Docker image fetches the private components with a build-time token, and each
     # container's first start runs setup again without it. With the origin gone, a fetch fails
-    # just as that unauthenticated one does.
+    # just as that unauthenticated one does. The release defaults are full commits; a release
+    # tag stays a supported *_REF override.
     remote = tmp_path / "remote"
     remote.mkdir()
     _git("init", "-q", cwd=remote)
     release_commit = _commit(remote, "release = 1\n")
-    _git("tag", *(("-a", "-m", "release") if annotated else ()), "v0.9.0-rc2", cwd=remote)
+    ref = release_commit if kind == "commit" else "v0.9.0-rc2"
+    if kind != "commit":
+        _git("tag", *(("-a", "-m", "release") if kind == "annotated" else ()), ref, cwd=remote)
     third_party = tmp_path / "third_party"
 
-    first = _checkout_ref(third_party, remote.as_uri(), "v0.9.0-rc2")
+    first = _checkout_ref(third_party, remote.as_uri(), ref)
     assert first.returncode == 0, first.stderr
     shutil.rmtree(remote)
 
-    rerun = _checkout_ref(third_party, remote.as_uri(), "v0.9.0-rc2")
+    rerun = _checkout_ref(third_party, remote.as_uri(), ref)
     assert rerun.returncode == 0, rerun.stderr
     assert "is now" not in rerun.stdout
     assert _git("rev-parse", "HEAD", cwd=third_party / "physics") == release_commit
