@@ -54,6 +54,26 @@ ZENOH_CONFIG=/tmp/zenoh-lo.json5 ./run.sh <workflow> --policy --episodes 1
 
 For a policy and an arena on different machines, see [docker/README.md](docker/README.md).
 
+## `remote task ... produced no action for 30.0s`
+
+The backend accepted the session but did not answer an observation within the action
+window. Look at the end of `runs/.../backend-*.log` to tell the two causes apart.
+
+If the log stops at a native error, such as `ptxas fatal`, `LLVM ERROR` or a `F external/xla`
+check, the backend process died and a longer window cannot help. The PI0 backend pins
+jaxlib 0.5.3, whose XLA builds Triton GEMM kernels only for the GPUs it knows. On a newer one
+(DGX Station GB300, compute capability 10.3; DGX Spark GB10, 12.1) the backend now passes
+`--xla_gpu_enable_triton_gemm=false` itself, which sends those matrix multiplies to cuBLAS. An
+`XLA_FLAGS` you export that already sets the option is left as it is.
+
+Otherwise inference is slower than the window. The PI0 backend compiles its model with one
+inference while it loads, before the simulator starts, so the first frame does not pay for
+compilation. A backend without that warm-up, or a slow GPU, may still need a longer window:
+
+```bash
+I4H_BACKEND_ACTION_TIMEOUT_S=300 ./run.sh <workflow> --policy --episodes 1
+```
+
 ## `You are trying to access a gated repo` in a backend log
 
 Some policy stacks pull a gated model. Request access on the model page, then export a token
