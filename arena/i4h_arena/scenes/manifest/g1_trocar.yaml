@@ -4,7 +4,7 @@
 # What this scene PROVIDES. Structure stays Python in arena/i4h_arena/scenes/.
 
 impl: i4h_arena.scenes.g1_trocar:G1TrocarScene
-description: Unitree G1 with dex hands assembling a trocar in the LightWheel scene.
+description: Unitree G1 with dex hands assembling a trocar in the Lightwheel scene.
 embodiment: g1_dex
 action_space: joint_position
 dof: 43
