@@ -92,6 +92,9 @@ def main() -> int:
         agent_cfg = load_cfg_from_registry(gym_id, "rsl_rl_cfg_entry_point")
         agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, metadata.version("rsl-rl-lib"))
         env_cfg.scene.num_envs = args.num_envs
+        # Evaluation writes its own result JSON. Embodiment and metric recorder
+        # terms would otherwise export every episode to /tmp/isaaclab/logs.
+        env_cfg.recorders = None
 
         raw_env = gym.make(gym_id, cfg=env_cfg)
         env = RslRlVecEnvWrapper(raw_env, clip_actions=agent_cfg.clip_actions)
