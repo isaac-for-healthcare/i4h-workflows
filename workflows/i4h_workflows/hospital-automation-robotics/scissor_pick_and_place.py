@@ -3,9 +3,12 @@
 """SO-ARM 101 picks up surgical scissors and places them in the tray.
 
 The SO-ARM exposes joint-position control, so the rule-based path is
-joint-space keyframes rather than IK. The single closed-loop adaptation is a
-shoulder-pan correction proportional to the randomized scissors Y, read live
-from the scene by ``locate`` and wired into the four pan-sensitive stages.
+joint-space keyframes rather than IK. Two closed-loop adaptations read the
+randomized scissors pose live from the scene through ``locate``: a
+shoulder-pan correction proportional to its Y, wired into the four
+pan-sensitive stages, and a reach correction proportional to its X, wired into
+the descent and the grasp, so the jaw closes on the same part of the blade
+wherever the scissors start.
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ from i4h_engine.interface import Workflow
 from i4h_tasks.basic.control.settle import Settle
 from i4h_tasks.basic.control.wait_until import WaitUntil
 from i4h_tasks.basic.motion.home import Home
-from i4h_tasks.basic.motion.keyframes import Frame, Keyframes
+from i4h_tasks.basic.motion.keyframes import Correction, Frame, Keyframes
 from i4h_tasks.basic.perception.locate import Locate
 from i4h_tasks.basic.predicates import inside_box
 from i4h_workflow_modes.idle import idle
@@ -28,14 +31,32 @@ from i4h_workflow_modes.teleop import teleop
 _OPEN = 0.35
 _CLOSED = -0.16
 
-# Shoulder-pan correction for the randomized scissors Y.
-_PAN = {
-    "offset_joint": 0,
-    "offset_axis": 1,
-    "offset_gain": 10.0,
-    "offset_reference": -0.023,
-    "offset_limits": (0.0, 0.12),
-}
+# Both corrections were measured, not assumed (NVBug 6903612). The wrist
+# camera rides on the gripper, so the blade's column in its image as the jaw
+# closes is the lateral grasp error; across 76 recorded episodes it fits pose
+# and correction linearly to 2.4 px. The earlier pan rule (10 rad/m on Y,
+# clipped to [0, 0.12]) turned the jaw twice as far as Y moves the blade: at
+# the high-Y end of the randomization the blade sat against the fixed jaw and
+# the grasp slipped.
+#
+# Shoulder-pan correction for the randomized scissors Y (-0.025..-0.010 m):
+# 4.51 rad/m holds the blade mid-jaw. It gives the old rule's pan at the
+# nominal pose, so the keyframes' own reference is unchanged.
+_PAN = Correction(axis=1, reference=-0.0267, gains=(4.51, 0.0, 0.0, 0.0, 0.0, 0.0), limits=(-0.005, 0.025))
+
+# Reach correction for the randomized scissors X (0.11..0.13 m). The scissors
+# lie along the arm's reach, so X decides where along them the jaw closes:
+# uncorrected, a pose 7-10 mm out closed near the finger rings, which slipped
+# during the lift, and one 10 mm in left the scissors caught in the jaw at
+# release. The shoulder, elbow and wrist gains move the gripper along world X,
+# solved from its PhysX Jacobian at open_on_scissors and close_on_scissors; the
+# pan term cancels the sideways part of that motion at the blade.
+_REACH = Correction(
+    axis=0,
+    reference=0.12,
+    gains=(-1.35, -6.05, 9.70, -3.64, -1.86, 0.0),
+    limits=(-0.015, 0.015),
+)
 
 # Joint deltas from the home pose; index 5 is the jaw (+open / -close).
 _LEAVE_HOME = [
@@ -66,15 +87,19 @@ _CARRY = [
     Frame("carry_to_tray", (0.69, 1.33, -1.16, -0.72, 0.44, _CLOSED), 0.33),
     Frame("lower_over_tray", (0.58, 1.70, -1.24, -1.15, 0.62, _CLOSED), 0.33),
 ]
+# Open the jaw fully and hold the arm still while the scissors drop. Opening
+# part-way (0.16, then 0.29) while already lifting left them caught in the jaw
+# on some grasps, dragged up and dropped tip-first, so they stood in the tray
+# and toppled for seconds afterwards.
 _RELEASE = [
-    Frame("release_in_tray", (0.52, 1.89, -1.14, -1.21, 0.65, 0.16), 0.33),
-    Frame("release_settle", (0.50, 1.71, -1.14, -1.23, 0.66, 0.29), 0.33),
+    Frame("release_in_tray", (0.52, 1.89, -1.14, -1.21, 0.65, _OPEN), 0.33),
+    Frame("release_settle", (0.52, 1.89, -1.14, -1.21, 0.65, _OPEN), 0.33),
 ]
 _RETREAT = [
-    Frame("withdraw_from_tray", (0.50, 1.33, -1.21, -1.24, 0.61, 0.29), 0.33),
-    Frame("return_high", (0.47, 0.61, -0.52, -1.22, 0.32, 0.29), 0.33),
-    Frame("return_mid", (0.38, -0.07, 0.00, -1.22, 0.30, 0.29), 0.33),
-    Frame("return_near_home", (0.22, -0.15, 0.14, -0.69, 0.56, 0.29), 0.65),
+    Frame("withdraw_from_tray", (0.50, 1.33, -1.21, -1.24, 0.61, _OPEN), 0.33),
+    Frame("return_high", (0.47, 0.61, -0.52, -1.22, 0.32, _OPEN), 0.33),
+    Frame("return_mid", (0.38, -0.07, 0.00, -1.22, 0.30, _OPEN), 0.33),
+    Frame("return_near_home", (0.22, -0.15, 0.14, -0.69, 0.56, _OPEN), 0.65),
 ]
 
 #: Success: the scissors ended up inside the tray volume and the arm went home.
@@ -87,13 +112,17 @@ def rule_based() -> TaskGraph:
     """The pick-and-place goal decomposed into joint-space stages."""
     locate = node(Locate("scissors", name="locate"))
     leave_home = node(Keyframes(_LEAVE_HOME, name="leave_home"))
-    align = node(Keyframes(_ALIGN, name="align", **_PAN))
-    descend = node(Keyframes(_DESCEND, name="descend", **_PAN))
-    close = node(Keyframes(_CLOSE, name="close_grip", **_PAN))
-    lift = node(Keyframes(_LIFT, name="lift", **_PAN))
+    align = node(Keyframes(_ALIGN, name="align", corrections=(_PAN,)))
+    descend = node(Keyframes(_DESCEND, name="descend", corrections=(_PAN, _REACH)))
+    close = node(Keyframes(_CLOSE, name="close_grip", corrections=(_PAN, _REACH)))
+    lift = node(Keyframes(_LIFT, name="lift", corrections=(_PAN,)))
     carry = node(Keyframes(_CARRY, name="carry_to_tray"))
     release = node(Keyframes(_RELEASE, name="release"))
-    settle = node(Settle("scissors", timeout_s=1.0, name="settle"))
+    # The retreat already gives the scissors 1.65 s to come to rest after the
+    # release, so 0.4 s more is enough, and keeps the worst case inside the
+    # scene's 600-step cap: 495 keyframe steps + settle 24 + verify 1 + home
+    # (60 steps, up to ~70 while the arm converges on the home tolerance).
+    settle = node(Settle("scissors", timeout_s=0.4, name="settle"))
     retreat = node(Keyframes(_RETREAT, name="retreat"))
     home = node(Home(duration_s=1.0, gripper=_OPEN, name="home"))
     verify = node(
@@ -120,8 +149,8 @@ def rule_based() -> TaskGraph:
         >> verify
         >> home
     )
-    # The one closed-loop adaptation: every pan-sensitive stage reads the live
-    # scissors pose rather than assuming the reference position.
+    # The closed-loop adaptations: every pan- or reach-sensitive stage reads the
+    # live scissors pose rather than assuming the reference position.
     for stage in (align, descend, close, lift):
         graph.wire(locate.out.pose, stage.in_.reference)
     return graph

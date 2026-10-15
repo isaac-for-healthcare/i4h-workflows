@@ -20,7 +20,7 @@ from typing import Any
 import h5py
 import numpy as np
 
-from i4h_common.episode import DIAGNOSTICS_GROUP, Segment, write_segments
+from i4h_common.episode import DIAGNOSTICS_GROUP, Segment, write_initial_state, write_segments
 from i4h_common.run_overrides import environment_overrides
 from i4h_engine.events import EventKind, WorkflowEvent
 
@@ -105,6 +105,7 @@ class EpisodeRecorder:
         self._actions: list[np.ndarray] = []
         self._states: list[np.ndarray] = []
         self._diagnostics: list[dict[str, np.ndarray]] = []
+        self._initial_state: dict[str, Any] | None = None
         self._attempt_group: h5py.Group | None = None
         self._camera_datasets: dict[str, h5py.Dataset] = {}
         self._frame_queue: Queue[tuple[str, np.ndarray] | None] = Queue(maxsize=32)
@@ -117,10 +118,12 @@ class EpisodeRecorder:
         self._attempt = 1
 
     # -- lifecycle -------------------------------------------------------
-    def begin_episode(self, episode: int, attempt: int) -> None:
+    def begin_episode(self, episode: int, attempt: int, *, initial_state: dict[str, Any] | None = None) -> None:
+        """Start a new attempt; ``initial_state`` is the scene its reset left, for replay."""
         self._drain_frames()
         self._episode = episode
         self._attempt = attempt
+        self._initial_state = initial_state
         self._actions.clear()
         self._states.clear()
         self._diagnostics.clear()
@@ -131,9 +134,11 @@ class EpisodeRecorder:
         self._segments.clear()
         self._open_node = None
 
-    def restart_episode(self, *, node: str = "", task_id: str = "") -> None:
+    def restart_episode(
+        self, *, node: str = "", task_id: str = "", initial_state: dict[str, Any] | None = None
+    ) -> None:
         """Discard pre-reset samples and continue recording from a clean scene."""
-        self.begin_episode(self._episode, self._attempt)
+        self.begin_episode(self._episode, self._attempt, initial_state=initial_state)
         if node:
             self._open_node = (node, task_id, 0)
 
@@ -244,6 +249,7 @@ class EpisodeRecorder:
             group = demo.create_group(DIAGNOSTICS_GROUP)
             for measurement, values in diagnostics.items():
                 group.create_dataset(measurement, data=values)
+        write_initial_state(demo, self._initial_state)
 
         demo.attrs["success"] = bool(result.succeeded)
         # Beside ``success`` rather than only in the run directory's metadata,
@@ -255,6 +261,9 @@ class EpisodeRecorder:
         demo.attrs["num_samples"] = len(self._actions)
         demo.attrs["workflow"] = self.workflow.name
         demo.attrs["mode"] = self.workflow.mode
+        # Per episode as well as on /data: a file can collect episodes from
+        # several workflows, and the initial state is only valid in its own scene.
+        demo.attrs["scene"] = self.workflow.scene
         demo.attrs["episode_index"] = result.index
         demo.attrs["attempt_index"] = result.attempt
         demo.attrs["status"] = result.status.value
