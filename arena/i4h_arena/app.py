@@ -65,6 +65,10 @@ class AppContext:
         # go: it fires on the first step and the runner never gets to tick.
         if getattr(env_cfg, "terminations", None) is not None and hasattr(env_cfg.terminations, "time_out"):
             env_cfg.terminations.time_out = None
+        # The workflow records through ``run.sh --record``. Embodiment and metric
+        # recorder terms would otherwise make IsaacLab export a second, unbounded
+        # copy of every episode to /tmp/isaaclab/logs on each run.
+        env_cfg.recorders = None
         logger.info("creating env %s for scene %s", gym_id, scene.name)
         env = gym.make(gym_id, cfg=env_cfg).unwrapped
         # Apply the task viewer after the visualizer is fully initialized so
