@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 import yaml
 
+from i4h_arena.medical import slang_fluoroscopy
 from i4h_arena.medical.carm import (
     FOLLOW_TIP_ENV_VAR,
     PAN_LOG_ENV_VAR,
@@ -884,3 +885,80 @@ def test_a_working_cuda_device_is_never_refused(tmp_path, monkeypatch) -> None:
 
     SlangFluoroscopyRenderer(patient, _carm(patient), width=64, height=64, step_mm=1.0, device_type="cuda")
     assert started == ["cuda"]
+
+
+def _slang_like_renderer_class(monkeypatch, fail_on: int | None = None) -> list[object]:
+    """Patch the upstream renderer with one built like it: ``__init__`` opens a device, then uploads.
+
+    Returns the list of devices opened. ``fail_on`` makes that construction (1-based) raise
+    slangpy's device error, as the second renderer did on the RLinf simulator GPU.
+    """
+    from xray_simulator.rendering import diffdrr_slang_renderer
+
+    devices: list[object] = []
+    constructed: list[int] = []
+
+    class SlangLikeRenderer:
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+            constructed.append(1)
+            if len(constructed) == fail_on:
+                raise RuntimeError("Failed to create device!")
+            self.volume = volume
+            self._init_slang()
+
+        def _init_slang(self):
+            self._device = object()
+            devices.append(self._device)
+            self._module, self._forward_fn, self._backward_fn, self._normalize_fn = (object() for _ in range(4))
+            self._create_resources()
+
+        def _create_resources(self):
+            self.volume_texture = object()
+
+        def render(self, rotation, translation):
+            del rotation, translation
+            return np.full((64, 64), 0.5, dtype=np.float32)
+
+    monkeypatch.setattr(diffdrr_slang_renderer, "SlangDiffDRRRenderer", SlangLikeRenderer)
+    return devices
+
+
+def test_the_contrast_renderer_reuses_the_main_renderers_slang_device(tmp_path, monkeypatch) -> None:
+    """A second Slang device failed on the RLinf simulator's GPU; one device per sensor avoids it."""
+    devices = _slang_like_renderer_class(monkeypatch)
+    patient = _patient_volume(tmp_path, with_vessel_mask=True)
+
+    renderer = _renderer_with(patient, _carm(patient), dsa=True)
+
+    main, dsa = renderer._renderer, renderer._dsa_renderer
+    assert devices == [main._device]
+    for name in slang_fluoroscopy._SHARED_SLANG_STATE:
+        assert getattr(dsa, name) is getattr(main, name)
+    assert dsa.volume_texture is not main.volume_texture
+    assert not np.array_equal(dsa.volume, main.volume)
+
+
+def test_the_shared_state_is_what_upstream_init_slang_creates() -> None:
+    """Fails when an xray_simulator pin changes what the device setup creates, before rendering breaks."""
+    import inspect
+    import re
+
+    from xray_simulator.rendering.diffdrr_slang_renderer import SlangDiffDRRRenderer
+
+    source = inspect.getsource(SlangDiffDRRRenderer._init_slang)
+    assigned = tuple(dict.fromkeys(re.findall(r"^\s*self\.(\w+)\s*=", source, re.MULTILINE)))
+    assert assigned == slang_fluoroscopy._SHARED_SLANG_STATE
+    assert "self._create_resources()" in source
+
+
+def test_a_contrast_renderer_device_failure_explains_nvrtc_too(tmp_path, monkeypatch) -> None:
+    from i4h_arena.medical import slang_cuda
+
+    monkeypatch.setattr(slang_cuda, "describe_cuda_nvrtc", lambda: "no libnvrtc.so was found")
+    _slang_like_renderer_class(monkeypatch, fail_on=2)
+    patient = _patient_volume(tmp_path, with_vessel_mask=True)
+
+    with pytest.raises(RuntimeError, match=r"Slang could not create a CUDA device.*--fluoro-device vulkan"):
+        SlangFluoroscopyRenderer(
+            patient, _carm(patient), width=64, height=64, step_mm=1.0, device_type="cuda", dsa=True
+        )

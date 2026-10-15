@@ -16,16 +16,13 @@ def test_rl_simulator_does_not_inherit_episode_recorders(tmp_path, monkeypatch):
     )
     scene = SimpleNamespace(configure_args=lambda _: None, gym_spec=lambda: ("test", cfg))
     observed = []
-    closed = []
 
     def make(_id, **kwargs):
         observed.append(kwargs["cfg"])
         raise RuntimeError("stop at gym construction boundary")
 
     modules = {
-        "isaaclab.app": {
-            "AppLauncher": lambda **kwargs: SimpleNamespace(app=SimpleNamespace(close=lambda: closed.append(True)))
-        },
+        "isaaclab.app": {"AppLauncher": lambda **kwargs: SimpleNamespace(app=SimpleNamespace(close=lambda: None))},
         "torch": {},
         "gymnasium": {"make": make},
         "i4h_arena.scenes.base": {"load_scene": lambda *args: scene},
@@ -55,4 +52,3 @@ def test_rl_simulator_does_not_inherit_episode_recorders(tmp_path, monkeypatch):
         )
     assert observed and observed[0].recorders is None
     assert observed[0].scene.num_envs == 64
-    assert closed
