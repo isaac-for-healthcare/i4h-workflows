@@ -51,11 +51,21 @@ _PAN = Correction(axis=1, reference=-0.0267, gains=(4.51, 0.0, 0.0, 0.0, 0.0, 0.
 # release. The shoulder, elbow and wrist gains move the gripper along world X,
 # solved from its PhysX Jacobian at open_on_scissors and close_on_scissors; the
 # pan term cancels the sideways part of that motion at the blade.
-_REACH = Correction(
-    axis=0,
-    reference=0.12,
-    gains=(-1.35, -6.05, 9.70, -3.64, -1.86, 0.0),
-    limits=(-0.015, 0.015),
+_REACH_GAINS = (-1.35, -6.05, 9.70, -3.64, -1.86, 0.0)
+_REACH = Correction(axis=0, reference=0.12, gains=_REACH_GAINS, limits=(-0.015, 0.015))
+
+# The pan turns the jaw about the robot base, which also slides it along the
+# scissors: across the Y randomization the grip moved 6.7 mm toward the
+# pivot end (0.45 mm per mm of Y, measured from the gripper's pose in the
+# scissors' frame as the jaw closes). Gripped there, the scissors hung more
+# steeply after the lift; some swung through 75 degrees in the jaw during the
+# carry and were lowered onto the tray's near wall. Reaching back by the same
+# amount holds the grip where it balances, at its position for Y = -0.022.
+_PAN_REACH = Correction(
+    axis=1,
+    reference=-0.022,
+    gains=tuple(0.45 * gain for gain in _REACH_GAINS),
+    limits=(-0.005, 0.015),
 )
 
 # Joint deltas from the home pose; index 5 is the jaw (+open / -close).
@@ -87,12 +97,13 @@ _CARRY = [
     Frame("carry_to_tray", (0.69, 1.33, -1.16, -0.72, 0.44, _CLOSED), 0.33),
     Frame("lower_over_tray", (0.58, 1.70, -1.24, -1.15, 0.62, _CLOSED), 0.33),
 ]
-# Open the jaw fully and hold the arm still while the scissors drop. Opening
-# part-way (0.16, then 0.29) while already lifting left them caught in the jaw
-# on some grasps, dragged up and dropped tip-first, so they stood in the tray
-# and toppled for seconds afterwards.
+# Lower with the jaw still closed, so the hanging tip touches down and the
+# scissors lean over while held, then open the jaw fully with the arm still.
+# Opening while the arm was still descending (or part-way, 0.16 then 0.29,
+# while already lifting) let the gripper strike or drag the falling scissors:
+# some landed standing on end and toppled for seconds, once over the near wall.
 _RELEASE = [
-    Frame("release_in_tray", (0.52, 1.89, -1.14, -1.21, 0.65, _OPEN), 0.33),
+    Frame("release_in_tray", (0.52, 1.89, -1.14, -1.21, 0.65, _CLOSED), 0.33),
     Frame("release_settle", (0.52, 1.89, -1.14, -1.21, 0.65, _OPEN), 0.33),
 ]
 _RETREAT = [
@@ -113,8 +124,8 @@ def rule_based() -> TaskGraph:
     locate = node(Locate("scissors", name="locate"))
     leave_home = node(Keyframes(_LEAVE_HOME, name="leave_home"))
     align = node(Keyframes(_ALIGN, name="align", corrections=(_PAN,)))
-    descend = node(Keyframes(_DESCEND, name="descend", corrections=(_PAN, _REACH)))
-    close = node(Keyframes(_CLOSE, name="close_grip", corrections=(_PAN, _REACH)))
+    descend = node(Keyframes(_DESCEND, name="descend", corrections=(_PAN, _REACH, _PAN_REACH)))
+    close = node(Keyframes(_CLOSE, name="close_grip", corrections=(_PAN, _REACH, _PAN_REACH)))
     lift = node(Keyframes(_LIFT, name="lift", corrections=(_PAN,)))
     carry = node(Keyframes(_CARRY, name="carry_to_tray"))
     release = node(Keyframes(_RELEASE, name="release"))
