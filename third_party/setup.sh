@@ -110,6 +110,11 @@ checkout_ref() {
       git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}"
     fi
     target_commit="$(git -C "${repo_dir}" rev-parse "${ref}^{commit}")"
+  elif git -C "${repo_dir}" rev-parse --verify --quiet "refs/tags/${ref}^{commit}" >/dev/null; then
+    # A release tag does not move either. Its first fetch recorded it below, so later runs
+    # resolve it offline. That includes a container's first start: the image build fetched
+    # the private components with a token that the running container does not have.
+    target_commit="$(git -C "${repo_dir}" rev-parse "refs/tags/${ref}^{commit}")"
   else
     # A branch moves, so fetch it on every run and resolve through FETCH_HEAD. `fetch origin
     # main` writes no local ref, and once any commit of that name existed a name lookup would
@@ -118,6 +123,11 @@ checkout_ref() {
     # equals HEAD, so every rerun would force a checkout over local edits.
     git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}"
     target_commit="$(git -C "${repo_dir}" rev-parse "FETCH_HEAD^{commit}")"
+    # FETCH_HEAD records whether the remote resolved the name as a tag or a branch. Keep a tag
+    # so the branch above finds it next time; a branch gets no local ref and is fetched again.
+    if grep -qsF $'\t'"tag '${ref}' of " "$(git -C "${repo_dir}" rev-parse --absolute-git-dir)/FETCH_HEAD"; then
+      git -C "${repo_dir}" update-ref "refs/tags/${ref}" "${target_commit}"
+    fi
   fi
   current_commit="$(git -C "${repo_dir}" rev-parse --verify HEAD 2>/dev/null || true)"
   if [[ "${current_commit}" != "${target_commit}" ]]; then
