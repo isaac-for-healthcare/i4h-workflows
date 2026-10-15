@@ -32,6 +32,37 @@ _DISPLAY_CONTROL_BOUNDS = {
 }
 
 
+# What the pinned xray_simulator's SlangDiffDRRRenderer._init_slang creates before it uploads
+# the volume; it takes no device argument, so a second renderer would open a second device.
+_SHARED_SLANG_STATE = ("_device", "_module", "_forward_fn", "_backward_fn", "_normalize_fn")
+
+
+def _renderer_sharing_device(renderer_class: type, source: object) -> type:
+    """Return a renderer class whose instances reuse ``source``'s Slang device and kernels.
+
+    Only the volume and output textures are new. A second Slang device per process fails on a
+    multi-GPU host when CUDA_VISIBLE_DEVICES hides GPU 0, which is where the RLinf simulator
+    runs by default, and recompiling the same shader for it is wasted work.
+    """
+
+    class SharedDeviceRenderer(renderer_class):
+        def _init_slang(self) -> None:
+            for name in _SHARED_SLANG_STATE:
+                setattr(self, name, getattr(source, name))
+            self._create_resources()
+
+    return SharedDeviceRenderer
+
+
+def _build_renderer(renderer_class: type, volume: np.ndarray, spacing_zyx_mm, cfg, device_type: str):
+    try:
+        return renderer_class(volume, spacing_zyx_mm, cfg=cfg)
+    except RuntimeError as error:
+        if device_type == "cuda" and DEVICE_FAILURE in str(error):
+            raise RuntimeError(cuda_device_error(error)) from error
+        raise
+
+
 def _contrast_bolus_mask(patient: PatientVolume) -> np.ndarray:
     """Build the thin centerline-derived mask used by the reference DSA view."""
     centerline_path = patient.twin.artifacts.get("centerline_points")
@@ -215,12 +246,9 @@ class SlangFluoroscopyRenderer:
         )
         # The renderer takes origin_xyz_mm ahead of the config, and leaving it at the default
         # keeps the volume centred, which is the frame solve_projection_geometry poses into.
-        try:
-            self._renderer = SlangDiffDRRRenderer(patient.mu_volume, patient.spacing_zyx_mm, cfg=base_config)
-        except RuntimeError as error:
-            if device_type == "cuda" and DEVICE_FAILURE in str(error):
-                raise RuntimeError(cuda_device_error(error)) from error
-            raise
+        self._renderer = _build_renderer(
+            SlangDiffDRRRenderer, patient.mu_volume, patient.spacing_zyx_mm, base_config, device_type
+        )
         self._dsa_renderer = None
         if self._dsa:
             vessel_mask = _contrast_bolus_mask(patient)
@@ -231,7 +259,13 @@ class SlangFluoroscopyRenderer:
                 )
             boosted_volume = patient.mu_volume.copy()
             boosted_volume[vessel_mask > 0] *= float(dsa_boost)
-            self._dsa_renderer = SlangDiffDRRRenderer(boosted_volume, patient.spacing_zyx_mm, cfg=base_config)
+            self._dsa_renderer = _build_renderer(
+                _renderer_sharing_device(SlangDiffDRRRenderer, self._renderer),
+                boosted_volume,
+                patient.spacing_zyx_mm,
+                base_config,
+                device_type,
+            )
 
     def render(self, catheter: CatheterState, carm: CArmState | None = None) -> dict[str, np.ndarray]:
         if catheter.num_envs != 1:
