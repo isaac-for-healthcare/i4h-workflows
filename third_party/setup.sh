@@ -113,9 +113,11 @@ checkout_ref() {
   else
     # A branch moves, so fetch it on every run and resolve through FETCH_HEAD. `fetch origin
     # main` writes no local ref, and once any commit of that name existed a name lookup would
-    # freeze the checkout at whatever main was the day the machine was first set up.
+    # freeze the checkout at whatever main was the day the machine was first set up. Peel to
+    # the commit: for an annotated release tag FETCH_HEAD names the tag object, which never
+    # equals HEAD, so every rerun would force a checkout over local edits.
     git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}"
-    target_commit="$(git -C "${repo_dir}" rev-parse FETCH_HEAD)"
+    target_commit="$(git -C "${repo_dir}" rev-parse "FETCH_HEAD^{commit}")"
   fi
   current_commit="$(git -C "${repo_dir}" rev-parse --verify HEAD 2>/dev/null || true)"
   if [[ "${current_commit}" != "${target_commit}" ]]; then
