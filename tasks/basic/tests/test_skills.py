@@ -19,7 +19,7 @@ from i4h_tasks.basic.control.wait_until import WaitUntil
 from i4h_tasks.basic.gripper.grasp import Grasp
 from i4h_tasks.basic.gripper.release import Release
 from i4h_tasks.basic.motion.home import Home
-from i4h_tasks.basic.motion.keyframes import Frame, Keyframes, smoothstep
+from i4h_tasks.basic.motion.keyframes import Correction, Frame, Keyframes, smoothstep
 from i4h_tasks.basic.motion.move_joints import MoveJoints
 from i4h_tasks.basic.perception.locate import Locate
 from i4h_tasks.basic.predicates import all_of, at_home, inside_box, near_object, object_above, object_within
@@ -164,6 +164,50 @@ def test_keyframes_offset_is_noop_without_reference(ctx):
     )
     drive(task, ctx)
     assert ctx.act.joint_targets["robot"][0, 0] == pytest.approx(0.0, abs=1e-5)
+
+
+def _settle_keyframes(task, ctx):
+    task.on_enter(ctx, task.Inputs(reference=Pose.from_xyz(0.125, -0.02, 0.25)))
+    while not task.tick(ctx).is_terminal:
+        ctx.scene.step(ctx.act)
+    return ctx.act.joint_targets["robot"][0]
+
+
+def test_keyframes_correction_moves_every_joint_along_its_gains(ctx):
+    """A reach change needs shoulder, elbow and wrist together, not one joint (NVBug 6903612)."""
+    reach = Correction(axis=0, reference=0.12, gains=(-2.0, -6.0, 9.6, -3.6, -1.9, 0.0), limits=(-0.015, 0.015))
+    task = Keyframes([Frame("a", (0.0,) * 6, 0.05)], relative_to_home=False, corrections=(reach,), name="k")
+
+    target = _settle_keyframes(task, ctx)
+
+    np.testing.assert_allclose(target, 0.005 * np.array([-2.0, -6.0, 9.6, -3.6, -1.9, 0.0]), atol=1e-5)
+
+
+def test_keyframes_correction_is_clipped_to_its_validated_range(ctx):
+    reach = Correction(axis=0, reference=0.10, gains=(1.0,) * 6, limits=(-0.01, 0.01))
+    task = Keyframes([Frame("a", (0.0,) * 6, 0.05)], relative_to_home=False, corrections=(reach,), name="k")
+
+    np.testing.assert_allclose(_settle_keyframes(task, ctx), 0.01, atol=1e-5)
+
+
+def test_keyframes_correction_adds_to_the_pan_offset(ctx):
+    reach = Correction(axis=0, reference=0.12, gains=(1.0,) * 6, limits=(-0.015, 0.015))
+    task = Keyframes(
+        [Frame("a", (0.0,) * 6, 0.05)],
+        relative_to_home=False,
+        offset_joint=0,
+        offset_axis=1,
+        offset_gain=10.0,
+        offset_reference=-0.023,
+        offset_limits=(0.0, 0.12),
+        corrections=(reach,),
+        name="k",
+    )
+
+    target = _settle_keyframes(task, ctx)
+
+    assert target[0] == pytest.approx(0.03 + 0.005, abs=1e-5)
+    np.testing.assert_allclose(target[1:], 0.005, atol=1e-5)
 
 
 def test_keyframes_rejects_empty():
