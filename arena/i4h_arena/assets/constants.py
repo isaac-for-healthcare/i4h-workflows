@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """USD path constants shared across the workflow Arena envs."""
 
-#: Isaac for Healthcare v0.9.0 on the dev Nucleus server; loading it requires
-#: signing in to isaac-dev.ov.nvidia.com.
-ASSET_PATH = "omniverse://isaac-dev.ov.nvidia.com/Library/IsaacHealthcare/v0.9.0/"
+#: Isaac for Healthcare v0.9.0, build c53fff9, on the public staging S3 mirror
+#: used for pre-release QA. Switch to the production bucket once v0.9.0 is
+#: published there.
+ASSET_PATH = "https://omniverse-content-staging.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/v0.9.0/c53fff9/"
 
 #: Isaac's own asset root, for robots the healthcare bundle does not carry.
 #: Pinned to 5.0 deliberately: the Franka below is absent from the 6.0 layout,
