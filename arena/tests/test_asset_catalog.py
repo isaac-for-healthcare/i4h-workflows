@@ -12,6 +12,6 @@ def test_workflow_uses_published_repaired_catalog():
     spec = importlib.util.spec_from_file_location("asset_constants", CONSTANTS)
     constants = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(constants)
-    assert constants.ASSET_PATH.endswith("/Assets/Isaac/Healthcare/v0.9.0/c53fff9/")
+    assert constants.ASSET_PATH.endswith("/Assets/Isaac/Healthcare/v0.9.0/7cf86a1/")
     assert constants.ORGANS_USD == constants.ASSET_PATH + "Props/Organs/organs.usd"
     assert constants.DVRK_PSM_USD.startswith(constants.ASSET_PATH)
