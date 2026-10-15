@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import ast
 import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -254,17 +255,38 @@ def test_the_wire_is_not_dragged_along_during_the_approach() -> None:
     before it arrives would tow the wire behind it."""
     body = source().partition("def apply_actions")[2].partition("def reset")[0]
 
-    assert "parked = self._approach.parked" in body
-    assert "set_root_motion_enabled(parked)" in body
+    assert "parked = torch.as_tensor(self._approach.parked, device=self.device)" in body
+    assert "transport = self._introducer.transport(flange_pos)" in body
+    assert "torch.where(parked, transport, torch.zeros_like(transport))" in body
 
 
-def test_a_partial_reset_resends_the_attachment_mask() -> None:
-    """The solver forgets which wires are attached when it resets its own
-    rods, and the mask is otherwise only sent when it changes."""
+def test_a_partial_reset_restarts_only_the_named_approaches() -> None:
     body = source().partition("    def reset")[2].partition("    def joint_state")[0]
 
     assert "self._approach.reset(env_ids)" in body
-    assert "self._root_motion_sent = None" in body
+
+
+def test_every_rod_manager_method_arena_calls_is_one_the_solver_ships() -> None:
+    """``set_root_motion_enabled`` was called on the first step of every arm mode
+    that drives the robot, and no physics release had it. A source-text check on
+    the caller passed all the same, so check the callee."""
+    integration = pytest.importorskip("catheter_vasculature_solver.isaaclab_integration")
+    called: dict[str, set[str]] = {}
+    for path in ARENA.rglob("*.py"):
+        for manager, attribute in re.findall(
+            r"\b(NewtonCoupledMJWarpXPBDRodManager|NewtonXPBDRodManager)\.(\w+)", path.read_text()
+        ):
+            called.setdefault(manager, set()).add(attribute)
+
+    missing = sorted(
+        f"{manager}.{attribute}"
+        for manager, attributes in called.items()
+        for attribute in attributes
+        if not hasattr(getattr(integration, manager), attribute)
+    )
+
+    assert called
+    assert not missing
 
 
 def test_the_drive_is_tilted_out_of_the_vessel_it_feeds() -> None:
@@ -455,9 +477,10 @@ def test_the_wire_is_placed_from_the_realized_flange_not_the_request() -> None:
     """
     body = source().partition("def apply_actions")[2].partition("def reset")[0]
 
-    # The manager owns holder motion; the controller must not add it again.
-    assert "self._introducer.transport(flange_pos)" not in body
-    assert "transport = torch.zeros_like(flange_pos)" in body
+    # The solver does not carry the root with the hand, so the controller does,
+    # from the flange pose read back out of simulation.
+    assert "flange_pos, flange_quat = self._flange_pose_world()" in body
+    assert "self._introducer.transport(flange_pos)" in body
     # Roller commands still start from the wire's current state.
     assert "self._proximal_frame()" in body
     assert "self._asset.place_proximal(root_target, quat_target" in body
