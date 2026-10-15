@@ -280,6 +280,7 @@ for node in workflow.graph.nodes:
 PY
 )
   backend_logs=()
+  backend_pids=()
   while IFS=$'\t' read -r project entry task_id; do
     [ -z "$project" ] && continue
     if [ ! -d "$project/.venv" ]; then
@@ -309,11 +310,13 @@ PY
       > "$backend_log" 2>&1 &
     echo $! >> "$PIDFILE"
     backend_logs+=("$backend_log")
+    backend_pids+=("$!")
   done <<< "$backends"
 
   # Wait for every checkpoint to be resident before the simulator starts so
   # inference startup never consumes the episode's simulation-step budget.
-  for log in "${backend_logs[@]}"; do
+  for index in "${!backend_logs[@]}"; do
+    log="${backend_logs[$index]}"
     echo "==> waiting for $(basename "$log" .log) to load"
     backend_ready=0
     for _ in $(seq 600); do
@@ -322,6 +325,9 @@ PY
         break
       fi
       grep -qE "Traceback|Error:" "$log" 2>/dev/null && { echo "!! backend failed; see $log" >&2; exit 1; }
+      # A native abort (an XLA compile failure, for one) leaves no Python
+      # traceback; without this the wait ran out its full ten minutes.
+      kill -0 "${backend_pids[$index]}" 2>/dev/null || { echo "!! backend exited before it was ready; see $log" >&2; exit 1; }
       sleep 1
     done
     if [ "$backend_ready" -ne 1 ]; then

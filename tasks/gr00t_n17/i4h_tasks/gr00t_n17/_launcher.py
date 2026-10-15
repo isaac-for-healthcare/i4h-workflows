@@ -18,6 +18,8 @@ from __future__ import annotations
 import runpy
 import sys
 
+from i4h_tasks.gr00t_n17._patch_embed import install_linear_patch_embed
+
 VIDEO_BACKEND_FLAG = "--video-backend="
 VIDEO_BACKENDS = ("torchcodec", "decord")
 
@@ -87,6 +89,7 @@ def main() -> None:
     if not rest:
         sys.exit("usage: python -m i4h_tasks.gr00t_n17._launcher [--video-backend=NAME] <launch_finetune.py> [args...]")
     install_config_overrides(overrides)
+    install_linear_patch_embed()
     launch_script = rest[0]
     sys.argv = [launch_script, *rest[1:]]
     runpy.run_path(launch_script, run_name="__main__")

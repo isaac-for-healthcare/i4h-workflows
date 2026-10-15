@@ -75,7 +75,7 @@ class SurgicalScene(Scene):
         if self.spec.embodiment == "dvrk_dual_psm":
             from i4h_arena.embodiments.psm import DualPsmEmbodiment  # noqa: PLC0415
 
-            return DualPsmEmbodiment(**shared)
+            return DualPsmEmbodiment(**shared, newton=self._newton())
 
         from i4h_arena.embodiments.psm import PsmEmbodiment  # noqa: PLC0415
 
@@ -84,7 +84,39 @@ class SurgicalScene(Scene):
         # wider close pose from its source task.
         shared["include_gripper_action"] = self.asset_mode != "reach_psm"
         shared["gripper_close"] = 0.1 if self.asset_mode == "lift_block" else 0.09
+        if self._newton():
+            from i4h_arena.embodiments import _psm_newton  # noqa: PLC0415
+
+            shared["newton"] = True
+            if self.asset_mode != "reach_psm":
+                shared["ik_body_offset"] = (0.0, 0.0, _psm_newton.GRASP_DEPTH_M)
+            if self.asset_mode in ("lift_needle", "lift_needle_organs"):
+                shared["gripper_close"] = _psm_newton.NEEDLE_GRIPPER_CLOSE
         return PsmEmbodiment(**shared)
+
+    def _newton(self) -> bool:
+        """Whether this run uses the Newton (MuJoCo Warp) physics preset."""
+        return getattr(self.args, "presets", None) == "newton"
+
+    def configure_env_cfg(self, env_cfg: Any) -> None:
+        super().configure_env_cfg(env_cfg)
+        if not self._newton():
+            return
+        from i4h_arena.embodiments._psm_newton import compensate_gravity_if_disabled  # noqa: PLC0415
+
+        manipulandum = getattr(env_cfg.scene, "object", None)
+        if manipulandum is not None:
+            compensate_gravity_if_disabled(manipulandum)
+            if self.asset_mode != "reach_psm":
+                from i4h_arena.newton_meshes import decompose_bodies  # noqa: PLC0415
+
+                decompose_bodies("/Object")
+        organs = getattr(env_cfg.scene, "organs", None)
+        if organs is not None:
+            from i4h_arena.newton_meshes import keep_static_meshes, spawn_without_unreadable_payloads  # noqa: PLC0415
+
+            organs.spawn.func = spawn_without_unreadable_payloads(organs.spawn.func)
+            keep_static_meshes()
 
     def envcfg(self) -> Any:
         raise NotImplementedError(f"{type(self).__name__} must supply an env cfg")

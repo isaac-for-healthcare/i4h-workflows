@@ -15,7 +15,9 @@ from i4h_common.episode import (
     demo_names,
     diagnostic_keys,
     episodes,
+    read_initial_state,
     read_segments,
+    write_initial_state,
     write_segments,
 )
 
@@ -190,3 +192,51 @@ def test_validate_rejects_a_diagnostic_that_does_not_span_the_episode(tmp_path):
 
         with pytest.raises(EpisodeError, match="3 frames, actions have 5"):
             Episode("demo_0", demo).validate()
+
+
+def _scene_state():
+    return {
+        "articulation": {
+            "robot": {
+                "root_pose": np.array([[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]], dtype=np.float32),
+                "joint_position": np.arange(7, dtype=np.float32).reshape(1, 7),
+            }
+        },
+        "rigid_object": {"organs": {"root_pose": np.array([[0.1, -0.1, 0.0, 0.7, 0.0, 0.0, 0.7]], dtype=np.float32)}},
+        "deformable_object": {},
+    }
+
+
+def test_initial_state_roundtrip(tmp_path):
+    """Replay restores this, so every family, asset and field must come back as written (NVBug 6928931)."""
+    path = _make(tmp_path / "d.hdf5")
+    with h5py.File(path, "a") as handle:
+        write_initial_state(handle["data/demo_0"], _scene_state())
+    with h5py.File(path) as handle:
+        restored = Episode("demo_0", handle["data/demo_0"]).initial_state
+    expected = _scene_state()
+    assert restored.keys() == expected.keys()
+    assert restored["deformable_object"] == {}
+    np.testing.assert_array_equal(
+        restored["rigid_object"]["organs"]["root_pose"], expected["rigid_object"]["organs"]["root_pose"]
+    )
+    np.testing.assert_array_equal(
+        restored["articulation"]["robot"]["joint_position"], expected["articulation"]["robot"]["joint_position"]
+    )
+
+
+def test_initial_state_absent_is_not_an_error(tmp_path):
+    path = _make(tmp_path / "d.hdf5")
+    with h5py.File(path) as handle:
+        assert read_initial_state(handle["data/demo_0"]) is None
+
+
+def test_write_initial_state_replaces_and_none_removes(tmp_path):
+    path = _make(tmp_path / "d.hdf5")
+    with h5py.File(path, "a") as handle:
+        demo = handle["data/demo_0"]
+        write_initial_state(demo, _scene_state())
+        write_initial_state(demo, {"articulation": {}})
+        assert read_initial_state(demo) == {"articulation": {}}
+        write_initial_state(demo, None)
+        assert read_initial_state(demo) is None

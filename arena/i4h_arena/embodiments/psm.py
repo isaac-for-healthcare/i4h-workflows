@@ -31,6 +31,7 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_physx.sim.schemas import PhysxArticulationRootPropertiesCfg, PhysxRigidBodyPropertiesCfg
 
 from i4h_arena.assets.constants import DVRK_PSM_USD
+from i4h_arena.embodiments._psm_newton import configure_psm_articulation
 
 _ARM_NAMES = [
     "psm_yaw_joint",
@@ -191,7 +192,13 @@ class _EventsCfg:
     )
 
 
-def _action_cfg(action_device: str, *, gripper_close: float = 0.09, include_gripper: bool = True) -> _ActionsCfg:
+def _action_cfg(
+    action_device: str,
+    *,
+    gripper_close: float = 0.09,
+    include_gripper: bool = True,
+    ik_body_offset: tuple[float, float, float] | None = None,
+) -> _ActionsCfg:
     cfg = _ActionsCfg()
     if action_device == "joint_position":
         cfg.arm_action = mdp.JointPositionActionCfg(
@@ -212,6 +219,13 @@ def _action_cfg(action_device: str, *, gripper_close: float = 0.09, include_grip
             joint_names=_ARM_NAMES,
             body_name="psm_tool_tip_link",
             controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=False, ik_method="dls"),
+            # The controlled point, in the tool-tip link frame. A Cartesian
+            # target places this point, so a +z offset sets the jaws deeper.
+            body_offset=(
+                DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=ik_body_offset)
+                if ik_body_offset is not None
+                else None
+            ),
         )
     else:
         raise ValueError(f"Unsupported action device: {action_device}")
@@ -241,6 +255,8 @@ class PsmEmbodiment:
         gripper_close: float = 0.09,
         include_gripper_action: bool = True,
         enable_material_randomization: bool = True,
+        ik_body_offset: tuple[float, float, float] | None = None,
+        newton: bool = False,
     ):
         self.enable_cameras = enable_cameras
         self.initial_pose = initial_pose
@@ -252,12 +268,16 @@ class PsmEmbodiment:
         self.gripper_close = gripper_close
         self.include_gripper_action = include_gripper_action
         self.enable_material_randomization = enable_material_randomization
+        self.ik_body_offset = ik_body_offset
         self.scene_config = _RobotSceneCfg()
+        if newton:
+            configure_psm_articulation(self.scene_config.robot)
         self.camera_config = _CameraSceneCfg()
         self.action_config = _action_cfg(
             action_device,
             gripper_close=self.gripper_close,
             include_gripper=self.include_gripper_action,
+            ik_body_offset=self.ik_body_offset,
         )
         self.observation_config = _ObservationsCfg()
         if not self.enable_cameras:
@@ -270,6 +290,7 @@ class PsmEmbodiment:
             action_device,
             gripper_close=self.gripper_close,
             include_gripper=self.include_gripper_action,
+            ik_body_offset=self.ik_body_offset,
         )
 
     def set_initial_pose(self, pose: Pose) -> None:
@@ -474,6 +495,7 @@ class DualPsmEmbodiment:
         sim_decimation: int = 1,
         render_interval: int | None = None,
         enable_material_randomization: bool = True,
+        newton: bool = False,
     ):
         self.enable_cameras = enable_cameras
         self.initial_pose = initial_pose
@@ -484,6 +506,9 @@ class DualPsmEmbodiment:
         self.render_interval = sim_decimation if render_interval is None else render_interval
         self.enable_material_randomization = enable_material_randomization
         self.scene_config = _DualRobotSceneCfg()
+        if newton:
+            configure_psm_articulation(self.scene_config.robot_1)
+            configure_psm_articulation(self.scene_config.robot_2)
         self.camera_config = _CameraSceneCfg()
         self.action_config = _dual_action_cfg(action_device)
         self.observation_config = _DualObservationsCfg()

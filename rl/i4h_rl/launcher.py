@@ -8,7 +8,7 @@ import argparse
 import os
 from pathlib import Path
 
-from i4h_rl.composition import compose_config, configure_video
+from i4h_rl.composition import compose_config, configure_launch, write_runtime_config
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -29,14 +29,25 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     cfg = compose_config(args.config, args.overrides)
+    configure_launch(
+        cfg,
+        model_path=args.model_path,
+        run_dir=args.run_dir,
+        num_envs=args.num_envs,
+        max_epochs=args.max_epochs,
+        only_eval=args.only_eval,
+        video=args.video,
+        resume_dir=args.resume_dir,
+        rl_model_path=args.rl_model_path,
+    )
     os.environ.setdefault("RLINF_EXT_MODULE", "i4h_rl.extension")
-    os.environ["RLINF_CONFIG_FILE"] = str(args.config.resolve())
+    os.environ["RLINF_CONFIG_FILE"] = str(write_runtime_config(cfg, args.run_dir))
     # Ray workers inherit this and use it for eagerly-flushed rollout
     # monitoring before the main RLinf runner reaches its optimizer logger.
     os.environ["I4H_RL_RUN_DIR"] = str(args.run_dir.resolve())
 
     import torch.multiprocessing as mp
-    from omegaconf import OmegaConf, open_dict
+    from omegaconf import OmegaConf
     from rlinf.config import validate_cfg
     from rlinf.runners.embodied_eval_runner import EmbodiedEvalRunner
     from rlinf.runners.embodied_runner import EmbodiedRunner
@@ -47,25 +58,6 @@ def main(argv: list[str] | None = None) -> int:
     from rlinf.workers.rollout.hf.huggingface_worker import MultiStepRolloutWorker
 
     mp.set_start_method("spawn", force=True)
-    with open_dict(cfg):
-        cfg.runner.logger.log_path = str(args.run_dir.resolve())
-        cfg.runner.max_epochs = args.max_epochs
-        cfg.runner.only_eval = args.only_eval
-        cfg.env.train.total_num_envs = args.num_envs
-        cfg.env.eval.total_num_envs = args.num_envs
-        cfg.actor.model.model_path = str(args.model_path.resolve())
-        cfg.rollout.model.model_path = str(args.model_path.resolve())
-        if args.only_eval:
-            # Training rollouts inherit actor.model, but an embodied-eval
-            # worker reads rollout.model directly. Merge the compact rollout
-            # overrides onto the complete GR00T contract before validation.
-            cfg.runner.task_type = "embodied_eval"
-            cfg.rollout.model = OmegaConf.merge(cfg.actor.model, cfg.rollout.model)
-        if args.resume_dir:
-            cfg.runner.resume_dir = str(args.resume_dir.resolve())
-        if args.rl_model_path:
-            cfg.rollout.model.rl_model_path = str(args.rl_model_path.resolve())
-    configure_video(cfg, only_eval=args.only_eval, video=args.video)
     cfg = validate_cfg(cfg)
     print(OmegaConf.to_yaml(cfg, resolve=True), flush=True)
 

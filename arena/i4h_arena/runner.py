@@ -22,6 +22,7 @@ from typing import Any
 
 import torch
 
+from i4h_arena.recording.scene_state import capture_scene_state, restore_scene_state
 from i4h_arena.scenes.base import Scene
 from i4h_common.bus.base import Bus
 from i4h_common.bus.keys import Keys
@@ -145,6 +146,7 @@ class SimulationRunner:
         sensor_view_display_controls: dict[str, tuple[Any, ...]] | None = None,
         sensor_view_sliders: dict[str, tuple[Any, ...]] | None = None,
         sensor_view_readouts: dict[str, Any] | None = None,
+        initial_state: dict[str, Any] | None = None,
     ) -> None:
         self.scene = scene
         self.workflow = workflow
@@ -162,6 +164,10 @@ class SimulationRunner:
         self._requested_max_steps = max_steps
         self.record_failures = record_failures
         self.seed = seed
+        #: Recorded scene state every episode starts from instead of a
+        #: randomized reset. Replay sets it so the recorded actions meet the
+        #: objects where they were when the episode was recorded.
+        self.initial_state = initial_state
         self.run_id = uuid.uuid4().hex[:8]
         self._view = scene.make_view(env)
         self._controls: dict[str, float] = {}
@@ -263,12 +269,23 @@ class SimulationRunner:
                 window.close()
             _ACTIVE_RUNNER = None
 
-    def _run_episode(self, engine: Engine, episode: int, attempt: int) -> EpisodeResult:
-        if episode == 0 and attempt == 1 and self.seed is not None:
-            self.env.reset(seed=self.seed)
+    def _reset_env(self, seed: int | None = None) -> dict[str, Any] | None:
+        """Reset the env and return the state it starts from, when recording.
+
+        The state is taken before ``Scene.on_reset``, so a replay that restores
+        it runs the same pre-roll the recording did.
+        """
+        if self.initial_state is not None:
+            restore_scene_state(self.env, self.initial_state, seed=seed)
+        elif seed is not None:
+            self.env.reset(seed=seed)
         else:
             self.env.reset()
         self._view.invalidate()
+        return capture_scene_state(self.env) if self.recorder is not None else None
+
+    def _run_episode(self, engine: Engine, episode: int, attempt: int) -> EpisodeResult:
+        initial_state = self._reset_env(self.seed if episode == 0 and attempt == 1 else None)
         self.scene.on_reset(self.env, self._view)
         # Reset invalidates the command that was seeded when the runner was
         # constructed (and every previous episode's last command).  Rebuild it
@@ -291,7 +308,7 @@ class SimulationRunner:
         engine.start(ctx)
         self._update_sensor_windows()
         if self.recorder is not None:
-            self.recorder.begin_episode(episode, attempt)
+            self.recorder.begin_episode(episode, attempt, initial_state=initial_state)
 
         while not engine.status.is_terminal and self.app.is_running():
             engine.tick(ctx)
@@ -350,8 +367,7 @@ class SimulationRunner:
 
     def _reset_active_scene(self, engine: Engine, ctx: TickContext) -> None:
         """Reset simulator state without tearing down the active teleop node."""
-        self.env.reset()
-        self._view.invalidate()
+        initial_state = self._reset_env()
         self.scene.on_reset(self.env, self._view)
         self._actuation = self.scene.make_actuation(self.env, self._view)
         engine.replace_actuation(ctx, self._actuation)
@@ -359,7 +375,7 @@ class SimulationRunner:
             active = engine.active_nodes
             node = active[0] if active else ""
             task_id = engine.states[node].node.task_id if node else ""
-            self.recorder.restart_episode(node=node, task_id=task_id)
+            self.recorder.restart_episode(node=node, task_id=task_id, initial_state=initial_state)
         for window in self._sensor_windows:
             window.on_scene_reset()
         logger.info("teleop scene reset")
