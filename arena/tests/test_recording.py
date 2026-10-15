@@ -412,3 +412,23 @@ def test_the_recorder_stores_frames_at_the_recorded_edge(tmp_path) -> None:
 
     with h5py.File(path, "r") as handle:
         assert handle["data/demo_0/obs/fluoroscopy"].shape == (1, 48, 48, 3)
+
+
+def test_the_initial_scene_state_is_stored_with_the_episode(tmp_path) -> None:
+    """Replay restores it, so the recorded actions meet the objects where they were (NVBug 6928931)."""
+    path = tmp_path / "recording.hdf5"
+    workflow = SimpleNamespace(name="example", mode="rule_based", scene="example_scene")
+    recorder = EpisodeRecorder(path, workflow=workflow)
+    pose = np.array([[0.1, -0.1, 0.0, 0.7, 0.0, 0.0, 0.7]], dtype=np.float32)
+
+    recorder.begin_episode(0, 1, initial_state={"rigid_object": {"organs": {"root_pose": pose}}})
+    recorder.on_step(np.zeros((1, 6), dtype=np.float32), _View())
+    recorder.end_episode(_result(), keep=True)
+    recorder.begin_episode(1, 1)
+    recorder.on_step(np.zeros((1, 6), dtype=np.float32), _View())
+    recorder.end_episode(_result(), keep=True)
+    recorder.close()
+
+    with h5py.File(path, "r") as handle:
+        np.testing.assert_array_equal(handle["data/demo_0/initial_state/rigid_object/organs/root_pose"][()], pose)
+        assert "initial_state" not in handle["data/demo_1"]

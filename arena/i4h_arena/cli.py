@@ -241,6 +241,24 @@ def _check_fluoroscopy_device(args: argparse.Namespace) -> None:
         raise SystemExit(f"--fluoro-device cuda: {failure}")
 
 
+def _replay_initial_state(args: argparse.Namespace, workflow) -> dict | None:
+    """The scene state the replayed episode was recorded from, if it was stored."""
+    if workflow.mode != "replay":
+        return None
+    from i4h_arena.recording.scene_state import load_initial_state
+
+    episode = int(str(args.episode).split(",")[0])
+    state = load_initial_state(args.dataset, episode)
+    if state is None:
+        logger.warning(
+            "%s episode %s has no initial scene state (recorded before it was stored); "
+            "the scene resets with its own randomization, so objects may not be where they were recorded",
+            args.dataset,
+            episode,
+        )
+    return state
+
+
 def _launch(args: argparse.Namespace, workflow) -> int:
     # This function-local import must remain below workflow resolution.
     from i4h_arena.app import launch_app
@@ -287,6 +305,7 @@ def _launch(args: argparse.Namespace, workflow) -> int:
                     f"available camera-compatible sensors: {list(cameras)}"
                 )
         recorder = EpisodeRecorder(args.record, workflow=workflow, cameras=cameras) if args.record else None
+        initial_state = _replay_initial_state(args, workflow)
         keys = Keys(args.namespace or workflow.name)
         publisher = ScenePublisher(bus, keys, cameras=cameras) if bus is not None else None
         try:
@@ -314,6 +333,7 @@ def _launch(args: argparse.Namespace, workflow) -> int:
                 sensor_view_display_controls=scene.sensor_view_display_controls(),
                 sensor_view_sliders=scene.sensor_view_sliders(),
                 sensor_view_readouts=scene.sensor_view_readouts(env),
+                initial_state=initial_state,
             )
             summary = runner.run()
             print(summary.render())
