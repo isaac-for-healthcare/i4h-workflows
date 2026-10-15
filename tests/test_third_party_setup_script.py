@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Private repository transport selection and physics solver compatibility checks."""
+"""Private repository transport selection, release checkout reuse, and physics solver compatibility checks."""
 
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -14,6 +15,16 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 THIRD_PARTY_SETUP = ROOT / "third_party" / "setup.sh"
 SOLVER_API = ("register_rod", "set_root_pose_gpu", "proximal_reaction")
+# Real Git, isolated from the developer's config so signing or hooks cannot interfere.
+GIT_ENV = {
+    **os.environ,
+    "GIT_CONFIG_GLOBAL": os.devnull,
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_AUTHOR_NAME": "i4h",
+    "GIT_AUTHOR_EMAIL": "i4h@example.com",
+    "GIT_COMMITTER_NAME": "i4h",
+    "GIT_COMMITTER_EMAIL": "i4h@example.com",
+}
 
 
 def _run_setup(
@@ -92,8 +103,8 @@ def test_private_repositories_follow_ssh_root_origin(tmp_path: Path) -> None:
     assert "private repository transport: ssh" in result.stdout
     assert "carries the coupled-arm solver contract" in result.stdout
     assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
-    assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-sensor-simulation-internal.git" in git_log
-    assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-digital-twin-internal.git" in git_log
+    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git" in git_log
+    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-digital-twin.git" in git_log
 
 
 def test_private_repositories_follow_https_root_origin(tmp_path: Path) -> None:
@@ -107,8 +118,8 @@ def test_private_repositories_follow_https_root_origin(tmp_path: Path) -> None:
     assert (
         "remote set-url origin https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
     )
-    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-sensor-simulation-internal.git" in git_log
-    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-digital-twin-internal.git" in git_log
+    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git" in git_log
+    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-digital-twin.git" in git_log
 
 
 def test_private_repositories_default_to_https_without_root_origin(tmp_path: Path) -> None:
@@ -134,3 +145,67 @@ def test_physics_checkout_missing_required_solver_api_is_rejected(tmp_path: Path
     assert f"coupled-arm solver contract: {missing_symbol}\n" in result.stderr
     assert "I4H_PHYSICS_SIM_REF" in result.stderr
     assert "carries the coupled-arm solver contract" not in result.stdout
+
+
+def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for variable in ("I4H_PHYSICS_SIM_REF", "I4H_SENSOR_SIM_REF", "I4H_DIGITAL_TWIN_REF"):
+        monkeypatch.delenv(variable, raising=False)
+    result, git_log = _run_setup(tmp_path, "")
+    assert result.returncode == 0, result.stderr
+    for component, ref in (
+        ("physics-simulation", "v0.9.0-rc2"),
+        ("sensor-simulation", "v0.9.0-rc2"),
+        ("digital-twin", "v0.9.0-rc2"),
+    ):
+        assert any(
+            f"i4h-{component}-internal fetch" in line and line.endswith(f"origin {ref}")
+            for line in git_log.splitlines()
+        )
+
+
+def _git(*args: str, cwd: Path) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=cwd, env=GIT_ENV, capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+def _checkout_ref(third_party: Path, url: str, ref: str) -> subprocess.CompletedProcess[str]:
+    source = THIRD_PARTY_SETUP.read_text(encoding="utf-8")
+    functions = ""
+    for name in ("ensure_origin_url", "checkout_ref"):
+        match = re.search(rf"^{name}\(\) {{\n.*?^}}\n", source, re.MULTILINE | re.DOTALL)
+        assert match, f"{name} is missing from {THIRD_PARTY_SETUP}"
+        functions += match.group(0)
+    script = f'set -euo pipefail\nTHIRD_PARTY_DIR="$1"\nLOG_PREFIX=test\n{functions}checkout_ref physics "$2" "$3"\n'
+    return subprocess.run(
+        ["bash", "-c", script, "checkout_ref", str(third_party), url, ref],
+        env=GIT_ENV,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_annotated_release_tag_rerun_keeps_local_edits(tmp_path: Path) -> None:
+    # The fake Git reports one object ID for every rev-parse, so it cannot tell an annotated
+    # tag from the commit it names. Run the real checkout functions against a real tag.
+    remote = tmp_path / "remote"
+    remote.mkdir()
+    _git("init", "-q", cwd=remote)
+    (remote / "solver.py").write_text("release = 1\n", encoding="utf-8")
+    _git("add", "solver.py", cwd=remote)
+    _git("commit", "-q", "-m", "release", cwd=remote)
+    _git("tag", "-a", "-m", "release", "v0.9-rc1", cwd=remote)
+    release_commit = _git("rev-parse", "HEAD", cwd=remote)
+    third_party = tmp_path / "third_party"
+    checkout = third_party / "physics"
+
+    first = _checkout_ref(third_party, remote.as_uri(), "v0.9-rc1")
+    assert first.returncode == 0, first.stderr
+    assert _git("rev-parse", "HEAD", cwd=checkout) == release_commit
+
+    (checkout / "solver.py").write_text("release = 1  # local solver edit\n", encoding="utf-8")
+    rerun = _checkout_ref(third_party, remote.as_uri(), "v0.9-rc1")
+    assert rerun.returncode == 0, rerun.stderr
+    assert "is now" not in rerun.stdout
+    assert (checkout / "solver.py").read_text(encoding="utf-8") == "release = 1  # local solver edit\n"
