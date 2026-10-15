@@ -9,6 +9,7 @@ import h5py
 import numpy as np
 
 from i4h_arena.recording.hdf5 import CAMERA_COMPRESSION, EpisodeRecorder, downsample_frame
+from i4h_arena.recording.scene_state import load_initial_state
 
 
 class _Frame:
@@ -432,3 +433,52 @@ def test_the_initial_scene_state_is_stored_with_the_episode(tmp_path) -> None:
     with h5py.File(path, "r") as handle:
         np.testing.assert_array_equal(handle["data/demo_0/initial_state/rigid_object/organs/root_pose"][()], pose)
         assert "initial_state" not in handle["data/demo_1"]
+
+
+def _record_needle_episode(path, *, per_demo_scene: bool = True) -> np.ndarray:
+    pose = np.array([[0.01, 0.02, 0.0, 1.0, 0.0, 0.0, 0.0]], dtype=np.float32)
+    workflow = SimpleNamespace(name="surgical_lift_needle", mode="rule_based", scene="psm_needle")
+    recorder = EpisodeRecorder(path, workflow=workflow)
+    recorder.begin_episode(0, 1, initial_state={"rigid_object": {"object": {"root_pose": pose}}})
+    recorder.on_step(np.zeros((1, 8), dtype=np.float32), _View())
+    recorder.end_episode(_result(), keep=True)
+    recorder.close()
+    if not per_demo_scene:  # as a recording made before scenes were stored per episode
+        with h5py.File(path, "a") as handle:
+            del handle["data/demo_0"].attrs["scene"]
+    return pose
+
+
+def test_the_initial_state_restores_only_in_the_scene_it_was_recorded_in(tmp_path, caplog) -> None:
+    """psm_needle and psm_block both name their manipulandum ``object``; asset names cannot tell them apart."""
+    path = tmp_path / "needle.hdf5"
+    pose = _record_needle_episode(path)
+
+    restored = load_initial_state(path, 0, "psm_needle")
+    with caplog.at_level("WARNING", logger="i4h_arena.recording"):
+        elsewhere = load_initial_state(path, 0, "psm_block")
+
+    np.testing.assert_array_equal(restored["rigid_object"]["object"]["root_pose"], pose)
+    assert elsewhere is None
+    assert "recorded in scene 'psm_needle', not 'psm_block'" in caplog.text
+
+
+def test_a_recording_without_a_per_episode_scene_falls_back_to_the_file_scene(tmp_path) -> None:
+    path = tmp_path / "needle.hdf5"
+    _record_needle_episode(path, per_demo_scene=False)
+
+    assert load_initial_state(path, 0, "psm_needle") is not None
+    assert load_initial_state(path, 0, "psm_block") is None
+
+
+def test_a_recording_without_an_initial_state_replays_from_a_fresh_reset(tmp_path, caplog) -> None:
+    path = tmp_path / "old.hdf5"
+    recorder = EpisodeRecorder(path, workflow=SimpleNamespace(name="example", mode="rule_based", scene="psm_needle"))
+    recorder.begin_episode(0, 1)
+    recorder.on_step(np.zeros((1, 8), dtype=np.float32), _View())
+    recorder.end_episode(_result(), keep=True)
+    recorder.close()
+
+    with caplog.at_level("WARNING", logger="i4h_arena.recording"):
+        assert load_initial_state(path, 0, "psm_needle") is None
+    assert "has no initial scene state" in caplog.text

@@ -261,6 +261,9 @@ class EpisodeRecorder:
         demo.attrs["num_samples"] = len(self._actions)
         demo.attrs["workflow"] = self.workflow.name
         demo.attrs["mode"] = self.workflow.mode
+        # Per episode as well as on /data: a file can collect episodes from
+        # several workflows, and the initial state is only valid in its own scene.
+        demo.attrs["scene"] = self.workflow.scene
         demo.attrs["episode_index"] = result.index
         demo.attrs["attempt_index"] = result.attempt
         demo.attrs["status"] = result.status.value

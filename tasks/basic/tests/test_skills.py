@@ -210,6 +210,16 @@ def test_keyframes_correction_adds_to_the_pan_offset(ctx):
     np.testing.assert_allclose(target[1:], 0.005, atol=1e-5)
 
 
+@pytest.mark.parametrize("gains", [(1.0,), (1.0,) * 5, (1.0,) * 7])
+def test_keyframes_rejects_correction_gains_that_do_not_match_the_joints(ctx, gains):
+    """A single gain would otherwise broadcast to every joint, the jaw included."""
+    reach = Correction(axis=0, reference=0.12, gains=gains, limits=(-0.015, 0.015))
+    task = Keyframes([Frame("a", (0.0,) * 6, 0.05)], relative_to_home=False, corrections=(reach,), name="k")
+
+    with pytest.raises(ValueError, match=rf"has {len(gains)} gains for 6 joints"):
+        task.on_enter(ctx, task.Inputs(reference=Pose.from_xyz(0.125, -0.02, 0.25)))
+
+
 def test_keyframes_rejects_empty():
     with pytest.raises(ValueError, match="at least one keyframe"):
         Keyframes([], name="k")

@@ -242,21 +242,12 @@ def _check_fluoroscopy_device(args: argparse.Namespace) -> None:
 
 
 def _replay_initial_state(args: argparse.Namespace, workflow) -> dict | None:
-    """The scene state the replayed episode was recorded from, if it was stored."""
+    """The scene state the replayed episode was recorded from, if stored for this workflow's scene."""
     if workflow.mode != "replay":
         return None
     from i4h_arena.recording.scene_state import load_initial_state
 
-    episode = int(str(args.episode).split(",")[0])
-    state = load_initial_state(args.dataset, episode)
-    if state is None:
-        logger.warning(
-            "%s episode %s has no initial scene state (recorded before it was stored); "
-            "the scene resets with its own randomization, so objects may not be where they were recorded",
-            args.dataset,
-            episode,
-        )
-    return state
+    return load_initial_state(args.dataset, int(str(args.episode).split(",")[0]), workflow.scene)
 
 
 def _launch(args: argparse.Namespace, workflow) -> int:

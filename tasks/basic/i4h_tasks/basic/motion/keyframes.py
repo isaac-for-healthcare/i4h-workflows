@@ -118,6 +118,15 @@ class Keyframes(Task):
         self._steps = [max(1, round(frame.duration_s / ctx.dt)) for frame in self.frames]
         reference = getattr(inputs, "reference", None)
         self._offset = self._compute_offset(reference, ctx)
+        dof = ctx.scene.joints().dof
+        for correction in self.corrections:
+            # NumPy would broadcast a single gain across every joint, the jaw
+            # included, rather than reject it.
+            if len(correction.gains) != dof:
+                raise ValueError(
+                    f"{self.name}: correction on axis {correction.axis} has {len(correction.gains)} gains "
+                    f"for {dof} joints"
+                )
         self._correction = None
         if reference is not None and self.corrections:
             self._correction = sum(correction.offset(reference) for correction in self.corrections)

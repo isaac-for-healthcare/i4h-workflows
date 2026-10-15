@@ -83,10 +83,40 @@ def _to_torch(value: Any, num_envs: int, device: Any) -> Any:
     return array.repeat(num_envs, *([1] * (array.ndim - 1)))
 
 
-def load_initial_state(dataset: str | Path, episode: int) -> dict[str, Any] | None:
-    """The initial state stored with one recorded episode, or ``None`` if it has none."""
+def load_initial_state(dataset: str | Path, episode: int, scene: str) -> dict[str, Any] | None:
+    """The initial state one recorded episode started from, if it applies to ``scene``.
+
+    ``None``, with a warning, when the episode has no stored state or was
+    recorded in a different scene. Asset names alone cannot tell scenes apart
+    (``psm_needle`` and ``psm_block`` both call their manipulandum ``object``),
+    so the recording's scene is compared by name. The replay then starts from
+    the scene's own reset, as it did before states were recorded.
+    """
     with h5py.File(str(dataset), "r") as handle:
         names = demo_names(handle)
         if episode >= len(names):
             return None
-        return read_initial_state(handle["data"][names[episode]])
+        demo = handle["data"][names[episode]]
+        recorded_scene = demo.attrs.get("scene", handle["data"].attrs.get("scene"))
+        state = read_initial_state(demo)
+    if isinstance(recorded_scene, bytes):
+        recorded_scene = recorded_scene.decode()
+    if state is None:
+        logger.warning(
+            "%s episode %s has no initial scene state (recorded before it was stored); "
+            "the scene resets with its own randomization, so objects may not be where they were recorded",
+            dataset,
+            episode,
+        )
+        return None
+    if recorded_scene and recorded_scene != scene:
+        logger.warning(
+            "%s episode %s was recorded in scene %r, not %r; its initial state is not applied "
+            "and the scene resets with its own randomization",
+            dataset,
+            episode,
+            recorded_scene,
+            scene,
+        )
+        return None
+    return state
