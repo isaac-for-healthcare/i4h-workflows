@@ -67,6 +67,8 @@ def _run_setup(
         "  exit 0\n"
         "fi\n"
         "if [ \"${1:-}\" = 'rev-parse' ]; then\n"
+        # A fresh checkout has recorded no release tags yet, so setup must fetch them.
+        '  case "$*" in *refs/tags/*) exit 1 ;; esac\n'
         "  printf '%s\\n' '1111111111111111111111111111111111111111'\n"
         "fi\n",
         encoding="utf-8",
@@ -209,3 +211,50 @@ def test_annotated_release_tag_rerun_keeps_local_edits(tmp_path: Path) -> None:
     assert rerun.returncode == 0, rerun.stderr
     assert "is now" not in rerun.stdout
     assert (checkout / "solver.py").read_text(encoding="utf-8") == "release = 1  # local solver edit\n"
+
+
+def _commit(remote: Path, text: str) -> str:
+    (remote / "solver.py").write_text(text, encoding="utf-8")
+    _git("add", "solver.py", cwd=remote)
+    _git("commit", "-q", "-m", text, cwd=remote)
+    return _git("rev-parse", "HEAD", cwd=remote)
+
+
+@pytest.mark.parametrize("annotated", [True, False], ids=["annotated", "lightweight"])
+def test_release_tag_rerun_does_not_contact_origin(tmp_path: Path, annotated: bool) -> None:
+    # The Docker image fetches the private components with a build-time token, and each
+    # container's first start runs setup again without it. With the origin gone, a fetch fails
+    # just as that unauthenticated one does.
+    remote = tmp_path / "remote"
+    remote.mkdir()
+    _git("init", "-q", cwd=remote)
+    release_commit = _commit(remote, "release = 1\n")
+    _git("tag", *(("-a", "-m", "release") if annotated else ()), "v0.9.0-rc2", cwd=remote)
+    third_party = tmp_path / "third_party"
+
+    first = _checkout_ref(third_party, remote.as_uri(), "v0.9.0-rc2")
+    assert first.returncode == 0, first.stderr
+    shutil.rmtree(remote)
+
+    rerun = _checkout_ref(third_party, remote.as_uri(), "v0.9.0-rc2")
+    assert rerun.returncode == 0, rerun.stderr
+    assert "is now" not in rerun.stdout
+    assert _git("rev-parse", "HEAD", cwd=third_party / "physics") == release_commit
+
+
+def test_branch_rerun_follows_origin(tmp_path: Path) -> None:
+    remote = tmp_path / "remote"
+    remote.mkdir()
+    _git("init", "-q", "-b", "main", cwd=remote)
+    _commit(remote, "release = 1\n")
+    third_party = tmp_path / "third_party"
+    checkout = third_party / "physics"
+
+    first = _checkout_ref(third_party, remote.as_uri(), "main")
+    assert first.returncode == 0, first.stderr
+    newer_commit = _commit(remote, "release = 2\n")
+
+    rerun = _checkout_ref(third_party, remote.as_uri(), "main")
+    assert rerun.returncode == 0, rerun.stderr
+    assert _git("rev-parse", "HEAD", cwd=checkout) == newer_commit
+    assert _git("tag", "--list", cwd=checkout) == ""
