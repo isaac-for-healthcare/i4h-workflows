@@ -220,23 +220,26 @@ def _commit(remote: Path, text: str) -> str:
     return _git("rev-parse", "HEAD", cwd=remote)
 
 
-@pytest.mark.parametrize("annotated", [True, False], ids=["annotated", "lightweight"])
-def test_release_tag_rerun_does_not_contact_origin(tmp_path: Path, annotated: bool) -> None:
+@pytest.mark.parametrize("kind", ["annotated", "lightweight", "commit"])
+def test_release_ref_rerun_does_not_contact_origin(tmp_path: Path, kind: str) -> None:
     # The Docker image fetches the private components with a build-time token, and each
     # container's first start runs setup again without it. With the origin gone, a fetch fails
-    # just as that unauthenticated one does.
+    # just as that unauthenticated one does. The release defaults are full commits; a release
+    # tag stays a supported *_REF override.
     remote = tmp_path / "remote"
     remote.mkdir()
     _git("init", "-q", cwd=remote)
     release_commit = _commit(remote, "release = 1\n")
-    _git("tag", *(("-a", "-m", "release") if annotated else ()), "v0.9.0-rc2", cwd=remote)
+    ref = release_commit if kind == "commit" else "v0.9.0-rc2"
+    if kind != "commit":
+        _git("tag", *(("-a", "-m", "release") if kind == "annotated" else ()), ref, cwd=remote)
     third_party = tmp_path / "third_party"
 
-    first = _checkout_ref(third_party, remote.as_uri(), "v0.9.0-rc2")
+    first = _checkout_ref(third_party, remote.as_uri(), ref)
     assert first.returncode == 0, first.stderr
     shutil.rmtree(remote)
 
-    rerun = _checkout_ref(third_party, remote.as_uri(), "v0.9.0-rc2")
+    rerun = _checkout_ref(third_party, remote.as_uri(), ref)
     assert rerun.returncode == 0, rerun.stderr
     assert "is now" not in rerun.stdout
     assert _git("rev-parse", "HEAD", cwd=third_party / "physics") == release_commit
