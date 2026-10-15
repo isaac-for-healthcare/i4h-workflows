@@ -11,6 +11,7 @@ Layout::
         obs/<camera>       (T, H, W, 3) uint8
         diagnostics/<name> (T,) or (T, K) float32
         segments           (S,)
+        initial_state/<family>/<asset>/<field>   (1, ...)
 
 ``segments`` is a structured array of
 ``(node, task_id, start, end)`` recording which workflow node was active for each
@@ -23,11 +24,19 @@ observations, so a recording can be judged after the fact instead of only by
 watching it. It is optional and scene-specific, and readers must tolerate its
 absence. It sits outside ``obs`` so that everything walking observations is
 unaffected by it. Frames a measurement was not reported for hold ``nan``.
+
+``initial_state`` is the scene as the episode's reset left it, before its first
+action: every articulation's root pose and joints, every rigid object's pose,
+in IsaacLab's ``InteractiveScene.get_state(is_relative=True)`` layout with env 0
+kept as a batch of one. Actions alone do not determine an episode when the
+reset randomizes object poses, so replay restores this state instead of drawing
+a new one. It is optional; recordings made before it existed replay from a
+fresh reset.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -38,6 +47,7 @@ import numpy as np
 DATA_GROUP = "data"
 SEGMENTS = "segments"
 DIAGNOSTICS_GROUP = "diagnostics"
+INITIAL_STATE_GROUP = "initial_state"
 
 #: h5py structured dtype for the segments dataset.
 SEGMENT_DTYPE = np.dtype(
@@ -142,6 +152,37 @@ def read_segments(demo: h5py.Group) -> tuple[Segment, ...]:
     return tuple(out)
 
 
+#: Nested ``{family: {asset: {field: array}}}`` scene state; see the module docstring.
+StateTree = Mapping[str, Any]
+
+
+def write_initial_state(demo: h5py.Group, state: StateTree | None) -> None:
+    """Attach the scene state an episode started from, replacing any existing one."""
+    if INITIAL_STATE_GROUP in demo:
+        del demo[INITIAL_STATE_GROUP]
+    if not state:
+        return
+    _write_tree(demo.create_group(INITIAL_STATE_GROUP), state)
+
+
+def _write_tree(group: h5py.Group, tree: StateTree) -> None:
+    for key, value in tree.items():
+        if isinstance(value, Mapping):
+            _write_tree(group.create_group(key), value)
+        else:
+            group.create_dataset(key, data=np.asarray(value))
+
+
+def read_initial_state(demo: h5py.Group) -> dict[str, Any] | None:
+    """The scene state an episode started from, or ``None`` for recordings without it."""
+    group = demo.get(INITIAL_STATE_GROUP)
+    return None if group is None else _read_tree(group)
+
+
+def _read_tree(group: h5py.Group) -> dict[str, Any]:
+    return {key: _read_tree(value) if isinstance(value, h5py.Group) else value[()] for key, value in group.items()}
+
+
 def _as_str(value: Any) -> str:
     return value.decode() if isinstance(value, bytes) else str(value)
 
@@ -194,6 +235,10 @@ class Episode:
     @property
     def segments(self) -> tuple[Segment, ...]:
         return read_segments(self.group)
+
+    @property
+    def initial_state(self) -> dict[str, Any] | None:
+        return read_initial_state(self.group)
 
     def segment(self, node: str) -> Segment | None:
         """The first segment produced by ``node``, if the recording is tagged."""

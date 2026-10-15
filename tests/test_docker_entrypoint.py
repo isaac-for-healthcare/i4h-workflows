@@ -18,7 +18,7 @@ def test_image_defaults_and_caches_use_persistent_state(tmp_path: Path) -> None:
     default_setup = tmp_path / "default-setup-projects"
     default_setup.write_text("workflows arena\n", encoding="utf-8")
     env = os.environ.copy()
-    for name in ("HF_HOME", "I4H_SETUP_PROJECTS", "UV_CACHE_DIR", "UV_PYTHON_INSTALL_DIR"):
+    for name in ("GIT_TERMINAL_PROMPT", "HF_HOME", "I4H_SETUP_PROJECTS", "UV_CACHE_DIR", "UV_PYTHON_INSTALL_DIR"):
         env.pop(name, None)
     env.update(
         {
@@ -34,7 +34,8 @@ def test_image_defaults_and_caches_use_persistent_state(tmp_path: Path) -> None:
             str(ENTRYPOINT),
             "bash",
             "-c",
-            'printf \'%s\\n\' "$I4H_SETUP_PROJECTS" "$HF_HOME" ' f'"$UV_CACHE_DIR" "$UV_PYTHON_INSTALL_DIR" > {output}',
+            'printf \'%s\\n\' "$I4H_SETUP_PROJECTS" "$HF_HOME" '
+            f'"$UV_CACHE_DIR" "$UV_PYTHON_INSTALL_DIR" "$GIT_TERMINAL_PROMPT" > {output}',
         ],
         cwd=ROOT,
         env=env,
@@ -49,6 +50,7 @@ def test_image_defaults_and_caches_use_persistent_state(tmp_path: Path) -> None:
         str(tmp_path / "state" / "huggingface"),
         str(tmp_path / "state" / "uv-cache"),
         str(tmp_path / "state" / "python"),
+        "0",
     ]
 
 

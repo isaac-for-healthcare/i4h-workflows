@@ -43,6 +43,11 @@ docker build \
 
 After building, remove the temporary environment variable with `unset GH_TOKEN`.
 
+Containers reuse the component release checkouts made during the build, so running the
+image needs no GitHub credentials. Git prompts are disabled in the container: a fetch that
+does need credentials, such as an `I4H_PHYSICS_SIM_REF` override for the private physics
+component, fails instead of waiting for a login.
+
 The Dockerfile uses NVIDIA's Ubuntu 24.04 base for both amd64 and arm64. Isaac Sim, PyTorch, and their CUDA libraries come from the component locks instead of being duplicated by a larger base image.
 
 ## Run
