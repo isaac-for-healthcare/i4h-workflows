@@ -590,15 +590,18 @@ def launch(
     epochs: int,
     overrides: tuple[str, ...],
 ) -> int:
-    from i4h_rl.composition import compose_config, configure_video, eval_video_dir
+    from i4h_rl.composition import compose_config, configure_launch, eval_video_dir, write_runtime_config
 
     config = compose_config(profile.trainer_config, overrides)
-    require_video = configure_video(config, only_eval=args.only_eval, video=args.video)
     model_path = args.resolved_model_path
     native_checkpoint: Path | None = None
     if args.only_eval:
         checkpoint_source = resolve_input_path(workflows_root, args.rl_model_path)
         native_checkpoint = checkpoint_root(weights(checkpoint_source))
+    resume_dir = None
+    if args.resume_dir:
+        resume_source = resolve_input_path(workflows_root, args.resume_dir)
+        resume_dir = checkpoint_root(weights(resume_source))
 
     model_runtime = _model_runtime_python(workflows_root, args.runtime_python, profile.model_runtime)
     sim_runtime = _sim_runtime_python(workflows_root, args.sim_runtime_python)
@@ -606,12 +609,25 @@ def launch(
     model_gpu = args.resolved_model_gpu
     sim_gpu = args.resolved_sim_gpu
     shared_gpu = model_gpu == sim_gpu
+    run_dir = resolve_run_dir(workflows_root, profile.workflow, args.run_dir)
+    run_dir.mkdir(parents=True, exist_ok=False)
+    require_video = configure_launch(
+        config,
+        model_path=model_path,
+        run_dir=run_dir,
+        num_envs=num_envs,
+        max_epochs=epochs,
+        only_eval=args.only_eval,
+        video=args.video,
+        resume_dir=resume_dir,
+        rl_model_path=native_checkpoint,
+    )
+    runtime_config = write_runtime_config(config, run_dir)
+    model_env["RLINF_CONFIG_FILE"] = str(runtime_config)
     _model_preflight(model_runtime, model_env, require_two_gpus=not shared_gpu)
     sim_env = _sim_env(workflows_root, model_env, gpu=sim_gpu)
     _sim_preflight(sim_runtime, sim_env)
 
-    run_dir = resolve_run_dir(workflows_root, profile.workflow, args.run_dir)
-    run_dir.mkdir(parents=True, exist_ok=False)
     metadata = {
         "schema_version": 1,
         "workflow": profile.workflow,
@@ -622,6 +638,7 @@ def launch(
         "adapter_module": profile.adapter_module,
         "model_path": str(model_path),
         "trainer_config": str(profile.trainer_config),
+        "runtime_config": str(runtime_config),
         "run_dir": str(run_dir),
         "num_envs": num_envs,
         "max_epochs": epochs,
@@ -644,7 +661,7 @@ def launch(
         "-m",
         "i4h_rl.launcher",
         "--config",
-        str(profile.trainer_config),
+        str(runtime_config),
         "--model-path",
         str(model_path),
         "--run-dir",
@@ -658,13 +675,12 @@ def launch(
         command.append("--only-eval")
     if args.video:
         command.append("--video")
-    if args.resume_dir:
-        resume_source = resolve_input_path(workflows_root, args.resume_dir)
-        command.extend(("--resume-dir", str(checkpoint_root(weights(resume_source)))))
+    if resume_dir is not None:
+        command.extend(("--resume-dir", str(resume_dir)))
     if native_checkpoint is not None:
         command.extend(("--rl-model-path", str(native_checkpoint)))
-    for override in overrides:
-        command.extend(("--set", override))
+    # Overrides are already composed into runtime_config. Applying them twice
+    # would reject Hydra '+' additions and could diverge from preflight.
 
     socket_path = Path("/tmp") / f"i4h-rl-{os.getpid()}.sock"
     ready_file = run_dir / "simulator.ready"
@@ -753,6 +769,8 @@ def export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -
         raise SystemExit(f"--train-config does not exist: {resolved_train_config}")
     runtime = _model_runtime_python(workflows_root, args.runtime_python, profile.model_runtime)
     env = _runtime_env(workflows_root, profile)
+    if resolved_train_config is not None:
+        env["RLINF_CONFIG_FILE"] = str(resolved_train_config)
     _model_preflight(runtime, env, require_two_gpus=False)
     output = resolve_output_path(workflows_root, args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
