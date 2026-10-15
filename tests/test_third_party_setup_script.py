@@ -67,8 +67,8 @@ def _run_setup(
         "  exit 0\n"
         "fi\n"
         "if [ \"${1:-}\" = 'rev-parse' ]; then\n"
-        # A fresh checkout has recorded no release tags yet, so setup must fetch them.
-        '  case "$*" in *refs/tags/*) exit 1 ;; esac\n'
+        # A fresh checkout holds no pinned commits or release tags yet, so setup must fetch them.
+        '  case "$*" in "rev-parse --verify --quiet "*) exit 1 ;; esac\n'
         "  printf '%s\\n' '1111111111111111111111111111111111111111'\n"
         "fi\n",
         encoding="utf-8",
@@ -155,9 +155,9 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
     result, git_log = _run_setup(tmp_path, "")
     assert result.returncode == 0, result.stderr
     for component, ref in (
-        ("physics-simulation", "v0.9.0-rc2"),
-        ("sensor-simulation", "v0.9.0-rc2"),
-        ("digital-twin", "v0.9.0-rc2"),
+        ("physics-simulation", "c6fa58acfcbcb233c76bd3ca253d8011f3285f97"),
+        ("sensor-simulation", "f7bc77c9a1ab7661343c56858e178eaa5ffc206a"),
+        ("digital-twin", "ca68500f2eaa9c1fb504dd5963ffb27a9cf6d4cd"),
     ):
         assert any(
             f"i4h-{component}-internal fetch" in line and line.endswith(f"origin {ref}")
