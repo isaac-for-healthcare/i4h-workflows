@@ -84,6 +84,9 @@ def main(argv: list[str] | None = None) -> int:
         scene.configure_args(scene_args)
         gym_id, env_cfg = scene.gym_spec()
         env_cfg.scene.num_envs = args.num_envs
+        # RL rollouts already collect their observations. Embodiment recorders
+        # otherwise export every reset (including camera frames) to /tmp.
+        env_cfg.recorders = None
         _drop_time_out(env_cfg)
         render_mode = "rgb_array" if args.enable_cameras else None
         env = gym.make(gym_id, cfg=env_cfg, render_mode=render_mode).unwrapped

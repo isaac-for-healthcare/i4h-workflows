@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
+
 from i4h_arena.cli import build_parser
 from i4h_arena.scenes.endoluminal_navigation import resolve_fluoroscopy_backend
 
@@ -50,3 +52,50 @@ def test_fluoroscopy_backend_follows_patient_twin() -> None:
     assert resolve_fluoroscopy_backend(None, None) == "synthetic"
     assert resolve_fluoroscopy_backend(None, "/tmp/patient_twin.yaml") == "slang"
     assert resolve_fluoroscopy_backend("synthetic", "/tmp/patient_twin.yaml") == "synthetic"
+
+
+def _fluoroscopy_args(*extra: str):
+    return build_parser().parse_args(["--workflow", "endoluminal_navigation", *extra])
+
+
+def _device_check(monkeypatch, result: str | None) -> list[int]:
+    from i4h_arena.medical import slang_cuda
+
+    calls: list[int] = []
+    monkeypatch.setattr(slang_cuda, "check_slang_cuda_device", lambda: calls.append(1) or result)
+    return calls
+
+
+def test_a_cuda_fluoroscopy_device_slang_cannot_create_stops_the_run_before_kit(monkeypatch) -> None:
+    from i4h_arena.cli import _check_fluoroscopy_device
+
+    _device_check(monkeypatch, "Slang could not create a CUDA device (Failed to create device!)")
+
+    with pytest.raises(SystemExit, match=r"--fluoro-device cuda: Slang could not create a CUDA device"):
+        _check_fluoroscopy_device(_fluoroscopy_args("--patient-twin", "/tmp/twin.yaml", "--fluoro-device", "cuda"))
+
+
+def test_a_cuda_fluoroscopy_device_slang_can_create_starts_normally(monkeypatch) -> None:
+    from i4h_arena.cli import _check_fluoroscopy_device
+
+    calls = _device_check(monkeypatch, None)
+
+    _check_fluoroscopy_device(_fluoroscopy_args("--fluoro-backend", "slang", "--fluoro-device", "cuda"))
+    assert calls == [1]
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        ("--patient-twin", "/tmp/twin.yaml"),
+        ("--fluoro-device", "cuda"),
+        ("--patient-twin", "/tmp/twin.yaml", "--fluoro-backend", "synthetic", "--fluoro-device", "cuda"),
+    ],
+)
+def test_the_cuda_device_is_only_checked_when_slang_renders_on_it(monkeypatch, extra) -> None:
+    from i4h_arena.cli import _check_fluoroscopy_device
+
+    calls = _device_check(monkeypatch, "unused")
+
+    _check_fluoroscopy_device(_fluoroscopy_args(*extra))
+    assert calls == []

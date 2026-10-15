@@ -98,7 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--presets", choices=("physx", "newton"), default=None, help="override scene physics backend"
     )
     simulation.add_argument("--spacing", type=float, default=4.0, dest="env_spacing")
-    simulation.add_argument("--no-cameras", action="store_true")
+    simulation.add_argument("--no-cameras", action="store_true", help="disable scene cameras and record without images")
     simulation.add_argument("--headless", action="store_true")
     simulation.add_argument("--device", default="cuda:0", help="CUDA device for the simulation")
     simulation.add_argument(
@@ -228,6 +228,19 @@ def _build(args: argparse.Namespace, resolve_workflow) -> object:
     return resolve_workflow(args.workflow, args.mode or None, **kwargs)
 
 
+def _check_fluoroscopy_device(args: argparse.Namespace) -> None:
+    """Fail in seconds rather than after Kit boots when Slang cannot create its CUDA device."""
+    from i4h_arena.scenes.endoluminal_navigation import resolve_fluoroscopy_backend
+
+    if args.fluoro_device != "cuda" or resolve_fluoroscopy_backend(args.fluoro_backend, args.patient_twin) != "slang":
+        return
+    from i4h_arena.medical.slang_cuda import check_slang_cuda_device
+
+    failure = check_slang_cuda_device()
+    if failure is not None:
+        raise SystemExit(f"--fluoro-device cuda: {failure}")
+
+
 def _launch(args: argparse.Namespace, workflow) -> int:
     # This function-local import must remain below workflow resolution.
     from i4h_arena.app import launch_app
@@ -238,6 +251,7 @@ def _launch(args: argparse.Namespace, workflow) -> int:
     args.mode = workflow.mode
     scene = load_scene(workflow.scene, args, register_assets=False)
     scene.configure_args(args)
+    _check_fluoroscopy_device(args)
     with launch_app(args) as app_ctx:
         from i4h_arena.io.publishers import ScenePublisher
         from i4h_arena.recording.hdf5 import EpisodeRecorder

@@ -8,17 +8,22 @@ SO-ARM checkpoint defaults.
 
 from __future__ import annotations
 
+import importlib
 import logging
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, NoReturn
 
 import torch
 import tyro
 
 logger = logging.getLogger("i4h_tasks.gr00t_n17.train")
+
+VideoBackend = Literal["torchcodec", "decord"]
+VIDEO_BACKENDS: tuple[VideoBackend, ...] = ("torchcodec", "decord")
+DECORD_UNSUPPORTED_CODECS = frozenset({"av1"})
 
 
 @dataclass
@@ -86,6 +91,76 @@ class TrainConfig:
     modality_config_path: str | None = None
     """Override the local config.py with a different modality config (debug)."""
 
+    video_backend: VideoBackend | None = None
+    """Decoder for the dataset's camera videos; unset picks the first of ``VIDEO_BACKENDS`` that is installed.
+
+    GR00T defaults to torchcodec and raises rather than falling back when it is
+    missing. No torchcodec wheel built for the pinned torch exists for Linux
+    aarch64, where this project installs decord2 instead.
+    """
+
+    def __post_init__(self) -> None:
+        if self.video_backend is None:
+            self.video_backend = resolve_video_backend()
+
+
+def resolve_video_backend() -> VideoBackend:
+    """Return the first backend in ``VIDEO_BACKENDS`` that is installed.
+
+    Only a backend that is not installed is skipped: the lock installs
+    torchcodec on x86_64 and decord2 on aarch64, so a missing one is the
+    platform's normal state. An installed backend that fails to import, such as
+    a torchcodec whose native libraries no longer match torch or FFmpeg, is a
+    broken install and stops the run instead of quietly switching decoder.
+    """
+    for name in VIDEO_BACKENDS:
+        try:
+            importlib.import_module(name)
+        except ModuleNotFoundError as error:
+            if error.name != name:
+                _broken_video_backend(name, error)
+            logger.info("video backend %s is not installed; trying the next one", name)
+            continue
+        except Exception as error:  # noqa: BLE001 - torchcodec raises RuntimeError/OSError when its native libs fail to load
+            _broken_video_backend(name, error)
+        return name
+    raise SystemExit(f"no video backend for the dataset's camera videos; install one of {', '.join(VIDEO_BACKENDS)}")
+
+
+def _broken_video_backend(name: str, error: Exception) -> NoReturn:
+    others = ", ".join(f"--video-backend {other}" for other in VIDEO_BACKENDS if other != name)
+    raise SystemExit(
+        f"video backend {name} is installed but failed to import ({type(error).__name__}: {error}); "
+        f"repair it, or pass {others} if that backend is installed"
+    ) from error
+
+
+def check_video_codecs(dataset_path: str, backend: VideoBackend | None) -> None:
+    """Refuse a dataset whose camera videos the chosen backend cannot decode.
+
+    decord2 fails on the first AV1 packet, LeRobot's default codec, partway
+    into training rather than at startup. Checks the first video in each
+    directory, since a dataset is encoded with one codec per conversion.
+    """
+    if backend != "decord":
+        return
+    first_videos: dict[Path, Path] = {}
+    for video in sorted(Path(dataset_path).glob("videos/**/*.mp4")):
+        first_videos.setdefault(video.parent, video)
+    if not first_videos:
+        return
+    import av
+
+    for video in first_videos.values():
+        with av.open(str(video)) as container:
+            codec = container.streams.video[0].codec_context.codec.canonical_name
+        if codec in DECORD_UNSUPPORTED_CODECS:
+            raise SystemExit(
+                f"{video} is encoded as {codec}, which the decord video backend cannot decode; "
+                "convert the dataset again with the default --video-codec h264, re-encode its videos as H.264, "
+                "or train where torchcodec is installed"
+            )
+
 
 def _groot_root() -> Path:
     # _finetune.py -> gr00t_n17 package -> tasks package -> component -> tasks -> repository
@@ -99,11 +174,16 @@ def _modality_config_path() -> Path:
 
 
 def _build_cmd(cfg: TrainConfig, launch_script: Path, dataset_path: str) -> list[str]:
-    # Route through our shim for argv setup; no gr00t modifications.
+    # The shim's own options precede the launch script; launch_finetune.py has
+    # no flag for them and tyro would reject them.
+    shim_args = []
+    if cfg.video_backend is not None:
+        shim_args.append(f"--video-backend={cfg.video_backend}")
     cmd = [
         sys.executable,
         "-m",
         "i4h_tasks.gr00t_n17._launcher",
+        *shim_args,
         str(launch_script),
         "--base_model_path",
         cfg.base_model_path,
@@ -162,6 +242,8 @@ def run(cfg: TrainConfig) -> None:
     logger.info("GR00T N1.7 scissor fine-tune configuration:")
     for k, v in vars(cfg).items():
         logger.info("  %s = %s", k, v)
+    logger.info("decoding camera videos with %s", cfg.video_backend)
+    check_video_codecs(cfg.dataset_path[0], cfg.video_backend)
 
     cmd = _build_cmd(cfg, launch_script, cfg.dataset_path[0])
     logger.info("Running: %s", " ".join(cmd))

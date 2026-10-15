@@ -24,6 +24,7 @@ from i4h_rl.artifacts import (
     write_json,
 )
 from i4h_rl.profile import RLProfile
+from i4h_rl.runtime import apply_arm_openmp_env
 
 
 def validate_profile(profile: RLProfile, _workflows_root: Path) -> None:
@@ -111,6 +112,7 @@ def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
     # EULA acceptance itself or stdin-less agent/CI launches stop at a prompt.
     if not env.get("OMNI_KIT_ACCEPT_EULA"):
         env["OMNI_KIT_ACCEPT_EULA"] = "YES"
+    apply_arm_openmp_env(env)
     return env
 
 
