@@ -90,6 +90,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         for field_name in sorted(vars(cfg)):
             print(f"  {field_name} = {getattr(cfg, field_name)!r}")
+        # The one check that needs no GPU: a dataset without a video the
+        # modality config asks for would otherwise pass here and fail at the
+        # first training batch.
+        _finetune.check_datasets(cfg)
         return 0
 
     _finetune.run(cfg)

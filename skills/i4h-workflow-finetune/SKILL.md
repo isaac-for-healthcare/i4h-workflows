@@ -53,7 +53,7 @@ Treat the resolver above as part of the skill contract: a hosted copy may run ou
 
 Read the selected workflow run mode to identify its remote task id. Open `tasks/<project>/i4h_tasks/<project>/manifest/<task>.yaml` and require `train:`. Resolve the project, entry point, base model/config, output defaults, and modality contract from that manifest and the project's `train.py`.
 
-Use the current-chain LeRobot dataset when the prompt omits a path. Verify its embodiment, cameras, task text, feature widths, and episode count are compatible with the remote task.
+Use the current-chain LeRobot dataset when the prompt omits a path. Verify its embodiment, cameras, task text, feature widths, and episode count are compatible with the remote task. For GR00T N1.6 G1 tasks the default modality config requests only the head camera (`ego_view`); the trainer's `--dry-run` checks that every requested video exists in the dataset.
 
 ## Resolve configuration before a long run
 
