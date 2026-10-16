@@ -18,12 +18,13 @@ placement is judged by where the object ends up (``--judge terminal``, the
 default); a scan or sweep is judged by whether the motion happens at all
 (``--judge trajectory``), because its end state looks much like its start.
 ``--camera`` may name several cameras when no single view shows the task. A
-remote task manifest declares these choices in its ``annotate:`` block, and
+workflow declares these choices as ``Workflow(annotate=Annotate(...))``, and
 ``scripts/e2e/run.sh`` passes them here.
 
 Episodes whose sampled frames are identical get one verdict: ``tools/mimic``
 copies a source demo's camera frames into each variant and jitters only the
-actions, so a second call would grade the same pictures again.
+actions, so a second call would grade the same pictures again. The summary
+counts verdicts graded by the model apart from those reused this way.
 """
 
 from __future__ import annotations

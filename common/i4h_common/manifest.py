@@ -50,8 +50,6 @@ class TaskSpec:
     model: dict[str, Any] = field(default_factory=dict)
     pre: dict[str, Any] = field(default_factory=dict)
     post: dict[str, Any] = field(default_factory=dict)
-    #: The manifest's ``annotate:`` block: how the VLM annotator grades recordings.
-    annotate: dict[str, Any] = field(default_factory=dict)
     source: Path | None = None
     _trainable: bool = False
     _resolved: bool = False

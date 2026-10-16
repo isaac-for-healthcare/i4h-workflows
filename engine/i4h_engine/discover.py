@@ -66,7 +66,6 @@ def _spec(path: Path, runtime: str, definition: TaskDef, impl: str | None) -> Ta
         model=dict(definition.model),
         pre=dict(definition.precondition),
         post=dict(definition.postcondition),
-        annotate=dict(definition.annotate),
         source=path,
         _trainable=definition.trainable,
         # Remote specs are complete as written; in-process ones still need the

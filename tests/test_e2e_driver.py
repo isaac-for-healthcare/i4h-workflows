@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""The e2e driver grades recordings with the task manifest's annotate block (NVBug 6941887)."""
+"""The e2e driver grades recordings with the workflow's annotate settings (NVBug 6941887)."""
 
 from __future__ import annotations
 
@@ -10,11 +10,10 @@ from pathlib import Path
 
 import pytest
 
-from i4h_common.taskdef import load_taskdef
+from i4h_engine.loader import load_workflow_module
 
 WORKFLOWS_ROOT = Path(__file__).resolve().parent.parent
 E2E = WORKFLOWS_ROOT / "scripts" / "e2e" / "run.sh"
-LIVER_SCAN = WORKFLOWS_ROOT / "tasks/openpi_pi0/i4h_tasks/openpi_pi0/manifest/ultrasound_liver_scan.yaml"
 
 
 def _dry_run(tmp_path: Path, env: str, *options: str) -> list[list[str]]:
@@ -38,11 +37,11 @@ def _option(command: list[str], name: str) -> str | None:
 
 
 def test_the_liver_scan_is_graded_by_its_visible_criterion_over_both_cameras(tmp_path) -> None:
-    _, _, definition = load_taskdef(LIVER_SCAN)
+    declared = load_workflow_module("ultrasound_liver_scan").workflow.annotate
 
     annotate = _command(_dry_run(tmp_path, "ultrasound_liver_scan"), "i4h-annotator")
 
-    assert _option(annotate, "--task") == definition.annotate["criterion"]
+    assert _option(annotate, "--task") == declared.criterion
     assert _option(annotate, "--task") != "Perform a liver ultrasound."
     assert _option(annotate, "--camera") == "room,wrist"
     assert _option(annotate, "--judge") == "trajectory"
@@ -54,7 +53,7 @@ def test_training_keeps_the_policy_prompt(tmp_path) -> None:
     assert _option(convert, "--task") == "Perform a liver ultrasound."
 
 
-def test_a_task_without_an_annotate_block_is_graded_as_before(tmp_path) -> None:
+def test_a_workflow_without_annotate_settings_is_graded_as_before(tmp_path) -> None:
     annotate = _command(_dry_run(tmp_path, "scissor_pick_and_place"), "i4h-annotator")
 
     assert annotate[annotate.index("i4h-annotator") + 1 :] == [

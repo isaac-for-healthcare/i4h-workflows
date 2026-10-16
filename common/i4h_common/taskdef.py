@@ -61,14 +61,6 @@ class TaskDef:
     #: a released checkpoint nobody retrains simply omits it.
     train: dict[str, Any] = field(default_factory=dict)
 
-    # -- read in the light venv by the e2e driver -------------------------
-    #: How the VLM annotator grades this task's recordings. Keys, all optional:
-    #: ``criterion`` (the visible success condition, when the language prompt
-    #: names no end state a camera can see), ``cameras`` (which to show; the
-    #: annotator otherwise takes the first by name), ``judge`` (``terminal``
-    #: for a placement, ``trajectory`` for a scan or sweep) and ``frames``.
-    annotate: dict[str, Any] = field(default_factory=dict)
-
     #: Override the conventional ``i4h_tasks.<project>.server:main`` entry point.
     backend_entry: str = ""
 
@@ -89,47 +81,6 @@ class TaskDef:
 
 class TaskDefError(ValueError):
     """A task manifest is malformed."""
-
-
-#: How ``tools/annotator`` reads frames: by the end state, or across the attempt.
-ANNOTATE_JUDGES = ("terminal", "trajectory")
-_ANNOTATE_KEYS = frozenset({"criterion", "cameras", "judge", "frames"})
-
-
-def _annotate_block(path: Path, raw: object, cameras: tuple[str, ...]) -> dict[str, Any]:
-    """Validate an ``annotate:`` block; the e2e driver passes it straight to the annotator."""
-    if raw is None:
-        return {}
-    if not isinstance(raw, dict):
-        raise TaskDefError(f"{path}: annotate must be a mapping")
-    unknown = sorted(set(raw) - _ANNOTATE_KEYS)
-    if unknown:
-        raise TaskDefError(f"{path}: unknown annotate keys {unknown}; expected some of {sorted(_ANNOTATE_KEYS)}")
-    block: dict[str, Any] = {}
-    if "criterion" in raw:
-        criterion = " ".join(str(raw["criterion"] or "").split())
-        if not criterion:
-            raise TaskDefError(f"{path}: annotate.criterion is empty")
-        block["criterion"] = criterion
-    if "cameras" in raw:
-        names = raw["cameras"]
-        if isinstance(names, str) or not isinstance(names, list) or not names:
-            raise TaskDefError(f"{path}: annotate.cameras must be a non-empty list")
-        names = [str(name) for name in names]
-        foreign = [name for name in names if cameras and name not in cameras]
-        if foreign:
-            raise TaskDefError(f"{path}: annotate.cameras {foreign} are not among the task's cameras {list(cameras)}")
-        block["cameras"] = names
-    if "judge" in raw:
-        if raw["judge"] not in ANNOTATE_JUDGES:
-            raise TaskDefError(f"{path}: annotate.judge must be one of {list(ANNOTATE_JUDGES)}")
-        block["judge"] = str(raw["judge"])
-    if "frames" in raw:
-        frames = raw["frames"]
-        if isinstance(frames, bool) or not isinstance(frames, int) or frames < 1:
-            raise TaskDefError(f"{path}: annotate.frames must be a positive integer")
-        block["frames"] = frames
-    return block
 
 
 def load_taskdef(path: Path) -> tuple[str, str | None, TaskDef]:
@@ -167,7 +118,6 @@ def load_taskdef(path: Path) -> tuple[str, str | None, TaskDef]:
     if raw.get("prompt") and str(raw["prompt"]).strip().casefold() == str(raw["summary"]).strip().casefold():
         raise TaskDefError(f"{path}: prompt duplicates summary; omit prompt unless it adds detail")
 
-    cameras = tuple(raw.get("cameras", ()) or ())
     return (
         runtime,
         (str(impl) if impl else None),
@@ -175,14 +125,13 @@ def load_taskdef(path: Path) -> tuple[str, str | None, TaskDef]:
             summary=str(raw.get("summary", "")),
             prompt=str(raw.get("prompt", "")),
             embodiment=str(raw.get("embodiment", "")),
-            cameras=cameras,
+            cameras=tuple(raw.get("cameras", ()) or ()),
             requires=dict(raw.get("requires", {}) or {}),
             precondition=dict(raw.get("precondition", {}) or {}),
             postcondition=dict(raw.get("postcondition", {}) or {}),
             model=dict(raw.get("model", {}) or {}),
             observation=dict(raw.get("observation", {}) or {}),
             train=dict(raw.get("train", {}) or {}),
-            annotate=_annotate_block(path, raw.get("annotate"), cameras),
             backend_entry=str(raw.get("backend_entry", "")),
         ),
     )

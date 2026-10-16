@@ -144,19 +144,21 @@ for cam in obs:
 EOF
 ```
 
-The driver grades against the policy task manifest's `annotate:` block, and against the
-task prompt when there is none. If the subject is a few pixels in the graded camera, name a
-better view in `annotate.cameras`. If the prompt names no state a camera can see, as
-`Perform a liver ultrasound.` does not, write one in `annotate.criterion`. If success is a
-motion rather than a resting place, as for a probe sweep, set `annotate.judge: trajectory` so
-the model is not asked to find it in the last frame. Grade the same file by hand with
-`--camera`, `--judge` and `--task` until the verdicts match what the frames show, then put
-those values in the manifest.
+The driver grades against the workflow's `annotate` settings, which `./run.sh show
+<workflow>` prints, and against the policy task's prompt when there are none. If the subject
+is a few pixels in the graded camera, name a better view in `Annotate(cameras=...)`; any
+camera the scene records will do. If the prompt names no state a camera can see, as
+`Perform a liver ultrasound.` does not, write one as the `criterion`. If success is a motion
+rather than a resting place, as for a probe sweep, set `judge="trajectory"` so the model is
+not asked to find it in the last frame. Grade the same file by hand with `--camera`,
+`--judge` and `--task` until the verdicts match what the frames show, then put those values
+in the workflow's `Workflow(annotate=Annotate(...))`.
 
 A recording made before the fix for this entry also ends every termination-based success on a
 frame from the next episode: IsaacLab resets the environment inside the step that
-terminates it. The arena no longer records that step. Re-record rather than grade such a
-file by its final frame.
+terminates it. The arena no longer records that step, and stamps each demo it writes with
+`recording_version` (see `common/i4h_common/episode.py`); the annotator names the demos
+without it. Re-record rather than grade such a file by its final frame.
 
 ## PI0 fine-tuning stops with `wandb.errors.errors.UsageError: No API key configured`
 

@@ -12,7 +12,8 @@ import numpy as np
 import openai
 import pytest
 
-from i4h_common.taskdef import ANNOTATE_JUDGES
+from i4h_common.annotate import JUDGES as ANNOTATE_JUDGES
+from i4h_common.episode import RECORDING_VERSION
 from i4h_tools.annotator import cli
 
 #: The prompt every placement task has been graded with; scissor pick-and-place

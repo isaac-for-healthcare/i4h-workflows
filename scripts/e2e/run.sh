@@ -81,18 +81,18 @@ for node in workflow.graph.nodes:
 if len(remote) != 1:
     raise SystemExit(f"{name}: e2e needs exactly one policy task, found {len(remote)}")
 spec = remote[0]
-# The annotate stage grades against the manifest's visible success criterion
-# when it has one; the policy's language prompt may name no end state at all.
-annotate = spec.annotate
+# The annotate stage grades against the workflow's visible success criterion
+# when it declares one; the policy's language prompt may name no end state.
+annotate = workflow.annotate
 print(spec.project)
 print(spec.id)
 print(spec.requires.get("embodiment", ""))
 print(" ".join(spec.effective_prompt.split()))
 print("1" if spec.trainable else "0")
-print(annotate.get("criterion") or " ".join(spec.effective_prompt.split()))
-print(",".join(annotate.get("cameras", ())))
-print(annotate.get("judge", ""))
-print(annotate.get("frames", ""))
+print((annotate and annotate.criterion) or " ".join(spec.effective_prompt.split()))
+print(",".join(annotate.cameras) if annotate else "")
+print(annotate.judge if annotate else "")
+print((annotate and annotate.frames) or "")
 PY
 ); then
   echo "[e2e] $ENV_ID does not provide a policy mode; use ./run.sh $ENV_ID --rule-based" >&2
