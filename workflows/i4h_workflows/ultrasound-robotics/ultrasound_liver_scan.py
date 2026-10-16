@@ -8,6 +8,7 @@ manifest lookup, so swapping to a GR00T checkpoint would be a one-string edit.
 
 from __future__ import annotations
 
+from i4h_common.annotate import Annotate
 from i4h_engine.graph import TaskGraph, node
 from i4h_engine.interface import Workflow
 from i4h_tasks.basic.control.hold import Hold
@@ -95,9 +96,30 @@ def success(ctx) -> object:
     return ctx.scene.termination("success")
 
 
+#: How a vision model grades a recording of this workflow (the e2e annotate
+#: stage). The policy prompt, "Perform a liver ultrasound.", names no state a
+#: camera can see, and a scan ends much as it starts -- the probe resting on the
+#: phantom -- so the grader is told what contact looks like, shown both views
+#: (the probe tip is a few pixels in the 224 px room camera, and the wrist
+#: camera alone cannot show where on the phantom it is), and asked whether the
+#: scan happens across the attempt rather than how it ends. "Most of the
+#: attempt" is what rejects a probe that only touches down at the very end.
+#: Six frames cannot measure ``success``'s 10 cm of travel: this catches scans
+#: that never reach or leave the phantom, not ones that stop short.
+ANNOTATE = Annotate(
+    criterion=(
+        "The ultrasound probe on the robot's wrist rests on the abdominal phantom "
+        "(the orange organ model on the table) for most of the attempt and scans along its surface."
+    ),
+    cameras=("room", "wrist"),
+    judge="trajectory",
+)
+
+
 WORKFLOW = Workflow(
     scene="panda_phantom",
     success=success,
+    annotate=ANNOTATE,
     modes={
         "policy": lambda: policy("openpi_pi0/ultrasound_liver_scan", until=success),
         "rule-based": rule_based,

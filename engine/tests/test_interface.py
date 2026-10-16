@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 
+from i4h_common.annotate import Annotate
 from i4h_engine.graph import TaskGraph
 from i4h_engine.interface import Workflow
 
@@ -47,3 +48,12 @@ def test_workflow_copies_and_freezes_the_mode_map() -> None:
 def test_workflow_rejects_an_invalid_contract(kwargs, message: str) -> None:
     with pytest.raises((TypeError, ValueError), match=message):
         Workflow(**kwargs)
+
+
+def test_workflow_carries_its_grading_settings() -> None:
+    annotate = Annotate(criterion="The probe scans the phantom.", cameras=("room",), judge="trajectory")
+
+    assert Workflow(scene="example", modes={"idle": _idle}, annotate=annotate).annotate is annotate
+    assert Workflow(scene="example", modes={"idle": _idle}).annotate is None
+    with pytest.raises(TypeError, match="must be an Annotate"):
+        Workflow(scene="example", modes={"idle": _idle}, annotate={"criterion": "x"})  # type: ignore[arg-type]

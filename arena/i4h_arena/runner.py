@@ -56,6 +56,42 @@ def _kit_settings_manager() -> Any:
     return get_settings_manager()
 
 
+def _reset_during_step(env: Any) -> bool:
+    """Whether the last ``env.step`` reset the recorded environment (env 0).
+
+    ``ManagerBasedRLEnv.step`` resets a terminated environment before it
+    returns, so the scene, joints and camera images it leaves behind already
+    belong to the next episode. A workflow whose success is a termination term
+    (the liver scan's is) therefore ends on such a step every time it succeeds.
+    That step is not recorded; ``i4h_common.episode`` documents what this means
+    for a recording.
+    """
+    reset_buf = getattr(getattr(env, "unwrapped", env), "reset_buf", None)
+    if reset_buf is None or len(reset_buf) == 0:
+        return False
+    return bool(reset_buf[0])
+
+
+def _terms_that_reset(env: Any) -> tuple[str, ...]:
+    """The termination terms that ended env 0's episode on the last ``env.step``.
+
+    ``TerminationManager.get_term`` keeps the values of the step that triggered
+    the reset, so they still name the cause after the environment was reset.
+    """
+    manager = getattr(getattr(env, "unwrapped", env), "termination_manager", None)
+    fired: list[str] = []
+    for name in getattr(manager, "active_terms", ()) or ():
+        value = manager.get_term(name)
+        if len(value) and bool(value[0]):
+            fired.append(str(name))
+    return tuple(fired)
+
+
+def _reset_detail(terms: tuple[str, ...]) -> str:
+    named = ", ".join(terms) or "an unnamed term"
+    return f"IsaacLab reset the scene after termination {named} while the workflow was still running"
+
+
 def _render_scene_only(env: Any, app: Any) -> None:
     """Refresh the scene and UI while preventing Kit from advancing physics."""
     sim = getattr(getattr(env, "unwrapped", env), "sim", None)
@@ -310,13 +346,21 @@ class SimulationRunner:
         if self.recorder is not None:
             self.recorder.begin_episode(episode, attempt, initial_state=initial_state)
 
+        #: Termination terms that made IsaacLab reset env 0 inside the last
+        #: ``env.step`` and that the loop has not acted on yet.
+        reset_by: tuple[str, ...] | None = None
+        #: Cleared by such a reset: every later frame belongs to another episode.
+        recording = True
         while not engine.status.is_terminal and self.app.is_running():
             engine.tick(ctx)
             if ctx.consume_scene_reset():
                 self._reset_active_scene(engine, ctx)
+                reset_by, recording = None, True
                 continue
             terminal_advance = engine.status is WorkflowStatus.SUCCEEDED and engine.terminal_advance_requested
-            if engine.status.is_terminal and not terminal_advance:
+            if engine.status.is_terminal and (not terminal_advance or not recording):
+                # A finished workflow may ask for one more step to apply its
+                # last action, but not into an episode IsaacLab already reset.
                 break
             if not engine.advance_requested:
                 _render_scene_only(self.env, self.app)
@@ -331,6 +375,15 @@ class SimulationRunner:
                 if remaining > 0:
                     time.sleep(remaining)
             else:
+                if reset_by is not None:
+                    # IsaacLab reset env 0 inside the last step and the workflow
+                    # did not finish on the tick after it. Checked here, at the
+                    # next step, rather than on the next tick: a remote task may
+                    # tick WAITING for its backend before it reads success again.
+                    detail = _reset_detail(reset_by)
+                    logger.warning("episode %s attempt %s ends: %s", episode, attempt, detail)
+                    engine.abort(ctx, detail=detail)
+                    break
                 # Task terms may lazily allocate persistent tensors during
                 # ``env.step``. ``no_grad`` keeps those tensors mutable for the
                 # next episode reset.
@@ -343,15 +396,47 @@ class SimulationRunner:
                         raise RuntimeError(
                             f"step {engine.step}: non-finite action {command.detach().cpu().numpy().tolist()}"
                         )
-                    self.env.step(command)
+                    try:
+                        self.env.step(command)
+                    except Exception as exc:
+                        # ``env.step`` renders between its physics sub-steps, and
+                        # that render is where Kit handles a closed window. Kit
+                        # then releases the PhysX views the remaining sub-steps
+                        # read (a ReferenceError from the articulation data). The
+                        # attempt ends there rather than taking the run down with
+                        # it; any failure while Kit is still running is a real one.
+                        if self.app.is_running():
+                            raise
+                        # Still named at the default level: a real fault that
+                        # coincides with, or causes, Kit stopping must not be
+                        # reported only as "Isaac Sim was closed".
+                        logger.warning("env.step raised %r while Isaac Sim was closing; ending the attempt", exc)
+                        logger.debug("env.step failure while Isaac Sim was closing", exc_info=True)
+                        break
                 self._view.invalidate()
+                if _reset_during_step(self.env):
+                    reset_by, recording = _terms_that_reset(self.env), False
+                    logger.info(
+                        "step %s: IsaacLab reset the scene after termination %s",
+                        engine.step,
+                        ", ".join(reset_by) or "(unnamed)",
+                    )
             self._update_sensor_windows()
-            if self.recorder is not None:
+            if self.recorder is not None and recording:
+                # A step that reset the environment leaves the next episode's
+                # images and joints behind; recording them would end every
+                # such demo on a frame from a different episode.
                 self.recorder.on_step(self._actuation.numpy(), self._view)
             if self.publisher is not None:
                 active = engine.active_nodes
                 self.publisher.publish(self._view, node=active[0] if active else "", episode_index=episode)
 
+        if not engine.status.is_terminal:
+            # Only a closed simulator stops the loop above with the workflow
+            # still running. Finish it, so the attempt is reported and recorded
+            # (``--record-failures``) as aborted rather than as still running.
+            logger.info("Isaac Sim was closed during episode %s attempt %s; ending it", episode, attempt)
+            engine.abort(ctx, detail="Isaac Sim was closed")
         result = EpisodeResult(
             index=episode,
             attempt=attempt,

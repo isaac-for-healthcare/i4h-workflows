@@ -15,8 +15,11 @@ from __future__ import annotations
 
 import numpy as np
 
+from i4h_common.types import satisfied
 from i4h_engine.graph import TaskGraph, node
 from i4h_engine.interface import Workflow
+from i4h_engine.status import Status
+from i4h_engine.task import TickContext
 from i4h_tasks.basic.control.settle import Settle
 from i4h_tasks.basic.control.wait_until import WaitUntil
 from i4h_tasks.basic.motion.home import Home
@@ -108,6 +111,20 @@ _TRAY_BOX = ((0.02, 0.15, 0.24), (0.22, 0.35, 0.34))
 _HOME_TOLERANCE_M = 0.03
 
 
+class _ScissorHome(Home):
+    """Finish homing when the scene has already confirmed placement and return."""
+
+    def tick(self, ctx: TickContext) -> Status:
+        # The scene's success term checks settled scissors and the tool's home
+        # tolerance. It can reset the scene before Home's interpolation ends.
+        # Consume that retained result before reading or commanding the new
+        # scene; the runner will finish without another physics step.
+        if ctx.step > 0 and satisfied(ctx.scene.termination("success")):
+            self._arrived = True
+            return Status.SUCCESS
+        return super().tick(ctx)
+
+
 def rule_based() -> TaskGraph:
     """The pick-and-place goal decomposed into joint-space stages."""
     locate = node(Locate("scissors", name="locate"))
@@ -124,7 +141,7 @@ def rule_based() -> TaskGraph:
     # (60 steps, up to ~70 while the arm converges on the home tolerance).
     settle = node(Settle("scissors", timeout_s=0.4, name="settle"))
     retreat = node(Keyframes(_RETREAT, name="retreat"))
-    home = node(Home(duration_s=1.0, gripper=_OPEN, name="home"))
+    home = node(_ScissorHome(duration_s=1.0, gripper=_OPEN, name="home"))
     verify = node(
         WaitUntil(
             lambda ctx: inside_box(ctx.scene, "scissors", *_TRAY_BOX),

@@ -482,3 +482,22 @@ def test_a_recording_without_an_initial_state_replays_from_a_fresh_reset(tmp_pat
     with caplog.at_level("WARNING", logger="i4h_arena.recording"):
         assert load_initial_state(path, 0, "psm_needle") is None
     assert "has no initial scene state" in caplog.text
+
+
+def test_every_demo_is_stamped_with_the_recording_rules_it_was_written_under(tmp_path) -> None:
+    """A reader can tell a demo that may end on a post-reset frame from one that cannot (PR 275 review)."""
+    from i4h_common.episode import RECORDING_VERSION, Episode, recording_version
+
+    path = tmp_path / "recording.hdf5"
+    workflow = SimpleNamespace(name="example", mode="policy", scene="example_scene")
+    recorder = EpisodeRecorder(path, workflow=workflow, cameras=())
+    recorder.begin_episode(0, 1)
+    recorder.on_step(np.zeros((1, 6), dtype=np.float32), _View())
+    recorder.end_episode(_result(), keep=True)
+    recorder.close()
+
+    with h5py.File(path, "a") as handle:
+        demo = handle["data/demo_0"]
+        assert demo.attrs["recording_version"] == RECORDING_VERSION == Episode("demo_0", demo).recording_version
+        del demo.attrs["recording_version"]
+        assert recording_version(demo) == 0  # recorded before the rules existed

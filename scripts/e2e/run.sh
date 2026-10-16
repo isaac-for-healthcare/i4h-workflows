@@ -13,6 +13,7 @@ SKIP_MIMIC=0
 SKIP_ANNOTATE=0
 SKIP_REPLAY=0
 SKIP_VIZ=0
+HEADLESS=()
 RUN_DIR=""
 RECORD_EPISODES="${RECORD_EPISODES:-3}"
 RECORD_ATTEMPTS="${RECORD_ATTEMPTS:-3}"
@@ -35,6 +36,8 @@ Options:
   --skip-annotate        trust simulator success and skip VLM filtering
   --skip-replay          skip visual replay
   --skip-viz             skip the LeRobot HTML server
+  --headless             record and replay without the interactive viewport
+                         (checkpoint validation always runs headless)
   -h, --help
 EOF
 }
@@ -50,6 +53,7 @@ while (($#)); do
     --skip-annotate) SKIP_ANNOTATE=1; shift ;;
     --skip-replay) SKIP_REPLAY=1; shift ;;
     --skip-viz) SKIP_VIZ=1; shift ;;
+    --headless) HEADLESS=(--headless); shift ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) ENV_ID="$1"; shift ;;
@@ -77,11 +81,18 @@ for node in workflow.graph.nodes:
 if len(remote) != 1:
     raise SystemExit(f"{name}: e2e needs exactly one policy task, found {len(remote)}")
 spec = remote[0]
+# The annotate stage grades against the workflow's visible success criterion
+# when it declares one; the policy's language prompt may name no end state.
+annotate = workflow.annotate
 print(spec.project)
 print(spec.id)
 print(spec.requires.get("embodiment", ""))
-print(spec.effective_prompt)
+print(" ".join(spec.effective_prompt.split()))
 print("1" if spec.trainable else "0")
+print((annotate and annotate.criterion) or " ".join(spec.effective_prompt.split()))
+print(",".join(annotate.cameras) if annotate else "")
+print(annotate.judge if annotate else "")
+print((annotate and annotate.frames) or "")
 PY
 ); then
   echo "[e2e] $ENV_ID does not provide a policy mode; use ./run.sh $ENV_ID --rule-based" >&2
@@ -94,6 +105,14 @@ TASK_ID="${META[1]}"
 ROBOT="${META[2]}"
 TASK_DESCRIPTION="${META[3]}"
 TRAINABLE="${META[4]}"
+ANNOTATE_CRITERION="${META[5]}"
+ANNOTATE_CAMERAS="${META[6]:-}"
+ANNOTATE_JUDGE="${META[7]:-}"
+ANNOTATE_FRAMES="${META[8]:-}"
+ANNOTATE_ARGS=(--task "$ANNOTATE_CRITERION")
+[ -z "$ANNOTATE_CAMERAS" ] || ANNOTATE_ARGS+=(--camera "$ANNOTATE_CAMERAS")
+[ -z "$ANNOTATE_JUDGE" ] || ANNOTATE_ARGS+=(--judge "$ANNOTATE_JUDGE")
+[ -z "$ANNOTATE_FRAMES" ] || ANNOTATE_ARGS+=(--frames "$ANNOTATE_FRAMES")
 
 RUN_DIR="${RUN_DIR:-runs/${ENV_ID}/$(date +%Y%m%d_%H%M%S)}"
 case "$RUN_DIR" in /*) ;; *) RUN_DIR="$WORKFLOWS_ROOT/$RUN_DIR" ;; esac
@@ -125,6 +144,7 @@ trap cleanup EXIT INT TERM
 
 cat <<EOF
 [e2e] env=$ENV_ID stack=$STACK task=$TASK_ID robot=$ROBOT trainable=$TRAINABLE
+[e2e] annotate: judge=${ANNOTATE_JUDGE:-terminal} cameras=${ANNOTATE_CAMERAS:-first} criterion="$ANNOTATE_CRITERION"
 [e2e] run_dir=$RUN_DIR
 EOF
 
@@ -139,7 +159,7 @@ run ./setup.sh
 
 stage record
 run ./run.sh "$ENV_ID" --policy --episodes "$RECORD_EPISODES" --attempts "$RECORD_ATTEMPTS" \
-  --run-dir "$RUN_DIR/record" --record "$RECORDING"
+  ${HEADLESS[@]+"${HEADLESS[@]}"} --run-dir "$RUN_DIR/record" --record "$RECORDING"
 
 stage mimic
 if [ "$SKIP_MIMIC" -eq 1 ]; then
@@ -157,7 +177,7 @@ else
     VLLM_OWNED=1
   fi
   run tools/annotator/scripts/vllm.sh ensure
-  run uv run --project tools/annotator i4h-annotator --task "$TASK_DESCRIPTION" \
+  run uv run --project tools/annotator i4h-annotator "${ANNOTATE_ARGS[@]}" \
     offline "$EXPANDED" --write --filter "$FILTERED"
   if [ "$VLLM_OWNED" -eq 1 ]; then
     run tools/annotator/scripts/vllm.sh stop
@@ -166,7 +186,8 @@ else
 fi
 
 stage replay
-[ "$SKIP_REPLAY" -eq 1 ] || run ./run.sh "$ENV_ID" --replay "$FILTERED" --episode 0 --run-dir "$RUN_DIR/replay"
+[ "$SKIP_REPLAY" -eq 1 ] || run ./run.sh "$ENV_ID" --replay "$FILTERED" --episode 0 \
+  ${HEADLESS[@]+"${HEADLESS[@]}"} --run-dir "$RUN_DIR/replay"
 
 stage convert
 run uv run --project tools/dataset i4h-dataset convert "$FILTERED" "$DATASET" \

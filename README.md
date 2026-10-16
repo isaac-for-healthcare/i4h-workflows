@@ -424,7 +424,9 @@ From the command line:
 ./scripts/e2e/run.sh --env scissor_pick_and_place
 ```
 
-The runner streams progress to the terminal and prints the exact per-run `workflow.log` path. It performs setup, policy recording, mimic expansion, VLM filtering, replay, LeRobot conversion, visualization, fine-tuning, and checkpoint validation. Use its `--skip-*` flags to omit optional stages.
+The runner streams progress to the terminal and prints the exact per-run `workflow.log` path. It performs setup, policy recording, mimic expansion, VLM filtering, replay, LeRobot conversion, visualization, fine-tuning, and checkpoint validation. Use its `--skip-*` flags to omit optional stages, and `--headless` on a host without a display.
+
+VLM filtering grades each episode against the workflow's `annotate` settings (`Workflow(annotate=Annotate(...))`), which name the visible success criterion, the cameras to show, and whether to judge the final state or the motion; `./run.sh show <workflow>` prints them, and a workflow without them is graded on its policy task's prompt. Fine-tuning needs no Weights & Biases account: PI0 logs there only with `--wandb` or `train.wandb: true` in its task manifest, and GR00T logs to TensorBoard.
 
 ## Further Documentation
 

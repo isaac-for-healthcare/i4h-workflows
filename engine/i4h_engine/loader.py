@@ -24,6 +24,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from i4h_common.annotate import Annotate
 from i4h_common.paths import workflow_root
 from i4h_engine.graph import TaskGraph
 from i4h_engine.interface import Workflow
@@ -39,6 +40,8 @@ class ResolvedWorkflow:
     scene: str
     mode: str
     graph: TaskGraph
+    #: How a vision model grades the workflow's recordings, whatever the mode.
+    annotate: Annotate | None = None
 
     @property
     def max_steps(self) -> int | None:
@@ -158,7 +161,7 @@ def resolve_workflow(
     graph = authored.modes[chosen](**kwargs)
     if not isinstance(graph, TaskGraph):
         raise TypeError(f"{name}[{chosen}] must build a TaskGraph, got {type(graph).__name__}")
-    return ResolvedWorkflow(name=name, scene=authored.scene, mode=chosen, graph=graph)
+    return ResolvedWorkflow(name=name, scene=authored.scene, mode=chosen, graph=graph, annotate=authored.annotate)
 
 
 def apply_overrides(
