@@ -74,6 +74,9 @@ SUITES = {
                 "tasks/basic/tests",
                 "tasks/gr00t_n15/tests",
                 "tasks/gr00t_n16/tests",
+                # The openpi-free half of the PI0 trainer tests; the rest need
+                # the openpi checkout and run in that project's environment.
+                "tasks/openpi_pi0/tests/test_openpi_pi0_train_options.py",
                 "rl/tests/test_rsl_rl_arm_runtime.py",
                 "tasks/ik/tests",
                 "tasks/rsl_rl/tests",
@@ -83,6 +86,7 @@ SUITES = {
     ),
     "tools": (
         TestCommand("trajectory mimic", "tools/mimic", ("tools/mimic/tests",)),
+        TestCommand("VLM annotator", "tools/annotator", ("tools/annotator/tests",)),
         TestCommand("dataset conversion", "tools/dataset", ("tools/dataset/tests",)),
         TestCommand(
             "patient twin",

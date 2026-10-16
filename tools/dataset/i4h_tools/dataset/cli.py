@@ -174,8 +174,18 @@ def _to_policy_joint_coordinates(values: np.ndarray, config) -> np.ndarray:
     return isaaclab_rad_to_lerobot(values, isaaclab_range, lerobot_range).astype(np.float32)
 
 
-def _write_g1_wbc_modality(target: Path) -> Path:
-    """Write the GR00T-specific semantic slices for a converted G1 dataset."""
+#: GR00T video keys for G1 cameras whose policy-facing name differs from the
+#: recorded one. The N1.6 G1 checkpoints call the head camera ``ego_view``.
+G1_VIDEO_KEYS = {"head": "ego_view"}
+
+
+def _write_g1_wbc_modality(target: Path, *, cameras: tuple[str, ...]) -> Path:
+    """Write the GR00T-specific semantic slices for a converted G1 dataset.
+
+    Video entries are written only for ``cameras``, the ones the recording
+    holds: GR00T asserts that every video a modality config requests exists in
+    ``info.json``, so an entry for an unrecorded camera breaks the first batch.
+    """
     modality = {
         "state": {
             "waist": {"start": 12, "end": 15},
@@ -193,8 +203,7 @@ def _write_g1_wbc_modality(target: Path) -> Path:
             "base_height_command": {"start": 46, "end": 47},
         },
         "video": {
-            "ego_view": {"original_key": "observation.images.head"},
-            "room": {"original_key": "observation.images.room"},
+            G1_VIDEO_KEYS.get(camera, camera): {"original_key": f"observation.images.{camera}"} for camera in cameras
         },
         "annotation": {
             "human.task_description": {"original_key": "task_index"},
@@ -646,7 +655,7 @@ def convert(
             state_width=state_width,
             action_width=action_width,
         ):
-            _write_g1_wbc_modality(target)
+            _write_g1_wbc_modality(target, cameras=cameras)
         logger.info("wrote %s episodes from %s recordings to %s", written, len(inputs), target)
         return written
 

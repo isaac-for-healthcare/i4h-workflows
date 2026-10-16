@@ -90,14 +90,22 @@ def test_surgical_scenes_select_newton_settings_from_the_preset() -> None:
 # -- newton_meshes -------------------------------------------------------------
 MESH, BOX = 8, 7  # newton.GeoType values
 COLLIDE = 2  # newton.ShapeFlags.COLLIDE_SHAPES
+DYNAMIC, KINEMATIC = 1, 2  # newton.BodyFlags values
 
 
 def _builder() -> SimpleNamespace:
     return SimpleNamespace(
-        body_label=["/World/envs/env_0/Robot/psm_tool_gripper1_link", "/World/envs/env_0/Object"],
-        shape_type=[MESH, MESH, MESH, BOX, MESH],
-        shape_flags=[COLLIDE, COLLIDE, COLLIDE, COLLIDE, 0],
-        shape_body=[0, 1, -1, 1, 1],
+        body_label=[
+            "/World/envs/env_0/Robot/psm_tool_gripper1_link",
+            "/World/envs/env_0/Object",
+            "/World/envs/env_0/Organs/models_topo_blender/Back_muscles_topo_blender",
+        ],
+        body_flags=[DYNAMIC, DYNAMIC, KINEMATIC],
+        shape_type=[MESH, MESH, MESH, BOX, MESH, MESH],
+        shape_flags=[COLLIDE, COLLIDE, COLLIDE, COLLIDE, 0, COLLIDE],
+        shape_body=[0, 1, -1, 1, 1, 2],
+        shape_label=["jaw", "Object/Needle", "table", "Object/box", "Object/visual", "Back_muscles"],
+        shape_gap=[0.01] * 6,
     )
 
 
@@ -113,7 +121,7 @@ def test_a_registered_body_is_decomposed_and_every_other_collision_mesh_hulled(r
     decompose, hull = newton_meshes._split(_builder())
 
     assert decompose == [1]
-    assert hull == [0, 2]  # the box and the non-colliding mesh are left alone
+    assert hull == [0, 2, 5]  # the box and the non-colliding mesh are left alone
 
 
 def test_static_meshes_can_stay_triangle_meshes(registry) -> None:
@@ -121,6 +129,16 @@ def test_static_meshes_can_stay_triangle_meshes(registry) -> None:
     newton_meshes._keep_static = True
 
     assert newton_meshes._split(_builder()) == ([1], [0])
+
+
+def test_a_kinematic_bodys_mesh_is_static_scenery_too(registry) -> None:
+    """The organ bed's only collider sits on a kinematic body; as a hull it enclosed the needle and the tool."""
+    newton_meshes._keep_static = True
+
+    decompose, hull = newton_meshes._split(_builder())
+
+    assert 5 not in decompose + hull
+    assert hull == [0, 1]  # dynamic bodies' meshes are still hulled
 
 
 def test_only_the_cloners_blanket_hull_request_is_split(registry) -> None:
@@ -136,9 +154,122 @@ def test_only_the_cloners_blanket_hull_request_is_split(registry) -> None:
     approximate(_builder(), "convex_hull", keep_visual_shapes=True)
     approximate(_builder(), "convex_hull", [0])
 
-    assert calls[0] == ("convex_hull", [0, 2], {"keep_visual_shapes": True})
+    assert calls[0] == ("convex_hull", [0, 2, 5], {"keep_visual_shapes": True})
     assert calls[1] == ("coacd", [1], {"keep_visual_shapes": True, "threshold": newton_meshes.COACD_THRESHOLD})
     assert calls[2] == ("convex_hull", [0], {})
+
+
+def _add_shape(builder: SimpleNamespace, label: str, *, body: int, collides: bool = True) -> None:
+    """Append a shape the way Newton does: with the builder's 0.1 m default gap."""
+    builder.shape_label.append(label)
+    builder.shape_body.append(body)
+    builder.shape_flags.append(COLLIDE if collides else 0)
+    builder.shape_gap.append(0.1)
+
+
+def test_coacds_extra_convex_parts_keep_their_source_shapes_contact_gap(registry) -> None:
+    """Newton gives the parts its 0.1 m default gap: ~100 speculative contacts a step with the organ bed."""
+    builder = _builder()
+    builder.shape_gap[1] = 0.02
+
+    def original(b, method, shape_indices, **kwargs):
+        if method == "coacd":
+            for shape in shape_indices:  # Newton appends parts 1.. of each decomposition, without its gap
+                for part in (1, 2):
+                    _add_shape(b, f"{b.shape_label[shape]}_convex_{part}", body=b.shape_body[shape])
+        _add_shape(b, "jaw_visual", body=0, collides=False)  # anything else the call adds keeps its own gap
+        return set(shape_indices or ())
+
+    newton_meshes._SUFFIXES.add("/Object")
+    newton_meshes._wrap(original)(builder, "convex_hull", keep_visual_shapes=True)
+
+    assert builder.shape_label[6:] == [
+        "jaw_visual",
+        "Object/Needle_convex_1",
+        "Object/Needle_convex_2",
+        "jaw_visual",
+    ]
+    assert builder.shape_gap[6:] == [0.1, 0.02, 0.02, 0.1]
+    assert builder.shape_gap[:6] == [0.01, 0.02, 0.01, 0.01, 0.01, 0.01]
+
+
+def test_parts_labelled_another_way_inherit_from_the_only_source_on_their_body(registry, caplog) -> None:
+    """The label is a Newton internal; a rename must not silently bring the 0.1 m gap back."""
+    builder = _builder()
+    builder.shape_gap[1] = 0.02
+
+    def original(b, method, shape_indices, **kwargs):
+        if method == "coacd":
+            _add_shape(b, "part_1_of_Object/Needle", body=1)
+        return set(shape_indices or ())
+
+    newton_meshes._SUFFIXES.add("/Object")
+    with caplog.at_level("WARNING", logger="i4h_arena.newton_meshes"):
+        newton_meshes._wrap(original)(builder, "convex_hull")
+
+    assert builder.shape_gap[6:] == [0.02]
+    assert "match no decomposed shape" not in caplog.text
+
+
+def test_a_colliding_part_matching_no_source_is_named_in_a_warning(registry, caplog) -> None:
+    builder = _builder()
+    builder.shape_gap[1] = 0.02
+
+    def original(b, method, shape_indices, **kwargs):
+        if method == "coacd":
+            _add_shape(b, "hull_7", body=0)  # neither the needle's label nor its body
+        return set(shape_indices or ())
+
+    newton_meshes._SUFFIXES.add("/Object")
+    with caplog.at_level("WARNING", logger="i4h_arena.newton_meshes"):
+        newton_meshes._wrap(original)(builder, "convex_hull")
+
+    assert builder.shape_gap[6:] == [0.1]
+    assert "1 convex part(s) from CoACD match no decomposed shape by label or body (hull_7)" in caplog.text
+
+
+def _l_prism() -> tuple[list[tuple[float, float, float]], list[int]]:
+    """A closed L-shaped prism, 2 cm across: concave, so CoACD splits it into parts."""
+    outline = [(0.0, 0.0), (0.02, 0.0), (0.02, 0.005), (0.005, 0.005), (0.005, 0.02), (0.0, 0.02)]
+    vertices = [(x, y, z) for z in (0.0, 0.005) for x, y in outline]
+    cap = [(0, 1, 2), (0, 2, 3), (0, 3, 4), (0, 4, 5)]
+    indices = [i for a, b, c in cap for i in (a, c, b)] + [i for a, b, c in cap for i in (a + 6, b + 6, c + 6)]
+    for i in range(6):
+        j = (i + 1) % 6
+        indices += [i, j, j + 6, i, j + 6, i + 6]
+    return vertices, indices
+
+
+def test_newtons_own_builder_keeps_the_kinematic_bed_a_mesh_and_the_parts_gap(registry, caplog) -> None:
+    """The kinematic organ bed stays a triangle mesh; the decomposed object's parts keep the configured gap."""
+    newton = pytest.importorskip("newton")
+    vertices, indices = _l_prism()
+    builder = newton.ModelBuilder()
+    cfg = newton.ModelBuilder.ShapeConfig(gap=0.01)
+    bed = builder.add_body(label="/World/envs/env_0/Organs/Back_muscles", is_kinematic=True)
+    builder.add_shape_mesh(bed, mesh=newton.Mesh(vertices, indices), cfg=cfg)
+    needle = builder.add_body(label="/World/envs/env_0/Object")
+    builder.add_shape_mesh(needle, mesh=newton.Mesh(vertices, indices), cfg=cfg)
+    newton_meshes._SUFFIXES.add("/Object")
+    newton_meshes._keep_static = True
+
+    with caplog.at_level("WARNING", logger="i4h_arena.newton_meshes"):
+        newton_meshes._wrap(newton.ModelBuilder.approximate_meshes)(builder, "convex_hull", keep_visual_shapes=True)
+
+    assert "match no decomposed shape" not in caplog.text
+    assert builder.shape_type[0] == newton.GeoType.MESH
+    parts = [
+        shape
+        for shape, body in enumerate(builder.shape_body)
+        if body == needle and builder.shape_flags[shape] & COLLIDE
+    ]
+    assert len(parts) > 1
+    # The label convention the gap fix matches first: if a Newton update
+    # changes it, this fails here rather than leaving the body fallback alone.
+    source = builder.shape_label[parts[0]]
+    assert [builder.shape_label[shape] for shape in parts[1:]] == [f"{source}_convex_{i}" for i in range(1, len(parts))]
+    assert all(builder.shape_type[shape] == newton.GeoType.CONVEX_MESH for shape in parts)
+    assert [builder.shape_gap[shape] for shape in parts] == pytest.approx([0.01] * len(parts))
 
 
 def test_payloads_without_a_file_format_plugin_are_found(tmp_path: Path) -> None:

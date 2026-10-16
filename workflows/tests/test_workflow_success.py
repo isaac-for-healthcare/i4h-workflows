@@ -90,3 +90,34 @@ def test_endoluminal_success_is_unmet_without_a_centerline() -> None:
 
 def test_endoluminal_exposes_replay() -> None:
     assert "replay" in endoluminal.modes
+
+
+def test_scissor_home_ignores_stale_success_and_consumes_the_current_pulse(monkeypatch) -> None:
+    from i4h_engine.executor import Engine
+    from i4h_engine.graph import TaskGraph
+    from i4h_engine.status import WorkflowStatus
+    from i4h_tasks.basic.testing.fake_scene import fake_world
+
+    graph = load_workflow_module("scissor_pick_and_place").workflow.modes["rule-based"]()
+    home = next(node for node in graph.nodes if node.id == "home")
+    scene, act = fake_world(dof=6)
+    scene.terminations["success"] = np.array([True])
+    ctx = TickContext(scene=scene, act=act)
+    engine = Engine(TaskGraph().flow(home))
+    engine.start(ctx)
+
+    # A previous attempt's pulse at step zero must not bypass homing.
+    assert engine.tick(ctx) is WorkflowStatus.RUNNING
+    scene.terminations["success"][:] = False
+    assert engine.tick(ctx) is WorkflowStatus.RUNNING
+
+    def post_reset_access(*_args):
+        raise AssertionError("homing must not read or command the post-reset scene")
+
+    scene.terminations["success"][:] = True
+    for obj, names in [(scene, ("joints", "home_joints")), (act, ("set_joint_targets", "set_gripper"))]:
+        for name in names:
+            monkeypatch.setattr(obj, name, post_reset_access)
+    assert engine.tick(ctx) is WorkflowStatus.SUCCEEDED
+    assert not engine.terminal_advance_requested
+    assert home.ref.on_exit(ctx).at_home

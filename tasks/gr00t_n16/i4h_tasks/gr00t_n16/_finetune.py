@@ -56,11 +56,23 @@ def _groot_root() -> Path:
     return workflow_root() / "third_party" / "Isaac-GR00T-1.6"
 
 
-def _modality_config_path(cfg: TrainConfig) -> Path:
-    if cfg.modality_config_path:
-        path = Path(cfg.modality_config_path).expanduser()
+# The fallback when a task manifest names no ``train.modality_config_path``;
+# the shipped G1 manifests name this same file. Head camera only: what the G1
+# scenes record and the base checkpoints were trained on. A dual-camera config
+# would ask for a ``room`` video that no shipped G1 recording has.
+DEFAULT_MODALITY_CONFIG = Path(__file__).resolve().parent / "locomanip" / "config_head.py"
+
+
+def resolve_modality_config_path(value: str | None) -> Path:
+    """Resolve a configured modality config path, relative to the workflow root."""
+    if value:
+        path = Path(value).expanduser()
         return path.resolve() if path.is_absolute() else (workflow_root() / path).resolve()
-    return Path(__file__).resolve().parent / "locomanip" / "config_dualcam.py"
+    return DEFAULT_MODALITY_CONFIG
+
+
+def _modality_config_path(cfg: TrainConfig) -> Path:
+    return resolve_modality_config_path(cfg.modality_config_path)
 
 
 def _load_modality_config(modality_config_path: Path) -> None:
@@ -74,6 +86,62 @@ def _load_modality_config(modality_config_path: Path) -> None:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     logger.info("Loaded modality config: %s", modality_config_path)
+
+
+def requested_video_keys(embodiment_tag: str) -> list[str]:
+    """Video keys the loaded modality config asks for."""
+    from gr00t.configs.data.embodiment_configs import MODALITY_CONFIGS
+
+    config = MODALITY_CONFIGS.get(embodiment_tag.lower(), {})
+    video = config.get("video")
+    return list(video.modality_keys) if video is not None else []
+
+
+def check_dataset_videos(dataset_path: str, video_keys: list[str], modality_config_path: Path) -> None:
+    """Fail before training when the dataset lacks a video the modality config needs.
+
+    GR00T only opens the videos when the first batch loads, so a mismatch
+    otherwise surfaces as an assertion inside a DataLoader worker after the
+    statistics pass. A Hub repo id that is not on disk is not checked here; a
+    local dataset without the metadata GR00T reads is an error.
+    """
+    root = Path(dataset_path).expanduser()
+    if not root.exists():
+        return
+    meta = root / "meta"
+    absent = [f"meta/{name}" for name in ("info.json", "modality.json") if not (meta / name).is_file()]
+    if not root.is_dir() or absent:
+        reason = "not a directory; " if not root.is_dir() else ""
+        raise SystemExit(
+            f"{dataset_path}: not a GR00T LeRobot dataset; {reason}it has no {' or '.join(absent)}. Convert the recording "
+            "with `uv run --project tools/dataset i4h-dataset convert <recording.hdf5> <out> --robot g1`."
+        )
+    features = json.loads((meta / "info.json").read_text(encoding="utf-8")).get("features", {})
+    videos = json.loads((meta / "modality.json").read_text(encoding="utf-8")).get("video", {})
+    recorded = sorted(name for name in features if name.startswith("observation.images."))
+    missing = []
+    for key in video_keys:
+        if key not in videos:
+            missing.append(f"{key!r} (no entry in meta/modality.json)")
+            continue
+        original_key = videos[key].get("original_key", f"observation.images.{key}")
+        if original_key not in features:
+            missing.append(f"{key!r} ({original_key}, not in meta/info.json)")
+    if missing:
+        raise SystemExit(
+            f"{dataset_path}: {modality_config_path.name} requests video {', '.join(missing)}, but the dataset "
+            f"records {recorded or 'no cameras'}. Pass --modality-config-path with a config whose video keys "
+            f"match the recording (default: {DEFAULT_MODALITY_CONFIG.name})."
+        )
+
+
+def check_datasets(cfg: TrainConfig) -> None:
+    """Load the modality config and check every local dataset against it."""
+    modality_config_path = _modality_config_path(cfg)
+    _load_modality_config(modality_config_path)
+    keys = requested_video_keys(cfg.embodiment_tag)
+    for dataset_path in cfg.dataset_path:
+        check_dataset_videos(dataset_path, keys, modality_config_path)
 
 
 def _color_jitter_params(raw: list[str]) -> dict[str, float] | None:
@@ -308,7 +376,7 @@ def run(cfg: TrainConfig) -> None:
     for k, v in vars(cfg).items():
         logger.info("  %s = %s", k, v)
 
-    _load_modality_config(_modality_config_path(cfg))
+    check_datasets(cfg)
     config = _build_gr00t_config(cfg, cfg.dataset_path[0])
     logger.info("Running GR00T training directly (CUDA_VISIBLE_DEVICES=%s)", os.environ.get("CUDA_VISIBLE_DEVICES"))
     _run_gr00t_training(config)

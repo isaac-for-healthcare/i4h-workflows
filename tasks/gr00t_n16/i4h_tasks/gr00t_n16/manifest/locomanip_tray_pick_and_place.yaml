@@ -42,3 +42,7 @@ train:
   save_steps: 2000
   batch_size: 16
   tune_visual: true
+  # The cameras the trainer and the policy server ask for: the head camera
+  # alone (``ego_view``), which is what the G1 scenes record and the base
+  # checkpoints were trained on. Both resolve it against the repository root.
+  modality_config_path: tasks/gr00t_n16/i4h_tasks/gr00t_n16/locomanip/config_head.py
