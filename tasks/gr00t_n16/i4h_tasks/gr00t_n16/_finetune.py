@@ -56,9 +56,10 @@ def _groot_root() -> Path:
     return workflow_root() / "third_party" / "Isaac-GR00T-1.6"
 
 
-# Head camera only: what the G1 scenes record and the base checkpoints were
-# trained on. A dual-camera config would ask for a ``room`` video that no
-# shipped G1 recording has.
+# The fallback when a task manifest names no ``train.modality_config_path``;
+# the shipped G1 manifests name this same file. Head camera only: what the G1
+# scenes record and the base checkpoints were trained on. A dual-camera config
+# would ask for a ``room`` video that no shipped G1 recording has.
 DEFAULT_MODALITY_CONFIG = Path(__file__).resolve().parent / "locomanip" / "config_head.py"
 
 
@@ -101,11 +102,19 @@ def check_dataset_videos(dataset_path: str, video_keys: list[str], modality_conf
 
     GR00T only opens the videos when the first batch loads, so a mismatch
     otherwise surfaces as an assertion inside a DataLoader worker after the
-    statistics pass. A Hub repo id is not checked here.
+    statistics pass. A Hub repo id that is not on disk is not checked here; a
+    local dataset without the metadata GR00T reads is an error.
     """
-    meta = Path(dataset_path).expanduser() / "meta"
-    if not (meta / "info.json").is_file() or not (meta / "modality.json").is_file():
+    root = Path(dataset_path).expanduser()
+    if not root.exists():
         return
+    meta = root / "meta"
+    absent = [f"meta/{name}" for name in ("info.json", "modality.json") if not (meta / name).is_file()]
+    if absent:
+        raise SystemExit(
+            f"{dataset_path}: not a GR00T LeRobot dataset; it has no {' or '.join(absent)}. Convert the recording "
+            "with `uv run --project tools/dataset i4h-dataset convert <recording.hdf5> <out> --robot g1`."
+        )
     features = json.loads((meta / "info.json").read_text(encoding="utf-8")).get("features", {})
     videos = json.loads((meta / "modality.json").read_text(encoding="utf-8")).get("video", {})
     recorded = sorted(name for name in features if name.startswith("observation.images."))
