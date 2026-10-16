@@ -292,6 +292,10 @@ if [[ -d "${THIRD_PARTY_DIR}/${RLINF_DIR}/.git" ]]; then
   apply_patch_once "RLinf video encoding and collective error propagation" \
     "${THIRD_PARTY_DIR}/${RLINF_DIR}" \
     "${THIRD_PARTY_DIR}/rlinf_training_failures.patch"
+
+  apply_patch_once "RLinf GR00T N1.7 patch embedding and optimizer progress" \
+    "${THIRD_PARTY_DIR}/${RLINF_DIR}" \
+    "${THIRD_PARTY_DIR}/rlinf_gr00t_training.patch"
 fi
 
 OPENPI_DIR="${THIRD_PARTY_DIR}/${OPENPI_DIR_NAME}"

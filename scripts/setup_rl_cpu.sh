@@ -6,7 +6,6 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 revision=a4b6abe205d7942f45cf3e8843c3e72ce818729d
 checkout="$root/third_party/RLinf-a4b6abe"
-patch="$root/third_party/rlinf_training_failures.patch"
 if [ ! -d "$checkout" ]; then
   mkdir -p "$checkout"
   git -C "$checkout" init
@@ -18,9 +17,11 @@ fi
   echo "RL CPU tests require RLinf $revision" >&2
   exit 1
 }
-if git -C "$checkout" apply --reverse --check "$patch" 2>/dev/null; then
-  echo "RLinf CPU patch already applied"
-else
-  git -C "$checkout" apply --check "$patch"
-  git -C "$checkout" apply "$patch"
-fi
+for patch in "$root/third_party/rlinf_training_failures.patch" "$root/third_party/rlinf_gr00t_training.patch"; do
+  if git -C "$checkout" apply --reverse --check "$patch" 2>/dev/null; then
+    echo "RLinf CPU patch already applied: ${patch##*/}"
+  else
+    git -C "$checkout" apply --check "$patch"
+    git -C "$checkout" apply "$patch"
+  fi
+done

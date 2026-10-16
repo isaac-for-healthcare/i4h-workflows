@@ -62,6 +62,22 @@ def test_the_output_keeps_the_weight_dtype(patch_embed: torch.nn.Module) -> None
     assert patch_embed(_patches(patch_embed)).dtype == torch.bfloat16
 
 
+def test_linear_backward_matches_convolution(patch_embed: torch.nn.Module) -> None:
+    """PPO must receive the same input, weight, and bias gradients."""
+    patches = _patches(patch_embed).requires_grad_()
+    upstream_gradient = torch.randn(64, 32)
+    patch_embed(patches).backward(upstream_gradient)
+    expected = [value.grad.clone() for value in (patches, *patch_embed.parameters())]
+    patch_embed.zero_grad(set_to_none=True)
+    patches.grad = None
+
+    _patch_embed.install_linear_patch_embed()
+    patch_embed(patches).backward(upstream_gradient)
+
+    for value, gradient in zip((patches, *patch_embed.parameters()), expected, strict=True):
+        torch.testing.assert_close(value.grad, gradient, rtol=1e-5, atol=1e-5)
+
+
 def test_installing_twice_is_harmless(patch_embed: torch.nn.Module) -> None:
     assert _patch_embed.install_linear_patch_embed()
     assert _patch_embed.install_linear_patch_embed()

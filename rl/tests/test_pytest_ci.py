@@ -31,4 +31,4 @@ def test_explicit_ci_plugin_enforces_required_modules(tmp_path, case):
         assert result.returncode == 0, result.stdout + result.stderr
     else:
         assert result.returncode == 1, result.stdout + result.stderr
-        assert "CI requires all four RL regression modules" in result.stdout
+        assert "CI requires the mandatory RL regression modules" in result.stdout
