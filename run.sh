@@ -53,8 +53,10 @@ cd "$ROOT"
 export I4H_WORKFLOWS="$ROOT"
 
 LIGHT_PROJECT=workflows
-PIDFILE=".run/pids"
-mkdir -p .run
+# Each launch records the backends it starts in a file of its own here, and
+# stop.sh reads them all. One shared file let a second run.sh in this checkout,
+# the test suite's included, truncate it and orphan the first run's backend.
+PID_DIR="${I4H_PID_DIR:-$ROOT/.run/pids.d}"
 
 
 light() { uv run --project "$LIGHT_PROJECT" "$@"; }
@@ -250,7 +252,8 @@ echo "==> lint $WORKFLOW [${MODE:-default}]"
 light python -m i4h_engine.cli lint "$WORKFLOW" --mode "$MODE"
 
 # -- 5: launch the backends this workflow actually needs ---------------------
-: > "$PIDFILE"
+mkdir -p "$PID_DIR"
+PIDFILE="$(mktemp "$PID_DIR/run.$$.XXXXXX")"
 cleanup() {
   if [ -s "$PIDFILE" ]; then
     while read -r pid; do
