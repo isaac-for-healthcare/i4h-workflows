@@ -292,7 +292,7 @@ The shared HDF5 schema is defined in `common/i4h_common/episode.py` so every wri
 
 ```text
 /data                             attrs: workflow, mode, scene, total
-  /demo_N                         attrs: success, status, episode_index, attempt_index
+  /demo_N                         attrs: success, status, episode_index, attempt_index, recording_version
     actions                       (T, action_width)
     obs/joint_pos                 (T, state_width)
     obs/<camera>                  (T, height, width, 3)
@@ -300,6 +300,8 @@ The shared HDF5 schema is defined in `common/i4h_common/episode.py` so every wri
 ```
 
 Segments use half-open frame ranges `[start, end)` and associate each range with a workflow node and registry task ID. They are optional for compatibility with older recordings, and all readers must tolerate their absence.
+
+Each sample is one simulation step: its action and what the step left behind. The step on which IsaacLab ends an episode through a termination term is not recorded, because `ManagerBasedRLEnv.step` has already reset the environment when it returns, and nothing after it is recorded. If the workflow is still running after such a reset, the runner ends the attempt as aborted when the term was not `success` (a dropped object, say), rather than letting it continue in the next episode; after `success` the graph may finish a closing stage, such as homing the arm, unrecorded. `recording_version` on each demo names the rules it was recorded under; `common/i4h_common/episode.py` documents them.
 
 | Consumer | Use of the recording |
 | --- | --- |

@@ -20,7 +20,14 @@ from typing import Any
 import h5py
 import numpy as np
 
-from i4h_common.episode import DIAGNOSTICS_GROUP, Segment, write_initial_state, write_segments
+from i4h_common.episode import (
+    DIAGNOSTICS_GROUP,
+    RECORDING_VERSION,
+    RECORDING_VERSION_ATTR,
+    Segment,
+    write_initial_state,
+    write_segments,
+)
 from i4h_common.run_overrides import environment_overrides
 from i4h_engine.events import EventKind, WorkflowEvent
 
@@ -259,6 +266,9 @@ class EpisodeRecorder:
         # the flag is a boolean whose meaning is only in whoever's shell.
         demo.attrs["overrides"] = json.dumps(environment_overrides(), sort_keys=True)
         demo.attrs["num_samples"] = len(self._actions)
+        # Per demo rather than on /data: a file appends demos across runs, and
+        # mimic and the annotator's filter copy demos one at a time.
+        demo.attrs[RECORDING_VERSION_ATTR] = RECORDING_VERSION
         demo.attrs["workflow"] = self.workflow.name
         demo.attrs["mode"] = self.workflow.mode
         # Per episode as well as on /data: a file can collect episodes from

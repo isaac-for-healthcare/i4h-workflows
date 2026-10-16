@@ -5,13 +5,37 @@
 Layout::
 
     /data                              attrs: env_args, total, ...
-      demo_0                           attrs: success, num_samples, workflow, ...
+      demo_0                           attrs: success, num_samples, recording_version, workflow, ...
         actions            (T, A)      or obs/actions on compatible files
         obs/joint_pos      (T, D)
         obs/<camera>       (T, H, W, 3) uint8
         diagnostics/<name> (T,) or (T, K) float32
         segments           (S,)
         initial_state/<family>/<asset>/<field>   (1, ...)
+
+Sample ``t`` is one simulation step: the action applied on that step, and the
+joints, camera frames and diagnostics read after it. ``num_samples`` is the
+number of samples, which is ``T``.
+
+**The step that ends an episode through a termination term is not recorded.**
+IsaacLab's ``ManagerBasedRLEnv.step`` resets a terminated environment before it
+returns, so the joints and frames that step leaves behind already belong to the
+next, re-randomized episode. A demo that ends this way -- every success whose
+predicate is a termination term, such as the liver scan's -- therefore holds
+one sample fewer than the steps the attempt took, and its last stored action is
+the one *before* the action that triggered the termination. Replaying such a
+demo applies every stored action and stops one action short of the state the
+simulator graded; the replay itself still completes. Nothing after such a
+reset is recorded either. If the workflow is still running after it, the
+attempt ends there as ``aborted`` when another term than ``success`` fired (a
+dropped object, say); after ``success`` the workflow may finish a closing stage
+(scissor rule-based homes the arm) in the next episode, unrecorded.
+
+Demos recorded under this rule carry ``recording_version`` (see
+:data:`RECORDING_VERSION`). A demo without it was recorded before the rule: if
+its episode ended through a termination, its last sample shows the next
+episode (the arm back at its reset pose), so re-record it before grading its
+final frames.
 
 ``segments`` is a structured array of
 ``(node, task_id, start, end)`` recording which workflow node was active for each
@@ -48,6 +72,13 @@ DATA_GROUP = "data"
 SEGMENTS = "segments"
 DIAGNOSTICS_GROUP = "diagnostics"
 INITIAL_STATE_GROUP = "initial_state"
+
+#: Demo attribute naming the recording rules a demo was written under.
+RECORDING_VERSION_ATTR = "recording_version"
+#: Rules the arena recorder writes today. ``1``: the step that ends an episode
+#: through a termination term is not recorded (v0.9.0, NVBug 6941887). A demo
+#: without the attribute reads as ``0``: recorded before any of these rules.
+RECORDING_VERSION = 1
 
 #: h5py structured dtype for the segments dataset.
 SEGMENT_DTYPE = np.dtype(
@@ -95,6 +126,11 @@ def action_path(demo: h5py.Group) -> str:
         if candidate in demo:
             return candidate
     raise EpisodeError(f"{demo.name}: expected 'actions' or 'obs/actions'")
+
+
+def recording_version(demo: h5py.Group) -> int:
+    """The recording rules ``demo`` was written under; ``0`` when it predates them."""
+    return int(demo.attrs.get(RECORDING_VERSION_ATTR, 0))
 
 
 def state_path(demo: h5py.Group) -> str | None:
@@ -204,6 +240,11 @@ class Episode:
         if declared is not None:
             return int(declared)
         return int(self.group[action_path(self.group)].shape[0])
+
+    @property
+    def recording_version(self) -> int:
+        """The recording rules this demo was written under; ``0`` for demos that predate them."""
+        return recording_version(self.group)
 
     @property
     def actions(self) -> np.ndarray:

@@ -394,3 +394,205 @@ def test_the_step_that_resets_a_successful_episode_is_not_recorded() -> None:
     assert env.steps == 4
     assert recorded == [1, 2, 3]
     assert ended == [True]
+
+
+# -- a reset the workflow does not finish on ends the attempt (PR 275 review) -
+
+
+class _TermManager:
+    def __init__(self, env: _TerminatingEnv, term: str) -> None:
+        self.env = env
+        self.active_terms = ["success", term] if term != "success" else ["success"]
+        self.term = term
+
+    def get_term(self, name: str) -> torch.Tensor:
+        return self.env.reset_buf.clone() if name == self.term else torch.zeros(1, dtype=torch.bool)
+
+
+class _KeepsRunning(_UntilTerminated):
+    """A workflow whose success never reads the termination that fired, like G1 ``object_dropped``.
+
+    ``waiting`` ticks after the reset ask for no step, as a remote task does
+    while it waits for its backend.
+    """
+
+    def __init__(self, env: _TerminatingEnv, *, waiting: int = 0, succeed_after: int | None = None) -> None:
+        super().__init__(env)
+        self.waiting = waiting
+        self.succeed_after = succeed_after
+        self.ticks_since_reset: int | None = None
+
+    def tick(self, _ctx: TickContext) -> None:
+        if self.ticks_since_reset is None and bool(self.env.reset_buf[0]):
+            self.ticks_since_reset = 0
+        if self.ticks_since_reset is not None:
+            self.ticks_since_reset += 1
+            if self.succeed_after is not None and self.ticks_since_reset >= self.succeed_after:
+                self.status = WorkflowStatus.SUCCEEDED
+                return
+            self.advance_requested = self.ticks_since_reset > self.waiting
+            if not self.advance_requested:
+                return
+        self.step += 1
+
+    def abort(self, _ctx: TickContext, *, detail: str = "aborted externally") -> None:
+        self.status = WorkflowStatus.ABORTED
+        self.detail = detail
+
+
+def _terminating_runner(env: _TerminatingEnv, *, record_failures: bool = True):
+    recorded: list[int] = []
+    ended: list[tuple[runner.EpisodeResult, bool]] = []
+    simulation = object.__new__(runner.SimulationRunner)
+    simulation.env = env
+    simulation.app = SimpleNamespace(is_running=lambda: True, update=lambda: None)
+    simulation.scene = SimpleNamespace(
+        on_reset=lambda _env, _view: None,
+        make_actuation=lambda _env, _view: SimpleNamespace(
+            tensor=lambda: torch.zeros(1, 6), numpy=lambda: np.zeros((1, 6))
+        ),
+    )
+    simulation._reset_env = lambda _seed=None: None
+    simulation._view = SimpleNamespace(invalidate=lambda: None, num_envs=1)
+    simulation._sensor_windows = ()
+    simulation._controls = {}
+    simulation.keys = simulation.bus = simulation.publisher = None
+    simulation.run_id = "run"
+    simulation.seed = None
+    simulation.workflow = SimpleNamespace(mode="policy")
+    simulation.record_failures = record_failures
+    simulation.recorder = SimpleNamespace(
+        begin_episode=lambda *_args, **_kwargs: None,
+        on_step=lambda _action, _view: recorded.append(env.steps),
+        end_episode=lambda result, keep: ended.append((result, keep)),
+    )
+    return simulation, recorded, ended
+
+
+def test_a_reset_the_workflow_does_not_end_on_ends_the_attempt(caplog) -> None:
+    """An object_dropped reset used to let the demo run on into the next, re-randomized episode."""
+    env = _TerminatingEnv(terminal_step=4)
+    env.termination_manager = _TermManager(env, "object_dropped")
+    simulation, recorded, ended = _terminating_runner(env)
+
+    with caplog.at_level("INFO", logger="i4h_arena.runner"):
+        result = simulation._run_episode(_KeepsRunning(env), episode=0, attempt=1)
+
+    assert result.status is WorkflowStatus.ABORTED
+    assert result.detail == (
+        "IsaacLab reset the scene after termination object_dropped while the workflow was still running"
+    )
+    assert env.steps == 4  # no step is taken in the next episode
+    assert recorded == [1, 2, 3]
+    assert ended == [(result, True)]
+    assert "IsaacLab reset the scene after termination object_dropped" in caplog.text
+
+
+def test_after_a_success_reset_the_workflow_finishes_its_closing_stage_unrecorded(caplog) -> None:
+    """Scissor rule-based homes the arm after its success termination fires; that run is still a success."""
+    env = _TerminatingEnv(terminal_step=4)
+    env.termination_manager = _TermManager(env, "success")
+    simulation, recorded, ended = _terminating_runner(env)
+
+    with caplog.at_level("INFO", logger="i4h_arena.runner"):
+        result = simulation._run_episode(_KeepsRunning(env, succeed_after=3), episode=0, attempt=1)
+
+    assert result.succeeded
+    assert env.steps == 6  # the closing stage ran on in the next episode
+    assert recorded == [1, 2, 3]  # but none of it, nor the reset step, was recorded
+    assert ended == [(result, True)]
+    assert "finishes unrecorded in the next episode" in caplog.text
+
+
+def test_a_success_reset_alongside_another_termination_still_ends_the_attempt() -> None:
+    env = _TerminatingEnv(terminal_step=2)
+    env.termination_manager = _TermManager(env, "object_drop")
+    env.termination_manager.get_term = lambda name: env.reset_buf.clone()  # success and object_drop both fired
+    simulation, _recorded, _ended = _terminating_runner(env)
+
+    result = simulation._run_episode(_KeepsRunning(env), episode=0, attempt=1)
+
+    assert result.status is WorkflowStatus.ABORTED
+    assert "termination success, object_drop" in result.detail
+
+
+def test_ticks_that_wait_after_a_reset_do_not_end_the_attempt_early() -> None:
+    """A remote task may tick WAITING before it reads success again; only the next step is too late."""
+    env = _TerminatingEnv(terminal_step=4)
+    env.termination_manager = _TermManager(env, "success")
+    simulation, recorded, _ended = _terminating_runner(env)
+    simulation.app.update = lambda: None
+    rendered: list[int] = []
+    original = runner._render_scene_only
+    runner._render_scene_only = lambda _env, _app: rendered.append(env.steps)
+    try:
+        result = simulation._run_episode(_KeepsRunning(env, waiting=2, succeed_after=3), episode=0, attempt=1)
+    finally:
+        runner._render_scene_only = original
+
+    assert result.succeeded
+    assert rendered == [4, 4]
+    assert env.steps == 4
+    assert recorded == [1, 2, 3]
+
+
+def test_a_finished_workflow_takes_no_extra_step_into_a_reset_episode() -> None:
+    """``advance_on_success`` asks for one more step; not after IsaacLab already reset the scene."""
+    env = _TerminatingEnv(terminal_step=4)
+    engine = _UntilTerminated(env)
+    original_tick = engine.tick
+
+    def tick(ctx: TickContext) -> None:
+        original_tick(ctx)
+        engine.terminal_advance_requested = engine.status is WorkflowStatus.SUCCEEDED
+
+    engine.tick = tick
+    simulation, recorded, _ended = _terminating_runner(env)
+
+    result = simulation._run_episode(engine, episode=0, attempt=1)
+
+    assert result.succeeded
+    assert env.steps == 4
+    assert recorded == [1, 2, 3]
+
+
+def test_an_operator_scene_reset_clears_a_pending_termination_reset() -> None:
+    """Teleop's own reset restarts the attempt in a clean scene; that is not the next episode."""
+    env = _TerminatingEnv(terminal_step=2)
+    engine = _KeepsRunning(env)
+    original_tick = engine.tick
+    calls = {"ticks": 0}
+
+    def tick(ctx: TickContext) -> None:
+        calls["ticks"] += 1
+        if calls["ticks"] == 3:  # the tick after the termination reset
+            ctx.request_scene_reset()
+            env.reset_buf[0] = False
+            engine.ticks_since_reset = None
+            return
+        if calls["ticks"] == 6:
+            engine.status = WorkflowStatus.SUCCEEDED
+            return
+        original_tick(ctx)
+
+    engine.tick = tick
+    simulation, recorded, _ended = _terminating_runner(env)
+    simulation._reset_active_scene = lambda _engine, _ctx: None
+
+    result = simulation._run_episode(engine, episode=0, attempt=1)
+
+    assert result.succeeded
+    assert env.steps == 4
+
+
+def test_a_swallowed_step_failure_is_named_at_warning_level(caplog) -> None:
+    """A real fault that coincides with Kit closing must still reach workflow.log (PR 275 review)."""
+    simulation = _closing_runner(_closes_on_step(2))
+
+    with caplog.at_level("WARNING", logger="i4h_arena.runner"):
+        simulation._run_episode(_Engine(), episode=0, attempt=1)
+
+    assert (
+        "env.step raised ReferenceError('weakly-referenced object no longer exists') while Isaac Sim was closing"
+        in caplog.text
+    )
