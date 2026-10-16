@@ -141,6 +141,12 @@ This stops every i4h run in the checkout, not just the one that failed, so avoid
 second run or a live authoring session is active on another GPU. It matches on i4h module
 paths, so an unrelated Isaac Sim you started yourself is left alone.
 
+Each `./run.sh` records the backends it starts in a file of its own under `.run/pids.d/` and
+stops them when it exits, so concurrent runs in one checkout, or the test suite run beside
+one, neither stop nor orphan each other's policy servers. A launcher killed outright, for
+example with `kill -9`, cannot clean up; `./stop.sh all` stops every backend listed under
+`.run/pids.d/` and then sweeps for any remaining i4h process.
+
 ## Docker: the first command takes much longer than expected
 
 The container creates its environments into the `i4h-state` volume on first use, and how much
