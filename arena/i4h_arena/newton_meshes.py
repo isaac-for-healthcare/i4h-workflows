@@ -86,19 +86,46 @@ def _wrap(original: Any) -> Any:
 def _inherit_gap(builder: Any, sources: list[int], first_new: int) -> None:
     """Give the convex parts CoACD adds their source shape's contact gap.
 
-    Newton copies the source's other contact settings onto the parts but
-    leaves ``gap`` at its builder default, 0.1 m, ten times IsaacLab's
-    0.01 m. On the organ bed, the needle's parts then gathered about 100
-    speculative contacts a step with the bed's triangle mesh. Newton reported
-    one of them at zero distance, several centimetres from the needle, so the
-    solver kept it active, and the simulation went NaN every few episodes
-    (NVBug 6928490).
+    Newton 1.2's ``ModelBuilder.approximate_meshes`` copies the source's other
+    contact settings onto the parts but leaves ``gap`` at its builder default,
+    0.1 m, ten times IsaacLab's 0.01 m. On the organ bed, the needle's parts
+    then gathered about 100 speculative contacts a step with the bed's triangle
+    mesh. Newton reported one of them at zero distance, several centimetres
+    from the needle, so the solver kept it active, and the simulation went NaN
+    every few episodes (NVBug 6928490). Newton 1.5 copies the gap itself
+    (https://github.com/newton-physics/newton/pull/3261); this can go once
+    IsaacLab's Newton pin (1.2.1) reaches it.
+
+    A part is matched to its source by Newton's ``<source label>_convex_<i>``
+    label, else by being on the body of exactly one decomposed shape. A
+    colliding part that matches neither keeps the default gap, which is the
+    bug coming back, so it is named in a warning rather than passed over.
     """
+    from newton import ShapeFlags  # noqa: PLC0415
+
     by_label = {builder.shape_label[shape]: shape for shape in sources}
+    by_body: dict[int, list[int]] = {}
+    for shape in sources:
+        by_body.setdefault(builder.shape_body[shape], []).append(shape)
+    unmatched = []
     for shape in range(first_new, len(builder.shape_gap)):
+        if not builder.shape_flags[shape] & ShapeFlags.COLLIDE_SHAPES:
+            continue  # a visual copy: its gap is never used
         source = by_label.get(builder.shape_label[shape].rpartition("_convex_")[0])
-        if source is not None:
-            builder.shape_gap[shape] = builder.shape_gap[source]
+        if source is None and len(by_body.get(builder.shape_body[shape], ())) == 1:
+            source = by_body[builder.shape_body[shape]][0]
+        if source is None:
+            unmatched.append(builder.shape_label[shape])
+            continue
+        builder.shape_gap[shape] = builder.shape_gap[source]
+    if unmatched:
+        logger.warning(
+            "%d convex part(s) from CoACD match no decomposed shape by label or body (%s), so they keep Newton's "
+            "default contact gap instead of their source's; expect spurious contacts. Check how this Newton "
+            "version labels the parts approximate_meshes adds.",
+            len(unmatched),
+            ", ".join(map(str, unmatched[:5])) + (", ..." if len(unmatched) > 5 else ""),
+        )
 
 
 def _split(builder: Any) -> tuple[list[int], list[int]]:
