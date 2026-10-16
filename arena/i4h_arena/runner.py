@@ -343,7 +343,19 @@ class SimulationRunner:
                         raise RuntimeError(
                             f"step {engine.step}: non-finite action {command.detach().cpu().numpy().tolist()}"
                         )
-                    self.env.step(command)
+                    try:
+                        self.env.step(command)
+                    except Exception:
+                        # ``env.step`` renders between its physics sub-steps, and
+                        # that render is where Kit handles a closed window. Kit
+                        # then releases the PhysX views the remaining sub-steps
+                        # read (a ReferenceError from the articulation data). The
+                        # attempt ends there rather than taking the run down with
+                        # it; any failure while Kit is still running is a real one.
+                        if self.app.is_running():
+                            raise
+                        logger.debug("env.step failed while Isaac Sim was closing", exc_info=True)
+                        break
                 self._view.invalidate()
             self._update_sensor_windows()
             if self.recorder is not None:
@@ -352,6 +364,12 @@ class SimulationRunner:
                 active = engine.active_nodes
                 self.publisher.publish(self._view, node=active[0] if active else "", episode_index=episode)
 
+        if not engine.status.is_terminal:
+            # Only a closed simulator stops the loop above with the workflow
+            # still running. Finish it, so the attempt is reported and recorded
+            # (``--record-failures``) as aborted rather than as still running.
+            logger.info("Isaac Sim was closed during episode %s attempt %s; ending it", episode, attempt)
+            engine.abort(ctx, detail="Isaac Sim was closed")
         result = EpisodeResult(
             index=episode,
             attempt=attempt,

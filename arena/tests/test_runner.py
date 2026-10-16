@@ -182,3 +182,126 @@ def test_teleop_honours_an_explicit_cap() -> None:
     to record.
     """
     assert _runner_with("teleop", requested=600, resolved=600)._engine_max_steps() == 600
+
+
+class _App:
+    """A Kit app whose window closes on the n-th ``env.step``."""
+
+    def __init__(self) -> None:
+        self.running = True
+
+    def is_running(self) -> bool:
+        return self.running
+
+
+class _Engine:
+    def __init__(self) -> None:
+        self.status = runner.WorkflowStatus.RUNNING
+        self.step = 0
+        self.detail = ""
+        self.segments = ()
+        self.active_nodes = ("drive",)
+        self.advance_requested = True
+        self.terminal_advance_requested = False
+
+    def start(self, _ctx: TickContext) -> None:
+        pass
+
+    def tick(self, _ctx: TickContext) -> None:
+        self.step += 1
+
+    def abort(self, _ctx: TickContext, *, detail: str = "aborted externally") -> None:
+        self.status = runner.WorkflowStatus.ABORTED
+        self.detail = detail
+
+
+class _Recorder:
+    def __init__(self) -> None:
+        self.steps = 0
+        self.ended: list[tuple[runner.EpisodeResult, bool]] = []
+
+    def begin_episode(self, _episode: int, _attempt: int, *, initial_state: object = None) -> None:
+        pass
+
+    def on_step(self, _action: object, _view: object) -> None:
+        self.steps += 1
+
+    def end_episode(self, result: runner.EpisodeResult, *, keep: bool) -> None:
+        self.ended.append((result, keep))
+
+
+def _closing_runner(step, *, record_failures: bool = True) -> runner.SimulationRunner:
+    actuation = SimpleNamespace(tensor=lambda: torch.zeros(1, 3), numpy=lambda: np.zeros((1, 3)))
+    simulation = object.__new__(runner.SimulationRunner)
+    simulation.app = _App()
+    simulation.env = SimpleNamespace(step=lambda command: step(simulation.app), unwrapped=SimpleNamespace(step_dt=0.02))
+    simulation.scene = SimpleNamespace(on_reset=lambda _env, _view: None, make_actuation=lambda _env, _view: actuation)
+    simulation._view = SimpleNamespace(invalidate=lambda: None)
+    simulation._reset_env = lambda seed=None: None
+    simulation.workflow = SimpleNamespace(mode="teleop")
+    simulation.keys = None
+    simulation.bus = None
+    simulation.publisher = None
+    simulation.run_id = "run"
+    simulation.seed = None
+    simulation._controls = None
+    simulation._sensor_windows = ()
+    simulation.recorder = _Recorder()
+    simulation.record_failures = record_failures
+    return simulation
+
+
+def _closes_on_step(n: int):
+    calls = {"steps": 0}
+
+    def step(app: _App) -> None:
+        calls["steps"] += 1
+        if calls["steps"] == n:
+            # What IsaacLab raises when a sub-step reads an articulation after
+            # the render inside env.step let Kit handle the closed window.
+            app.running = False
+            raise ReferenceError("weakly-referenced object no longer exists")
+
+    return step
+
+
+def test_closing_the_window_mid_step_ends_the_attempt_and_records_it() -> None:
+    """NVBug 6941881: closing Isaac Sim during G1 teleop crashed and lost the attempt."""
+    simulation = _closing_runner(_closes_on_step(3))
+
+    result = simulation._run_episode(_Engine(), episode=0, attempt=1)
+
+    assert result.status is runner.WorkflowStatus.ABORTED
+    assert result.detail == "Isaac Sim was closed"
+    assert not result.succeeded
+    assert simulation.recorder.steps == 2
+    assert simulation.recorder.ended == [(result, True)]
+
+
+def test_closing_the_window_discards_the_attempt_without_record_failures() -> None:
+    simulation = _closing_runner(_closes_on_step(1), record_failures=False)
+
+    result = simulation._run_episode(_Engine(), episode=0, attempt=1)
+
+    assert simulation.recorder.ended == [(result, False)]
+
+
+def test_a_step_failure_while_isaac_sim_runs_still_raises() -> None:
+    def step(_app: _App) -> None:
+        raise ReferenceError("weakly-referenced object no longer exists")
+
+    with pytest.raises(ReferenceError):
+        _closing_runner(step)._run_episode(_Engine(), episode=0, attempt=1)
+
+
+def test_a_window_closed_between_steps_is_recorded_as_aborted_not_running() -> None:
+    def step(app: _App) -> None:
+        app.running = False
+
+    simulation = _closing_runner(step)
+
+    result = simulation._run_episode(_Engine(), episode=0, attempt=1)
+
+    assert result.status is runner.WorkflowStatus.ABORTED
+    assert simulation.recorder.steps == 1
+    assert simulation.recorder.ended == [(result, True)]
