@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""PI0 finetuning runs without a Weights & Biases account unless one is asked for (NVBug 6941887)."""
+"""PI0 finetuning runs without a Weights & Biases account unless one is asked for (NVBug 6941887).
+
+These tests drive openpi itself; ``test_openpi_pi0_train_options.py`` holds the
+ones the light CI suite can run without it.
+"""
 
 from __future__ import annotations
 
@@ -10,20 +14,6 @@ from types import SimpleNamespace
 import pytest
 
 from i4h_tasks.openpi_pi0 import train
-
-
-@pytest.mark.parametrize(
-    ("flag", "environ", "expected"),
-    [
-        (None, {}, False),
-        (None, {"WANDB_API_KEY": "   "}, False),
-        (None, {"WANDB_API_KEY": "key"}, True),
-        (True, {}, True),
-        (False, {"WANDB_API_KEY": "key"}, False),
-    ],
-)
-def test_wandb_is_opt_in(flag, environ, expected) -> None:
-    assert train.wandb_enabled(flag, environ) is expected
 
 
 def _finetune(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *argv: str) -> object:
@@ -68,23 +58,34 @@ def test_a_host_without_wandb_trains_with_logging_off(monkeypatch, tmp_path) -> 
     assert cfg.num_train_steps == 2
 
 
-def test_wandb_follows_the_flag_or_a_configured_key(monkeypatch, tmp_path) -> None:
-    monkeypatch.delenv("WANDB_API_KEY", raising=False)
+def test_wandb_follows_the_flag_not_the_environment(monkeypatch, tmp_path) -> None:
+    monkeypatch.delenv("WANDB_MODE", raising=False)
+    monkeypatch.setenv("WANDB_API_KEY", "key")
+
+    assert _finetune(monkeypatch, tmp_path / "key").wandb_enabled is False
     assert _finetune(monkeypatch, tmp_path / "flag", "--wandb").wandb_enabled is True
 
-    monkeypatch.setenv("WANDB_API_KEY", "key")
-    assert _finetune(monkeypatch, tmp_path / "key").wandb_enabled is True
-    assert _finetune(monkeypatch, tmp_path / "opt-out", "--no-wandb").wandb_enabled is False
+
+def test_the_shim_predicts_openpis_checkpoint_directory(monkeypatch, tmp_path) -> None:
+    """The resume check looks where openpi will resume from."""
+    cfg = _finetune(monkeypatch, tmp_path)
+
+    assert cfg.checkpoint_dir == (tmp_path / "checkpoints" / "robotic_ultrasound" / train.EXP_NAME).resolve()
 
 
-def test_dry_run_reports_the_wandb_decision(monkeypatch, tmp_path, capsys) -> None:
-    monkeypatch.delenv("WANDB_API_KEY", raising=False)
-    dataset = tmp_path / "local" / "demo"
-    dataset.mkdir(parents=True)
+def test_a_resume_with_wandb_of_a_run_trained_without_it_does_not_crash(monkeypatch, tmp_path) -> None:
+    """openpi's init_wandb read the missing wandb_id.txt and raised FileNotFoundError."""
+    from openpi import train as openpi_train
 
-    assert train.main(["--task", "openpi_pi0/ultrasound_liver_scan", "--dataset", str(dataset), "--dry-run"]) == 0
+    monkeypatch.delenv("WANDB_MODE", raising=False)
+    monkeypatch.setenv("WANDB_DIR", str(tmp_path))
+    checkpoints = tmp_path / "checkpoints" / "robotic_ultrasound" / train.EXP_NAME
+    (checkpoints / "100").mkdir(parents=True)
 
-    assert "wandb = False" in capsys.readouterr().out
+    cfg = _finetune(monkeypatch, tmp_path, "--wandb")
+
+    assert cfg.wandb_enabled is False
+    openpi_train.init_wandb(cfg, resuming=True, enabled=cfg.wandb_enabled)
 
 
 def test_openpi_starts_without_an_account_when_logging_is_off(monkeypatch, tmp_path) -> None:
