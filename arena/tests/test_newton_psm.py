@@ -90,14 +90,20 @@ def test_surgical_scenes_select_newton_settings_from_the_preset() -> None:
 # -- newton_meshes -------------------------------------------------------------
 MESH, BOX = 8, 7  # newton.GeoType values
 COLLIDE = 2  # newton.ShapeFlags.COLLIDE_SHAPES
+DYNAMIC, KINEMATIC = 1, 2  # newton.BodyFlags values
 
 
 def _builder() -> SimpleNamespace:
     return SimpleNamespace(
-        body_label=["/World/envs/env_0/Robot/psm_tool_gripper1_link", "/World/envs/env_0/Object"],
-        shape_type=[MESH, MESH, MESH, BOX, MESH],
-        shape_flags=[COLLIDE, COLLIDE, COLLIDE, COLLIDE, 0],
-        shape_body=[0, 1, -1, 1, 1],
+        body_label=[
+            "/World/envs/env_0/Robot/psm_tool_gripper1_link",
+            "/World/envs/env_0/Object",
+            "/World/envs/env_0/Organs/models_topo_blender/Back_muscles_topo_blender",
+        ],
+        body_flags=[DYNAMIC, DYNAMIC, KINEMATIC],
+        shape_type=[MESH, MESH, MESH, BOX, MESH, MESH],
+        shape_flags=[COLLIDE, COLLIDE, COLLIDE, COLLIDE, 0, COLLIDE],
+        shape_body=[0, 1, -1, 1, 1, 2],
     )
 
 
@@ -113,7 +119,7 @@ def test_a_registered_body_is_decomposed_and_every_other_collision_mesh_hulled(r
     decompose, hull = newton_meshes._split(_builder())
 
     assert decompose == [1]
-    assert hull == [0, 2]  # the box and the non-colliding mesh are left alone
+    assert hull == [0, 2, 5]  # the box and the non-colliding mesh are left alone
 
 
 def test_static_meshes_can_stay_triangle_meshes(registry) -> None:
@@ -121,6 +127,16 @@ def test_static_meshes_can_stay_triangle_meshes(registry) -> None:
     newton_meshes._keep_static = True
 
     assert newton_meshes._split(_builder()) == ([1], [0])
+
+
+def test_a_kinematic_bodys_mesh_is_static_scenery_too(registry) -> None:
+    """The organ bed's only collider sits on a kinematic body; as a hull it enclosed the needle and the tool."""
+    newton_meshes._keep_static = True
+
+    decompose, hull = newton_meshes._split(_builder())
+
+    assert 5 not in decompose + hull
+    assert hull == [0, 1]  # dynamic bodies' meshes are still hulled
 
 
 def test_only_the_cloners_blanket_hull_request_is_split(registry) -> None:
@@ -136,9 +152,46 @@ def test_only_the_cloners_blanket_hull_request_is_split(registry) -> None:
     approximate(_builder(), "convex_hull", keep_visual_shapes=True)
     approximate(_builder(), "convex_hull", [0])
 
-    assert calls[0] == ("convex_hull", [0, 2], {"keep_visual_shapes": True})
+    assert calls[0] == ("convex_hull", [0, 2, 5], {"keep_visual_shapes": True})
     assert calls[1] == ("coacd", [1], {"keep_visual_shapes": True, "threshold": newton_meshes.COACD_THRESHOLD})
     assert calls[2] == ("convex_hull", [0], {})
+
+
+def _l_prism() -> tuple[list[tuple[float, float, float]], list[int]]:
+    """A closed L-shaped prism, 2 cm across: concave, so CoACD splits it into parts."""
+    outline = [(0.0, 0.0), (0.02, 0.0), (0.02, 0.005), (0.005, 0.005), (0.005, 0.02), (0.0, 0.02)]
+    vertices = [(x, y, z) for z in (0.0, 0.005) for x, y in outline]
+    cap = [(0, 1, 2), (0, 2, 3), (0, 3, 4), (0, 4, 5)]
+    indices = [i for a, b, c in cap for i in (a, c, b)] + [i for a, b, c in cap for i in (a + 6, b + 6, c + 6)]
+    for i in range(6):
+        j = (i + 1) % 6
+        indices += [i, j, j + 6, i, j + 6, i + 6]
+    return vertices, indices
+
+
+def test_newtons_own_builder_keeps_the_kinematic_bed_a_mesh(registry) -> None:
+    """The kinematic organ bed stays a triangle mesh; the registered object is decomposed."""
+    newton = pytest.importorskip("newton")
+    vertices, indices = _l_prism()
+    builder = newton.ModelBuilder()
+    cfg = newton.ModelBuilder.ShapeConfig(gap=0.01)
+    bed = builder.add_body(label="/World/envs/env_0/Organs/Back_muscles", is_kinematic=True)
+    builder.add_shape_mesh(bed, mesh=newton.Mesh(vertices, indices), cfg=cfg)
+    needle = builder.add_body(label="/World/envs/env_0/Object")
+    builder.add_shape_mesh(needle, mesh=newton.Mesh(vertices, indices), cfg=cfg)
+    newton_meshes._SUFFIXES.add("/Object")
+    newton_meshes._keep_static = True
+
+    newton_meshes._wrap(newton.ModelBuilder.approximate_meshes)(builder, "convex_hull", keep_visual_shapes=True)
+
+    assert builder.shape_type[0] == newton.GeoType.MESH
+    parts = [
+        shape
+        for shape, body in enumerate(builder.shape_body)
+        if body == needle and builder.shape_flags[shape] & COLLIDE
+    ]
+    assert len(parts) > 1
+    assert all(builder.shape_type[shape] == newton.GeoType.CONVEX_MESH for shape in parts)
 
 
 def test_payloads_without_a_file_format_plugin_are_found(tmp_path: Path) -> None:

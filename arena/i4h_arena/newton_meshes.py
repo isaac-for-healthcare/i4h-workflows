@@ -38,12 +38,16 @@ def decompose_bodies(*suffixes: str) -> None:
 
 
 def keep_static_meshes() -> None:
-    """Leave static (bodiless) collision meshes as triangle meshes instead of hulls.
+    """Leave static scenery's collision meshes as triangle meshes instead of hulls.
 
-    A static scene authored as one mesh per surface (an operating room, an
-    organ bed) becomes solid blocks as hulls, with the robot inside one of
-    them. Newton collides convex shapes against static triangle meshes, as
-    PhysX does with a static mesh collider.
+    Static scenery is a bodiless mesh, or one on a kinematic body, which
+    contacts never move. A scene authored as one mesh per surface (an
+    operating room, an organ bed) becomes solid blocks as hulls, with the
+    robot inside one of them. The organ bed's only collider is a kinematic
+    body's mesh: its hull, 64 x 53 x 26 cm, enclosed the needle and the tool
+    tip, and the first step shot the needle out of it (NVBug 6928490). Newton
+    collides convex shapes against triangle meshes, as PhysX does with the
+    organ bed's SDF mesh.
     """
     global _keep_static
     _keep_static = True
@@ -79,7 +83,7 @@ def _wrap(original: Any) -> Any:
 
 def _split(builder: Any) -> tuple[list[int], list[int]]:
     """The collision meshes the cloner would hull, split into (decompose, hull); kept static meshes are in neither."""
-    from newton import GeoType, ShapeFlags  # noqa: PLC0415
+    from newton import BodyFlags, GeoType, ShapeFlags  # noqa: PLC0415
 
     labels = getattr(builder, "body_label", None) or builder.body_key
     decompose, hull = [], []
@@ -87,7 +91,7 @@ def _split(builder: Any) -> tuple[list[int], list[int]]:
         if shape_type != GeoType.MESH or not builder.shape_flags[shape] & ShapeFlags.COLLIDE_SHAPES:
             continue
         body = builder.shape_body[shape]
-        if body < 0 and _keep_static:
+        if _keep_static and (body < 0 or builder.body_flags[body] & BodyFlags.KINEMATIC):
             continue
         label = str(labels[body]) if body >= 0 else ""
         (decompose if any(label.endswith(suffix) for suffix in _SUFFIXES) else hull).append(shape)
