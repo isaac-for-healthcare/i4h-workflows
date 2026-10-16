@@ -64,6 +64,8 @@ Require exit status 0 and inspect every printed command and artifact path. The d
 
 Use `--run-dir` only when the caller needs a specific location. Apply `--skip-mimic`, `--skip-annotate`, `--skip-replay`, or `--skip-viz` only when the user explicitly omits that optional stage or a documented smoke profile requires it.
 
+Fine-tuning needs no Weights & Biases account. The PI0 trainer logs there only when `WANDB_API_KEY` is exported; leave it unset unless the user asks for W&B logging.
+
 Keep the driver as this agent's foreground tool call. Do not use a subagent, monitor task, shell backgrounding, `nohup`, `tmux`, or a detached process. Poll until exit.
 
 The driver performs full setup, then owns its stage sequence, timestamped run directory, `runs/.latest` link, and per-stage logs. Do not replace it with a manually assembled subset.

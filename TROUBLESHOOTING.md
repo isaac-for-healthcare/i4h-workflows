@@ -158,6 +158,14 @@ frame from the next episode: IsaacLab resets the environment inside the step tha
 terminates it. The arena no longer records that step. Re-record rather than grade such a
 file by its final frame.
 
+## PI0 fine-tuning stops with `wandb.errors.errors.UsageError: No API key configured`
+
+openpi's training config enables Weights & Biases by default, and logs in before the first
+step. The `openpi_pi0` trainer turns it off unless you ask for it with `--wandb` or an
+exported `WANDB_API_KEY`; its `--dry-run` prints the resolved `wandb` value. Seeing this error
+means logging was requested without a working login (run `wandb login`, or drop `--wandb`),
+or that the checkout predates the opt-in, where `WANDB_MODE=disabled` skips the login.
+
 ## The same `--seed` produces a different outcome
 
 Episode outcomes can differ between runs at a fixed seed, and the runner logs

@@ -426,7 +426,7 @@ From the command line:
 
 The runner streams progress to the terminal and prints the exact per-run `workflow.log` path. It performs setup, policy recording, mimic expansion, VLM filtering, replay, LeRobot conversion, visualization, fine-tuning, and checkpoint validation. Use its `--skip-*` flags to omit optional stages.
 
-VLM filtering grades each episode against the policy task manifest's `annotate:` block, which names the visible success criterion, the cameras to show, and whether to judge the final state or the motion; a manifest without one is graded on its task prompt.
+VLM filtering grades each episode against the policy task manifest's `annotate:` block, which names the visible success criterion, the cameras to show, and whether to judge the final state or the motion; a manifest without one is graded on its task prompt. Fine-tuning needs no Weights & Biases account: PI0 logs there only when `WANDB_API_KEY` is exported, and GR00T logs to TensorBoard.
 
 ## Further Documentation
 

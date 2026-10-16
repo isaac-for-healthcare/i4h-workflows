@@ -73,6 +73,8 @@ Inspect the resolved config. Keep user-requested steps, batch size, model/config
 
 For GR00T, “turn off vision tuning” maps to `--no-tune-visual`. Do not pass that flag to openpi, whose CLI does not expose it. Use only flags present in the selected project's current `train.py`.
 
+No trainer needs a Weights & Biases account. GR00T logs to TensorBoard. openpi logs to W&B only with `--wandb` or an exported `WANDB_API_KEY`, and the dry-run prints the resolved `wandb` value. Add `--wandb` only when the user asks for W&B logging.
+
 ## Train
 
 Remove `--dry-run` and keep the command in the foreground:
