@@ -56,6 +56,20 @@ def _kit_settings_manager() -> Any:
     return get_settings_manager()
 
 
+def _reset_during_step(env: Any) -> bool:
+    """Whether the last ``env.step`` reset the recorded environment (env 0).
+
+    ``ManagerBasedRLEnv.step`` resets a terminated environment before it
+    returns, so the scene, joints and camera images it leaves behind already
+    belong to the next episode. A workflow whose success is a termination term
+    (the liver scan's is) therefore ends on such a step every time it succeeds.
+    """
+    reset_buf = getattr(getattr(env, "unwrapped", env), "reset_buf", None)
+    if reset_buf is None or len(reset_buf) == 0:
+        return False
+    return bool(reset_buf[0])
+
+
 def _render_scene_only(env: Any, app: Any) -> None:
     """Refresh the scene and UI while preventing Kit from advancing physics."""
     sim = getattr(getattr(env, "unwrapped", env), "sim", None)
@@ -311,6 +325,7 @@ class SimulationRunner:
             self.recorder.begin_episode(episode, attempt, initial_state=initial_state)
 
         while not engine.status.is_terminal and self.app.is_running():
+            stepped_into_reset = False
             engine.tick(ctx)
             if ctx.consume_scene_reset():
                 self._reset_active_scene(engine, ctx)
@@ -357,8 +372,12 @@ class SimulationRunner:
                         logger.debug("env.step failed while Isaac Sim was closing", exc_info=True)
                         break
                 self._view.invalidate()
+                stepped_into_reset = _reset_during_step(self.env)
             self._update_sensor_windows()
-            if self.recorder is not None:
+            if self.recorder is not None and not stepped_into_reset:
+                # A step that reset the environment leaves the next episode's
+                # images and joints behind; recording them would end every
+                # such demo on a frame from a different episode.
                 self.recorder.on_step(self._actuation.numpy(), self._view)
             if self.publisher is not None:
                 active = engine.active_nodes

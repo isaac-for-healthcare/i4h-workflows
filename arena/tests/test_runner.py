@@ -10,6 +10,7 @@ import pytest
 import torch
 
 from i4h_arena import runner
+from i4h_engine.status import WorkflowStatus
 from i4h_engine.task import TickContext
 
 
@@ -305,3 +306,91 @@ def test_a_window_closed_between_steps_is_recorded_as_aborted_not_running() -> N
     assert result.status is runner.WorkflowStatus.ABORTED
     assert simulation.recorder.steps == 1
     assert simulation.recorder.ended == [(result, True)]
+
+
+# -- a step that resets the env is not recorded (NVBug 6941887) -------------
+
+
+def test_reset_during_step_reads_env_zero_of_reset_buf() -> None:
+    assert runner._reset_during_step(SimpleNamespace(reset_buf=torch.tensor([True, False])))
+    assert not runner._reset_during_step(SimpleNamespace(reset_buf=torch.tensor([False, True])))
+    assert not runner._reset_during_step(SimpleNamespace())  # a ManagerBasedEnv has no reset buffer
+    assert runner._reset_during_step(SimpleNamespace(unwrapped=SimpleNamespace(reset_buf=np.array([True]))))
+
+
+class _TerminatingEnv:
+    """An RL env whose success termination fires, and auto-resets, on step ``terminal_step``."""
+
+    def __init__(self, terminal_step: int) -> None:
+        self.terminal_step = terminal_step
+        self.steps = 0
+        self.reset_buf = torch.zeros(1, dtype=torch.bool)
+        self.step_dt = 1.0 / 30.0
+
+    @property
+    def unwrapped(self) -> _TerminatingEnv:
+        return self
+
+    def step(self, _command: torch.Tensor) -> None:
+        self.steps += 1
+        self.reset_buf[0] = self.steps == self.terminal_step
+
+
+class _UntilTerminated:
+    """An engine whose single node succeeds once it observes the termination pulse."""
+
+    def __init__(self, env: _TerminatingEnv) -> None:
+        self.env = env
+        self.status = WorkflowStatus.RUNNING
+        self.step = 0
+        self.detail = ""
+        self.segments = ()
+        self.advance_requested = True
+        self.terminal_advance_requested = False
+        self.active_nodes = ("policy",)
+
+    def start(self, _ctx: TickContext) -> None:
+        self.status = WorkflowStatus.RUNNING
+
+    def tick(self, _ctx: TickContext) -> None:
+        if bool(self.env.reset_buf[0]):
+            self.status = WorkflowStatus.SUCCEEDED
+        else:
+            self.step += 1
+
+
+def test_the_step_that_resets_a_successful_episode_is_not_recorded() -> None:
+    """IsaacLab resets a terminated env inside ``step``; that frame shows the next episode."""
+    recorded: list[int] = []
+    ended: list[bool] = []
+    env = _TerminatingEnv(terminal_step=4)
+    simulation = object.__new__(runner.SimulationRunner)
+    simulation.env = env
+    simulation.app = SimpleNamespace(is_running=lambda: True)
+    simulation.scene = SimpleNamespace(
+        on_reset=lambda _env, _view: None,
+        make_actuation=lambda _env, _view: SimpleNamespace(
+            tensor=lambda: torch.zeros(1, 6), numpy=lambda: np.zeros((1, 6))
+        ),
+    )
+    simulation._reset_env = lambda _seed=None: None
+    simulation._view = SimpleNamespace(invalidate=lambda: None, num_envs=1)
+    simulation._sensor_windows = ()
+    simulation._controls = {}
+    simulation.keys = simulation.bus = simulation.publisher = None
+    simulation.run_id = "run"
+    simulation.seed = None
+    simulation.workflow = SimpleNamespace(mode="policy")
+    simulation.record_failures = False
+    simulation.recorder = SimpleNamespace(
+        begin_episode=lambda *_args, **_kwargs: None,
+        on_step=lambda _action, _view: recorded.append(env.steps),
+        end_episode=lambda result, keep: ended.append(keep),
+    )
+
+    result = simulation._run_episode(_UntilTerminated(env), episode=0, attempt=1)
+
+    assert result.succeeded
+    assert env.steps == 4
+    assert recorded == [1, 2, 3]
+    assert ended == [True]
