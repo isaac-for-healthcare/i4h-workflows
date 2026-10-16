@@ -13,6 +13,7 @@ SKIP_MIMIC=0
 SKIP_ANNOTATE=0
 SKIP_REPLAY=0
 SKIP_VIZ=0
+HEADLESS=()
 RUN_DIR=""
 RECORD_EPISODES="${RECORD_EPISODES:-3}"
 RECORD_ATTEMPTS="${RECORD_ATTEMPTS:-3}"
@@ -35,6 +36,8 @@ Options:
   --skip-annotate        trust simulator success and skip VLM filtering
   --skip-replay          skip visual replay
   --skip-viz             skip the LeRobot HTML server
+  --headless             record and replay without the interactive viewport
+                         (checkpoint validation always runs headless)
   -h, --help
 EOF
 }
@@ -50,6 +53,7 @@ while (($#)); do
     --skip-annotate) SKIP_ANNOTATE=1; shift ;;
     --skip-replay) SKIP_REPLAY=1; shift ;;
     --skip-viz) SKIP_VIZ=1; shift ;;
+    --headless) HEADLESS=(--headless); shift ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) ENV_ID="$1"; shift ;;
@@ -155,7 +159,7 @@ run ./setup.sh
 
 stage record
 run ./run.sh "$ENV_ID" --policy --episodes "$RECORD_EPISODES" --attempts "$RECORD_ATTEMPTS" \
-  --run-dir "$RUN_DIR/record" --record "$RECORDING"
+  ${HEADLESS[@]+"${HEADLESS[@]}"} --run-dir "$RUN_DIR/record" --record "$RECORDING"
 
 stage mimic
 if [ "$SKIP_MIMIC" -eq 1 ]; then
@@ -182,7 +186,8 @@ else
 fi
 
 stage replay
-[ "$SKIP_REPLAY" -eq 1 ] || run ./run.sh "$ENV_ID" --replay "$FILTERED" --episode 0 --run-dir "$RUN_DIR/replay"
+[ "$SKIP_REPLAY" -eq 1 ] || run ./run.sh "$ENV_ID" --replay "$FILTERED" --episode 0 \
+  ${HEADLESS[@]+"${HEADLESS[@]}"} --run-dir "$RUN_DIR/replay"
 
 stage convert
 run uv run --project tools/dataset i4h-dataset convert "$FILTERED" "$DATASET" \

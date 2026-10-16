@@ -62,7 +62,7 @@ Require exit status 0 and inspect every printed command and artifact path. The d
 ./scripts/e2e/run.sh --env <workflow>
 ```
 
-Use `--run-dir` only when the caller needs a specific location. Apply `--skip-mimic`, `--skip-annotate`, `--skip-replay`, or `--skip-viz` only when the user explicitly omits that optional stage or a documented smoke profile requires it.
+Use `--run-dir` only when the caller needs a specific location. Add `--headless` when the host has no display; checkpoint validation is always headless. Apply `--skip-mimic`, `--skip-annotate`, `--skip-replay`, or `--skip-viz` only when the user explicitly omits that optional stage or a documented smoke profile requires it.
 
 Fine-tuning needs no Weights & Biases account. The PI0 trainer logs there only when `WANDB_API_KEY` is exported; leave it unset unless the user asks for W&B logging.
 

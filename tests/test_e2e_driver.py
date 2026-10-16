@@ -8,6 +8,8 @@ import shlex
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from i4h_common.taskdef import load_taskdef
 
 WORKFLOWS_ROOT = Path(__file__).resolve().parent.parent
@@ -64,3 +66,16 @@ def test_a_task_without_an_annotate_block_is_graded_as_before(tmp_path) -> None:
         "--filter",
         str(tmp_path / "run/data/filtered.hdf5"),
     ]
+
+
+@pytest.mark.parametrize("stage", ["--record", "--replay"])
+def test_headless_reaches_recording_and_replay(tmp_path, stage) -> None:
+    commands = _dry_run(tmp_path, "scissor_pick_and_place", "--headless")
+
+    assert "--headless" in _command(commands, stage)
+
+
+def test_recording_opens_the_viewport_by_default(tmp_path) -> None:
+    commands = _dry_run(tmp_path, "scissor_pick_and_place")
+
+    assert "--headless" not in _command(commands, "--record")
