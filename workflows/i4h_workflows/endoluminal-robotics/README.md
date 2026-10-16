@@ -298,6 +298,8 @@ Look in **Scalars** (or the scalar cards in the **Time Series** view). The [roll
 
 `rollout_progress.json` in the run directory provides the same small batch-progress summary for external monitoring. A process being alive, a monitor event file, and a successful rollout are different observations. For assessing learning, prioritize success over repeated evaluations, remaining curved-route distance, lateral deviation, and wall penetration. The latter geometry diagnostics must be read from available simulator logs or explicitly added as metrics; the monitor above does not currently emit them.
 
+During PPO optimization, `rollout_progress.json` stays at `rollouts_complete_waiting_for_optimizer` until collection resumes. Follow the actor log for `PPO optimization started` and one `PPO optimizer step ... finished` line per step, including the count within the current update and elapsed seconds. GR00T N1.7 actor and rollout workers install the same linear Qwen3-VL patch embedding used by fine-tuning and inference, avoiding the slow bf16 Conv3d path while preserving checkpoint parameters and gradients. Existing checkouts should rerun `./third_party/setup.sh tasks/gr00t_n17` to apply the worker patch before restarting training.
+
 RLinf defaults to TensorBoard. After authenticating with `tasks/gr00t_n17/.venv/bin/wandb login`, enable both trainer backends with the additional argument `--set 'runner.logger.logger_backends=[tensorboard,wandb]'`. The custom `monitor/*` writer remains a TensorBoard writer; enabling the trainer's W&B backend does not automatically mirror that writer's scalars.
 
 ### Anatomy curriculum, evaluation, and checkpoint handoff

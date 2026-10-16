@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""CI must execute every regression in the four Trocar review modules."""
+"""CI must execute every regression in the required RLinf modules."""
 
 import os
 
@@ -9,6 +9,7 @@ REQUIRED_MODULES = {
     "test_rlinf_recording.py",
     "test_rlinf_video.py",
     "test_rlinf_collective_failures.py",
+    "test_rlinf_gr00t_training.py",
 }
 
 
@@ -19,5 +20,5 @@ def pytest_sessionfinish(session, exitstatus):
     passed = {report.nodeid.split("::")[0].rsplit("/", 1)[-1] for report in reporter.stats.get("passed", [])}
     skipped = {report.nodeid.split("::")[0].rsplit("/", 1)[-1] for report in reporter.stats.get("skipped", [])}
     if not passed >= REQUIRED_MODULES or REQUIRED_MODULES & skipped:
-        reporter.write_sep("!", "CI requires all four RL regression modules to execute without skips")
+        reporter.write_sep("!", "CI requires the mandatory RL regression modules to execute without skips")
         session.exitstatus = 1
