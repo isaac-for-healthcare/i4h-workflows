@@ -74,11 +74,31 @@ def _wrap(original: Any) -> Any:
         remeshed = set(original(self, method, hull, **kwargs) or ())
         if decompose:
             logger.info("decomposing %d collision mesh(es) of %s with CoACD", len(decompose), sorted(_SUFFIXES))
+            first_new = len(self.shape_gap)
             remeshed |= set(original(self, "coacd", decompose, threshold=COACD_THRESHOLD, **kwargs) or ())
+            _inherit_gap(self, decompose, first_new)
         return remeshed
 
     approximate_meshes.__wrapped__ = original
     return approximate_meshes
+
+
+def _inherit_gap(builder: Any, sources: list[int], first_new: int) -> None:
+    """Give the convex parts CoACD adds their source shape's contact gap.
+
+    Newton copies the source's other contact settings onto the parts but
+    leaves ``gap`` at its builder default, 0.1 m, ten times IsaacLab's
+    0.01 m. On the organ bed, the needle's parts then gathered about 100
+    speculative contacts a step with the bed's triangle mesh. Newton reported
+    one of them at zero distance, several centimetres from the needle, so the
+    solver kept it active, and the simulation went NaN every few episodes
+    (NVBug 6928490).
+    """
+    by_label = {builder.shape_label[shape]: shape for shape in sources}
+    for shape in range(first_new, len(builder.shape_gap)):
+        source = by_label.get(builder.shape_label[shape].rpartition("_convex_")[0])
+        if source is not None:
+            builder.shape_gap[shape] = builder.shape_gap[source]
 
 
 def _split(builder: Any) -> tuple[list[int], list[int]]:

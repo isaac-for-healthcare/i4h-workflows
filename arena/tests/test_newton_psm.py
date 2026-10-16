@@ -104,6 +104,8 @@ def _builder() -> SimpleNamespace:
         shape_type=[MESH, MESH, MESH, BOX, MESH, MESH],
         shape_flags=[COLLIDE, COLLIDE, COLLIDE, COLLIDE, 0, COLLIDE],
         shape_body=[0, 1, -1, 1, 1, 2],
+        shape_label=["jaw", "Object/Needle", "table", "Object/box", "Object/visual", "Back_muscles"],
+        shape_gap=[0.01] * 6,
     )
 
 
@@ -157,6 +159,34 @@ def test_only_the_cloners_blanket_hull_request_is_split(registry) -> None:
     assert calls[2] == ("convex_hull", [0], {})
 
 
+def test_coacds_extra_convex_parts_keep_their_source_shapes_contact_gap(registry) -> None:
+    """Newton gives the parts its 0.1 m default gap: ~100 speculative contacts a step with the organ bed."""
+    builder = _builder()
+    builder.shape_gap[1] = 0.02
+
+    def original(b, method, shape_indices, **kwargs):
+        if method == "coacd":
+            for shape in shape_indices:  # Newton appends parts 1.. of each decomposition, without its gap
+                for part in (1, 2):
+                    b.shape_label.append(f"{b.shape_label[shape]}_convex_{part}")
+                    b.shape_gap.append(0.1)
+        b.shape_label.append("jaw_visual")  # anything else the call adds keeps its own gap
+        b.shape_gap.append(0.1)
+        return set(shape_indices or ())
+
+    newton_meshes._SUFFIXES.add("/Object")
+    newton_meshes._wrap(original)(builder, "convex_hull", keep_visual_shapes=True)
+
+    assert builder.shape_label[6:] == [
+        "jaw_visual",
+        "Object/Needle_convex_1",
+        "Object/Needle_convex_2",
+        "jaw_visual",
+    ]
+    assert builder.shape_gap[6:] == [0.1, 0.02, 0.02, 0.1]
+    assert builder.shape_gap[:6] == [0.01, 0.02, 0.01, 0.01, 0.01, 0.01]
+
+
 def _l_prism() -> tuple[list[tuple[float, float, float]], list[int]]:
     """A closed L-shaped prism, 2 cm across: concave, so CoACD splits it into parts."""
     outline = [(0.0, 0.0), (0.02, 0.0), (0.02, 0.005), (0.005, 0.005), (0.005, 0.02), (0.0, 0.02)]
@@ -169,8 +199,8 @@ def _l_prism() -> tuple[list[tuple[float, float, float]], list[int]]:
     return vertices, indices
 
 
-def test_newtons_own_builder_keeps_the_kinematic_bed_a_mesh(registry) -> None:
-    """The kinematic organ bed stays a triangle mesh; the registered object is decomposed."""
+def test_newtons_own_builder_keeps_the_kinematic_bed_a_mesh_and_the_parts_gap(registry) -> None:
+    """The kinematic organ bed stays a triangle mesh; the decomposed object's parts keep the configured gap."""
     newton = pytest.importorskip("newton")
     vertices, indices = _l_prism()
     builder = newton.ModelBuilder()
@@ -192,6 +222,7 @@ def test_newtons_own_builder_keeps_the_kinematic_bed_a_mesh(registry) -> None:
     ]
     assert len(parts) > 1
     assert all(builder.shape_type[shape] == newton.GeoType.CONVEX_MESH for shape in parts)
+    assert [builder.shape_gap[shape] for shape in parts] == pytest.approx([0.01] * len(parts))
 
 
 def test_payloads_without_a_file_format_plugin_are_found(tmp_path: Path) -> None:
