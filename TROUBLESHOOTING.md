@@ -124,6 +124,40 @@ these ways:
 To see what is installed, run `ls /usr/local/cuda*/lib64/libnvrtc.so*`. A toolkit directory
 without `libnvrtc.so` is a partial install, such as one that only provides driver headers.
 
+## The e2e annotate stage fails episodes the simulator passed
+
+The `annotate` stage of `scripts/e2e/run.sh` ends with `0/N succeeded` and `ValueError: no
+successful episodes`, although the `record` stage reported every episode succeeded. The VLM
+sees only a few sampled frames, so first look at what it was shown. Dump the frames for one
+demo, from every camera, with the same sampling the annotator uses:
+
+```bash
+uv run --project tools/annotator python - runs/<workflow>/<run>/data/expanded.hdf5 <<'EOF'
+import sys, h5py, numpy as np
+from PIL import Image
+obs = h5py.File(sys.argv[1], "r")["data/demo_0/obs"]
+for cam in obs:
+    v = obs[cam]
+    if v.dtype == np.uint8 and v.ndim == 4:
+        idx = np.linspace(0, len(v) - 1, 6).astype(int)
+        Image.fromarray(np.concatenate([v[i] for i in idx], axis=1)).save(f"/tmp/annot_{cam}.png")
+EOF
+```
+
+The driver grades against the policy task manifest's `annotate:` block, and against the
+task prompt when there is none. If the subject is a few pixels in the graded camera, name a
+better view in `annotate.cameras`. If the prompt names no state a camera can see, as
+`Perform a liver ultrasound.` does not, write one in `annotate.criterion`. If success is a
+motion rather than a resting place, as for a probe sweep, set `annotate.judge: trajectory` so
+the model is not asked to find it in the last frame. Grade the same file by hand with
+`--camera`, `--judge` and `--task` until the verdicts match what the frames show, then put
+those values in the manifest.
+
+A recording made before the fix for this entry also ends every termination-based success on a
+frame from the next episode: IsaacLab resets the environment inside the step that
+terminates it. The arena no longer records that step. Re-record rather than grade such a
+file by its final frame.
+
 ## The same `--seed` produces a different outcome
 
 Episode outcomes can differ between runs at a fixed seed, and the runner logs

@@ -5,7 +5,7 @@
 # with Isaac's), so its declaration has to be data — and data is what this
 # is: no behaviour, just what the checkpoint is and what scene it needs.
 #
-# summary / prompt / embodiment / cameras are read in the light venv.
+# summary / prompt / embodiment / cameras / annotate are read in the light venv.
 # model / observation / train       are read only by this stack's server.py
 #                                   and train.py, in this stack's own venv.
 # `train:` present -> finetunable.
@@ -16,6 +16,22 @@ embodiment: panda
 cameras:
 - room
 - wrist
+# How the e2e annotate stage grades a recording. The policy prompt names no
+# state a camera can see, and a scan ends much as it starts -- the probe resting
+# on the phantom -- so the grader is told what contact looks like, shown both
+# views (the probe tip is a few pixels in the 224 px room camera, and the wrist
+# camera alone cannot show where on the phantom it is), and asked whether the
+# scan happens across the attempt rather than how it ends. "Most of the
+# attempt" is what rejects a probe that only touches down at the very end.
+annotate:
+  criterion: >-
+    The ultrasound probe on the robot's wrist rests on the abdominal phantom
+    (the orange organ model on the table) for most of the attempt and scans
+    along its surface.
+  cameras:
+  - room
+  - wrist
+  judge: trajectory
 model:
   repo: nvidia/Liver_Scan_Pi0_Cosmos_Rel
   repo_id: i4h/sim_liver_scan

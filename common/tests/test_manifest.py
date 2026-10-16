@@ -129,6 +129,51 @@ def test_a_list_at_the_top_level_is_an_error(tmp_path):
         load_taskdef(_write(tmp_path, "- impl: a:B\n"))
 
 
+# -- annotate: how the VLM grades recordings (NVBug 6941887) ---------------
+
+
+def test_annotate_is_optional(tmp_path):
+    _, _, definition = load_taskdef(_write(tmp_path, REMOTE, "scissor.yaml"))
+    assert definition.annotate == {}
+
+
+def test_annotate_block_is_read_and_its_criterion_flattened(tmp_path):
+    body = REMOTE + (
+        "annotate:\n"
+        "  criterion: >-\n"
+        "    The probe touches the phantom\n"
+        "    and sweeps across it.\n"
+        "  cameras: [room, wrist]\n"
+        "  judge: trajectory\n"
+        "  frames: 8\n"
+    )
+    _, _, definition = load_taskdef(_write(tmp_path, body, "scan.yaml"))
+    assert definition.annotate == {
+        "criterion": "The probe touches the phantom and sweeps across it.",
+        "cameras": ["room", "wrist"],
+        "judge": "trajectory",
+        "frames": 8,
+    }
+
+
+@pytest.mark.parametrize(
+    ("block", "message"),
+    [
+        ("annotate: [room]\n", "annotate must be a mapping"),
+        ("annotate:\n  camera: room\n", "unknown annotate keys"),
+        ("annotate:\n  criterion: ''\n", "criterion is empty"),
+        ("annotate:\n  cameras: room\n", "non-empty list"),
+        ("annotate:\n  cameras: [fluoroscopy]\n", "not among the task's cameras"),
+        ("annotate:\n  judge: final\n", "judge must be one of"),
+        ("annotate:\n  frames: 0\n", "positive integer"),
+        ("annotate:\n  frames: true\n", "positive integer"),
+    ],
+)
+def test_a_malformed_annotate_block_is_rejected(tmp_path, block, message):
+    with pytest.raises(TaskDefError, match=message):
+        load_taskdef(_write(tmp_path, REMOTE + block, "scissor.yaml"))
+
+
 # -- scenes ---------------------------------------------------------------
 
 

@@ -48,7 +48,9 @@ find runs -name '*.hdf5' -type f -printf '%T@ %p\n' | sort -nr | head
 
 Treat the resolver above as part of the skill contract: a hosted copy may run outside the base repository, so never assume the current checkout contains `workflows/i4h_workflows`. `I4H_WORKFLOWS_REPO_URL` selects the clone source. When `I4H_WORKFLOWS` is unset, derive the fallback directory from that URL; set `I4H_WORKFLOWS` only to reuse or choose a specific destination. Never replace an existing checkout.
 
-Use the explicit/current-chain HDF5. “All recorded episodes” means every episode in that selected file, not every historical run. Inspect it and use the user's explicit success criterion when supplied; otherwise combine the source Scene manifest instruction with the workflow's visible terminal goal semantics. Phrase placement success as the object reaching and remaining at its target, not as the robot continuing to hold it.
+Use the explicit/current-chain HDF5. “All recorded episodes” means every episode in that selected file, not every historical run. Inspect it and use the user's explicit success criterion when supplied. Otherwise read the workflow's remote task manifest, `tasks/<project>/i4h_tasks/<project>/manifest/<task>.yaml`: its `annotate:` block, when present, gives the `criterion`, `cameras`, `judge`, and `frames` to grade with, and `scripts/e2e/run.sh` passes exactly those. Without one, combine the source Scene manifest instruction with the workflow's visible terminal goal semantics. Phrase placement success as the object reaching and remaining at its target, not as the robot continuing to hold it.
+
+Choose `--judge terminal` (the default) when success is a state the final frames show, such as an object in a tray. Choose `--judge trajectory` when success is a motion, such as a probe sweep, whose end looks much like its start. Repeat `--camera`, or pass a comma-separated list, when no single camera shows the task; without it the annotator grades only the first camera by name.
 
 ## Resolve the endpoint
 
@@ -96,7 +98,7 @@ uv run --project tools/annotator i4h-annotator \
   --write
 ```
 
-Add global `--base-url`, `--model`, `--camera`, or `--frames` only when selected. Add offline `--node` only for a requested segment. Add `--filter "$RUN_DIR/filtered.hdf5"` only when filtering was requested; a summarize-only prompt must grade all episodes without requiring at least one success. Keep credentials in environment variables; never print them.
+Add global `--base-url`, `--model`, `--camera`, `--judge`, or `--frames` only when selected. Add offline `--node` only for a requested segment. Add `--filter "$RUN_DIR/filtered.hdf5"` only when filtering was requested; a summarize-only prompt must grade all episodes without requiring at least one success. Keep credentials in environment variables; never print them.
 
 Stop the local VLM only if this invocation started it:
 
@@ -112,11 +114,11 @@ Inspect the annotator summary. If filtering was requested, also inspect the filt
 uv run --project tools/dataset i4h-dataset inspect "$RUN_DIR/filtered.hdf5" --segments
 ```
 
-Require a verdict for every selected episode and reconcile pass/fail counts plus filtered counts when applicable. Treat endpoint errors, absent cameras, partial writes, and unexplained zero-episode output as failure. An all-failure verdict set is a valid completed grading run for summarize-only prompts; it is not a valid filtered dataset.
+Require a verdict for every selected episode and reconcile pass/fail counts plus filtered counts when applicable. Episodes with identical sampled frames, such as `tools/mimic` variants of one source demo, receive one verdict; `--write` records the episode it came from in `vlm_success_from`. Treat endpoint errors, absent cameras, partial writes, and unexplained zero-episode output as failure. An all-failure verdict set is a valid completed grading run for summarize-only prompts; it is not a valid filtered dataset.
 
 ## Troubleshooting
 
-Check camera sampling before endpoint/authentication errors. Never accept partial writes or a filtered file with an unexplained zero count.
+Check camera sampling before endpoint/authentication errors. Never accept partial writes or a filtered file with an unexplained zero count. When simulator-successful episodes all fail, dump the sampled frames from each camera before changing the criterion: a tiny or occluded subject calls for another `--camera`, and a motion task graded on its end state calls for `--judge trajectory`.
 
 ## Prerequisites
 
@@ -132,4 +134,4 @@ Visual grading cannot recover missing frames or prove simulator state that is no
 
 ## Completion gate
 
-Report source HDF5, selected criterion/camera/model/endpoint origin, graded pass/fail counts, filtered path/count when requested, dry-run result if used, and local-service cleanup.
+Report source HDF5, selected criterion/camera/judge/model/endpoint origin, graded pass/fail counts, filtered path/count when requested, dry-run result if used, and local-service cleanup.

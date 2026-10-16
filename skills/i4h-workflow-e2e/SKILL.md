@@ -46,7 +46,7 @@ cd "$ROOT"
 
 Treat this resolver as part of the skill contract: a hosted copy may run outside the base repository, so never assume the current checkout contains `workflows/i4h_workflows`. `I4H_WORKFLOWS_REPO_URL` selects the clone source. When `I4H_WORKFLOWS` is unset, derive the fallback directory from that URL; set `I4H_WORKFLOWS` only to reuse or choose a specific destination. Never replace an existing checkout.
 
-Require the workflow's `policy` mode. The driver discovers the remote task, embodiment, task text, and trainability from live workflow/task manifests.
+Require the workflow's `policy` mode. The driver discovers the remote task, embodiment, task text, trainability, and annotate settings from live workflow/task manifests. The annotate stage grades with the task manifest's `annotate:` block (criterion, cameras, judge) when present and with the task text otherwise; the dry-run prints the resolved `[e2e] annotate:` line.
 
 ## Dry-run first
 
@@ -73,7 +73,7 @@ The driver performs full setup, then owns its stage sequence, timestamped run di
 On success, inspect the printed summary and artifacts:
 
 - policy recording
-- expanded/filtered HDF5 as applicable
+- expanded/filtered HDF5 as applicable, with every annotate verdict and the pass count
 - visible replay result when enabled
 - LeRobot metadata, parquet, and videos
 - visualizer URL/content when enabled

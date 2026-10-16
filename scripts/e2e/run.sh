@@ -77,11 +77,18 @@ for node in workflow.graph.nodes:
 if len(remote) != 1:
     raise SystemExit(f"{name}: e2e needs exactly one policy task, found {len(remote)}")
 spec = remote[0]
+# The annotate stage grades against the manifest's visible success criterion
+# when it has one; the policy's language prompt may name no end state at all.
+annotate = spec.annotate
 print(spec.project)
 print(spec.id)
 print(spec.requires.get("embodiment", ""))
-print(spec.effective_prompt)
+print(" ".join(spec.effective_prompt.split()))
 print("1" if spec.trainable else "0")
+print(annotate.get("criterion") or " ".join(spec.effective_prompt.split()))
+print(",".join(annotate.get("cameras", ())))
+print(annotate.get("judge", ""))
+print(annotate.get("frames", ""))
 PY
 ); then
   echo "[e2e] $ENV_ID does not provide a policy mode; use ./run.sh $ENV_ID --rule-based" >&2
@@ -94,6 +101,14 @@ TASK_ID="${META[1]}"
 ROBOT="${META[2]}"
 TASK_DESCRIPTION="${META[3]}"
 TRAINABLE="${META[4]}"
+ANNOTATE_CRITERION="${META[5]}"
+ANNOTATE_CAMERAS="${META[6]:-}"
+ANNOTATE_JUDGE="${META[7]:-}"
+ANNOTATE_FRAMES="${META[8]:-}"
+ANNOTATE_ARGS=(--task "$ANNOTATE_CRITERION")
+[ -z "$ANNOTATE_CAMERAS" ] || ANNOTATE_ARGS+=(--camera "$ANNOTATE_CAMERAS")
+[ -z "$ANNOTATE_JUDGE" ] || ANNOTATE_ARGS+=(--judge "$ANNOTATE_JUDGE")
+[ -z "$ANNOTATE_FRAMES" ] || ANNOTATE_ARGS+=(--frames "$ANNOTATE_FRAMES")
 
 RUN_DIR="${RUN_DIR:-runs/${ENV_ID}/$(date +%Y%m%d_%H%M%S)}"
 case "$RUN_DIR" in /*) ;; *) RUN_DIR="$WORKFLOWS_ROOT/$RUN_DIR" ;; esac
@@ -125,6 +140,7 @@ trap cleanup EXIT INT TERM
 
 cat <<EOF
 [e2e] env=$ENV_ID stack=$STACK task=$TASK_ID robot=$ROBOT trainable=$TRAINABLE
+[e2e] annotate: judge=${ANNOTATE_JUDGE:-terminal} cameras=${ANNOTATE_CAMERAS:-first} criterion="$ANNOTATE_CRITERION"
 [e2e] run_dir=$RUN_DIR
 EOF
 
@@ -157,7 +173,7 @@ else
     VLLM_OWNED=1
   fi
   run tools/annotator/scripts/vllm.sh ensure
-  run uv run --project tools/annotator i4h-annotator --task "$TASK_DESCRIPTION" \
+  run uv run --project tools/annotator i4h-annotator "${ANNOTATE_ARGS[@]}" \
     offline "$EXPANDED" --write --filter "$FILTERED"
   if [ "$VLLM_OWNED" -eq 1 ]; then
     run tools/annotator/scripts/vllm.sh stop
