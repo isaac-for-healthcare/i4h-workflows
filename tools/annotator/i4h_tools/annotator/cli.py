@@ -150,7 +150,7 @@ def _sample_indices(length: int, count: int) -> list[int]:
 
 def _read_frames(video: h5py.Dataset, count: int, start: int = 0, stop: int | None = None) -> list[np.ndarray]:
     """The sampled frames of ``video[start:stop]``, read without loading the rest of it."""
-    stop = len(video) if stop is None else stop
+    start, stop, _ = slice(start, stop).indices(len(video))
     indices = [start + index for index in _sample_indices(stop - start, count)]
     return list(video[indices]) if indices else []
 
@@ -315,6 +315,7 @@ def filter_successful(source: Path, target: Path, results: Sequence[Sequence]) -
                     # Its verdict came from a demo this file does not hold; the
                     # old name would point at whichever demo now carries it.
                     del demo.attrs[key]
+                    logger.warning("%s: removed %s reference to %s, absent from filtered output", name, key, referenced)
         dst_data.attrs["total"] = len(keep)
         dst_data.attrs["filtered_from"] = str(source)
     logger.info("wrote %s successful demos to %s", len(keep), target)

@@ -203,3 +203,44 @@ def test_a_local_dataset_without_groot_metadata_fails_the_check(tmp_path) -> Non
         _finetune.check_dataset_videos(str(tmp_path), ["ego_view"], _finetune.DEFAULT_MODALITY_CONFIG)
     with pytest.raises(SystemExit, match=r"meta/info.json or meta/modality.json"):
         _finetune.check_dataset_videos(str(tmp_path / "meta"), ["ego_view"], _finetune.DEFAULT_MODALITY_CONFIG)
+
+
+@pytest.mark.parametrize("missing", [("info.json",), ("modality.json",), ("info.json", "modality.json")])
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_incomplete_local_dataset_fails_in_both_training_paths(tmp_path, monkeypatch, missing, dry_run) -> None:
+    dataset = _converted(
+        tmp_path, recorded=["head"], modality_video={"ego_view": {"original_key": "observation.images.head"}}
+    )
+    for name in missing:
+        (dataset / "meta" / name).unlink()
+    monkeypatch.setattr(_finetune, "_load_modality_config", lambda _path: None)
+    monkeypatch.setattr(_finetune, "requested_video_keys", lambda _tag: ["ego_view"])
+    monkeypatch.setattr("i4h_common.training.require_trainable", lambda _id: SimpleNamespace(train={}))
+    monkeypatch.setattr(_finetune, "_available_gpus", lambda: 1)
+    (tmp_path / "gr00t").mkdir()
+    monkeypatch.setattr(_finetune, "_groot_root", lambda: tmp_path)
+    monkeypatch.setattr(_finetune, "_build_gr00t_config", lambda *_args: pytest.fail("must fail before training"))
+
+    args = ["--task", "gr00t_n16/test_task", "--dataset", str(dataset)]
+    with pytest.raises(SystemExit) as exc:
+        main([*args, *(["--dry-run"] if dry_run else [])])
+    assert str(dataset) in str(exc.value)
+    for name in missing:
+        assert f"meta/{name}" in str(exc.value)
+
+
+def test_existing_file_is_not_treated_as_a_hub_dataset(tmp_path) -> None:
+    dataset = tmp_path / "file"
+    dataset.touch()
+    with pytest.raises(SystemExit, match="file:.*not a directory; it has no meta/info.json or meta/modality.json"):
+        _finetune.check_dataset_videos(str(dataset), [], _finetune.DEFAULT_MODALITY_CONFIG)
+
+
+def test_existing_relative_dataset_is_validated(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    dataset = Path("org/dataset")
+    dataset.mkdir(parents=True)
+    with pytest.raises(SystemExit, match="org/dataset:.*it has no meta/info.json or meta/modality.json"):
+        _finetune.check_dataset_videos(str(dataset), [], _finetune.DEFAULT_MODALITY_CONFIG)
+    _converted(dataset, recorded=["head"], modality_video={"ego_view": {"original_key": "observation.images.head"}})
+    _finetune.check_dataset_videos(str(dataset), ["ego_view"], _finetune.DEFAULT_MODALITY_CONFIG)

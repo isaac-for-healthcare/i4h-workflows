@@ -488,8 +488,8 @@ def test_a_reset_the_workflow_does_not_end_on_ends_the_attempt(caplog) -> None:
     assert "IsaacLab reset the scene after termination object_dropped" in caplog.text
 
 
-def test_after_a_success_reset_the_workflow_finishes_its_closing_stage_unrecorded(caplog) -> None:
-    """Scissor rule-based homes the arm after its success termination fires; that run is still a success."""
+def test_after_a_success_reset_an_active_workflow_aborts_before_another_step(caplog) -> None:
+    """A closing stage cannot advance physics in the next, randomized episode."""
     env = _TerminatingEnv(terminal_step=4)
     env.termination_manager = _TermManager(env, "success")
     simulation, recorded, ended = _terminating_runner(env)
@@ -497,11 +497,11 @@ def test_after_a_success_reset_the_workflow_finishes_its_closing_stage_unrecorde
     with caplog.at_level("INFO", logger="i4h_arena.runner"):
         result = simulation._run_episode(_KeepsRunning(env, succeed_after=3), episode=0, attempt=1)
 
-    assert result.succeeded
-    assert env.steps == 6  # the closing stage ran on in the next episode
-    assert recorded == [1, 2, 3]  # but none of it, nor the reset step, was recorded
+    assert result.status is WorkflowStatus.ABORTED
+    assert env.steps == 4
+    assert recorded == [1, 2, 3]
     assert ended == [(result, True)]
-    assert "finishes unrecorded in the next episode" in caplog.text
+    assert "termination success while the workflow was still running" in result.detail
 
 
 def test_a_success_reset_alongside_another_termination_still_ends_the_attempt() -> None:
@@ -596,3 +596,214 @@ def test_a_swallowed_step_failure_is_named_at_warning_level(caplog) -> None:
         "env.step raised ReferenceError('weakly-referenced object no longer exists') while Isaac Sim was closing"
         in caplog.text
     )
+
+
+class _BoundaryEnv(_TerminatingEnv):
+    """Reject any physics step past a reset until an explicit reset starts fresh."""
+
+    def __init__(self, terminal_step=3, *, terms=True):
+        super().__init__(terminal_step)
+        self.total_steps = 0
+        self.epoch = 0
+        if terms:
+            self.termination_manager = SimpleNamespace(
+                active_terms=("time_out", "success", "other_env"),
+                get_term=lambda name: torch.tensor([name == "time_out", name == "other_env"]),
+            )
+
+    def reset(self, _seed=None):
+        self.steps = 0
+        self.reset_buf[0] = False
+        self.epoch += 1
+
+    def step(self, command):
+        assert not self.reset_buf[0], "physics advanced after an automatic reset"
+        super().step(command)
+        self.total_steps += 1
+        if self.reset_buf[0]:
+            self.epoch += 1
+
+    @property
+    def pixel(self):
+        return self.epoch * 10 + self.steps
+
+
+def _boundary_runner(tmp_path, *, record_failures=False, terminal_step=3, terms=True):
+    from i4h_arena.recording.hdf5 import EpisodeRecorder
+
+    simulation = _closing_runner(lambda _app: None, record_failures=record_failures)
+    env = _BoundaryEnv(terminal_step, terms=terms)
+    simulation.env = env
+    simulation._reset_env = env.reset
+    simulation._view = SimpleNamespace(
+        invalidate=lambda: None,
+        num_envs=1,
+        joints=lambda: SimpleNamespace(pos=np.full((1, 3), env.pixel)),
+        camera=lambda _name: SimpleNamespace(to_array=lambda: np.full((2, 2, 3), env.pixel, dtype=np.uint8)),
+    )
+    simulation.scene.make_actuation = lambda _env, _view: SimpleNamespace(
+        tensor=lambda: torch.full((1, 3), env.steps + 1.0),
+        numpy=lambda: np.full((1, 3), env.steps),
+    )
+    simulation.workflow = SimpleNamespace(name="boundary", mode="policy", scene="fake")
+    path = tmp_path / "recording.hdf5"
+    simulation.recorder = EpisodeRecorder(path, workflow=simulation.workflow, cameras=("room",))
+    return simulation, path
+
+
+def _boundary_graph(env, *, outcome, waiting=0, final_advance=False, operator_reset=False):
+    from i4h_engine.graph import TaskGraph, node
+    from i4h_engine.status import Status
+    from i4h_engine.task import Task
+
+    class BoundaryTask(Task):
+        advance_on_success = final_advance
+
+        def __init__(self):
+            super().__init__(name="drive")
+            self.waited = 0
+            self.operator_reset = False
+
+        def tick(self, ctx):
+            if env.reset_buf[0]:
+                if operator_reset and not self.operator_reset:
+                    self.operator_reset = True
+                    ctx.request_scene_reset()
+                    return Status.RUNNING
+                if self.waited < waiting:
+                    self.waited += 1
+                    return Status.WAITING
+                return Status(outcome)
+            return Status.RUNNING
+
+    return TaskGraph().flow(node(BoundaryTask()))
+
+
+@pytest.mark.parametrize("record_failures", [False, True])
+@pytest.mark.parametrize("waiting", [0, 3])
+@pytest.mark.parametrize("outcome", ["success", "failure", "running"])
+@pytest.mark.parametrize("final_advance", [False, True])
+def test_automatic_reset_boundaries_in_saved_recording(
+    tmp_path, monkeypatch, record_failures, waiting, outcome, final_advance
+):
+    import h5py
+
+    from i4h_engine.executor import Engine
+
+    simulation, path = _boundary_runner(tmp_path, record_failures=record_failures)
+    renders = []
+    monkeypatch.setattr(runner, "_render_scene_only", lambda *_args: renders.append(True))
+    graph = _boundary_graph(simulation.env, outcome=outcome, waiting=waiting, final_advance=final_advance)
+    engine = Engine(graph, on_event=simulation._on_event, max_steps=10)
+    try:
+        result = simulation._run_episode(engine, 0, 1)
+    finally:
+        simulation.recorder.close()
+    expected = {
+        "success": WorkflowStatus.SUCCEEDED,
+        "failure": WorkflowStatus.FAILED,
+        "running": WorkflowStatus.ABORTED,
+    }
+    assert result.status is expected[outcome]
+    assert simulation.env.total_steps == 3
+    assert len(renders) == waiting
+    if outcome == "running":
+        assert (
+            result.detail == "IsaacLab reset the scene after termination time_out while the workflow was still running"
+        )
+    with h5py.File(path, "r") as handle:
+        if outcome == "success" or record_failures:
+            demo = handle["data/demo_0"]
+            assert demo.attrs["status"] == result.status.value
+            assert bool(demo.attrs["success"]) == result.succeeded
+            np.testing.assert_array_equal(demo["actions"][:, 0], [1, 2])
+            np.testing.assert_array_equal(demo["obs/joint_pos"][:, 0], [11, 12])
+            np.testing.assert_array_equal(demo["obs/room"][:, 0, 0, 0], [11, 12])
+        else:
+            assert list(handle["data"]) == []
+
+
+def test_operator_reset_clears_pending_reset_and_restarts_recording(tmp_path):
+    import h5py
+
+    from i4h_engine.executor import Engine
+
+    simulation, path = _boundary_runner(tmp_path)
+    graph = _boundary_graph(simulation.env, outcome="success", operator_reset=True)
+    try:
+        result = simulation._run_episode(Engine(graph, on_event=simulation._on_event), 0, 1)
+    finally:
+        simulation.recorder.close()
+    assert result.succeeded
+    assert simulation.env.total_steps == 6
+    with h5py.File(path, "r") as handle:
+        # Samples from before the operator reset have been discarded.
+        np.testing.assert_array_equal(handle["data/demo_0/obs/room"][:, 0, 0, 0], [31, 32])
+
+
+@pytest.mark.parametrize("record_failures", [False, True])
+@pytest.mark.parametrize("terminal_step", [1, 3])
+def test_reset_abort_obeys_retries_and_empty_recording_policy(tmp_path, record_failures, terminal_step):
+    import h5py
+
+    simulation, path = _boundary_runner(
+        tmp_path, record_failures=record_failures, terminal_step=terminal_step, terms=False
+    )
+    simulation.workflow.graph = _boundary_graph(simulation.env, outcome="running")
+    simulation.episodes = 2
+    simulation.attempts = 2
+    simulation.max_steps = 10
+    try:
+        summary = simulation.run()
+    finally:
+        simulation.recorder.close()
+    assert [(result.index, result.attempt) for result in summary.episodes] == [(0, 1), (0, 2), (1, 1), (1, 2)]
+    assert all(result.status is WorkflowStatus.ABORTED for result in summary.episodes)
+    assert all(
+        result.detail
+        == "IsaacLab reset the scene after termination an unnamed term while the workflow was still running"
+        for result in summary.episodes
+    )
+    assert simulation.env.total_steps == 4 * terminal_step
+    with h5py.File(path, "r") as handle:
+        assert len(handle["data"]) == (4 if record_failures and terminal_step > 1 else 0)
+
+
+def test_engine_timeout_result_is_preserved_after_reset(tmp_path):
+    from i4h_engine.executor import Engine
+
+    simulation, _path = _boundary_runner(tmp_path)
+    graph = _boundary_graph(simulation.env, outcome="running")
+    try:
+        result = simulation._run_episode(Engine(graph, max_steps=3), 0, 1)
+    finally:
+        simulation.recorder.close()
+    assert result.status is WorkflowStatus.FAILED
+    assert result.detail == "workflow exceeded max_steps=3"
+    assert simulation.env.total_steps == 3
+
+
+def test_terminal_advance_without_pending_reset_still_applies_final_action(tmp_path):
+    import h5py
+
+    from i4h_engine.executor import Engine
+    from i4h_engine.graph import TaskGraph, node
+    from i4h_engine.status import Status
+    from i4h_engine.task import Task
+
+    class FinalAction(Task):
+        advance_on_success = True
+
+        def tick(self, ctx):
+            return Status.SUCCESS if ctx.step == 1 else Status.RUNNING
+
+    simulation, path = _boundary_runner(tmp_path)
+    graph = TaskGraph().flow(node(FinalAction(name="replay")))
+    try:
+        result = simulation._run_episode(Engine(graph), 0, 1)
+    finally:
+        simulation.recorder.close()
+    assert result.succeeded
+    assert simulation.env.total_steps == 2
+    with h5py.File(path, "r") as handle:
+        np.testing.assert_array_equal(handle["data/demo_0/actions"][:, 0], [1, 2])

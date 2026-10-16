@@ -36,10 +36,6 @@ from i4h_engine.task import TickContext
 logger = logging.getLogger("i4h_arena.runner")
 _ACTIVE_RUNNER: SimulationRunner | None = None
 
-#: The termination term every arena scene names its success condition, and the
-#: one workflows read through ``ctx.scene.termination("success")``.
-SUCCESS_TERM = "success"
-
 
 def active_runner() -> SimulationRunner:
     """Return the runner currently serving the simulator process.
@@ -384,24 +380,10 @@ class SimulationRunner:
                     # did not finish on the tick after it. Checked here, at the
                     # next step, rather than on the next tick: a remote task may
                     # tick WAITING for its backend before it reads success again.
-                    if reset_by != (SUCCESS_TERM,):
-                        # A termination the workflow's success never reads (G1
-                        # ``object_dropped``, the trocar's ``object_drop``) ended
-                        # the episode. Continuing would carry this attempt into
-                        # a new, re-randomized episode that could even succeed.
-                        detail = _reset_detail(reset_by)
-                        logger.warning("episode %s attempt %s ends: %s", episode, attempt, detail)
-                        engine.abort(ctx, detail=detail)
-                        break
-                    # The scene ended the episode as a success while the graph
-                    # still runs a closing stage (scissor rule-based is homing).
-                    # The graph decides the outcome, as it always has, but the
-                    # next episode it finishes in is not recorded.
-                    logger.info(
-                        "the scene reported success before the workflow finished; it finishes unrecorded "
-                        "in the next episode"
-                    )
-                    reset_by = None
+                    detail = _reset_detail(reset_by)
+                    logger.warning("episode %s attempt %s ends: %s", episode, attempt, detail)
+                    engine.abort(ctx, detail=detail)
+                    break
                 # Task terms may lazily allocate persistent tensors during
                 # ``env.step``. ``no_grad`` keeps those tensors mutable for the
                 # next episode reset.

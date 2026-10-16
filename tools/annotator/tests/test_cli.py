@@ -313,3 +313,107 @@ def test_demos_recorded_before_the_reset_step_rule_are_named(tmp_path, vlm, capl
         cli.annotate(path, task="Scan", dry_run=True)
 
     assert "1 demo(s) predate recording_version 1 (demo_1)" in caplog.text
+
+
+def test_filter_remaps_reused_episode_and_node_verdicts_and_can_be_filtered_again(tmp_path, vlm, caplog) -> None:
+    path = _recording(
+        tmp_path / "r.hdf5",
+        {
+            "demo_0": {"wrist": _video(20, 10)},
+            "demo_1": {"wrist": _video(20, 200)},
+            "demo_2": {"wrist": _video(20, 200)},
+            "demo_3": {"wrist": _video(20, 200)},
+        },
+    )
+    results = cli.annotate(path, task="Scan", write=True)
+    with h5py.File(path, "a") as handle:
+        # A forward reference requires the complete mapping before copying.
+        attrs = handle["data/demo_1"].attrs
+        attrs["vlm_success_scan"] = True
+        attrs["vlm_success_scan_reason"] = "Scanned"
+        attrs["vlm_success_scan_from"] = "demo_3"
+        attrs = handle["data/demo_3"].attrs
+        attrs["vlm_success_grasp"] = False
+        attrs["vlm_success_grasp_reason"] = "No grasp"
+        attrs["vlm_success_grasp_from"] = "demo_0"
+        attrs["vlm_success_other_from"] = "demo_99"
+    filtered = tmp_path / "filtered.hdf5"
+    assert cli.filter_successful(path, filtered, results) == 3
+    with h5py.File(filtered, "r") as handle:
+        data = handle["data"]
+        assert data["demo_1"].attrs["vlm_success_from"] == "demo_0"
+        assert data["demo_2"].attrs["vlm_success_from"] == "demo_0"
+        assert data["demo_0"].attrs["vlm_success_scan_from"] == "demo_2"
+        assert "vlm_success_grasp_from" not in data["demo_2"].attrs
+        assert "vlm_success_other_from" not in data["demo_2"].attrs
+        assert not data["demo_2"].attrs["vlm_success_grasp"]
+        assert data["demo_2"].attrs["vlm_success_grasp_reason"] == "No grasp"
+    assert "demo_0" in caplog.text and "demo_99" in caplog.text
+    assert "absent from filtered output" in caplog.text
+
+    surviving_source = tmp_path / "surviving_source.hdf5"
+    cli.filter_successful(filtered, surviving_source, [("demo_0", True, ""), ("demo_2", True, "")])
+    with h5py.File(surviving_source, "r") as handle:
+        assert handle["data/demo_0"].attrs["vlm_success_scan_from"] == "demo_1"
+        assert handle["data/demo_1"].attrs["vlm_success_from"] == "demo_0"
+
+    again = tmp_path / "again.hdf5"
+    cli.filter_successful(filtered, again, [("demo_1", True, ""), ("demo_2", True, "")])
+    with h5py.File(again, "r") as handle:
+        for name in ("demo_0", "demo_1"):
+            attrs = handle[f"data/{name}"].attrs
+            assert "vlm_success_from" not in attrs
+            assert attrs["vlm_success"]
+            assert attrs["vlm_success_reason"] == "The probe scans."
+
+
+@pytest.mark.parametrize(
+    ("length", "segment", "count", "expected"),
+    [
+        (30, None, 4, [0, 9, 19, 29]),
+        (30, (5, 21), 4, [5, 10, 15, 20]),
+        (3, None, 6, [0, 1, 2]),
+        (30, (5, 8), 6, [5, 6, 7]),
+        (30, (25, 40), 3, [25, 27, 29]),
+        (30, (-5, 30), 3, [25, 27, 29]),
+        (30, (8, 5), 6, []),
+    ],
+)
+def test_sampling_reads_only_selected_pixels(tmp_path, vlm, monkeypatch, length, segment, count, expected) -> None:
+    from i4h_common.episode import Segment, write_segments
+
+    videos = {"room": _video(length, 200), "wrist": _video(length, 150)}
+    path = _recording(tmp_path / "r.hdf5", {"demo_0": videos})
+    if segment is not None:
+        with h5py.File(path, "a") as handle:
+            write_segments(handle["data/demo_0"], [Segment("scan", "scan/task", *segment)])
+
+    reads = {key: [] for key in videos}
+    getitem = h5py.Dataset.__getitem__
+
+    def bounded_read(dataset, index):
+        camera = dataset.name.rsplit("/", 1)[-1]
+        if camera in reads:
+            assert isinstance(index, list), "must read only sampled indices"
+            reads[camera].extend(index)
+        return getitem(dataset, index)
+
+    monkeypatch.setattr(h5py.Dataset, "__getitem__", bounded_read)
+    content_builder = cli.build_content
+    captured = {}
+
+    def capture_content(task, frames, **kwargs):
+        captured.update(frames)
+        return content_builder(task, frames, **kwargs)
+
+    monkeypatch.setattr(cli, "build_content", capture_content)
+    # Empty segments have no images for the pixel-based fake VLM to inspect.
+    monkeypatch.setattr(cli, "_ask", lambda *_args: (True, "Scanned"))
+    cli.annotate(path, task="Scan", camera="room,wrist", node="scan" if segment else None, frames=count)
+
+    assert reads == {key: expected for key in videos}
+    reference = {key: [video[i] for i in expected] for key, video in videos.items()}
+    for key in videos:
+        np.testing.assert_array_equal(captured[key], reference[key])
+    assert cli._fingerprint(captured) == cli._fingerprint(reference)
+    assert content_builder("Scan", captured) == content_builder("Scan", reference)

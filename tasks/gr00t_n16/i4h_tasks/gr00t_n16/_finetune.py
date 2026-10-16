@@ -110,9 +110,10 @@ def check_dataset_videos(dataset_path: str, video_keys: list[str], modality_conf
         return
     meta = root / "meta"
     absent = [f"meta/{name}" for name in ("info.json", "modality.json") if not (meta / name).is_file()]
-    if absent:
+    if not root.is_dir() or absent:
+        reason = "not a directory; " if not root.is_dir() else ""
         raise SystemExit(
-            f"{dataset_path}: not a GR00T LeRobot dataset; it has no {' or '.join(absent)}. Convert the recording "
+            f"{dataset_path}: not a GR00T LeRobot dataset; {reason}it has no {' or '.join(absent)}. Convert the recording "
             "with `uv run --project tools/dataset i4h-dataset convert <recording.hdf5> <out> --robot g1`."
         )
     features = json.loads((meta / "info.json").read_text(encoding="utf-8")).get("features", {})

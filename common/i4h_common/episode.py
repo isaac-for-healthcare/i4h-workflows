@@ -26,10 +26,12 @@ one sample fewer than the steps the attempt took, and its last stored action is
 the one *before* the action that triggered the termination. Replaying such a
 demo applies every stored action and stops one action short of the state the
 simulator graded; the replay itself still completes. Nothing after such a
-reset is recorded either. If the workflow is still running after it, the
-attempt ends there as ``aborted`` when another term than ``success`` fired (a
-dropped object, say); after ``success`` the workflow may finish a closing stage
-(scissor rule-based homes the arm) in the next episode, unrecorded.
+reset is recorded either. The workflow may consume the retained termination
+signal, including across remote-policy WAITING ticks. If it is still running
+and requests another physics step, the attempt ends as ``aborted``, even when
+``success`` fired. Aborted attempts are retained only with
+``--record-failures``; empty attempts are always discarded. An explicit
+operator scene reset restarts the recording.
 
 Demos recorded under this rule carry ``recording_version`` (see
 :data:`RECORDING_VERSION`). A demo without it was recorded before the rule: if
