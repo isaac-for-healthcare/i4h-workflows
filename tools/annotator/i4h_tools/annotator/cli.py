@@ -37,11 +37,12 @@ import logging
 import os
 from collections.abc import Sequence
 from pathlib import Path
+from typing import NamedTuple
 
 import h5py
 import numpy as np
 
-from i4h_common.episode import DATA_GROUP, camera_keys, demo_names, read_segments
+from i4h_common.episode import DATA_GROUP, RECORDING_VERSION, camera_keys, demo_names, read_segments, recording_version
 
 logger = logging.getLogger("i4h_tools.annotator")
 
@@ -130,11 +131,28 @@ def _encode(frame: np.ndarray) -> str:
     return base64.b64encode(buffer.getvalue()).decode()
 
 
-def _sample(video: np.ndarray, count: int) -> list[np.ndarray]:
-    if len(video) <= count:
-        return list(video)
-    indices = np.linspace(0, len(video) - 1, count).astype(int)
-    return [video[i] for i in indices]
+class Verdict(NamedTuple):
+    """One episode's grade."""
+
+    name: str
+    success: bool
+    reason: str
+    #: The episode whose identical frames earned this verdict; empty when the model graded this one.
+    reused_from: str = ""
+
+
+def _sample_indices(length: int, count: int) -> list[int]:
+    """``count`` evenly spaced frame indices into ``length`` frames, ascending and distinct."""
+    if length <= count:
+        return list(range(length))
+    return np.linspace(0, length - 1, count).astype(int).tolist()
+
+
+def _read_frames(video: h5py.Dataset, count: int, start: int = 0, stop: int | None = None) -> list[np.ndarray]:
+    """The sampled frames of ``video[start:stop]``, read without loading the rest of it."""
+    stop = len(video) if stop is None else stop
+    indices = [start + index for index in _sample_indices(stop - start, count)]
+    return list(video[indices]) if indices else []
 
 
 def camera_list(value: str | Sequence[str] | None) -> list[str]:
@@ -188,10 +206,12 @@ def annotate(
     api_key: str = "EMPTY",
     write: bool = False,
     dry_run: bool = False,
-) -> list[tuple[str, bool, str]]:
-    """Return ``(demo_name, success, justification)`` per episode."""
+) -> list[Verdict]:
+    """Return one :class:`Verdict` per episode."""
     if judge not in JUDGES:
         raise ValueError(f"unknown judge {judge!r}; expected one of {sorted(JUDGES)}")
+    if frames < 1:
+        raise ValueError(f"frames must be at least 1, got {frames}")
     requested = camera_list(camera)
     client = None
     if not dry_run:
@@ -199,13 +219,16 @@ def annotate(
 
         client = OpenAI(base_url=base_url, api_key=api_key)
 
-    results: list[tuple[str, bool, str]] = []
+    results: list[Verdict] = []
     #: Verdict per distinct set of sampled frames, and the demo that earned it.
-    graded: dict[str, tuple[str, bool, str]] = {}
+    graded: dict[str, Verdict] = {}
+    unversioned: list[str] = []
     with h5py.File(str(dataset), "a" if write else "r") as handle:
         data = handle[DATA_GROUP]
         for name in demo_names(handle):
             demo = data[name]
+            if recording_version(demo) < RECORDING_VERSION:
+                unversioned.append(name)
             available = camera_keys(demo)
             if not available:
                 logger.warning("%s has no camera datasets; skipping", name)
@@ -223,51 +246,75 @@ def annotate(
                     continue
             sampled: dict[str, list[np.ndarray]] = {}
             for key in keys:
-                video = demo[f"obs/{key}"][()]
-                if segment is not None:
-                    video = video[segment.start : segment.end]
-                sampled[key] = _sample(video, frames)
+                # Only the sampled frames leave the file: a long recording's
+                # full video, times every camera, need not fit in memory.
+                bounds = (segment.start, segment.end) if segment is not None else (0, None)
+                sampled[key] = _read_frames(demo[f"obs/{key}"], frames, *bounds)
 
             if dry_run:
                 counts = ", ".join(f"{len(v)} frames from {k}" for k, v in sampled.items())
-                results.append((name, False, f"dry-run: {counts} ({judge})"))
+                results.append(Verdict(name, False, f"dry-run: {counts} ({judge})"))
                 continue
 
             fingerprint = _fingerprint(sampled)
             source = graded.get(fingerprint)
             if source is None:
                 success, justification = _ask(client, model, build_content(task, sampled, judge=judge))
-                graded[fingerprint] = (name, success, justification)
+                verdict = graded[fingerprint] = Verdict(name, success, justification)
             else:
                 # A mimic variant: its frames are its source's, so the verdict is too.
-                logger.info("%s shows the same frames as %s; reusing its verdict", name, source[0])
-                _source_name, success, justification = source
-            results.append((name, success, justification))
+                logger.info("%s shows the same frames as %s; reusing its verdict", name, source.name)
+                verdict = Verdict(name, source.success, source.reason, reused_from=source.name)
+            results.append(verdict)
 
             if write:
                 attribute = f"vlm_success_{node}" if node else "vlm_success"
-                demo.attrs[attribute] = success
-                demo.attrs[f"{attribute}_reason"] = justification
-                if source is not None:
-                    demo.attrs[f"{attribute}_from"] = source[0]
+                demo.attrs[attribute] = verdict.success
+                demo.attrs[f"{attribute}_reason"] = verdict.reason
+                if verdict.reused_from:
+                    demo.attrs[f"{attribute}_from"] = verdict.reused_from
                 elif f"{attribute}_from" in demo.attrs:
                     del demo.attrs[f"{attribute}_from"]
+    if unversioned:
+        logger.warning(
+            "%d demo(s) predate recording_version %d (%s): one whose episode ended through a termination "
+            "term ends on a frame of the next episode; re-record before trusting its final frames",
+            len(unversioned),
+            RECORDING_VERSION,
+            ", ".join(unversioned[:5]) + (", ..." if len(unversioned) > 5 else ""),
+        )
     return results
 
 
-def filter_successful(source: Path, target: Path, results: list[tuple[str, bool, str]]) -> int:
-    """Write a recording holding only the episodes the model passed."""
-    keep = [name for name, success, _reason in results if success]
+def filter_successful(source: Path, target: Path, results: Sequence[Sequence]) -> int:
+    """Write a recording holding only the episodes the model passed.
+
+    Kept demos are renumbered from ``demo_0``. Each records its name in the
+    source as ``filtered_from_demo``, and a ``vlm_success*_from`` reference is
+    rewritten to the new name of the demo it names.
+    """
+    keep = [result[0] for result in results if result[1]]
     if not keep:
         raise ValueError("no successful episodes; refusing to write an empty recording")
+    renamed = {name: f"demo_{index}" for index, name in enumerate(keep)}
     target.parent.mkdir(parents=True, exist_ok=True)
     with h5py.File(str(source), "r") as src, h5py.File(str(target), "w") as dst:
         src_data = src[DATA_GROUP]
         dst_data = dst.create_group(DATA_GROUP)
         for key, value in src_data.attrs.items():
             dst_data.attrs[key] = value
-        for index, name in enumerate(keep):
-            _copy(src_data[name], dst_data, f"demo_{index}")
+        for name, new_name in renamed.items():
+            demo = _copy(src_data[name], dst_data, new_name)
+            demo.attrs["filtered_from_demo"] = name
+            for key in [key for key in demo.attrs if key.startswith("vlm_success") and key.endswith("_from")]:
+                referenced = demo.attrs[key]
+                referenced = referenced.decode() if isinstance(referenced, bytes) else str(referenced)
+                if referenced in renamed:
+                    demo.attrs[key] = renamed[referenced]
+                else:
+                    # Its verdict came from a demo this file does not hold; the
+                    # old name would point at whichever demo now carries it.
+                    del demo.attrs[key]
         dst_data.attrs["total"] = len(keep)
         dst_data.attrs["filtered_from"] = str(source)
     logger.info("wrote %s successful demos to %s", len(keep), target)
@@ -397,10 +444,15 @@ def main(argv: list[str] | None = None) -> int:
         write=args.write,
         dry_run=args.dry_run,
     )
-    for name, success, reason in results:
-        print(f"{name:<12} {'SUCCESS' if success else 'FAILURE'}  {reason}")
-    passed = sum(1 for _n, s, _r in results if s)
-    print(f"\n{passed}/{len(results)} succeeded")
+    for verdict in results:
+        print(f"{verdict.name:<12} {'SUCCESS' if verdict.success else 'FAILURE'}  {verdict.reason}")
+    passed = sum(1 for verdict in results if verdict.success)
+    split = ""
+    if not args.dry_run:
+        # Reused verdicts are mimic variants no model looked at; say how many.
+        reused = sum(1 for verdict in results if verdict.reused_from)
+        split = f" ({len(results) - reused} graded, {reused} reused)"
+    print(f"\n{passed}/{len(results)} succeeded{split}")
     if args.filter is not None:
         kept = filter_successful(args.dataset, args.filter, results)
         print(f"wrote {kept} successful demos to {args.filter}")

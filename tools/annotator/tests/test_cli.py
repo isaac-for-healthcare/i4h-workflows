@@ -77,6 +77,7 @@ def _recording(path: Path, demos: dict[str, dict[str, np.ndarray]]) -> Path:
             frames = len(next(iter(cameras.values())))
             demo.create_dataset("actions", data=np.zeros((frames, 6), dtype=np.float32))
             demo.attrs["success"] = True
+            demo.attrs["recording_version"] = RECORDING_VERSION
             for camera, video in cameras.items():
                 demo.create_dataset(f"obs/{camera}", data=video)
         data.attrs["total"] = len(demos)
@@ -136,7 +137,7 @@ def test_without_camera_the_first_by_name_is_graded(tmp_path, vlm) -> None:
 
     results = cli.annotate(path, task="Put it in the tray")
 
-    assert results == [("demo_0", True, "The probe scans.")]
+    assert results == [cli.Verdict("demo_0", True, "The probe scans.")]
     (content,) = vlm.calls
     assert content[0]["text"] == SHIPPED_PROMPT.format(task="Put it in the tray")
     assert sum(item["type"] == "image_url" for item in content) == 6
@@ -161,7 +162,7 @@ def test_a_failed_episode_is_still_labelled_failure_and_filtered_out(tmp_path, v
     results = cli.annotate(path, task="Scan", camera="wrist", write=True)
     kept = cli.filter_successful(path, tmp_path / "filtered.hdf5", results)
 
-    assert [(name, success) for name, success, _ in results] == [("demo_0", True), ("demo_1", False)]
+    assert [(verdict.name, verdict.success) for verdict in results] == [("demo_0", True), ("demo_1", False)]
     assert kept == 1
     with h5py.File(path, "r") as handle:
         assert not handle["data/demo_1"].attrs["vlm_success"]
@@ -192,7 +193,8 @@ def test_mimic_variants_share_their_source_verdict_without_a_second_call(tmp_pat
     results = cli.annotate(path, task="Scan", write=True)
 
     assert len(vlm.calls) == 2
-    assert [success for _, success, _ in results] == [True, False, True, False]
+    assert [verdict.success for verdict in results] == [True, False, True, False]
+    assert [verdict.reused_from for verdict in results] == ["", "", "demo_0", "demo_1"]
     with h5py.File(path, "r") as handle:
         assert handle["data/demo_2"].attrs["vlm_success_from"] == "demo_0"
         assert handle["data/demo_3"].attrs["vlm_success_from"] == "demo_1"
@@ -211,7 +213,7 @@ def test_dry_run_reports_what_would_be_sent(tmp_path, vlm) -> None:
 
     results = cli.annotate(path, task="Scan", camera="room,wrist", judge="trajectory", dry_run=True)
 
-    assert results == [("demo_0", False, "dry-run: 6 frames from room, 6 frames from wrist (trajectory)")]
+    assert results == [cli.Verdict("demo_0", False, "dry-run: 6 frames from room, 6 frames from wrist (trajectory)")]
     assert vlm.calls == []
 
 
@@ -231,3 +233,83 @@ def test_main_accepts_repeated_cameras_and_a_judge(tmp_path, vlm, capsys) -> Non
 def test_live_grading_takes_one_camera(capsys) -> None:
     assert cli.main(["--task", "Scan", "--camera", "room,wrist", "live", "--namespace", "x"]) == 2
     assert "one camera" in capsys.readouterr().out
+
+
+# -- review of PR 275 ------------------------------------------------------
+
+
+class _Video:
+    """An HDF5 video that records which frames are read, and refuses a whole read."""
+
+    def __init__(self, frames: int) -> None:
+        self.video = _video(frames, 200)
+        self.reads: list[list[int]] = []
+
+    def __len__(self) -> int:
+        return len(self.video)
+
+    def __getitem__(self, key):
+        if not isinstance(key, list):
+            raise AssertionError(f"read {key!r}; only the sampled frames should be read")
+        self.reads.append(key)
+        return self.video[key]
+
+
+def test_only_the_sampled_frames_are_read_from_the_file() -> None:
+    video = _Video(1000)
+
+    frames = cli._read_frames(video, 6)
+
+    assert video.reads == [[0, 199, 399, 599, 799, 999]]
+    assert [int(frame[0, 0, 0]) for frame in frames] == [0, 199, 143, 87, 31, 231]  # arange(1000) as uint8
+
+
+def test_a_segment_is_sampled_inside_its_bounds() -> None:
+    video = _Video(100)
+
+    cli._read_frames(video, 4, 10, 40)
+    cli._read_frames(video, 6, 50, 53)
+
+    assert video.reads == [[10, 19, 29, 39], [50, 51, 52]]
+
+
+def test_the_summary_separates_graded_from_reused_verdicts(tmp_path, vlm, capsys) -> None:
+    source = _video(12, 200)
+    path = _recording(tmp_path / "r.hdf5", {"demo_0": {"room": source}, "demo_1": {"room": source.copy()}})
+
+    assert cli.main(["--task", "Scan", "offline", str(path)]) == 0
+
+    assert "2/2 succeeded (1 graded, 1 reused)" in capsys.readouterr().out
+    assert len(vlm.calls) == 1
+
+
+def test_filtering_renames_the_demo_a_reused_verdict_points_at(tmp_path, vlm) -> None:
+    """Sources demo_0..2 and their mimic variants demo_3..5; demo_1 fails, so the filter renumbers."""
+    sources = [_video(20, 200), _video(20, 10), _video(20, 201)]
+    demos = {f"demo_{index}": {"wrist": video} for index, video in enumerate(sources)}
+    demos.update({f"demo_{index + 3}": {"wrist": video.copy()} for index, video in enumerate(sources)})
+    path = _recording(tmp_path / "r.hdf5", demos)
+
+    results = cli.annotate(path, task="Scan", write=True)
+    cli.filter_successful(path, tmp_path / "filtered.hdf5", results)
+
+    with h5py.File(tmp_path / "filtered.hdf5", "r") as handle:
+        data = handle["data"]
+        assert sorted(data) == ["demo_0", "demo_1", "demo_2", "demo_3"]
+        origin = {name: data[name].attrs["filtered_from_demo"] for name in data}
+        assert origin == {"demo_0": "demo_0", "demo_1": "demo_2", "demo_2": "demo_3", "demo_3": "demo_5"}
+        # Old demo_5 reused old demo_2's verdict; old demo_2 is filtered demo_1.
+        assert data["demo_3"].attrs["vlm_success_from"] == "demo_1"
+        assert data["demo_2"].attrs["vlm_success_from"] == "demo_0"
+        assert "vlm_success_from" not in data["demo_0"].attrs
+
+
+def test_demos_recorded_before_the_reset_step_rule_are_named(tmp_path, vlm, caplog) -> None:
+    path = _recording(tmp_path / "r.hdf5", {"demo_0": {"room": _video(5, 200)}, "demo_1": {"room": _video(5, 200)}})
+    with h5py.File(path, "a") as handle:
+        del handle["data/demo_1"].attrs["recording_version"]
+
+    with caplog.at_level("WARNING", logger="i4h_tools.annotator"):
+        cli.annotate(path, task="Scan", dry_run=True)
+
+    assert "1 demo(s) predate recording_version 1 (demo_1)" in caplog.text

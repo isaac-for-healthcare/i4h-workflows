@@ -114,7 +114,7 @@ Inspect the annotator summary. If filtering was requested, also inspect the filt
 uv run --project tools/dataset i4h-dataset inspect "$RUN_DIR/filtered.hdf5" --segments
 ```
 
-Require a verdict for every selected episode and reconcile pass/fail counts plus filtered counts when applicable. Episodes with identical sampled frames, such as `tools/mimic` variants of one source demo, receive one verdict; `--write` records the episode it came from in `vlm_success_from`. Treat endpoint errors, absent cameras, partial writes, and unexplained zero-episode output as failure. An all-failure verdict set is a valid completed grading run for summarize-only prompts; it is not a valid filtered dataset.
+Require a verdict for every selected episode and reconcile pass/fail counts plus filtered counts when applicable. Episodes with identical sampled frames, such as `tools/mimic` variants of one source demo, receive one verdict; the summary line counts graded and reused verdicts separately, and `--write` records the episode it came from in `vlm_success_from` (`--filter` rewrites it to the renumbered name). Treat endpoint errors, absent cameras, partial writes, and unexplained zero-episode output as failure. An all-failure verdict set is a valid completed grading run for summarize-only prompts; it is not a valid filtered dataset.
 
 ## Troubleshooting
 
