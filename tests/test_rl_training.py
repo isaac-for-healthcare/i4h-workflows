@@ -366,6 +366,98 @@ def test_sim_server_accepts_profile_selected_scene_settings() -> None:
     assert scene_args.no_cameras is True
 
 
+def test_catheter_profiles_render_fluoroscopy_on_the_cuda_device() -> None:
+    from i4h_rl.backends.rlinf import _simulation_args
+    from i4h_rl.sim_server import _parser, _scene_args
+
+    for workflow in ("endoluminal_navigation", "endoluminal_navigation_arm"):
+        simulation = load_profile(workflow).simulation
+        assert simulation.fluoro_device == "cuda"
+        flags = _simulation_args(simulation)
+        args = _parser().parse_args(
+            ["--scene", workflow, "--socket", "/tmp/s", "--ready-file", "/tmp/r", "--num-envs", "2"]
+            + ["--max-episode-steps", "600", *flags]
+        )
+        assert _scene_args(args).fluoro_device == "cuda"
+
+
+def test_a_profile_without_a_fluoro_device_leaves_the_simulator_default() -> None:
+    from i4h_rl.backends.rlinf import _simulation_args
+
+    simulation = load_profile("assemble_trocar").simulation
+
+    assert simulation.fluoro_device is None
+    assert "--fluoro-device" not in _simulation_args(simulation)
+
+
+@pytest.mark.parametrize("fluoro_device, probes_cuda", [("cuda", True), ("vulkan", False), (None, False)])
+def test_the_simulator_preflight_checks_slangs_cuda_device_only_when_asked(
+    monkeypatch, fluoro_device, probes_cuda
+) -> None:
+    import subprocess
+    from types import SimpleNamespace
+
+    from i4h_rl.backends import rlinf
+
+    probes: list[str] = []
+
+    def run(command, **kwargs):
+        probes.append(command[-1])
+        return SimpleNamespace(returncode=0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", run)
+
+    rlinf._sim_preflight(Path("python"), {}, fluoro_device)
+
+    assert ("check_slang_cuda_device" in probes[0]) is probes_cuda
+
+
+def test_a_missing_slang_cuda_device_stops_the_launch_before_the_simulator(monkeypatch) -> None:
+    import subprocess
+    from types import SimpleNamespace
+
+    from i4h_rl.backends import rlinf
+
+    message = "simulation.fluoro_device cuda: Slang could not create a CUDA device"
+    monkeypatch.setattr(subprocess, "run", lambda *_, **__: SimpleNamespace(returncode=1, stdout="", stderr=message))
+
+    with pytest.raises(SystemExit, match="Slang could not create a CUDA device"):
+        rlinf._sim_preflight(Path("python"), {}, "cuda")
+
+
+def test_profile_schema_rejects_an_unknown_fluoro_device(tmp_path: Path) -> None:
+    config = tmp_path / "example_agent.yaml"
+    config.touch()
+    profile_path = tmp_path / "example_reach.yaml"
+    profile_path.write_text(
+        """schema_version: 1
+workflow: example_reach
+scene: example_reach
+trainer: rsl_rl
+algorithm: ppo
+trainer_config: example_agent.yaml
+train_task_id: example_reach
+eval_task_id: example_reach
+task_description: reach the target
+action_dof: 6
+policy_action_dof: 6
+state_dof: 20
+cameras: []
+default_num_envs: 32
+default_epochs: 100
+simulation:
+  env_spacing: 2.5
+  presets: physx
+  enable_cameras: false
+  fluoro_device: metal
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ProfileError, match="simulation.fluoro_device must be one of cuda, vulkan"):
+        RLProfile.load(profile_path)
+
+
 def test_sim_server_leaves_the_episode_length_to_rlinf() -> None:
     """Isaac Lab resets a timed-out env before it observes, so its time-out
     at RLinf's own cap turned the last observation of every rollout into the
