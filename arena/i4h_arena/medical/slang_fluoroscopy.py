@@ -8,14 +8,16 @@ import logging
 from dataclasses import dataclass, replace
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+import torch
+from PIL import Image, ImageDraw
 from xray_simulator.config import DisplaySettings
-from xray_simulator.display import apply_display, calibrate_display
+from xray_simulator.display import calibrate_display
 
 from .carm import CArmState
 from .catheter import CatheterState
 from .catheter_attenuation import CatheterAttenuation, CatheterMaterial
 from .centerline import ordered_centerline_path
+from .fluoroscopy_display import CinematicStyle, display_frames, percentile, vessel_overlay
 from .fluoroscopy_guidance import draw_catheter_guidance
 from .patient_volume import PatientVolume
 from .slang_cuda import DEVICE_FAILURE, cuda_device_error
@@ -219,8 +221,13 @@ class SlangFluoroscopyRenderer:
         self._visual_style = str(visual_style)
         if self._visual_style not in {"default", "cinematic"}:
             raise ValueError("visual_style must be 'default' or 'cinematic'")
-        self._temporal_frames: dict[str, np.ndarray] = {}
-        self._rng = np.random.default_rng(42)
+        # Frames stay on the device the catheter is composited on, the simulation's own.
+        self._device = torch.device(catheter_device) if catheter_device is not None else torch.device("cpu")
+        self._cinematic = (
+            CinematicStyle(height=self.height, width=self.width, device=self._device)
+            if self._visual_style == "cinematic"
+            else None
+        )
         self._projection = solve_projection_geometry(patient, carm, width=width, height=height)
         logger.info(
             "initial projection rotation_zxy_deg=%s translation_mm=%s source_world_m=%s detector_world_m=%s",
@@ -267,66 +274,135 @@ class SlangFluoroscopyRenderer:
                 device_type,
             )
 
-    def render(self, catheter: CatheterState, carm: CArmState | None = None) -> dict[str, np.ndarray]:
-        if catheter.num_envs != 1:
-            raise ValueError("the pinned xray_simulator release currently supports one Arena environment")
-        projection = self._projection
-        if carm is not None:
-            current = solve_projection_geometry(self._patient, carm, width=self.width, height=self.height)
-            if not np.isclose(current.source_to_detector_mm, projection.source_to_detector_mm, atol=0.1):
-                raise ValueError("changing source-detector distance requires rebuilding the fluoroscopy sensor")
-            projection = current
-        transmission = self._renderer.render(projection.rotation_zxy_rad, projection.translation_xyz_mm)
-        valid = int(catheter.valid_nodes[0])
-        catheter_transmission = self._catheter_transmission(catheter, valid, projection)
+    def render(self, catheter: CatheterState, carm: CArmState | None = None) -> dict[str, torch.Tensor]:
+        """Render one detector frame per environment, stacked along the leading axis.
+
+        Every environment is posed in one batched dispatch and mapped to display values as a
+        batch, on the renderer's torch device; only the guidance overlays are drawn on the host.
+        Every catheter embodiment pins ``env_spacing`` to zero, which puts each environment's
+        catheter and C-arm in the patient's own world frame; no origin shift is applied here.
+        """
+        num_envs = catheter.num_envs
+        if carm is not None and carm.num_envs != num_envs:
+            raise ValueError(f"C-arm state has {carm.num_envs} environments; catheter has {num_envs}")
+        projections = [self._projection_for(carm, env_index) for env_index in range(num_envs)]
+        transmission = self._render_volume(self._renderer, projections)
+        catheter_transmission = self._catheter_transmission(catheter, projections)
         if catheter_transmission is not None:
             transmission = transmission * catheter_transmission
         if not self._display_calibrated:
-            self._calibrate_display(transmission)
-        drr_image = apply_display(transmission, self._display)
+            self._calibrate_display(transmission[0].cpu().numpy())
+        drr_image = display_frames(transmission, self._display)
         dsa_image = drr_image
         vessel_alpha = None
         if self._dsa_renderer is not None:
-            boosted_transmission = self._dsa_renderer.render(projection.rotation_zxy_rad, projection.translation_xyz_mm)
+            boosted_transmission = self._render_volume(self._dsa_renderer, projections)
             if catheter_transmission is not None:
                 boosted_transmission = boosted_transmission * catheter_transmission
-            dsa_image = apply_display(boosted_transmission, self._display)
-            vessel_signal = np.clip(transmission - boosted_transmission, 0.0, None)
-            scale = float(np.percentile(vessel_signal, 99.5))
-            if scale > 1e-8:
-                vessel_alpha = np.clip(vessel_signal / scale, 0.0, 0.82).astype(np.float32)
+            dsa_image = display_frames(boosted_transmission, self._display)
+            vessel_signal = (transmission - boosted_transmission).clamp(min=0.0)
+            scale = percentile(vessel_signal, 99.5)[:, None, None]
+            # A frame with no vessel in view gets no tint rather than amplified noise.
+            vessel_alpha = torch.where(
+                scale > 1e-8, (vessel_signal / scale.clamp(min=1e-8)).clamp(0.0, 0.82), torch.zeros_like(vessel_signal)
+            )
 
-        grayscale = np.clip(np.rint(255.0 * drr_image), 0.0, 255.0).astype(np.uint8)
-        dsa_grayscale = np.clip(np.rint(255.0 * dsa_image), 0.0, 255.0).astype(np.uint8)
-        if self._visual_style == "cinematic":
-            grayscale = self._apply_cinematic_style(grayscale, key="drr")
-            dsa_grayscale = self._apply_cinematic_style(dsa_grayscale, key="dsa")
+        grayscale = torch.round(255.0 * drr_image).clamp(0.0, 255.0)
+        dsa_grayscale = torch.round(255.0 * dsa_image).clamp(0.0, 255.0)
+        if self._cinematic is not None:
+            grayscale = self._cinematic(grayscale, key="drr")
+            dsa_grayscale = self._cinematic(dsa_grayscale, key="dsa")
         if abs(self._dsa_gamma - 1.0) > 1e-3:
-            normalized_dsa = dsa_grayscale.astype(np.float32) / 255.0
-            dsa_grayscale = np.rint(255.0 * np.power(normalized_dsa, self._dsa_gamma)).astype(np.uint8)
-        rgb = np.repeat(grayscale[None, ..., None], 3, axis=-1)
-        dsa_rgb = np.repeat(dsa_grayscale[None, ..., None], 3, axis=-1)
-        guidance = rgb.copy()
-        if vessel_alpha is not None:
-            guidance[0] = self._draw_vessel_overlay(guidance[0], vessel_alpha)
-        dsa_guidance = dsa_rgb.copy()
-        if valid >= 2:
-            pixels, visible = self._project_catheter(catheter.positions_world_m[0, :valid], projection)
-            if catheter_transmission is None:
-                # Without beam compositing the catheter exists only as an annotation.
-                self._draw_catheter(rgb[0], pixels, visible)
-                self._draw_catheter(guidance[0], pixels, visible)
-                self._draw_catheter(dsa_rgb[0], pixels, visible)
-            guidance[0] = draw_catheter_guidance(guidance[0], pixels, visible)
-            dsa_guidance[0] = draw_catheter_guidance(dsa_rgb[0], pixels, visible)
-        attenuation = (1.0 - transmission.astype(np.float32))[None, ..., None]
+            dsa_grayscale = torch.round(255.0 * (dsa_grayscale / 255.0).pow(self._dsa_gamma))
+        rgb = grayscale.to(torch.uint8)[..., None].expand(-1, -1, -1, 3).contiguous()
+        dsa_rgb = dsa_grayscale.to(torch.uint8)[..., None].expand(-1, -1, -1, 3).contiguous()
+        guidance = vessel_overlay(rgb, vessel_alpha) if vessel_alpha is not None else rgb.clone()
+        dsa_guidance = dsa_rgb.clone()
+        rgb, guidance, dsa_rgb, dsa_guidance = self._draw_catheter_overlays(
+            catheter,
+            projections,
+            annotate=self._catheter_attenuation is None,
+            frames=(rgb, guidance, dsa_rgb, dsa_guidance),
+        )
         return {
             "rgb": rgb,
             "guidance": guidance,
             "dsa": dsa_rgb,
             "dsa_guidance": dsa_guidance,
-            "attenuation": attenuation,
+            "attenuation": (1.0 - transmission)[..., None],
         }
+
+    def _render_volume(self, renderer, projections: list[ProjectionGeometry]) -> torch.Tensor:
+        """Transmission ``(N, H, W)`` for every pose, in one dispatch when the renderer batches."""
+        render_batch = getattr(renderer, "render_batch", None)
+        if render_batch is not None:
+            images = render_batch(
+                np.asarray([projection.rotation_zxy_rad for projection in projections], dtype=np.float32),
+                np.asarray([projection.translation_xyz_mm for projection in projections], dtype=np.float32),
+                as_torch=True,
+            )
+        else:
+            images = torch.from_numpy(
+                np.stack(
+                    [
+                        renderer.render(projection.rotation_zxy_rad, projection.translation_xyz_mm)
+                        for projection in projections
+                    ]
+                )
+            )
+        return images.to(device=self._device, dtype=torch.float32)
+
+    def _draw_catheter_overlays(
+        self,
+        catheter: CatheterState,
+        projections: list[ProjectionGeometry],
+        *,
+        annotate: bool,
+        frames: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Draw the guidance overlays, and the catheter itself when it is not in the beam, on the host.
+
+        These are vector drawings with no batched GPU equivalent, so the frames that carry them make
+        one round trip together. ``rgb`` only makes it when the catheter is an annotation.
+        """
+        drawn = [index for index in range(catheter.num_envs) if int(catheter.valid_nodes[index]) >= 2]
+        if not drawn:
+            return frames
+        rgb, guidance, dsa_rgb, dsa_guidance = frames
+        host_rgb = rgb.cpu().numpy() if annotate else None
+        host_guidance = guidance.cpu().numpy()
+        host_dsa = dsa_rgb.cpu().numpy()
+        host_dsa_guidance = dsa_guidance.cpu().numpy()
+        for env_index in drawn:
+            valid = int(catheter.valid_nodes[env_index])
+            pixels, visible = self._project_catheter(
+                catheter.positions_world_m[env_index, :valid], projections[env_index]
+            )
+            if annotate:
+                # Without beam compositing the catheter exists only as an annotation.
+                self._draw_catheter(host_rgb[env_index], pixels, visible)
+                self._draw_catheter(host_guidance[env_index], pixels, visible)
+                self._draw_catheter(host_dsa[env_index], pixels, visible)
+            host_guidance[env_index] = draw_catheter_guidance(host_guidance[env_index], pixels, visible)
+            host_dsa_guidance[env_index] = draw_catheter_guidance(host_dsa[env_index], pixels, visible)
+
+        device = rgb.device
+        return (
+            torch.from_numpy(host_rgb).to(device) if annotate else rgb,
+            torch.from_numpy(host_guidance).to(device),
+            torch.from_numpy(host_dsa).to(device) if annotate else dsa_rgb,
+            torch.from_numpy(host_dsa_guidance).to(device),
+        )
+
+    def _projection_for(self, carm: CArmState | None, env_index: int) -> ProjectionGeometry:
+        if carm is None:
+            return self._projection
+        current = solve_projection_geometry(
+            self._patient, carm, width=self.width, height=self.height, env_index=env_index
+        )
+        if not np.isclose(current.source_to_detector_mm, self._projection.source_to_detector_mm, atol=0.1):
+            raise ValueError("changing source-detector distance requires rebuilding the fluoroscopy sensor")
+        return current
 
     def _calibrate_display(self, transmission: np.ndarray) -> None:
         """Fit the log window once, from the first frame, and then hold it fixed.
@@ -351,27 +427,33 @@ class SlangFluoroscopyRenderer:
         )
 
     def _catheter_transmission(
-        self,
-        catheter: CatheterState,
-        valid: int,
-        projection: ProjectionGeometry,
-    ) -> np.ndarray | None:
-        """Transmission through the catheter alone, or ``None`` when it does not attenuate.
+        self, catheter: CatheterState, projections: list[ProjectionGeometry]
+    ) -> torch.Tensor | None:
+        """Transmission ``(N, H, W)`` through the catheter alone, or ``None`` when none attenuates.
 
         Returned as its own factor because the plain and contrast-boosted volumes both sit behind
-        the same instrument, so one solve serves both projections.
+        the same instrument, so one solve serves both projections. An environment whose catheter
+        has fewer than two nodes transmits fully.
         """
-        if self._catheter_attenuation is None or valid < 2:
+        if self._catheter_attenuation is None:
             return None
-        points_volume_mm = self._patient.world_to_volume_mm(catheter.positions_world_m[0, :valid])
-        line_integral = self._catheter_attenuation.line_integral(
-            points_volume_mm,
-            1000.0 * float(catheter.radius_m),
-            projection,
-            width=self.width,
-            height=self.height,
-        )
-        return np.exp(-line_integral).astype(np.float32)
+        valid_nodes = [int(valid) for valid in catheter.valid_nodes]
+        if max(valid_nodes, default=0) < 2:
+            return None
+        line_integral = torch.zeros((catheter.num_envs, self.height, self.width), device=self._device)
+        for env_index, valid in enumerate(valid_nodes):
+            if valid < 2:
+                continue
+            points_volume_mm = self._patient.world_to_volume_mm(catheter.positions_world_m[env_index, :valid])
+            line_integral[env_index] = self._catheter_attenuation.line_integral(
+                points_volume_mm,
+                1000.0 * float(catheter.radius_m),
+                projections[env_index],
+                width=self.width,
+                height=self.height,
+                as_torch=True,
+            ).to(self._device)
+        return torch.exp(-line_integral)
 
     def adjust_dsa_gamma(self, delta: float) -> float:
         """Adjust live angiogram brightness and return the bounded gamma."""
@@ -444,32 +526,6 @@ class SlangFluoroscopyRenderer:
         # slide the window instead of letting a clamp silently narrow it.
         low = max(center - 0.5 * width, 0.0)
         self._display = replace(self._display, log_window=(low, low + width))
-
-    @staticmethod
-    def _draw_vessel_overlay(image: np.ndarray, alpha: np.ndarray) -> np.ndarray:
-        result = image.astype(np.float32)
-        result[..., 0] *= 1.0 - alpha
-        result[..., 1] = result[..., 1] * (1.0 - alpha) + 255.0 * alpha
-        result[..., 2] = result[..., 2] * (1.0 - alpha) + 255.0 * alpha
-        return np.clip(result, 0.0, 255.0).astype(np.uint8)
-
-    def _apply_cinematic_style(self, grayscale: np.ndarray, *, key: str) -> np.ndarray:
-        """Apply the reference viewport's cine blur, persistence, noise, and vignette."""
-        source = Image.fromarray(grayscale)
-        base = np.asarray(source.filter(ImageFilter.GaussianBlur(radius=0.9)), dtype=np.float32) / 255.0
-        bloom = np.asarray(source.filter(ImageFilter.GaussianBlur(radius=2.2)), dtype=np.float32) / 255.0
-        frame = np.clip(0.85 * base + 0.15 * bloom, 0.0, 1.0)
-        if key not in self._temporal_frames:
-            self._temporal_frames[key] = frame.copy()
-        else:
-            self._temporal_frames[key] = 0.76 * self._temporal_frames[key] + 0.24 * frame
-        styled = self._temporal_frames[key] + self._rng.normal(0.0, 0.012, frame.shape).astype(np.float32)
-        height, width = styled.shape
-        yy, xx = np.ogrid[:height, :width]
-        radius = np.sqrt(((xx - 0.5 * width) / width) ** 2 + ((yy - 0.5 * height) / height) ** 2)
-        vignette = np.clip(1.0 - 0.9 * radius, 0.78, 1.0).astype(np.float32)
-        styled = np.clip(np.power(np.clip(styled, 0.0, 1.0) * vignette, 1.06), 0.0, 1.0)
-        return np.rint(255.0 * styled).astype(np.uint8)
 
     def _project_catheter(
         self,
