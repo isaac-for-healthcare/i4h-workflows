@@ -74,10 +74,10 @@ def validate(args: argparse.Namespace) -> dict[str, object]:
     catheter = CatheterState.empty(1)
 
     started = time.perf_counter()
-    ap = renderer.render(catheter, ap_carm)["rgb"][0]
+    ap = renderer.render(catheter, ap_carm)["rgb"][0].cpu().numpy()
     ap_render_s = time.perf_counter() - started
     started = time.perf_counter()
-    oblique = renderer.render(catheter, oblique_carm)["rgb"][0]
+    oblique = renderer.render(catheter, oblique_carm)["rgb"][0].cpu().numpy()
     oblique_render_s = time.perf_counter() - started
     mean_absolute_delta = float(np.abs(ap.astype(np.int16) - oblique.astype(np.int16)).mean())
 
