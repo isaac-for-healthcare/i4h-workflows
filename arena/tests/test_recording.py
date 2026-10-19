@@ -422,7 +422,10 @@ def test_the_initial_scene_state_is_stored_with_the_episode(tmp_path) -> None:
     recorder = EpisodeRecorder(path, workflow=workflow)
     pose = np.array([[0.1, -0.1, 0.0, 0.7, 0.0, 0.0, 0.7]], dtype=np.float32)
 
-    recorder.begin_episode(0, 1, initial_state={"rigid_object": {"organs": {"root_pose": pose}}})
+    velocity = np.array([[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]], dtype=np.float32)
+    recorder.begin_episode(
+        0, 1, initial_state={"rigid_object": {"organs": {"root_pose": pose, "root_velocity": velocity}}}
+    )
     recorder.on_step(np.zeros((1, 6), dtype=np.float32), _View())
     recorder.end_episode(_result(), keep=True)
     recorder.begin_episode(1, 1)
@@ -432,6 +435,9 @@ def test_the_initial_scene_state_is_stored_with_the_episode(tmp_path) -> None:
 
     with h5py.File(path, "r") as handle:
         np.testing.assert_array_equal(handle["data/demo_0/initial_state/rigid_object/organs/root_pose"][()], pose)
+        np.testing.assert_array_equal(
+            handle["data/demo_0/initial_state/rigid_object/organs/root_velocity"][()], velocity
+        )
         assert "initial_state" not in handle["data/demo_1"]
 
 

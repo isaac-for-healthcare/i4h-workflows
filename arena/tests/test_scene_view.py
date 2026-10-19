@@ -153,3 +153,27 @@ def test_the_caller_cannot_corrupt_the_cached_measurements():
     view.diagnostics()["arc_excess_mm"] = 999.0
 
     assert view.diagnostics() == {"arc_excess_mm": 1.0}
+
+
+def test_explicit_reset_hides_only_selected_termination_values_until_a_step():
+    values = np.array([True, True, False])
+    env = SimpleNamespace(
+        unwrapped=SimpleNamespace(
+            num_envs=3,
+            termination_manager=SimpleNamespace(active_terms=("success",), get_term=lambda name: values),
+        )
+    )
+    view = ArenaSceneView(env)
+    np.testing.assert_array_equal(view.termination("success"), values)
+    view.on_reset(np.array([0]))
+    np.testing.assert_array_equal(view.termination("success"), [False, True, False])
+    # Rendering or waiting for remote inference does not make stale terms current.
+    view.invalidate()
+    np.testing.assert_array_equal(view.termination("success"), [False, True, False])
+    view.on_step()
+    np.testing.assert_array_equal(view.termination("success"), values)
+    view.on_reset()
+    assert not view.termination("success").any()
+    # An automatic reset inside step retains the success pulse for the workflow.
+    view.on_step()
+    np.testing.assert_array_equal(view.termination("success"), values)

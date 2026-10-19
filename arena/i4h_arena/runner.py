@@ -123,6 +123,7 @@ class EpisodeResult:
     steps: int
     detail: str = ""
     segments: tuple[tuple[str, str, int, int], ...] = ()
+    saved_demo: str | None = None
 
     @property
     def succeeded(self) -> bool:
@@ -138,18 +139,23 @@ class RunSummary:
     episodes: list[EpisodeResult] = field(default_factory=list)
 
     @property
-    def saved(self) -> int:
+    def succeeded(self) -> int:
         return sum(1 for e in self.episodes if e.succeeded)
 
     @property
+    def saved(self) -> int:
+        return sum(e.saved_demo is not None for e in self.episodes)
+
+    @property
     def complete(self) -> bool:
-        return self.saved == self.requested
+        return self.succeeded == self.requested
 
     def render(self) -> str:
         attempts = len(self.episodes)
         return (
             f"{self.workflow} [{self.mode}] run={self.run_id}: "
-            f"{self.saved}/{self.requested} episodes succeeded ({attempts} attempts)"
+            f"{self.succeeded}/{self.requested} episodes succeeded ({attempts} attempts); "
+            f"{self.saved} new demonstrations saved"
         )
 
 
@@ -317,7 +323,7 @@ class SimulationRunner:
             self.env.reset(seed=seed)
         else:
             self.env.reset()
-        self._view.invalidate()
+        self._view.on_reset()
         return capture_scene_state(self.env) if self.recorder is not None else None
 
     def _run_episode(self, engine: Engine, episode: int, attempt: int) -> EpisodeResult:
@@ -413,7 +419,7 @@ class SimulationRunner:
                         logger.warning("env.step raised %r while Isaac Sim was closing; ending the attempt", exc)
                         logger.debug("env.step failure while Isaac Sim was closing", exc_info=True)
                         break
-                self._view.invalidate()
+                self._view.on_step()
                 if _reset_during_step(self.env):
                     reset_by, recording = _terms_that_reset(self.env), False
                     logger.info(
@@ -447,7 +453,7 @@ class SimulationRunner:
         )
         if self.recorder is not None:
             keep = result.succeeded or self.record_failures
-            self.recorder.end_episode(result, keep=keep)
+            result.saved_demo = self.recorder.end_episode(result, keep=keep)
         return result
 
     def _reset_active_scene(self, engine: Engine, ctx: TickContext) -> None:

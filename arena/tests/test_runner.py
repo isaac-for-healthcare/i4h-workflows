@@ -55,7 +55,9 @@ def test_live_reset_rebuilds_actuation_and_restarts_recording() -> None:
     simulation = object.__new__(runner.SimulationRunner)
     simulation.env = SimpleNamespace(reset=lambda: calls.append("env_reset"))
     simulation.initial_state = None
-    simulation._view = SimpleNamespace(invalidate=lambda: calls.append("invalidate"))
+    simulation._view = SimpleNamespace(
+        on_reset=lambda: calls.append("invalidate"), on_step=lambda: None, invalidate=lambda: calls.append("invalidate")
+    )
     simulation.scene = SimpleNamespace(
         on_reset=lambda _env, _view: calls.append("scene_reset"),
         make_actuation=lambda _env, _view: replacement,
@@ -112,7 +114,7 @@ class _StatefulEnv:
 def _resetting_runner(*, initial_state: dict | None, recorder: object | None) -> runner.SimulationRunner:
     simulation = object.__new__(runner.SimulationRunner)
     simulation.env = _StatefulEnv()
-    simulation._view = SimpleNamespace(invalidate=lambda: None)
+    simulation._view = SimpleNamespace(on_reset=lambda: None, on_step=lambda: None, invalidate=lambda: None)
     simulation.initial_state = initial_state
     simulation.recorder = recorder
     return simulation
@@ -237,7 +239,7 @@ def _closing_runner(step, *, record_failures: bool = True) -> runner.SimulationR
     simulation.app = _App()
     simulation.env = SimpleNamespace(step=lambda command: step(simulation.app), unwrapped=SimpleNamespace(step_dt=0.02))
     simulation.scene = SimpleNamespace(on_reset=lambda _env, _view: None, make_actuation=lambda _env, _view: actuation)
-    simulation._view = SimpleNamespace(invalidate=lambda: None)
+    simulation._view = SimpleNamespace(on_reset=lambda: None, on_step=lambda: None, invalidate=lambda: None)
     simulation._reset_env = lambda seed=None: None
     simulation.workflow = SimpleNamespace(mode="teleop")
     simulation.keys = None
@@ -374,7 +376,7 @@ def test_the_step_that_resets_a_successful_episode_is_not_recorded() -> None:
         ),
     )
     simulation._reset_env = lambda _seed=None: None
-    simulation._view = SimpleNamespace(invalidate=lambda: None, num_envs=1)
+    simulation._view = SimpleNamespace(on_reset=lambda: None, on_step=lambda: None, invalidate=lambda: None, num_envs=1)
     simulation._sensor_windows = ()
     simulation._controls = {}
     simulation.keys = simulation.bus = simulation.publisher = None
@@ -453,7 +455,7 @@ def _terminating_runner(env: _TerminatingEnv, *, record_failures: bool = True):
         ),
     )
     simulation._reset_env = lambda _seed=None: None
-    simulation._view = SimpleNamespace(invalidate=lambda: None, num_envs=1)
+    simulation._view = SimpleNamespace(on_reset=lambda: None, on_step=lambda: None, invalidate=lambda: None, num_envs=1)
     simulation._sensor_windows = ()
     simulation._controls = {}
     simulation.keys = simulation.bus = simulation.publisher = None
@@ -636,6 +638,8 @@ def _boundary_runner(tmp_path, *, record_failures=False, terminal_step=3, terms=
     simulation.env = env
     simulation._reset_env = env.reset
     simulation._view = SimpleNamespace(
+        on_reset=lambda: None,
+        on_step=lambda: None,
         invalidate=lambda: None,
         num_envs=1,
         joints=lambda: SimpleNamespace(pos=np.full((1, 3), env.pixel)),
@@ -845,3 +849,61 @@ def test_scissor_final_home_consumes_success_without_crossing_the_reset(tmp_path
         assert demo.attrs["status"] == result.status.value
         assert bool(demo.attrs["success"]) == (term == "success")
         np.testing.assert_array_equal(demo["obs/room"][:, 0, 0, 0], [11, 12])
+
+
+def test_three_reset_episodes_commit_three_new_demos_when_appending(tmp_path):
+    import h5py
+
+    from i4h_arena.adapters.scene_view import ArenaSceneView
+    from i4h_engine.graph import TaskGraph, node
+    from i4h_engine.status import Status
+    from i4h_engine.task import Task
+
+    simulation, path = _boundary_runner(tmp_path)
+    env = simulation.env
+    env.num_envs = 1
+    # IsaacLab retains the terminating step's terms across explicit resets.
+    retained = np.array([True])
+    env.termination_manager = SimpleNamespace(active_terms=("success",), get_term=lambda name: retained)
+    step = env.step
+
+    def step_and_terminate(command):
+        step(command)
+        retained[:] = bool(env.reset_buf[0])
+
+    env.step = step_and_terminate
+    view = ArenaSceneView(env)
+    view.joints = simulation._view.joints
+    view.camera = simulation._view.camera
+    simulation._view = view
+    simulation.initial_state = None
+    # Restore the real runner reset path; the generic fixture uses a simpler fake.
+    simulation._reset_env = runner.SimulationRunner._reset_env.__get__(simulation)
+
+    class SucceedsOnTerm(Task):
+        def tick(self, ctx):
+            return Status.SUCCESS if ctx.scene.termination("success").any() else Status.RUNNING
+
+    simulation.workflow.graph = TaskGraph().flow(node(SucceedsOnTerm(name="drive")))
+    simulation.episodes = 3
+    simulation.attempts = 1
+    simulation.max_steps = 10
+    # This demo belongs to an earlier run and must not be included in the summary.
+    simulation.recorder._data.create_group("demo_0")
+    try:
+        summary = simulation.run()
+    finally:
+        simulation.recorder.close()
+    assert summary.succeeded == 3 and summary.saved == 3 and summary.complete
+    assert all(episode.steps > 0 for episode in summary.episodes)
+    with h5py.File(path) as file:
+        assert len(file["data"]) == 4
+        for name in ("demo_1", "demo_2", "demo_3"):
+            assert file[f"data/{name}"].attrs["num_samples"] == 2
+
+
+def test_empty_success_counts_as_success_without_claiming_a_saved_demo():
+    result = runner.EpisodeResult(index=0, attempt=1, status=WorkflowStatus.SUCCEEDED, steps=0, detail="")
+    summary = runner.RunSummary(run_id="test", workflow="test", mode="policy", requested=1, episodes=[result])
+    assert summary.complete and summary.succeeded == 1 and summary.saved == 0
+    assert "0 new demonstrations saved" in summary.render()
