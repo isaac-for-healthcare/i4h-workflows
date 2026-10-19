@@ -914,6 +914,8 @@ def _slang_like_renderer_class(monkeypatch, fail_on: int | None = None) -> list[
             self._device = object()
             devices.append(self._device)
             self._module, self._forward_fn, self._backward_fn, self._normalize_fn = (object() for _ in range(4))
+            self._forward_batch_fn = object()
+            self._batch_cache = None
             self._create_resources()
 
         def _create_resources(self):
@@ -938,6 +940,9 @@ def test_the_contrast_renderer_reuses_the_main_renderers_slang_device(tmp_path, 
     assert devices == [main._device]
     for name in slang_fluoroscopy._SHARED_SLANG_STATE:
         assert getattr(dsa, name) is getattr(main, name)
+    assert dsa._batch_cache is None
+    main._batch_cache = {"output": object()}
+    assert dsa._batch_cache is None
     assert dsa.volume_texture is not main.volume_texture
     assert not np.array_equal(dsa.volume, main.volume)
 
@@ -951,7 +956,7 @@ def test_the_shared_state_is_what_upstream_init_slang_creates() -> None:
 
     source = inspect.getsource(SlangDiffDRRRenderer._init_slang)
     assigned = tuple(dict.fromkeys(re.findall(r"^\s*self\.(\w+)\s*=", source, re.MULTILINE)))
-    assert assigned == slang_fluoroscopy._SHARED_SLANG_STATE
+    assert set(assigned) == {*slang_fluoroscopy._SHARED_SLANG_STATE, "_batch_cache"}
     assert "self._create_resources()" in source
 
 

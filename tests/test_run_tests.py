@@ -158,3 +158,21 @@ def test_engine_fakes_survive_collecting_an_rl_test():
         capture_output=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("suite", ["gpu", "dependency-pins"])
+def test_dependency_pin_smoke_failure_is_not_skipped(monkeypatch, suite):
+    calls = []
+    monkeypatch.setattr(run_tests.shutil, "which", lambda _: "uv")
+    monkeypatch.setattr(sys, "argv", ["run_tests.py", "--suite", suite, "--timeout", "30"])
+    monkeypatch.setattr(run_tests, "_run_gpu_smoke", lambda *_: True)
+
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return subprocess.CompletedProcess(argv, 1)
+
+    monkeypatch.setattr(run_tests, "_run_command", run)
+    assert run_tests.main() == 1
+    assert len(calls) == 1
+    assert "scripts/validate_dependency_pins.py" in calls[0][0]
+    assert calls[0][1]["timeout"] == 90
