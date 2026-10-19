@@ -8,7 +8,7 @@ from pathlib import Path
 
 #: Mirrors ``i4h_arena.assets.constants.ASSET_PATH``; kept literal so CPU tests
 #: can load this module without the package installed.
-_ASSET_ROOT = "https://omniverse-content-staging.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/v0.9.0/7cf86a1/"
+_ASSET_ROOT = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/v0.9.0/7cf86a1/"
 G1_INSPIRE_USD_PATH = f"{_ASSET_ROOT}Robots/UnitreeG1/g1_29dof_with_inspire_rev_1_0/g1_29dof_with_inspire_rev_1_0.usd"
 H2_SHARPA_USD_PATH = f"{_ASSET_ROOT}Robots/UnitreeH2/h2_with_sharpa/H2_with_sharpa_flat.usd"
 # ---------------------------------------------------------------------------
