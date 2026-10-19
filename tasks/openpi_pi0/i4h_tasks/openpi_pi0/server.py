@@ -11,7 +11,7 @@ long horizon (50) that the arena side consumes over many ticks.
 from __future__ import annotations
 
 import argparse
-import ctypes
+import dataclasses
 import logging
 import os
 import time
@@ -22,6 +22,7 @@ import numpy as np
 
 from i4h_common.bus.messages import ObsFrame
 from i4h_common.server import ActionContract, PolicyServer, Session
+from i4h_tasks.openpi_pi0.runtime import configure_xla, cuda_compute_capability
 
 logger = logging.getLogger("i4h_tasks.openpi_pi0")
 
@@ -30,50 +31,18 @@ IMAGE_SIZE = (224, 224)
 #: Franka joints in the state vector; ``infer`` passes the first seven.
 STATE_DIM = 7
 
-#: Blackwell compute capabilities the XLA in the pinned jaxlib 0.5.3 can target
-#: (``sm_100``, ``sm_101``, ``sm_120``). It compiles an unknown one, GB300's 10.3
-#: or GB10's 12.1, as the nearest known target, and its Triton GEMM kernels then
-#: fail in ptxas or LLVM and abort the backend (NVBug 6935977). Every earlier
-#: architecture is known.
-XLA_KNOWN_BLACKWELL = frozenset({(10, 0), (10, 1), (12, 0)})
-TRITON_GEMM_FLAG = "--xla_gpu_enable_triton_gemm"
 
-
-def cuda_compute_capability() -> tuple[int, int] | None:
-    """Compute capability of CUDA device 0, asked of the driver without starting JAX."""
-    try:
-        cuda = ctypes.CDLL("libcuda.so.1")
-    except OSError:
-        return None
-    device, major, minor = ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
-    if cuda.cuInit(0) or cuda.cuDeviceGet(ctypes.byref(device), 0):
-        return None
-    # CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR / _MINOR
-    if cuda.cuDeviceGetAttribute(ctypes.byref(major), 75, device) or cuda.cuDeviceGetAttribute(
-        ctypes.byref(minor), 76, device
-    ):
-        return None
-    return major.value, minor.value
-
-
-def configure_xla(capability: tuple[int, int] | None) -> None:
-    """Route GEMMs through cuBLAS on a GPU the pinned XLA cannot build Triton kernels for.
-
-    Must run before JAX creates its GPU backend, which reads ``XLA_FLAGS`` once.
-    Only those GPUs pay for it: on an RTX PRO 6000 a warm PI0 inference takes
-    0.05 s with Triton GEMMs and 0.36 s without. An ``XLA_FLAGS`` that already
-    sets the option is left alone.
-    """
-    if capability is None or capability[0] < 10 or capability in XLA_KNOWN_BLACKWELL:
-        return
-    flags = os.environ.get("XLA_FLAGS", "")
-    if TRITON_GEMM_FLAG in flags:
-        return
-    os.environ["XLA_FLAGS"] = f"{flags} {TRITON_GEMM_FLAG}=false".strip()
-    logger.info(
-        "compute capability %s.%s is newer than the pinned XLA targets; disabling its Triton GEMM fusions",
-        *capability,
-    )
+def checkpoint_asset_id(checkpoint: str) -> str:
+    """Resolve the single normalization identity saved by OpenPI, without a dataset."""
+    assets = Path(checkpoint).expanduser().resolve() / "assets"
+    stats = sorted(path for path in assets.rglob("norm_stats.json") if path.is_file())
+    if len(stats) != 1 or stats[0].parent == assets:
+        found = [str(path.relative_to(assets)) for path in stats]
+        raise ValueError(
+            f"{checkpoint}: expected exactly one normalization asset under assets/<asset_id>/norm_stats.json; "
+            f"found {len(stats)}: {found}"
+        )
+    return stats[0].parent.relative_to(assets).as_posix()
 
 
 class OpenPiPi0Server(PolicyServer):
@@ -88,6 +57,7 @@ class OpenPiPi0Server(PolicyServer):
         if key in self._policies:
             return
 
+        configure_xla(cuda_compute_capability())
         from openpi.policies import policy_config
 
         model = session.model
@@ -106,9 +76,24 @@ class OpenPiPi0Server(PolicyServer):
 
         config_name = str(model.get("config", "robotic_ultrasound"))
         repo_id = str(model.get("repo_id", "i4h/sim_liver_scan"))
+        config = get_config(name=config_name, repo_id=repo_id)
+        if session.checkpoint:
+            from openpi.shared import normalize
+
+            asset_id = checkpoint_asset_id(path)
+            assets_dir = Path(path).expanduser().resolve() / "assets"
+            # Validate the saved statistics before create_trained_policy loads weights.
+            normalize.load(assets_dir / asset_id)
+            config = dataclasses.replace(
+                config,
+                data=dataclasses.replace(
+                    config.data,
+                    assets=dataclasses.replace(config.data.assets, assets_dir=str(assets_dir), asset_id=asset_id),
+                ),
+            )
         logger.info("loading PI0 %s (config=%s repo_id=%s)", path, config_name, repo_id)
         policy = policy_config.create_trained_policy(
-            get_config(name=config_name, repo_id=repo_id),
+            config,
             path,
         )
         self._warm_up(policy, session)
@@ -130,7 +115,17 @@ class OpenPiPi0Server(PolicyServer):
         logger.info("compiled PI0 with a warm-up inference in %.1fs", time.monotonic() - started)
 
     def _cache_key(self, session: Session) -> str:
-        return f"{session.checkpoint or session.model.get('repo', '')}|{session.model.get('config', '')}"
+        identity = (
+            checkpoint_asset_id(session.checkpoint)
+            if session.checkpoint
+            else str(session.model.get("repo_id", "i4h/sim_liver_scan"))
+        )
+        path = (
+            str(Path(session.checkpoint).expanduser().resolve())
+            if session.checkpoint
+            else session.model.get("repo", "")
+        )
+        return f"{path}|{session.model.get('config', 'robotic_ultrasound')}|{identity}"
 
     def unload(self, session: Session) -> None:
         pass  # cached across episodes
