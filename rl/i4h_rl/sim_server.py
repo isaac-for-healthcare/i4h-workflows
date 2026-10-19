@@ -70,6 +70,10 @@ def _drop_time_out(env_cfg) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.fluoro_device == "cuda":
+        from i4h_arena.medical.slang_cuda import prepare_slang_for_kit
+
+        prepare_slang_for_kit(args.fluoro_device)
     from isaaclab.app import AppLauncher
 
     sim_app = AppLauncher(headless=True, enable_cameras=args.enable_cameras).app

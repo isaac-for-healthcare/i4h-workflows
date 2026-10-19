@@ -141,9 +141,9 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--suite",
-        choices=("ci", "all", "gpu", *SUITES),
+        choices=("ci", "all", "gpu", "dependency-pins", *SUITES),
         default="ci",
-        help="test group to run (gpu runs only the recorded simulator smokes)",
+        help="test group to run (gpu runs recorded simulator smokes and dependency-pin checks)",
     )
     parser.add_argument("--timeout", type=int, default=1200, help="timeout for each pytest command")
     parser.add_argument(
@@ -260,7 +260,7 @@ def main() -> int:
     if shutil.which("uv") is None:
         print("uv is required to run the independently locked test projects", file=sys.stderr)
         return 2
-    if args.coverage and args.suite == "gpu":
+    if args.coverage and args.suite in {"gpu", "dependency-pins"}:
         print("--coverage applies to CPU pytest suites, not GPU workflow smokes", file=sys.stderr)
         return 2
     if args.coverage:
@@ -269,7 +269,7 @@ def main() -> int:
         selected = ("light", "tools", "rl")
     elif args.suite == "all":
         selected = tuple(SUITES)
-    elif args.suite == "gpu":
+    elif args.suite in {"gpu", "dependency-pins"}:
         selected = ()
     else:
         selected = (args.suite,)
@@ -294,6 +294,24 @@ def main() -> int:
         for smoke in GPU_SMOKES:
             if not _run_gpu_smoke(smoke, args.timeout):
                 failures.append(smoke.workflow)
+    if args.suite in {"gpu", "dependency-pins"}:
+        result = _run_command(
+            [
+                "uv",
+                "run",
+                "--project",
+                "arena",
+                "--with",
+                "pytest>=8.0",
+                "python",
+                "scripts/validate_dependency_pins.py",
+                "--timeout",
+                str(args.timeout),
+            ],
+            timeout=2 * args.timeout + 30,
+        )
+        if result is None or result.returncode:
+            failures.append("in-Kit CUDA and Vulkan dependency pins")
     if skipped:
         print("\nskipped, no component checkout: " + ", ".join(skipped))
     if failures:

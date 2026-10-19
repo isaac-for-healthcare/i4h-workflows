@@ -30,7 +30,7 @@ See [DESIGN.md](DESIGN.md) for detailed architecture and ownership rules.
 - Linux driver `580.95.05` (the Isaac Sim 6.0 tested version) or a compatible newer production-branch driver
 - Some training profiles require more VRAM or multiple GPUs; see the workflow-specific documentation
 - `uv` and `git`
-- CUDA Toolkit 12.x or 13.x, no newer than the driver supports, only for `--fluoro-device cuda` or the standalone `xray-simulator` CLI; see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#failed-to-create-device-from-slang-fluoroscopy)
+- CUDA Toolkit 12.x or 13.x, no newer than the driver supports, for endoluminal RL (CUDA fluoroscopy by default), `--fluoro-device cuda`, or the standalone `xray-simulator` CLI; see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#failed-to-create-device-from-slang-fluoroscopy)
 - Network access for Python packages, third-party checkouts, models, and assets
 - Tens of GB for dependencies, plus additional model-cache space (large checkpoints such as GR00T N1.7 can require several dozen GB)
 - Optional for natural-language prompts: Claude Code, Codex, or the repository's [Local Agent](local-agent/README.md). Tested with Opus 4.8 (1M context) and GPT-5.5 at low or medium reasoning effort.

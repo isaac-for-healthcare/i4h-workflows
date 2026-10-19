@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Diagnose Slang's CUDA device, which needs the CUDA Toolkit's NVRTC.
 
-Standard library only: the launcher imports this before Kit boots.
+Standard library imports only; prepare_slang_for_kit loads Slang before Kit boots.
 """
 
 from __future__ import annotations
@@ -102,3 +102,15 @@ def check_slang_cuda_device(timeout_s: float = 120.0) -> str | None:
         return None
     output = result.stdout.strip().splitlines()
     return output[-1] if output else result.stderr.strip()[-2000:]
+
+
+def prepare_slang_for_kit(device_type: str) -> None:
+    """Bind Slang's private CUDA API table before Kit loads global CUDA symbols.
+
+    In slangpy 0.43.1, libsgl exports CUDA function-pointer variables named cu*.
+    Loading it after Kit can bind those writable variables to driver functions;
+    rhiCudaDriverApiInit then writes into code memory. Importing before Kit fixes
+    the binding order without creating a device or choosing a CUDA context.
+    """
+    if device_type == "cuda":
+        import slangpy  # noqa: F401,PLC0415

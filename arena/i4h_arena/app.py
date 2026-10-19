@@ -83,6 +83,9 @@ class AppContext:
 @contextlib.contextmanager
 def launch_app(args: argparse.Namespace) -> Iterator[AppContext]:
     """Start ``AppLauncher`` and shut it down on the way out."""
+    from i4h_arena.medical.slang_cuda import prepare_slang_for_kit
+
+    prepare_slang_for_kit(getattr(args, "fluoro_device", "vulkan"))
     if getattr(args, "enable_pinocchio", False):
         # Pink's native libraries must load before Kit's libstdc++.
         import pinocchio  # noqa: F401,PLC0415

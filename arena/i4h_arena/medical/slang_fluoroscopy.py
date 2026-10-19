@@ -36,7 +36,7 @@ _DISPLAY_CONTROL_BOUNDS = {
 
 # What the pinned xray_simulator's SlangDiffDRRRenderer._init_slang creates before it uploads
 # the volume; it takes no device argument, so a second renderer would open a second device.
-_SHARED_SLANG_STATE = ("_device", "_module", "_forward_fn", "_backward_fn", "_normalize_fn")
+_SHARED_SLANG_STATE = ("_device", "_module", "_forward_fn", "_forward_batch_fn", "_backward_fn", "_normalize_fn")
 
 
 def _renderer_sharing_device(renderer_class: type, source: object) -> type:
@@ -51,6 +51,8 @@ def _renderer_sharing_device(renderer_class: type, source: object) -> type:
         def _init_slang(self) -> None:
             for name in _SHARED_SLANG_STATE:
                 setattr(self, name, getattr(source, name))
+            # Batched pose/output buffers belong to each volume renderer.
+            self._batch_cache = None
             self._create_resources()
 
     return SharedDeviceRenderer

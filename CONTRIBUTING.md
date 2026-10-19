@@ -111,6 +111,16 @@ On a configured GPU host, run the recorded headless workflow smokes used by Blos
 python scripts/run_tests.py --suite gpu
 ```
 
+The GPU suite also validates the real sensor inside Isaac Sim on both fluoroscopy
+devices. This checks DSA on/off, consecutive frames, separate renderer
+buffers, batch resizing, and distinct environment images; either device failing
+fails the suite. CUDA requires the toolkit described in the README. To run only
+the dependency-pin validation:
+
+```bash
+python scripts/run_tests.py --suite dependency-pins
+```
+
 ## Reporting issues
 
 Please open a [Issue Request](https://github.com/isaac-for-healthcare/i4h-workflows/issues) to request an enhancement, bug fix, or other change in Isaac for Healthcare.
