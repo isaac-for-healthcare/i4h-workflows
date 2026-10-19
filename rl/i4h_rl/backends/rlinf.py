@@ -19,7 +19,7 @@ from pathlib import Path
 import yaml
 
 from i4h_rl.artifacts import environment_overrides, resolve_input_path, resolve_output_path, resolve_run_dir, write_json
-from i4h_rl.profile import RLProfile
+from i4h_rl.profile import RLProfile, SimulationProfile
 from i4h_rl.runtime import apply_arm_openmp_env
 
 
@@ -252,18 +252,36 @@ def _model_preflight(runtime: Path, env: dict[str, str], *, require_two_gpus: bo
     print(result.stdout.strip())
 
 
-def _sim_preflight(sim_runtime: Path, env: dict[str, str]) -> None:
-    probe = (
-        "import i4h_arena, isaaclab, isaaclab_arena; "
-        "from i4h_rl import sim_server; "
-        "print('RLinf simulator runtime imports: OK')"
-    )
+def _sim_preflight(sim_runtime: Path, env: dict[str, str], fluoro_device: str | None = None) -> None:
+    probe = "import i4h_arena, isaaclab, isaaclab_arena; from i4h_rl import sim_server; "
+    if fluoro_device == "cuda":
+        # Slang's CUDA device needs the toolkit's NVRTC; without it the sensor fails after Kit boots.
+        probe += (
+            "from i4h_arena.medical.slang_cuda import check_slang_cuda_device; "
+            "failure = check_slang_cuda_device(); "
+            "failure is None or exit('simulation.fluoro_device cuda: ' + failure); "
+        )
+    probe += "print('RLinf simulator runtime imports: OK')"
     result = subprocess.run([str(sim_runtime), "-c", probe], env=env, text=True, capture_output=True, check=False)
     if result.returncode:
         detail = (result.stderr or result.stdout).strip().splitlines()
         last = detail[-1] if detail else f"exit {result.returncode}"
         raise SystemExit(f"RLinf simulator runtime preflight failed with {sim_runtime}: {last}")
     print(result.stdout.strip())
+
+
+def _simulation_args(simulation: SimulationProfile) -> list[str]:
+    """Simulator flags the profile's ``simulation`` block sets."""
+    args = [
+        "--env-spacing",
+        str(simulation.env_spacing),
+        "--presets",
+        simulation.presets,
+        "--enable-cameras" if simulation.enable_cameras else "--no-enable-cameras",
+    ]
+    if simulation.fluoro_device is not None:
+        args += ["--fluoro-device", simulation.fluoro_device]
+    return args
 
 
 def _episode_steps(profile: RLProfile, *, only_eval: bool, overrides: tuple[str, ...]) -> int:
@@ -626,7 +644,7 @@ def launch(
     model_env["RLINF_CONFIG_FILE"] = str(runtime_config)
     _model_preflight(model_runtime, model_env, require_two_gpus=not shared_gpu)
     sim_env = _sim_env(workflows_root, model_env, gpu=sim_gpu)
-    _sim_preflight(sim_runtime, sim_env)
+    _sim_preflight(sim_runtime, sim_env, profile.simulation.fluoro_device)
 
     metadata = {
         "schema_version": 1,
@@ -699,11 +717,7 @@ def launch(
         str(num_envs),
         "--max-episode-steps",
         str(_episode_steps(profile, only_eval=args.only_eval, overrides=overrides)),
-        "--env-spacing",
-        str(profile.simulation.env_spacing),
-        "--presets",
-        profile.simulation.presets,
-        "--enable-cameras" if profile.simulation.enable_cameras else "--no-enable-cameras",
+        *_simulation_args(profile.simulation),
     ]
     patient_twin = getattr(args, "resolved_patient_twin", None)
     if patient_twin is not None:
