@@ -22,12 +22,13 @@ ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
 # Release component versions match the v0.9 QA plan: each default is the commit that the
-# component's v0.9.0-rc3 tag names. Keep the checkout directory names stable because uv
-# path sources refer to them. Export *_REF to bisect or test another component revision;
-# the solver compatibility check still applies.
+# component's latest v0.9 release-candidate tag names (physics simulation and digital twin
+# v0.9.0-rc3, sensor simulation v0.9.0-rc4). Keep the checkout directory names stable
+# because uv path sources refer to them. Export *_REF to bisect or test another component
+# revision; the solver compatibility check still applies.
 I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-c6fa58acfcbcb233c76bd3ca253d8011f3285f97}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
-I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-f7bc77c9a1ab7661343c56858e178eaa5ffc206a}"
+I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-5d6ba8547a4c6e25af7eaf551f6a34371ccd6350}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
 I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-ca68500f2eaa9c1fb504dd5963ffb27a9cf6d4cd}"
 I4H_DIGITAL_TWIN_DIR="i4h-digital-twin-internal"
