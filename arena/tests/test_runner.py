@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import sys
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import torch
+from isaaclab.utils.string import ResolvableString
 
 from i4h_arena import runner
 from i4h_engine.status import WorkflowStatus
@@ -238,7 +240,11 @@ def _closing_runner(step, *, record_failures: bool = True) -> runner.SimulationR
     simulation = object.__new__(runner.SimulationRunner)
     simulation.app = _App()
     simulation.env = SimpleNamespace(step=lambda command: step(simulation.app), unwrapped=SimpleNamespace(step_dt=0.02))
-    simulation.scene = SimpleNamespace(on_reset=lambda _env, _view: None, make_actuation=lambda _env, _view: actuation)
+    simulation.scene = SimpleNamespace(
+        fresh_physics_per_episode=False,
+        on_reset=lambda _env, _view: None,
+        make_actuation=lambda _env, _view: actuation,
+    )
     simulation._view = SimpleNamespace(on_reset=lambda: None, on_step=lambda: None, invalidate=lambda: None)
     simulation._reset_env = lambda seed=None: None
     simulation.workflow = SimpleNamespace(mode="teleop")
@@ -370,6 +376,7 @@ def test_the_step_that_resets_a_successful_episode_is_not_recorded() -> None:
     simulation.env = env
     simulation.app = SimpleNamespace(is_running=lambda: True)
     simulation.scene = SimpleNamespace(
+        fresh_physics_per_episode=False,
         on_reset=lambda _env, _view: None,
         make_actuation=lambda _env, _view: SimpleNamespace(
             tensor=lambda: torch.zeros(1, 6), numpy=lambda: np.zeros((1, 6))
@@ -449,6 +456,7 @@ def _terminating_runner(env: _TerminatingEnv, *, record_failures: bool = True):
     simulation.env = env
     simulation.app = SimpleNamespace(is_running=lambda: True, update=lambda: None)
     simulation.scene = SimpleNamespace(
+        fresh_physics_per_episode=False,
         on_reset=lambda _env, _view: None,
         make_actuation=lambda _env, _view: SimpleNamespace(
             tensor=lambda: torch.zeros(1, 6), numpy=lambda: np.zeros((1, 6))
@@ -907,3 +915,136 @@ def test_empty_success_counts_as_success_without_claiming_a_saved_demo():
     summary = runner.RunSummary(run_id="test", workflow="test", mode="policy", requested=1, episodes=[result])
     assert summary.complete and summary.succeeded == 1 and summary.saved == 0
     assert "0 new demonstrations saved" in summary.render()
+
+
+# -- a fresh PhysX scene for every episode (NVBug 6953999) ------------------
+
+
+class _PhysxManager:
+    """Stands in for ``isaaclab_physx.physics.PhysxManager``."""
+
+
+class _NewtonManager:
+    """Stands in for another backend's physics manager."""
+
+
+def _kit_physx(monkeypatch: pytest.MonkeyPatch, calls: list[str]) -> None:
+    """Install the Kit modules ``_rebuild_physx_scene`` imports."""
+    simulation = SimpleNamespace(detach_stage=lambda: calls.append("detach_stage"))
+    monkeypatch.setitem(sys.modules, "isaaclab_physx.physics", SimpleNamespace(PhysxManager=_PhysxManager))
+    monkeypatch.setitem(sys.modules, "omni.physx", SimpleNamespace(get_physx_simulation_interface=lambda: simulation))
+
+
+def _physics_env(manager: type, calls: list[str]) -> SimpleNamespace:
+    # SimulationContext keeps the configured manager class as an unresolved
+    # "module:Class" string, not as the class.
+    sim = SimpleNamespace(
+        physics_manager=ResolvableString(f"{__name__}:{manager.__name__}"),
+        stop=lambda: calls.append("stop"),
+        play=lambda: calls.append("play"),
+    )
+    scene = SimpleNamespace(update=lambda dt: calls.append(f"update:{dt}"))
+    return SimpleNamespace(unwrapped=SimpleNamespace(sim=sim, scene=scene, physics_dt=0.005))
+
+
+def test_rebuild_detaches_the_stage_so_play_parses_a_new_physx_scene(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+    _kit_physx(monkeypatch, calls)
+
+    assert runner._rebuild_physx_scene(_physics_env(_PhysxManager, calls))
+
+    # Without the detach, play hangs on "Stage ... already attached".
+    assert calls == ["stop", "detach_stage", "play", "update:0.005"]
+
+
+def test_rebuild_leaves_another_physics_backend_alone(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+    _kit_physx(monkeypatch, calls)
+
+    assert not runner._rebuild_physx_scene(_physics_env(_NewtonManager, calls))
+    assert calls == []
+
+
+def test_rebuild_is_a_no_op_when_kit_has_no_physx(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+    monkeypatch.setitem(sys.modules, "isaaclab_physx.physics", None)  # import raises ImportError
+
+    assert not runner._rebuild_physx_scene(_physics_env(_PhysxManager, calls))
+    assert calls == []
+
+
+class _StepsThenSucceeds(_Engine):
+    """A workflow that takes ``steps`` physics steps and then succeeds."""
+
+    def __init__(self, steps: int) -> None:
+        super().__init__()
+        self._steps = steps
+
+    def start(self, _ctx: TickContext) -> None:
+        self.status, self.step = runner.WorkflowStatus.RUNNING, 0
+
+    def tick(self, _ctx: TickContext) -> None:
+        self.step += 1
+        if self.step > self._steps:
+            self.status = runner.WorkflowStatus.SUCCEEDED
+
+
+def _episode_runner(
+    monkeypatch: pytest.MonkeyPatch, calls: list[str], *, mode: str = "policy", fresh: bool = True
+) -> runner.SimulationRunner:
+    actuation = SimpleNamespace(tensor=lambda: torch.zeros(1, 3), numpy=lambda: np.zeros((1, 3)))
+    simulation = _closing_runner(lambda _app: calls.append("step"))
+    simulation.scene = SimpleNamespace(
+        fresh_physics_per_episode=fresh,
+        on_reset=lambda _env, _view: None,
+        make_actuation=lambda _env, _view: actuation,
+    )
+    simulation._reset_env = lambda seed=None: calls.append("reset")
+    simulation.workflow = SimpleNamespace(mode=mode)
+    simulation.recorder = None
+
+    def rebuild(env: object) -> bool:
+        assert env is simulation.env
+        calls.append("rebuild")
+        return True
+
+    monkeypatch.setattr(runner, "_rebuild_physx_scene", rebuild)
+    return simulation
+
+
+def test_a_retry_starts_from_a_rebuilt_physx_scene_like_a_fresh_process(monkeypatch: pytest.MonkeyPatch) -> None:
+    """NVBug 6953999: a push-cart demo recorded on attempt 2 drifted 0.1 rad on replay."""
+    calls: list[str] = []
+    simulation = _episode_runner(monkeypatch, calls)
+    engine = _StepsThenSucceeds(steps=2)
+
+    for attempt in (1, 2, 3):
+        simulation._run_episode(engine, episode=0, attempt=attempt)
+
+    # The first episode in the process is left alone; every later one gets a
+    # new PhysX scene before its reset writes the initial state into it.
+    assert calls == ["reset", "step", "step"] + ["rebuild", "reset", "step", "step"] * 2
+
+
+def test_an_episode_that_took_no_physics_step_leaves_the_physx_scene_alone(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+    simulation = _episode_runner(monkeypatch, calls)
+
+    simulation._run_episode(_StepsThenSucceeds(steps=2), episode=0, attempt=1)
+    simulation._run_episode(_StepsThenSucceeds(steps=0), episode=1, attempt=1)
+    simulation._run_episode(_StepsThenSucceeds(steps=0), episode=2, attempt=1)
+
+    assert calls == ["reset", "step", "step", "rebuild", "reset", "reset"]
+
+
+@pytest.mark.parametrize(("mode", "fresh"), [("policy", False), ("teleop", True)])
+def test_scenes_that_do_not_opt_in_and_teleop_keep_their_physx_scene(
+    monkeypatch: pytest.MonkeyPatch, mode: str, fresh: bool
+) -> None:
+    calls: list[str] = []
+    simulation = _episode_runner(monkeypatch, calls, mode=mode, fresh=fresh)
+
+    for attempt in (1, 2):
+        simulation._run_episode(_StepsThenSucceeds(steps=1), episode=0, attempt=attempt)
+
+    assert calls == ["reset", "step"] * 2

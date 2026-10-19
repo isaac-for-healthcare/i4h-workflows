@@ -179,6 +179,19 @@ Episode outcomes can differ between runs at a fixed seed, and the runner logs
 rather than a success rate: for anything you intend to report or compare, run several trials
 and quote the ratio.
 
+## A G1 recording made on a retry drifts on replay
+
+A loco-manipulation demo (`locomanip_push_cart`, `locomanip_tray_pick_and_place`) recorded on
+a retry or a later episode replays with the same actions but drifts by tenths of a radian
+within a few hundred steps, and the replay may drop the object. The demo's `episode_index`
+and `attempt_index` attributes in the HDF5 file say whether it was. A reset leaves internal
+PhysX state behind, and the balancing G1 amplifies it, so an episode that follows others in
+one process does not match the same episode in a fresh process. These scenes now rebuild the
+PhysX scene before every episode after the first, which takes about a second and is logged
+as `rebuilt the PhysX scene for a fresh episode`. Re-record demos made before that change;
+attempt-1 demos of the first episode replay as before. Teleop does not rebuild, so a teleop
+demo recorded after a reset or a retry can still drift.
+
 ## Processes or GPU memory left behind
 
 ```bash

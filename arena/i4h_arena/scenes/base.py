@@ -59,6 +59,14 @@ class Scene(ABC):
     #: Must match a scene manifest filename.
     name: str = ""
 
+    #: Rebuild the PhysX scene before an episode that follows physics steps in
+    #: this process, so every episode starts from the PhysX state a fresh
+    #: process has and a recorded retry replays (NVBug 6953999). Costs about a
+    #: second per episode and drops what IsaacLab ``startup`` events wrote to
+    #: the simulation, so opt in only a scene that has none. Ignored off Kit
+    #: PhysX and in teleop.
+    fresh_physics_per_episode: bool = False
+
     def __init__(self, spec: SceneSpec, args: argparse.Namespace) -> None:
         self.spec = spec
         self.args = args

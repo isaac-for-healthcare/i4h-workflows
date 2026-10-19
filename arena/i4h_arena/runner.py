@@ -115,6 +115,50 @@ def _render_scene_only(env: Any, app: Any) -> None:
         settings.set_bool(play_simulations, previous)
 
 
+def _rebuild_physx_scene(env: Any) -> bool:
+    """Replace the PhysX scene with one parsed afresh from the stage (NVBug 6953999).
+
+    A reset writes back every state IsaacLab exposes, yet the GPU PhysX scene
+    keeps internal state across it (contact or constraint ordering is the
+    suspect). An episode that follows others in one process then drifts from
+    the same episode in a fresh process within a few steps, and a balancing G1
+    amplifies that to tenths of a radian, so a retry's recording does not
+    replay.
+
+    Stopping the timeline invalidates the PhysX views and IsaacLab's assets and
+    sensors. Detaching the stage makes the next play parse it into a new PhysX
+    scene; without it, play hangs on "Stage ... already attached". Play then
+    recreates the views and re-initializes every asset and sensor, as the
+    env's construction did. USD keeps everything authored on the stage,
+    ``prestartup`` events included; IsaacLab ``startup`` events, which ran once
+    against the old scene, do not run again.
+
+    Returns ``False`` and leaves the simulation alone when it does not run on
+    Kit PhysX.
+    """
+    unwrapped = getattr(env, "unwrapped", env)
+    sim = unwrapped.sim
+    try:
+        from isaaclab_physx.physics import PhysxManager  # noqa: PLC0415 - needs a running Kit
+    except ImportError:  # no Kit PhysX to rebuild
+        return False
+    manager = getattr(sim, "physics_manager", None)
+    if isinstance(manager, str):
+        # IsaacLab keeps the configured manager as a lazily resolved "module:Class" string.
+        from isaaclab.utils.string import string_to_callable  # noqa: PLC0415
+
+        manager = string_to_callable(manager)
+    if not (isinstance(manager, type) and issubclass(manager, PhysxManager)):
+        return False
+    from omni.physx import get_physx_simulation_interface  # noqa: PLC0415 - needs a running Kit
+
+    sim.stop()
+    get_physx_simulation_interface().detach_stage()
+    sim.play()
+    unwrapped.scene.update(dt=unwrapped.physics_dt)
+    return True
+
+
 @dataclass(slots=True)
 class EpisodeResult:
     index: int
@@ -161,6 +205,10 @@ class RunSummary:
 
 class SimulationRunner:
     """Drives one workflow against one scene for N episodes."""
+
+    #: Whether physics stepped since the PhysX scene was built, so that the
+    #: next episode would inherit another's PhysX state. Cleared by a rebuild.
+    _physics_stepped: bool = False
 
     def __init__(
         self,
@@ -326,7 +374,22 @@ class SimulationRunner:
         self._view.on_reset()
         return capture_scene_state(self.env) if self.recorder is not None else None
 
+    def _fresh_physics_for_episode(self) -> None:
+        """Start this episode in a PhysX scene no earlier episode stepped, when the scene asks for it.
+
+        The first episode in a process already has one. Teleop keeps its
+        scene: an operator's reset happens mid-episode, and rebuilding under
+        a live teleop session is not validated.
+        """
+        if not self._physics_stepped or self.workflow.mode == "teleop" or not self.scene.fresh_physics_per_episode:
+            return
+        started = time.monotonic()
+        if _rebuild_physx_scene(self.env):
+            logger.info("rebuilt the PhysX scene for a fresh episode in %.1f s", time.monotonic() - started)
+            self._physics_stepped = False
+
     def _run_episode(self, engine: Engine, episode: int, attempt: int) -> EpisodeResult:
+        self._fresh_physics_for_episode()
         initial_state = self._reset_env(self.seed if episode == 0 and attempt == 1 else None)
         self.scene.on_reset(self.env, self._view)
         # Reset invalidates the command that was seeded when the runner was
@@ -402,6 +465,7 @@ class SimulationRunner:
                         raise RuntimeError(
                             f"step {engine.step}: non-finite action {command.detach().cpu().numpy().tolist()}"
                         )
+                    self._physics_stepped = True
                     try:
                         self.env.step(command)
                     except Exception as exc:

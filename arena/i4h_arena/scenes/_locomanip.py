@@ -36,6 +36,11 @@ class LocomanipScene(Scene):
     """Unitree G1 standing in the Rheo room with one manipulable prop."""
 
     embodiment_name: str = G1_POLICY_EMBODIMENT
+    #: The balancing G1 turns PhysX state left over from an earlier episode
+    #: into tenths of a radian of drift. Neither scene nor the G1 embodiment
+    #: has a ``startup`` event; the finger-friction ``prestartup`` event binds
+    #: a USD material, which the rebuilt scene reads back from the stage.
+    fresh_physics_per_episode = True
     pick_up_pose: Placement = ((-1.15, -1.6, -0.08), (0.0, 0.0, 0.707, 0.707))
     robot_pose: Placement = ((-0.5, -1.62, 0.0), (0.0, 0.0, 1.0, 0.0))
 
