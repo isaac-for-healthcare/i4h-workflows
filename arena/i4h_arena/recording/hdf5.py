@@ -228,7 +228,8 @@ class EpisodeRecorder:
             stacked[name] = np.stack([frame.get(name, missing) for frame in self._diagnostics])
         return stacked
 
-    def end_episode(self, result: Any, *, keep: bool) -> None:
+    def end_episode(self, result: Any, *, keep: bool) -> str | None:
+        """Return the committed demo name, or None for a discarded/empty attempt."""
         self._drain_frames()
         if self._open_node:  # a node still active when the workflow ended
             node, task_id, start = self._open_node
@@ -292,6 +293,8 @@ class EpisodeRecorder:
             len(diagnostics),
             result.status.value,
         )
+
+        return name
 
     def _append_frame(self, camera: str, frame: np.ndarray) -> None:
         if self._attempt_group is None:
