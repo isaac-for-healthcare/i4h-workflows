@@ -29,6 +29,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from i4h_tasks.openpi_pi0.runtime import configure_xla, cuda_compute_capability
+
 logger = logging.getLogger("i4h_tasks.openpi_pi0.train")
 
 #: openpi's experiment name for every fine-tune this shim starts; checkpoints
@@ -168,6 +170,7 @@ def main(argv: list[str] | None = None) -> int:
         logger.info("Weights & Biases logging is on (%s)", wandb_reason)
     else:
         logger.info("Weights & Biases logging is off (%s); pass --wandb to log there", wandb_reason)
+    configure_xla(cuda_compute_capability())
     from openpi import train as openpi_train  # noqa: PLC0415
     from openpi.training.config import DataConfigFactory  # noqa: PLC0415
 
