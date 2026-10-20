@@ -25,7 +25,7 @@ ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
 # commit that syncs its v0.9.0 sources. Every component repository is public. Keep the
 # checkout directory names stable because uv path sources refer to them. Export *_REF to
 # bisect or test another component revision; the solver compatibility check still applies.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-a7be3000454c143c9760c591fbb07a301ee564df}"
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-222e72ff240126a63f126c5f1abfc77783914f53}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-5d6ba8547a4c6e25af7eaf551f6a34371ccd6350}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
