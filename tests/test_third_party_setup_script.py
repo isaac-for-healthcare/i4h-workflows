@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Private repository transport selection, release checkout reuse, and physics solver compatibility checks."""
+"""Public component sources, release checkout reuse, and physics solver compatibility checks."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def _run_setup(
     shutil.copy2(THIRD_PARTY_SETUP, third_party / "setup.sh")
 
     # Fake Git does not populate working trees. Supply the solver source that
-    # setup inspects so transport tests model a compatible component checkout.
+    # setup inspects so these tests model a compatible component checkout.
     physics = third_party / "i4h-physics-simulation-internal" / "xpbd_rod"
     physics.mkdir(parents=True)
     (physics / "solver.py").write_text(
@@ -95,44 +95,25 @@ def _run_setup(
     return result, git_log.read_text(encoding="utf-8") if git_log.exists() else ""
 
 
-def test_private_repositories_follow_ssh_root_origin(tmp_path: Path) -> None:
-    result, git_log = _run_setup(
-        tmp_path,
+@pytest.mark.parametrize(
+    "root_origin",
+    [
         "git@github.com:isaac-for-healthcare/i4h-workflows-internal.git",
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert "private repository transport: ssh" in result.stdout
-    assert "carries the coupled-arm solver contract" in result.stdout
-    assert "remote set-url origin git@github.com:isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
-    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git" in git_log
-    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-digital-twin.git" in git_log
-
-
-def test_private_repositories_follow_https_root_origin(tmp_path: Path) -> None:
-    result, git_log = _run_setup(
-        tmp_path,
         "https://github.com/isaac-for-healthcare/i4h-workflows-internal.git",
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert "private repository transport: https" in result.stdout
-    assert (
-        "remote set-url origin https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
-    )
-    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git" in git_log
-    assert "remote set-url origin https://github.com/isaac-for-healthcare/i4h-digital-twin.git" in git_log
-
-
-def test_private_repositories_default_to_https_without_root_origin(tmp_path: Path) -> None:
-    result, git_log = _run_setup(
-        tmp_path,
         "",
-    )
+    ],
+)
+def test_release_components_use_public_https_sources(tmp_path: Path, root_origin: str) -> None:
+    # Every release component is a public repository, so the checkout's own transport no
+    # longer matters: SSH, HTTPS and archive builds all fetch the components over HTTPS.
+    result, git_log = _run_setup(tmp_path, root_origin)
 
     assert result.returncode == 0, result.stderr
-    assert "private repository transport: https" in result.stdout
-    assert "https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
+    assert "carries the coupled-arm solver contract" in result.stdout
+    for repository in ("i4h-physics-simulation", "i4h-sensor-simulation", "i4h-digital-twin"):
+        assert f"remote set-url origin https://github.com/isaac-for-healthcare/{repository}.git" in git_log
+    assert "-internal.git" not in git_log
+    assert "git@github.com" not in git_log
 
 
 @pytest.mark.parametrize("missing_symbol", SOLVER_API)
@@ -155,9 +136,9 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
     result, git_log = _run_setup(tmp_path, "")
     assert result.returncode == 0, result.stderr
     for component, ref in (
-        ("physics-simulation", "c6fa58acfcbcb233c76bd3ca253d8011f3285f97"),
+        ("physics-simulation", "a7be3000454c143c9760c591fbb07a301ee564df"),
         ("sensor-simulation", "5d6ba8547a4c6e25af7eaf551f6a34371ccd6350"),
-        ("digital-twin", "ca68500f2eaa9c1fb504dd5963ffb27a9cf6d4cd"),
+        ("digital-twin", "6b6470cff156ba15b573ae1b4b44c3a77654b8b3"),
     ):
         assert any(
             f"i4h-{component}-internal fetch" in line and line.endswith(f"origin {ref}")
@@ -222,9 +203,9 @@ def _commit(remote: Path, text: str) -> str:
 
 @pytest.mark.parametrize("kind", ["annotated", "lightweight", "commit"])
 def test_release_ref_rerun_does_not_contact_origin(tmp_path: Path, kind: str) -> None:
-    # The Docker image fetches the private components with a build-time token, and each
-    # container's first start runs setup again without it. With the origin gone, a fetch fails
-    # just as that unauthenticated one does. The release defaults are full commits; a release
+    # The Docker image fetches the components at build time, and each container's first
+    # start runs setup again. With the origin gone, a fetch fails, so a rerun that reuses the
+    # build's checkouts must not fetch. The release defaults are full commits; a release
     # tag stays a supported *_REF override.
     remote = tmp_path / "remote"
     remote.mkdir()
