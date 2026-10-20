@@ -20,12 +20,12 @@ ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
 ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
-# Release component versions for v0.9.0: digital twin and sensor simulation default to the
-# commits their v0.9.0 tags name, and physics simulation to the public i4h-physics-simulation
-# commit that syncs its v0.9.0 sources. Every component repository is public. Keep the
-# checkout directory names stable because uv path sources refer to them. Export *_REF to
-# bisect or test another component revision; the solver compatibility check still applies.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-222e72ff240126a63f126c5f1abfc77783914f53}"
+# Release component versions for v0.9.0: physics simulation, sensor simulation and digital
+# twin default to the commits their v0.9.0 tags name. Every component repository is public.
+# Keep the checkout directory names stable because uv path sources refer to them. Export
+# *_REF to bisect or test another component revision; the solver compatibility check still
+# applies.
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-50056196775fc0ed8cca03bf16144fe71d183ca7}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-5d6ba8547a4c6e25af7eaf551f6a34371ccd6350}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
@@ -210,7 +210,7 @@ for spec in "${checkouts[@]}"; do
 done
 
 # A ref that resolves cleanly can still be the wrong solver. The catheter scenes need a
-# coupled-arm contract that i4h-physics-simulation has carried only since its v0.9.0 sync,
+# coupled-arm contract that i4h-physics-simulation has carried only since v0.9.0,
 # so an older pin or a bisect ref can land a tree without it, and then setup succeeds and
 # the run fails much later as a missing attribute during solver initialization -- which
 # reads like a scene bug. Fail here instead, while the ref that produced the tree is still
@@ -229,7 +229,7 @@ if [[ -d "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}/.git" ]]; then
   if [[ "${#missing_solver_api[@]}" -gt 0 ]]; then
     echo "[${LOG_PREFIX}] i4h-physics-simulation @ ${I4H_PHYSICS_SIM_REF} does not carry the" >&2
     echo "[${LOG_PREFIX}] coupled-arm solver contract: ${missing_solver_api[*]}" >&2
-    echo "[${LOG_PREFIX}] The catheter arm scenes need the v0.9.0 physics sync or later. Unset" >&2
+    echo "[${LOG_PREFIX}] The catheter arm scenes need physics simulation v0.9.0 or later. Unset" >&2
     echo "[${LOG_PREFIX}] I4H_PHYSICS_SIM_REF to use the release default, or set it to a commit that" >&2
     echo "[${LOG_PREFIX}] carries the contract." >&2
     exit 1
