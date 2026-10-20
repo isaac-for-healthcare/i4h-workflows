@@ -7,7 +7,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 THIRD_PARTY_DIR="${SCRIPT_DIR}"
-WORKFLOW_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 LOG_PREFIX="i4h-workflows third_party setup"
 TARGET="${1:-all}"
@@ -21,16 +20,16 @@ ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
 ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
-# Release component versions match the v0.9 QA plan: each default is the commit that the
-# component's latest v0.9 release-candidate tag names (physics simulation and digital twin
-# v0.9.0-rc3, sensor simulation v0.9.0-rc4). Keep the checkout directory names stable
-# because uv path sources refer to them. Export *_REF to bisect or test another component
-# revision; the solver compatibility check still applies.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-c6fa58acfcbcb233c76bd3ca253d8011f3285f97}"
+# Release component versions for v0.9.0: physics simulation, sensor simulation and digital
+# twin default to the commits their v0.9.0 tags name. Every component repository is public.
+# Keep the checkout directory names stable because uv path sources refer to them. Export
+# *_REF to bisect or test another component revision; the solver compatibility check still
+# applies.
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-50056196775fc0ed8cca03bf16144fe71d183ca7}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-5d6ba8547a4c6e25af7eaf551f6a34371ccd6350}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
-I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-ca68500f2eaa9c1fb504dd5963ffb27a9cf6d4cd}"
+I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-6b6470cff156ba15b573ae1b4b44c3a77654b8b3}"
 I4H_DIGITAL_TWIN_DIR="i4h-digital-twin-internal"
 
 GR00T_15_REV="17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1"
@@ -51,21 +50,6 @@ command -v git >/dev/null 2>&1 || { echo "git is required" >&2; exit 1; }
 export GIT_LFS_SKIP_SMUDGE=1
 
 mkdir -p "${THIRD_PARTY_DIR}"
-
-# Private component repositories follow the transport used to check out this repository.
-# Jenkins checks out over HTTPS and supplies an askpass credential around setup.sh, while
-# developers who use an SSH origin can reuse their existing SSH agent. Archive/container
-# builds have no root origin, so they retain the existing HTTPS behavior.
-root_origin="$(git -C "${WORKFLOW_ROOT}" remote get-url origin 2>/dev/null || true)"
-case "${root_origin}" in
-  git@*:*|ssh://*|git+ssh://*) INTERNAL_GIT_TRANSPORT="ssh" ;;
-  *) INTERNAL_GIT_TRANSPORT="https" ;;
-esac
-case "${INTERNAL_GIT_TRANSPORT}" in
-  https) INTERNAL_GITHUB_BASE="https://github.com/isaac-for-healthcare" ;;
-  ssh) INTERNAL_GITHUB_BASE="git@github.com:isaac-for-healthcare" ;;
-esac
-echo "[${LOG_PREFIX}] private repository transport: ${INTERNAL_GIT_TRANSPORT}"
 
 ensure_origin_url() {
   local repo_dir="$1"
@@ -114,8 +98,8 @@ checkout_ref() {
     target_commit="$(git -C "${repo_dir}" rev-parse "${ref}^{commit}")"
   elif git -C "${repo_dir}" rev-parse --verify --quiet "refs/tags/${ref}^{commit}" >/dev/null; then
     # A release tag does not move either. Its first fetch recorded it below, so later runs
-    # resolve it offline. That includes a container's first start: the image build fetched
-    # the private components with a token that the running container does not have.
+    # resolve it offline. That includes a container's first start, which reuses the
+    # checkouts that the image build fetched.
     target_commit="$(git -C "${repo_dir}" rev-parse "refs/tags/${ref}^{commit}")"
   else
     # A branch moves, so fetch it on every run and resolve through FETCH_HEAD. `fetch origin
@@ -168,7 +152,7 @@ arena_checkouts=(
   "${ISAACLAB_DIR}|https://github.com/isaac-sim/IsaacLab.git|${ISAACLAB_REV}"
   "${LEISAAC_DIR}|https://github.com/LightwheelAI/leisaac.git|${LEISAAC_REV}"
   "${ISAACLAB_ARENA_DIR}|https://github.com/isaac-sim/IsaacLab-Arena.git|${ISAACLAB_ARENA_REV}"
-  "${I4H_PHYSICS_SIM_DIR}|${INTERNAL_GITHUB_BASE}/i4h-physics-simulation-internal.git|${I4H_PHYSICS_SIM_REF}"
+  "${I4H_PHYSICS_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-physics-simulation.git|${I4H_PHYSICS_SIM_REF}"
   "${I4H_SENSOR_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git|${I4H_SENSOR_SIM_REF}"
   # tools/patient_twin, not arena, consumes this one. It rides along with the arena target so
   # that a scoped `I4H_THIRD_PARTY_TARGET=arena` still produces a runnable twin pipeline.
@@ -226,11 +210,11 @@ for spec in "${checkouts[@]}"; do
 done
 
 # A ref that resolves cleanly can still be the wrong solver. The catheter scenes need a
-# coupled-arm contract that main has carried only since PR #3, so an older pin or a bisect
-# ref can land a tree without it, and then setup succeeds and the run fails much later as a
-# missing attribute during solver initialization -- which reads like a scene bug. Fail here
-# instead, while the ref that produced the tree is still in hand and before Isaac Sim or
-# RLinf has started.
+# coupled-arm contract that i4h-physics-simulation has carried only since v0.9.0,
+# so an older pin or a bisect ref can land a tree without it, and then setup succeeds and
+# the run fails much later as a missing attribute during solver initialization -- which
+# reads like a scene bug. Fail here instead, while the ref that produced the tree is still
+# in hand and before Isaac Sim or RLinf has started.
 #
 # A presence check on the source rather than a signature check: these are Warp solver methods
 # whose call sites are built at runtime, so there is nothing importable to introspect without
@@ -245,7 +229,7 @@ if [[ -d "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}/.git" ]]; then
   if [[ "${#missing_solver_api[@]}" -gt 0 ]]; then
     echo "[${LOG_PREFIX}] i4h-physics-simulation @ ${I4H_PHYSICS_SIM_REF} does not carry the" >&2
     echo "[${LOG_PREFIX}] coupled-arm solver contract: ${missing_solver_api[*]}" >&2
-    echo "[${LOG_PREFIX}] The catheter arm scenes need main at or after PR #3. Unset" >&2
+    echo "[${LOG_PREFIX}] The catheter arm scenes need physics simulation v0.9.0 or later. Unset" >&2
     echo "[${LOG_PREFIX}] I4H_PHYSICS_SIM_REF to use the release default, or set it to a commit that" >&2
     echo "[${LOG_PREFIX}] carries the contract." >&2
     exit 1
