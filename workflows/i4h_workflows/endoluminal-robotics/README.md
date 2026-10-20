@@ -75,7 +75,7 @@ Run the demo using the generated manifest:
   --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
 ```
 
-Patient-CT fluoroscopy renders with Slang on Vulkan by default. Passing `--fluoro-device cuda` also needs a CUDA Toolkit on the host (see the [requirements](../../../README.md#requirements)); without one, the launcher stops before Isaac Sim starts and names the `libnvrtc.so` it found, if any.
+Patient-CT fluoroscopy renders with Slang on CUDA when the host has a usable CUDA Toolkit (see the [requirements](../../../README.md#requirements)), and on Vulkan otherwise; the launcher prints which one it chose and, on a fallback, why. CUDA takes about half the time per frame, because Vulkan reads every frame back through the host. Pass `--fluoro-device vulkan` or `--fluoro-device cuda` to choose explicitly; with `cuda` and no usable toolkit, the launcher stops before Isaac Sim starts and names the `libnvrtc.so` it found, if any.
 
 ### Keyboard teleoperation
 

@@ -37,7 +37,7 @@
 #   --device NAME         CUDA device for the simulation (default cuda:0)
 #   --python-server       enable the Isaac Sim Python bridge on port 8226
 #   --fluoro-backend NAME override automatic synthetic/patient-backed Slang selection
-#   --fluoro-device NAME  Slang device for fluoroscopy (vulkan or cuda)
+#   --fluoro-device NAME  Slang device for fluoroscopy (auto, cuda or vulkan; default auto)
 #   --patient-twin PATH   patient-twin YAML used by medical simulation sensors
 #
 # Compatibility option names: --max-attempts, --timesteps, --record-to,

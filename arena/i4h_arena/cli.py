@@ -109,9 +109,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     simulation.add_argument(
         "--fluoro-device",
-        choices=("cuda", "vulkan"),
-        default="vulkan",
-        help="Slang device used by the patient-backed fluoroscopy renderer",
+        choices=("auto", "cuda", "vulkan"),
+        default="auto",
+        help="Slang device used by the patient-backed fluoroscopy renderer "
+        "(default: auto, CUDA when Slang can create a CUDA device, otherwise Vulkan)",
     )
     simulation.add_argument(
         "--patient-twin",
@@ -228,17 +229,35 @@ def _build(args: argparse.Namespace, resolve_workflow) -> object:
     return resolve_workflow(args.workflow, args.mode or None, **kwargs)
 
 
-def _check_fluoroscopy_device(args: argparse.Namespace) -> None:
-    """Fail in seconds rather than after Kit boots when Slang cannot create its CUDA device."""
+def _resolve_fluoroscopy_device(args: argparse.Namespace) -> None:
+    """Replace ``auto`` with a concrete Slang device, deciding before Kit boots.
+
+    Vulkan reads every frame back through the host, which costs a patient frame about twice
+    the CUDA time, so ``auto`` takes CUDA whenever Slang can create it and falls back to
+    Vulkan on hosts without a usable CUDA Toolkit. An explicit ``cuda`` still fails in
+    seconds rather than after Kit boots.
+    """
     from i4h_arena.scenes.endoluminal_navigation import resolve_fluoroscopy_backend
 
-    if args.fluoro_device != "cuda" or resolve_fluoroscopy_backend(args.fluoro_backend, args.patient_twin) != "slang":
+    if resolve_fluoroscopy_backend(args.fluoro_backend, args.patient_twin) != "slang":
+        if args.fluoro_device == "auto":
+            args.fluoro_device = "vulkan"
+        return
+    if args.fluoro_device == "vulkan":
         return
     from i4h_arena.medical.slang_cuda import check_slang_cuda_device
 
     failure = check_slang_cuda_device()
-    if failure is not None:
-        raise SystemExit(f"--fluoro-device cuda: {failure}")
+    if args.fluoro_device == "cuda":
+        if failure is not None:
+            raise SystemExit(f"--fluoro-device cuda: {failure}")
+        return
+    if failure is None:
+        args.fluoro_device = "cuda"
+    else:
+        args.fluoro_device = "vulkan"
+        print(f"[arena] fluoroscopy renders on Vulkan, which is slower: {failure}", flush=True)
+    print(f"[arena] fluoroscopy device: {args.fluoro_device}", flush=True)
 
 
 def _replay_initial_state(args: argparse.Namespace, workflow) -> dict | None:
@@ -260,7 +279,7 @@ def _launch(args: argparse.Namespace, workflow) -> int:
     args.mode = workflow.mode
     scene = load_scene(workflow.scene, args, register_assets=False)
     scene.configure_args(args)
-    _check_fluoroscopy_device(args)
+    _resolve_fluoroscopy_device(args)
     with launch_app(args) as app_ctx:
         from i4h_arena.io.publishers import ScenePublisher
         from i4h_arena.recording.hdf5 import EpisodeRecorder
