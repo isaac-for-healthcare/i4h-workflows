@@ -19,7 +19,6 @@ def success(ctx) -> object:
 
 WORKFLOW = Workflow(
     scene="psm_needle_organs",
-    success=success,
     modes={
         # The organ-bed scene constrains the approach more than the bare
         # table, so it uses a wider convergence tolerance.

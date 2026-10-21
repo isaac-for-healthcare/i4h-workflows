@@ -17,7 +17,6 @@ def success(ctx) -> object:
 
 WORKFLOW = Workflow(
     scene="star_reach",
-    success=success,
     modes={
         # STAR's Cartesian controller needs a brief initialized hold before
         # its first target command.

@@ -19,7 +19,6 @@ def success(ctx) -> object:
 
 WORKFLOW = Workflow(
     scene="g1_tray",
-    success=success,
     modes={
         "policy": lambda: policy("gr00t_n16/locomanip_tray_pick_and_place", until=success),
         "teleop": lambda device="keyboard_23d", **kwargs: teleop(device, until=success, **kwargs),

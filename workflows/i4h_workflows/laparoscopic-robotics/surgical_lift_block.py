@@ -19,7 +19,6 @@ def success(ctx) -> object:
 
 WORKFLOW = Workflow(
     scene="psm_block",
-    success=success,
     modes={
         "rule-based": lambda: cartesian_lift("block", success=success),
         "replay": replay,

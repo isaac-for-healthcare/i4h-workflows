@@ -207,7 +207,6 @@ def timeout_success(ctx) -> object:
 
 WORKFLOW = Workflow(
     scene="soarm_scissors",
-    success=success,
     modes={
         "policy": lambda: policy(
             "gr00t_n15/scissor_pick_and_place",

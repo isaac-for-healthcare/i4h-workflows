@@ -47,7 +47,6 @@ def success(ctx) -> object:
 
 WORKFLOW = Workflow(
     scene="dual_psm_reach",
-    success=success,
     modes={
         "rule-based": rule_based,
         "replay": replay,

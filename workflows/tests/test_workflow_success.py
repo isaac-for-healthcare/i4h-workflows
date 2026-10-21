@@ -11,10 +11,11 @@ import numpy as np
 from i4h_common.types import ObjectState, Pose
 from i4h_engine.loader import load_workflow_module
 from i4h_engine.task import TickContext
+from i4h_tasks.basic.predicates import env_success
 
-success = load_workflow_module("scissor_pick_and_place").workflow.success
-block_lift_success = load_workflow_module("surgical_lift_block").workflow.success
-needle_lift_success = load_workflow_module("surgical_lift_needle").workflow.success
+success = load_workflow_module("scissor_pick_and_place").module.success
+block_lift_success = load_workflow_module("surgical_lift_block").module.success
+needle_lift_success = load_workflow_module("surgical_lift_needle").module.success
 endoluminal = load_workflow_module("endoluminal_navigation").workflow
 
 
@@ -73,19 +74,19 @@ class _CatheterScene:
         return self.arrived
 
 
-def test_endoluminal_success_reads_the_simulator_arrival_term() -> None:
+def test_env_success_reads_the_simulator_arrival_term() -> None:
     ctx = TickContext(scene=_CatheterScene(np.array([False])), act=SimpleNamespace())
-    assert not endoluminal.success(ctx).any()
+    assert not env_success(ctx).any()
 
     ctx.scene.arrived = np.array([True])
-    assert endoluminal.success(ctx).all()
+    assert env_success(ctx).all()
 
 
-def test_endoluminal_success_is_unmet_without_a_centerline() -> None:
+def test_env_success_is_unmet_without_a_centerline() -> None:
     """No twin means no arrival term, so the scene view returns absent-term zeros."""
     ctx = TickContext(scene=_CatheterScene(np.zeros(1, dtype=bool)), act=SimpleNamespace())
 
-    assert not endoluminal.success(ctx).any()
+    assert not env_success(ctx).any()
 
 
 def test_endoluminal_exposes_replay() -> None:

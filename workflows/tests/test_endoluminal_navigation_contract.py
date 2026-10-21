@@ -9,6 +9,7 @@ from i4h_common.manifest import load_scene_spec
 from i4h_common.training import task_spec
 from i4h_engine.loader import load_workflow_module, resolve_workflow
 from i4h_engine.registry import default_registry
+from i4h_tasks.basic.predicates import env_success
 
 #: Both endoluminal workflows drive the same catheter through the same goal.
 WORKFLOWS = ("endoluminal_navigation", "endoluminal_navigation_arm")
@@ -74,7 +75,7 @@ def test_teleop_stops_on_arrival() -> None:
     for name in WORKFLOWS:
         drive = only_node(name, "teleop")
         assert drive.task_id == "teleop/drive"
-        assert drive.params["until"] is authored(name).success
+        assert drive.params["until"] is env_success
 
 
 def test_each_workflow_rolls_out_the_task_that_names_its_embodiment() -> None:
@@ -88,7 +89,7 @@ def test_each_workflow_rolls_out_the_task_that_names_its_embodiment() -> None:
     for workflow, task_id in N17_TASK_FOR_WORKFLOW.items():
         rollout = only_node(workflow, "policy_n17")
         assert rollout.task_id == task_id
-        assert rollout.params["until"] is authored(workflow).success
+        assert rollout.params["until"] is env_success
         assert default_registry().task(task_id).requires["embodiment"] == scene_spec(workflow).embodiment
 
 

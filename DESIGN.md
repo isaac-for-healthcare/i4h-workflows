@@ -221,9 +221,9 @@ predecessors succeed
 
 The workflow succeeds when all terminal nodes in its selected `TaskGraph` succeed. A node failure aborts the workflow unless that node has a retry policy.
 
-Goal predicates do not replace graph completion. `WORKFLOW.success` is an author-owned predicate that mode builders may pass to a policy or teleop Task as an `until` condition. The Engine does not call it automatically. A `TaskGraph` may also define `timeout_success`, which the Engine evaluates only when the graph exhausts its step budget.
+Goal predicates do not replace graph completion. A workflow module passes its success predicate to the Tasks that need one, such as `until=` on a policy or teleop Task or a final `WaitUntil`; the Engine does not call it on its own. Where the scene's Arena task already defines success as a termination, the predicate is `i4h_tasks.basic.predicates.env_success`, which reads it back, so the two cannot disagree. A `TaskGraph` may also define `timeout_success`, which the Engine evaluates only when the graph exhausts its step budget.
 
-`WORKFLOW.annotate` is the visible counterpart of `success`: an optional `i4h_common.annotate.Annotate` that tells the VLM annotator what success looks like on camera (criterion, cameras, terminal or trajectory judge). It belongs to the workflow rather than to a policy task manifest because it holds for every recording of the workflow, whichever checkpoint, controller, or operator produced it. Lint checks its cameras against the cameras the scene records, and `scripts/e2e/run.sh` passes it to the annotator.
+`WORKFLOW.annotate` is the visible counterpart of the success predicate: an optional `i4h_common.annotate.Annotate` that tells the VLM annotator what success looks like on camera (criterion, cameras, terminal or trajectory judge). It belongs to the workflow rather than to a policy task manifest because it holds for every recording of the workflow, whichever checkpoint, controller, or operator produced it. Lint checks its cameras against the cameras the scene records, and `scripts/e2e/run.sh` passes it to the annotator.
 
 An Engine tick is not automatically a simulation step. If every active node returns `WAITING`, the Engine asks `SimulationRunner` to update the application without advancing physics or consuming the workflow step budget. This is how a remote task can wait for its backend without freezing the UI or moving the world.
 
@@ -356,7 +356,7 @@ The author-facing workflow contract is intentionally separate from its implement
 
 | File | Purpose |
 | --- | --- |
-| `engine/i4h_engine/interface.py` | The small author-facing `Workflow` value: `scene`, `modes`, optional `success` and `annotate`, and `default_mode` |
+| `engine/i4h_engine/interface.py` | The small author-facing `Workflow` value: `scene`, `modes`, optional `annotate`, and `default_mode` |
 | `engine/i4h_engine/graph.py` | The graph-building API: `TaskGraph`, `node`, `task`, control edges, data wiring, and failure policies |
 | `workflows/i4h_workflows/<specialty>/<name>.py` | One specialty-grouped authored module exporting exactly one `WORKFLOW = Workflow(...)` value |
 | `workflows/README.md` | Workflow source layout and specialty catalog |
@@ -395,7 +395,6 @@ def rule_based() -> TaskGraph:
 
 WORKFLOW = Workflow(
     scene="psm_reach",
-    success=success,
     modes={
         "rule-based": rule_based,
         "idle": idle,

@@ -21,6 +21,11 @@ from i4h_common.world import SceneView
 Predicate = Callable[[Any], np.ndarray]
 
 
+def env_success(ctx: Any) -> np.ndarray:
+    """Per-env mask: the scene env's own ``success`` termination, where its task defines success."""
+    return ctx.scene.termination("success")
+
+
 def object_within(scene: SceneView, name: str, target: str, radius: float) -> np.ndarray:
     """Per-env mask: is ``name`` within ``radius`` metres of ``target``?"""
     return scene.object(name).pose.distance_to(scene.object(target).pose) < radius

@@ -4,34 +4,23 @@
 
 from i4h_engine.graph import TaskGraph, task
 from i4h_engine.interface import Workflow
+from i4h_tasks.basic.predicates import env_success
 from i4h_workflow_modes.idle import idle
 from i4h_workflow_modes.policy import policy
 from i4h_workflow_modes.replay import replay
 from i4h_workflow_modes.teleop import teleop
 
-
-def success(ctx) -> object:
-    """Catheter tip held at the distal end of the vessel centerline.
-
-    The tip lives in a Newton particle buffer that only the simulator side can
-    read, so the criterion is evaluated by the termination term the catheter
-    embodiment installs and read back here. It is all-false when the workflow
-    runs without a patient twin, which leaves no centerline to navigate.
-    """
-    return ctx.scene.termination("success")
-
-
 WORKFLOW = Workflow(
     scene="endoluminal_navigation_arm",
-    success=success,
     modes={
         "idle": idle,
-        # ``until`` ends the episode on arrival, so a recorded demonstration is
+        # ``until`` ends the episode on arrival -- the catheter embodiment's termination
+        # term, all-false without a patient twin -- so a recorded demonstration is
         # goal-terminated and carries a success label. Without it teleop only
         # ever stops at the step cap, which is why recording used to need
         # ``--record-failures`` to keep anything at all.
         "teleop": lambda device="catheter_keyboard", **kwargs: teleop(
-            device, until=success, max_seconds=float("inf"), **kwargs
+            device, until=env_success, max_seconds=float("inf"), **kwargs
         ),
         # Serves ``catheter_navigation_arm`` rather than ``catheter_navigation``
         # only because a task manifest names one embodiment and lint matches it
@@ -39,7 +28,7 @@ WORKFLOW = Workflow(
         # four velocity channels, and the arm appends ``arm.panda_joint*``
         # columns as a third state group outside the ``catheter``/``carm``
         # groups the task reads. Train in either scene, roll out in either.
-        "policy_n17": lambda: policy("gr00t_n17/catheter_navigation_arm", until=success),
+        "policy_n17": lambda: policy("gr00t_n17/catheter_navigation_arm", until=env_success),
         "replay": replay,
         "demo": lambda: TaskGraph(description="Deterministic sweep exercising the arm-borne catheter drive.").flow(
             task("basic/catheter_sweep")

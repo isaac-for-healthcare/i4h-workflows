@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from i4h_common.annotate import Annotate
 
@@ -19,21 +19,19 @@ if TYPE_CHECKING:
     from i4h_engine.graph import TaskGraph
 
 TaskGraphBuilder = Callable[..., "TaskGraph"]
-GoalPredicate = Callable[[Any], Any]
 
 
 @dataclass(frozen=True, slots=True)
 class Workflow:
-    """One authored capability: its Scene, modes, and optional goal predicate.
+    """One authored capability: its Scene and modes.
 
-    ``annotate`` says how a vision model grades this workflow's recordings: the
-    visible counterpart of ``success``, shared by every mode that records it.
+    ``annotate`` says how a vision model grades this workflow's recordings, shared
+    by every mode that records it.
     """
 
     scene: str
     modes: Mapping[str, TaskGraphBuilder]
     default_mode: str = "idle"
-    success: GoalPredicate | None = None
     annotate: Annotate | None = None
 
     def __post_init__(self) -> None:

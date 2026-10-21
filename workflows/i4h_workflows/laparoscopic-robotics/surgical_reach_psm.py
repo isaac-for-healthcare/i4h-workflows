@@ -17,7 +17,6 @@ def success(ctx) -> object:
 
 WORKFLOW = Workflow(
     scene="psm_reach",
-    success=success,
     modes={
         "rule-based": lambda: cartesian_reach("reach_target", pre_hold_s=0.5),
         "replay": replay,

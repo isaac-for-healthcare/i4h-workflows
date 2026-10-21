@@ -15,15 +15,11 @@ def _idle() -> TaskGraph:
 
 
 def test_workflow_is_a_small_author_value() -> None:
-    def success(_ctx) -> bool:
-        return True
-
-    workflow = Workflow(scene="example", modes={"idle": _idle}, success=success)
+    workflow = Workflow(scene="example", modes={"idle": _idle})
 
     assert workflow.scene == "example"
     assert workflow.default_mode == "idle"
     assert workflow.modes["idle"] is _idle
-    assert workflow.success is success
 
 
 def test_workflow_copies_and_freezes_the_mode_map() -> None:

@@ -14,6 +14,7 @@ from i4h_engine.interface import Workflow
 from i4h_tasks.basic.control.hold import Hold
 from i4h_tasks.basic.control.wait_until import WaitUntil
 from i4h_tasks.basic.perception.locate import Locate
+from i4h_tasks.basic.predicates import env_success
 from i4h_tasks.ik.approach import Approach
 from i4h_workflow_modes.idle import idle
 from i4h_workflow_modes.policy import policy
@@ -87,13 +88,9 @@ def rule_based() -> TaskGraph:
         previous = waypoint
 
     hold = node(Hold(0.5, name="hold"))
-    verify = node(WaitUntil(success, timeout_s=1.2, name="verify_scan"))
+    verify = node(WaitUntil(env_success, timeout_s=1.2, name="verify_scan"))
     graph.flow(previous >> hold >> verify)
     return graph
-
-
-def success(ctx) -> object:
-    return ctx.scene.termination("success")
 
 
 #: How a vision model grades a recording of this workflow (the e2e annotate
@@ -118,12 +115,11 @@ ANNOTATE = Annotate(
 
 WORKFLOW = Workflow(
     scene="panda_phantom",
-    success=success,
     annotate=ANNOTATE,
     modes={
-        "policy": lambda: policy("openpi_pi0/ultrasound_liver_scan", until=success),
+        "policy": lambda: policy("openpi_pi0/ultrasound_liver_scan", until=env_success),
         "rule-based": rule_based,
-        "teleop": lambda device="keyboard", **kwargs: teleop(device, until=success, **kwargs),
+        "teleop": lambda device="keyboard", **kwargs: teleop(device, until=env_success, **kwargs),
         "replay": replay,
         "idle": idle,
     },
