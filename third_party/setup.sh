@@ -25,7 +25,7 @@ ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
 # Keep the checkout directory names stable because uv path sources refer to them. Export
 # *_REF to bisect or test another component revision; the solver compatibility check still
 # applies.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-78dfe2e4254127cbe1a3419706ec3a84360ce4e7}"
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-d83133002f49cd42ee6bcf5e3d52f5287c76e297}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-5d6ba8547a4c6e25af7eaf551f6a34371ccd6350}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
