@@ -134,7 +134,8 @@ def _rebuild_physx_scene(env: Any) -> bool:
     against the old scene, do not run again.
 
     Returns ``False`` and leaves the simulation alone when it does not run on
-    Kit PhysX.
+    Kit PhysX. Raises ``RuntimeError`` if the rebuild fails partway, which
+    leaves the simulation stopped.
     """
     unwrapped = getattr(env, "unwrapped", env)
     sim = unwrapped.sim
@@ -152,11 +153,30 @@ def _rebuild_physx_scene(env: Any) -> bool:
         return False
     from omni.physx import get_physx_simulation_interface  # noqa: PLC0415 - needs a running Kit
 
-    sim.stop()
-    get_physx_simulation_interface().detach_stage()
-    sim.play()
-    unwrapped.scene.update(dt=unwrapped.physics_dt)
+    try:
+        sim.stop()
+        get_physx_simulation_interface().detach_stage()
+        sim.play()
+        unwrapped.scene.update(dt=unwrapped.physics_dt)
+    except Exception as exc:
+        # Playing again would not recover: after a failed detach the stage may
+        # still be attached, and play then hangs. Fail here, where the cause is
+        # named, rather than at the next reset on invalid PhysX views.
+        raise RuntimeError(
+            "rebuilding the PhysX scene for a fresh episode failed (NVBug 6953999); "
+            "the simulation is stopped and cannot run another episode"
+        ) from exc
     return True
+
+
+def _operator_driven(workflow: Any) -> bool:
+    """Whether a person drives this workflow live, whatever its mode is called.
+
+    Every live input device, from the keyboard to XR, runs as a task of the
+    ``teleop`` task project, so the graph tells even when a mode is named after
+    its device rather than ``teleop``.
+    """
+    return any(node.task_id.startswith("teleop/") for node in workflow.graph)
 
 
 @dataclass(slots=True)
@@ -207,7 +227,8 @@ class SimulationRunner:
     """Drives one workflow against one scene for N episodes."""
 
     #: Whether physics stepped since the PhysX scene was built, so that the
-    #: next episode would inherit another's PhysX state. Cleared by a rebuild.
+    #: next episode would inherit another's PhysX state. Set only by
+    #: :meth:`_step_physics`; cleared by a rebuild.
     _physics_stepped: bool = False
 
     def __init__(
@@ -381,12 +402,23 @@ class SimulationRunner:
         scene: an operator's reset happens mid-episode, and rebuilding under
         a live teleop session is not validated.
         """
-        if not self._physics_stepped or self.workflow.mode == "teleop" or not self.scene.fresh_physics_per_episode:
+        if not (self._physics_stepped and self.scene.fresh_physics_per_episode) or _operator_driven(self.workflow):
             return
         started = time.monotonic()
         if _rebuild_physx_scene(self.env):
             logger.info("rebuilt the PhysX scene for a fresh episode in %.1f s", time.monotonic() - started)
             self._physics_stepped = False
+
+    def _step_physics(self, command: torch.Tensor) -> None:
+        """Advance physics by one env step and mark the PhysX scene as stepped.
+
+        Every physics step goes through here because a rebuild follows only a
+        marked step (NVBug 6953999). A step taken another way, such as a settle
+        in a scene's ``on_reset``, would hand its PhysX state to the next
+        episode.
+        """
+        self._physics_stepped = True
+        self.env.step(command)
 
     def _run_episode(self, engine: Engine, episode: int, attempt: int) -> EpisodeResult:
         self._fresh_physics_for_episode()
@@ -465,9 +497,8 @@ class SimulationRunner:
                         raise RuntimeError(
                             f"step {engine.step}: non-finite action {command.detach().cpu().numpy().tolist()}"
                         )
-                    self._physics_stepped = True
                     try:
-                        self.env.step(command)
+                        self._step_physics(command)
                     except Exception as exc:
                         # ``env.step`` renders between its physics sub-steps, and
                         # that render is where Kit handles a closed window. Kit

@@ -973,6 +973,35 @@ def test_rebuild_is_a_no_op_when_kit_has_no_physx(monkeypatch: pytest.MonkeyPatc
     assert calls == []
 
 
+@pytest.mark.parametrize("failing", ["detach_stage", "play"])
+def test_a_failed_rebuild_names_the_bug_instead_of_failing_at_the_next_reset(
+    monkeypatch: pytest.MonkeyPatch, failing: str
+) -> None:
+    calls: list[str] = []
+    _kit_physx(monkeypatch, calls)
+    env = _physics_env(_PhysxManager, calls)
+
+    def fail() -> None:
+        calls.append(failing)
+        raise RuntimeError(f"{failing} failed")
+
+    if failing == "detach_stage":
+        monkeypatch.setitem(
+            sys.modules,
+            "omni.physx",
+            SimpleNamespace(get_physx_simulation_interface=lambda: SimpleNamespace(detach_stage=fail)),
+        )
+    else:
+        env.unwrapped.sim.play = fail
+
+    with pytest.raises(RuntimeError, match="NVBug 6953999") as raised:
+        runner._rebuild_physx_scene(env)
+
+    assert str(raised.value.__cause__) == f"{failing} failed"
+    # A play after a failed detach could hang on the still-attached stage.
+    assert calls == ["stop", "detach_stage"] if failing == "detach_stage" else ["stop", "detach_stage", "play"]
+
+
 class _StepsThenSucceeds(_Engine):
     """A workflow that takes ``steps`` physics steps and then succeeds."""
 
@@ -990,7 +1019,12 @@ class _StepsThenSucceeds(_Engine):
 
 
 def _episode_runner(
-    monkeypatch: pytest.MonkeyPatch, calls: list[str], *, mode: str = "policy", fresh: bool = True
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[str],
+    *,
+    mode: str = "policy",
+    task: str = "gr00t_n16/locomanip_push_cart",
+    fresh: bool = True,
 ) -> runner.SimulationRunner:
     actuation = SimpleNamespace(tensor=lambda: torch.zeros(1, 3), numpy=lambda: np.zeros((1, 3)))
     simulation = _closing_runner(lambda _app: calls.append("step"))
@@ -1000,7 +1034,7 @@ def _episode_runner(
         make_actuation=lambda _env, _view: actuation,
     )
     simulation._reset_env = lambda seed=None: calls.append("reset")
-    simulation.workflow = SimpleNamespace(mode=mode)
+    simulation.workflow = SimpleNamespace(mode=mode, graph=[SimpleNamespace(task_id=task)])
     simulation.recorder = None
 
     def rebuild(env: object) -> bool:
@@ -1037,12 +1071,20 @@ def test_an_episode_that_took_no_physics_step_leaves_the_physx_scene_alone(monke
     assert calls == ["reset", "step", "step", "rebuild", "reset", "reset"]
 
 
-@pytest.mark.parametrize(("mode", "fresh"), [("policy", False), ("teleop", True)])
+@pytest.mark.parametrize(
+    ("mode", "task", "fresh"),
+    [
+        ("policy", "gr00t_n16/locomanip_push_cart", False),
+        ("teleop", "teleop/drive", True),
+        # A live operator keeps the scene under a mode named after its device too.
+        ("xr", "teleop/xr", True),
+    ],
+)
 def test_scenes_that_do_not_opt_in_and_teleop_keep_their_physx_scene(
-    monkeypatch: pytest.MonkeyPatch, mode: str, fresh: bool
+    monkeypatch: pytest.MonkeyPatch, mode: str, task: str, fresh: bool
 ) -> None:
     calls: list[str] = []
-    simulation = _episode_runner(monkeypatch, calls, mode=mode, fresh=fresh)
+    simulation = _episode_runner(monkeypatch, calls, mode=mode, task=task, fresh=fresh)
 
     for attempt in (1, 2):
         simulation._run_episode(_StepsThenSucceeds(steps=1), episode=0, attempt=attempt)
