@@ -22,7 +22,6 @@ from isaaclab.managers import (
 from isaaclab.sensors import FrameTransformer
 from isaaclab.utils import configclass
 from isaaclab.utils.math import quat_error_magnitude
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -211,4 +210,3 @@ class UltrasoundProbeReachTask(TaskBase):
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(1.7, 1.35, 1.05), lookat=(0.48, -0.02, 0.26))
-

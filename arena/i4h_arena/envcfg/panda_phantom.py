@@ -21,7 +21,6 @@ from isaaclab.managers import EventTermCfg, RewardTermCfg, SceneEntityCfg, Termi
 from isaaclab.sensors import FrameTransformer
 from isaaclab.utils import configclass
 from isaaclab.utils.math import matrix_from_quat, subtract_frame_transforms
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -296,4 +295,3 @@ class PandaPhantomEnvCfg(TaskBase):
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(1.5, 1.3, 1.0), lookat=(0.0, 0.0, 0.0))
-
