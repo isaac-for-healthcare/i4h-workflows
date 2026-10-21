@@ -3,14 +3,13 @@
 """SO-ARM 101 Arena embodiment (5-DoF arm + 1-DoF jaw).
 
 Defines the SO-ARM articulation cfg (:data:`SOARM101_CFG`), its onboard wrist
-camera (built into the USD), and a default room camera. :data:`SoArm101Embodiment`
-is built from those via :func:`_make_embodiment`. Other modules (the scissor
-scene cfg, the embodiment factory) import these directly.
+camera (built into the USD), and a default room camera. :class:`SoArm101Embodiment`
+is the Arena embodiment built from those. Other modules (the scissor scene cfg)
+import these directly.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import MISSING
 from typing import Any
 
@@ -26,7 +25,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import TiledCameraCfg
 from isaaclab.sim.schemas import CollisionBaseCfg, RigidBodyBaseCfg
 from isaaclab.utils import configclass
-from isaaclab_arena.utils.configclass import combine_configclass_instances
+from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_physx.sim.schemas import PhysxArticulationRootPropertiesCfg
 
@@ -148,119 +147,6 @@ def _default_events_cfg():
     return EmbodimentEventsCfg()
 
 
-def _make_embodiment(
-    *,
-    name: str,
-    tags: list[str],
-    robot_cfg: ArticulationCfg,
-    wrist_cfg: TiledCameraCfg,
-    room_cfg: TiledCameraCfg,
-    action_cfg_fn: Callable[[str], _ActionsCfg],
-):
-    """Build a per-robot Arena embodiment class with the shared `get_*` interface."""
-    cfg_name = name
-    cfg_tags = list(tags)
-    cfg_robot = robot_cfg
-    cfg_wrist = wrist_cfg
-    cfg_room = room_cfg
-
-    @configclass
-    class RobotSceneCfg:
-        robot = cfg_robot.replace(prim_path="{ENV_REGEX_NS}/robot")
-
-    @configclass
-    class CameraSceneCfg:
-        wrist = cfg_wrist
-        room = cfg_room
-
-    class _Embodiment:
-        """Generated Arena embodiment for the active robot."""
-
-        name = cfg_name
-        tags = cfg_tags
-
-        def __init__(
-            self,
-            enable_cameras: bool = True,
-            initial_pose: Pose | None = None,
-            action_device: str = "joint_position",
-            home_joint_pos_rad: list[float] | tuple[float, ...] | None = None,
-        ):
-            self.enable_cameras = enable_cameras
-            self.initial_pose = initial_pose
-            self.action_device = action_device
-            self.home_joint_pos_rad = tuple(home_joint_pos_rad or _ZERO_JOINT_POS_RAD)
-            self.scene_config = RobotSceneCfg()
-            self.camera_config = CameraSceneCfg()
-            self.action_config = action_cfg_fn(action_device)
-            self.observation_config = _ObservationsCfg()
-            self.event_config = _default_events_cfg()
-
-        def use_action_device(self, action_device: str) -> None:
-            self.action_device = action_device
-            self.action_config = action_cfg_fn(action_device)
-
-        def set_initial_pose(self, pose: Pose) -> None:
-            self.initial_pose = pose
-
-        def get_scene_cfg(self) -> Any:
-            self.scene_config.robot.init_state.joint_pos = dict(
-                zip((*_ARM_NAMES, *_GRIPPER_NAMES), self.home_joint_pos_rad, strict=True)
-            )
-            if self.initial_pose is not None:
-                self.scene_config.robot.init_state.pos = self.initial_pose.position_xyz
-                self.scene_config.robot.init_state.rot = self.initial_pose.rotation_xyzw
-            if self.enable_cameras:
-                return combine_configclass_instances("SceneCfg", self.scene_config, self.camera_config)
-            return self.scene_config
-
-        def get_action_cfg(self) -> Any:
-            return self.action_config
-
-        def get_observation_cfg(self) -> Any:
-            return self.observation_config
-
-        def get_rewards_cfg(self) -> Any:
-            return None
-
-        def get_curriculum_cfg(self) -> Any:
-            return None
-
-        def get_commands_cfg(self) -> Any:
-            return None
-
-        def get_events_cfg(self) -> Any:
-            return self.event_config
-
-        def get_xr_cfg(self) -> Any:
-            return None
-
-        def get_mimic_env(self) -> Any:
-            return None
-
-        def get_recorder_term_cfg(self) -> Any:
-            return RecordTerm()
-
-        def get_termination_cfg(self) -> Any:
-            return None
-
-        def modify_env_cfg(self, env_cfg: Any) -> Any:
-            env_cfg.sim.dt = 1 / 60.0
-            env_cfg.sim.render_interval = 1
-            env_cfg.decimation = 1
-            env_cfg.scene.replicate_physics = True
-            env_cfg.sim.physics.bounce_threshold_velocity = 0.01
-            env_cfg.sim.physics.friction_correlation_distance = 0.00625
-            env_cfg.sim.render.enable_translucency = True
-
-            if self.action_device == "keyboard":
-                env_cfg.scene.robot.spawn.rigid_props.disable_gravity = True
-            return env_cfg
-
-    _Embodiment.__name__ = f"{cfg_name.title().replace('_', '')}Embodiment"
-    return _Embodiment
-
-
 def _action_cfg(action_device: str) -> _ActionsCfg:
     cfg = _ActionsCfg()
     if action_device == "joint_position":
@@ -282,11 +168,62 @@ def _action_cfg(action_device: str) -> _ActionsCfg:
     return cfg
 
 
-SoArm101Embodiment = _make_embodiment(
-    name="so_arm101",
-    tags=["embodiment", "so_arm", "manipulation"],
-    robot_cfg=SOARM101_CFG,
-    wrist_cfg=SOARM_WRIST_CAMERA_CFG,
-    room_cfg=SOARM_ROOM_CAMERA_CFG,
-    action_cfg_fn=_action_cfg,
-)
+@configclass
+class _RobotSceneCfg:
+    robot = SOARM101_CFG.replace(prim_path="{ENV_REGEX_NS}/robot")
+
+
+@configclass
+class _CameraSceneCfg:
+    wrist = SOARM_WRIST_CAMERA_CFG
+    room = SOARM_ROOM_CAMERA_CFG
+
+
+class SoArm101Embodiment(EmbodimentBase):
+    """SO-ARM 101 with wrist and room cameras."""
+
+    name = "so_arm101"
+    tags = ["embodiment", "so_arm", "manipulation"]
+
+    def __init__(
+        self,
+        enable_cameras: bool = True,
+        initial_pose: Pose | None = None,
+        action_device: str = "joint_position",
+        home_joint_pos_rad: list[float] | tuple[float, ...] | None = None,
+    ):
+        super().__init__(enable_cameras=enable_cameras, initial_pose=initial_pose)
+        self.action_device = action_device
+        self.home_joint_pos_rad = tuple(home_joint_pos_rad or _ZERO_JOINT_POS_RAD)
+        self.scene_config = _RobotSceneCfg()
+        self.camera_config = _CameraSceneCfg()
+        self.action_config = _action_cfg(action_device)
+        self.observation_config = _ObservationsCfg()
+        self.event_config = _default_events_cfg()
+
+    def get_scene_cfg(self) -> Any:
+        self.scene_config.robot.init_state.joint_pos = dict(
+            zip((*_ARM_NAMES, *_GRIPPER_NAMES), self.home_joint_pos_rad, strict=True)
+        )
+        return super().get_scene_cfg()
+
+    def get_observation_cfg(self) -> Any:
+        # The policy group already carries both camera images under their own
+        # names; Arena's generated camera group would add second copies.
+        return self.observation_config
+
+    def get_recorder_term_cfg(self) -> Any:
+        return RecordTerm()
+
+    def modify_env_cfg(self, env_cfg: Any) -> Any:
+        env_cfg.sim.dt = 1 / 60.0
+        env_cfg.sim.render_interval = 1
+        env_cfg.decimation = 1
+        env_cfg.scene.replicate_physics = True
+        env_cfg.sim.physics.bounce_threshold_velocity = 0.01
+        env_cfg.sim.physics.friction_correlation_distance = 0.00625
+        env_cfg.sim.render.enable_translucency = True
+
+        if self.action_device == "keyboard":
+            env_cfg.scene.robot.spawn.rigid_props.disable_gravity = True
+        return env_cfg

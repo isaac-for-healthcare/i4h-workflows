@@ -14,6 +14,7 @@ import torch
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
 from isaaclab.utils.configclass import configclass
+from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 
 from i4h_arena.medical.catheter_drive import RouteRailedIntroducer
 from i4h_arena.medical.centerline import ordered_centerline_lumen
@@ -29,57 +30,10 @@ from i4h_arena.medical.newton_catheter_physics import (
 )
 from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.medical.patient_volume import PatientVolume
+from i4h_arena.medical.route_progress import DEFAULT_INSERTION_ALLOWANCE_M, route_initial_catheter_length_m
 from i4h_arena.medical.xpbd_catheter import XpbdCatheterAsset, XpbdCatheterAssetCfg
 from i4h_common.navigation_route import ROUTE_SPACING_MM
 from i4h_common.types import JointState
-
-#: Route left ahead of the tip at reset, which is the navigation an episode is
-#: actually about.
-#:
-#: This is bounded by the step cap rather than by anatomy. The scene is
-#: validated to 600 steps, which is twenty seconds at 30 Hz, and the insertion
-#: slider defaults to 9 mm/s because faster sustained feed drives the shaft
-#: into the wall. Twenty seconds at 9 mm/s is 180 mm, so nothing longer than
-#: that can be navigated within one episode whatever the operator does. The
-#: default keeps a third of the budget back for the steering, pausing and
-#: correcting that the insertion arithmetic ignores.
-DEFAULT_INSERTION_ALLOWANCE_M = 0.12
-
-
-def route_initial_catheter_length_m(
-    route_length_m: float,
-    *,
-    allowance_m: float = DEFAULT_INSERTION_ALLOWANCE_M,
-) -> float:
-    """Seeded shaft length that leaves ``allowance_m`` of route ahead of the tip.
-
-    The shaft is inextensible, so advancing the tip by one millimetre of arc
-    costs one millimetre at the root: the route left unseeded *is* the
-    insertion the episode has to perform. Sizing the shaft from the route makes
-    that quantity the thing being chosen, instead of a residue of how the seed
-    length and the route happen to compare.
-
-    The rule this replaced took 65% of the CT volume's width, matching the
-    reference viewport's initialization. Nothing in that ties it to the vessel
-    being navigated, and on ``s0011`` it produced a 303 mm shaft for a 646 mm
-    route, leaving 343 mm to insert where the cap affords 180 mm. Arrival was
-    unreachable on arithmetic alone, before any question of whether the
-    operator steered well, so every episode recorded a failure and the goal's
-    hold condition had never once been exercised.
-
-    A short route is returned nearly whole rather than clamped to a negative
-    length; the tip then starts essentially at the entry and the allowance is
-    whatever the route affords.
-    """
-    route_length_m = float(route_length_m)
-    if not np.isfinite(route_length_m) or route_length_m <= 0.0:
-        raise ValueError(f"route_length_m must be positive and finite, got {route_length_m}")
-    allowance_m = float(allowance_m)
-    if not np.isfinite(allowance_m) or allowance_m <= 0.0:
-        raise ValueError(f"allowance_m must be positive and finite, got {allowance_m}")
-    # Leaves a tenth of a short route seeded so the shaft still has a direction
-    # to be inserted along.
-    return max(0.1 * route_length_m, route_length_m - allowance_m)
 
 
 class CatheterVelocityAction(ActionTerm):
@@ -369,13 +323,14 @@ class _ActionsCfg:
     carm_orbit = CArmOrbitActionCfg()
 
 
-class CatheterEmbodiment:
+class CatheterEmbodiment(EmbodimentBase):
     """Minimal Arena embodiment whose scene entity is an external rod solver."""
 
     name = "catheter"
     tags: ClassVar[list[str]] = ["embodiment", "medical", "catheter"]
 
     def __init__(self, patient_twin_manifest: str | None = None) -> None:
+        super().__init__()
         self.scene_config = _CatheterSceneCfg()
         self.action_config = _ActionsCfg()
         # Rod geometry belongs to the physics spec now that Newton's manager
@@ -504,12 +459,6 @@ class CatheterEmbodiment:
         # starts short of the far end and insertion has to cover the remainder.
         self.navigation_target_world_m = tuple(float(value) for value in path_world_m[-1])
 
-    def get_scene_cfg(self) -> Any:
-        return self.scene_config
-
-    def get_action_cfg(self) -> Any:
-        return self.action_config
-
     def get_observation_cfg(self) -> Any:
         """Low-dimensional navigation state, bound to this scene's route and target.
 
@@ -551,18 +500,6 @@ class CatheterEmbodiment:
             route_world_m=self.rod_spec.initial_path_world_m,
             lumen_radii_m=self.rod_spec.lumen_radii_m,
         )
-
-    def get_curriculum_cfg(self) -> None:
-        return None
-
-    def get_commands_cfg(self) -> None:
-        return None
-
-    def get_xr_cfg(self) -> None:
-        return None
-
-    def get_recorder_term_cfg(self) -> None:
-        return None
 
     def get_termination_cfg(self) -> Any:
         """Report arrival at the distal centerline as IsaacLab's ``success`` term.
