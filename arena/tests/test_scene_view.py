@@ -177,3 +177,31 @@ def test_explicit_reset_hides_only_selected_termination_values_until_a_step():
     # An automatic reset inside step retains the success pulse for the workflow.
     view.on_step()
     np.testing.assert_array_equal(view.termination("success"), values)
+
+
+class _ProxyArray:
+    """Isaac Lab's ProxyArray shape: an explicit ``torch`` property, and a deprecated forwarding bridge."""
+
+    def __init__(self, value):
+        import torch
+
+        self._tensor = torch.as_tensor(value)
+
+    @property
+    def torch(self):
+        return self._tensor
+
+    def __getattr__(self, name):
+        raise AssertionError(f"read through the deprecation bridge: .{name}")
+
+    def __getitem__(self, index):
+        raise AssertionError("indexed through the deprecation bridge")
+
+
+def test_isaac_lab_proxy_arrays_are_read_through_their_torch_view():
+    from i4h_arena.adapters.scene_view import _np
+
+    values = _np(_ProxyArray([[1.0, 2.0, 3.0]]))
+
+    assert isinstance(values, np.ndarray)
+    assert values.tolist() == [[1.0, 2.0, 3.0]]

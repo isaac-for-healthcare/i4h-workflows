@@ -23,9 +23,16 @@ logger = logging.getLogger("i4h_arena.scene")
 
 
 def _np(value: Any) -> np.ndarray:
-    """Detach a torch tensor to numpy, or pass numpy through."""
+    """Detach a torch tensor to numpy, or pass numpy through.
+
+    Isaac Lab 3 asset and sensor data are ``ProxyArray`` views. Their ``torch``
+    property is read explicitly; reaching the tensor through the array's
+    attribute forwarding is Isaac Lab's deprecation bridge.
+    """
     if value is None:
         return np.zeros((0,), dtype=np.float32)
+    if isinstance(getattr(type(value), "torch", None), property):
+        value = value.torch
     detach = getattr(value, "detach", None)
     if callable(detach):
         return detach().cpu().numpy()
@@ -270,8 +277,8 @@ class ArenaSceneView:
                 if self._tcp_body and self._tcp_body in body_names
                 else -1  # last link is the conventional tool frame
             )
-            pos = _np(articulation.data.body_pos_w[:, index])
-            quat = _quat_wxyz(articulation.data.body_quat_w[:, index])
+            pos = _np(articulation.data.body_pos_w)[:, index]
+            quat = _quat_wxyz(_np(articulation.data.body_quat_w)[:, index])
             if self._root_relative:
                 pos, quat = self._to_robot_frame(pos, quat, robot)
             self._cache[key] = Pose(pos=pos, quat=quat)
