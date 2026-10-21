@@ -311,6 +311,7 @@ episode result ───────────► commit or discard the buffer
 The shared HDF5 schema is defined in `common/i4h_common/episode.py` so every writer and offline reader agrees on the layout:
 
 ```text
+/                                 attrs: format_version (Isaac Lab's xyzw dataset format)
 /data                             attrs: workflow, mode, scene, total
   /demo_N                         attrs: success, status, episode_index, attempt_index, recording_version
     actions                       (T, action_width)

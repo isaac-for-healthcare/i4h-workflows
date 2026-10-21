@@ -4,6 +4,7 @@
 
 Layout::
 
+    /                                  attrs: format_version
     /data                              attrs: env_args, total, ...
       demo_0                           attrs: success, num_samples, recording_version, workflow, ...
         actions            (T, A)      or obs/actions on compatible files
@@ -58,6 +59,15 @@ kept as a batch of one. Actions alone do not determine an episode when the
 reset randomizes object poses, so replay restores this state instead of drawing
 a new one. It is optional; recordings made before it existed replay from a
 fresh reset.
+
+``format_version`` on the file root is Isaac Lab's dataset format attribute
+(:data:`ISAACLAB_FORMAT_VERSION_ATTR`). Isaac Lab's ``HDF5DatasetFileHandler``
+reads a file without it as the legacy wxyz layout and rewrites every
+``root_pose`` it loads to xyzw. The poses in ``initial_state`` come from Isaac
+Lab 3 and are already xyzw, so the arena recorder stamps
+:data:`ISAACLAB_FORMAT_VERSION` on each file it creates and the offline tools
+carry the source file's root attributes into the files they write. A file the
+recorder appends to keeps whatever it declared.
 """
 
 from __future__ import annotations
@@ -81,6 +91,13 @@ RECORDING_VERSION_ATTR = "recording_version"
 #: through a termination term is not recorded (v0.9.0, NVBug 6941887). A demo
 #: without the attribute reads as ``0``: recorded before any of these rules.
 RECORDING_VERSION = 1
+
+#: File-root attribute Isaac Lab's ``HDF5DatasetFileHandler`` reads to tell an
+#: xyzw recording from a legacy wxyz one (absent or ``0``).
+ISAACLAB_FORMAT_VERSION_ATTR = "format_version"
+#: Isaac Lab's ``DATASET_FORMAT_VERSION`` for xyzw quaternions, which is what
+#: ``InteractiveScene.get_state`` returns in Isaac Lab 3.
+ISAACLAB_FORMAT_VERSION = 1
 
 #: h5py structured dtype for the segments dataset.
 SEGMENT_DTYPE = np.dtype(

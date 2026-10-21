@@ -68,6 +68,27 @@ def test_streams_camera_frames_and_commits_episode(tmp_path) -> None:
         assert np.all(handle["data/demo_0/obs/room"][-1] == 69)
 
 
+def test_a_new_recording_declares_isaac_lab_xyzw_format(tmp_path) -> None:
+    """Without the attribute, Isaac Lab's dataset tools rewrite the xyzw initial state as if it were wxyz."""
+    path = tmp_path / "recording.hdf5"
+    recorder = EpisodeRecorder(path, workflow=SimpleNamespace(name="example", mode="policy", scene="example_scene"))
+    recorder.close()
+
+    with h5py.File(path, "r") as handle:
+        assert handle.attrs["format_version"] == 1
+
+
+def test_appending_keeps_the_format_an_existing_file_declared(tmp_path) -> None:
+    path = tmp_path / "recording.hdf5"
+    with h5py.File(path, "w") as handle:
+        handle.create_group("data")
+    recorder = EpisodeRecorder(path, workflow=SimpleNamespace(name="example", mode="policy", scene="example_scene"))
+    recorder.close()
+
+    with h5py.File(path, "r") as handle:
+        assert "format_version" not in handle.attrs
+
+
 class _MedicalView(_View):
     """A sensor that also exposes the pre-display signal, as fluoroscopy does."""
 

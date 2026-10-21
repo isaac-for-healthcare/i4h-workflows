@@ -22,6 +22,8 @@ import numpy as np
 
 from i4h_common.episode import (
     DIAGNOSTICS_GROUP,
+    ISAACLAB_FORMAT_VERSION,
+    ISAACLAB_FORMAT_VERSION_ATTR,
     RECORDING_VERSION,
     RECORDING_VERSION_ATTR,
     Segment,
@@ -103,7 +105,12 @@ class EpisodeRecorder:
         self.workflow = workflow
         self.cameras = cameras
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        created = not self.path.exists()
         self._file = h5py.File(str(self.path), "a")
+        if created:
+            # Lets Isaac Lab's dataset tools read the xyzw initial state as it
+            # is; a file appended to keeps whatever it already declared.
+            self._file.attrs[ISAACLAB_FORMAT_VERSION_ATTR] = ISAACLAB_FORMAT_VERSION
         self._data = self._file.require_group("data")
         self._data.attrs.setdefault("workflow", workflow.name)
         self._data.attrs.setdefault("mode", workflow.mode)

@@ -169,6 +169,19 @@ def test_a_failed_episode_is_still_labelled_failure_and_filtered_out(tmp_path, v
         assert handle["data/demo_1"].attrs["vlm_success_reason"] == "The probe never reaches the phantom."
 
 
+def test_filtering_keeps_the_source_file_attributes(tmp_path, vlm) -> None:
+    """Isaac Lab reads format_version from the file root, so the filtered copy has to carry it."""
+    path = _recording(tmp_path / "r.hdf5", {"demo_0": {"wrist": _video(20, 200)}})
+    with h5py.File(path, "a") as handle:
+        handle.attrs["format_version"] = 1
+
+    results = cli.annotate(path, task="Scan", camera="wrist")
+    cli.filter_successful(path, tmp_path / "filtered.hdf5", results)
+
+    with h5py.File(tmp_path / "filtered.hdf5", "r") as handle:
+        assert handle.attrs["format_version"] == 1
+
+
 def test_all_failures_refuse_to_write_an_empty_filter(tmp_path, vlm) -> None:
     path = _recording(tmp_path / "r.hdf5", {"demo_0": {"wrist": _video(20, 10)}})
 
