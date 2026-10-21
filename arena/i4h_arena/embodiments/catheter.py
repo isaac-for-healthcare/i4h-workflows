@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 import math
+import os
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any, ClassVar
 
 import isaaclab.sim as sim_utils
@@ -19,6 +21,7 @@ from i4h_arena.medical.catheter_drive import RouteRailedIntroducer
 from i4h_arena.medical.centerline import ordered_centerline_lumen
 from i4h_arena.medical.newton_catheter_physics import (
     DEFAULT_NUM_SEGMENTS,
+    CatheterEnvAnatomy,
     CatheterRodHandle,
     CatheterRodSpec,
     cleanup_sweeps_override,
@@ -29,6 +32,7 @@ from i4h_arena.medical.newton_catheter_physics import (
 )
 from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.medical.patient_volume import PatientVolume
+from i4h_arena.medical.route_progress import is_per_env_routes
 from i4h_arena.medical.xpbd_catheter import XpbdCatheterAsset, XpbdCatheterAssetCfg
 from i4h_common.navigation_route import ROUTE_SPACING_MM
 from i4h_common.types import JointState
@@ -122,6 +126,9 @@ class CatheterVelocityAction(ActionTerm):
         route = self.cfg.route_world_m
         if route is None:
             return None
+        if is_per_env_routes(route):
+            paths = [torch.as_tensor(env_route, dtype=torch.float32) for env_route in route]
+            return RouteRailedIntroducer(paths, self.num_envs, device=self.device)
         return RouteRailedIntroducer(
             torch.as_tensor(route, dtype=torch.float32),
             self.num_envs,
@@ -239,8 +246,9 @@ class CatheterVelocityActionCfg(ActionTermCfg):
     #: what keeps the prescribed particle in the vessel under sustained feed;
     #: see :class:`~i4h_arena.medical.catheter_drive.RouteRailedIntroducer`.
     #: ``None`` for a scene with no centerline, which falls back to the
-    #: solver's tangent feed.
-    route_world_m: tuple[tuple[float, float, float], ...] | None = None
+    #: solver's tangent feed. One route per environment when each holds its
+    #: own patient.
+    route_world_m: Any = None
 
 
 class CArmOrbitAction(ActionTerm):
@@ -255,9 +263,13 @@ class CArmOrbitAction(ActionTerm):
         self._angle_rad = torch.full(
             (self.num_envs,), float(cfg.initial_orbit_angle_rad), device=self.device, dtype=torch.float32
         )
-        self._root_position = torch.tensor(cfg.isocenter_world_m, device=self.device, dtype=torch.float32).repeat(
-            self.num_envs, 1
-        )
+        isocenter = torch.tensor(cfg.isocenter_world_m, device=self.device, dtype=torch.float32)
+        if isocenter.ndim == 2:
+            if isocenter.shape != (self.num_envs, 3):
+                raise ValueError(f"isocenter_world_m needs one point or {self.num_envs}, got {tuple(isocenter.shape)}")
+            self._root_position = isocenter.clone()
+        else:
+            self._root_position = isocenter.repeat(self.num_envs, 1)
         self._root_orientation = torch.zeros((self.num_envs, 4), device=self.device, dtype=torch.float32)
         self._write_pose()
 
@@ -325,7 +337,9 @@ class CArmOrbitAction(ActionTerm):
 class CArmOrbitActionCfg(ActionTermCfg):
     class_type: type[CArmOrbitAction] = CArmOrbitAction
     asset_name: str = "carm_orbit_root"
-    isocenter_world_m: tuple[float, float, float] = (0.0, 0.0, 0.85)
+    #: One point shared by every environment, or one per environment when each
+    #: holds its own patient.
+    isocenter_world_m: Any = (0.0, 0.0, 0.85)
     initial_orbit_angle_rad: float = math.pi / 4.0
     max_orbit_rate_radps: float = 0.6
     min_orbit_angle_rad: float = -math.pi / 6.0
@@ -369,67 +383,177 @@ class _ActionsCfg:
     carm_orbit = CArmOrbitActionCfg()
 
 
+@dataclass(frozen=True)
+class PatientRoute:
+    """Where one patient's catheter goes, derived from its twin.
+
+    Attributes:
+        twin_manifest: The twin this was derived from.
+        isocenter_world_m: Centre of the CT volume, which the C-arm orbits.
+        route: Access site, insertion axis, catheter length and seeded route,
+            or ``None`` for a twin without a centerline graph.
+        target_world_m: Distal route point the tip has to reach, or ``None``.
+    """
+
+    twin_manifest: str
+    isocenter_world_m: tuple[float, float, float]
+    route: CatheterEnvAnatomy | None
+    target_world_m: tuple[float, float, float] | None
+
+
+def patient_route(twin_manifest: str) -> PatientRoute:
+    """Resolve one twin into the geometry its catheter and C-arm are placed by."""
+    twin = PatientTwin.load(twin_manifest)
+    patient = PatientVolume.load(twin)
+    isocenter = tuple(float(value) for value in patient.volume_mm_to_world(patient.center_xyz_mm))
+    centerline_path = twin.artifacts.get("centerline_points")
+    edges_path = twin.artifacts.get("centerline_edges")
+    if centerline_path is None or edges_path is None:
+        return PatientRoute(str(twin_manifest), isocenter, None, None)
+    points_patient_mm = np.load(centerline_path)
+    edges = np.load(edges_path)
+    radii_path = twin.artifacts.get("centerline_radii")
+    radii = np.load(radii_path) if radii_path is not None else None
+    # Spacing comes from i4h_common rather than a literal here because
+    # dataset conversion resamples the same centerline to label the goal
+    # columns. Two different spacings produce two plausible routes and two
+    # sets of arc figures that mean different things, with nothing raising.
+    path_patient_mm, lumen_radii_mm = ordered_centerline_lumen(
+        points_patient_mm,
+        edges,
+        target_spacing_mm=ROUTE_SPACING_MM,
+        radii_mm=radii,
+    )
+    path_world_m = twin.patient_mm_to_world(path_patient_mm)
+    path_segments = np.linalg.norm(np.diff(path_world_m, axis=0), axis=1)
+    path_length = float(np.sum(path_segments))
+    direction = path_world_m[1] - path_world_m[0]
+    direction /= np.linalg.norm(direction)
+    route = CatheterEnvAnatomy(
+        patient_twin_manifest=str(twin_manifest),
+        origin_world_m=tuple(float(value) for value in path_world_m[0]),
+        track_direction_world=tuple(float(value) for value in direction),
+        length_m=route_initial_catheter_length_m(path_length),
+        initial_path_world_m=tuple(tuple(float(value) for value in point) for point in path_world_m),
+        lumen_radii_m=(None if lumen_radii_mm is None else tuple(float(value) / 1000.0 for value in lumen_radii_mm)),
+    )
+    # The rod is seeded over the first ``length_m`` of the path, so its tip
+    # starts short of the far end and insertion has to cover the remainder.
+    target = tuple(float(value) for value in path_world_m[-1])
+    return PatientRoute(str(twin_manifest), isocenter, route, target)
+
+
+def per_env_twin_manifests(patient_twin_manifest: str | Sequence[str] | None) -> tuple[str, ...] | None:
+    """The per-environment twin list, or ``None`` when every environment shares one twin.
+
+    A single manifest, or a list holding one, is shared by every environment
+    whatever their count. Two or more name one twin per environment, in
+    environment order, and must then match the scene's environment count.
+    """
+    if patient_twin_manifest is None or isinstance(patient_twin_manifest, (str, os.PathLike)):
+        return None
+    manifests = tuple(str(manifest) for manifest in patient_twin_manifest)
+    if len(manifests) < 2:
+        return None
+    return manifests
+
+
 class CatheterEmbodiment:
-    """Minimal Arena embodiment whose scene entity is an external rod solver."""
+    """Minimal Arena embodiment whose scene entity is an external rod solver.
+
+    ``patient_twin_manifest`` is one twin shared by every environment, or a
+    list of twins with one entry per environment so each holds its own
+    patient. The list length must then equal the scene's ``num_envs``.
+    """
 
     name = "catheter"
     tags: ClassVar[list[str]] = ["embodiment", "medical", "catheter"]
 
-    def __init__(self, patient_twin_manifest: str | None = None) -> None:
+    def __init__(self, patient_twin_manifest: str | Sequence[str] | None = None) -> None:
         self.scene_config = _CatheterSceneCfg()
         self.action_config = _ActionsCfg()
+        env_manifests = per_env_twin_manifests(patient_twin_manifest)
+        if env_manifests is None and patient_twin_manifest is not None and not isinstance(patient_twin_manifest, str):
+            patient_twin_manifest = next(iter(patient_twin_manifest), None)
         # Rod geometry belongs to the physics spec now that Newton's manager
         # owns the solver; the scene entity only needs the radius it draws.
         self.rod_spec = CatheterRodSpec(
             origin_world_m=(-0.11, 0.04, 0.68),
             radius_m=float(self.scene_config.catheter.radius_m),
-            patient_twin_manifest=patient_twin_manifest,
+            patient_twin_manifest=env_manifests[0] if env_manifests else patient_twin_manifest,
         )
         #: Distal centerline point the tip has to reach, in Isaac world metres.
         #: Stays ``None`` without a twin, where there is no vessel to navigate.
+        #: Environment 0's when each environment holds its own patient.
         self.navigation_target_world_m: tuple[float, float, float] | None = None
+        #: One :class:`PatientRoute` per environment, or ``None`` when every
+        #: environment shares one twin.
+        self.env_patient_routes: tuple[PatientRoute, ...] | None = None
         self._rod_handle: CatheterRodHandle | None = None
-        if patient_twin_manifest is not None:
-            self._align_to_patient_centerline(PatientTwin.load(patient_twin_manifest))
+        if env_manifests is not None:
+            self._align_to_patient_centerlines(env_manifests)
+        elif patient_twin_manifest is not None:
+            self._align_to_patient_centerline(patient_route(str(patient_twin_manifest)))
 
-    def _align_to_patient_centerline(self, twin: PatientTwin) -> None:
-        patient = PatientVolume.load(twin)
-        isocenter = patient.volume_mm_to_world(patient.center_xyz_mm)
-        self.action_config.carm_orbit.isocenter_world_m = tuple(float(value) for value in isocenter)
-        centerline_path = twin.artifacts.get("centerline_points")
-        if centerline_path is None:
-            return
-        points_patient_mm = np.load(centerline_path)
-        edges_path = twin.artifacts.get("centerline_edges")
-        if edges_path is None:
-            return
-        edges = np.load(edges_path)
-        radii_path = twin.artifacts.get("centerline_radii")
-        radii = np.load(radii_path) if radii_path is not None else None
-        # Spacing comes from i4h_common rather than a literal here because
-        # dataset conversion resamples the same centerline to label the goal
-        # columns. Two different spacings produce two plausible routes and two
-        # sets of arc figures that mean different things, with nothing raising.
-        path_patient_mm, lumen_radii_mm = ordered_centerline_lumen(
-            points_patient_mm,
-            edges,
-            target_spacing_mm=ROUTE_SPACING_MM,
-            radii_mm=radii,
-        )
-        path_world_m = twin.patient_mm_to_world(path_patient_mm)
-        path_segments = np.linalg.norm(np.diff(path_world_m, axis=0), axis=1)
-        path_length = float(np.sum(path_segments))
-        length = route_initial_catheter_length_m(path_length)
-        start = path_world_m[0]
-        direction = path_world_m[1] - path_world_m[0]
-        direction /= np.linalg.norm(direction)
+    @property
+    def per_env_anatomy(self) -> bool:
+        """Whether each environment holds its own patient."""
+        return self.env_patient_routes is not None
 
-        origin = tuple(float(value) for value in start)
-        track_direction = tuple(float(value) for value in direction)
-        self.scene_config.catheter_root.init_state.pos = origin
-        self.rod_spec.origin_world_m = origin
-        self.rod_spec.track_direction_world = track_direction
-        self.rod_spec.length_m = length
+    def _navigation_targets(self) -> Any:
+        """The target the navigation terms are bound to: one, or one per environment."""
+        if self.env_patient_routes is None:
+            return self.navigation_target_world_m
+        return tuple(route.target_world_m for route in self.env_patient_routes)
+
+    def _navigation_routes(self) -> Any:
+        """The seeded route the navigation terms are bound to: one, or one per environment."""
+        if self.rod_spec.env_anatomies is None:
+            return self.rod_spec.initial_path_world_m
+        return tuple(anatomy.initial_path_world_m for anatomy in self.rod_spec.env_anatomies)
+
+    def _navigation_lumen_radii(self) -> Any:
+        """Lumen radii along the navigation route: one set, or one per environment."""
+        if self.rod_spec.env_anatomies is None:
+            return self.rod_spec.lumen_radii_m
+        radii = tuple(anatomy.lumen_radii_m for anatomy in self.rod_spec.env_anatomies)
+        return None if any(entry is None for entry in radii) else radii
+
+    def _align_to_patient_centerlines(self, manifests: tuple[str, ...]) -> None:
+        """Give each environment its own patient, in ``manifests`` order.
+
+        The single-patient fields are set from environment 0 first, which is
+        what keeps every reader that only looks at one environment unchanged.
+        Twins named more than once are resolved once.
+        """
+        resolved: dict[str, PatientRoute] = {}
+        for manifest in manifests:
+            if manifest not in resolved:
+                resolved[manifest] = patient_route(manifest)
+        routes = tuple(resolved[manifest] for manifest in manifests)
+        missing = sorted({route.twin_manifest for route in routes if route.route is None})
+        if missing:
+            raise ValueError(
+                f"per-environment patients need a centerline graph in every twin; {', '.join(missing)} "
+                "has none, so its environment would have no vessel to navigate"
+            )
+        self._align_to_patient_centerline(routes[0])
+        self.env_patient_routes = routes
+        self.rod_spec.num_envs = len(routes)
+        self.rod_spec.env_anatomies = tuple(route.route for route in routes)
+        self.rod_spec.__post_init__()
+        self.action_config.carm_orbit.isocenter_world_m = tuple(route.isocenter_world_m for route in routes)
+        self.action_config.catheter.route_world_m = self._navigation_routes()
+
+    def _align_to_patient_centerline(self, patient: PatientRoute) -> None:
+        self.action_config.carm_orbit.isocenter_world_m = patient.isocenter_world_m
+        if patient.route is None:
+            return
+        route = patient.route
+        self.scene_config.catheter_root.init_state.pos = route.origin_world_m
+        self.rod_spec.origin_world_m = route.origin_world_m
+        self.rod_spec.track_direction_world = route.track_direction_world
+        self.rod_spec.length_m = route.length_m
         # 40 segments over this route put a joint every ~16 mm, too coarse to
         # sit smoothly against the lumen: a joint held one containment state
         # until the solve tipped it into another, which read as the tip jumping
@@ -462,7 +586,7 @@ class CatheterEmbodiment:
         if sweeps is None:
             sweeps = self.rod_spec.containment_cleanup_iterations
         self.rod_spec.containment_cleanup_iterations = sweeps if stage == "post" else 0
-        self.rod_spec.initial_path_world_m = tuple(tuple(float(value) for value in point) for point in path_world_m)
+        self.rod_spec.initial_path_world_m = route.initial_path_world_m
         # The drive feeds the root along the same polyline the rod is seeded on,
         # so arc zero is where the root already sits and the first prescribed
         # pose is the one it was seeded with.
@@ -497,12 +621,10 @@ class CatheterEmbodiment:
         # path because "on the centerline" is not a testable claim without a
         # tolerance: a prescribed particle exempt from wall contact can sit
         # centimetres outside the lumen and nothing in the path alone objects.
-        if lumen_radii_mm is not None:
-            self.rod_spec.lumen_radii_m = tuple(float(value) / 1000.0 for value in lumen_radii_mm)
+        if route.lumen_radii_m is not None:
+            self.rod_spec.lumen_radii_m = route.lumen_radii_m
         self.rod_spec.__post_init__()
-        # The rod is seeded over the first ``length_m`` of the path, so its tip
-        # starts short of the far end and insertion has to cover the remainder.
-        self.navigation_target_world_m = tuple(float(value) for value in path_world_m[-1])
+        self.navigation_target_world_m = patient.target_world_m
 
     def get_scene_cfg(self) -> Any:
         return self.scene_config
@@ -523,8 +645,8 @@ class CatheterEmbodiment:
         from i4h_arena.envcfg.endoluminal_navigation import navigation_observations_cfg
 
         return navigation_observations_cfg(
-            self.navigation_target_world_m,
-            route_world_m=self.rod_spec.initial_path_world_m,
+            self._navigation_targets(),
+            route_world_m=self._navigation_routes(),
         )
 
     def get_events_cfg(self) -> Any:
@@ -547,9 +669,9 @@ class CatheterEmbodiment:
         from i4h_arena.envcfg.endoluminal_navigation import navigation_rewards_cfg
 
         return navigation_rewards_cfg(
-            self.navigation_target_world_m,
-            route_world_m=self.rod_spec.initial_path_world_m,
-            lumen_radii_m=self.rod_spec.lumen_radii_m,
+            self._navigation_targets(),
+            route_world_m=self._navigation_routes(),
+            lumen_radii_m=self._navigation_lumen_radii(),
         )
 
     def get_curriculum_cfg(self) -> None:
@@ -578,8 +700,8 @@ class CatheterEmbodiment:
         # The same polyline the rod was seeded along, so the readout measures
         # remaining vessel against the route the target is the far end of.
         return navigation_terminations_cfg(
-            self.navigation_target_world_m,
-            route_world_m=self.rod_spec.initial_path_world_m,
+            self._navigation_targets(),
+            route_world_m=self._navigation_routes(),
         )
 
     def modify_env_cfg(self, env_cfg: Any) -> Any:

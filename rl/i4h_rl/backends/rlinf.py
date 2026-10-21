@@ -720,11 +720,14 @@ def launch(
         *_simulation_args(profile.simulation),
     ]
     patient_twin = getattr(args, "resolved_patient_twin", None)
-    if patient_twin is not None:
+    patient_twins = tuple(getattr(args, "resolved_patient_twins", ())) or (
+        () if patient_twin is None else (patient_twin,)
+    )
+    for twin in patient_twins:
         # Already resolved and existence-checked by the caller. Passed as an
         # absolute path because the simulator runs with cwd set to the
         # repository root, which is not where the user invoked this.
-        sim_command += ["--patient-twin", str(patient_twin)]
+        sim_command += ["--patient-twin", str(twin)]
     bridge_key = secrets.token_hex(32)
     sim_env["I4H_RL_SIM_AUTHKEY"] = bridge_key
     model_env["I4H_RL_SIM_AUTHKEY"] = bridge_key

@@ -163,11 +163,30 @@ def route_progress(
     )
 
 
+def is_per_env_routes(route_world_m: Any) -> bool:
+    """Whether ``route_world_m`` holds one route per environment rather than one route.
+
+    A route is a sequence of 3-D points, so one route per environment nests a
+    level deeper: its first element's first element is a point, not a number.
+    """
+    first = next(iter(route_world_m))
+    return np.ndim(next(iter(first))) > 0
+
+
+def route_for_env(route_world_m: Any, env: int = 0) -> Any:
+    """Environment ``env``'s route, whether one route or one per environment is configured."""
+    if route_world_m is None or not is_per_env_routes(route_world_m):
+        return route_world_m
+    return tuple(route_world_m)[env]
+
+
 __all__ = [
     "DEFAULT_MIN_ARC_GAP_M",
     "RouteProgress",
+    "is_per_env_routes",
     "project_to_route",
     "route_arc_m",
+    "route_for_env",
     "route_progress",
     "unambiguous_radius_m",
 ]

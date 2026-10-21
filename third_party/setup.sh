@@ -25,7 +25,7 @@ ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
 # Keep the checkout directory names stable because uv path sources refer to them. Export
 # *_REF to bisect or test another component revision; the solver compatibility check still
 # applies.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-50056196775fc0ed8cca03bf16144fe71d183ca7}"
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-78dfe2e4254127cbe1a3419706ec3a84360ce4e7}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-5d6ba8547a4c6e25af7eaf551f6a34371ccd6350}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
@@ -235,6 +235,22 @@ if [[ -d "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}/.git" ]]; then
     exit 1
   fi
   echo "[${LOG_PREFIX}] i4h-physics-simulation carries the coupled-arm solver contract"
+
+  # Same reasoning for --patient-twin given once per environment, which needs the solver's
+  # per-env anatomy batch: one vessel tree, route and catheter length per environment.
+  missing_solver_api=()
+  for symbol in from_trees from_envs env_segment_lengths; do
+    grep -rqw --include='*.py' "${symbol}" "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}" \
+      || missing_solver_api+=("${symbol}")
+  done
+  if [[ "${#missing_solver_api[@]}" -gt 0 ]]; then
+    echo "[${LOG_PREFIX}] i4h-physics-simulation @ ${I4H_PHYSICS_SIM_REF} does not carry the" >&2
+    echo "[${LOG_PREFIX}] per-environment anatomy solver contract: ${missing_solver_api[*]}" >&2
+    echo "[${LOG_PREFIX}] Unset I4H_PHYSICS_SIM_REF to use the pinned default, or set it to a commit" >&2
+    echo "[${LOG_PREFIX}] that carries the contract." >&2
+    exit 1
+  fi
+  echo "[${LOG_PREFIX}] i4h-physics-simulation carries the per-environment anatomy solver contract"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEISAAC_DIR}/.git" ]]; then

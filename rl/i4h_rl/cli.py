@@ -43,7 +43,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--sim-runtime-python", help="Isaac Sim Python used by an isolated RLinf simulator")
     parser.add_argument(
         "--patient-twin",
-        help="patient-twin YAML manifest the scene draws its route, target, and lumen widths from",
+        action="append",
+        help="patient-twin YAML manifest the scene draws its route, target, and lumen widths from; "
+        "repeat once per environment, in environment order, to train across several patients",
     )
     parser.add_argument("--set", action="append", default=[], metavar="KEY=VALUE", dest="overrides")
     return parser
@@ -82,26 +84,46 @@ def _workflows_root() -> Path:
     return Path(os.environ.get("I4H_WORKFLOWS", Path(__file__).resolve().parents[2])).resolve()
 
 
-def _resolve_patient_twin(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -> Path | None:
-    """Settle the twin before anything expensive starts.
+def _resolve_patient_twin(
+    args: argparse.Namespace,
+    profile: RLProfile,
+    workflows_root: Path,
+    *,
+    num_envs: int | None = None,
+) -> Path | None:
+    """Settle the twins before anything expensive starts.
 
     Checked here rather than in a backend because the mismatch runs both ways:
     a scene built from a twin cannot train without one, and a scene that has no
     use for a twin should say so instead of accepting the path and ignoring it.
+
+    Every resolved twin lands in ``args.resolved_patient_twins``; one twin is
+    shared by every environment, and several name one per environment, so
+    their count must then equal ``num_envs``. Returns the first, which is the
+    patient environment 0 holds.
     """
-    if profile.requires_patient_twin and not args.patient_twin:
+    twins = list(args.patient_twin or ())
+    args.resolved_patient_twins = ()
+    if profile.requires_patient_twin and not twins:
         raise SystemExit(
             f"{profile.workflow} requires --patient-twin: the scene takes its route, target, and lumen "
             "widths from the twin, and without one it publishes no observations or reward to train on"
         )
-    if args.patient_twin and not profile.requires_patient_twin:
+    if twins and not profile.requires_patient_twin:
         raise SystemExit(f"{profile.workflow} does not take --patient-twin")
-    if not args.patient_twin:
+    if not twins:
         return None
-    manifest = resolve_input_path(workflows_root, args.patient_twin)
-    if not manifest.is_file():
-        raise SystemExit(f"--patient-twin manifest does not exist: {manifest}")
-    return manifest
+    if len(twins) > 1 and num_envs is not None and len(twins) != num_envs:
+        raise SystemExit(
+            f"--patient-twin was given {len(twins)} times for {num_envs} environments; "
+            "give it once to share one patient, or once per environment"
+        )
+    manifests = tuple(resolve_input_path(workflows_root, twin) for twin in twins)
+    for manifest in manifests:
+        if not manifest.is_file():
+            raise SystemExit(f"--patient-twin manifest does not exist: {manifest}")
+    args.resolved_patient_twins = manifests
+    return manifests[0]
 
 
 def _export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -> int:
@@ -133,6 +155,8 @@ def _export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) 
     # bundle, so it needs the same anatomy as training and evaluation.
     if profile.trainer == "rsl_rl":
         args.resolved_patient_twin = _resolve_patient_twin(args, profile, workflows_root)
+        # The export check runs one environment, which holds the first patient.
+        args.resolved_patient_twins = args.resolved_patient_twins[:1]
     backend = load_backend(profile.trainer)
     validate_workflow_contract(profile, workflows_root)
     backend.validate_profile(profile, workflows_root)
@@ -152,13 +176,15 @@ def _launch(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) 
     if args.train_config:
         raise SystemExit("--train-config is only valid with the export operation")
     args.episodes = episodes
-    args.resolved_patient_twin = _resolve_patient_twin(args, profile, workflows_root)
+    args.resolved_patient_twin = _resolve_patient_twin(args, profile, workflows_root, num_envs=num_envs)
     overrides = tuple(_validate_override(value) for value in args.overrides)
     backend = load_backend(profile.trainer)
     validate_workflow_contract(profile, workflows_root)
     backend.validate_profile(profile, workflows_root)
     print(_render(profile, num_envs=num_envs, epochs=epochs))
-    if args.resolved_patient_twin:
+    if len(args.resolved_patient_twins) > 1:
+        print("patient twins (one per environment): " + ", ".join(str(twin) for twin in args.resolved_patient_twins))
+    elif args.resolved_patient_twin:
         print(f"patient twin: {args.resolved_patient_twin}")
     backend.validate_launch(args, profile, workflows_root)
     print("operation: evaluation" if args.only_eval else "operation: RL training")

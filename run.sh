@@ -38,7 +38,8 @@
 #   --python-server       enable the Isaac Sim Python bridge on port 8226
 #   --fluoro-backend NAME override automatic synthetic/patient-backed Slang selection
 #   --fluoro-device NAME  Slang device for fluoroscopy (auto, cuda or vulkan; default auto)
-#   --patient-twin PATH   patient-twin YAML used by medical simulation sensors
+#   --patient-twin PATH   patient-twin YAML used by medical simulation sensors; repeat
+#                         once per environment to give each its own patient
 #
 # Compatibility option names: --max-attempts, --timesteps, --record-to,
 # --save-all-episodes, and --episode-index.
@@ -88,6 +89,7 @@ RUN_DIR_REQUESTED=0
 RECORD=""
 RECORD_REQUESTED=0
 PATIENT_TWIN=""
+PATIENT_TWINS=()
 CHECKPOINT=""
 POLICY_ENDPOINT=""
 ARENA_ARGS=()
@@ -135,9 +137,9 @@ while [ $# -gt 0 ]; do
     --record=*|--record-to=*)
       RECORD="${1#*=}"; RECORD_REQUESTED=1; shift ;;
     --patient-twin)
-      PATIENT_TWIN="$(caller_path "$2")"; shift 2 ;;
+      PATIENT_TWINS+=("$(caller_path "$2")"); shift 2 ;;
     --patient-twin=*)
-      PATIENT_TWIN="$(caller_path "${1#*=}")"; shift ;;
+      PATIENT_TWINS+=("$(caller_path "${1#*=}")"); shift ;;
     --checkpoint)
       CHECKPOINT="$2"
       # A local path is relative to the developer's invocation directory, not
@@ -199,15 +201,17 @@ if [ "$RECORD_REQUESTED" -eq 1 ]; then
   echo "==> recording $RECORD"
 fi
 
-if [ -n "$PATIENT_TWIN" ]; then
-  ARENA_ARGS+=(--patient-twin "$PATIENT_TWIN")
-  echo "==> patient twin $PATIENT_TWIN"
-fi
+for twin in "${PATIENT_TWINS[@]}"; do
+  ARENA_ARGS+=(--patient-twin "$twin")
+  echo "==> patient twin $twin"
+done
+[ "${#PATIENT_TWINS[@]}" -eq 0 ] || PATIENT_TWIN="${PATIENT_TWINS[0]}"
 
 RUN_METADATA="$RUN_DIR/run.json"
 RUN_LOG="$RUN_DIR/i4h_arena.log"
 export I4H_RUN_METADATA="$RUN_METADATA"
-light python - "$RUN_METADATA" "$WORKFLOW" "$MODE" "$RUN_DIR" "$RECORD" "$PATIENT_TWIN" "$CALLER_CWD" "$ROOT/run.sh" <<'PY'
+light python - "$RUN_METADATA" "$WORKFLOW" "$MODE" "$RUN_DIR" "$RECORD" "$PATIENT_TWIN" "$CALLER_CWD" "$ROOT/run.sh" \
+  "${PATIENT_TWINS[@]}" <<'PY'
 from datetime import UTC, datetime
 import json
 from pathlib import Path
@@ -215,7 +219,7 @@ import sys
 
 from i4h_common.run_overrides import environment_overrides
 
-metadata, workflow, mode, run_dir, recording, patient_twin, caller_cwd, launcher = sys.argv[1:]
+metadata, workflow, mode, run_dir, recording, patient_twin, caller_cwd, launcher, *patient_twins = sys.argv[1:]
 Path(metadata).write_text(
     json.dumps(
         {
@@ -225,6 +229,7 @@ Path(metadata).write_text(
             "run_dir": run_dir,
             "recording": recording or None,
             "patient_twin": patient_twin or None,
+            **({"patient_twins": patient_twins} if len(patient_twins) > 1 else {}),
             "caller_cwd": caller_cwd,
             "launcher": launcher,
             # What this shell changed about the run. The arrival tolerance in

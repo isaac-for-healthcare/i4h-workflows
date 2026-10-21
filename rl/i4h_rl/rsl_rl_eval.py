@@ -29,7 +29,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", required=True)
     parser.add_argument("--export-policy", help="optional TorchScript policy.pt output path")
     parser.add_argument("--adapter-module", help="optional workflow adapter exposing evaluation_metrics(env)")
-    parser.add_argument("--patient-twin", default=None, help="patient-twin YAML used to construct the scene")
+    parser.add_argument(
+        "--patient-twin",
+        action="append",
+        default=None,
+        help="patient-twin YAML used to construct the scene; repeat once per environment for one patient each",
+    )
     parser.add_argument("--fluoro-backend", default=None)
     parser.add_argument("--fluoro-device", default=None)
     return parser
@@ -81,7 +86,9 @@ def main() -> int:
         from rsl_rl.runners import OnPolicyRunner
 
         from i4h_arena.scenes.base import load_scene
+        from i4h_rl.artifacts import scene_patient_twin
 
+        args.patient_twin = scene_patient_twin(args.patient_twin)
         args.episode_steps = 0
         args.no_cameras = True
         args.rl_observations = True
@@ -163,8 +170,12 @@ def main() -> int:
             "success_rate": successes / args.episodes,
             "results": completed,
         }
-        if args.patient_twin is not None:
+        if isinstance(args.patient_twin, str):
             result["patient_twin"] = str(Path(args.patient_twin).expanduser().resolve())
+        elif args.patient_twin is not None:
+            twins = [str(Path(twin).expanduser().resolve()) for twin in args.patient_twin]
+            result["patient_twin"] = twins[0]
+            result["patient_twins"] = twins
         for name in metric_minima:
             result[f"mean_min_{name}"] = sum(float(item[f"min_{name}"]) for item in completed) / args.episodes
         if args.export_policy:

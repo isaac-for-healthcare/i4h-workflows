@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from copy import deepcopy
 from itertools import pairwise
 from typing import Any
@@ -433,19 +434,58 @@ def _patient_asset(fallback: AssetBaseCfg, manifest: str | None) -> AssetBaseCfg
     )
 
 
+def place_patient_anatomies(env: Any, env_ids: Any, manifests: Sequence[str]) -> None:
+    """Give each environment its own patient's anatomy mesh, posed by its own twin.
+
+    The scene config spawns one anatomy, environment 0's, into every
+    environment. The anatomy is visual-only, so re-pointing each environment's
+    ``Patient`` reference at its own twin's USD changes nothing the physics sees.
+    """
+    from pxr import Gf, UsdGeom
+
+    if len(manifests) != env.num_envs:
+        raise ValueError(f"expected one patient per environment ({env.num_envs}), got {len(manifests)}")
+    stage = sim_utils.get_current_stage()
+    for prim_path, manifest in zip(env.scene.env_prim_paths, manifests):
+        twin = PatientTwin.load(manifest)
+        anatomy = twin.artifacts.get("anatomy_usd")
+        prim = stage.GetPrimAtPath(f"{prim_path}/Patient")
+        if anatomy is None or not prim.IsValid():
+            continue
+        prim.SetInstanceable(False)
+        references = prim.GetReferences()
+        references.ClearReferences()
+        references.AddReference(str(anatomy))
+        transform = twin.world_from_patient_m
+        x, y, z, w = _quat_xyzw(transform[:3, :3])
+        xform = UsdGeom.Xformable(prim)
+        xform.ClearXformOpOrder()
+        xform.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(*(float(v) for v in transform[:3, 3])))
+        xform.AddOrientOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Quatd(w, x, y, z))
+
+
 def make_assets(
     *,
     fluoro_backend: str = "synthetic",
     fluoro_device: str = "vulkan",
-    patient_twin_manifest: str | None = None,
+    patient_twin_manifest: str | Sequence[str] | None = None,
 ) -> list[ConfigAsset]:
-    """Return the patient/C-arm world and custom image sensor."""
+    """Return the patient/C-arm world and custom image sensor.
+
+    A sequence of manifests gives each environment its own patient. The scene
+    spawns environment 0's anatomy everywhere; :func:`place_patient_anatomies`
+    swaps in the others on startup.
+    """
     source = FluoroscopyCatheterNavigationSceneCfg(env_spacing=4.0)
     source.fluoroscopy.backend = fluoro_backend
     source.fluoroscopy.dsa = fluoro_backend == "slang"
     source.fluoroscopy.slang_device_type = fluoro_device
+    shared = patient_twin_manifest
+    if patient_twin_manifest is not None and not isinstance(patient_twin_manifest, str):
+        patient_twin_manifest = tuple(str(manifest) for manifest in patient_twin_manifest)
+        shared = patient_twin_manifest[0]
     source.fluoroscopy.patient_twin_manifest = patient_twin_manifest
-    source.patient = _patient_asset(source.patient, patient_twin_manifest)
+    source.patient = _patient_asset(source.patient, shared)
     names = (
         "ground",
         "light",

@@ -125,7 +125,7 @@ def test_patient_twin_reaches_rsl_rl_scene_and_artifacts(
             (bundle / "params/agent.yaml").write_text("policy: {}\n")
         else:
             args = rsl_rl_eval._parser().parse_args(command[3:])
-            assert args.patient_twin == str(twin.resolve())
+            assert args.patient_twin == [str(twin.resolve())]
             assert args.fluoro_backend is None and args.fluoro_device is None
             Path(args.output).write_text('{"episodes": 1}\n')
             if args.export_policy:

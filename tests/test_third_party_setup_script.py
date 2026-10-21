@@ -15,6 +15,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 THIRD_PARTY_SETUP = ROOT / "third_party" / "setup.sh"
 SOLVER_API = ("register_rod", "set_root_pose_gpu", "proximal_reaction")
+PER_ENV_ANATOMY_API = ("from_trees", "from_envs", "env_segment_lengths")
 # Real Git, isolated from the developer's config so signing or hooks cannot interfere.
 GIT_ENV = {
     **os.environ,
@@ -31,7 +32,7 @@ def _run_setup(
     tmp_path: Path,
     root_origin: str,
     *,
-    solver_api: tuple[str, ...] = SOLVER_API,
+    solver_api: tuple[str, ...] = SOLVER_API + PER_ENV_ANATOMY_API,
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     workspace = tmp_path / "workspace"
     third_party = workspace / "third_party"
@@ -110,6 +111,7 @@ def test_release_components_use_public_https_sources(tmp_path: Path, root_origin
 
     assert result.returncode == 0, result.stderr
     assert "carries the coupled-arm solver contract" in result.stdout
+    assert "carries the per-environment anatomy solver contract" in result.stdout
     for repository in ("i4h-physics-simulation", "i4h-sensor-simulation", "i4h-digital-twin"):
         assert f"remote set-url origin https://github.com/isaac-for-healthcare/{repository}.git" in git_log
     assert "-internal.git" not in git_log
@@ -121,7 +123,7 @@ def test_physics_checkout_missing_required_solver_api_is_rejected(tmp_path: Path
     result, _ = _run_setup(
         tmp_path,
         "https://github.com/isaac-for-healthcare/i4h-workflows.git",
-        solver_api=tuple(symbol for symbol in SOLVER_API if symbol != missing_symbol),
+        solver_api=tuple(symbol for symbol in SOLVER_API + PER_ENV_ANATOMY_API if symbol != missing_symbol),
     )
 
     assert result.returncode == 1
@@ -130,13 +132,26 @@ def test_physics_checkout_missing_required_solver_api_is_rejected(tmp_path: Path
     assert "carries the coupled-arm solver contract" not in result.stdout
 
 
+@pytest.mark.parametrize("missing_symbol", PER_ENV_ANATOMY_API)
+def test_physics_checkout_without_per_env_anatomy_is_rejected(tmp_path: Path, missing_symbol: str) -> None:
+    result, _ = _run_setup(
+        tmp_path,
+        "https://github.com/isaac-for-healthcare/i4h-workflows.git",
+        solver_api=SOLVER_API + tuple(symbol for symbol in PER_ENV_ANATOMY_API if symbol != missing_symbol),
+    )
+
+    assert result.returncode == 1
+    assert f"per-environment anatomy solver contract: {missing_symbol}\n" in result.stderr
+    assert "carries the per-environment anatomy solver contract" not in result.stdout
+
+
 def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     for variable in ("I4H_PHYSICS_SIM_REF", "I4H_SENSOR_SIM_REF", "I4H_DIGITAL_TWIN_REF"):
         monkeypatch.delenv(variable, raising=False)
     result, git_log = _run_setup(tmp_path, "")
     assert result.returncode == 0, result.stderr
     for component, ref in (
-        ("physics-simulation", "50056196775fc0ed8cca03bf16144fe71d183ca7"),
+        ("physics-simulation", "78dfe2e4254127cbe1a3419706ec3a84360ce4e7"),
         ("sensor-simulation", "5d6ba8547a4c6e25af7eaf551f6a34371ccd6350"),
         ("digital-twin", "6b6470cff156ba15b573ae1b4b44c3a77654b8b3"),
     ):
