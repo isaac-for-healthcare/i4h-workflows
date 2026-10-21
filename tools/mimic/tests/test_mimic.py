@@ -6,7 +6,7 @@ import h5py
 import numpy as np
 import pytest
 
-from i4h_common.episode import Segment, demo_names, read_segments, write_segments
+from i4h_common.episode import DATASET_FORMAT_VERSION, Segment, demo_names, read_segments, write_segments
 from i4h_tools.mimic.cli import expand
 
 
@@ -121,3 +121,15 @@ def test_empty_recording_is_an_error(tmp_path):
         handle.create_group("data")
     with pytest.raises(ValueError, match="no demo_"):
         expand(path, tmp_path / "out.hdf5", episodes=1)
+
+
+@pytest.mark.parametrize("declared", [None, DATASET_FORMAT_VERSION, 0])
+def test_the_expansion_keeps_the_sources_dataset_format(tmp_path, declared):
+    """The clones keep the source's root poses; an undeclared i4h source is XYZW and must be declared so."""
+    src = _recording(tmp_path / "in.hdf5")
+    if declared is not None:
+        with h5py.File(src, "a") as handle:
+            handle.attrs["format_version"] = declared
+    expand(src, tmp_path / "out.hdf5", episodes=1)
+    with h5py.File(tmp_path / "out.hdf5") as handle:
+        assert handle.attrs["format_version"] == (DATASET_FORMAT_VERSION if declared is None else declared)

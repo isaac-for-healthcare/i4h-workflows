@@ -3,13 +3,16 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import h5py
 import numpy as np
+import pytest
 
 from i4h_arena.recording.hdf5 import CAMERA_COMPRESSION, EpisodeRecorder, downsample_frame
 from i4h_arena.recording.scene_state import load_initial_state
+from i4h_common.episode import DATASET_FORMAT_VERSION, EpisodeError
 
 
 class _Frame:
@@ -507,3 +510,106 @@ def test_every_demo_is_stamped_with_the_recording_rules_it_was_written_under(tmp
         assert demo.attrs["recording_version"] == RECORDING_VERSION == Episode("demo_0", demo).recording_version
         del demo.attrs["recording_version"]
         assert recording_version(demo) == 0  # recorded before the rules existed
+
+
+#: An object turned 45 degrees about z, in Isaac Lab 3's XYZW order.
+_TURNED_POSE = np.array([[0.1, 0.2, 0.3, 0.0, 0.0, 0.38268343, 0.92387953]], dtype=np.float32)
+
+
+def _record_turned_object(path) -> None:
+    recorder = EpisodeRecorder(path, workflow=SimpleNamespace(name="example", mode="rule_based", scene="example_scene"))
+    recorder.begin_episode(0, 1, initial_state={"rigid_object": {"organs": {"root_pose": _TURNED_POSE}}})
+    recorder.on_step(np.zeros((1, 6), dtype=np.float32), _View())
+    recorder.end_episode(_result(), keep=True)
+    recorder.close()
+
+
+def _isaaclab_root_pose(path) -> np.ndarray:
+    """The recorded object pose as Isaac Lab's own dataset loader returns it."""
+    from isaaclab.utils.datasets.hdf5_dataset_file_handler import HDF5DatasetFileHandler  # noqa: PLC0415
+
+    with h5py.File(path, "a") as handle:
+        # load_episode also requires robomimic's env_args, which i4h does not write.
+        handle["data"].attrs["env_args"] = json.dumps({"env_name": "", "type": 2})
+    handler = HDF5DatasetFileHandler()
+    handler.open(str(path))
+    try:
+        episode = handler.load_episode("demo_0", "cpu")
+    finally:
+        handler.close()
+    return episode.data["initial_state"]["rigid_object"]["organs"]["root_pose"].numpy()
+
+
+def test_isaac_lab_loads_the_recorded_root_poses_unchanged(tmp_path) -> None:
+    """The recording declares Isaac Lab's dataset format, so its XYZW poses are not taken for legacy WXYZ."""
+    from isaaclab.utils.datasets import hdf5_dataset_file_handler as isaaclab_datasets  # noqa: PLC0415
+
+    path = tmp_path / "recording.hdf5"
+    _record_turned_object(path)
+
+    assert DATASET_FORMAT_VERSION == isaaclab_datasets.DATASET_FORMAT_VERSION
+    with h5py.File(path, "r") as handle:
+        assert handle.attrs["format_version"] == DATASET_FORMAT_VERSION
+    np.testing.assert_array_equal(_isaaclab_root_pose(path), _TURNED_POSE)
+    with pytest.raises(ValueError, match="already in XYZW"):
+        isaaclab_datasets.HDF5DatasetFileHandler.convert_dataset_to_xyzw(str(path), str(tmp_path / "converted.hdf5"))
+
+
+def test_undeclared_isaac_lab_would_load_a_different_rotation(tmp_path) -> None:
+    """What recordings made before the declaration suffer in Isaac Lab's tools."""
+    path = tmp_path / "recording.hdf5"
+    _record_turned_object(path)
+    with h5py.File(path, "a") as handle:
+        del handle.attrs["format_version"]
+
+    # Read as WXYZ, the 45 degree turn about z becomes a turn about another axis.
+    np.testing.assert_allclose(_isaaclab_root_pose(path), [[0.1, 0.2, 0.3, 0.0, 0.38268343, 0.92387953, 0.0]])
+
+
+def test_appending_to_a_recording_made_before_the_declaration_declares_it(tmp_path) -> None:
+    """Its older demos are XYZW too: i4h has never recorded anything else."""
+    path = tmp_path / "recording.hdf5"
+    _record_turned_object(path)
+    with h5py.File(path, "a") as handle:
+        del handle.attrs["format_version"]
+
+    _record_turned_object(path)
+
+    with h5py.File(path, "r") as handle:
+        assert handle.attrs["format_version"] == DATASET_FORMAT_VERSION
+        assert sorted(handle["data"]) == ["demo_0", "demo_1"]
+
+
+def test_the_recorder_does_not_append_to_a_file_declaring_another_format(tmp_path) -> None:
+    path = tmp_path / "recording.hdf5"
+    with h5py.File(path, "w") as handle:
+        handle.attrs["format_version"] = 0
+
+    with pytest.raises(EpisodeError, match="format_version 0"):
+        EpisodeRecorder(path, workflow=SimpleNamespace(name="example", mode="rule_based", scene="example_scene"))
+
+    with h5py.File(path, "r") as handle:
+        assert handle.attrs["format_version"] == 0
+        assert "data" not in handle
+
+
+def test_replay_restores_the_initial_state_of_a_recording_made_before_the_declaration(tmp_path) -> None:
+    path = tmp_path / "needle.hdf5"
+    pose = _record_needle_episode(path)
+    with h5py.File(path, "a") as handle:
+        del handle.attrs["format_version"]
+
+    np.testing.assert_array_equal(
+        load_initial_state(path, 0, "psm_needle")["rigid_object"]["object"]["root_pose"], pose
+    )
+
+
+def test_replay_does_not_guess_the_quaternion_order_of_another_dataset_format(tmp_path, caplog) -> None:
+    path = tmp_path / "needle.hdf5"
+    _record_needle_episode(path)
+    with h5py.File(path, "a") as handle:
+        handle.attrs["format_version"] = 0
+
+    with caplog.at_level("WARNING", logger="i4h_arena.recording"):
+        assert load_initial_state(path, 0, "psm_needle") is None
+    assert "declares Isaac Lab dataset format_version 0, not 1" in caplog.text

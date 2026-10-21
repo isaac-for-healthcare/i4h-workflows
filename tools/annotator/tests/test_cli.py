@@ -13,7 +13,7 @@ import openai
 import pytest
 
 from i4h_common.annotate import JUDGES as ANNOTATE_JUDGES
-from i4h_common.episode import RECORDING_VERSION
+from i4h_common.episode import DATASET_FORMAT_VERSION, RECORDING_VERSION
 from i4h_tools.annotator import cli
 
 #: The prompt every placement task has been graded with; scissor pick-and-place
@@ -167,6 +167,10 @@ def test_a_failed_episode_is_still_labelled_failure_and_filtered_out(tmp_path, v
     with h5py.File(path, "r") as handle:
         assert not handle["data/demo_1"].attrs["vlm_success"]
         assert handle["data/demo_1"].attrs["vlm_success_reason"] == "The probe never reaches the phantom."
+    # The source declares no format, as recordings made before the attribute do;
+    # the filtered copy must still tell Isaac Lab its root poses are XYZW.
+    with h5py.File(tmp_path / "filtered.hdf5", "r") as handle:
+        assert handle.attrs["format_version"] == DATASET_FORMAT_VERSION
 
 
 def test_all_failures_refuse_to_write_an_empty_filter(tmp_path, vlm) -> None:

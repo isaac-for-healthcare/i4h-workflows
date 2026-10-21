@@ -42,7 +42,16 @@ from typing import NamedTuple
 import h5py
 import numpy as np
 
-from i4h_common.episode import DATA_GROUP, RECORDING_VERSION, camera_keys, demo_names, read_segments, recording_version
+from i4h_common.episode import (
+    DATA_GROUP,
+    RECORDING_VERSION,
+    camera_keys,
+    dataset_format_version,
+    demo_names,
+    read_segments,
+    recording_version,
+    write_dataset_format_version,
+)
 
 logger = logging.getLogger("i4h_tools.annotator")
 
@@ -303,6 +312,9 @@ def filter_successful(source: Path, target: Path, results: Sequence[Sequence]) -
         dst_data = dst.create_group(DATA_GROUP)
         for key, value in src_data.attrs.items():
             dst_data.attrs[key] = value
+        # The copies keep the source's root poses, so they keep its declared
+        # format; an undeclared i4h recording is XYZW and is declared so here.
+        write_dataset_format_version(dst, dataset_format_version(src))
         for name, new_name in renamed.items():
             demo = _copy(src_data[name], dst_data, new_name)
             demo.attrs["filtered_from_demo"] = name

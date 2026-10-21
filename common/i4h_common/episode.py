@@ -4,6 +4,7 @@
 
 Layout::
 
+    /                                  attrs: format_version
     /data                              attrs: env_args, total, ...
       demo_0                           attrs: success, num_samples, recording_version, workflow, ...
         actions            (T, A)      or obs/actions on compatible files
@@ -58,6 +59,16 @@ kept as a batch of one. Actions alone do not determine an episode when the
 reset randomizes object poses, so replay restores this state instead of drawing
 a new one. It is optional; recordings made before it existed replay from a
 fresh reset.
+
+``format_version`` on the file root is Isaac Lab's dataset format version (see
+:data:`DATASET_FORMAT_VERSION`), the one declaration Isaac Lab reads to learn
+the quaternion order of every ``root_pose``. Every root pose i4h has recorded
+is XYZW: it began storing them with ``initial_state`` (v0.9.0), already on an
+Isaac Lab that uses XYZW. Files written before the attribute do not declare it,
+though, and Isaac Lab reads an undeclared file as legacy WXYZ: its
+``HDF5DatasetFileHandler.load_episode`` and ``convert_dataset_to_xyzw`` reorder
+each ``root_pose`` into a different rotation. i4h's own readers read an
+undeclared file as XYZW instead (:func:`dataset_format_version`).
 """
 
 from __future__ import annotations
@@ -81,6 +92,13 @@ RECORDING_VERSION_ATTR = "recording_version"
 #: through a termination term is not recorded (v0.9.0, NVBug 6941887). A demo
 #: without the attribute reads as ``0``: recorded before any of these rules.
 RECORDING_VERSION = 1
+
+#: File attribute Isaac Lab's ``HDF5DatasetFileHandler`` reads the dataset format from.
+DATASET_FORMAT_VERSION_ATTR = "format_version"
+#: Isaac Lab's ``DATASET_FORMAT_VERSION`` for the pinned checkout. ``1``: every
+#: ``root_pose`` quaternion is XYZW. Isaac Lab reads a file without the attribute
+#: as ``0``, legacy WXYZ.
+DATASET_FORMAT_VERSION = 1
 
 #: h5py structured dtype for the segments dataset.
 SEGMENT_DTYPE = np.dtype(
@@ -133,6 +151,21 @@ def action_path(demo: h5py.Group) -> str:
 def recording_version(demo: h5py.Group) -> int:
     """The recording rules ``demo`` was written under; ``0`` when it predates them."""
     return int(demo.attrs.get(RECORDING_VERSION_ATTR, 0))
+
+
+def dataset_format_version(handle: h5py.File) -> int:
+    """The dataset format ``handle`` is in, reading an undeclared file as XYZW.
+
+    Isaac Lab reads a file without ``format_version`` as ``0``, legacy WXYZ. i4h
+    does not: every root pose i4h has recorded is XYZW, and files without the
+    attribute were written before i4h declared it.
+    """
+    return int(handle.attrs.get(DATASET_FORMAT_VERSION_ATTR, DATASET_FORMAT_VERSION))
+
+
+def write_dataset_format_version(handle: h5py.File, version: int = DATASET_FORMAT_VERSION) -> None:
+    """Declare ``handle``'s dataset format, so Isaac Lab does not reorder its root poses on load."""
+    handle.attrs[DATASET_FORMAT_VERSION_ATTR] = int(version)
 
 
 def state_path(demo: h5py.Group) -> str | None:
