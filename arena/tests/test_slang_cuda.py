@@ -172,5 +172,31 @@ def test_the_device_check_falls_back_to_stderr(monkeypatch) -> None:
     assert slang_cuda.check_slang_cuda_device() == "ModuleNotFoundError: slangpy"
 
 
+def test_the_device_check_reports_only_the_last_line_of_a_traceback(monkeypatch) -> None:
+    stderr = (
+        "Traceback (most recent call last):\n"
+        '  File "<string>", line 2, in <module>\n'
+        "ModuleNotFoundError: No module named 'slangpy'\n"
+    )
+    monkeypatch.setattr(slang_cuda.subprocess, "run", lambda command, **kwargs: _completed(1, stderr=stderr))
+
+    assert slang_cuda.check_slang_cuda_device() == "ModuleNotFoundError: No module named 'slangpy'"
+
+
+def test_the_device_check_reports_a_silent_failure(monkeypatch) -> None:
+    monkeypatch.setattr(slang_cuda.subprocess, "run", lambda command, **kwargs: _completed(-11))
+
+    assert slang_cuda.check_slang_cuda_device() == "the Slang CUDA device check exited with status -11"
+
+
+def test_a_device_check_that_hangs_reports_the_timeout_instead_of_raising(monkeypatch) -> None:
+    def hang(command, **kwargs):
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(slang_cuda.subprocess, "run", hang)
+
+    assert slang_cuda.check_slang_cuda_device(timeout_s=5) == "creating a Slang CUDA device did not finish within 5 s"
+
+
 def test_the_probe_script_compiles() -> None:
     compile(slang_cuda._PROBE, "<probe>", "exec")

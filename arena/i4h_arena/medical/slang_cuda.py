@@ -90,18 +90,24 @@ def cuda_device_error(error: BaseException) -> str:
     return f"Slang could not create a CUDA device ({reason}); {describe_cuda_nvrtc()}. To fix it, {NVRTC_HINT}"
 
 
-def check_slang_cuda_device(timeout_s: float = 120.0) -> str | None:
+def check_slang_cuda_device(timeout_s: float = 30.0) -> str | None:
     """Create a Slang CUDA device in a child process; return why it failed, or None if it works.
 
     The child keeps Slang's NVRTC out of this process: the toolkit's libnvrtc.so carries the same
     soname as the copy Kit ships, so loading it before Kit boots could change which one Kit binds.
+    The reason is one line, because callers that fall back to Vulkan print it inline.
     """
     env = {**os.environ, "PYTHONPATH": os.pathsep.join(path for path in sys.path if path)}
-    result = subprocess.run([sys.executable, "-c", _PROBE], capture_output=True, text=True, timeout=timeout_s, env=env)
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", _PROBE], capture_output=True, text=True, timeout=timeout_s, env=env
+        )
+    except subprocess.TimeoutExpired:
+        return f"creating a Slang CUDA device did not finish within {timeout_s:g} s"
     if result.returncode == 0:
         return None
-    output = result.stdout.strip().splitlines()
-    return output[-1] if output else result.stderr.strip()[-2000:]
+    output = result.stdout.strip().splitlines() or result.stderr.strip().splitlines()
+    return output[-1] if output else f"the Slang CUDA device check exited with status {result.returncode}"
 
 
 def prepare_slang_for_kit(device_type: str) -> None:
