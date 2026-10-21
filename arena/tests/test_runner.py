@@ -30,7 +30,7 @@ def test_render_scene_only_renders_and_pumps_ui_without_physics(monkeypatch: pyt
     app = SimpleNamespace(update=lambda: calls.append("update"))
     settings = SimpleNamespace(
         get=lambda path, default: True,
-        set_bool=lambda path, value: calls.append(f"{path}={value}"),
+        set=lambda path, value: calls.append(f"{path}={value}"),
     )
     monkeypatch.setattr(runner, "_kit_settings_manager", lambda: settings)
 

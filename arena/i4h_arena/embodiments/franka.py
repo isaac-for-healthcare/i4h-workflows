@@ -204,6 +204,7 @@ from isaaclab.sensors import FrameTransformerCfg as _FrameTransformerCfg  # noqa
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg as _OffsetCfg  # noqa: E402
 from isaaclab.utils import configclass as _configclass  # noqa: E402
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase as _EmbodimentBase  # noqa: E402
+from isaaclab_arena.utils.cameras import ArenaCameraCfg as _ArenaCameraCfg  # noqa: E402
 
 from i4h_arena.tensor_utils import quat_from_euler_degrees as _euler_to_quats  # noqa: E402
 
@@ -231,28 +232,31 @@ class FrankaUltrasoundEmbodiment(_EmbodimentBase):
 
     name: str = "franka_ultrasound"
     tags: list[str] = ["embodiment", "franka", "ultrasound"]
+    #: Merged into the scene's RTX settings by :meth:`i4h_arena.scenes.base.Scene.arena_environment`.
+    rtx_settings = {"enable_translucency": True}
 
     def __init__(self, enable_cameras: bool = True, initial_pose=None):
         super().__init__(enable_cameras=enable_cameras, initial_pose=initial_pose)
         self.scene_config = _RobotSceneCfg()
         self.camera_config = _CameraSceneCfg()
+        # Isaac Lab 3's Camera already renders tiled; TiledCameraCfg is deprecated.
+        self.camera_config.set_use_tiled_camera(False)
         self.action_config = _ActionsCfg()
         self.observation_config = _ObservationsCfg()
         if not self.enable_cameras:
             self.observation_config.policy.wrist = None
             self.observation_config.policy.room = None
 
-    def modify_env_cfg(self, env_cfg):
+    def tune_env_cfg(self, env_cfg):
         env_cfg.decimation = 4
         env_cfg.sim.dt = 1 / 200
         env_cfg.sim.render_interval = env_cfg.decimation
-        env_cfg.sim.render.enable_translucency = True
         return env_cfg
 
-    def get_recorder_term_cfg(self):
-        from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
+    def get_recorder_term_cfg(self, record_trajectories: bool = False):
+        from i4h_arena.embodiments.recorders import action_state_recorders
 
-        return ActionStateRecorderManagerCfg()
+        return action_state_recorders(super().get_recorder_term_cfg(record_trajectories))
 
 
 class FrankaUltrasoundRLEmbodiment(FrankaUltrasoundEmbodiment):
@@ -308,7 +312,7 @@ class _RobotSceneCfg:
 
 
 @_configclass
-class _CameraSceneCfg:
+class _CameraSceneCfg(_ArenaCameraCfg):
     wrist_camera: _CameraCfg = _CameraCfg(
         data_types=["rgb", "distance_to_image_plane", "semantic_segmentation"],
         prim_path="{ENV_REGEX_NS}/Robot/D405_rigid/D405/Camera_OmniVision_OV9782_Color",
@@ -368,11 +372,11 @@ class _ObservationsCfg:
         object_position = _ObsTerm(func=_object_position)
         actions = _ObsTerm(func=_mdp.last_action)
         wrist = _ObsTerm(
-            func=_mdp.image,
+            func=_mdp.image_rgb,
             params={"sensor_cfg": _SceneEntityCfg("wrist_camera"), "data_type": "rgb", "normalize": False},
         )
         room = _ObsTerm(
-            func=_mdp.image,
+            func=_mdp.image_rgb,
             params={"sensor_cfg": _SceneEntityCfg("room_camera"), "data_type": "rgb", "normalize": False},
         )
 

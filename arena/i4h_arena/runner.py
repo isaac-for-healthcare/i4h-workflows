@@ -108,11 +108,11 @@ def _render_scene_only(env: Any, app: Any) -> None:
     settings = _kit_settings_manager()
     play_simulations = "/app/player/playSimulations"
     previous = bool(settings.get(play_simulations, True))
-    settings.set_bool(play_simulations, False)
+    settings.set(play_simulations, False)
     try:
         app.update()
     finally:
-        settings.set_bool(play_simulations, previous)
+        settings.set(play_simulations, previous)
 
 
 @dataclass(slots=True)

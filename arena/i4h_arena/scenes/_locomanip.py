@@ -45,8 +45,11 @@ class LocomanipScene(Scene):
         import i4h_arena.embodiments.g1  # noqa: F401,PLC0415
 
     def build(self) -> Any:
-        from isaaclab_arena.assets.asset_registry import AssetRegistry  # noqa: PLC0415
+        from isaaclab_arena.assets.registries import AssetRegistry  # noqa: PLC0415
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment  # noqa: PLC0415
+        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (  # noqa: PLC0415
+            set_control_rate_50hz,
+        )
         from isaaclab_arena.scene.scene import Scene as ArenaScene  # noqa: PLC0415
         from isaaclab_arena.utils.pose import Pose as ArenaPose  # noqa: PLC0415
 
@@ -73,6 +76,8 @@ class LocomanipScene(Scene):
             embodiment=embodiment,
             scene=ArenaScene(assets=assets),
             task=self.envcfg(pick_up_object, destination_cart, background),
+            # The G1 WBC and GR00T policies run at 50 Hz, Arena's rate before 0.3.
+            env_cfg_callback=set_control_rate_50hz,
         )
 
     def envcfg(self, pick_up_object: Any, destination_cart: Any, background: Any) -> Any:

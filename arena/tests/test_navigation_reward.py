@@ -401,7 +401,7 @@ def test_a_reset_environment_is_re_projected_rather_than_served_the_stale_step()
     env.scene["catheter"].data.positions_world_m = torch.tensor(
         [[(0.0, 0.0, 0.0), (0.05, 0.0, 0.0), (0.1, 0.0, 0.0)]], dtype=torch.float32
     )
-    reset_tip_route_state(env)
+    reset_tip_route_state(env, None)
 
     assert tip_route_state(env, ROUTE).remaining_m.item() > before
 

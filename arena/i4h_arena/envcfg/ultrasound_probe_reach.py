@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import math
-from dataclasses import MISSING
 from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as base_mdp
@@ -23,9 +22,11 @@ from isaaclab.managers import (
 from isaaclab.sensors import FrameTransformer
 from isaaclab.utils import configclass
 from isaaclab.utils.math import quat_error_magnitude
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
 from i4h_arena.tensor_utils import to_torch
 
@@ -173,12 +174,6 @@ class _RewardsCfg:
     joint_velocity = RewardTermCfg(func=base_mdp.joint_vel_l2, weight=-0.0001)
 
 
-@configclass
-class _TerminationsCfg:
-    time_out = TerminationTermCfg(func=base_mdp.time_out, time_out=True)
-    success: TerminationTermCfg = MISSING
-
-
 class UltrasoundProbeReachTask(TaskBase):
     """Reach and align the probe with a randomized point on the phantom."""
 
@@ -201,13 +196,11 @@ class UltrasoundProbeReachTask(TaskBase):
     def get_rewards_cfg(self):
         return _RewardsCfg()
 
-    def get_termination_cfg(self):
-        return _TerminationsCfg(
-            success=TerminationTermCfg(
-                func=probe_reach_success,
-                time_out=False,
-                params={"rl_training": self._rl_training_mode},
-            )
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        reached = TerminationTermCfg(func=probe_reach_success, params={"rl_training": self._rl_training_mode})
+        return TaskTerminationCfg(
+            timeout_s=self.get_episode_length_s(),
+            success=[CompletionCriteria(name="probe_reach", predicate_sequence=[reached])],
         )
 
     def get_mimic_env_cfg(self, arm_mode):
@@ -219,5 +212,3 @@ class UltrasoundProbeReachTask(TaskBase):
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(1.7, 1.35, 1.05), lookat=(0.48, -0.02, 0.26))
 
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        return env_cfg

@@ -21,8 +21,10 @@ from isaaclab.managers import EventTermCfg, RewardTermCfg, SceneEntityCfg, Termi
 from isaaclab.sensors import FrameTransformer
 from isaaclab.utils import configclass
 from isaaclab.utils.math import matrix_from_quat, subtract_frame_transforms
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
 from i4h_arena.tensor_utils import to_torch
 
@@ -260,12 +262,6 @@ class _RewardsCfg:
     joint_vel = RewardTermCfg(func=base_mdp.joint_vel_l2, weight=-0.0001)
 
 
-@configclass
-class _TerminationsCfg:
-    time_out = TerminationTermCfg(func=base_mdp.time_out, time_out=True)
-    success = TerminationTermCfg(func=ultrasound_scan_success, time_out=False)
-
-
 class PandaPhantomEnvCfg(TaskBase):
     """Arena task wrapper for the Franka liver-scan ultrasound objective."""
 
@@ -275,8 +271,16 @@ class PandaPhantomEnvCfg(TaskBase):
     def get_scene_cfg(self):
         return None
 
-    def get_termination_cfg(self):
-        return _TerminationsCfg()
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        return TaskTerminationCfg(
+            timeout_s=self.get_episode_length_s(),
+            success=[
+                CompletionCriteria(
+                    name="liver_scan",
+                    predicate_sequence=[TerminationTermCfg(func=ultrasound_scan_success)],
+                )
+            ],
+        )
 
     def get_events_cfg(self):
         return _EventsCfg()
@@ -293,5 +297,3 @@ class PandaPhantomEnvCfg(TaskBase):
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(1.5, 1.3, 1.0), lookat=(0.0, 0.0, 0.0))
 
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        return env_cfg

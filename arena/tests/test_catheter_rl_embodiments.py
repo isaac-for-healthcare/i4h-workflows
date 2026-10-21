@@ -175,6 +175,6 @@ def test_both_catheter_embodiments_pin_the_env_spacing_to_zero(source: Path, emb
     ``i4h_rl.profile`` rejects a non-positive ``env_spacing``, so this override
     is the only place it can happen.
     """
-    body = ast.unparse(_method(_class_def(source, embodiment), "modify_env_cfg"))
+    body = ast.unparse(_method(_class_def(source, embodiment), "tune_env_cfg"))
 
     assert "env_cfg.scene.env_spacing = 0.0" in body

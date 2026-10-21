@@ -97,16 +97,21 @@ class TableclothScene(Scene):
         if self.robot_kind == "g1":
             from isaaclab_newton.sim.schemas import MujocoRigidBodyPropertiesCfg
 
-            from i4h_arena.envcfg.tablecloth.cloth_physics import enable_mujoco_usd_attributes
-
             # The recovered fixed-base G1 disables robot gravity via PhysX.
-            # MJWarp consumes mjc:gravcomp instead; cloth gravity stays on.
+            # MJWarp consumes mjc:gravcomp instead; cloth gravity stays on. Isaac Lab
+            # 3.0 GA registers MuJoCo's USD attributes for the coupled solver itself.
             cfg.scene.robot.spawn.rigid_props = MujocoRigidBodyPropertiesCfg(gravcomp=1.0)
-            enable_mujoco_usd_attributes()
         if self.args.no_cameras:
             for name in self.camera_aliases().values():
                 setattr(cfg.scene, name, None)
             cfg.observations.camera_images = None
+        # A direct Isaac Lab env, so the Arena callback that applies scene defaults never runs.
+        from i4h_arena import rendering, simulation
+
+        simulation.apply_simulation_defaults(cfg)
+        rendering.apply_to_env_cfg(
+            cfg, rendering.merge_rtx_settings(rendering.SCENE_DEFAULTS, self.scene_rtx_settings())
+        )
         self._cfg = cfg
         return cfg
 

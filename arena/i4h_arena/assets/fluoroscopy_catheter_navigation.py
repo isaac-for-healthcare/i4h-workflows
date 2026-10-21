@@ -15,6 +15,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils.configclass import configclass
 
 from i4h_arena.assets.config_asset import ConfigAsset
+from i4h_arena.assets.constants import GRID_GROUND_PLANE_COLOR, GRID_GROUND_PLANE_USD
 from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.sensors.fluoroscopy import FluoroscopySensorCfg
 
@@ -23,7 +24,7 @@ from i4h_arena.sensors.fluoroscopy import FluoroscopySensorCfg
 class FluoroscopyCatheterNavigationSceneCfg(InteractiveSceneCfg):
     ground = AssetBaseCfg(
         prim_path="/World/GroundPlane",
-        spawn=sim_utils.GroundPlaneCfg(),
+        spawn=sim_utils.GroundPlaneCfg(usd_path=GRID_GROUND_PLANE_USD, color=GRID_GROUND_PLANE_COLOR),
     )
     light = AssetBaseCfg(
         prim_path="/World/DomeLight",

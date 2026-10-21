@@ -233,7 +233,7 @@ class TipRouteState(NamedTuple):
     valid: torch.Tensor
 
 
-def reset_tip_route_state(env: Any, env_ids: Any = None) -> None:
+def reset_tip_route_state(env: Any, env_ids: Any) -> None:
     """Drop the cached projection so a reset environment is re-projected.
 
     Isaac Lab computes rewards, then resets, then observations, all under one
@@ -291,7 +291,7 @@ def tip_route_state(env: Any, route_world_m: Iterable[Iterable[float]]) -> TipRo
     return state
 
 
-def reset_route_progress(env: Any, env_ids: Any = None) -> None:
+def reset_route_progress(env: Any, env_ids: Any) -> None:
     """Drop the stored remaining arc so a reset environment earns no phantom step.
 
     Without this the first step after a reset differences the new episode's

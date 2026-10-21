@@ -17,7 +17,6 @@ import isaaclab.envs.mdp as mdp
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
-from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg as RecordTerm
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -26,10 +25,12 @@ from isaaclab.sensors import CameraCfg
 from isaaclab.sim.schemas import CollisionBaseCfg, RigidBodyBaseCfg
 from isaaclab.utils import configclass
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_physx.sim.schemas import PhysxArticulationRootPropertiesCfg
 
 from i4h_arena.assets.constants import SOARM101_USD
+from i4h_arena.embodiments.recorders import action_state_recorders
 
 _ARM_NAMES = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll"]
 _GRIPPER_NAMES = ["gripper"]
@@ -114,11 +115,11 @@ class _ObservationsCfg:
         joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel)
         actions = ObsTerm(func=mdp.last_action)
         wrist = ObsTerm(
-            func=mdp.image,
+            func=mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("wrist"), "data_type": "rgb", "normalize": False},
         )
         room = ObsTerm(
-            func=mdp.image,
+            func=mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("room"), "data_type": "rgb", "normalize": False},
         )
 
@@ -174,7 +175,7 @@ class _RobotSceneCfg:
 
 
 @configclass
-class _CameraSceneCfg:
+class _CameraSceneCfg(ArenaCameraCfg):
     wrist = SOARM_WRIST_CAMERA_CFG
     room = SOARM_ROOM_CAMERA_CFG
 
@@ -184,6 +185,8 @@ class SoArm101Embodiment(EmbodimentBase):
 
     name = "so_arm101"
     tags = ["embodiment", "so_arm", "manipulation"]
+    #: Merged into the scene's RTX settings by :meth:`i4h_arena.scenes.base.Scene.arena_environment`.
+    rtx_settings = {"enable_translucency": True}
 
     def __init__(
         self,
@@ -197,6 +200,8 @@ class SoArm101Embodiment(EmbodimentBase):
         self.home_joint_pos_rad = tuple(home_joint_pos_rad or _ZERO_JOINT_POS_RAD)
         self.scene_config = _RobotSceneCfg()
         self.camera_config = _CameraSceneCfg()
+        # Isaac Lab 3's Camera already renders tiled; TiledCameraCfg is deprecated.
+        self.camera_config.set_use_tiled_camera(False)
         self.action_config = _action_cfg(action_device)
         self.observation_config = _ObservationsCfg()
         self.event_config = _default_events_cfg()
@@ -212,17 +217,20 @@ class SoArm101Embodiment(EmbodimentBase):
         # names; Arena's generated camera group would add second copies.
         return self.observation_config
 
-    def get_recorder_term_cfg(self) -> Any:
-        return RecordTerm()
+    def get_recorder_term_cfg(self, record_trajectories: bool = False) -> Any:
+        return action_state_recorders(super().get_recorder_term_cfg(record_trajectories))
 
-    def modify_env_cfg(self, env_cfg: Any) -> Any:
+    def get_ee_frame_transformer_names(self) -> list[str]:
+        # The SO-ARM scene tracks no end-effector frame sensor.
+        return []
+
+    def tune_env_cfg(self, env_cfg: Any) -> Any:
         env_cfg.sim.dt = 1 / 60.0
         env_cfg.sim.render_interval = 1
         env_cfg.decimation = 1
         env_cfg.scene.replicate_physics = True
         env_cfg.sim.physics.bounce_threshold_velocity = 0.01
         env_cfg.sim.physics.friction_correlation_distance = 0.00625
-        env_cfg.sim.render.enable_translucency = True
 
         if self.action_device == "keyboard":
             env_cfg.scene.robot.spawn.rigid_props.disable_gravity = True

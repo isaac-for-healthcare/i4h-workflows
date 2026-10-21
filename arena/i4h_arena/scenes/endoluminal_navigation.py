@@ -50,6 +50,20 @@ class EndoluminalNavigationScene(Scene):
         """
         return bool(getattr(self.args, "rl_observations", False)) or bool(getattr(self.args, "rl_training_mode", False))
 
+    def configure_args(self, args: Any) -> None:
+        """Select Newton: the catheter rod solver is a Newton solver whatever ``--presets`` says.
+
+        Arena 0.3 resolves the backend from ``--presets`` and rejects an environment
+        callback that swaps it, so the scene names Newton up front rather than letting
+        the embodiment replace PhysX afterwards, as it did on Arena 0.2.
+        """
+        if getattr(args, "presets", None) not in (None, "newton"):
+            print(
+                f"[arena] {self.name} simulates the catheter with Newton; ignoring --presets {args.presets}", flush=True
+            )
+        args.presets = "newton"
+        super().configure_args(args)
+
     def _make_embodiment(self) -> Any:
         """Build the embodiment this scene drives.
 
@@ -71,7 +85,18 @@ class EndoluminalNavigationScene(Scene):
         """
         from i4h_arena.envcfg.endoluminal_navigation.task import CatheterNavigationTask
 
-        return CatheterNavigationTask.for_embodiment(embodiment, flat_observations=self._wants_flat_rl_observations)
+        # The manifest's step cap, as time. No ``+ 1`` as the other scenes use: the
+        # workflow runner strips the time-out and enforces its own cap, so the only
+        # consumers are the RL trainers, which should truncate at the cap itself. The
+        # division is exact at these numbers: 600 / 30 is 20.0, and Isaac Lab recovers
+        # 600 from it, where 601 / 30 rounds up to 602. ``getattr`` because the
+        # RSL-RL interop parser does not define the arena CLI's ``--episode-steps``.
+        steps = getattr(self.args, "episode_steps", None) or self.spec.max_steps
+        return CatheterNavigationTask.for_embodiment(
+            embodiment,
+            episode_length_s=steps / self.spec.control_hz,
+            flat_observations=self._wants_flat_rl_observations,
+        )
 
     def build(self) -> Any:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -105,28 +130,12 @@ class EndoluminalNavigationScene(Scene):
     def configure_env_cfg(self, env_cfg: Any) -> None:
         from isaaclab.envs.common import ViewerCfg
 
-        # From the manifest rather than left at the framework's 50 s default,
-        # which at this scene's 30 Hz is 1500 control steps against the 600 the
-        # manifest and both PPO configs agree on. The `time_out` term turns
-        # this length into truncation, so a wrong one here is a third step
-        # budget that silently outvotes the other two.
-        #
-        # No ``+ 1`` as the other scenes use. That extra step leaves the
-        # workflow runner's own cap to end the episode first, but `app.py`
-        # strips the term on that path, so the only consumers are the RL
-        # trainers, which should truncate at the cap itself. The division is
-        # exact at these numbers: 600 / 30 is 20.0, and Isaac Lab recovers 600
-        # from it, where 601 / 30 rounds up to 602.
-        #
-        # ``getattr`` rather than the attribute the other scenes read directly:
-        # ``--episode-steps`` is an arena CLI option, and this scene also runs
-        # under the RSL-RL interop parser, which does not define it.
-        steps = getattr(self.args, "episode_steps", None) or self.spec.max_steps
-        env_cfg.episode_length_s = steps / self.spec.control_hz
         # A wider three-quarter view keeps the detector, arc, support, patient, and table
         # visible together in the viewport's narrower docked layout.
         env_cfg.viewer = ViewerCfg(eye=(2.45, -1.65, 1.65), lookat=(-0.25, 0.12, 0.78))
-        env_cfg.sim.render.enable_translucency = True
+
+    def scene_rtx_settings(self) -> dict[str, Any]:
+        return {"enable_translucency": True}
 
     def make_view(self, env: Any) -> ArenaSceneView:
         from i4h_arena.medical.fluoroscopy_sources import bind_fluoroscopy_sources

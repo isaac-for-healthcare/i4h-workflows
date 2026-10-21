@@ -1,9 +1,9 @@
 # Isaac Sim Skill Routing
 
-Load this reference only when creating or modifying scene content. The official catalog is pinned to the installed Isaac Sim 6.0.1 release and sparsely checked out by `./third_party/setup.sh`:
+Load this reference only when creating or modifying scene content. The official catalog is pinned to the installed Isaac Sim 6.2.0 release and sparsely checked out by `./third_party/setup.sh`:
 
 ```bash
-ISAACSIM_SKILLS="./third_party/IsaacSim-045ca8b/skills"
+ISAACSIM_SKILLS="./third_party/IsaacSim-74a9356/skills"
 test -f "${ISAACSIM_SKILLS}/SKILLS.md" || ./third_party/setup.sh
 ```
 

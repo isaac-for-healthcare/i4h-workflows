@@ -1,6 +1,6 @@
 # Isaac for Healthcare - Workflows
 
-[![Isaac Sim](https://img.shields.io/badge/Isaac%20Sim-6.0.1-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/6.0.0/index.html)
+[![Isaac Sim](https://img.shields.io/badge/Isaac%20Sim-6.2.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/6.2.0/index.html)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://docs.python.org/3/)
 [![License](https://img.shields.io/badge/License-Apache--2.0-yellow.svg)](LICENSE)
 [![General Linting](https://github.com/isaac-for-healthcare/i4h-workflows/actions/workflows/pre-commit.yml/badge.svg?branch=main)](https://github.com/isaac-for-healthcare/i4h-workflows/actions/workflows/pre-commit.yml)
@@ -27,7 +27,7 @@ See [DESIGN.md](DESIGN.md) for detailed architecture and ownership rules.
 
 - Ubuntu 22.04 or 24.04 on `x86_64` or `aarch64`
 - RTX-capable NVIDIA GPU with 16 GB VRAM minimum for Isaac Sim; 48 GB recommended for i4h workflows
-- Linux driver `580.95.05` (the Isaac Sim 6.0 tested version) or a compatible newer production-branch driver
+- Linux driver `595.58.03` (the Isaac Sim 6.2 tested version) or a compatible newer production-branch driver
 - Some training profiles require more VRAM or multiple GPUs; see the workflow-specific documentation
 - `uv` and `git`
 - CUDA Toolkit 12.x or 13.x, no newer than the driver supports, for endoluminal RL (CUDA fluoroscopy by default), faster patient-CT fluoroscopy in the other endoluminal modes (they fall back to Vulkan without it), `--fluoro-device cuda`, or the standalone `xray-simulator` CLI; see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#failed-to-create-device-from-slang-fluoroscopy)

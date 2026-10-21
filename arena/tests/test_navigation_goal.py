@@ -213,7 +213,7 @@ def test_reset_without_ids_clears_every_environment():
     env = _env_at(TARGET, TARGET)
     reached_navigation_target(env, TARGET)
 
-    reset_arrival_progress(env)
+    reset_arrival_progress(env, None)
 
     assert hold_counter(env).tolist() == [0, 0]
 

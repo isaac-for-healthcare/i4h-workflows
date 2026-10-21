@@ -34,7 +34,7 @@ def test_discarded_and_waiting_frames_do_not_leak_into_saved_demo(tmp_path, monk
     monkeypatch.setattr("i4h_tasks.teleop.xr.XRInput", lambda *a, **kw: source)
     monkeypatch.setattr(
         "i4h_arena.runner._kit_settings_manager",
-        lambda: SimpleNamespace(get=lambda *a: True, set_bool=lambda *a: None),
+        lambda: SimpleNamespace(get=lambda *a: True, set=lambda *a: None),
     )
     view = FakeScene(dof=53)
     view.invalidate = lambda: None

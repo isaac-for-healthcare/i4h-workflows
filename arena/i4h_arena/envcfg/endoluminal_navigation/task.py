@@ -14,14 +14,15 @@ from typing import Any
 
 from isaaclab.envs.common import ViewerCfg
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
 from i4h_arena.envcfg.endoluminal_navigation.terms import (
     CatheterNavigationEventsCfg,
     CatheterNavigationObservationsCfg,
     CatheterNavigationRewardsCfg,
-    CatheterNavigationTerminationsCfg,
     navigation_observations_cfg,
     navigation_rewards_cfg,
     navigation_terminations_cfg,
@@ -40,6 +41,10 @@ class CatheterNavigationTask(TaskBase):
     undefined. Teleop and replay drive the action terms directly and never read
     the observation or reward managers, so they are unaffected either way.
 
+    ``episode_length_s`` is the step budget the scene manifest validates, as time. The
+    task owns it so that every consumer, including the RL trainers that register this
+    environment without the workflow scene's ``configure_env_cfg``, truncates at it.
+
     ``flat_observations`` selects the online RSL-RL variant. The navigation
     group normally leaves its terms unconcatenated and carries the fluoroscopy
     view, because the RLinf bridge composes GR00T's modality dict out of named
@@ -56,21 +61,25 @@ class CatheterNavigationTask(TaskBase):
         *,
         route_world_m: Sequence[Sequence[float]] | None,
         lumen_radii_m: Sequence[float] | None = None,
+        episode_length_s: float | None = None,
         flat_observations: bool = False,
     ) -> None:
-        super().__init__()
+        super().__init__(episode_length_s=episode_length_s)
         self.target_world_m = None if target_world_m is None else tuple(float(value) for value in target_world_m)
         self.route_world_m = route_world_m
         self.lumen_radii_m = lumen_radii_m
         self.flat_observations = flat_observations
 
     @classmethod
-    def for_embodiment(cls, embodiment: Any, *, flat_observations: bool = False) -> CatheterNavigationTask:
+    def for_embodiment(
+        cls, embodiment: Any, *, episode_length_s: float | None = None, flat_observations: bool = False
+    ) -> CatheterNavigationTask:
         """Bind the goal to the route and target a catheter embodiment seeded its rod on."""
         return cls(
             embodiment.navigation_target_world_m,
             route_world_m=embodiment.rod_spec.initial_path_world_m,
             lumen_radii_m=embodiment.rod_spec.lumen_radii_m,
+            episode_length_s=episode_length_s,
             flat_observations=flat_observations,
         )
 
@@ -102,13 +111,17 @@ class CatheterNavigationTask(TaskBase):
             lumen_radii_m=self.lumen_radii_m,
         )
 
-    def get_termination_cfg(self) -> CatheterNavigationTerminationsCfg | None:
-        """Report arrival at the distal centerline as IsaacLab's ``success`` term."""
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Report arrival at the distal centerline as success, and the step budget as truncation."""
         if self.target_world_m is None:
-            return None
+            return TaskTerminationCfg(timeout_s=None)
         # The same polyline the rod was seeded along, so the readout measures
         # remaining vessel against the route the target is the far end of.
-        return navigation_terminations_cfg(self.target_world_m, route_world_m=self.route_world_m)
+        arrival = navigation_terminations_cfg(self.target_world_m, route_world_m=self.route_world_m).success
+        return TaskTerminationCfg(
+            timeout_s=self.get_episode_length_s(),
+            success=[CompletionCriteria(name="arrival", predicate_sequence=[arrival])],
+        )
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode) -> None:
         return None

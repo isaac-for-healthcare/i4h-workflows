@@ -305,7 +305,7 @@ def arrival_status(env: Any) -> str:
     )
 
 
-def reset_arrival_progress(env: Any, env_ids: Any = None) -> None:
+def reset_arrival_progress(env: Any, env_ids: Any) -> None:
     """Clear the hold counter for the environments being reset."""
     counter = hold_counter(env)
     if env_ids is None:

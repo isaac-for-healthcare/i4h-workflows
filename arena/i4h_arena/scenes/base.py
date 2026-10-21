@@ -71,16 +71,54 @@ class Scene(ABC):
     def build(self) -> Any:
         """Return an ``IsaacLabArenaEnvironment`` for this world."""
 
+    def arena_environment(self) -> Any:
+        """This world as an Arena environment whose ``env_cfg_callback`` applies its tuning.
+
+        Arena 0.3 applies one ``env_cfg_callback`` per environment, after the physics
+        backend is resolved. It is composed here from the task's and the embodiment's
+        ``tune_env_cfg`` hooks, in that order, followed by the simulation defaults i4h
+        keeps from before Isaac Lab 3.0 (see :mod:`i4h_arena.simulation`) and the merged
+        RTX settings for every camera renderer and for env startup (see
+        :mod:`i4h_arena.rendering`).
+        """
+        from i4h_arena import rendering, simulation  # noqa: PLC0415
+
+        arena_env = self.build()
+        owners = (arena_env.task, arena_env.embodiment)
+        tuners = [owner.tune_env_cfg for owner in owners if callable(getattr(owner, "tune_env_cfg", None))]
+        rtx_settings = rendering.merge_rtx_settings(
+            rendering.SCENE_DEFAULTS,
+            *(getattr(owner, "rtx_settings", None) for owner in owners),
+            self.scene_rtx_settings(),
+        )
+        previous = arena_env.env_cfg_callback
+
+        def env_cfg_callback(env_cfg: Any) -> Any:
+            if previous is not None:
+                env_cfg = previous(env_cfg)
+            for tune in tuners:
+                env_cfg = tune(env_cfg)
+            simulation.apply_simulation_defaults(env_cfg)
+            rendering.apply_to_env_cfg(env_cfg, rtx_settings)
+            return env_cfg
+
+        arena_env.env_cfg_callback = env_cfg_callback
+        return arena_env
+
     def gym_spec(self) -> tuple[str, Any]:
         """Resolve ``(gym_env_id, env_cfg)`` for :func:`gymnasium.make`."""
         from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
         print("[arena] constructing arena environment", flush=True)
-        arena_env = self.build()
+        arena_env = self.arena_environment()
         print("[arena] registering with gym", flush=True)
-        gym_id, env_cfg = ArenaEnvBuilder(arena_env, self.args).build_registered()
+        gym_id, env_cfg, _env_kwargs = ArenaEnvBuilder(arena_env, arena_builder_cfg(self.args)).build_registered()
         self.configure_env_cfg(env_cfg)
         return gym_id, env_cfg
+
+    def scene_rtx_settings(self) -> dict[str, Any]:
+        """RTX settings this world adds on top of its task's and embodiment's. Override as needed."""
+        return {}
 
     def configure_env_cfg(self, env_cfg: Any) -> None:
         """Apply workflow-specific simulator presentation settings after Arena builds the cfg."""
@@ -254,6 +292,20 @@ def scene_specs() -> dict[str, SceneSpec]:
     from i4h_engine.registry import default_registry
 
     return dict(default_registry().scenes)
+
+
+def arena_builder_cfg(args: argparse.Namespace) -> Any:
+    """Arena's ``ArenaEnvBuilderCfg`` from the fields of the CLI namespace that it names."""
+    import dataclasses  # noqa: PLC0415
+
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg  # noqa: PLC0415
+
+    names = {field.name for field in dataclasses.fields(ArenaEnvBuilderCfg)}
+    values = {name: getattr(args, name) for name in names if getattr(args, name, None) is not None}
+    # Arena seeds the env cfg with 42 when told nothing. i4h runs are unseeded unless
+    # ``--seed`` is given, so separate runs randomize differently, as they did on Arena 0.2.
+    values["seed"] = getattr(args, "seed", None)
+    return ArenaEnvBuilderCfg(**values)
 
 
 def load_scene(name: str, args: argparse.Namespace, *, register_assets: bool = True) -> Scene:

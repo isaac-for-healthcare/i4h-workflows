@@ -29,6 +29,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils import configclass
 
 from i4h_arena.assets._tablecloth import CLOTH_INNER_USD, CLOTH_ONLY_USD, TABLE_USD, CameraPresets
+from i4h_arena.assets.constants import GRID_GROUND_PLANE_COLOR, GRID_GROUND_PLANE_USD
 from i4h_arena.embodiments.tablecloth import (
     H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER,
     H2_SPREAD_TABLECLOTH_CUSTOM_JOINT_POS,
@@ -96,7 +97,7 @@ class H2SpreadTableclothSceneCfg(InteractiveSceneCfg):
     # Ground plane at z=0, supporting the robot's feet.
     ground = AssetBaseCfg(
         prim_path="/World/ground",
-        spawn=sim_utils.GroundPlaneCfg(),
+        spawn=sim_utils.GroundPlaneCfg(usd_path=GRID_GROUND_PLANE_USD, color=GRID_GROUND_PLANE_COLOR),
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(0.0, 0.0, 0.0),
         ),
@@ -174,7 +175,7 @@ class H2ObservationsCfg:
     @configclass
     class CameraImagesCfg(ObsGroup):
         front_camera = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("front_camera"), "data_type": "rgb", "normalize": False},
         )
 
@@ -208,7 +209,9 @@ class H2SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
     scene: H2SpreadTableclothSceneCfg = H2SpreadTableclothSceneCfg(
         num_envs=1,
         env_spacing=6.0,
-        replicate_physics=False,
+        # Isaac Lab 3 builds the Newton model only through physics replication;
+        # without it the coupled cloth solver starts on an empty model.
+        replicate_physics=True,
     )
 
     viewer: ViewerCfg = ViewerCfg(

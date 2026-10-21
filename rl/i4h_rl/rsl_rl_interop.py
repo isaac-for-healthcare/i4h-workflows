@@ -57,18 +57,18 @@ def environment_registration_callback() -> list[str]:
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
-    from i4h_arena.scenes.base import load_scene
+    from i4h_arena.scenes.base import arena_builder_cfg, load_scene
 
     args.episode_steps = 0
     args.no_cameras = True
     args.rl_observations = True
     scene = load_scene(args.task, args)
     scene.configure_args(args)
-    builder = ArenaEnvBuilder(scene.build(), args)
-    env_cfg = builder.compose_manager_cfg()
+    builder = ArenaEnvBuilder(scene.arena_environment(), arena_builder_cfg(args))
+    env_cfg, env_kwargs = builder.compose_manager_cfg()
     # Isaac Lab's train.py loads the registered cfg, not the parsed copy
     # build_registered() returns. Clear the embodiment and metric recorder
     # terms there, or every training reset exports to /tmp/isaaclab/logs.
     env_cfg.recorders = None
-    builder.build_registered(env_cfg=env_cfg)
+    builder.build_registered(env_cfg=env_cfg, env_kwargs=env_kwargs)
     return remaining_args

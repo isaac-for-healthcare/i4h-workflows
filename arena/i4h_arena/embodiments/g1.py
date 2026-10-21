@@ -35,6 +35,7 @@ from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.g1.g1 import *  # noqa: F401,F403
 from isaaclab_arena.embodiments.g1.g1 import G1CameraCfg, G1EmbodimentBase, G1MimicEnv, G1SceneCfg
+from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
 from i4h_arena.assets.constants import UNITREE_G1_29DOF_BASE_FIX_USD, UNITREE_G1_29DOF_USD
@@ -101,7 +102,7 @@ def _apply_locomanip_patches_to_stock_base(
         obs_cfg = orig_get_observation_cfg(self)
         if self.enable_cameras and hasattr(obs_cfg, "policy") and not hasattr(obs_cfg.policy, "robot_head_cam"):
             obs_cfg.policy.robot_head_cam = ObsTerm(
-                func=base_mdp.image,
+                func=base_mdp.image_rgb,
                 params={
                     "sensor_cfg": SceneEntityCfg(head_cam_attr),
                     "data_type": "rgb",
@@ -115,10 +116,12 @@ def _apply_locomanip_patches_to_stock_base(
     # G1 embodiments don't set a recorder term cfg; without it, IsaacLab's
     # RecorderManager creates empty demo groups (no actions/obs/states).
     # Mirror SO-ARM by returning ``ActionStateRecorderManagerCfg``.
-    def _patched_get_recorder_term_cfg(self):
-        from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
+    orig_get_recorder_term_cfg = base_cls.get_recorder_term_cfg
 
-        return ActionStateRecorderManagerCfg()
+    def _patched_get_recorder_term_cfg(self, record_trajectories: bool = False):
+        from i4h_arena.embodiments.recorders import action_state_recorders
+
+        return action_state_recorders(orig_get_recorder_term_cfg(self, record_trajectories))
 
     base_cls.get_recorder_term_cfg = _patched_get_recorder_term_cfg
 
@@ -210,15 +213,15 @@ class G1AssembleTrocarObservationsCfg:
         robot_joint_state = ObsTerm(func=mdp.get_robot_body_joint_states)
         robot_dex3_joint_state = ObsTerm(func=mdp.get_robot_dex3_joint_states)
         front_camera_rgb = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("front_camera"), "data_type": "rgb", "normalize": False},
         )
         left_wrist_camera_rgb = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("left_wrist_camera"), "data_type": "rgb", "normalize": False},
         )
         right_wrist_camera_rgb = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("right_wrist_camera"), "data_type": "rgb", "normalize": False},
         )
 
@@ -230,7 +233,7 @@ class G1AssembleTrocarObservationsCfg:
 
 
 @configclass
-class G1AssembleTrocarCameraCfg:
+class G1AssembleTrocarCameraCfg(ArenaCameraCfg):
     front_camera = _camera_cfg(
         prim_path="{ENV_REGEX_NS}/Robot/d435_link/front_cam",
         focal_length=10.5,
@@ -338,10 +341,12 @@ class G1AssembleTrocarJointEmbodiment(EmbodimentBase):
         super().__init__(enable_cameras=enable_cameras, initial_pose=initial_pose)
         self.scene_config = _assemble_trocar_scene_cfg()
         self.camera_config = G1AssembleTrocarCameraCfg()
+        # Isaac Lab 3's Camera already renders tiled; TiledCameraCfg is deprecated.
+        self.camera_config.set_use_tiled_camera(False)
         self.action_config = G1AssembleTrocarActionsCfg()
         self.observation_config = G1AssembleTrocarObservationsCfg()
 
-    def get_recorder_term_cfg(self):
-        from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
+    def get_recorder_term_cfg(self, record_trajectories: bool = False):
+        from i4h_arena.embodiments.recorders import action_state_recorders
 
-        return ActionStateRecorderManagerCfg()
+        return action_state_recorders(super().get_recorder_term_cfg(record_trajectories))

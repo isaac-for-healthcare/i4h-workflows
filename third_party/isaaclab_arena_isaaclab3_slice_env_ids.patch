@@ -1,0 +1,41 @@
+diff --git a/isaaclab_arena/environments/isaaclab_arena_manager_based_env.py b/isaaclab_arena/environments/isaaclab_arena_manager_based_env.py
+index cb1d058d4..c2dbcb7a4 100644
+--- a/isaaclab_arena/environments/isaaclab_arena_manager_based_env.py
++++ b/isaaclab_arena/environments/isaaclab_arena_manager_based_env.py
+@@ -180,7 +180,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
+         # Report an episode's completion even if its environment became inactive during this step.
+         return observations, rewards, terminated & active_before_step, truncated & active_before_step, extras
+ 
+-    def _reset_idx(self, env_ids: Sequence[int]) -> None:
++    def _reset_idx(self, env_ids: Sequence[int] | slice) -> None:
++        # Isaac Lab v3.0.0 passes slice(None) for "all environments" where the pre-GA tree passed
++        # torch.arange(num_envs).
++        if isinstance(env_ids, slice):
++            env_ids = torch.arange(self.num_envs, device=self.device)[env_ids]
+         requested_env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device).sort().values
+         finishing_env_ids = requested_env_ids[self._active_episode_mask[requested_env_ids]]
+         if len(finishing_env_ids) > 0:
+diff --git a/isaaclab_arena/recording/arena_recorder_manager.py b/isaaclab_arena/recording/arena_recorder_manager.py
+index a502dd328..aa395a1df 100644
+--- a/isaaclab_arena/recording/arena_recorder_manager.py
++++ b/isaaclab_arena/recording/arena_recorder_manager.py
+@@ -97,4 +97,6 @@ class ArenaRecorderManager(RecorderManager):
+         """Return environment IDs on the environment's device."""
+         if env_ids is None:
+             return torch.arange(self._env.num_envs, device=self._env.device)
++        if isinstance(env_ids, slice):
++            return torch.arange(self._env.num_envs, device=self._env.device)[env_ids]
+         return torch.as_tensor(env_ids, dtype=torch.long, device=self._env.device)
+diff --git a/isaaclab_arena/recording/episode_recorder_manager.py b/isaaclab_arena/recording/episode_recorder_manager.py
+index 593df8c34..c144c2576 100644
+--- a/isaaclab_arena/recording/episode_recorder_manager.py
++++ b/isaaclab_arena/recording/episode_recorder_manager.py
+@@ -113,6 +113,8 @@ class EpisodeRecorderManager(ManagerBase):
+         """Normalize ``env_ids`` (tensor, sequence, or ``None`` for all envs) to a list of ints."""
+         if env_ids is None:
+             return list(range(self._env.num_envs))
++        if isinstance(env_ids, slice):
++            return list(range(self._env.num_envs))[env_ids]
+         if isinstance(env_ids, torch.Tensor):
+             env_ids = env_ids.tolist()
+         return [int(env_id) for env_id in env_ids]

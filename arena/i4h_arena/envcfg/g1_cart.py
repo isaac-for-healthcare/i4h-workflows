@@ -8,48 +8,53 @@ from dataclasses import MISSING
 import isaaclab.envs.mdp as mdp_isaac_lab
 import numpy as np
 import torch
-from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import SubTaskConfig
-from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg, TerminationTermCfg
+from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.math import euler_xyz_from_quat
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPickAndPlaceTask
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
-from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
+from isaaclab_tasks.contrib.stack.mdp import franka_stack_events
 
+from i4h_arena.envcfg._locomanip import G1LocomanipPickAndPlaceTask
+from i4h_arena.rendering import QUALITY, merge_rtx_settings
 from i4h_arena.tensor_utils import to_torch
 
 
-class CartDisplacement(ManagerTermBase):
-    """Succeed after the cart has moved far enough from its reset position."""
+def cart_displaced(env: ManagerBasedRLEnv, cart_cfg: SceneEntityCfg, minimum_distance: float) -> torch.Tensor:
+    """Succeed after the cart has moved ``minimum_distance`` from where the reset placed it.
 
-    def __init__(self, cfg: TerminationTermCfg, env: ManagerBasedRLEnv):
-        super().__init__(cfg, env)
-        cart_cfg: SceneEntityCfg = cfg.params["cart_cfg"]
-        self._cart: RigidObject = env.scene[cart_cfg.name]
-        self._initial_xy = to_torch(self._cart.data.root_pos_w)[:, :2].clone()
+    The origin is recorded by :func:`record_cart_reset_position`, a reset event, because
+    Arena's progress tracker evaluates this predicate without resetting it between episodes.
+    """
+    current_xy = to_torch(env.scene[cart_cfg.name].data.root_pos_w)[:, :2]
+    origin = getattr(env, "_i4h_cart_reset_xy", None)
+    if origin is None:
+        origin = env._i4h_cart_reset_xy = current_xy.clone()
+    return torch.linalg.vector_norm(current_xy - origin, dim=-1) >= minimum_distance
 
-    def reset(self, env_ids=None) -> None:
-        if env_ids is None:
-            env_ids = slice(None)
-        self._initial_xy[env_ids] = to_torch(self._cart.data.root_pos_w)[env_ids, :2]
 
-    def __call__(
-        self,
-        env: ManagerBasedRLEnv,
-        cart_cfg: SceneEntityCfg,
-        minimum_distance: float,
-    ) -> torch.Tensor:
-        del env, cart_cfg
-        current_xy = to_torch(self._cart.data.root_pos_w)[:, :2]
-        return torch.linalg.vector_norm(current_xy - self._initial_xy, dim=-1) >= minimum_distance
+def record_cart_reset_position(env: ManagerBasedRLEnv, env_ids: torch.Tensor | None, cart_cfg: SceneEntityCfg) -> None:
+    """Remember where this episode's reset left the cart; ordered after the cart pose reset."""
+    current_xy = to_torch(env.scene[cart_cfg.name].data.root_pos_w)[:, :2]
+    origin = getattr(env, "_i4h_cart_reset_xy", None)
+    if origin is None:
+        env._i4h_cart_reset_xy = current_xy.clone()
+        return
+    ids = slice(None) if env_ids is None else env_ids
+    origin[ids] = current_xy[ids]
 
 
 class G1CartEnvCfg(G1LocomanipPickAndPlaceTask):
     """Rheo cart-push task in the pre-operative scene."""
+
+    #: Isaac Lab's former "quality" rendering mode with DLAA. Merged into the scene's RTX
+    #: settings by :meth:`i4h_arena.scenes.base.Scene.arena_environment`.
+    rtx_settings = merge_rtx_settings(QUALITY, {"antialiasing_mode": "DLAA"})
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(
@@ -80,9 +85,9 @@ class G1CartEnvCfg(G1LocomanipPickAndPlaceTask):
     def get_events_cfg(self):
         return I4HEventsCfg(pick_up_object=self.pick_up_object, destination_cart=self.destination_bin)
 
-    def get_termination_cfg(self):
-        success = TerminationTermCfg(
-            func=CartDisplacement,
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        pushed = TerminationTermCfg(
+            func=cart_displaced,
             params={
                 "cart_cfg": SceneEntityCfg(self.destination_bin.name),
                 "minimum_distance": 2.0,
@@ -95,14 +100,12 @@ class G1CartEnvCfg(G1LocomanipPickAndPlaceTask):
                 "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
             },
         )
-        return TerminationsCfg(success=success, object_dropped=object_dropped)
+        return TaskTerminationCfg(
+            timeout_s=self.get_episode_length_s(),
+            success=[CompletionCriteria(name="push_cart", predicate_sequence=[pushed])],
+            failures={"object_dropped": object_dropped},
+        )
 
-    def modify_env_cfg(self, env_cfg):
-        if hasattr(super(), "modify_env_cfg"):
-            env_cfg = super().modify_env_cfg(env_cfg)
-        env_cfg.sim.render.rendering_mode = "quality"
-        env_cfg.sim.render.antialiasing_mode = "DLAA"
-        return env_cfg
 
 
 def _subtask(object_ref: str, signal: str | None, action_noise: float) -> SubTaskConfig:
@@ -122,16 +125,10 @@ def _subtask(object_ref: str, signal: str | None, action_noise: float) -> SubTas
 
 
 @configclass
-class TerminationsCfg:
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
-    success: TerminationTermCfg = MISSING
-    object_dropped: TerminationTermCfg = MISSING
-
-
-@configclass
 class I4HEventsCfg:
     reset_destination_cart_pose: EventTermCfg = MISSING
     reset_pick_up_object_pose: EventTermCfg = MISSING
+    record_cart_reset_position: EventTermCfg = MISSING
 
     def __init__(self, pick_up_object: Asset, destination_cart: Asset):
         object_initial_pose = pick_up_object.get_initial_pose()
@@ -172,4 +169,9 @@ class I4HEventsCfg:
                 },
                 "asset_cfgs": [SceneEntityCfg(destination_cart.name)],
             },
+        )
+        self.record_cart_reset_position = EventTermCfg(
+            func=record_cart_reset_position,
+            mode="reset",
+            params={"cart_cfg": SceneEntityCfg(destination_cart.name)},
         )

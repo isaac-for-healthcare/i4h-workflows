@@ -42,6 +42,20 @@ def test_object_reads_static_xform_world_pose():
     np.testing.assert_array_equal(state.lin_vel, np.zeros((1, 3), dtype=np.float32))
 
 
+def test_static_object_pose_comes_from_arena_world_when_the_env_has_one():
+    class _World:
+        def get_pose_w(self, key):
+            assert key == "tray"
+            return np.array([[1.0, 2.0, 3.0, 0.1, 0.2, 0.3, 0.9]], dtype=np.float32)
+
+    env = SimpleNamespace(unwrapped=SimpleNamespace(scene={"tray": object()}, num_envs=1, arena_world=_World()))
+
+    state = ArenaSceneView(env, objects=("tray",)).object("tray")
+
+    np.testing.assert_allclose(state.pose.pos, [[1.0, 2.0, 3.0]])
+    np.testing.assert_allclose(state.pose.quat, [[0.9, 0.1, 0.2, 0.3]])
+
+
 def test_robot_root_reads_floating_base_state():
     env = SimpleNamespace(unwrapped=SimpleNamespace(scene={"robot": _Robot()}, num_envs=1))
 

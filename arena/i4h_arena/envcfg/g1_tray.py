@@ -14,16 +14,23 @@ from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.math import euler_xyz_from_quat
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPickAndPlaceTask
-from isaaclab_arena.tasks.terminations import objects_in_proximity
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.tasks.predicates.spatial import objects_in_proximity
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
-from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
+from isaaclab_tasks.contrib.stack.mdp import franka_stack_events
 
+from i4h_arena.envcfg._locomanip import G1LocomanipPickAndPlaceTask
+from i4h_arena.rendering import QUALITY, merge_rtx_settings
 from i4h_arena.tensor_utils import to_torch
 
 
 class G1TrayEnvCfg(G1LocomanipPickAndPlaceTask):
     """Rheo tray pick-and-place task in the pre-operative scene."""
+
+    #: Isaac Lab's former "quality" rendering mode with DLAA. Merged into the scene's RTX
+    #: settings by :meth:`i4h_arena.scenes.base.Scene.arena_environment`.
+    rtx_settings = merge_rtx_settings(QUALITY, {"antialiasing_mode": "DLAA"})
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(
@@ -122,7 +129,7 @@ class G1TrayEnvCfg(G1LocomanipPickAndPlaceTask):
     def get_events_cfg(self):
         return I4HEventsCfg(pick_up_object=self.pick_up_object, destination_cart=self.destination_bin)
 
-    def get_termination_cfg(self):
+    def get_termination_cfg(self) -> TaskTerminationCfg:
         success = TerminationTermCfg(
             func=tray_placed_success,
             params={
@@ -142,14 +149,12 @@ class G1TrayEnvCfg(G1LocomanipPickAndPlaceTask):
                 "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
             },
         )
-        return TerminationsCfg(success=success, object_dropped=object_dropped)
+        return TaskTerminationCfg(
+            timeout_s=self.get_episode_length_s(),
+            success=[CompletionCriteria(name="tray_placed", predicate_sequence=[success])],
+            failures={"object_dropped": object_dropped},
+        )
 
-    def modify_env_cfg(self, env_cfg):
-        if hasattr(super(), "modify_env_cfg"):
-            env_cfg = super().modify_env_cfg(env_cfg)
-        env_cfg.sim.render.rendering_mode = "quality"
-        env_cfg.sim.render.antialiasing_mode = "DLAA"
-        return env_cfg
 
 
 def tray_placed_success(
@@ -206,13 +211,6 @@ def _final_subtask(object_ref: str) -> SubTaskConfig:
         num_fixed_steps=0,
         apply_noise_during_interpolation=False,
     )
-
-
-@configclass
-class TerminationsCfg:
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
-    success: TerminationTermCfg = MISSING
-    object_dropped: TerminationTermCfg = MISSING
 
 
 @configclass

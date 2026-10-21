@@ -10,54 +10,73 @@ import torch
 import warp as wp
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import EventTermCfg as EventTerm
-from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers import ManagerTermBase, SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.utils import configclass
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
 from i4h_arena.articulation_utils import joint_indices
 from i4h_arena.tensor_utils import to_torch
 from i4h_common.config import get_robot_config
 
 
-def reset_xform_root_pose_uniform(env, env_ids, pose_range, velocity_range, asset_cfg: SceneEntityCfg):
-    xform = env.scene[asset_cfg.name]
-    positions_wp, orientations_wp = xform.get_world_poses()
-    positions, orientations = to_torch(positions_wp), to_torch(orientations_wp)
+class reset_xform_root_pose_uniform(ManagerTermBase):
+    """Reset event: offset an authoring-only asset's world position uniformly per env.
 
-    if hasattr(env_ids, "to"):
-        idx_tensor = env_ids.to(dtype=torch.long, device=positions.device)
-    else:
-        idx_tensor = torch.tensor(env_ids, dtype=torch.long, device=positions.device)
+    Isaac Lab 3 keeps such assets in ``scene.extras`` without a runtime view, so the
+    term moves them through a :class:`~isaaclab.sim.views.FrameView` over their prims.
+    """
 
-    pos_sel = positions.index_select(0, idx_tensor).clone()
-    ori_sel = orientations.index_select(0, idx_tensor).clone()
-    offs = torch.zeros((idx_tensor.shape[0], 3), device=positions.device, dtype=positions.dtype)
-    for axis, key in enumerate(("x", "y", "z")):
-        lo, hi = pose_range.get(key, (0.0, 0.0))
-        if lo != 0.0 or hi != 0.0:
-            offs[:, axis] = torch.empty(idx_tensor.shape[0], device=positions.device, dtype=positions.dtype).uniform_(
-                lo, hi
-            )
+    def __init__(self, cfg: EventTerm, env) -> None:
+        from isaaclab.sim.views import FrameView  # noqa: PLC0415
 
-    base_pos = pos_sel[:, :3].clone()
-    target_pos = base_pos + offs
-    for axis, key in enumerate(("x", "y", "z")):
-        lo, hi = pose_range.get(key, (0.0, 0.0))
-        if lo != 0.0 or hi != 0.0:
-            target_pos[:, axis] = torch.minimum(
-                torch.maximum(target_pos[:, axis], base_pos[:, axis] + lo),
-                base_pos[:, axis] + hi,
-            )
+        super().__init__(cfg, env)
+        asset = env.scene[cfg.params["asset_cfg"].name]
+        self._view = FrameView(asset.cfg.prim_path, device=env.device)
 
-    pos_sel[:, :3] = target_pos
-    indices = wp.array(
-        idx_tensor.detach().cpu().numpy().astype("uint32"),
-        dtype=wp.uint32,
-        device=positions_wp.device,
-    )
-    xform.set_world_poses(pos_sel, ori_sel, indices=indices)
+    def __call__(self, env, env_ids, pose_range, velocity_range, asset_cfg: SceneEntityCfg) -> None:
+        positions_wp, orientations_wp = self._view.get_world_poses()
+        positions, orientations = to_torch(positions_wp), to_torch(orientations_wp)
+
+        if hasattr(env_ids, "to"):
+            idx_tensor = env_ids.to(dtype=torch.long, device=positions.device)
+        else:
+            idx_tensor = torch.tensor(env_ids, dtype=torch.long, device=positions.device)
+
+        pos_sel = positions.index_select(0, idx_tensor).clone()
+        ori_sel = orientations.index_select(0, idx_tensor).clone()
+        offs = torch.zeros((idx_tensor.shape[0], 3), device=positions.device, dtype=positions.dtype)
+        for axis, key in enumerate(("x", "y", "z")):
+            lo, hi = pose_range.get(key, (0.0, 0.0))
+            if lo != 0.0 or hi != 0.0:
+                offs[:, axis] = torch.empty(
+                    idx_tensor.shape[0], device=positions.device, dtype=positions.dtype
+                ).uniform_(lo, hi)
+
+        base_pos = pos_sel[:, :3].clone()
+        target_pos = base_pos + offs
+        for axis, key in enumerate(("x", "y", "z")):
+            lo, hi = pose_range.get(key, (0.0, 0.0))
+            if lo != 0.0 or hi != 0.0:
+                target_pos[:, axis] = torch.minimum(
+                    torch.maximum(target_pos[:, axis], base_pos[:, axis] + lo),
+                    base_pos[:, axis] + hi,
+                )
+
+        pos_sel[:, :3] = target_pos
+        indices = wp.array(
+            idx_tensor.detach().cpu().numpy().astype("uint32"),
+            dtype=wp.uint32,
+            device=str(positions.device),
+        )
+        self._view.set_world_poses(
+            wp.from_torch(pos_sel.contiguous(), dtype=wp.vec3f),
+            wp.from_torch(ori_sel.contiguous(), dtype=wp.vec4f),
+            indices=indices,
+        )
 
 
 _TRAY_SUCCESS_HALF_EXTENTS_XY = (0.08, 0.08)
@@ -181,12 +200,12 @@ def _robot_arm_home_error(
     return current, home, torch.abs(current - home)
 
 
-def _asset_world_position(asset) -> torch.Tensor:
-    asset_data = getattr(asset, "data", None)
+def _asset_world_position(env, name: str) -> torch.Tensor:
+    asset_data = getattr(env.scene[name], "data", None)
     if asset_data is not None and hasattr(asset_data, "root_pos_w"):
         return to_torch(asset_data.root_pos_w)
-    positions, _ = asset.get_world_poses()
-    return positions[:, :3]
+    # Isaac Lab 3 scene extras carry no pose view; Arena's world reads them.
+    return env.arena_world.get_pose_w(name)[:, :3]
 
 
 def _points_inside_tray_bounds(
@@ -194,7 +213,7 @@ def _points_inside_tray_bounds(
     points: torch.Tensor,
     env_ids: Sequence[int] | None = None,
 ) -> torch.Tensor:
-    tray_pos = _asset_world_position(env.scene["tray"])[_env_index(env_ids)]
+    tray_pos = _asset_world_position(env, "tray")[_env_index(env_ids)]
     xy_delta = torch.abs(points[:, :2] - tray_pos[:, :2])
     half_extents = torch.tensor(_TRAY_SUCCESS_HALF_EXTENTS_XY, device=points.device, dtype=points.dtype)
     xy_inside = torch.all(xy_delta <= half_extents, dim=-1)
@@ -240,17 +259,15 @@ class ScissorPickAndPlaceEventsCfg:
     reset_success_state = EventTerm(func=reset_scissor_success_state, mode="reset")
 
 
-def _termination_cfg(home_joint_pos_rad: Sequence[float] | None):
-    @configclass
-    class ScissorPickAndPlaceTerminationsCfg:
-        time_out = DoneTerm(func=mdp.time_out, time_out=True)
-        success = DoneTerm(
-            func=success_scissors_placed,
-            params={"home_joint_pos_rad": tuple(home_joint_pos_rad) if home_joint_pos_rad is not None else None},
-            time_out=False,
-        )
-
-    return ScissorPickAndPlaceTerminationsCfg()
+def _termination_cfg(home_joint_pos_rad: Sequence[float] | None, timeout_s: float | None) -> TaskTerminationCfg:
+    placed = DoneTerm(
+        func=success_scissors_placed,
+        params={"home_joint_pos_rad": tuple(home_joint_pos_rad) if home_joint_pos_rad is not None else None},
+    )
+    return TaskTerminationCfg(
+        timeout_s=timeout_s,
+        success=[CompletionCriteria(name="scissors_placed", predicate_sequence=[placed])],
+    )
 
 
 class SoArmScissorsEnvCfg(TaskBase):
@@ -272,8 +289,8 @@ class SoArmScissorsEnvCfg(TaskBase):
     def get_scene_cfg(self):
         return None
 
-    def get_termination_cfg(self):
-        return _termination_cfg(self.home_joint_pos_rad)
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        return _termination_cfg(self.home_joint_pos_rad, self.get_episode_length_s())
 
     def get_events_cfg(self):
         return ScissorPickAndPlaceEventsCfg()
@@ -287,6 +304,6 @@ class SoArmScissorsEnvCfg(TaskBase):
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(1.1, 1.1, 0.8), lookat=(0.05, 0.05, 0.18))
 
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
+    def tune_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
         env_cfg.scene.env_spacing = self.env_spacing
         return env_cfg

@@ -105,14 +105,14 @@ def test_patient_twin_reaches_rsl_rl_scene_and_artifacts(
                 assert args.patient_twin == str(twin.resolve())
                 assert args.fluoro_backend is None and args.fluoro_device is None
                 scenes.append(task)
-                return SimpleNamespace(configure_args=lambda _args: None, build=lambda: object())
+                return SimpleNamespace(configure_args=lambda _args: None, arena_environment=lambda: object())
 
-            isaac_cli("i4h_arena.scenes.base", load_scene=load_scene)
+            isaac_cli("i4h_arena.scenes.base", load_scene=load_scene, arena_builder_cfg=lambda args: args)
             isaac_cli(
                 "isaaclab_arena.environments.arena_env_builder",
                 ArenaEnvBuilder=lambda *_args: SimpleNamespace(
-                    compose_manager_cfg=lambda: SimpleNamespace(recorders=None),
-                    build_registered=lambda env_cfg: None,
+                    compose_manager_cfg=lambda: (SimpleNamespace(recorders=None), {}),
+                    build_registered=lambda env_cfg, env_kwargs: None,
                 ),
             )
             monkeypatch.setattr(sys, "argv", [command[1], *command[2:]])

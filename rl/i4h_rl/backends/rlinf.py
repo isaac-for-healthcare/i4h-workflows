@@ -166,7 +166,7 @@ def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
         workflows_root / "tasks" / task_dir,
         rlinf_dirs[-1],
         third_party / gr00t_source,
-        third_party / "IsaacLab-ffff603/source/isaaclab_contrib",
+        third_party / "IsaacLab-e3f7d9f/source/isaaclab_contrib",
     )
     env = os.environ.copy()
     env.pop("VIRTUAL_ENV", None)

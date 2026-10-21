@@ -80,7 +80,7 @@ Use `./setup.sh clean` only when the user explicitly requests a full rebuild or 
 ```bash
 ./run.sh list
 ./run.sh lint --all
-test -f ./third_party/IsaacSim-045ca8b/skills/SKILLS.md
+test -f ./third_party/IsaacSim-74a9356/skills/SKILLS.md
 ```
 
 Use `run.sh show <workflow> --mode <mode>` when the user named a workflow. These checks prove discovery and contracts without importing Isaac Sim. Use `i4h-workflow-validate` for an actual rollout.

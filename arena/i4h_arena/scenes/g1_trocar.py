@@ -33,7 +33,7 @@ class G1TrocarScene(Scene):
         import i4h_arena.embodiments.g1  # noqa: F401,PLC0415
 
     def build(self) -> Any:
-        from isaaclab_arena.assets.asset_registry import AssetRegistry  # noqa: PLC0415
+        from isaaclab_arena.assets.registries import AssetRegistry  # noqa: PLC0415
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment  # noqa: PLC0415
         from isaaclab_arena.scene.scene import Scene as ArenaScene  # noqa: PLC0415
         from isaaclab_arena.utils.pose import Pose as ArenaPose  # noqa: PLC0415

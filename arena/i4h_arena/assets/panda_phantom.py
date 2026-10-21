@@ -19,7 +19,7 @@ from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
 from isaaclab.sim.schemas import CollisionBaseCfg, RigidBodyBaseCfg
 
 from i4h_arena.assets.config_asset import ConfigAsset
-from i4h_arena.assets.constants import PHANTOM_USD, TABLE_WITH_COVER_USD
+from i4h_arena.assets.constants import GRID_GROUND_PLANE_COLOR, GRID_GROUND_PLANE_USD, PHANTOM_USD, TABLE_WITH_COVER_USD
 from i4h_arena.tensor_utils import quat_from_euler_degrees
 
 _FRAME_MARKER_SMALL_CFG = FRAME_MARKER_CFG.copy()
@@ -33,7 +33,9 @@ def make_assets() -> list[ConfigAsset]:
     ground = AssetBaseCfg(
         prim_path="/World/defaultGroundPlane",
         init_state=AssetBaseCfg.InitialStateCfg(pos=[0, 0, -0.84]),
-        spawn=sim_utils.GroundPlaneCfg(semantic_tags=[("class", "ground")]),
+        spawn=sim_utils.GroundPlaneCfg(
+            usd_path=GRID_GROUND_PLANE_USD, color=GRID_GROUND_PLANE_COLOR, semantic_tags=[("class", "ground")]
+        ),
     )
     dome_light = AssetBaseCfg(
         prim_path="/World/Light",

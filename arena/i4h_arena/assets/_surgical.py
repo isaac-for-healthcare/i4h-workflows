@@ -15,7 +15,14 @@ from isaaclab_physx.sim.schemas import PhysxRigidBodyPropertiesCfg
 from pxr import Usd, UsdPhysics
 
 from i4h_arena.assets.config_asset import ConfigAsset
-from i4h_arena.assets.constants import BLOCK_USD, NEEDLE_SDF_USD, ORGANS_USD, TABLE_USD
+from i4h_arena.assets.constants import (
+    BLOCK_USD,
+    GRID_GROUND_PLANE_COLOR,
+    GRID_GROUND_PLANE_USD,
+    NEEDLE_SDF_USD,
+    ORGANS_USD,
+    TABLE_USD,
+)
 
 REACH_TARGET_POS = (0.02, 0.0, 0.055)
 STAR_TABLE_USD = f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table_instanceable.usd"
@@ -57,7 +64,7 @@ class SurgicalSceneCfg(InteractiveSceneCfg):
     ground = AssetBaseCfg(
         prim_path="/World/GroundPlane",
         init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, -0.95)),
-        spawn=sim_utils.GroundPlaneCfg(),
+        spawn=sim_utils.GroundPlaneCfg(usd_path=GRID_GROUND_PLANE_USD, color=GRID_GROUND_PLANE_COLOR),
     )
     table = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Table",

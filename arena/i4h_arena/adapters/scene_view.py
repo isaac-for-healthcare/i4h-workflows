@@ -156,12 +156,7 @@ class ArenaSceneView:
                 vel_np = _np(vel) if vel is not None else np.zeros((self.num_envs, 3), dtype=np.float32)
                 ang_vel_np = _np(ang_vel) if ang_vel is not None else np.zeros((self.num_envs, 3), dtype=np.float32)
             else:
-                get_world_poses = getattr(asset, "get_world_poses", None)
-                if not callable(get_world_poses):
-                    raise TypeError(f"scene object {name!r} exposes neither rigid-body state nor a world pose")
-                root, quat = get_world_poses()
-                pos_np = _np(root)[..., :3]
-                quat_np = _quat_wxyz(quat)
+                pos_np, quat_np = self._static_pose(name, asset)
                 vel_np = np.zeros((self.num_envs, 3), dtype=np.float32)
                 ang_vel_np = np.zeros((self.num_envs, 3), dtype=np.float32)
             if self._root_relative:
@@ -177,6 +172,23 @@ class ArenaSceneView:
                 ang_vel=ang_vel_np,
             )
         return self._cache[key]
+
+    def _static_pose(self, name: str, asset: Any) -> tuple[np.ndarray, np.ndarray]:
+        """World pose of a scene entity without rigid-body state, such as a static prop.
+
+        Arena's ``ArenaWorld`` reads it through Isaac Lab's ``FrameView``. Isaac Lab 3
+        assets no longer offer ``get_world_poses``; it remains only as the fallback for
+        environments without an ``ArenaWorld``.
+        """
+        world = getattr(self._env.unwrapped, "arena_world", None)
+        if world is not None:
+            pose = _np(world.get_pose_w(self._object_aliases.get(name, name)))
+            return pose[:, :3], _quat_wxyz(pose[:, 3:7])
+        get_world_poses = getattr(asset, "get_world_poses", None)
+        if not callable(get_world_poses):
+            raise TypeError(f"scene object {name!r} exposes neither rigid-body state nor a world pose")
+        root, quat = get_world_poses()
+        return _np(root)[..., :3], _quat_wxyz(quat)
 
     def footprint_half_extents(self, name: str) -> np.ndarray:
         try:

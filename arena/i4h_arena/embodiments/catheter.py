@@ -11,6 +11,7 @@ from typing import Any, ClassVar
 import isaaclab.sim as sim_utils
 import numpy as np
 import torch
+import warp as wp
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
 from isaaclab.utils.configclass import configclass
@@ -203,7 +204,12 @@ class CArmOrbitAction(ActionTerm):
     cfg: CArmOrbitActionCfg
 
     def __init__(self, cfg: CArmOrbitActionCfg, env: Any):
+        from isaaclab.sim.views import FrameView  # noqa: PLC0415
+
         super().__init__(cfg, env)
+        # The orbit root is an authoring-only scene extra; Isaac Lab 3 gives it no
+        # runtime view, so the term poses it through a FrameView over its prims.
+        self._frames = FrameView(self._asset.cfg.prim_path, device=self.device)
         self._raw_actions = torch.zeros((self.num_envs, 1), device=self.device)
         self._processed_actions = torch.zeros_like(self._raw_actions)
         self._angle_rad = torch.full(
@@ -269,9 +275,9 @@ class CArmOrbitAction(ActionTerm):
         self._root_orientation[:, 0] = torch.sin(half_angle)
         self._root_orientation[:, 1:3] = 0.0
         self._root_orientation[:, 3] = torch.cos(half_angle)
-        self._asset.set_local_poses(
-            translations=self._root_position,
-            orientations=self._root_orientation,
+        self._frames.set_local_poses(
+            translations=wp.from_torch(self._root_position.contiguous(), dtype=wp.vec3f),
+            orientations=wp.from_torch(self._root_orientation.contiguous(), dtype=wp.vec4f),
         )
 
 
@@ -459,13 +465,15 @@ class CatheterEmbodiment(EmbodimentBase):
         # starts short of the far end and insertion has to cover the remainder.
         self.navigation_target_world_m = tuple(float(value) for value in path_world_m[-1])
 
-    def modify_env_cfg(self, env_cfg: Any) -> Any:
+    def tune_env_cfg(self, env_cfg: Any) -> Any:
         env_cfg.sim.dt = 1.0 / 120.0
         # The reference catheter viewport advances controls at 30 Hz. Keep the
         # same control period while retaining 120 Hz XPBD substeps.
         env_cfg.decimation = 4
         env_cfg.sim.render_interval = 4
-        env_cfg.scene.replicate_physics = False
+        # Isaac Lab 3 builds the Newton model only through physics replication:
+        # without it, nothing authored in USD reaches the model next to the rod.
+        env_cfg.scene.replicate_physics = True
         # Zero for the reason ``franka_catheter.py`` zeroes it: every rod is
         # seeded from the same absolute centerline, so the cloned environments
         # are coincident whatever this says. Left positive, the origins are a

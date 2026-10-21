@@ -807,9 +807,9 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
             _PROCEDURE_FLOOR_TOP_M + column_height / 2.0,
         )
 
-    def modify_env_cfg(self, env_cfg: Any) -> Any:
+    def tune_env_cfg(self, env_cfg: Any) -> Any:
         """Keep the parent's rates, rebuild physics, and seed the arm's pose."""
-        env_cfg = super().modify_env_cfg(env_cfg)
+        env_cfg = super().tune_env_cfg(env_cfg)
         # Back on, against the parent's choice, because this scene has an
         # articulation and the parent does not.
         #

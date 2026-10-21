@@ -18,7 +18,10 @@ from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constan
     NUM_NAVIGATE_CMD,
     NUM_TORSO_ORIENTATION_RPY_CMD,
 )
-from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyConfig, TaskMode
+from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import (
+    Gr00tClosedloopPolicyCfg as Gr00tClosedloopPolicyConfig,
+)
+from isaaclab_arena_gr00t.policy.config.task_mode import TaskMode
 from isaaclab_arena_gr00t.utils.image_conversion import resize_frames_with_padding
 from isaaclab_arena_gr00t.utils.io_utils import load_robot_joints_config_from_yaml
 from isaaclab_arena_gr00t.utils.joints_conversion import remap_sim_joints_to_policy_joints
@@ -28,7 +31,9 @@ from i4h_tasks.gr00t_n16.locomanip.infer.joint_conversion import remap_policy_jo
 from i4h_tasks.gr00t_n16.locomanip.infer.tensorrt_dit import replace_dit_with_tensorrt
 
 logger = logging.getLogger("policy")
-_WORKFLOW_POLICY_CONFIG_FIELDS = {"pov_cam_names_sim"}
+#: Config keys i4h reads that Arena's Gr00tClosedloopPolicyCfg does not declare.
+#: Arena 0.3 dropped ``model_path``; ``_resolve_model_path`` still honours it.
+_WORKFLOW_POLICY_CONFIG_FIELDS = {"pov_cam_names_sim", "model_path"}
 
 
 class G1LocomanipClosedloopPolicy:

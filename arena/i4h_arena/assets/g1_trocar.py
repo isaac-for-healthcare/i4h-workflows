@@ -41,13 +41,17 @@ class TrocarAssemblyBackground(Background):
             name=self.name,
             tags=self.tags,
             usd_path=self.usd_path,
+            prim_path="{ENV_REGEX_NS}/Scene",
             initial_pose=self.initial_pose,
             object_min_z=self.object_min_z,
+            # The room is spawned as authored and its props are not restored between
+            # episodes, as before IsaacLab-Arena 0.3 added nested background resets.
+            reset_nested_physics=False,
         )
 
     def _generate_base_cfg(self):
         object_cfg = AssetBaseCfg(
-            prim_path="{ENV_REGEX_NS}/Scene",
+            prim_path=self.prim_path,
             spawn=UsdFileCfg(usd_path=self.usd_path),
         )
         return self._add_initial_pose_to_cfg(object_cfg)

@@ -76,9 +76,12 @@ Use Isaac Lab for anything it expresses, Isaac Lab Arena for a concept Isaac Lab
 
 | Need | Isaac Lab or Arena mechanism | i4h addition, and why |
 | --- | --- | --- |
-| Assets, sensors, physics backend, rendering | Isaac Lab asset, sensor and simulation cfgs; `ConfigAsset` hands a cfg to Arena's scene unchanged | None |
-| Robot: articulation, action terms, proprioception, cameras | Arena `EmbodimentBase` subclasses in `arena/i4h_arena/embodiments/` | None |
-| Goal: observations, rewards, `success` and other terminations, reset events | Arena `TaskBase` subclasses in `arena/i4h_arena/envcfg/`, built from Isaac Lab manager term cfgs | None |
+| Assets, sensors, physics backend | Isaac Lab asset, sensor and simulation cfgs; `ConfigAsset` hands a cfg to Arena's scene unchanged | `i4h_arena.simulation` turns off `use_newton_actuators` and PhysX `enable_external_forces_every_iteration`, which Isaac Lab 3 turned on and which change the dynamics i4h policies were trained under |
+| Rendering | Isaac Lab's `IsaacRtxRendererGlobalSettingsCfg`, applied by each camera renderer and by a `startup` event term | `i4h_arena.rendering` layers scene defaults, task, embodiment and scene settings. Isaac Lab 3 changed its default rendering and Arena zeroes the ambient light, so the defaults keep the look i4h policies were trained under |
+| Robot: articulation, action terms, proprioception, cameras | Arena `EmbodimentBase` subclasses in `arena/i4h_arena/embodiments/`, including subclasses of Arena's own G1 embodiments | None |
+| Goal: observations, rewards, success criteria and other terminations, reset events | Arena `TaskBase` subclasses in `arena/i4h_arena/envcfg/` returning `TaskTerminationCfg`, built from Isaac Lab manager term cfgs | None |
+| Scene- and robot-specific cfg tuning | Arena's `env_cfg_callback` | `Scene.arena_environment()` composes the task's and embodiment's `tune_env_cfg` hooks into that one callback |
+| Poses of props and other scene entities | Arena `ArenaWorld` (`env.arena_world`) for reads; Isaac Lab `FrameView` to move authoring-only scene extras | None |
 | Teleoperation devices | Isaac Lab devices and Isaac Teleop | Teleop Tasks map device output onto the Scene's actuation |
 | Online RL | Isaac Lab's RSL-RL `train.py` with an external registration callback | `rl/` profiles select trainer, model and hyperparameters per workflow; RLinf runs GR00T post-training, which Isaac Lab does not ship |
 | Composing scripted controllers, a policy, teleop and replay into one run | None. Isaac Lab ships standalone state-machine scripts, and Arena's composite tasks describe subtask *success*, not behavior | Engine and `TaskGraph` |
