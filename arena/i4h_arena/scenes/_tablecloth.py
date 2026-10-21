@@ -70,9 +70,15 @@ class TableclothScene(Scene):
         super().configure_args(args)
 
     def build(self) -> Any:
-        # These are direct IsaacLab configurations. The Scene still supplies
-        # the normal adapters and the shared SimulationRunner owns every step.
-        from i4h_arena.envcfg.tablecloth.cloth_physics import select_physics_backend
+        from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment  # noqa: PLC0415
+        from isaaclab_arena.scene.scene import Scene as ArenaScene  # noqa: PLC0415
+
+        from i4h_arena.envcfg.tablecloth.cloth_physics import select_physics_backend  # noqa: PLC0415
+        from i4h_arena.envcfg.tablecloth.environment import (  # noqa: PLC0415
+            TableclothEmbodiment,
+            TableclothTask,
+            room_assets,
+        )
 
         if self.robot_kind == "g1":
             from i4h_arena.envcfg.tablecloth.g1_spread_tablecloth_teleop_env_cfg import G1SpreadTableclothTeleopEnvCfg
@@ -90,9 +96,6 @@ class TableclothScene(Scene):
             )
             cfg.actions.pink_ik_cfg.controller.urdf_output_dir = str(run_dir / "robot")
         cfg.isaac_teleop.sim_device = self.args.device
-        cfg.scene.num_envs = 1
-        cfg.recorders = None
-        cfg.terminations.time_out = None
         select_physics_backend(cfg, self.args.presets)
         if self.robot_kind == "g1":
             from isaaclab_newton.sim.schemas import MujocoRigidBodyPropertiesCfg
@@ -101,27 +104,15 @@ class TableclothScene(Scene):
             # MJWarp consumes mjc:gravcomp instead; cloth gravity stays on. Isaac Lab
             # 3.0 GA registers MuJoCo's USD attributes for the coupled solver itself.
             cfg.scene.robot.spawn.rigid_props = MujocoRigidBodyPropertiesCfg(gravcomp=1.0)
+        cameras = () if self.args.no_cameras else tuple(self.camera_aliases().values())
         if self.args.no_cameras:
-            for name in self.camera_aliases().values():
-                setattr(cfg.scene, name, None)
             cfg.observations.camera_images = None
-        # A direct Isaac Lab env, so the Arena callback that applies scene defaults never runs.
-        from i4h_arena import rendering, simulation
-
-        simulation.apply_simulation_defaults(cfg)
-        rendering.apply_to_env_cfg(
-            cfg, rendering.merge_rtx_settings(rendering.SCENE_DEFAULTS, self.scene_rtx_settings())
+        return IsaacLabArenaEnvironment(
+            name=self.name,
+            embodiment=TableclothEmbodiment(cfg, cameras),
+            scene=ArenaScene(assets=room_assets(cfg, ("robot", *self.camera_aliases().values()))),
+            task=TableclothTask(cfg),
         )
-        self._cfg = cfg
-        return cfg
-
-    def gym_spec(self) -> tuple[str, Any]:
-        import gymnasium as gym
-
-        gym_id = f"I4H-{self.name}-v0"
-        if gym_id not in gym.registry:
-            gym.register(gym_id, entry_point="isaaclab.envs:ManagerBasedRLEnv", disable_env_checker=True)
-        return gym_id, self.build()
 
     def joint_orders(self) -> dict[str, tuple[str, ...]]:
         return {"robot": get_robot_config(self.spec.embodiment).joint_names}
