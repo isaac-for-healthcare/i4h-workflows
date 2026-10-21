@@ -22,8 +22,8 @@ from i4h_arena.scenes.base import Scene
 from i4h_common.config import get_robot_config
 
 #: Registered whole-body controllers for policy/replay and teleop.
-G1_POLICY_EMBODIMENT = "g1_wbc_joint"
-G1_TELEOP_EMBODIMENT = "g1_wbc_pink"
+G1_POLICY_EMBODIMENT = "g1_locomanip_wbc_joint"
+G1_TELEOP_EMBODIMENT = "g1_locomanip_wbc_pink"
 
 Placement = tuple[tuple[float, float, float], tuple[float, float, float, float]]
 

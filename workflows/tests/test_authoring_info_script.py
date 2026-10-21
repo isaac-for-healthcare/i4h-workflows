@@ -60,7 +60,7 @@ def test_snapshot_info_resolves_catalog_and_manifest_facts(tmp_path: Path, capsy
     payload = json.loads(capsys.readouterr().out)
     items = {item["name"]: item for item in payload["snapshot"]["items"]}
     assert payload["snapshot"]["environment_root"] == "/World/CustomEnv"
-    assert items["robot"]["catalog"]["embodiment"]["registry_name"] == "g1_wbc_joint"
+    assert items["robot"]["catalog"]["embodiment"]["registry_name"] == "g1_locomanip_wbc_joint"
     assert payload["manifest_capabilities"] == {
         "action_space": "joint_position",
         "cameras": ["head"],

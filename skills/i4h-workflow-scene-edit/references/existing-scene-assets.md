@@ -38,7 +38,7 @@ The executable preset catalog currently contains measured metric bounds for `sur
 | Small surgical tray | `SCISSOR_TRAY_USD` | `(0.7, 0.7, 0.18)` | The executable preset is static; the `soarm_scissors` variant authors `5 kg`. |
 | Rheo tray with lid | `TRAY_USD` | `(1, 1, 1)` | Articulated, default mass `0.1 kg`; distinct from `SCISSOR_TRAY_USD`. |
 | Rheo cart | `CART_USD` | `(1, 1, 1)` | Articulated; preserve its scene-specific support height. |
-| G1 WBC robot | `UNITREE_G1_29DOF_USD` | `(1, 1, 1)` | Articulation; live root `/Robot` maps to registered `g1_wbc_joint`, manifest embodiment `g1`, 50-DoF joint-position control at 30 Hz, and runtime robot name `robot`. The live preset creates `Robot/Asset/head_link/RobotHeadCam`; the registered embodiment exposes `robot_head_cam` through alias `head`. |
+| G1 WBC robot | `UNITREE_G1_29DOF_USD` | `(1, 1, 1)` | Articulation; live root `/Robot` maps to registered `g1_locomanip_wbc_joint` (Arena's `g1_wbc_joint` on this USD), manifest embodiment `g1`, 50-DoF joint-position control at 30 Hz, and runtime robot name `robot`. The live preset creates `Robot/Asset/head_link/RobotHeadCam`; the registered embodiment exposes `robot_head_cam` through alias `head`. |
 | General surgical table | `TABLE_USD` | `(1, 1, 1)` | Static support used by PSM reach/lift scenes. |
 | STAR table | `SeattleLabTable` | `(1, 1, 1)` | Static support used only by `star_reach`. |
 | Lift block | `BLOCK_USD` | `(0.011, 0.011, 0.011)` | Rigid with gravity. |
