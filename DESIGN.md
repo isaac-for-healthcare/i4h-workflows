@@ -70,6 +70,24 @@ Scene is the per-world extension point; `SimulationRunner` is shared infrastruct
 
 Retries exist at two different levels: the Engine applies a node's `FailurePolicy`, while `SimulationRunner` starts a fresh episode attempt after a failed workflow.
 
+## Isaac Lab and Arena First
+
+Use Isaac Lab for anything it expresses, Isaac Lab Arena for a concept Isaac Lab has no place for, and an i4h abstraction only when neither can express the function cleanly. A simulated world is therefore an ordinary Arena environment: a Scene's `build()` returns an `IsaacLabArenaEnvironment` that `ArenaEnvBuilder` turns into an Isaac Lab `ManagerBasedRLEnvCfg`, and online RL trains on that same environment through Isaac Lab's stock scripts.
+
+| Need | Isaac Lab or Arena mechanism | i4h addition, and why |
+| --- | --- | --- |
+| Assets, sensors, physics backend, rendering | Isaac Lab asset, sensor and simulation cfgs; `ConfigAsset` hands a cfg to Arena's scene unchanged | None |
+| Robot: articulation, action terms, proprioception, cameras | Arena `EmbodimentBase` subclasses in `arena/i4h_arena/embodiments/` | None |
+| Goal: observations, rewards, `success` and other terminations, reset events | Arena `TaskBase` subclasses in `arena/i4h_arena/envcfg/`, built from Isaac Lab manager term cfgs | None |
+| Teleoperation devices | Isaac Lab devices and Isaac Teleop | Teleop Tasks map device output onto the Scene's actuation |
+| Online RL | Isaac Lab's RSL-RL `train.py` with an external registration callback | `rl/` profiles select trainer, model and hyperparameters per workflow; RLinf runs GR00T post-training, which Isaac Lab does not ship |
+| Composing scripted controllers, a policy, teleop and replay into one run | None. Isaac Lab ships standalone state-machine scripts, and Arena's composite tasks describe subtask *success*, not behavior | Engine and `TaskGraph` |
+| The episode around `env.step` | `ManagerBasedRLEnv` steps, terminates and auto-resets | `SimulationRunner` owns attempts and retries, ends an episode when the workflow decides, and renders without advancing physics while a remote policy computes |
+| Recording | Isaac Lab `InteractiveScene.get_state` and `reset_to` capture and restore the initial state | `EpisodeRecorder`: `RecorderManager` holds an episode in memory until export, while camera frames from long teleop episodes must stream to disk, and node segments come from Engine events |
+| Policies whose dependencies conflict with Isaac Sim | None in the pinned Arena that keeps the simulator responsive while a policy computes | `RemoteTask`, the Zenoh bus and `PolicyServer`, with a per-attempt task UID and a live action-contract check |
+
+`third_party/setup.sh` pins the upstream checkouts and applies the few patches i4h carries against them. Prefer an upstream fix, a subclass, or an Arena registration hook to a new patch.
+
 ## Dependency Boundaries
 
 These boundaries answer two questions: which code runs in the same process, and which layers that code may import. They exist because Isaac Sim, GR00T releases, and openpi require incompatible dependency sets.
