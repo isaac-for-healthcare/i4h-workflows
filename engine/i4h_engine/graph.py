@@ -48,16 +48,6 @@ class DataEdge:
     dst: PortRef
 
 
-@dataclass(frozen=True, slots=True)
-class FailurePolicy:
-    """What to do when a node reports FAILURE: give up, or try again."""
-
-    #: ``abort`` | ``retry``
-    action: str = "abort"
-    #: Extra attempts when retrying.
-    times: int = 0
-
-
 class Node:
     """One vertex. Wraps either a registry id or a live :class:`Task` instance."""
 
@@ -74,7 +64,6 @@ class Node:
         self.ref = ref
         self.params: dict[str, Any] = dict(params)
         self.spec = spec
-        self._failure = FailurePolicy()
 
         if isinstance(ref, Task):
             self._inputs = ports_of(type(ref).Inputs)
@@ -112,10 +101,6 @@ class Node:
     @property
     def required_inputs(self) -> tuple[str, ...]:
         return tuple(name for name, decl in self._inputs.items() if not decl.endswith("?"))
-
-    @property
-    def failure_policy(self) -> FailurePolicy:
-        return self._failure
 
     def __rshift__(self, other: Any) -> Chain:
         return Chain.of(self) >> other
@@ -240,16 +225,6 @@ class TaskGraph:
         if existing is not None:
             raise ValueError(f"{dst} is already wired from {existing.src}")
         self._data_edges.append(DataEdge(src=src, dst=dst))
-        return self
-
-    def on_failure(self, target: Node | str, action: str = "abort", *, times: int = 0) -> TaskGraph:
-        """Set a node's failure behaviour: ``abort`` or ``retry``."""
-        node_id = target.id if isinstance(target, Node) else target
-        if node_id not in self._nodes:
-            raise KeyError(f"{node_id!r} is not in the task graph")
-        if action not in ("abort", "retry"):
-            raise ValueError(f"unknown failure action {action!r}; expected abort or retry")
-        self._nodes[node_id]._failure = FailurePolicy(action=action, times=times)
         return self
 
     def _register(self, candidate: Node) -> None:

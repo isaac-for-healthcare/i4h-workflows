@@ -38,42 +38,10 @@ from typing import Any
 from i4h_common.types import satisfied
 from i4h_common.world import Actuation, ActuationConflict
 from i4h_engine.events import EventKind, EventSink, WorkflowEvent
-from i4h_engine.graph import DataEdge, Node, TaskGraph
-from i4h_engine.ports import coerce_value, types_compatible
+from i4h_engine.graph import Node, TaskGraph
+from i4h_engine.ports import coerce_value
 from i4h_engine.status import Status, WorkflowStatus
 from i4h_engine.task import Task, TickContext
-
-
-def autowire(graph: TaskGraph) -> tuple[DataEdge, ...]:
-    """Infer the obvious data edges and add them to ``graph``.
-
-    Rule, kept deliberately narrow so nothing surprising is inferred: when a node
-    has exactly one unwired required input, exactly one control predecessor, and
-    that predecessor has exactly one output of a compatible type, connect them.
-    Everything else must be written explicitly.
-
-    Returns the edges that were added.
-    """
-    added: list[DataEdge] = []
-    for node_obj in graph.nodes:
-        wired = {edge.dst.port for edge in graph.inputs_for(node_obj.id)}
-        unwired = [name for name in node_obj.required_inputs if name not in wired]
-        if len(unwired) != 1:
-            continue
-        preds = graph.predecessors(node_obj.id)
-        if len(preds) != 1:
-            continue
-        source = graph.node_by_id(preds[0])
-        if len(source.output_ports) != 1:
-            continue
-        ((out_name, out_type),) = source.output_ports.items()
-        in_name = unwired[0]
-        if not types_compatible(out_type, node_obj.input_ports[in_name]):
-            continue
-        edge = DataEdge(src=source.out[out_name], dst=node_obj.in_[in_name])
-        graph._data_edges.append(edge)
-        added.append(edge)
-    return tuple(added)
 
 
 class ActuationTracker:
@@ -167,7 +135,6 @@ class NodeState:
     task: Task | None = None
     entered_at: int = 0
     ticks: int = 0
-    attempts: int = 0
     outputs: dict[str, Any] = field(default_factory=dict)
     inputs: dict[str, Any] = field(default_factory=dict)
     detail: str = ""
@@ -188,15 +155,12 @@ class Engine:
         workflow_name: str = "",
         on_event: EventSink | None = None,
         max_steps: int | None = None,
-        autowire_inputs: bool = True,
     ) -> None:
         self.graph = graph
         self.workflow_name = workflow_name
         self.registry = registry
         self.on_event = on_event
         self.max_steps = max_steps if max_steps is not None else graph.max_steps
-        if autowire_inputs:
-            autowire(graph)
         self.states: dict[str, NodeState] = {n.id: NodeState(node=n) for n in graph.nodes}
         self.status = WorkflowStatus.PENDING
         self.step = 0
@@ -336,7 +300,6 @@ class Engine:
         state.status = "active"
         state.entered_at = self.step
         state.ticks = 0
-        state.attempts += 1
         state.inputs = self._resolve_inputs(state.node)
         if state.task is None:
             state.task = self._build_task(state.node)
@@ -399,21 +362,7 @@ class Engine:
         self._emit(EventKind.NODE_SUCCEEDED, ctx, node=state.node, outputs=state.outputs)
 
     def _fail(self, state: NodeState, ctx: TickContext, *, detail: str) -> None:
-        policy = state.node.failure_policy
         state.detail = detail
-
-        if policy.action == "retry" and state.attempts <= policy.times:
-            self._emit(
-                EventKind.NODE_RETRYING,
-                ctx,
-                node=state.node,
-                detail=f"{detail} (attempt {state.attempts}/{policy.times + 1})",
-            )
-            state.status = "pending"
-            state.ticks = 0
-            state.task = None  # rebuild so the task starts from a clean state
-            return
-
         state.status = "failed"
         self._segments.append((state.node.id, state.node.task_id, state.entered_at, self.step + 1))
         self._emit(EventKind.NODE_FAILED, ctx, node=state.node, detail=detail)

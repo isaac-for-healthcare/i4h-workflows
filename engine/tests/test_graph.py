@@ -105,12 +105,3 @@ def test_required_inputs_exclude_defaulted_fields():
     # Consumer.Inputs.scale has a default, so it is optional.
     assert consumer.required_inputs == ("target",)
     assert consumer.input_ports["scale"].endswith("?")
-
-
-def test_on_failure_validates():
-    a = node(Counter(name="a"))
-    workflow = TaskGraph().flow(a)
-    with pytest.raises(ValueError, match="unknown failure action"):
-        workflow.on_failure(a, "explode")
-    with pytest.raises(KeyError, match="not in the task graph"):
-        workflow.on_failure("ghost", "abort")

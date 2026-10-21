@@ -9,7 +9,7 @@ from conftest import Consumer, Counter, Exploding, Failing, Producer, Writer
 from i4h_common.types import Pose
 from i4h_common.world import ActuationConflict
 from i4h_engine.events import EventKind
-from i4h_engine.executor import Engine, autowire
+from i4h_engine.executor import Engine
 from i4h_engine.graph import TaskGraph, node
 from i4h_engine.status import Status, WorkflowStatus
 from i4h_engine.task import Task
@@ -158,52 +158,12 @@ def test_constructor_param_fills_an_input(ctx):
     assert consumer.ref.received.scale == 2.5
 
 
-def test_autowire_single_unambiguous_input():
-    producer, consumer = node(Producer(name="p")), node(Consumer(name="c"))
-    workflow = TaskGraph().flow(producer >> consumer)
-    added = autowire(workflow)
-    assert len(added) == 1
-    assert str(added[0].src) == "p.out.pose"
-    assert str(added[0].dst) == "c.in.target"
-
-
-def test_autowire_skips_when_already_wired():
-    producer, consumer = node(Producer(name="p")), node(Consumer(name="c"))
-    workflow = TaskGraph().flow(producer >> consumer).wire(producer.out.pose, consumer.in_.target)
-    assert autowire(workflow) == ()
-
-
-def test_autowire_skips_ambiguous_predecessors():
-    # Two predecessors: which pose did you mean? Refuse rather than guess.
-    p1, p2 = node(Producer(name="p1")), node(Producer(name="p2"))
-    consumer = node(Consumer(name="c"))
-    workflow = TaskGraph().flow(p1 >> consumer, p2 >> consumer)
-    assert autowire(workflow) == ()
-
-
 def test_failure_aborts_workflow_by_default(ctx):
     a, b = Failing(1, name="a"), Counter(1, name="b")
     engine = Engine(TaskGraph().flow(node(a) >> node(b)))
     assert run(engine, ctx) is WorkflowStatus.FAILED
     assert b.entered == 0
     assert "a" in engine.detail
-
-
-def test_retry_policy_reenters_node(ctx):
-    flaky = Failing(1, succeed_on_attempt=3, name="flaky")
-    flaky_node = node(flaky)
-    workflow = TaskGraph().flow(flaky_node >> node(Counter(1, name="after")))
-    workflow.on_failure(flaky_node, "retry", times=2)
-    engine = Engine(workflow)
-    assert run(engine, ctx) is WorkflowStatus.SUCCEEDED
-    assert flaky.attempts == 3
-
-
-def test_retry_exhausted_fails(ctx):
-    flaky = node(Failing(1, name="flaky"))
-    workflow = TaskGraph().flow(flaky)
-    workflow.on_failure(flaky, "retry", times=1)
-    assert run(Engine(workflow), ctx) is WorkflowStatus.FAILED
 
 
 def test_task_exception_becomes_failure_not_crash(ctx):

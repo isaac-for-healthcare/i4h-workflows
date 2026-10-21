@@ -68,7 +68,7 @@ SimulationRunner resets the environment
 
 Scene is the per-world extension point; `SimulationRunner` is shared infrastructure. Change a Scene when a world needs different assets, cameras, action layout, observation aliases, or reset preparation. Change `SimulationRunner` only when the episode or simulator lifecycle must change consistently for every Scene and mode.
 
-Retries exist at two different levels: the Engine applies a node's `FailurePolicy`, while `SimulationRunner` starts a fresh episode attempt after a failed workflow.
+Retries happen at one level: `SimulationRunner` starts a fresh episode attempt after a failed workflow.
 
 ## Isaac Lab and Arena First
 
@@ -190,7 +190,6 @@ A task graph answers two separate questions:
 | Node | One invocation of an in-process or remote task | `task("project/name", ...)` or `node(Task(...))` |
 | Control edge | The source must succeed before the destination may start | `source >> destination` |
 | Data edge | One source output supplies one destination input | `.wire(source.out.value, destination.in_.value)` |
-| Failure policy | Abort the workflow or retry only that node | `.on_failure(node, "retry", times=2)` |
 
 ```python
 locate = node(Locate("needle", name="locate"))
@@ -219,7 +218,7 @@ predecessors succeed
       FAILURE → apply the node's failure policy
 ```
 
-The workflow succeeds when all terminal nodes in its selected `TaskGraph` succeed. A node failure aborts the workflow unless that node has a retry policy.
+The workflow succeeds when all terminal nodes in its selected `TaskGraph` succeed. A node failure aborts the workflow.
 
 Goal predicates do not replace graph completion. A workflow module passes its success predicate to the Tasks that need one, such as `until=` on a policy or teleop Task or a final `WaitUntil`; the Engine does not call it on its own. Where the scene's Arena task already defines success as a termination, the predicate is `i4h_tasks.basic.predicates.env_success`, which reads it back, so the two cannot disagree. A `TaskGraph` may also define `timeout_success`, which the Engine evaluates only when the graph exhausts its step budget.
 
@@ -357,7 +356,7 @@ The author-facing workflow contract is intentionally separate from its implement
 | File | Purpose |
 | --- | --- |
 | `engine/i4h_engine/interface.py` | The small author-facing `Workflow` value: `scene`, `modes`, optional `annotate`, and `default_mode` |
-| `engine/i4h_engine/graph.py` | The graph-building API: `TaskGraph`, `node`, `task`, control edges, data wiring, and failure policies |
+| `engine/i4h_engine/graph.py` | The graph-building API: `TaskGraph`, `node`, `task`, control edges and data wiring |
 | `workflows/i4h_workflows/<specialty>/<name>.py` | One specialty-grouped authored module exporting exactly one `WORKFLOW = Workflow(...)` value |
 | `workflows/README.md` | Workflow source layout and specialty catalog |
 | `workflows/i4h_workflow_modes/README.md` | Standard run-mode vocabulary, friendly labels, shared builders, and extension rules |

@@ -18,7 +18,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from i4h_common.manifest import SceneSpec
-from i4h_engine.executor import autowire
 from i4h_engine.graph import TaskGraph
 from i4h_engine.loader import ResolvedWorkflow
 from i4h_engine.ports import types_compatible
@@ -42,7 +41,6 @@ class LintReport:
     workflow: ResolvedWorkflow
     scene: SceneSpec | None
     issues: tuple[Issue, ...]
-    autowired: tuple[str, ...] = ()
 
     @property
     def errors(self) -> tuple[Issue, ...]:
@@ -65,8 +63,6 @@ class LintReport:
                 f"embodiment={provides['embodiment']} action_space={provides['action_space']} "
                 f"dof={provides['dof']} cameras={provides['cameras']}"
             )
-        for wire in self.autowired:
-            lines.append(f"  · auto-wired {wire}")
         lines.extend(str(issue) for issue in self.issues)
         if self.ok:
             lines.append(
@@ -90,8 +86,6 @@ def lint_workflow(workflow: ResolvedWorkflow, registry: Any | None = None) -> Li
         issues.append(Issue("error", "manifest", error))
 
     graph = workflow.graph
-    added = autowire(graph)
-    autowired = tuple(f"{e.src} → {e.dst}" for e in added)
 
     scene = _check_scene(workflow, registry, issues)
     _check_annotate(workflow, registry, issues)
@@ -99,7 +93,7 @@ def lint_workflow(workflow: ResolvedWorkflow, registry: Any | None = None) -> Li
     _check_data_edges(graph, issues)
     _check_requirements(graph, scene, registry, issues)
 
-    return LintReport(workflow=workflow, scene=scene, issues=tuple(issues), autowired=autowired)
+    return LintReport(workflow=workflow, scene=scene, issues=tuple(issues))
 
 
 def _check_scene(workflow: ResolvedWorkflow, registry: Any, issues: list[Issue]) -> SceneSpec | None:

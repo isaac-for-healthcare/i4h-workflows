@@ -22,7 +22,6 @@ class EventKind:
     NODE_ENTERED = "node_entered"
     NODE_SUCCEEDED = "node_succeeded"
     NODE_FAILED = "node_failed"
-    NODE_RETRYING = "node_retrying"
     NODE_ABORTED = "node_aborted"
     WORKFLOW_FINISHED = "workflow_finished"
 
@@ -31,7 +30,6 @@ class EventKind:
         NODE_ENTERED,
         NODE_SUCCEEDED,
         NODE_FAILED,
-        NODE_RETRYING,
         NODE_ABORTED,
         WORKFLOW_FINISHED,
     )

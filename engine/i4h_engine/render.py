@@ -58,9 +58,6 @@ def to_text(workflow: ResolvedWorkflow) -> str:
             lines.append(f"      in  {edge.dst.port} ← {edge.src}")
         for name, type_name in node_obj.output_ports.items():
             lines.append(f"      out {name}: {type_name}")
-        policy = node_obj.failure_policy
-        if policy.action == "retry":
-            lines.append(f"      on failure: retry {policy.times}x")
 
     roots = ", ".join(n.id for n in graph.roots())
     terminals = ", ".join(n.id for n in graph.terminals())
