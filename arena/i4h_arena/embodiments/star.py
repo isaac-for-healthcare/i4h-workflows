@@ -19,7 +19,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
-from isaaclab.sensors import FrameTransformerCfg, TiledCameraCfg
+from isaaclab.sensors import CameraCfg, FrameTransformerCfg
 from isaaclab.utils import configclass
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.pose import Pose
@@ -78,9 +78,9 @@ STAR_HIGH_PD_CFG.spawn.rigid_props.disable_gravity = True
 STAR_HIGH_PD_CFG.actuators["star"].stiffness = 400.0
 STAR_HIGH_PD_CFG.actuators["star"].damping = 80.0
 
-STAR_ROOM_CAMERA_CFG = TiledCameraCfg(
+STAR_ROOM_CAMERA_CFG = CameraCfg(
     prim_path="{ENV_REGEX_NS}/RoomCamera",
-    offset=TiledCameraCfg.OffsetCfg(
+    offset=CameraCfg.OffsetCfg(
         pos=(0.62, -0.36, 0.62),
         rot=(0.791743, 0.372507, -0.276788, -0.395891),
         convention="ros",

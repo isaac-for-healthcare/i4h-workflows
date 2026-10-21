@@ -22,7 +22,7 @@ from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.sensors import TiledCameraCfg
+from isaaclab.sensors import CameraCfg
 from isaaclab.sim.schemas import CollisionBaseCfg, RigidBodyBaseCfg
 from isaaclab.utils import configclass
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
@@ -73,7 +73,7 @@ SOARM101_CFG = ArticulationCfg(
 )
 
 
-SOARM_WRIST_CAMERA_CFG = TiledCameraCfg(
+SOARM_WRIST_CAMERA_CFG = CameraCfg(
     prim_path="{ENV_REGEX_NS}/robot/gripper/visuals/pcb_board_36x36/Camera",
     spawn=None,
     data_types=["rgb"],
@@ -82,9 +82,9 @@ SOARM_WRIST_CAMERA_CFG = TiledCameraCfg(
     update_period=1 / 30.0,
 )
 
-SOARM_ROOM_CAMERA_CFG = TiledCameraCfg(
+SOARM_ROOM_CAMERA_CFG = CameraCfg(
     prim_path="{ENV_REGEX_NS}/RoomCamera",
-    offset=TiledCameraCfg.OffsetCfg(pos=(0.12, 0.08, 0.7), rot=(0.7071, -0.7071, 0.0, 0.0), convention="ros"),
+    offset=CameraCfg.OffsetCfg(pos=(0.12, 0.08, 0.7), rot=(0.7071, -0.7071, 0.0, 0.0), convention="ros"),
     data_types=["rgb"],
     spawn=sim_utils.PinholeCameraCfg(
         focal_length=16.0,

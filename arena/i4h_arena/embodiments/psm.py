@@ -24,7 +24,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
-from isaaclab.sensors import FrameTransformerCfg, TiledCameraCfg
+from isaaclab.sensors import CameraCfg, FrameTransformerCfg
 from isaaclab.utils import configclass
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.configclass import combine_configclass_instances
@@ -106,9 +106,9 @@ PSM_HIGH_PD_CFG.spawn.rigid_props.disable_gravity = True
 PSM_HIGH_PD_CFG.actuators["psm"].stiffness = 800.0
 PSM_HIGH_PD_CFG.actuators["psm"].damping = 40.0
 
-PSM_ROOM_CAMERA_CFG = TiledCameraCfg(
+PSM_ROOM_CAMERA_CFG = CameraCfg(
     prim_path="{ENV_REGEX_NS}/RoomCamera",
-    offset=TiledCameraCfg.OffsetCfg(
+    offset=CameraCfg.OffsetCfg(
         pos=(0.22, -0.32, 0.28),
         rot=(0.83348, 0.239039, -0.137336, -0.478864),
         convention="ros",

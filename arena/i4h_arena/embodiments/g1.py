@@ -29,7 +29,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers.action_manager import ActionTermCfg
-from isaaclab.sensors import TiledCameraCfg
+from isaaclab.sensors import CameraCfg
 from isaaclab.utils import configclass
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
@@ -171,8 +171,8 @@ def _camera_cfg(
     focal_length: float,
     pos_offset: tuple[float, float, float],
     rot_offset: tuple[float, float, float, float],
-) -> TiledCameraCfg:
-    return TiledCameraCfg(
+) -> CameraCfg:
+    return CameraCfg(
         prim_path=prim_path,
         update_period=0.02,
         height=480,
@@ -184,7 +184,7 @@ def _camera_cfg(
             horizontal_aperture=20.0,
             clipping_range=(0.1, 1.0e5),
         ),
-        offset=TiledCameraCfg.OffsetCfg(pos=pos_offset, rot=rot_offset, convention="ros"),
+        offset=CameraCfg.OffsetCfg(pos=pos_offset, rot=rot_offset, convention="ros"),
     )
 
 
