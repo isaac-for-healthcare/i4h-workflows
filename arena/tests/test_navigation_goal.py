@@ -80,7 +80,7 @@ def test_the_step_budget_is_reported_as_truncation_not_termination():
     only other ending is arrival never ends, and a policy that cannot arrive
     yet never sees a reset.
     """
-    from i4h_arena.envcfg.endoluminal_navigation import navigation_terminations_cfg
+    from i4h_arena.envcfg.endoluminal_navigation.terms import navigation_terminations_cfg
 
     cfg = navigation_terminations_cfg(TARGET)
 
@@ -113,7 +113,7 @@ def test_the_episode_length_matches_the_manifest_step_cap():
 
 
 def test_endoluminal_navigation_uses_the_demonstration_arrival_tolerance():
-    from i4h_arena.envcfg.endoluminal_navigation import (
+    from i4h_arena.envcfg.endoluminal_navigation.terms import (
         ENDOLUMINAL_ARRIVAL_TOLERANCE_M,
         ENDOLUMINAL_DEFAULT_ARRIVAL_TOLERANCE_M,
         navigation_terminations_cfg,

@@ -459,66 +459,6 @@ class CatheterEmbodiment(EmbodimentBase):
         # starts short of the far end and insertion has to cover the remainder.
         self.navigation_target_world_m = tuple(float(value) for value in path_world_m[-1])
 
-    def get_observation_cfg(self) -> Any:
-        """Low-dimensional navigation state, bound to this scene's route and target.
-
-        Omitted without a twin, matching the reward and the termination: the
-        route terms would be projecting onto a vessel that is not there. Teleop
-        and replay drive the action terms directly and never read the
-        observation manager, so they are unaffected either way.
-        """
-        if self.navigation_target_world_m is None:
-            return None
-        from i4h_arena.envcfg.endoluminal_navigation import navigation_observations_cfg
-
-        return navigation_observations_cfg(
-            self.navigation_target_world_m,
-            route_world_m=self.rod_spec.initial_path_world_m,
-        )
-
-    def get_events_cfg(self) -> Any:
-        if self.navigation_target_world_m is None:
-            return None
-        from i4h_arena.envcfg.endoluminal_navigation import CatheterNavigationEventsCfg
-
-        return CatheterNavigationEventsCfg()
-
-    def get_rewards_cfg(self) -> Any:
-        """Dense navigation objective, bound to this scene's own route and wall.
-
-        Omitted without a twin for the same reason the termination is: there is
-        no vessel, so remaining arc and lumen width are undefined and every
-        term would be measuring against nothing. Teleop and replay ignore the
-        reward manager, so this costs them nothing.
-        """
-        if self.navigation_target_world_m is None:
-            return None
-        from i4h_arena.envcfg.endoluminal_navigation import navigation_rewards_cfg
-
-        return navigation_rewards_cfg(
-            self.navigation_target_world_m,
-            route_world_m=self.rod_spec.initial_path_world_m,
-            lumen_radii_m=self.rod_spec.lumen_radii_m,
-        )
-
-    def get_termination_cfg(self) -> Any:
-        """Report arrival at the distal centerline as IsaacLab's ``success`` term.
-
-        Omitted without a twin rather than reported as permanently unsatisfied:
-        there is no vessel to navigate, so a workflow reading the term gets the
-        absent-term zeros instead of a goal it can never meet.
-        """
-        if self.navigation_target_world_m is None:
-            return None
-        from i4h_arena.envcfg.endoluminal_navigation import navigation_terminations_cfg
-
-        # The same polyline the rod was seeded along, so the readout measures
-        # remaining vessel against the route the target is the far end of.
-        return navigation_terminations_cfg(
-            self.navigation_target_world_m,
-            route_world_m=self.rod_spec.initial_path_world_m,
-        )
-
     def modify_env_cfg(self, env_cfg: Any) -> Any:
         env_cfg.sim.dt = 1.0 / 120.0
         # The reference catheter viewport advances controls at 30 Hz. Keep the
@@ -546,42 +486,3 @@ class CatheterEmbodiment(EmbodimentBase):
         # is being built and before the model is finalized.
         self._rod_handle = CatheterRodHandle(self.rod_spec).install()
         return env_cfg
-
-
-class FlatRLObservations:
-    """Mixin dropping the fluoroscopy view and flattening the navigation group.
-
-    The navigation group leaves its terms unconcatenated and carries the
-    fluoroscopy view, because the RLinf bridge composes GR00T's modality dict
-    out of named keys. An RSL-RL actor wants a single vector and cannot
-    concatenate an image with fifteen scalars, so the view is dropped here and
-    the rest flattened.
-
-    Dropping the image is the point rather than a concession. These embodiments
-    exist to ask whether the navigation reward is learnable from the geometry
-    alone, and eleven of those fifteen numbers are ones the N1.7 checkpoint
-    never receives. If a small MLP with all fifteen cannot learn the objective,
-    the objective is the problem; if it can, what remains is an observability
-    problem on the policy side.
-
-    A mixin rather than a method on each because the arm-borne embodiment does
-    not override ``get_observation_cfg`` either: the arm is a servo'd
-    positioner, so it adds recorded joint columns but no observation and no
-    action channel. The same fifteen columns describe both scenes, and one
-    implementation covers them.
-    """
-
-    def get_observation_cfg(self) -> Any:
-        config = super().get_observation_cfg()
-        if config is None:
-            # No twin, so no route to navigate and nothing to train against.
-            return None
-        config.policy.fluoroscopy_rgb = None
-        config.policy.concatenate_terms = True
-        return config
-
-
-class CatheterRLEmbodiment(FlatRLObservations, CatheterEmbodiment):
-    """Catheter on the rod-only solver, with flat observations for online RSL-RL."""
-
-    name: str = "catheter_rl"

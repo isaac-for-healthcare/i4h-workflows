@@ -8,7 +8,7 @@ from the route -- re-expressed batched in torch because rewards are read for
 every environment on every step and the readout version is a single-point numpy
 projection behind an ``lru_cache``.
 
-:class:`~i4h_arena.envcfg.endoluminal_navigation.CatheterNavigationRewardsCfg`
+:class:`~i4h_arena.envcfg.endoluminal_navigation.terms.CatheterNavigationRewardsCfg`
 configures three terms and no others: ``route_progress``, ``lateral`` and
 ``penetration``, defined below in that order. That is the whole reward PPO
 optimizes; this module holds nothing that is not part of it.

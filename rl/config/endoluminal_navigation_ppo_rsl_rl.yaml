@@ -8,9 +8,9 @@ runner:
   max_iterations: 400
   save_interval: 25
   experiment_name: endoluminal_navigation_rsl
-  # The catheter publishes a single group. CatheterRLEmbodiment strips the
-  # fluoroscopy term from it and sets concatenate_terms, so `policy` arrives as
-  # one 15-wide vector; there is no second task group to name here.
+  # The catheter task publishes a single group. Its flat_observations variant
+  # strips the fluoroscopy term from it and sets concatenate_terms, so `policy`
+  # arrives as one 15-wide vector; there is no second group to name here.
   obs_groups:
     actor: [policy]
     critic: [policy]

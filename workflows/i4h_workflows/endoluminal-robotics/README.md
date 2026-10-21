@@ -252,7 +252,7 @@ With `N` environments, a collection cycle has a configured budget of `8 Ã— 600 Ã
 
 ### Dense reward: advance, follow the route, avoid the wall
 
-The reward quantities are implemented in [navigation_reward.py](../../../arena/i4h_arena/medical/navigation_reward.py). Their weights and the final three-term wiring are in [`navigation_rewards_cfg`](../../../arena/i4h_arena/envcfg/endoluminal_navigation.py). Isaac Lab's reward manager sums the weighted terms with control-step time scaling:
+The reward quantities are implemented in [navigation_reward.py](../../../arena/i4h_arena/medical/navigation_reward.py). Their weights and the final three-term wiring are in [`navigation_rewards_cfg`](../../../arena/i4h_arena/envcfg/endoluminal_navigation/terms.py). Isaac Lab's reward manager sums the weighted terms with control-step time scaling:
 
 ```text
 delta_s = clamp(previous_remaining - current_remaining, -0.0025, +0.0025)

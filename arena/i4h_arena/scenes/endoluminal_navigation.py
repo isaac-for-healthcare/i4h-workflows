@@ -55,14 +55,23 @@ class EndoluminalNavigationScene(Scene):
 
         Overridden by the arm-borne variant, which swaps in a drive carried on a
         robot flange and takes the scene onto the coupled MJWarp + rod solver.
-
-        Online RSL-RL takes the camera-free variant instead, whose observation
-        group is one flat vector.
         """
-        from i4h_arena.embodiments.catheter import CatheterEmbodiment, CatheterRLEmbodiment
+        from i4h_arena.embodiments.catheter import CatheterEmbodiment
 
-        embodiment = CatheterRLEmbodiment if self._wants_flat_rl_observations else CatheterEmbodiment
-        return embodiment(patient_twin_manifest=self.args.patient_twin)
+        return CatheterEmbodiment(patient_twin_manifest=self.args.patient_twin)
+
+    def _make_task(self, embodiment: Any) -> Any:
+        """Bind the navigation goal to the route the embodiment seeded its rod on.
+
+        Online RSL-RL takes the camera-free variant, whose observation group is
+        one flat vector. Both scenes share this, so the same fifteen columns,
+        four action channels and reward describe the armless and the arm-borne
+        run, and a gap between their training curves is attributable to the
+        solver rather than to the objective.
+        """
+        from i4h_arena.envcfg.endoluminal_navigation.task import CatheterNavigationTask
+
+        return CatheterNavigationTask.for_embodiment(embodiment, flat_observations=self._wants_flat_rl_observations)
 
     def build(self) -> Any:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -83,7 +92,7 @@ class EndoluminalNavigationScene(Scene):
                     patient_twin_manifest=self.args.patient_twin,
                 )
             ),
-            task=None,
+            task=self._make_task(self._embodiment),
             # Registers the Gym ID under the kwarg Isaac Lab's stock RSL-RL
             # scripts read their agent config from, so `train_rsl_rl.py --task
             # endoluminal_navigation` resolves without a second env definition.
