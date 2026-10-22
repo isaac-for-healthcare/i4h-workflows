@@ -49,6 +49,10 @@ class SceneEnvironment(ExampleEnvironmentBase):
             # episode length up to whole steps, so half a step short lands exactly on the budget.
             steps = getattr(args_cli, "episode_steps", None) or scene.spec.max_steps
             env_cfg.episode_length_s = (steps - 0.5) * env_cfg.sim.dt * env_cfg.decimation
+            if getattr(args_cli, "enable_cameras", False):
+                # Render the reset scene before the first observation, as Isaac Lab's camera
+                # tasks do; otherwise the first frames after a reset show the previous episode.
+                env_cfg.num_rerenders_on_reset = max(env_cfg.num_rerenders_on_reset, 3)
             return env_cfg
 
         arena_env.env_cfg_callback = env_cfg_callback
