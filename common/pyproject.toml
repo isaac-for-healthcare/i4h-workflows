@@ -1,12 +1,10 @@
 [project]
 name = "i4h-common"
 version = "0.1.0"
-description = "Isaac-free contracts, zenoh bus and HDF5 episode schema shared across workflows."
+description = "Isaac-free manifests, robot descriptors and the HDF5 episode schema shared across the projects."
 requires-python = ">=3.11, <3.13"
 dependencies = [
     "numpy>=1.23.5,<3",
-    "eclipse-zenoh",
-    "msgpack>=1.0",
     "h5py>=3.10",
     "PyYAML>=6.0",
 ]
