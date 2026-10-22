@@ -137,7 +137,10 @@ RULES = [
     LayerRule(
         # THE invariant of the two-halves design: the arena process must never
         # import a policy stack. Their torch pins conflict with Isaac's, which is
-        # the entire reason RemoteTask exists.
+        # why each checkpoint is served from its own environment. Only GR00T's
+        # client protocol (gr00t.policy.server_client), which Arena's own GR00T
+        # client uses and the arena environment installs, crosses over; the
+        # model, its configs and its training code stay out.
         #
         # Isaac itself is *not* listed here. Scene, asset and embodiment modules
         # import isaaclab at module scope and must — IsaacLab cfgs are
@@ -153,7 +156,10 @@ RULES = [
                 "i4h_tasks.gr00t_n16",
                 "i4h_tasks.gr00t_n17",
                 "i4h_tasks.openpi_pi0",
-                "gr00t",
+                "gr00t.configs",
+                "gr00t.eval",
+                "gr00t.experiment",
+                "gr00t.model",
                 "openpi",
             }
         ),

@@ -15,14 +15,12 @@ from __future__ import annotations
 import io
 from dataclasses import dataclass
 
-import gymnasium as gym
 import torch
 import zmq
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
-from i4h_common.config import get_robot_config
-from i4h_common.joint_utils import isaaclab_rad_to_lerobot, lerobot_to_isaaclab_rad
+from i4h_arena.policies._chunks import ChunkReplay, from_lerobot, to_lerobot, uint8_image
 
 #: Per checkpoint: the observation group, its joint term, (camera term -> video key),
 #: (state key -> slice of the joints), the action keys in action order, how many leading
@@ -79,7 +77,7 @@ class Gr00tN15RemotePolicyCfg(PolicyCfg):
 
 
 @register_policy
-class Gr00tN15RemotePolicy(PolicyBase[Gr00tN15RemotePolicyCfg]):
+class Gr00tN15RemotePolicy(ChunkReplay, PolicyBase[Gr00tN15RemotePolicyCfg]):
     """Closed-loop GR00T N1.5 inference with chunk replay, one request per env."""
 
     name = "i4h_gr00t_n15_remote"
@@ -92,8 +90,6 @@ class Gr00tN15RemotePolicy(PolicyBase[Gr00tN15RemotePolicyCfg]):
         self._socket = self._context.socket(zmq.REQ)
         self._socket.setsockopt(zmq.RCVTIMEO, int(config.timeout_s * 1000))
         self._socket.connect(f"tcp://{config.remote_host}:{config.remote_port}")
-        self._chunk: torch.Tensor | None = None
-        self._index: torch.Tensor | None = None
         self.task_description: str | None = None
 
     def _call(self, observations: dict) -> dict:
@@ -111,18 +107,11 @@ class Gr00tN15RemotePolicy(PolicyBase[Gr00tN15RemotePolicyCfg]):
         group = observation[layout["group"]]
         joints = group[layout["joints"]][env_id].float().cpu()
         if layout["lerobot_units"]:
-            robot = get_robot_config(layout["lerobot_units"])
-            joints = torch.from_numpy(
-                isaaclab_rad_to_lerobot(
-                    joints.double().numpy(), robot.isaaclab_joint_pos_limit_range, robot.lerobot_joint_pos_limit_range
-                )
-            )
+            joints = torch.from_numpy(to_lerobot(joints.double().numpy(), layout["lerobot_units"]))
         request = {key: joints[part].reshape(*lead, -1) for key, part in layout["state"].items()}
         for camera, key in layout["video"].items():
-            image = group[camera][env_id].cpu()
-            if image.is_floating_point():
-                image = (image * 255.0 if image.max() <= 1.0 else image).clamp(0, 255)
-            request[key] = image.to(torch.uint8).reshape(*lead, *image.shape)
+            image = uint8_image(group[camera][env_id].cpu())
+            request[key] = image.reshape(*lead, *image.shape)
         prompt = self.task_description
         request["annotation.human.task_description"] = [prompt] if layout["batched"] else prompt
         actions = self._call(request)
@@ -131,33 +120,11 @@ class Gr00tN15RemotePolicy(PolicyBase[Gr00tN15RemotePolicyCfg]):
         parts = [torch.as_tensor(actions[key]).double() for key in layout["action"]]
         chunk = torch.cat([part.reshape(-1, part.shape[-1] if part.ndim > 1 else 1) for part in parts], dim=-1)
         if layout["lerobot_units"]:
-            chunk = torch.from_numpy(
-                lerobot_to_isaaclab_rad(
-                    chunk.numpy(), robot.lerobot_joint_pos_limit_range, robot.isaaclab_joint_pos_limit_range
-                )
-            )
+            chunk = torch.from_numpy(from_lerobot(chunk.numpy(), layout["lerobot_units"]))
         chunk = chunk.float()
         full = torch.zeros(chunk.shape[0], action_dim)
         full[:, layout["action_offset"] : layout["action_offset"] + chunk.shape[-1]] = chunk
         return full
-
-    def get_action(self, env: gym.Env, observation) -> torch.Tensor:
-        env = env.unwrapped
-        n, action_dim = env.num_envs, env.action_manager.total_action_dim
-        if self._chunk is None:
-            self._chunk = torch.zeros(n, self.horizon, action_dim)
-            self._index = torch.full((n,), self.horizon, dtype=torch.long)
-        for env_id in range(n):
-            if self._index[env_id] >= self.horizon:
-                self._chunk[env_id] = self._infer(observation, env_id, action_dim)[: self.horizon]
-                self._index[env_id] = 0
-        action = self._chunk[torch.arange(n), self._index]
-        self._index += 1
-        return action.to(env.device)
-
-    def reset(self, env_ids: torch.Tensor | None = None) -> None:
-        if self._index is not None:
-            self._index[slice(None) if env_ids is None else env_ids.cpu()] = self.horizon
 
     def close(self) -> None:
         self._socket.close(linger=0)

@@ -29,11 +29,11 @@ from i4h_common.server import Session
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from i4h_tasks.gr00t_n17.serve import register_modalities  # noqa: E402
 from i4h_tasks.gr00t_n17.server import (  # noqa: E402
     Gr00tN17Server,
     _is_calibrated,
     _modality_keys,
-    _register_modalities,
 )
 
 
@@ -247,4 +247,4 @@ def test_a_missing_action_group_is_an_error(server) -> None:
 def test_an_unknown_modality_config_names_the_alternatives() -> None:
     """A manifest typo should not surface as a bare ImportError."""
     with pytest.raises(ValueError, match="config_catheter"):
-        _register_modalities("config_no_such_embodiment")
+        register_modalities("config_no_such_embodiment")

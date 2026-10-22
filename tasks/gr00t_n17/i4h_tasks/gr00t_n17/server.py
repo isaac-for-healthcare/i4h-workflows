@@ -11,9 +11,7 @@ why this file is short.
 from __future__ import annotations
 
 import argparse
-import importlib
 import logging
-import os
 from typing import Any
 
 import numpy as np
@@ -22,6 +20,7 @@ from i4h_common.bus.messages import ObsFrame
 from i4h_common.config import RobotConfig, get_robot_config
 from i4h_common.joint_utils import isaaclab_rad_to_lerobot, lerobot_to_isaaclab_rad
 from i4h_common.server import ActionContract, PolicyServer, Session
+from i4h_tasks.gr00t_n17.serve import DEFAULT_MODALITY_CONFIG, register_modalities, resolve_model_path
 
 logger = logging.getLogger("i4h_tasks.gr00t_n17")
 
@@ -29,10 +28,6 @@ logger = logging.getLogger("i4h_tasks.gr00t_n17")
 #: Used only by embodiments that declare no splits of their own, which is what
 #: every checkpoint here looked like before the catheter arrived.
 FALLBACK_MODALITY_KEYS = ("single_arm", "gripper")
-
-#: Registered when a task names none. Keeping the SO-ARM default means existing
-#: manifests behave exactly as they did.
-DEFAULT_MODALITY_CONFIG = "config"
 
 
 def _modality_keys(robot: RobotConfig) -> tuple[str, ...]:
@@ -44,21 +39,6 @@ def _modality_keys(robot: RobotConfig) -> tuple[str, ...]:
     if robot.action_split:
         return tuple(name for name, _start, _end in robot.action_split)
     return FALLBACK_MODALITY_KEYS
-
-
-def _register_modalities(module: str) -> None:
-    """Import a sibling modality config for its registration side effect.
-
-    Registration has to happen before the policy reads the checkpoint
-    processor's embodiment metadata. Names are checked against the modules that
-    exist rather than passed to ``import_module`` as given, so a typo in a
-    manifest names the alternatives instead of raising a bare ImportError.
-    """
-    here = os.path.dirname(__file__)
-    if not os.path.isfile(os.path.join(here, f"{module}.py")):
-        available = sorted(name[:-3] for name in os.listdir(here) if name.startswith("config") and name.endswith(".py"))
-        raise ValueError(f"no modality config {module!r} in this stack; have {available}")
-    importlib.import_module(f"{__package__}.{module}")
 
 
 def _is_calibrated(robot: RobotConfig) -> bool:
@@ -95,12 +75,12 @@ class Gr00tN17Server(PolicyServer):
         model = session.model
         # Only one modality config can hold an embodiment tag, so the task says
         # which one it wants; training resolves the same name to the same file.
-        _register_modalities(str(model.get("modality_config") or DEFAULT_MODALITY_CONFIG))
+        register_modalities(str(model.get("modality_config") or DEFAULT_MODALITY_CONFIG))
 
         path = session.checkpoint or str(model.get("repo", ""))
         if not path:
             raise ValueError(f"{session.task_id}: no model repo and no --checkpoint")
-        path = _resolve_model_path(path)
+        path = resolve_model_path(path)
         logger.info("loading %s", path)
         policy = Gr00tPolicy(
             model_path=path,
@@ -226,23 +206,6 @@ class Gr00tN17Server(PolicyServer):
         claimed = set(ordered)
         ordered += [index for index in range(len(frame.state_names)) if index not in claimed]
         return state[ordered]
-
-
-def _resolve_model_path(path: str) -> str:
-    expanded = os.path.expanduser(path)
-    if os.path.exists(expanded):
-        return expanded
-    # A filesystem path that is not there is a missing checkpoint, not a hub
-    # repo. Saying so beats the HFValidationError that asking the hub about an
-    # absolute path produces, which reads as a credentials or naming problem
-    # when the real answer is that training never got far enough to save. A
-    # repo id is `namespace/name`, so one separator is still hub-shaped.
-    if os.path.isabs(expanded) or expanded.startswith(("./", "../", "~")) or expanded.count("/") > 1:
-        raise FileNotFoundError(f"no checkpoint at {expanded}")
-    from huggingface_hub import snapshot_download
-
-    logger.info("downloading %s", path)
-    return snapshot_download(repo_id=path)
 
 
 def _action_value(chunk: dict[str, Any], key: str) -> Any:

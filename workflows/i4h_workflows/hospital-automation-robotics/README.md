@@ -9,7 +9,7 @@ Workflows for robotic manipulation, transport, and procedural support in hospita
 | `assemble_trocar` | Lift, align, insert, place, and release a trocar with a Unitree G1. | IsaacLab-Arena environment `G1Trocar` (`g1_trocar`): GR00T N1.5 policy, replay ([commands](#assemble-trocar)) |
 | `locomanip_push_cart` | Walk to a cart, grip it, and push it forward with a Unitree G1. | IsaacLab-Arena environment `G1Cart` (`g1_cart`): GR00T N1.6 policy, keyboard teleop, replay ([commands](#g1-loco-manipulation)) |
 | `locomanip_tray_pick_and_place` | Move a surgical tray from a shelf to a cart with a Unitree G1. | IsaacLab-Arena environment `G1Tray` (`g1_tray`): GR00T N1.6 policy, keyboard teleop, replay ([commands](#g1-loco-manipulation)) |
-| `scissor_pick_and_place` | Pick up surgical scissors, place them in a tray, and return an SO-ARM 101 home. | IsaacLab-Arena environment `SoarmScissors` (`soarm_scissors`): GR00T N1.5 policy, rule-based keyframes, keyboard or leader-arm teleop, replay ([commands](#scissor-pick-and-place)) |
+| `scissor_pick_and_place` | Pick up surgical scissors, place them in a tray, and return an SO-ARM 101 home. | IsaacLab-Arena environment `SoarmScissors` (`soarm_scissors`): GR00T N1.5 or N1.7 policy, rule-based keyframes, keyboard or leader-arm teleop, replay ([commands](#scissor-pick-and-place)) |
 | [`spread_tablecloth_g1`](spread_tablecloth_g1.py) | Spread a deformable tablecloth with Unitree G1 and Inspire hands. | `teleop` (XR), `replay`, `idle` |
 | [`spread_tablecloth_h2`](spread_tablecloth_h2.py) | Spread a deformable tablecloth with Unitree H2 and Sharpa Wave hands. | `teleop` (XR), `replay`, `idle` |
 
@@ -58,6 +58,17 @@ tasks/gr00t_n15/.venv/bin/python -m i4h_tasks.gr00t_n15.serve scissor_pick_and_p
 # Evaluate it for 3 episodes (terminal 2). Add --viz kit to watch.
 arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
   --policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --embodiment so101_scissors \
+  --remote_port 5555 --num_episodes 3 --enable_cameras \
+  --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
+```
+
+The GR00T N1.7 checkpoint, `nvidia/SO_ARM_Starter_Gr00tN17`, runs on GR00T 1.7's own inference server; `i4h_tasks.gr00t_n17.serve` registers its modality config before starting it, and `Gr00tN17RemotePolicy` speaks GR00T's client protocol. Its backbone, `nvidia/Cosmos-Reason2-2B`, is gated on Hugging Face: request access on the model page with the account `hf auth login` uses.
+
+```bash
+tasks/gr00t_n17/.venv/bin/python -m i4h_tasks.gr00t_n17.serve scissor_pick_and_place --port 5555
+
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.gr00t_n17.Gr00tN17RemotePolicy --embodiment so101_scissors \
   --remote_port 5555 --num_episodes 3 --enable_cameras \
   --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
 ```
