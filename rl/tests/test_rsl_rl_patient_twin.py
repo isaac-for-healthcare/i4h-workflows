@@ -213,3 +213,20 @@ def test_evaluation_defaults_allow_scenes_without_anatomy(isaac_cli):
     )
     assert args.patient_twin is None
     assert args.fluoro_backend is None and args.fluoro_device is None
+
+
+def test_a_fast_patient_cannot_fill_a_slower_patients_episodes():
+    quota = rsl_rl_eval.PatientEpisodeQuota(episodes=2, num_envs=2)
+
+    finished = [0, 0, 0, 1]
+    accepted = [env_id for env_id in finished if quota.accept(env_id)]
+
+    assert accepted == [0, 1]
+
+
+def test_episodes_spread_evenly_over_per_environment_patients():
+    quota = rsl_rl_eval.PatientEpisodeQuota(episodes=7, num_envs=3)
+
+    assert quota.quotas == [3, 2, 2]
+    with pytest.raises(ValueError, match="at least 3 episodes"):
+        rsl_rl_eval.PatientEpisodeQuota(episodes=2, num_envs=3)

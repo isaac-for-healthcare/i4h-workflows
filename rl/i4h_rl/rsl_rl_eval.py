@@ -53,6 +53,29 @@ def _metric_values(module_name: str | None, env) -> dict[str, object]:
     return values
 
 
+class PatientEpisodeQuota:
+    """Spread the requested episodes evenly over environments that each hold their own patient.
+
+    Environment ``i`` contributes ``episodes // num_envs`` episodes, one more for
+    the first ``episodes % num_envs``. Without the quota a fast environment
+    would fill the whole request before a slower patient finishes once.
+    """
+
+    def __init__(self, episodes: int, num_envs: int):
+        if episodes < num_envs:
+            raise ValueError(f"evaluating {num_envs} per-environment patients needs at least {num_envs} episodes")
+        base, extra = divmod(episodes, num_envs)
+        self.quotas = [base + (1 if env_id < extra else 0) for env_id in range(num_envs)]
+        self.taken = [0] * num_envs
+
+    def accept(self, env_id: int) -> bool:
+        """Count an episode that ``env_id`` finished, unless its patient already has its share."""
+        if self.taken[env_id] >= self.quotas[env_id]:
+            return False
+        self.taken[env_id] += 1
+        return True
+
+
 def main() -> int:
     from isaaclab.app import AppLauncher
 
@@ -121,6 +144,7 @@ def main() -> int:
         metric_minima = {name: torch.full((env.num_envs,), float("inf"), device=env.device) for name in initial_metrics}
         episode_steps = torch.zeros(env.num_envs, dtype=torch.long, device=env.device)
         completed: list[dict[str, float | int | bool]] = []
+        quota = PatientEpisodeQuota(args.episodes, env.num_envs) if isinstance(args.patient_twin, tuple) else None
         max_steps = env.max_episode_length * (args.episodes // env.num_envs + 2)
 
         with torch.inference_mode():
@@ -138,10 +162,14 @@ def main() -> int:
                 time_outs = extras.get("time_outs", torch.zeros_like(dones, dtype=torch.bool)).bool()
                 done_ids = torch.nonzero(dones.bool(), as_tuple=False).flatten().tolist()
                 for env_id in done_ids:
+                    if quota is not None and not quota.accept(env_id):
+                        continue
                     episode = {
                         "success": not bool(time_outs[env_id].item()),
                         "steps": int(episode_steps[env_id].item()),
                     }
+                    if quota is not None:
+                        episode["env_id"] = env_id
                     episode.update(
                         {f"min_{name}": float(values[env_id].item()) for name, values in metric_minima.items()}
                     )
