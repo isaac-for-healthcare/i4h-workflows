@@ -28,7 +28,8 @@ class HoldPolicyCfg(PolicyCfg):
 
 @register_policy
 class HoldPolicy(PolicyBase[HoldPolicyCfg]):
-    """Joint targets at the default pose, Cartesian targets at the reset tool pose, jaws open, G1 standing."""
+    """Joint targets at the default pose, Cartesian targets at the reset tool pose, jaws open, G1 standing,
+    Pink IK wrists and fingers where they are."""
 
     name = "i4h_hold"
 
@@ -71,6 +72,15 @@ def _reset_state_action(env) -> torch.Tensor:
             value = (pose - term._offset) / term._scale.clamp_min(1e-9)
         elif isinstance(term, BinaryJointAction):
             value[:] = 1.0
+        elif hasattr(term, "_ik_controllers") and hasattr(term, "_hand_joint_ids"):
+            # Isaac Lab's Pink IK: each frame task's link pose in the env frame (xyz, xyzw), then
+            # the hand joints. Hold the measured wrists and fingers.
+            data = term._asset.data
+            poses = data.body_link_pose_w.torch.clone()
+            poses[:, :, :3] -= env.scene.env_origins.unsqueeze(1)
+            frames = [task.frame for task in term._ik_controllers[0].cfg.variable_input_tasks if hasattr(task, "frame")]
+            links = [poses[:, data.body_names.index(frame)] for frame in frames]
+            value = torch.cat([*links, data.joint_pos.torch[:, term._hand_joint_ids]], dim=-1)
         elif hasattr(term, "get_base_height_cmd_from_actions"):
             # Arena's G1 whole-body controller: joint targets, then navigate (3), base height (1)
             # and torso roll-pitch-yaw (3) commands. Stand still at the default pose and height.

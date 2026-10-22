@@ -200,3 +200,34 @@ def test_observations_are_recorded_only_into_a_requested_dataset(monkeypatch) ->
 
 def test_demonstrations_use_isaac_labs_recorder_without_an_arena_camera_group(monkeypatch) -> None:
     assert _configured_env_cfg(monkeypatch).demo_recorder_config is None
+
+
+def test_hold_keeps_pink_ik_wrists_and_fingers_where_they_are() -> None:
+    from i4h_arena.policies import hold
+
+    poses = torch.zeros(1, 3, 7)
+    poses[:, 1] = torch.tensor([1.0, 2.0, 3.0, 0.0, 0.0, 0.0, 1.0])
+    poses[:, 2] = torch.tensor([4.0, 5.0, 6.0, 0.0, 0.0, 1.0, 0.0])
+    data = SimpleNamespace(
+        body_names=["pelvis", "left_wrist", "right_wrist"],
+        body_link_pose_w=SimpleNamespace(torch=poses),
+        joint_pos=SimpleNamespace(torch=torch.tensor([[0.1, 0.2, 0.3, 0.4]])),
+    )
+    tasks = [SimpleNamespace(frame="left_wrist"), SimpleNamespace(frame="right_wrist"), SimpleNamespace()]
+    pink = SimpleNamespace(
+        action_dim=16,
+        _asset=SimpleNamespace(data=data),
+        _ik_controllers=[SimpleNamespace(cfg=SimpleNamespace(variable_input_tasks=tasks))],
+        _hand_joint_ids=[3, 1],
+    )
+    env = SimpleNamespace(
+        num_envs=1,
+        device="cpu",
+        scene=SimpleNamespace(env_origins=torch.tensor([[1.0, 1.0, 0.0]])),
+        action_manager=SimpleNamespace(active_terms=["pink"], get_term=lambda _name: pink),
+    )
+
+    action = hold._reset_state_action(env)
+
+    expected = [0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 1.0, 3.0, 4.0, 6.0, 0.0, 0.0, 1.0, 0.0, 0.4, 0.2]
+    assert torch.allclose(action, torch.tensor([expected]))

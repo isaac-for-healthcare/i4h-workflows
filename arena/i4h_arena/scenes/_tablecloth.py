@@ -88,15 +88,19 @@ class TableclothScene(Scene):
             from i4h_arena.envcfg.tablecloth.h2_spread_tablecloth_teleop_env_cfg import H2SpreadTableclothTeleopEnvCfg
 
             cfg = H2SpreadTableclothTeleopEnvCfg()
-        cfg.sim.device = self.args.device
+        device = getattr(self.args, "device", None) or "cuda:0"
+        cfg.sim.device = device
         if self.robot_kind == "g1":
+            # Pink IK writes the robot's URDF where it runs: the run directory, or one per scene.
+            workflow = getattr(self.args, "workflow", None) or self.name
             run_dir = Path(
                 os.environ.get("I4H_RUN_DIR")
-                or (workflow_root() / "runs" / self.args.workflow / datetime.now().strftime("%Y%m%d_%H%M%S"))
+                or (workflow_root() / "runs" / workflow / datetime.now().strftime("%Y%m%d_%H%M%S"))
             )
             cfg.actions.pink_ik_cfg.controller.urdf_output_dir = str(run_dir / "robot")
-        cfg.isaac_teleop.sim_device = self.args.device
-        select_physics_backend(cfg, self.args.presets)
+        cfg.isaac_teleop.sim_device = device
+        # Cloth needs Newton; Arena's runners take --presets newton, the i4h runtime defaults to it.
+        select_physics_backend(cfg, getattr(self.args, "presets", None) or "newton")
         if self.robot_kind == "g1":
             from isaaclab_newton.sim.schemas import MujocoRigidBodyPropertiesCfg
 
@@ -104,8 +108,9 @@ class TableclothScene(Scene):
             # MJWarp consumes mjc:gravcomp instead; cloth gravity stays on. Isaac Lab
             # 3.0 GA registers MuJoCo's USD attributes for the coupled solver itself.
             cfg.scene.robot.spawn.rigid_props = MujocoRigidBodyPropertiesCfg(gravcomp=1.0)
-        cameras = () if self.args.no_cameras else tuple(self.camera_aliases().values())
-        if self.args.no_cameras:
+        no_cameras = getattr(self.args, "no_cameras", not getattr(self.args, "enable_cameras", True))
+        cameras = () if no_cameras else tuple(self.camera_aliases().values())
+        if no_cameras:
             cfg.observations.camera_images = None
         return IsaacLabArenaEnvironment(
             name=self.name,

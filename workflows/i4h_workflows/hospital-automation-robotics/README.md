@@ -10,8 +10,8 @@ Workflows for robotic manipulation, transport, and procedural support in hospita
 | `locomanip_push_cart` | Walk to a cart, grip it, and push it forward with a Unitree G1. | IsaacLab-Arena environment `G1Cart` (`g1_cart`): GR00T N1.6 policy, keyboard teleop, replay ([commands](#g1-loco-manipulation)) |
 | `locomanip_tray_pick_and_place` | Move a surgical tray from a shelf to a cart with a Unitree G1. | IsaacLab-Arena environment `G1Tray` (`g1_tray`): GR00T N1.6 policy, keyboard teleop, replay ([commands](#g1-loco-manipulation)) |
 | `scissor_pick_and_place` | Pick up surgical scissors, place them in a tray, and return an SO-ARM 101 home. | IsaacLab-Arena environment `SoarmScissors` (`soarm_scissors`): GR00T N1.5 or N1.7 policy, rule-based keyframes, keyboard or leader-arm teleop, replay ([commands](#scissor-pick-and-place)) |
-| [`spread_tablecloth_g1`](spread_tablecloth_g1.py) | Spread a deformable tablecloth with Unitree G1 and Inspire hands. | `teleop` (XR), `replay`, `idle` |
-| [`spread_tablecloth_h2`](spread_tablecloth_h2.py) | Spread a deformable tablecloth with Unitree H2 and Sharpa Wave hands. | `teleop` (XR), `replay`, `idle` |
+| `spread_tablecloth_g1` | Spread a deformable tablecloth with Unitree G1 and Inspire hands. | IsaacLab-Arena environment `G1Tablecloth` (`g1_tablecloth`): XR teleop, replay ([guide](../../../docs/workflows/tablecloth.md)) |
+| `spread_tablecloth_h2` | Spread a deformable tablecloth with Unitree H2 and Sharpa Wave hands. | IsaacLab-Arena environment `H2Tablecloth` (`h2_tablecloth`): XR teleop, replay ([guide](../../../docs/workflows/tablecloth.md)) |
 
 See [tablecloth XR setup and recording](../../../docs/workflows/tablecloth.md).
 
@@ -31,7 +31,7 @@ Open a preview to view the animated demonstration.
 
 Tablecloth camera screenshots from simulator validation:
 
-| [`spread_tablecloth_g1`](spread_tablecloth_g1.py) | [`spread_tablecloth_h2`](spread_tablecloth_h2.py) |
+| `spread_tablecloth_g1` | `spread_tablecloth_h2` |
 | :---: | :---: |
 | [![G1 Inspire hands and tablecloth](../../../docs/workflows/images/spread_tablecloth_g1.webp)](../../../docs/workflows/images/spread_tablecloth_g1.webp) | [![H2 Sharpa hands and tablecloth](../../../docs/workflows/images/spread_tablecloth_h2.webp)](../../../docs/workflows/images/spread_tablecloth_h2.webp) |
 

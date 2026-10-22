@@ -251,7 +251,7 @@ arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
 
 Policy checkpoints run in their own environments behind a policy server; Arena's runner connects to it as a client (see each specialty README). Each episode ends on its environment's success term or after the step budget its workflow was validated with.
 
-The endoluminal and tablecloth workflows still run through `./run.sh <workflow>`; `./run.sh --help` lists its options, and `./stop.sh all` stops its processes.
+The endoluminal workflows still run through `./run.sh <workflow>`; `./run.sh --help` lists its options, and `./stop.sh all` stops its processes.
 
 <!-- markdownlint-disable MD033 -->
 

@@ -101,7 +101,7 @@ def test_headless_closes_the_viewport_for_recording_and_replay(tmp_path, marker)
 
 
 def test_a_workflow_without_an_e2e_pipeline_is_refused(tmp_path) -> None:
-    result = _run(tmp_path, "spread_tablecloth_g1")
+    result = _run(tmp_path, "endoluminal_navigation")
 
     assert result.returncode == 2
     assert "has no e2e pipeline" in result.stderr

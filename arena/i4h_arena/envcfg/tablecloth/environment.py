@@ -40,6 +40,11 @@ class TableclothEmbodiment(EmbodimentBase):
         self.event_config = None
         self.xr = env_cfg.xr
 
+    def get_recorder_term_cfg(self, record_trajectories: bool = False) -> Any:
+        from i4h_arena.embodiments.recorders import action_state_recorders  # noqa: PLC0415
+
+        return action_state_recorders(super().get_recorder_term_cfg(record_trajectories))
+
 
 class TableclothTask(TaskBase):
     """Spread the cloth: the env cfg's reset event and time-out, with no success term.

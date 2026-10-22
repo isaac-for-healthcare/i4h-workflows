@@ -16,10 +16,7 @@ EXPECTED_SPECIALTIES = {
     "laparoscopic-robotics": set(),
     "ultrasound-robotics": set(),
     "endoluminal-robotics": {"endoluminal_navigation", "endoluminal_navigation_arm"},
-    "hospital-automation-robotics": {
-        "spread_tablecloth_g1",
-        "spread_tablecloth_h2",
-    },
+    "hospital-automation-robotics": set(),
 }
 
 
@@ -61,7 +58,7 @@ def test_resolve_builds_a_mode_specific_task_graph() -> None:
 
 
 def test_resolve_uses_the_authored_default_mode() -> None:
-    resolved = resolve_workflow("spread_tablecloth_g1")
+    resolved = resolve_workflow("endoluminal_navigation")
 
     assert resolved.mode == "idle"
 
@@ -94,4 +91,4 @@ def test_replay_builder_forwards_all_supported_arguments() -> None:
 
 def test_resolve_rejects_an_unexposed_mode() -> None:
     with pytest.raises(KeyError, match="has no mode 'policy'"):
-        resolve_workflow("spread_tablecloth_g1", "policy")
+        resolve_workflow("endoluminal_navigation", "policy")
