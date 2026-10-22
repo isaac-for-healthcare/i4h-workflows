@@ -12,6 +12,14 @@ from i4h_arena.scenes.base import Scene
 class UltrasoundProbeReachScene(Scene):
     name = "ultrasound_probe_reach"
 
+    @classmethod
+    def add_cli_args(cls, parser: Any) -> None:
+        parser.add_argument(
+            "--rl_observations",
+            action="store_true",
+            help="Use the RL embodiment and flat observations an RSL-RL policy trained by rl/ reads.",
+        )
+
     def register_assets(self) -> None:
         import i4h_arena.assets.ultrasound_probe_reach  # noqa: F401
 
@@ -27,13 +35,14 @@ class UltrasoundProbeReachScene(Scene):
         )
         from i4h_arena.envcfg.ultrasound_probe_reach import UltrasoundProbeReachTask
 
-        rl_observations = bool(
-            getattr(self.args, "rl_observations", False) or getattr(self.args, "mode", "") == "policy"
-        )
+        rl_observations = bool(getattr(self.args, "rl_observations", False))
         embodiment = (
             FrankaUltrasoundRLEmbodiment()
             if rl_observations
-            else FrankaUltrasoundEmbodiment(enable_cameras=not bool(getattr(self.args, "no_cameras", False)))
+            else FrankaUltrasoundEmbodiment(
+                enable_cameras=bool(getattr(self.args, "enable_cameras", True))
+                and not bool(getattr(self.args, "no_cameras", False))
+            )
         )
         if not rl_observations:
             embodiment.scene_config.robot.init_state.joint_pos = {

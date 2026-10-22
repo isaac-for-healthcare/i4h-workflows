@@ -74,7 +74,7 @@ def test_coverage_command_uses_parallel_coverage_data() -> None:
 
     assert f"coverage=={run_tests.COVERAGE_VERSION}" in command
     assert command[command.index("coverage") + 1 : command.index("coverage") + 3] == ["run", "--parallel-mode"]
-    assert command[-2:] == ["tasks/rsl_rl/tests", "tasks/teleop/tests"]
+    assert command[-2:] == ["tasks/ik/tests", "tasks/teleop/tests"]
 
 
 def _patient_twin_command() -> run_tests.TestCommand:

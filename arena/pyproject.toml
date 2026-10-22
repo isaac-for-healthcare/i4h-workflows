@@ -8,7 +8,6 @@ dependencies = [
     "i4h-engine",
     "i4h-workflows",
     "i4h-tasks-basic",
-    "i4h-tasks-rsl-rl",
     "i4h-tasks-ik",
     "i4h-tasks-teleop",
     "catheter-vasculature-solver",
@@ -65,7 +64,6 @@ i4h-common = { path = "../common", editable = true }
 i4h-engine = { path = "../engine", editable = true }
 i4h-workflows = { path = "../workflows", editable = true }
 i4h-tasks-basic = { path = "../tasks/basic", editable = true }
-i4h-tasks-rsl-rl = { path = "../tasks/rsl_rl", editable = true }
 i4h-tasks-ik = { path = "../tasks/ik", editable = true }
 i4h-tasks-teleop = { path = "../tasks/teleop", editable = true }
 isaacsim = { index = "nvidia" }

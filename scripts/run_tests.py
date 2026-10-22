@@ -80,7 +80,6 @@ SUITES = {
                 "tasks/openpi_pi0/tests/test_openpi_pi0_train_options.py",
                 "rl/tests/test_rsl_rl_arm_runtime.py",
                 "tasks/ik/tests",
-                "tasks/rsl_rl/tests",
                 "tasks/teleop/tests",
             ),
         ),

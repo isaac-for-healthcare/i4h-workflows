@@ -1431,7 +1431,6 @@ dependencies = [
     { name = "i4h-engine" },
     { name = "i4h-tasks-basic" },
     { name = "i4h-tasks-ik" },
-    { name = "i4h-tasks-rsl-rl" },
     { name = "i4h-tasks-teleop" },
     { name = "i4h-workflows" },
     { name = "isaaclab" },
@@ -1473,7 +1472,6 @@ requires-dist = [
     { name = "i4h-engine", editable = "../engine" },
     { name = "i4h-tasks-basic", editable = "../tasks/basic" },
     { name = "i4h-tasks-ik", editable = "../tasks/ik" },
-    { name = "i4h-tasks-rsl-rl", editable = "../tasks/rsl_rl" },
     { name = "i4h-tasks-teleop", editable = "../tasks/teleop" },
     { name = "i4h-workflows", editable = "../workflows" },
     { name = "isaaclab", editable = "../third_party/IsaacLab-e3f7d9f/source/isaaclab" },
@@ -1587,26 +1585,6 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [[package]]
-name = "i4h-tasks-rsl-rl"
-version = "0.1.0"
-source = { editable = "../tasks/rsl_rl" }
-dependencies = [
-    { name = "i4h-common" },
-    { name = "i4h-engine" },
-    { name = "numpy" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "i4h-common", editable = "../common" },
-    { name = "i4h-engine", editable = "../engine" },
-    { name = "i4h-tasks-basic", marker = "extra == 'dev'", editable = "../tasks/basic" },
-    { name = "numpy", specifier = ">=1.23.5,<3" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
 name = "i4h-tasks-teleop"
 version = "0.1.0"
 source = { editable = "../tasks/teleop" }
@@ -1637,7 +1615,6 @@ dependencies = [
     { name = "i4h-engine" },
     { name = "i4h-tasks-basic" },
     { name = "i4h-tasks-ik" },
-    { name = "i4h-tasks-rsl-rl" },
     { name = "i4h-tasks-teleop" },
 ]
 
@@ -1647,7 +1624,6 @@ requires-dist = [
     { name = "i4h-engine", editable = "../engine" },
     { name = "i4h-tasks-basic", editable = "../tasks/basic" },
     { name = "i4h-tasks-ik", editable = "../tasks/ik" },
-    { name = "i4h-tasks-rsl-rl", editable = "../tasks/rsl_rl" },
     { name = "i4h-tasks-teleop", editable = "../tasks/teleop" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
 ]

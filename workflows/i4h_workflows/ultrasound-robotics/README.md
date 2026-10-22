@@ -7,7 +7,7 @@ Workflows for robot-assisted ultrasound probe positioning and scanning.
 | Workflow | Demonstration | Supported modes ([guide](../../i4h_workflow_modes/README.md)) |
 | --- | --- | --- |
 | [`ultrasound_liver_scan`](ultrasound_liver_scan.py) | Move an ultrasound probe across an abdominal phantom. | `policy`, `rule-based`, `teleop`, `replay`, `idle` |
-| [`ultrasound_probe_reach`](ultrasound_probe_reach.py) | Align an ultrasound probe with a randomized target. | `policy`, `idle` |
+| `ultrasound_probe_reach` | Align an ultrasound probe with a randomized target. | IsaacLab-Arena environment `UltrasoundProbeReach` (`ultrasound_probe_reach`); evaluate a trained RSL-RL checkpoint with Arena's `rsl_rl` policy (see below) |
 
 ## Demonstrations
 
@@ -41,7 +41,7 @@ The agent runs the workflow, verifies the episode result, and inspects its recor
 
 ## RL Training
 
-`ultrasound_probe_reach` supports the maintained RSL-RL PPO training profile. A trained checkpoint is not included; train and export one before using policy mode.
+`ultrasound_probe_reach` supports the maintained RSL-RL PPO training profile. A trained checkpoint is not included; train one, then evaluate it as a policy in the environment.
 
 ### Train with an AI Agent
 
@@ -80,15 +80,21 @@ TRAIN_RUN="$PWD/runs/ultrasound_probe_reach/YYYYMMDD_HHMMSS"
   --checkpoint "$TRAIN_RUN/model_final.pt" \
   --episodes 20
 
-# Export the verified policy to TorchScript.
+# Evaluate the checkpoint as a policy in the environment with IsaacLab-Arena's runner.
+# Arena's rsl_rl policy reads params/agent.yaml beside the checkpoint, which the
+# timestamped Isaac Lab log directory inside the run holds.
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type rsl_rl --checkpoint_path "$(ls -d "$TRAIN_RUN"/20*/ | tail -1)model_399.pt" \
+  --num_episodes 20 \
+  --external_environment_class_path i4h_arena.environments:UltrasoundProbeReach ultrasound_probe_reach \
+  --rl_observations
+
+# Optionally export the policy to TorchScript and ONNX for deployment.
 ./train.sh rl export ultrasound_probe_reach \
   --checkpoint "$TRAIN_RUN/model_final.pt" \
   --output-dir "$TRAIN_RUN/exported"
-
-# Validate the exported policy through the Workflow.
-./run.sh ultrasound_probe_reach --policy \
-  --checkpoint "$TRAIN_RUN/exported/policy.pt" \
-  --episodes 20
 ```
+
+Add `--viz kit` to watch the policy. `--rl_observations` selects the flat observations the policy was trained on.
 
 RSL-RL training and evaluation are a separate lifecycle, not workflow run modes.

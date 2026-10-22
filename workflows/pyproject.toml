@@ -7,7 +7,6 @@ dependencies = [
     "i4h-common",
     "i4h-engine",
     "i4h-tasks-basic",
-    "i4h-tasks-rsl-rl",
     "i4h-tasks-ik",
     "i4h-tasks-teleop",
 ]
@@ -26,7 +25,6 @@ packages = ["i4h_workflows", "i4h_workflow_modes"]
 i4h-common = { path = "../common", editable = true }
 i4h-engine = { path = "../engine", editable = true }
 i4h-tasks-basic = { path = "../tasks/basic", editable = true }
-i4h-tasks-rsl-rl = { path = "../tasks/rsl_rl", editable = true }
 i4h-tasks-ik = { path = "../tasks/ik", editable = true }
 i4h-tasks-teleop = { path = "../tasks/teleop", editable = true }
 

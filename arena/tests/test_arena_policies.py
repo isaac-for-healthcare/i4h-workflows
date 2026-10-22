@@ -27,6 +27,7 @@ def _flags(environment: type) -> argparse.Namespace:
 def test_every_scene_is_an_arena_environment_named_after_it() -> None:
     assert environments.PsmReach.name == "psm_reach"
     assert environments.DualPsmReach.name == "dual_psm_reach"
+    assert environments.UltrasoundProbeReach.name == "ultrasound_probe_reach"
 
 
 def test_scene_flags_reach_the_arena_builder_by_name() -> None:
@@ -35,6 +36,7 @@ def test_scene_flags_reach_the_arena_builder_by_name() -> None:
     assert surgical.recorder_dataset_export_dir_path is None
     assert surgical.recorder_dataset_filename is None
     assert not hasattr(_flags(environments.SoarmScissors), "action_device")
+    assert _flags(environments.UltrasoundProbeReach).rl_observations is False
 
 
 def test_eased_motion_ends_exactly_on_the_goal() -> None:

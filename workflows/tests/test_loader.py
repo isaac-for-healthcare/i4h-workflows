@@ -14,7 +14,7 @@ from i4h_engine.loader import available_workflows, load_workflow_module, resolve
 EXPECTED_SPECIALTIES = {
     # The surgical workflows run as IsaacLab-Arena environments with i4h policies (see the README).
     "laparoscopic-robotics": set(),
-    "ultrasound-robotics": {"ultrasound_liver_scan", "ultrasound_probe_reach"},
+    "ultrasound-robotics": {"ultrasound_liver_scan"},
     "endoluminal-robotics": {"endoluminal_navigation", "endoluminal_navigation_arm"},
     "hospital-automation-robotics": {
         "assemble_trocar",

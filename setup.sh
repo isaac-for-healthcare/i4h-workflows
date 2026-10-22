@@ -16,7 +16,7 @@ cd "$ROOT"
 command -v uv >/dev/null 2>&1 || { echo "uv is required" >&2; exit 1; }
 command -v git >/dev/null 2>&1 || { echo "git is required for third_party checkouts" >&2; exit 1; }
 
-LIGHT=(common engine tasks/basic tasks/rsl_rl workflows rl)
+LIGHT=(common engine tasks/basic workflows rl)
 TASKS=(tasks/ik tasks/teleop tasks/gr00t_n15 tasks/gr00t_n16 tasks/gr00t_n17 tasks/openpi_pi0)
 TOOLS=(tools/mimic tools/dataset tools/cosmos tools/annotator tools/patient_twin)
 all_projects=("${LIGHT[@]}" "${TASKS[@]}" "${TOOLS[@]}" arena)

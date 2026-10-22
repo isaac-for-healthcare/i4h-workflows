@@ -144,27 +144,6 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [[package]]
-name = "i4h-tasks-rsl-rl"
-version = "0.1.0"
-source = { editable = "../tasks/rsl_rl" }
-dependencies = [
-    { name = "i4h-common" },
-    { name = "i4h-engine" },
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "i4h-common", editable = "../common" },
-    { name = "i4h-engine", editable = "../engine" },
-    { name = "i4h-tasks-basic", marker = "extra == 'dev'", editable = "../tasks/basic" },
-    { name = "numpy", specifier = ">=1.23.5,<3" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
 name = "i4h-tasks-teleop"
 version = "0.1.0"
 source = { editable = "../tasks/teleop" }
@@ -196,7 +175,6 @@ dependencies = [
     { name = "i4h-engine" },
     { name = "i4h-tasks-basic" },
     { name = "i4h-tasks-ik" },
-    { name = "i4h-tasks-rsl-rl" },
     { name = "i4h-tasks-teleop" },
 ]
 
@@ -211,7 +189,6 @@ requires-dist = [
     { name = "i4h-engine", editable = "../engine" },
     { name = "i4h-tasks-basic", editable = "../tasks/basic" },
     { name = "i4h-tasks-ik", editable = "../tasks/ik" },
-    { name = "i4h-tasks-rsl-rl", editable = "../tasks/rsl_rl" },
     { name = "i4h-tasks-teleop", editable = "../tasks/teleop" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
 ]
@@ -498,7 +475,7 @@ resolution-markers = [
     "python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7a/97/5a3609c4f8d58b039179648e62dd220f89864f56f7357f5d4f45c29eb2cc/scipy-1.17.1.tar.gz", hash = "sha256:95d8e012d8cb8816c226aef832200b1d45109ed4464303e997c5b13122b297c0", size = 30573822, upload-time = "2026-02-23T00:26:24.851Z" }
 wheels = [
@@ -532,7 +509,7 @@ resolution-markers = [
     "python_full_version >= '3.12'",
 ]
 dependencies = [
-    { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" } },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a7/25/c2700dfaf6442b4effaa91af24ebce5dc9d31bb4a69706313aae70d72cd0/scipy-1.18.0.tar.gz", hash = "sha256:67b2ad2ad54c72ca6d04975a9b2df8c3638c34ddd5b28738e94fc2b57929d378", size = 30774447, upload-time = "2026-06-19T15:01:43.456Z" }
 wheels = [

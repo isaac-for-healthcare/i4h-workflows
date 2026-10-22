@@ -18,6 +18,3 @@ robots:
 - robot
 max_steps: 250
 control_hz: 50.0
-mode_overrides:
-  policy:
-    cameras: []

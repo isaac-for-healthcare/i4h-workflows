@@ -10,7 +10,6 @@ source =
     tasks/gr00t_n15/i4h_tasks/gr00t_n15
     tasks/gr00t_n16/i4h_tasks/gr00t_n16
     tasks/ik/i4h_tasks/ik
-    tasks/rsl_rl/i4h_tasks/rsl_rl
     tasks/teleop/i4h_tasks/teleop
     rl/i4h_rl
     tools/dataset/i4h_tools/dataset
