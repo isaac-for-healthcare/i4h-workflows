@@ -6,7 +6,7 @@ Workflows for robotic manipulation, transport, and procedural support in hospita
 
 | Workflow | Demonstration | Supported modes ([guide](../../i4h_workflow_modes/README.md)) |
 | --- | --- | --- |
-| [`assemble_trocar`](assemble_trocar.py) | Lift, align, insert, place, and release a trocar with a Unitree G1. | `policy`, `replay`, `idle` |
+| `assemble_trocar` | Lift, align, insert, place, and release a trocar with a Unitree G1. | IsaacLab-Arena environment `G1Trocar` (`g1_trocar`): GR00T N1.5 policy, replay ([commands](#assemble-trocar)) |
 | `locomanip_push_cart` | Walk to a cart, grip it, and push it forward with a Unitree G1. | IsaacLab-Arena environment `G1Cart` (`g1_cart`): GR00T N1.6 policy, keyboard teleop, replay ([commands](#g1-loco-manipulation)) |
 | `locomanip_tray_pick_and_place` | Move a surgical tray from a shelf to a cart with a Unitree G1. | IsaacLab-Arena environment `G1Tray` (`g1_tray`): GR00T N1.6 policy, keyboard teleop, replay ([commands](#g1-loco-manipulation)) |
 | [`scissor_pick_and_place`](scissor_pick_and_place.py) | Pick up surgical scissors, place them in a tray, and return an SO-ARM 101 home. | `policy`, `policy_n17`, `rule-based`, `teleop`, `replay`, `idle` |
@@ -21,7 +21,7 @@ See [tablecloth XR setup and recording](../../../docs/workflows/tablecloth.md).
 
 Open a preview to view the animated demonstration.
 
-| [`assemble_trocar`](assemble_trocar.py) | `locomanip_push_cart` |
+| `assemble_trocar` | `locomanip_push_cart` |
 | :---: | :---: |
 | [![Unitree G1 assembling a trocar](../../../docs/workflows/images/assemble_trocar.webp)](../../../docs/workflows/images/assemble_trocar.gif) | [![Unitree G1 pushing a cart](../../../docs/workflows/images/locomanip_push_cart.webp)](../../../docs/workflows/images/locomanip_push_cart.gif) |
 
@@ -42,8 +42,6 @@ Note: Complete the [project setup](../../../README.md#setup-from-the-command-lin
 Paste any prompt into Claude Code, Codex, or the repository's [Local Agent](../../../local-agent/README.md):
 
 ```text
-Evaluate trocar assembly for 1 episode.
-
 Evaluate scissor pick and place for 1 episode.
 ```
 
@@ -52,9 +50,6 @@ The agent runs the selected workflow, verifies the episode result, and inspects 
 ## Run from the Command Line
 
 ```bash
-# Assemble a trocar with the GR00T N1.5 policy.
-./run.sh assemble_trocar --policy
-
 # Pick and place scissors with the rule-based controller.
 ./run.sh scissor_pick_and_place --rule-based
 
@@ -100,7 +95,27 @@ arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.p
   --dataset_file runs/g1_cart/teleop.hdf5 --num_demos 1
 ```
 
-Replay a recording, from its recorded initial state, with `scripts/tools/replay_demos.py` and the same `--external_callback`, `--external_environment_class_path` and `--task`, plus `--dataset_file <recording> --validate_success_rate`. Watch the scene without a policy with `--policy_type i4h_arena.policies.hold.HoldPolicy --viz kit --num_episodes 1`.
+Replay a recording, from its recorded initial state, with `scripts/tools/replay_demos.py` and the same `--external_callback`, `--external_environment_class_path` and `--task`, plus `--dataset_file <recording> --validate_success_rate`. Replay without `--enable_cameras`: Arena's registration callback starts Kit before Isaac Lab can enable camera rendering, so camera sensors fail to initialize. Watch the scene without a policy with `--policy_type i4h_arena.policies.hold.HoldPolicy --viz kit --num_episodes 1`.
+
+## Assemble Trocar
+
+`assemble_trocar` runs as the IsaacLab-Arena environment `G1Trocar` (`g1_trocar`), whose success term is the fifth milestone: both trocars lifted, aligned, inserted, placed and released. An episode times out after 250 steps.
+
+The checkpoint, `nvidia/GR00T-N1.5-RL-Rheo-AssembleTrocar` @ `b54e14286ed3f8392d614741748739e09c7fefe4`, needs its own data config and preprocessing, so `i4h_tasks.gr00t_n15.serve` loads it and serves it with GR00T 1.5's `RobotInferenceServer`. The simulator connects with `i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy`:
+
+```bash
+# Start the policy server (terminal 1). It downloads the pinned checkpoint on first use;
+# pass --model-path for a local or exported one.
+tasks/gr00t_n15/.venv/bin/python -m i4h_tasks.gr00t_n15.serve assemble_trocar --port 5555
+
+# Evaluate it for 4 episodes (terminal 2). Add --viz kit to watch.
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --remote_port 5555 \
+  --num_episodes 4 --enable_cameras \
+  --external_environment_class_path i4h_arena.environments:G1Trocar g1_trocar
+```
+
+Record the episodes with `--recorder_dataset_export_dir_path <dir> --recorder_dataset_filename <name>` after the environment name, and replay one with Isaac Lab's `scripts/tools/replay_demos.py` as in [G1 Loco-manipulation](#g1-loco-manipulation), using `--external_environment_class_path i4h_arena.environments:G1Trocar --task g1_trocar`.
 
 ## Assemble Trocar RL Post-training
 
@@ -156,9 +171,11 @@ TRAIN_RUN="$PWD/runs/assemble_trocar/YYYYMMDD_HHMMSS"
 ./train.sh rl export assemble_trocar \
   --checkpoint "$TRAIN_RUN" \
   --output-dir "$TRAIN_RUN/exported"
-./run.sh assemble_trocar --policy \
-  --checkpoint "$TRAIN_RUN/exported"
+tasks/gr00t_n15/.venv/bin/python -m i4h_tasks.gr00t_n15.serve assemble_trocar \
+  --model-path "$TRAIN_RUN/exported" --port 5555
 ```
+
+Then evaluate the exported policy with the `policy_runner` command in [Assemble Trocar](#assemble-trocar).
 
 RLinf PPO post-training is a separate training lifecycle, not a workflow run mode.
 

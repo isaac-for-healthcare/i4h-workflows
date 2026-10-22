@@ -315,6 +315,10 @@ class G1AssembleTrocarJointEmbodiment(EmbodimentBase):
         self.camera_config.set_use_tiled_camera(False)
         self.action_config = G1AssembleTrocarActionsCfg()
         self.observation_config = G1AssembleTrocarObservationsCfg()
+        if not enable_cameras:
+            # Without camera sensors (Isaac Lab's replay_demos, joint-only runs) observe joints only.
+            for term in ("front_camera_rgb", "left_wrist_camera_rgb", "right_wrist_camera_rgb"):
+                setattr(self.observation_config.policy, term, None)
 
     def get_recorder_term_cfg(self, record_trajectories: bool = False):
         from i4h_arena.embodiments.recorders import action_state_recorders

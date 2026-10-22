@@ -136,6 +136,8 @@ class PolicyRunnerSmoke:
     policy_type: str
     policy_args: tuple[str, ...] = ()
     environment_args: tuple[str, ...] = ()
+    server: tuple[str, ...] = ()
+    """A policy server the rollout connects to, started before it and stopped after."""
 
     @property
     def workflow(self) -> str:
@@ -149,7 +151,22 @@ class PolicyRunnerSmoke:
 GPU_SMOKES = (
     PolicyRunnerSmoke("psm_reach", "i4h_arena.policies.reach.CartesianReachPolicy"),
     PolicyRunnerSmoke("psm_needle", "i4h_arena.policies.lift.CartesianLiftPolicy"),
-    WorkflowSmoke("assemble_trocar", ("--policy",)),
+    PolicyRunnerSmoke(
+        "g1_trocar",
+        "i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy",
+        # The first request waits for the server to load (or download) the checkpoint.
+        policy_args=("--remote_port", "5555", "--timeout_s", "1800"),
+        server=(
+            "tasks/gr00t_n15/.venv/bin/python",
+            "-m",
+            "i4h_tasks.gr00t_n15.serve",
+            "assemble_trocar",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "5555",
+        ),
+    ),
     WorkflowSmoke("ultrasound_liver_scan", ("--rule-based",)),
     WorkflowSmoke("scissor_pick_and_place", ("--rule-based",)),
     WorkflowSmoke("endoluminal_navigation", ("--mode", "demo")),
@@ -227,7 +244,35 @@ def _finish_coverage(timeout: int) -> bool:
 def _run_policy_runner_smoke(smoke: PolicyRunnerSmoke, timeout: int) -> bool:
     print(f"\n==> [gpu] {smoke.environment} {smoke.policy_type}", flush=True)
     output_dir = Path(tempfile.mkdtemp(prefix=f"i4h-smoke-{smoke.environment}-"))
-    rollout = _run_command(
+    server = None
+    if smoke.server:
+        print("    " + " ".join(smoke.server), flush=True)
+        with (output_dir / "server.log").open("w") as log:
+            server = subprocess.Popen(smoke.server, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+    try:
+        rollout = _run_policy_runner(smoke, output_dir, timeout)
+    finally:
+        if server is not None:
+            server.terminate()
+            server.wait(timeout=60)
+    if rollout is None or rollout.returncode:
+        print("!! policy runner failed", file=sys.stderr)
+        return False
+    results = sorted(output_dir.glob("outputs/*/episode_results_rank0.jsonl"))
+    if not results or not results[-1].read_text().strip():
+        print("!! policy runner reported no completed episode", file=sys.stderr)
+        return False
+    recording = output_dir / GPU_RECORDING
+    if not recording.is_file():
+        print(f"!! rollout recording is missing: {recording}", file=sys.stderr)
+        return False
+    return True
+
+
+def _run_policy_runner(
+    smoke: PolicyRunnerSmoke, output_dir: Path, timeout: int
+) -> subprocess.CompletedProcess[str] | None:
+    return _run_command(
         [
             "uv",
             "run",
@@ -259,18 +304,6 @@ def _run_policy_runner_smoke(smoke: PolicyRunnerSmoke, timeout: int) -> bool:
         timeout=timeout,
         capture=True,
     )
-    if rollout is None or rollout.returncode:
-        print("!! policy runner failed", file=sys.stderr)
-        return False
-    results = sorted(output_dir.glob("outputs/*/episode_results_rank0.jsonl"))
-    if not results or not results[-1].read_text().strip():
-        print("!! policy runner reported no completed episode", file=sys.stderr)
-        return False
-    recording = output_dir / GPU_RECORDING
-    if not recording.is_file():
-        print(f"!! rollout recording is missing: {recording}", file=sys.stderr)
-        return False
-    return True
 
 
 def _run_gpu_smoke(smoke: WorkflowSmoke | PolicyRunnerSmoke, timeout: int) -> bool:

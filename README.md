@@ -242,7 +242,6 @@ Container builds, DGX Spark, Jetson AGX Thor, Zenoh, and sibling vLLM usage are 
 ./run.sh scissor_pick_and_place --replay demos.hdf5 --episode 0
 ./run.sh scissor_pick_and_place --teleop keyboard --record
 
-./run.sh assemble_trocar --policy --episodes 1
 ./run.sh surgical_reach_psm --rule-based --episodes 1
 ./run.sh surgical_reach_psm --rule-based --episodes 1 --presets newton
 

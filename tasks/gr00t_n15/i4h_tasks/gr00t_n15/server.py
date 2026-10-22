@@ -44,22 +44,6 @@ class Gr00tN15Server(PolicyServer):
             logger.info("reusing loaded policy %s", key)
             return
 
-        if session.task_id.endswith("/assemble_trocar"):
-            from i4h_tasks.gr00t_n15.assemble_trocar.infer.policy import AssembleTrocarPolicy
-
-            model = session.model
-            logger.info("loading Assemble Trocar adapter for %s", session.checkpoint or model.get("repo", ""))
-            self._policies[key] = AssembleTrocarPolicy(
-                model_path=session.checkpoint or None,
-                model_repo=str(model.get("repo") or "") or None,
-                model_revision=str(model.get("revision") or "") or None,
-                task_description=session.prompt,
-                device="cuda",
-                action_head_future_tokens=int(model.get("action_head_future_tokens", 32)),
-                trt_engine_path=str(model.get("trt_engine_path") or "") or None,
-            )
-            return
-
         from gr00t.experiment.data_config import DATA_CONFIG_MAP
         from gr00t.model.policy import Gr00tPolicy
 
@@ -111,8 +95,6 @@ class Gr00tN15Server(PolicyServer):
         pass
 
     def action_contract(self, session: Session) -> ActionContract:
-        if session.task_id.endswith("/assemble_trocar"):
-            return ActionContract(space="joint_position", layout="joints", dof=43)
         robot = self._robot(session)
         return ActionContract(
             space="joint_position",
@@ -126,19 +108,6 @@ class Gr00tN15Server(PolicyServer):
         policy = self._policies.get(self._cache_key(session))
         if policy is None:
             return None
-
-        if session.task_id.endswith("/assemble_trocar"):
-            images = session.images(frame)
-            actions = policy.get_action(
-                {
-                    "frames": images,
-                    "joint_positions": np.asarray(frame.state, dtype=np.float32),
-                }
-            )
-            actions = np.atleast_2d(np.asarray(actions, dtype=np.float32))
-            if not np.isfinite(actions).all():
-                raise ValueError("Assemble Trocar produced non-finite joint actions")
-            return actions[: min(session.execution_steps, len(actions))]
 
         observation = self._observation(session, frame)
         chunk = policy.get_action(observation)

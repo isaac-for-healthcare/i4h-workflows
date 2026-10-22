@@ -209,9 +209,13 @@ TRAIN_RUN="$PWD/runs/assemble_trocar/YYYYMMDD_HHMMSS"
   --checkpoint "$TRAIN_RUN" \
   --output-dir "$TRAIN_RUN/exported"
 
-./run.sh assemble_trocar --policy \
-  --checkpoint "$TRAIN_RUN/exported" \
-  --episodes 1
+# Serve the export, then evaluate it in the IsaacLab-Arena environment.
+tasks/gr00t_n15/.venv/bin/python -m i4h_tasks.gr00t_n15.serve assemble_trocar \
+  --model-path "$TRAIN_RUN/exported" --port 5555 &
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --remote_port 5555 \
+  --num_episodes 1 --enable_cameras \
+  --external_environment_class_path i4h_arena.environments:G1Trocar g1_trocar
 ```
 
 Across RLinf profiles, optional training and periodic evaluation recordings warn on encoder or writer-close failures. Standalone evaluation requires a decodable video when requested with `--video` or effective `env.eval.video_cfg.save_video=true`; video failures return nonzero with a video diagnostic. `--set` uses Hydra 1.3.2 in both dry-run preflight and launch, including `+` additions and `++` forced overrides.

@@ -17,7 +17,6 @@ EXPECTED_SPECIALTIES = {
     "ultrasound-robotics": {"ultrasound_liver_scan"},
     "endoluminal-robotics": {"endoluminal_navigation", "endoluminal_navigation_arm"},
     "hospital-automation-robotics": {
-        "assemble_trocar",
         "scissor_pick_and_place",
         "spread_tablecloth_g1",
         "spread_tablecloth_h2",
@@ -64,7 +63,7 @@ def test_resolve_builds_a_mode_specific_task_graph() -> None:
 
 
 def test_resolve_uses_the_authored_default_mode() -> None:
-    resolved = resolve_workflow("assemble_trocar")
+    resolved = resolve_workflow("spread_tablecloth_g1")
 
     assert resolved.mode == "idle"
 

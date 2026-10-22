@@ -28,7 +28,7 @@ def test_gpu_smoke_workflows() -> None:
     ] == [
         ("psm_reach", "i4h_arena.policies.reach.CartesianReachPolicy"),
         ("psm_needle", "i4h_arena.policies.lift.CartesianLiftPolicy"),
-        ("assemble_trocar", ("--policy",)),
+        ("g1_trocar", "i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy"),
         ("ultrasound_liver_scan", ("--rule-based",)),
         ("scissor_pick_and_place", ("--rule-based",)),
         ("endoluminal_navigation", ("--mode", "demo")),
@@ -58,6 +58,35 @@ def test_policy_runner_smoke_records_one_episode(tmp_path, monkeypatch) -> None:
     assert command[command.index("-m") + 1] == "isaaclab_arena.evaluation.policy_runner"
     assert command[command.index("--external_environment_class_path") + 1] == "i4h_arena.environments:PsmReach"
     assert command[command.index("--num_episodes") + 1] == "1"
+
+
+def test_policy_runner_smoke_serves_the_policy_during_the_rollout(tmp_path, monkeypatch) -> None:
+    events: list[str] = []
+
+    class FakeServer:
+        def __init__(self, argv, **_kwargs) -> None:
+            events.append("server started: " + " ".join(argv[2:4]))
+
+        def terminate(self) -> None:
+            events.append("server stopped")
+
+        def wait(self, timeout: float) -> int:
+            return 0
+
+    def fake_run(argv: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        events.append("rollout")
+        output = Path(argv[argv.index("--recorder_dataset_export_dir_path") + 1])
+        (output / "outputs" / "run").mkdir(parents=True)
+        (output / "outputs" / "run" / "episode_results_rank0.jsonl").write_text('{"success": false}\n')
+        (output / run_tests.GPU_RECORDING).touch()
+        return subprocess.CompletedProcess(argv, 0, stdout="")
+
+    monkeypatch.setattr(run_tests.subprocess, "Popen", FakeServer)
+    monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
+    monkeypatch.setattr(run_tests.tempfile, "mkdtemp", lambda prefix: str(tmp_path))
+
+    assert run_tests._run_gpu_smoke(_smoke("g1_trocar"), timeout=30)
+    assert events == ["server started: i4h_tasks.gr00t_n15.serve assemble_trocar", "rollout", "server stopped"]
 
 
 def test_policy_runner_smoke_requires_an_episode_result(tmp_path, monkeypatch) -> None:
@@ -150,7 +179,7 @@ def test_gpu_smoke_accepts_unsuccessful_episode(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
 
-    assert run_tests._run_gpu_smoke(_smoke("assemble_trocar"), timeout=30)
+    assert run_tests._run_gpu_smoke(_smoke("scissor_pick_and_place"), timeout=30)
     assert calls[1][-3:] == ["inspect", str(recording), "--segments"]
 
 

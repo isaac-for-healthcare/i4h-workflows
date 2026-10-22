@@ -17,7 +17,6 @@ Useful variants:
 ```bash
 ./run.sh robot-pd surgical_reach_psm --modes inspect-usd,step-response
 ./run.sh robot-pd ultrasound_liver_scan --joint-names-expr 'panda_joint.*' --plots
-./run.sh robot-pd assemble_trocar --joint-names-expr '.*shoulder.*,.*elbow.*' --sample-every 5
 ```
 
 Unknown tuning arguments are forwarded to the live workflow launch. For example, select Newton for a supported surgical workflow:
