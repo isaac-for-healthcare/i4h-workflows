@@ -16,7 +16,7 @@ objects:
 - tray
 - cart
 max_steps: 1500
-control_hz: 30.0
+control_hz: 50.0
 mode_overrides:
   teleop:
     dof: 23

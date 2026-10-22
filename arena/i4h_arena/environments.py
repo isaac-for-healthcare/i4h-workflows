@@ -44,6 +44,11 @@ class SceneEnvironment(ExampleEnvironmentBase):
         def env_cfg_callback(env_cfg: Any) -> Any:
             env_cfg = tune(env_cfg)
             scene.configure_env_cfg(env_cfg)
+            # Time out after the scene manifest's step budget, the one its workflows were
+            # validated against, counted in this env's own control steps. Isaac Lab rounds the
+            # episode length up to whole steps, so half a step short lands exactly on the budget.
+            steps = getattr(args_cli, "episode_steps", None) or scene.spec.max_steps
+            env_cfg.episode_length_s = (steps - 0.5) * env_cfg.sim.dt * env_cfg.decimation
             return env_cfg
 
         arena_env.env_cfg_callback = env_cfg_callback

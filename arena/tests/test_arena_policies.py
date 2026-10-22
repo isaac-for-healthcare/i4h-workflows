@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 from types import SimpleNamespace
 
 import pytest
@@ -140,3 +141,22 @@ def test_arms_pair_ik_terms_with_their_frames(monkeypatch, width: int) -> None:
     arms = _cartesian.arms_of(SimpleNamespace(action_manager=manager))
     assert [arm.frame for arm in arms] == (["ee_frame", "ee_2_frame"] if width == 14 else ["ee_frame"])
     assert arms[-1].pose == slice(width - 7, width)
+
+
+@pytest.mark.parametrize(("episode_steps", "expected"), [(None, 150), (40, 40)])
+def test_environment_times_out_after_the_validated_step_budget(monkeypatch, episode_steps, expected) -> None:
+    configured = []
+    scene = SimpleNamespace(
+        spec=SimpleNamespace(max_steps=150),
+        arena_environment=lambda: SimpleNamespace(env_cfg_callback=lambda cfg: cfg),
+        configure_env_cfg=configured.append,
+    )
+    monkeypatch.setattr(environments, "load_scene", lambda _name, _args: scene)
+    arena_env = environments.PsmReach().get_env(argparse.Namespace(episode_steps=episode_steps))
+    env_cfg = SimpleNamespace(sim=SimpleNamespace(dt=1 / 60), decimation=2, episode_length_s=5.0)
+
+    arena_env.env_cfg_callback(env_cfg)
+
+    assert configured == [env_cfg]
+    step_dt = env_cfg.sim.dt * env_cfg.decimation
+    assert math.ceil(env_cfg.episode_length_s / step_dt) == expected
