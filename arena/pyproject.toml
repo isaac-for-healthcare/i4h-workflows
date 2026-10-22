@@ -41,6 +41,10 @@ dependencies = [
     "isaaclab-assets",
     "leisaac",
     "isaaclab-arena",
+    # Clients for policy servers that run in their own environments, as Arena installs them:
+    # GR00T's ZMQ PolicyClient (N1.6 protocol, also spoken by N1.7 servers) and openpi's.
+    "gr00t",
+    "openpi-client",
     "warp-lang==1.17.0",
     "osqp>=0.6.7.post3",
     "qpsolvers==4.8.1",
@@ -84,6 +88,8 @@ isaaclab-visualizers = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab
 isaaclab-assets = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_assets", editable = true }
 leisaac = { path = "../third_party/leisaac-cd61a20/source/leisaac", editable = true }
 isaaclab-arena = { path = "../third_party/IsaacLab-Arena-c7edf3a", editable = true }
+gr00t = { path = "../third_party/Isaac-GR00T-1.6", editable = true }
+openpi-client = { path = "../third_party/openpi-581e07d/packages/openpi-client", editable = true }
 catheter-vasculature-solver = { path = "../third_party/i4h-physics-simulation-internal/physics_simulation/endoluminal/catheter-vasculature-solver", editable = true }
 xray-simulator = { path = "../third_party/i4h-sensor-simulation-internal/xray-simulator", editable = true }
 torch = [
@@ -141,6 +147,12 @@ override-dependencies = [
     # IsaacLab-Arena 0.3.1 pins websockets==16.1.1 for its remote policy client.
     "websockets==16.1.1",
 ]
+
+# Only the GR00T client is imported in the simulator; its model stack runs in tasks/gr00t_n1*.
+[[tool.uv.dependency-metadata]]
+name = "gr00t"
+version = "0.1.0"
+requires-dist = ["msgpack>=1.1", "numpy>=2,<3", "pyzmq>=26,<28"]
 
 [tool.uv.extra-build-dependencies]
 egl-probe = ["cmake<4"]
