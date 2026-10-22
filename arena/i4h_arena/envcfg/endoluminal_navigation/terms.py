@@ -112,6 +112,24 @@ class CatheterNavigationObservationsCfg:
     policy: NavigationObsCfg = MISSING
 
 
+@configclass
+class CatheterDriveObservationsCfg:
+    """The drive state alone, for a procedural phantom with no route to observe against.
+
+    Isaac Lab's tools expect a ``policy`` group in every environment.
+    """
+
+    @configclass
+    class DriveObsCfg(ObservationGroupCfg):
+        drive_state: ObservationTermCfg = ObservationTermCfg(func=drive_state)
+
+        def __post_init__(self) -> None:
+            self.enable_corruption = False
+            self.concatenate_terms = False
+
+    policy: DriveObsCfg = DriveObsCfg()
+
+
 def navigation_observations_cfg(
     target_world_m: Iterable[float],
     *,

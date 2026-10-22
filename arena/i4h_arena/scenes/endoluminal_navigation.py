@@ -50,6 +50,20 @@ class EndoluminalNavigationScene(Scene):
         """
         return bool(getattr(self.args, "rl_observations", False)) or bool(getattr(self.args, "rl_training_mode", False))
 
+    @classmethod
+    def add_cli_args(cls, parser: Any) -> None:
+        parser.add_argument(
+            "--patient_twin",
+            default=None,
+            help="Patient-twin YAML manifest: the vessel route, its goal and the CT the fluoroscopy renders.",
+        )
+        parser.add_argument(
+            "--fluoro_backend",
+            choices=("synthetic", "slang"),
+            default=None,
+            help="Fluoroscopy renderer (default: Slang with --patient_twin, otherwise synthetic).",
+        )
+
     def configure_args(self, args: Any) -> None:
         """Select Newton: the catheter rod solver is a Newton solver whatever ``--presets`` says.
 
@@ -72,7 +86,7 @@ class EndoluminalNavigationScene(Scene):
         """
         from i4h_arena.embodiments.catheter import CatheterEmbodiment
 
-        return CatheterEmbodiment(patient_twin_manifest=self.args.patient_twin)
+        return CatheterEmbodiment(patient_twin_manifest=getattr(self.args, "patient_twin", None))
 
     def _make_task(self, embodiment: Any) -> Any:
         """Bind the navigation goal to the route the embodiment seeded its rod on.
@@ -112,9 +126,13 @@ class EndoluminalNavigationScene(Scene):
             embodiment=self._embodiment,
             scene=ArenaScene(
                 assets=make_assets(
-                    fluoro_backend=resolve_fluoroscopy_backend(self.args.fluoro_backend, self.args.patient_twin),
-                    fluoro_device=self.args.fluoro_device,
-                    patient_twin_manifest=self.args.patient_twin,
+                    fluoro_backend=resolve_fluoroscopy_backend(
+                        getattr(self.args, "fluoro_backend", None), getattr(self.args, "patient_twin", None)
+                    ),
+                    # Slang on CUDA has to be imported before Kit starts, which Arena's and
+                    # Isaac Lab's runners do not allow for; their runs render on Vulkan.
+                    fluoro_device=getattr(self.args, "fluoro_device", None) or "vulkan",
+                    patient_twin_manifest=getattr(self.args, "patient_twin", None),
                 )
             ),
             task=self._make_task(self._embodiment),
@@ -128,11 +146,18 @@ class EndoluminalNavigationScene(Scene):
         )
 
     def configure_env_cfg(self, env_cfg: Any) -> None:
+        from isaaclab.devices.device_base import DevicesCfg
         from isaaclab.envs.common import ViewerCfg
+
+        from i4h_arena.devices.catheter import CatheterKeyboardCfg
 
         # A wider three-quarter view keeps the detector, arc, support, patient, and table
         # visible together in the viewport's narrower docked layout.
         env_cfg.viewer = ViewerCfg(eye=(2.45, -1.65, 1.65), lookat=(-0.25, 0.12, 0.78))
+        # Isaac Lab's record_demos.py --teleop_device catheter_keyboard finds the device here.
+        env_cfg.teleop_devices = DevicesCfg(
+            devices={"catheter_keyboard": CatheterKeyboardCfg(sim_device=env_cfg.sim.device)}
+        )
 
     def scene_rtx_settings(self) -> dict[str, Any]:
         return {"enable_translucency": True}

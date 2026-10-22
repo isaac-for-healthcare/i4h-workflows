@@ -7,6 +7,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 import torch
 
 from i4h_arena.policies import gr00t_n17
@@ -63,3 +64,44 @@ def test_so101_requests_are_nested_in_lerobot_units_and_actions_come_back_in_rad
     # One request per 16 executed actions, each back in Isaac Lab radians.
     assert len(server.requests) == 2
     assert torch.allclose(actions[0][0], torch.from_numpy(home).float(), atol=1e-5)
+
+
+def test_catheter_requests_carry_the_drive_target_and_route_groups(monkeypatch) -> None:
+    requests: list[dict] = []
+
+    class Server:
+        def __init__(self, host: str, port: int) -> None:
+            pass
+
+        def get_modality_config(self) -> dict:
+            return {"language": SimpleNamespace(modality_keys=["annotation.human.task_description"])}
+
+        def get_action(self, observation: dict) -> tuple[dict, dict]:
+            requests.append(observation)
+            return {"catheter": np.full((1, 16, 3), 0.01), "carm": np.full((1, 16, 1), -0.2)}, {}
+
+    monkeypatch.setattr(gr00t_n17, "PolicyClient", Server)
+    policy = gr00t_n17.Gr00tN17RemotePolicy(gr00t_n17.Gr00tN17RemotePolicyCfg(embodiment="catheter"))
+    policy.set_task_description("Steer the catheter along the vessel and stop at the target branch")
+    observation = {
+        "policy": {
+            "drive_state": torch.tensor([[0.1, 0.2, 0.3, 0.4]]),
+            "target_offset": torch.tensor([[0.5, 0.6, 0.7]]),
+            "route_state": torch.tensor([[0.8, 0.9]]),
+            "fluoroscopy_rgb": torch.zeros(1, 1024, 1024, 3, dtype=torch.uint8),
+        }
+    }
+    env = SimpleNamespace(
+        unwrapped=SimpleNamespace(num_envs=1, action_manager=SimpleNamespace(total_action_dim=4), device="cpu")
+    )
+
+    action = policy.get_action(env, observation)
+
+    state = requests[0]["state"]
+    assert state["catheter"].flatten().tolist() == pytest.approx([0.1, 0.2, 0.3])
+    assert state["carm"].flatten().tolist() == pytest.approx([0.4])
+    assert state["target"].flatten().tolist() == pytest.approx([0.5, 0.6, 0.7])
+    assert state["route"].flatten().tolist() == pytest.approx([0.8, 0.9])
+    # Box-averaged to the 256 px the recordings, and so the checkpoint, were made at.
+    assert requests[0]["video"]["fluoroscopy"].shape == (1, 1, 256, 256, 3)
+    assert torch.allclose(action, torch.tensor([[0.01, 0.01, 0.01, -0.2]]))

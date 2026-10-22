@@ -58,11 +58,12 @@ def build_parser() -> argparse.ArgumentParser:
     convert_cmd.add_argument(
         "--patient-twin",
         type=Path,
+        nargs="+",
         default=None,
         help=(
             "patient twin manifest, for descriptors whose trailing state columns are derived "
-            "navigation goals; defaults to the patient_twin recorded in the recording's sibling "
-            "run.json, which is the only way to describe several recordings at once"
+            "navigation goals: one per recording, in the order the recordings are given; "
+            "defaults to the patient_twin in the run.json beside each recording"
         ),
     )
     convert_cmd.add_argument(
@@ -467,7 +468,7 @@ def convert(
     successful_only: bool = False,
     task: str = "",
     g1_wbc_policy_actions: bool = False,
-    patient_twin: Path | None = None,
+    patient_twin: Path | Sequence[Path] | None = None,
 ) -> int:
     """Write one LeRobot dataset from one or more recordings.
 
@@ -477,7 +478,8 @@ def convert(
     ``unnormalize_values_minmax`` has no guard for that, so the policy's output
     on that channel denormalizes to exactly zero however it was trained. Pooling
     the recordings makes the statistics span everything the operator actually
-    did. Each recording resolves its own patient twin, so the goal columns stay
+    did. Each recording resolves its own patient twin, given in ``patient_twin``
+    in the order of ``sources`` or named in its run.json, so the goal columns stay
     measured against the route that recording was navigated on.
 
     Returns the number of episodes written.
@@ -512,10 +514,11 @@ def convert(
     sources = [Path(source) for source in sources]
     if not sources:
         raise ValueError("no recordings to convert")
-    if patient_twin is not None and len(sources) > 1:
+    twins = [Path(patient_twin)] if isinstance(patient_twin, (str, Path)) else list(patient_twin or ())
+    if twins and len(twins) != len(sources):
         raise ValueError(
-            "--patient-twin names one anatomy and cannot describe several recordings. Drop it and "
-            "let each recording resolve its own twin from the run.json beside it."
+            f"{len(twins)} --patient-twin manifests for {len(sources)} recordings: one anatomy cannot "
+            "describe several recordings, so name one twin per recording, in the same order."
         )
 
     config = get_robot_config(robot)
@@ -530,9 +533,11 @@ def convert(
         # that matters more, not less: the failure would land after the earlier
         # ones had already been written.
         inputs: list[tuple[Path, NavigationRoute | None, h5py.Group, list[str]]] = []
-        for source in sources:
+        for index, source in enumerate(sources):
             route = (
-                resolve_navigation_route(_resolve_patient_twin(source, patient_twin)) if derives_goal_columns else None
+                resolve_navigation_route(_resolve_patient_twin(source, twins[index] if twins else None))
+                if derives_goal_columns
+                else None
             )
             if route is not None:
                 # Named by the run directory: every recording is called

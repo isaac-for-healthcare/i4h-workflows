@@ -6,16 +6,14 @@ Workflows for navigation and intervention through luminal anatomy.
 
 | Workflow | Demonstration | Supported modes ([guide](../../i4h_workflow_modes/README.md)) |
 | --- | --- | --- |
-| [`endoluminal_navigation`](endoluminal_navigation.py) | Navigate a catheter and movable C-arm with a live fluoroscopy view. | `demo`, `policy_n17`, `teleop`, `replay`, `validate_fluoroscopy`, `idle` |
-| [`endoluminal_navigation_arm`](endoluminal_navigation_arm.py) | The same navigation with the catheter drive carried on a Franka Panda flange. | `demo`, `policy_n17`, `teleop`, `replay`, `idle` |
+| `endoluminal_navigation` | Navigate a catheter and movable C-arm with a live fluoroscopy view. | IsaacLab-Arena environment `EndoluminalNavigation` (`endoluminal_navigation`): scripted sweep, fluoroscopy check, keyboard teleop, replay, GR00T N1.7 policy ([commands](#run-from-the-command-line)) |
+| `endoluminal_navigation_arm` | The same navigation with the catheter drive carried on a Franka Panda flange. | IsaacLab-Arena environment `EndoluminalNavigationArm` (`endoluminal_navigation_arm`): the same commands |
 
-`demo`, `policy_n17` and `validate_fluoroscopy` are workflow-specific extensions, not standard run modes.
-
-The two workflows drive the same catheter to the same goal and accept the same four velocity channels; the arm holds the drive unit rather than being commanded through it. The arm scene spawns a rigid articulation, so it runs the coupled MJWarp + XPBD solver instead of the rod-only one, which costs throughput.
+The two environments drive the same catheter to the same goal and accept the same four velocity channels; the arm holds the drive unit rather than being commanded through it. The arm scene spawns a rigid articulation, so it runs the coupled MJWarp + XPBD solver instead of the rod-only one, which costs throughput.
 
 ## Demonstrations
 
-| [`endoluminal_navigation`](endoluminal_navigation.py) |
+| `endoluminal_navigation` |
 | :---: |
 | ![C-arm viewport beside the live fluoroscopy panel](../../../docs/workflows/images/endoluminal_navigation_fluoroscopy_session.webp) |
 
@@ -28,25 +26,31 @@ Note: Complete the [project setup](../../../README.md#setup-from-the-command-lin
 Paste any prompt into Claude Code, Codex, or the repository's [Local Agent](../../../local-agent/README.md):
 
 ```text
-Run endoluminal_navigation in demo mode for 1 episode without patient CT data.
+Run the endoluminal_navigation sweep for 1 episode without patient CT data.
 
 Prepare TotalSegmentator sample s0011 as a patient twin.
-Run endoluminal_navigation in demo mode and verify fluoroscopy.
+Run the endoluminal_navigation fluoroscopy check with it.
 
-Start endoluminal_navigation teleop with the prepared s0011 patient twin.
+Start endoluminal_navigation keyboard teleop with the prepared s0011 patient twin.
 ```
 
 ## Run from the Command Line
 
+Both environments run with IsaacLab-Arena's policy runner and Isaac Lab's recording tools, from the repository root. The catheter is a Newton rod, so every command passes `--presets newton` before the environment name; the environment's own options (`--patient_twin`, `--episode_steps`, recording paths) follow it. Swap in `EndoluminalNavigationArm endoluminal_navigation_arm` for the arm-borne drive.
+
 ### Procedural demonstration
 
-Run the procedural demonstration without patient data:
+Exercise every channel once without patient data: settle, advance, hold, rotate, bend and unbend the tip, retract, then orbit the C-arm out and back.
 
 ```bash
-./run.sh endoluminal_navigation --mode demo
+# Add --viz kit to watch; the fluoroscopy panel opens beside the viewport.
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.catheter.CatheterSweepPolicy --num_episodes 1 --presets newton \
+  --external_environment_class_path i4h_arena.environments:EndoluminalNavigation endoluminal_navigation \
+  --episode_steps 192
 ```
 
-This uses a procedural patient shape, synthetic fluoroscopy, and the default physics settings. The catheter still runs on the Newton rod solver, but with no vessel to contain it.
+This uses a procedural patient shape, synthetic fluoroscopy, and the default physics settings. The catheter still runs on the Newton rod solver, but with no vessel to contain it, so the episode has no goal and ends at `--episode_steps`.
 
 ### Patient CT
 
@@ -67,27 +71,31 @@ Preparation reads the CT and its vessel labels through the `vasculature_digital_
 
 For a subject that ships a CT and no `segmentations/` directory, pass `--segment-vessels` to derive the vasculature with the package's own segmenter instead of reading label files.
 
-Run the demo using the generated manifest:
+Pass the generated manifest to any command with `--patient_twin`:
 
 ```bash
-./run.sh endoluminal_navigation \
-  --mode demo \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.catheter.CatheterSweepPolicy --num_episodes 1 --presets newton \
+  --external_environment_class_path i4h_arena.environments:EndoluminalNavigation endoluminal_navigation \
+  --episode_steps 192 --patient_twin ./data/TotalSegmentator/s0011/patient_twin.yaml
 ```
 
-Patient-CT fluoroscopy renders with Slang on CUDA when the host has a usable CUDA Toolkit (see the [requirements](../../../README.md#requirements)), and on Vulkan otherwise; the launcher prints which one it chose and, on a fallback, why. CUDA takes about half the time per frame, because Vulkan reads every frame back through the host. Pass `--fluoro-device vulkan` or `--fluoro-device cuda` to choose explicitly; with `cuda` and no usable toolkit, the launcher stops before Isaac Sim starts and names the `libnvrtc.so` it found, if any.
+With a twin, an episode succeeds when the catheter tip reaches the distal end of the vessel centerline and holds there, and times out after 600 steps. Patient-CT fluoroscopy renders with Slang on Vulkan.
 
 ### Keyboard teleoperation
 
-Launch teleoperation:
+Drive the catheter with Isaac Lab's recording tool, which stores each demonstration that reaches the goal:
 
 ```bash
-./run.sh endoluminal_navigation \
-  --teleop \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.py \
+  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+  --external_environment_class_path i4h_arena.environments:EndoluminalNavigation --task endoluminal_navigation \
+  --presets newton --teleop_device catheter_keyboard --viz kit \
+  --patient_twin ./data/TotalSegmentator/s0011/patient_twin.yaml \
+  --dataset_file runs/endoluminal_navigation/teleop.hdf5 --num_demos 1
 ```
 
-Click inside the Isaac window before using the keyboard. The fluoroscopy window provides image, C-arm view, velocity, and brightness controls.
+Click inside the Isaac window before using the keyboard. The fluoroscopy window provides image, C-arm view, velocity, and brightness controls; its velocity slider sets the insertion speed.
 
 | Keys  | Action                                              |
 | ----- | --------------------------------------------------- |
@@ -100,56 +108,52 @@ Click inside the Isaac window before using the keyboard. The fluoroscopy window 
 | R     | Reset the catheter and C-arm to their initial state |
 | L     | Clear a stuck keyboard command                      |
 
+Without a patient twin there is no centerline, so no demonstration can succeed and none is stored. To teach recovery with IL, collect demonstrations that show a successful correction from a wrong branch.
+
 ### Fluoroscopy validation
 
-This mode succeeds only if moving the C-arm changes the fluoroscopy image:
+Check that moving the C-arm changes the fluoroscopy image. The policy orbits the C-arm out and back and prints `[fluoroscopy] C-arm sweep PASS` or `FAIL` with the largest mean frame change it saw:
 
 ```bash
-./run.sh endoluminal_navigation \
-  --mode validate_fluoroscopy \
-  --episodes 2 \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.catheter.FluoroscopyCArmSweepPolicy --num_episodes 1 --presets newton \
+  --external_environment_class_path i4h_arena.environments:EndoluminalNavigation endoluminal_navigation \
+  --episode_steps 80 --patient_twin ./data/TotalSegmentator/s0011/patient_twin.yaml
 ```
 
-### Recording
+### Recording and replay
 
-Add `--record` to store synchronized actions, state, and fluoroscopy frames:
+Add `--recorder_dataset_export_dir_path <dir> --recorder_dataset_filename <name>` after the environment name to record a policy runner's episodes. Recordings, from either tool, store Isaac Lab's actions and states plus what the [converter](../../../tools/dataset/i4h_tools/dataset/cli.py) reads: the procedure state as `obs/joint_pos`, the fluoroscopy frame at 256 px as `obs/fluoroscopy` with its display-independent signal as `obs/fluoroscopy_attenuation`, and the rod's tip and root positions, distance to the target, and containment under `diagnostics/`. Each step pairs the action with the state and frame it was chosen from, as Isaac Lab records; recordings made with the earlier `run.sh` launcher stored the state after the action, one control step later.
 
-```bash
-./run.sh endoluminal_navigation \
-  --teleop \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml \
-  --record --record-failures
-```
-
-Recordings are stored under `./runs/endoluminal_navigation/<timestamp>/`.
-
-Teleoperation ends the episode when the catheter tip reaches the distal end of the vessel centerline and holds there, so a demonstration is goal-terminated and stored with a success label. Without a patient twin there is no centerline, the criterion can never fire, and the episode runs to the step cap instead. `--record-failures` additionally keeps attempts that time out for diagnosis. To teach recovery with IL, collect demonstrations that show a successful correction from a wrong branch.
+Replay a recording with `scripts/tools/replay_demos.py`, the same `--external_callback`, `--external_environment_class_path`, `--task`, `--presets newton` and `--patient_twin`, and `--dataset_file <recording>` (see [Hospital Automation Robotics](../hospital-automation-robotics/README.md#g1-loco-manipulation)).
 
 ### Policy rollout
 
-Roll out a finetuned GR00T N1.7 checkpoint against the same goal the demonstrations were terminated on:
+Roll out a finetuned GR00T N1.7 checkpoint against the same goal the demonstrations were terminated on. [`gr00t_n17/catheter_navigation`](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation.yaml) declares no published checkpoint, so pass one with `--model-path`:
 
 ```bash
-./run.sh endoluminal_navigation \
-  --mode policy_n17 \
-  --checkpoint /path/to/checkpoint \
-  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml \
-  --episodes 10
+# Serve the checkpoint with GR00T's inference server (terminal 1).
+tasks/gr00t_n17/.venv/bin/python -m i4h_tasks.gr00t_n17.serve catheter_navigation \
+  --model-path /path/to/checkpoint --port 5555
+
+# Evaluate it for 10 episodes (terminal 2).
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.gr00t_n17.Gr00tN17RemotePolicy --embodiment catheter --remote_port 5555 \
+  --num_episodes 10 --presets newton \
+  --external_environment_class_path i4h_arena.environments:EndoluminalNavigation endoluminal_navigation \
+  --patient_twin ./data/TotalSegmentator/s0011/patient_twin.yaml
 ```
 
-The mode serves [`gr00t_n17/catheter_navigation`](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation.yaml), which declares no published checkpoint, so `--checkpoint` is required.
-
-Swap the workflow name to roll the same checkpoint out in the arm-borne scene, which serves [`gr00t_n17/catheter_navigation_arm`](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation_arm.yaml) instead. Both scenes use the same policy groups: `catheter`, `carm`, `target`, and `route`. The arm's seven servo'd joints are additional recorded state that GR00T does not consume. The arm task is inference-only; recordings from either scene train the shared `gr00t_n17/catheter_navigation` task.
+Swap in `EndoluminalNavigationArm endoluminal_navigation_arm` to roll the same checkpoint out in the arm-borne scene. Both scenes give the policy the same `catheter`, `carm`, `target`, and `route` state and the fluoroscopy image; the arm's seven servo'd joints are additional recorded state that GR00T does not consume. Recordings from either scene train the shared `gr00t_n17/catheter_navigation` task.
 
 ## IL to RL Pipeline and Training Strategy
 
-Imitation learning (IL) teaches GR00T N1.7 to copy demonstrated velocity commands. Reinforcement learning (RL) then lets that checkpoint interact with the simulator and updates it with PPO according to the navigation reward. These are separate training stages: the remote Task owns IL, and `rl/` owns vectorized simulation and online RL outside Workflow run modes.
+Imitation learning (IL) teaches GR00T N1.7 to copy demonstrated velocity commands. Reinforcement learning (RL) then lets that checkpoint interact with the simulator and updates it with PPO according to the navigation reward. These are separate training stages: the GR00T N1.7 task stack owns IL, and `rl/` owns vectorized simulation and online RL.
 
 ```text
 Teleoperation -> HDF5 recordings -> LeRobot dataset -> GR00T N1.7 IL checkpoint
     -> baseline Isaac Sim evaluation -> RLinf PPO -> native RL checkpoint
-    -> RL evaluation -> GR00T export -> policy_n17 evaluation in Isaac Sim
+    -> RL evaluation -> GR00T export -> GR00T N1.7 evaluation in Isaac Sim
 ```
 
 ### Model inputs and actions
@@ -176,12 +180,15 @@ Older checkpoints trained with only `catheter` and `carm` state do not have the 
 Use a patient twin so recording, goal labels, and reward all refer to the same route. For the intended Franka deployment, collect and validate in `endoluminal_navigation_arm`, which uses the coupled MJWarp + XPBD solver. Its four command channels match the armless scene, but the carrier arm changes the simulated dynamics.
 
 ```bash
-./run.sh endoluminal_navigation_arm --teleop \
-  --patient-twin /absolute/path/to/patient_twin.yaml \
-  --record --record-failures
+arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.py \
+  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+  --external_environment_class_path i4h_arena.environments:EndoluminalNavigationArm --task endoluminal_navigation_arm \
+  --presets newton --teleop_device catheter_keyboard --viz kit \
+  --patient_twin /absolute/path/to/patient_twin.yaml \
+  --dataset_file "$(pwd)/runs/endoluminal_navigation_arm/teleop.hdf5" --num_demos 10
 ```
 
-Keep successful, well-controlled demonstrations for the initial IL dataset. Retain failed recordings for diagnosis; blindly copying failed actions does not teach recovery. Demonstrate recovery explicitly when it should become policy behavior.
+The tool keeps the demonstrations that reach the goal. Keep the well-controlled ones for the initial IL dataset; blindly copying failed actions does not teach recovery. Demonstrate recovery explicitly when it should become policy behavior.
 
 Inspect the actual HDF5 file, then convert it into a new dataset directory:
 
@@ -199,7 +206,7 @@ uv run --project tools/dataset i4h-dataset convert \
 
 For armless recordings, use `--robot catheter`. The [converter](../../../tools/dataset/i4h_tools/dataset/cli.py) derives the five target/route columns from the recorded tip trajectory and the twin's route. It requires the `diagnostics/tip_world_m` trajectory; an old recording without that trajectory cannot supply these columns merely by naming a patient twin. Verify nonzero episode count, camera videos, episode parquet files, and `meta/info.json`, `meta/stats.json`, and `meta/modality.json` before training.
 
-The converter also accepts multiple HDF5 inputs before the output path. This allows recordings of subjects `s0058`, `s0223`, and `s0250` to share one dataset and normalization statistics. For that case, omit `--patient-twin`: each recording must have a sibling `run.json` identifying its own twin. Do not assign one anatomy's route to all three subjects. Use recordings from the same embodiment descriptor in one conversion.
+The converter also accepts multiple HDF5 inputs before the output path. This allows recordings of subjects `s0058`, `s0223`, and `s0250` to share one dataset and normalization statistics. For that case, pass one `--patient-twin` manifest per recording, in the order the recordings are given; the converter refuses a single twin for several recordings rather than assign one anatomy's route to all three subjects. Use recordings from the same embodiment descriptor in one conversion.
 
 ### 2. Fine-tune and evaluate GR00T N1.7
 
@@ -215,7 +222,7 @@ uv run --project tasks/gr00t_n17 i4h-tasks-gr00t-n17-train \
 
 Remove `--dry-run` to train. These example values match the Task defaults: base model `nvidia/GR00T-N1.7-3B`, 10,000 optimizer steps, and checkpoints every 1,000 steps. The training wrapper defaults to learning rate `1e-4`, training the projector and diffusion model while leaving the language backbone and vision tower frozen. The resolved dry-run output is the authority for an individual run.
 
-Select an actual saved checkpoint directory and establish a baseline with the [policy rollout command](#policy-rollout), using the arm workflow for arm deployment. Compare success, final route distance, and wall behavior across repeated episodes. A lower IL loss means closer agreement with demonstration commands; it does not establish navigation success.
+Select an actual saved checkpoint directory and establish a baseline with the [policy rollout command](#policy-rollout), using the arm environment for arm deployment. Compare success, final route distance, and wall behavior across repeated episodes. A lower IL loss means closer agreement with demonstration commands; it does not establish navigation success.
 
 ### 3. Post-train with RLinf PPO
 
@@ -308,7 +315,7 @@ Start with an IL baseline and a short one-anatomy RL run to verify compatible in
 
 The current RL launcher takes one `--patient-twin` per run; increasing `--num-envs` creates more environments on that same anatomy. To continue across `s0058`, `s0223`, and `s0250`, run explicit stages and use `--resume-dir /absolute/path/to/previous_rl_run` with the same compatible `--model-path`. Resume restores training state; it is not automatic per-episode anatomy sampling. Sequential anatomy stages can forget earlier subjects, so re-evaluate all training subjects after each stage and reserve additional anatomies for held-out evaluation. Mixed-anatomy IL data can provide a broader initialization before this sequence.
 
-RLinf saves native actor weights under `actor/model_state_dict/full_weights.pt` inside its checkpoints. On successful completion, the wrapper writes `checkpoint.json` in the run directory to identify the latest weights, base checkpoint, and trainer configuration. Those native weights need export before normal GR00T Workflow serving:
+RLinf saves native actor weights under `actor/model_state_dict/full_weights.pt` inside its checkpoints. On successful completion, the wrapper writes `checkpoint.json` in the run directory to identify the latest weights, base checkpoint, and trainer configuration. Those native weights need export before normal GR00T serving:
 
 ```bash
 ./train.sh rl endoluminal_navigation_arm --eval \
@@ -319,10 +326,11 @@ RLinf saves native actor weights under `actor/model_state_dict/full_weights.pt` 
   --checkpoint /absolute/path/to/rl_run \
   --output-dir /absolute/path/to/exported_gr00t_checkpoint
 
-./run.sh endoluminal_navigation_arm --mode policy_n17 \
-  --checkpoint /absolute/path/to/exported_gr00t_checkpoint \
-  --patient-twin /absolute/path/to/patient_twin.yaml --episodes 10
+tasks/gr00t_n17/.venv/bin/python -m i4h_tasks.gr00t_n17.serve catheter_navigation \
+  --model-path /absolute/path/to/exported_gr00t_checkpoint --port 5555
 ```
+
+and evaluate it with the [policy rollout command](#policy-rollout) in the arm environment.
 
 Use the run directory containing `checkpoint.json`, or a supported native checkpoint path with its corresponding configuration. Inspect the evaluation output and visibly validate the exported policy in Isaac Sim; written checkpoint files alone do not demonstrate task success. Keep the physics setup, solver revision, arrival tolerance, input contract, and patient twin traceable with the run artifacts.
 
@@ -330,25 +338,27 @@ Use the run directory containing `checkpoint.json`, or a supported native checkp
 
 Checkpoint validation has two parts: confirm that inference can load the model, then measure what it does in the simulator. Apply both to the IL checkpoint and to each selected RL checkpoint after export.
 
-First, run a load check through the actual GR00T serving backend. Set `CHECKPOINT` to the IL checkpoint directory or the exported RL checkpoint directory:
+First, serve the checkpoint with the actual GR00T serving backend. Set `CHECKPOINT` to the IL checkpoint directory or the exported RL checkpoint directory:
 
 ```bash
 CHECKPOINT=/absolute/path/to/gr00t_checkpoint
-uv run --project tasks/gr00t_n17 python -m i4h_tasks.gr00t_n17.server \
-  --namespace catheter-checkpoint-smoke \
-  --preload gr00t_n17/catheter_navigation_arm \
-  --checkpoint "$CHECKPOINT" --preload-only
+tasks/gr00t_n17/.venv/bin/python -m i4h_tasks.gr00t_n17.serve catheter_navigation \
+  --model-path "$CHECKPOINT" --port 5555
 ```
 
-A successful exit confirms model loading; the simulator rollout still needs to verify that the observation/action contract works and the catheter navigates. Run repeated episodes and retain failures so that the recordings show the complete evaluation rather than only successful attempts:
+`Server is ready` confirms model loading; the simulator rollout still needs to verify that the observation/action contract works and the catheter navigates. Run repeated episodes and record all of them, failures included, so the recordings show the complete evaluation rather than only successful attempts:
 
 ```bash
 EVAL_RUN="$(pwd)/runs/endoluminal_navigation_arm/$(date +%Y%m%d_%H%M%S)"
-./run.sh endoluminal_navigation_arm --mode policy_n17 \
-  --checkpoint "$CHECKPOINT" \
-  --patient-twin /absolute/path/to/patient_twin.yaml \
-  --episodes 20 --record --record-failures --run-dir "$EVAL_RUN"
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.gr00t_n17.Gr00tN17RemotePolicy --embodiment catheter --remote_port 5555 \
+  --num_episodes 20 --presets newton --output_base_dir "$EVAL_RUN" \
+  --external_environment_class_path i4h_arena.environments:EndoluminalNavigationArm endoluminal_navigation_arm \
+  --patient_twin /absolute/path/to/patient_twin.yaml \
+  --recorder_dataset_export_dir_path "$EVAL_RUN" --recorder_dataset_filename evaluation
 ```
+
+The runner writes each episode's success and length to `episode_results_rank0.jsonl` under `$EVAL_RUN`.
 
 Repeat this for an early and a later IL checkpoint, then for the initial IL checkpoint and selected exported RL checkpoints. Use fresh evaluation directories. Compare the same anatomies, initial conditions, sampling settings, solver revision, control rate, arrival tolerance, and 600-step budget. Repeat on held-out anatomies as well as training subjects. Twenty episodes is a useful first comparison, not a guarantee of a reliable success estimate; repeated identical deterministic episodes only test repeatability, so include varied valid starts or additional subjects when assessing robustness.
 
@@ -378,7 +388,7 @@ The loop is unified in the sense that three separately maintained packages act o
 | `catheter_vasculature_solver.CathRodSolver` | node positions and orientations in solver-local metres | Advances the rod under Cosserat stretch and Darboux constraints, plus its projections |
 | `xray_simulator` Slang DiffDRR, with `CatheterAttenuation` | the detector image | Marches CT attenuation and catheter attenuation into one Beer-Lambert exponent |
 
-`arena/i4h_arena/runner.py` is the only caller of `env.step`, and immediately after each step it invalidates the single read cache that the fluoroscopy window, the recorder, and the publisher all read through. That is what makes a recorded step self-consistent: the image, the action, and the joint state describe the same simulator state rather than three states a frame apart.
+The runner, Arena's policy runner or Isaac Lab's recording tool, is the only caller of `env.step`. Isaac Lab's recorder reads the joint state and the fluoroscopy frame before each step, beside the action applied in it, and the fluoroscopy window invalidates its read cache whenever the environment's step counter advances. That is what makes a recorded step self-consistent: the image, the action, and the joint state describe the same simulator state rather than three states a frame apart.
 
 Notation used below:
 
@@ -414,7 +424,7 @@ I_k = Psi . R_theta_k . T . (Phi^dt_phys)^4  (X_{k-1}, s_{k-1}, u_k)
 with `Phi` the physics advance, `T` the geometry handoff, `R_theta` the fused projection, and `Psi` the display mapping. `Psi` is the only stage whose settings a live operator can change, which is why it is also the only stage excluded from the recorded `attenuation` channel.
 
 ```text
-UNIFIED_SIM_LOOP(mu, gamma, A)                     # runner.py owns env.step
+UNIFIED_SIM_LOOP(mu, gamma, A)                     # the runner owns env.step
   precompute   mu, gamma, A                        # patient twin, offline
   initialise   X_0 = (x_0, q_0, v = 0, w = 0)
                s_0 = 0,  theta_0 = 45 deg
@@ -426,7 +436,7 @@ UNIFIED_SIM_LOOP(mu, gamma, A)                     # runner.py owns env.step
       S_k <- T(x)                                  # spans in volume millimetres
       if the sensor period has elapsed
           I_k <- Psi( R_theta( mu (+) S_k ) )
-      display and record (u_k, joint state, I_k) through one invalidated view
+      display and record (u_k, joint state, I_k) of the same step
 ```
 
 ### Precompute: the patient twin
@@ -623,7 +633,7 @@ The attenuation curve is deliberately not adjustable at runtime. It is baked int
 
 ### What Recordings Store
 
-`--record` writes two channels per fluoroscopy frame. `obs/fluoroscopy` is the 8-bit image as displayed, which folds in polarity, window and gamma, and is what a human or a VLM annotator should look at. `obs/fluoroscopy_attenuation` is the float32 `1 - exp(-∫μ ds)` the renderer produced, before any display mapping, and is therefore reproducible no matter how the live view was set while recording. Prefer it for training and for anything that has to be comparable across runs. It costs roughly a third more space per frame than the image, so expect recordings to grow accordingly.
+A recording stores two channels per fluoroscopy frame. `obs/fluoroscopy` is the 8-bit image as displayed, which folds in polarity, window and gamma, and is what a human or a VLM annotator should look at. `obs/fluoroscopy_attenuation` is the float32 `1 - exp(-∫μ ds)` the renderer produced, before any display mapping, and is therefore reproducible no matter how the live view was set while recording. Prefer it for training and for anything that has to be comparable across runs. It costs roughly a third more space per frame than the image, so expect recordings to grow accordingly.
 
 ## Catheter Appearance
 
@@ -640,7 +650,7 @@ The shaft's diameter comes from the physics side, as `CatheterState.radius_m`, s
 
 ## Current Limitations
 
-This is an integration demonstration, not validated intravascular mechanics. There is no dose model, the C-arm is single-plane rather than biplane, and the only Zenoh traffic is the remote-task link `policy_n17` uses to reach its policy server. The green catheter guidance is presentation-only.
+This is an integration demonstration, not validated intravascular mechanics. There is no dose model, the C-arm is single-plane rather than biplane, and there is no Zenoh traffic: a GR00T N1.7 rollout reaches its policy server through GR00T's own client. The green catheter guidance is presentation-only.
 
 The vessel wall is a deformable vessel built from the twin's centerline and lumen radii, not the segmented vessel surface, and it is not a tissue model: it keeps the rod inside the lumen without modelling vessel injury. The solver's static-mesh collision path is unused. Containment is a projection, so the rod can still end up partly outside the lumen; the RL reward measures that against the same radii and penalises it.
 

@@ -23,21 +23,38 @@ from gr00t.policy.server_client import PolicyClient
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
+from i4h_arena.medical.catheter_recording import downsample_frame
 from i4h_arena.policies._chunks import ChunkReplay, from_lerobot, to_lerobot, uint8_image
 
-#: Per checkpoint: the observation group, its joint term, (camera term -> video key),
-#: (state group -> slice of the joints), the action groups in action order, how many
-#: actions of a chunk to execute, and the robot whose LeRobot joint calibration the
-#: model works in, if any.
+#: Per checkpoint: the observation group, the terms concatenated into its state vector,
+#: (camera term -> video key), (state group -> slice of that vector), the action groups
+#: in action order, how many actions of a chunk to execute, the robot whose LeRobot
+#: joint calibration the model works in, if any, and the edge its training frames were
+#: box-averaged to when recorded, if any.
 LAYOUTS = {
     "so101_scissors": {
         "group": "policy",
-        "joints": "joint_pos",
+        "state_terms": ("joint_pos",),
         "video": {"room": "room", "wrist": "wrist"},
         "state": {"single_arm": slice(0, 5), "gripper": slice(5, 6)},
         "action": ("single_arm", "gripper"),
         "open_loop_horizon": 16,
         "lerobot_units": "so101",
+        "frame_edge": None,
+    },
+    # The endoluminal catheter, armless or arm-borne: the drive's insertion, twist and tip
+    # bend and the C-arm angle, then the target offset and route state its patient twin
+    # supplies. The model commands the same four rates.
+    "catheter": {
+        "group": "policy",
+        "state_terms": ("drive_state", "target_offset", "route_state"),
+        "video": {"fluoroscopy_rgb": "fluoroscopy"},
+        "state": {"catheter": slice(0, 3), "carm": slice(3, 4), "target": slice(4, 7), "route": slice(7, 9)},
+        "action": ("catheter", "carm"),
+        "open_loop_horizon": 16,
+        "lerobot_units": None,
+        # The detector renders 1024 px; recordings, and so the training data, hold 256.
+        "frame_edge": 256,
     },
 }
 
@@ -74,13 +91,13 @@ class Gr00tN17RemotePolicy(ChunkReplay, PolicyBase[Gr00tN17RemotePolicyCfg]):
     def _infer(self, observation: dict, env_id: int, action_dim: int) -> torch.Tensor:
         layout = self.layout
         group = observation[layout["group"]]
-        joints = group[layout["joints"]][env_id].double().cpu().numpy()
+        joints = torch.cat([group[term][env_id].double().cpu() for term in layout["state_terms"]]).numpy()
         if layout["lerobot_units"]:
             joints = to_lerobot(joints, layout["lerobot_units"])
         joints = joints.astype(np.float32)
         request = {
             "video": {
-                key: uint8_image(group[camera][env_id].cpu()).numpy()[np.newaxis, np.newaxis]
+                key: self._frame(group[camera][env_id])[np.newaxis, np.newaxis]
                 for camera, key in layout["video"].items()
             },
             "state": {key: joints[np.newaxis, np.newaxis, part] for key, part in layout["state"].items()},
@@ -95,6 +112,11 @@ class Gr00tN17RemotePolicy(ChunkReplay, PolicyBase[Gr00tN17RemotePolicyCfg]):
         full = torch.zeros(chunk.shape[0], action_dim)
         full[:, : chunk.shape[-1]] = torch.from_numpy(chunk).float()
         return full
+
+    def _frame(self, image: torch.Tensor) -> np.ndarray:
+        frame = uint8_image(image.cpu()).numpy()
+        edge = self.layout["frame_edge"]
+        return downsample_frame(frame, edge) if edge else frame
 
 
 def _group(actions: dict, key: str) -> np.ndarray:

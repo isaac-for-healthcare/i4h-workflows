@@ -30,7 +30,7 @@ See [DESIGN.md](DESIGN.md) for detailed architecture and ownership rules.
 - Linux driver `595.58.03` (the Isaac Sim 6.2 tested version) or a compatible newer production-branch driver
 - Some training profiles require more VRAM or multiple GPUs; see the workflow-specific documentation
 - `uv` and `git`
-- CUDA Toolkit 12.x or 13.x, no newer than the driver supports, for endoluminal RL (CUDA fluoroscopy by default), faster patient-CT fluoroscopy in the other endoluminal modes (they fall back to Vulkan without it), `--fluoro-device cuda`, or the standalone `xray-simulator` CLI; see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#failed-to-create-device-from-slang-fluoroscopy)
+- CUDA Toolkit 12.x or 13.x, no newer than the driver supports, for endoluminal RL (CUDA fluoroscopy by default) or the standalone `xray-simulator` CLI; the endoluminal environments otherwise render patient-CT fluoroscopy on Vulkan. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md#failed-to-create-device-from-slang-fluoroscopy)
 - Network access for Python packages, third-party checkouts, models, and assets
 - Tens of GB for dependencies, plus additional model-cache space (large checkpoints such as GR00T N1.7 can require several dozen GB)
 - Optional for natural-language prompts: Claude Code, Codex, or the repository's [Local Agent](local-agent/README.md). Tested with Opus 4.8 (1M context) and GPT-5.5 at low or medium reasoning effort.
@@ -250,8 +250,6 @@ arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
 ```
 
 Policy checkpoints run in their own environments behind a policy server; Arena's runner connects to it as a client (see each specialty README). Each episode ends on its environment's success term or after the step budget its workflow was validated with.
-
-The endoluminal workflows still run through `./run.sh <workflow>`; `./run.sh --help` lists its options, and `./stop.sh all` stops its processes.
 
 <!-- markdownlint-disable MD033 -->
 

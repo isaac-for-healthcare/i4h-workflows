@@ -198,8 +198,10 @@ def test_observations_are_recorded_only_into_a_requested_dataset(monkeypatch) ->
     assert dataset.recorders.record_pre_step_flat_policy_observations == "observations"
 
 
-def test_demonstrations_use_isaac_labs_recorder_without_an_arena_camera_group(monkeypatch) -> None:
-    assert _configured_env_cfg(monkeypatch).demo_recorder_config is None
+def test_demonstrations_record_what_a_requested_dataset_records(monkeypatch) -> None:
+    demo = _configured_env_cfg(monkeypatch).demo_recorder_config
+    assert demo.record_pre_step_flat_policy_observations == "observations"
+    assert demo.record_pre_step_actions == "actions"
 
 
 def test_hold_keeps_pink_ik_wrists_and_fingers_where_they_are() -> None:

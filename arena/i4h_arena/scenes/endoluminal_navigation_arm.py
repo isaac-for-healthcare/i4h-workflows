@@ -58,7 +58,7 @@ class EndoluminalNavigationArmScene(EndoluminalNavigationScene):
         """
         from i4h_arena.embodiments.franka_catheter import FrankaCatheterEmbodiment
 
-        return FrankaCatheterEmbodiment(patient_twin_manifest=self.args.patient_twin)
+        return FrankaCatheterEmbodiment(patient_twin_manifest=getattr(self.args, "patient_twin", None))
 
     def _joint_state_providers(self, env: Any, catheter: Any, carm_orbit: Any) -> dict[str, Any]:
         """Append the servo'd arm joints after the catheter and C-arm columns.

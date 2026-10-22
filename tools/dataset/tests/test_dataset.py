@@ -57,6 +57,14 @@ def test_convert_rejects_one_twin_for_several_recordings() -> None:
         convert([Path("a.hdf5"), Path("b.hdf5")], Path("out"), robot="catheter", patient_twin=Path("twin.yaml"))
 
 
+def test_convert_takes_one_twin_per_recording() -> None:
+    args = build_parser().parse_args(
+        ["convert", "a.hdf5", "b.hdf5", "out", "--robot", "catheter", "--patient-twin", "s1.yaml", "s2.yaml"]
+    )
+
+    assert args.patient_twin == [Path("s1.yaml"), Path("s2.yaml")]
+
+
 def test_translation_counts_motion_in_either_direction() -> None:
     demo = {
         "obs/robot_pos": np.array(

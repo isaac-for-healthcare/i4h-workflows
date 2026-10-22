@@ -21,11 +21,28 @@ The class for scene ``psm_reach`` is ``PsmReach``: the scene name in CamelCase.
 from __future__ import annotations
 
 import argparse
+import copy
 from typing import Any
 
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 from i4h_arena.scenes.base import load_scene, scene_class, scene_specs
+
+#: Recorder terms that store observations, which a run records only into a requested dataset.
+OBSERVATION_RECORDER_TERMS = (
+    "record_pre_step_flat_policy_observations",
+    "record_pre_step_flat_camera_observations",
+    "record_fluoroscopy_frames",
+)
+
+
+#: The scene behind each environment built in this process, for its operator UI (see i4h_arena.ui.live).
+_LIVE_SCENES: dict[str, Any] = {}
+
+
+def live_scene(name: str) -> Any | None:
+    """The scene a running environment was built from, by scene name."""
+    return _LIVE_SCENES.get(name)
 
 
 class SceneEnvironment(ExampleEnvironmentBase):
@@ -36,6 +53,7 @@ class SceneEnvironment(ExampleEnvironmentBase):
 
     def get_env(self, args_cli: argparse.Namespace) -> Any:
         scene = load_scene(self.name, args_cli)
+        _LIVE_SCENES[self.name] = scene
         arena_env = scene.arena_environment()
         tune = arena_env.env_cfg_callback
 
@@ -54,18 +72,28 @@ class SceneEnvironment(ExampleEnvironmentBase):
                 # tasks do; otherwise the first frames after a reset show the previous episode.
                 env_cfg.num_rerenders_on_reset = max(env_cfg.num_rerenders_on_reset, 3)
             recorders = getattr(env_cfg, "recorders", None)
+            if getattr(env_cfg, "events", None) is not None:
+                from isaaclab.managers import EventTermCfg  # noqa: PLC0415
+
+                from i4h_arena.ui import live  # noqa: PLC0415
+
+                # Registers the running env for teleoperation devices and opens the scene's
+                # sensor panels when Kit has a window.
+                env_cfg.events.i4h_live_ui = EventTermCfg(
+                    func=live.attach, mode="startup", params={"scene_name": self.name}
+                )
+            if getattr(getattr(env_cfg, "observations", None), "camera_obs", None) is None:
+                # Arena's demo recorder reads its camera group, which an embodiment observing its
+                # cameras in the policy group lacks. Isaac Lab's record_demos.py then records
+                # what the policy runner records into a dataset: the embodiment's own terms.
+                env_cfg.demo_recorder_config = copy.deepcopy(recorders)
             if getattr(args_cli, "recorder_dataset_export_dir_path", None) is None and recorders is not None:
                 # Arena records every run for its metrics, which read only their own terms. The
                 # observations, camera frames included, are worth recording only into a dataset
                 # someone asked for: Isaac Lab writes them at full size, compressed, at each reset.
-                for term in ("record_pre_step_flat_policy_observations", "record_pre_step_flat_camera_observations"):
+                for term in OBSERVATION_RECORDER_TERMS:
                     if hasattr(recorders, term):
                         setattr(recorders, term, None)
-            if getattr(getattr(env_cfg, "observations", None), "camera_obs", None) is None:
-                # Arena's demo recorder reads its camera group, which an embodiment observing its
-                # cameras in the policy group lacks; Isaac Lab's record_demos.py then records the
-                # action, state and observation terms the policy runner records.
-                env_cfg.demo_recorder_config = None
             return env_cfg
 
         arena_env.env_cfg_callback = env_cfg_callback
