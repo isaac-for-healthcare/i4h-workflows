@@ -21,7 +21,7 @@ Per tick, in order:
 2. ``on_enter`` newly-ready nodes with their resolved inputs.
 3. ``tick()`` every active node exactly once.
 4. On SUCCESS: collect ``on_exit()`` outputs, route them along data edges.
-5. On FAILURE: apply the node's failure policy.
+5. On FAILURE: fail the workflow; the runner decides whether to retry the episode.
 6. Finish when every terminal node is done, or on abort.
 
 **Actuation conflict is a hard error.** Two concurrently active nodes writing
