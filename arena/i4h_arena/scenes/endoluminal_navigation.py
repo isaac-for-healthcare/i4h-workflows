@@ -5,14 +5,14 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from i4h_arena.adapters.scene_view import ArenaSceneView
 from i4h_arena.scenes.base import Scene, SensorDisplayControlSpec, SensorSliderSpec
 
 
-def resolve_fluoroscopy_backend(requested: str | None, patient_twin: str | None) -> str:
+def resolve_fluoroscopy_backend(requested: str | None, patient_twin: str | Sequence[str] | None) -> str:
     """Select real DRR rendering when a patient twin is supplied."""
     return requested or ("slang" if patient_twin else "synthetic")
 
@@ -118,6 +118,17 @@ class EndoluminalNavigationScene(Scene):
         # visible together in the viewport's narrower docked layout.
         env_cfg.viewer = ViewerCfg(eye=(2.45, -1.65, 1.65), lookat=(-0.25, 0.12, 0.78))
         env_cfg.sim.render.enable_translucency = True
+        twins = getattr(self.args, "patient_twin", None)
+        if twins is not None and not isinstance(twins, str):
+            from isaaclab.managers import EventTermCfg
+
+            from i4h_arena.assets.fluoroscopy_catheter_navigation import place_patient_anatomies
+
+            env_cfg.events.place_patient_anatomies = EventTermCfg(
+                func=place_patient_anatomies,
+                mode="startup",
+                params={"manifests": tuple(twins)},
+            )
 
     def make_view(self, env: Any) -> ArenaSceneView:
         from i4h_arena.medical.fluoroscopy_sources import bind_fluoroscopy_sources

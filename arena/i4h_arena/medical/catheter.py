@@ -43,6 +43,10 @@ class CatheterState:
     def num_envs(self) -> int:
         return int(self.positions_world_m.shape[0])
 
+    def take(self, env_ids: np.ndarray) -> CatheterState:
+        """The same snapshot restricted to ``env_ids``, in that order."""
+        return CatheterState(self.positions_world_m[env_ids], self.valid_nodes[env_ids], self.radius_m)
+
     @classmethod
     def empty(cls, num_envs: int) -> CatheterState:
         if num_envs <= 0:

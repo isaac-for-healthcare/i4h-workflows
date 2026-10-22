@@ -82,6 +82,18 @@ def resolve_run_dir(workflows_root: Path, workflow: str, requested: str | None) 
     return candidate
 
 
+def scene_patient_twin(values: list[str] | None) -> str | tuple[str, ...] | None:
+    """What a repeated ``--patient-twin`` hands the scene.
+
+    One twin stays a plain path, shared by every environment; several become
+    one per environment, in order, and the scene checks them against its
+    environment count.
+    """
+    if not values:
+        return None
+    return values[0] if len(values) == 1 else tuple(values)
+
+
 def checkpoint_iteration(path: Path) -> int:
     """Return the numeric RSL-RL iteration from ``model_<N>.pt``."""
     try:

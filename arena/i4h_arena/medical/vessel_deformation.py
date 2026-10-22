@@ -11,6 +11,8 @@ to prevent.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -193,22 +195,84 @@ def centerline_vessel_from_twin(
     Returns:
         The runtime, or ``None`` when the twin carries no centerline graph.
     """
+    return centerline_vessel_from_twins(
+        [twin] * int(num_envs),
+        device=device,
+        catheter_radius_m=catheter_radius_m,
+        two_way=two_way,
+        vessel_response=vessel_response,
+        interior_deadband=interior_deadband,
+        interior_stiffness=interior_stiffness,
+        max_distance_m=max_distance_m,
+        catheter_max_delta_m=catheter_max_delta_m,
+        vessel_max_delta_m=vessel_max_delta_m,
+        endpoints_locked=endpoints_locked,
+        linear_damping=linear_damping,
+        angular_damping=angular_damping,
+        params=params,
+    )
+
+
+def centerline_vessel_from_twins(
+    env_twins: Sequence[PatientTwin],
+    *,
+    device: str,
+    catheter_radius_m: float,
+    two_way: bool = True,
+    vessel_response: float = VESSEL_RESPONSE,
+    interior_deadband: float = 1.0,
+    interior_stiffness: float = 0.0,
+    max_distance_m: float = 0.05,
+    catheter_max_delta_m: float = 0.005,
+    vessel_max_delta_m: float = 0.005,
+    endpoints_locked: bool = VESSEL_ENDPOINTS_LOCKED,
+    linear_damping: float = VESSEL_LINEAR_DAMPING,
+    angular_damping: float = VESSEL_ANGULAR_DAMPING,
+    params: Any = None,
+) -> "CenterlineVesselRuntime | None":
+    """Build one deformable vessel per environment, each from its own twin.
+
+    ``env_twins`` holds one twin per environment, so its length is the
+    environment count. Environments that share a twin share its centerline
+    tree but still get their own wall state. With a single distinct twin this
+    is the uniform batch :func:`centerline_vessel_from_twin` has always built;
+    with several, the solver pads every vessel to the largest tree. Settings
+    are those of :func:`centerline_vessel_from_twin`.
+
+    Returns:
+        The runtime, or ``None`` when no twin carries a centerline graph.
+
+    Raises:
+        ValueError: If some twins carry a centerline and others do not, since an
+            environment without a wall cannot share a batch with ones that have
+            one.
+    """
     from catheter_vasculature_solver.vessel_deformation import (
         CenterlineDynamicsParams,
         CenterlineVesselRuntime,
         build_centerline_tree,
     )
 
-    data = centerline_data_from_twin(twin)
-    if data is None:
+    twins = list(env_twins)
+    if not twins:
+        raise ValueError("env_twins needs at least one twin")
+    distinct: dict[str, int] = {}
+    data = []
+    env_trees = []
+    for twin in twins:
+        key = str(Path(twin.source).resolve())
+        if key not in distinct:
+            distinct[key] = len(data)
+            data.append(centerline_data_from_twin(twin))
+        env_trees.append(distinct[key])
+    missing = [data[index] is None for index in range(len(data))]
+    if all(missing):
         return None
+    if any(missing):
+        raise ValueError("every environment's twin must carry a centerline graph, or none of them")
 
-    tree = build_centerline_tree(data)
-    return CenterlineVesselRuntime.from_tree(
-        tree,
-        device=device,
-        num_envs=int(num_envs),
-        params=params
+    contact = {
+        "params": params
         or CenterlineDynamicsParams(
             **vessel_dynamics_fields(
                 endpoints_locked=endpoints_locked,
@@ -216,15 +280,19 @@ def centerline_vessel_from_twin(
                 angular_damping=angular_damping,
             )
         ),
-        catheter_radius=float(catheter_radius_m),
-        max_distance=float(max_distance_m),
-        two_way=bool(two_way),
-        vessel_response=float(vessel_response),
-        interior_deadband=float(interior_deadband),
-        interior_stiffness=float(interior_stiffness),
-        catheter_max_delta=float(catheter_max_delta_m),
-        vessel_max_delta=float(vessel_max_delta_m),
-    )
+        "catheter_radius": float(catheter_radius_m),
+        "max_distance": float(max_distance_m),
+        "two_way": bool(two_way),
+        "vessel_response": float(vessel_response),
+        "interior_deadband": float(interior_deadband),
+        "interior_stiffness": float(interior_stiffness),
+        "catheter_max_delta": float(catheter_max_delta_m),
+        "vessel_max_delta": float(vessel_max_delta_m),
+    }
+    trees = [build_centerline_tree(entry) for entry in data]
+    if len(trees) == 1:
+        return CenterlineVesselRuntime.from_tree(trees[0], device=device, num_envs=len(twins), **contact)
+    return CenterlineVesselRuntime.from_trees(trees, device=device, env_trees=env_trees, **contact)
 
 
 __all__ = [
@@ -234,6 +302,7 @@ __all__ = [
     "VESSEL_RESPONSE",
     "centerline_data_from_twin",
     "centerline_vessel_from_twin",
+    "centerline_vessel_from_twins",
     "length_scale_from_affine",
     "vessel_dynamics_fields",
 ]

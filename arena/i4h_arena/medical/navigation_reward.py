@@ -56,9 +56,11 @@ import math
 from collections.abc import Hashable, Iterable
 from typing import Any, NamedTuple
 
+import numpy as np
 import torch
 
 from i4h_arena.medical.navigation_goal import catheter_tip_world_m
+from i4h_arena.medical.route_progress import is_per_env_routes
 
 #: Attribute holding the previous step's remaining arc, for the progress term.
 REMAINING_ARC_ATTR = "_catheter_remaining_arc_m"
@@ -93,6 +95,10 @@ TIP_STATE_CACHE_ATTR = "_catheter_tip_route_state"
 MAX_STEP_ADVANCE_M = 0.0025
 
 
+def _is_per_env_radii(lumen_radii_m: Any) -> bool:
+    return np.ndim(next(iter(lumen_radii_m))) > 0
+
+
 def _cache_key(values: Any) -> Hashable:
     """A key that tells one route, or one set of radii, from another.
 
@@ -103,8 +109,20 @@ def _cache_key(values: Any) -> Hashable:
     try:
         hash(values)
     except TypeError:
-        return tuple(tuple(float(value) for value in point) for point in values)
+        return tuple(_cache_key(value) if np.ndim(value) > 0 else float(value) for value in values)
     return values
+
+
+def _route_segments(route: Iterable[Iterable[float]], device: Any) -> torch.Tensor:
+    """``(S + 1, 3)`` vertices of one route, validated."""
+    path = torch.as_tensor(
+        [tuple(float(value) for value in point) for point in route],
+        dtype=torch.float32,
+        device=device,
+    )
+    if path.ndim != 2 or path.shape[1] != 3 or path.shape[0] < 2:
+        raise ValueError(f"route must be at least two 3-D points, got shape {tuple(path.shape)}")
+    return path
 
 
 def _route_tensors(
@@ -125,6 +143,12 @@ def _route_tensors(
     the moment a twin is randomized per episode, at which point the stale route
     is returned silently. The dict grows by the number of distinct routes, so
     twelve twins is twelve entries.
+
+    With one route per environment the tensors gain a leading environment
+    axis: ``(E, S, 3)``, ``(E, S, 3)`` and ``(E, S)``. Shorter routes are padded
+    to the longest with zero-length segments at their own far end, whose arc is
+    the route's full length, so a padded segment projects to exactly what the
+    route's last real segment does at its end and never changes an answer.
     """
     key = (str(env.device), _cache_key(route_world_m))
     cache = getattr(env, ROUTE_CACHE_ATTR, None)
@@ -134,17 +158,22 @@ def _route_tensors(
     cached = cache.get(key)
     if cached is not None:
         return cached
-    path = torch.as_tensor(
-        [tuple(float(value) for value in point) for point in route_world_m],
-        dtype=torch.float32,
-        device=env.device,
-    )
-    if path.ndim != 2 or path.shape[1] != 3 or path.shape[0] < 2:
-        raise ValueError(f"route must be at least two 3-D points, got shape {tuple(path.shape)}")
-    starts, ends = path[:-1], path[1:]
-    spans = ends - starts
-    lengths = torch.linalg.norm(spans, dim=-1)
-    start_arc = torch.cat((torch.zeros(1, device=env.device), torch.cumsum(lengths, dim=0)[:-1]))
+    if is_per_env_routes(route_world_m):
+        paths = [_route_segments(route, env.device) for route in route_world_m]
+        if len(paths) != int(env.num_envs):
+            raise ValueError(f"{len(paths)} routes configured for {int(env.num_envs)} environments")
+        vertices = max(int(path.shape[0]) for path in paths)
+        path = torch.stack([torch.cat((path, path[-1:].expand(vertices - path.shape[0], 3))) for path in paths])
+        starts, ends = path[:, :-1], path[:, 1:]
+        spans = ends - starts
+        lengths = torch.linalg.norm(spans, dim=-1)
+        start_arc = torch.cat((torch.zeros_like(lengths[:, :1]), torch.cumsum(lengths, dim=-1)[:, :-1]), dim=-1)
+    else:
+        path = _route_segments(route_world_m, env.device)
+        starts, ends = path[:-1], path[1:]
+        spans = ends - starts
+        lengths = torch.linalg.norm(spans, dim=-1)
+        start_arc = torch.cat((torch.zeros(1, device=env.device), torch.cumsum(lengths, dim=0)[:-1]))
     tensors = (starts, spans, start_arc)
     cache[key] = tensors
     return tensors
@@ -171,12 +200,28 @@ def _segment_radii(env: Any, lumen_radii_m: Iterable[float] | None, segments: in
     cached = cache.get(key)
     if cached is not None:
         return cached
-    radii = torch.as_tensor([float(value) for value in lumen_radii_m], dtype=torch.float32, device=env.device)
-    if radii.shape[0] < segments:
-        raise ValueError(f"lumen radii cover {radii.shape[0]} of {segments} route segments")
-    radii = radii[:segments]
+    if _is_per_env_radii(lumen_radii_m):
+        # One row per environment, padded with its far-end radius to match the
+        # padded route segments, which sit at that same far end.
+        rows = []
+        for env_radii in lumen_radii_m:
+            row = torch.as_tensor([float(value) for value in env_radii], dtype=torch.float32, device=env.device)
+            rows.append(torch.cat((row, row[-1:].expand(max(segments + 1 - row.shape[0], 0)))))
+        radii = torch.stack([row[:segments] for row in rows])
+    else:
+        radii = torch.as_tensor([float(value) for value in lumen_radii_m], dtype=torch.float32, device=env.device)
+        if radii.shape[0] < segments:
+            raise ValueError(f"lumen radii cover {radii.shape[0]} of {segments} route segments")
+        radii = radii[:segments]
     cache[key] = radii
     return radii
+
+
+def _radii_at(radii: torch.Tensor, segment: torch.Tensor) -> torch.Tensor:
+    """Radius of each environment's own route at ``segment``, whose leading axis is the environment."""
+    if radii.ndim == 1:
+        return radii[segment]
+    return radii.gather(-1, segment.reshape(segment.shape[0], -1)).reshape(segment.shape)
 
 
 #: Elements of an ``(envs, particles, segments)`` projection to hold at once.
@@ -209,7 +254,12 @@ def project_to_route(
     :func:`i4h_arena.medical.route_progress.project_to_route` including the
     zero-length-segment guard, which matters because extracted centerlines do
     contain duplicated samples and a nan would win the ``argmin``.
+
+    Per-environment routes, ``starts`` of shape ``(E, S, 3)``, project each
+    environment's points onto its own route; ``points`` then leads with ``E``.
     """
+    if starts.ndim == 3:
+        return _project_to_env_routes(points, starts, spans, start_arc)
     lengths_sq = torch.einsum("sj,sj->s", spans, spans)
     safe = torch.where(lengths_sq > 0.0, lengths_sq, torch.ones_like(lengths_sq))
     offset = points.unsqueeze(-2) - starts
@@ -220,6 +270,31 @@ def project_to_route(
     chosen = fraction.gather(-1, segment.unsqueeze(-1)).squeeze(-1)
     arc_m = start_arc[segment] + chosen * torch.sqrt(safe)[segment]
     return arc_m, lateral_m, segment
+
+
+def _project_to_env_routes(
+    points: torch.Tensor,
+    starts: torch.Tensor,
+    spans: torch.Tensor,
+    start_arc: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """:func:`project_to_route` with one route per environment along the leading axis."""
+    envs, segments = int(starts.shape[0]), int(starts.shape[1])
+    middle = (1,) * (points.ndim - 2)
+    starts = starts.view(envs, *middle, segments, 3)
+    spans = spans.view(envs, *middle, segments, 3)
+    lengths_sq = (spans * spans).sum(-1)
+    safe = torch.where(lengths_sq > 0.0, lengths_sq, torch.ones_like(lengths_sq))
+    offset = points.unsqueeze(-2) - starts
+    fraction = torch.clamp((offset * spans).sum(-1) / safe, 0.0, 1.0)
+    projected = starts + fraction.unsqueeze(-1) * spans
+    distances = torch.linalg.norm(points.unsqueeze(-2) - projected, dim=-1)
+    lateral_m, segment = torch.min(distances, dim=-1)
+    chosen = fraction.gather(-1, segment.unsqueeze(-1)).squeeze(-1)
+    flat = segment.reshape(envs, -1)
+    arc_start = start_arc.gather(1, flat).reshape(segment.shape)
+    segment_length = torch.sqrt(safe.reshape(envs, segments)).gather(1, flat).reshape(segment.shape)
+    return arc_start + chosen * segment_length, lateral_m, segment
 
 
 class TipRouteState(NamedTuple):
@@ -280,11 +355,11 @@ def tip_route_state(env: Any, route_world_m: Iterable[Iterable[float]]) -> TipRo
     if cached is not None and cached[0] == step:
         return cached[1]
     starts, spans, start_arc = _route_tensors(env, route_world_m)
-    total_m = start_arc[-1] + torch.linalg.norm(spans[-1])
+    total_m = start_arc[..., -1] + torch.linalg.norm(spans[..., -1, :], dim=-1)
     tip = catheter_tip_world_m(env)
     valid = torch.isfinite(tip).all(dim=-1)
     arc_m, lateral_m, segment = project_to_route(
-        torch.where(valid.unsqueeze(-1), tip, starts[0]), starts, spans, start_arc
+        torch.where(valid.unsqueeze(-1), tip, starts[..., 0, :]), starts, spans, start_arc
     )
     state = TipRouteState(torch.clamp(total_m - arc_m, min=0.0), lateral_m, total_m, segment, valid)
     setattr(env, TIP_STATE_CACHE_ATTR, (step, state))
@@ -357,12 +432,12 @@ def lateral_offset_penalty(
     """
     state = tip_route_state(env, route_world_m)
     starts, _spans, _start_arc = _route_tensors(env, route_world_m)
-    radii = _segment_radii(env, lumen_radii_m, int(starts.shape[0]))
+    radii = _segment_radii(env, lumen_radii_m, int(starts.shape[-2]))
     if radii is None:
         return torch.zeros(int(env.num_envs), device=env.device)
     # The segment comes off the shared projection. This used to project the
     # same tip onto the same route a second time to recover it.
-    allowed = radii[state.segment].clamp_min(1e-6)
+    allowed = _radii_at(radii, state.segment).clamp_min(1e-6)
     offset = torch.clamp(state.lateral_m - float(free_fraction) * allowed, min=0.0) / allowed
     return offset * state.valid
 
@@ -394,7 +469,8 @@ def wall_penetration_penalty(
         return torch.zeros(int(env.num_envs), device=env.device)
     points = torch.as_tensor(positions, dtype=torch.float32, device=env.device)
     starts, spans, start_arc = _route_tensors(env, route_world_m)
-    radii = _segment_radii(env, lumen_radii_m, int(starts.shape[0]))
+    segments = int(starts.shape[-2])
+    radii = _segment_radii(env, lumen_radii_m, segments)
     if radii is None:
         return torch.zeros(int(env.num_envs), device=env.device)
     # Per environment and substituted before projecting, for the reason
@@ -402,16 +478,23 @@ def wall_penetration_penalty(
     # for every environment in the batch, and masking an infinity afterwards
     # yields nan rather than zero.
     valid = torch.isfinite(points).flatten(1).all(dim=-1)
-    finite = torch.where(valid.view(-1, 1, 1), points, starts[0])
+    entry = starts[0] if starts.ndim == 2 else starts[:, :1, :]
+    finite = torch.where(valid.view(-1, 1, 1), points, entry)
     depth_m = torch.zeros(int(points.shape[0]), dtype=points.dtype, device=points.device)
-    for chunk in finite.split(_particle_chunk(int(points.shape[0]), int(starts.shape[0]), int(points.shape[1])), dim=1):
+    for chunk in finite.split(_particle_chunk(int(points.shape[0]), segments, int(points.shape[1])), dim=1):
         _, lateral_m, segment = project_to_route(chunk, starts, spans, start_arc)
-        depth_m = torch.maximum(depth_m, torch.clamp(lateral_m - radii[segment], min=0.0).amax(dim=-1))
+        depth_m = torch.maximum(depth_m, torch.clamp(lateral_m - _radii_at(radii, segment), min=0.0).amax(dim=-1))
     return depth_m * valid
 
 
 def route_length_m(route_world_m: Iterable[Iterable[float]]) -> float:
-    """Total arc length of a route, for sizing progress weights against the task."""
+    """Total arc length of a route, for sizing progress weights against the task.
+
+    With one route per environment, the mean of their lengths.
+    """
+    if is_per_env_routes(route_world_m):
+        lengths = [route_length_m(route) for route in route_world_m]
+        return float(sum(lengths) / len(lengths))
     path = [tuple(float(value) for value in point) for point in route_world_m]
     return float(sum(math.dist(previous, current) for previous, current in zip(path[:-1], path[1:], strict=True)))
 

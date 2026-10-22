@@ -204,7 +204,14 @@ class SlangFluoroscopyRenderer:
         catheter_attenuation: bool = True,
         catheter_material: CatheterMaterial | None = None,
         catheter_device: str | None = None,
+        share_device_with: SlangFluoroscopyRenderer | None = None,
     ) -> None:
+        """
+        Args:
+            share_device_with: Another patient's renderer whose Slang device and
+                compiled kernels this one reuses, so several patients render in
+                one process on one device.
+        """
         if patient.twin.coordinate_frame not in {"DICOM_LPS", "NIFTI_RAS"}:
             raise ValueError(f"unsupported patient coordinate frame {patient.twin.coordinate_frame!r}")
         self._patient = patient
@@ -255,8 +262,13 @@ class SlangFluoroscopyRenderer:
         )
         # The renderer takes origin_xyz_mm ahead of the config, and leaving it at the default
         # keeps the volume centred, which is the frame solve_projection_geometry poses into.
+        renderer_class = (
+            SlangDiffDRRRenderer
+            if share_device_with is None
+            else _renderer_sharing_device(SlangDiffDRRRenderer, share_device_with._renderer)
+        )
         self._renderer = _build_renderer(
-            SlangDiffDRRRenderer, patient.mu_volume, patient.spacing_zyx_mm, base_config, device_type
+            renderer_class, patient.mu_volume, patient.spacing_zyx_mm, base_config, device_type
         )
         self._dsa_renderer = None
         if self._dsa:

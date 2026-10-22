@@ -59,6 +59,7 @@ from i4h_arena.medical.catheter_drive import (
     LumenClamp,
 )
 from i4h_arena.medical.newton_catheter_physics import newton_physics_cfg
+from i4h_arena.medical.route_progress import is_per_env_routes
 from i4h_arena.medical.xpbd_catheter import XpbdCatheterAsset
 from i4h_common.types import JointState
 
@@ -505,6 +506,15 @@ class ArmDrivenCatheterAction(ActionTerm):
         radii = cfg.lumen_radii_m
         if not path or not radii:
             return None
+        if is_per_env_routes(path):
+            if len(path) != self.num_envs:
+                raise ValueError(f"expected one lumen per environment ({self.num_envs}), got {len(path)}")
+            return LumenClamp(
+                [torch.tensor(entry, dtype=torch.float32) for entry in path],
+                [torch.tensor(entry, dtype=torch.float32) for entry in radii],
+                margin_m=float(cfg.lumen_margin_m),
+                device=self.device,
+            )
         return LumenClamp(
             torch.tensor(path, dtype=torch.float32),
             torch.tensor(radii, dtype=torch.float32),
@@ -645,8 +655,9 @@ class ArmDrivenCatheterActionCfg(ActionTermCfg):
     #: The vessel the proximal particle has to stay inside, and how wide it is
     #: at each sample. Both come from the patient centerline and stay empty
     #: without a twin, which leaves the clamp off rather than inventing a lumen.
-    lumen_path_world_m: tuple[tuple[float, float, float], ...] = ()
-    lumen_radii_m: tuple[float, ...] = ()
+    #: One of each per environment when each environment holds its own patient.
+    lumen_path_world_m: Any = ()
+    lumen_radii_m: Any = ()
     #: Kept clear of the vessel wall. The catheter's own radius, so what touches
     #: the wall is the wire's surface rather than its axis.
     lumen_margin_m: float = 0.0005
@@ -731,6 +742,42 @@ class _FrankaCatheterActionsCfg:
     carm_orbit: CArmOrbitActionCfg = CArmOrbitActionCfg()
 
 
+def place_arm_bases(
+    env: Any,
+    env_ids: torch.Tensor | None,
+    positions_world_m: Sequence[Sequence[float]],
+    asset_cfg: Any,
+) -> None:
+    """Write each environment's arm base to its own position, keeping its heading."""
+    robot = env.scene[asset_cfg.name]
+    positions = torch.tensor(positions_world_m, dtype=torch.float32, device=robot.device)
+    if positions.shape != (env.num_envs, 3):
+        raise ValueError(f"expected one arm base per environment ({env.num_envs}, 3), got {tuple(positions.shape)}")
+    ids = torch.arange(env.num_envs, device=robot.device) if env_ids is None else env_ids.to(robot.device)
+    quat = robot.data.root_link_quat_w.torch[ids]
+    robot.write_root_link_pose_to_sim_index(root_pose=torch.cat((positions[ids], quat), dim=-1), env_ids=ids)
+
+
+def place_arm_carts(env: Any, env_ids: torch.Tensor | None, positions_world_m: Sequence[Sequence[float]]) -> None:
+    """Move each environment's cart column under its own arm.
+
+    The cart has no collider, so only its USD transform needs to move.
+    """
+    from pxr import Gf
+
+    stage = sim_utils.get_current_stage()
+    if len(positions_world_m) != env.num_envs:
+        raise ValueError(f"expected one cart per environment ({env.num_envs}), got {len(positions_world_m)}")
+    for prim_path, position in zip(env.scene.env_prim_paths, positions_world_m):
+        prim = stage.GetPrimAtPath(f"{prim_path}/ArmCart")
+        if not prim.IsValid():
+            raise RuntimeError(f"no arm cart at {prim_path}/ArmCart to place")
+        translate = prim.GetAttribute("xformOp:translate")
+        current = translate.Get()
+        kind = Gf.Vec3d if current is None else type(current)
+        translate.Set(kind(*(float(value) for value in position)))
+
+
 class FrankaCatheterEmbodiment(CatheterEmbodiment):
     """Catheter driven through a MJWarp-simulated Franka Panda flange."""
 
@@ -739,7 +786,7 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
 
     def __init__(
         self,
-        patient_twin_manifest: str | None = None,
+        patient_twin_manifest: str | Sequence[str] | None = None,
         cart_xy_offset_m: tuple[float, float] = ARM_CART_XY_OFFSET_M,
         base_height_m: float = ARM_BASE_HEIGHT_M,
     ) -> None:
@@ -764,9 +811,10 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
         # The lumen is handed over, though. The proximal particle is prescribed,
         # so wall contact never acts on it and it is the one part of the rod that
         # can leave the vessel unchallenged.
-        if self.rod_spec.initial_path_world_m and self.rod_spec.lumen_radii_m:
-            self.action_config.catheter.lumen_path_world_m = self.rod_spec.initial_path_world_m
-            self.action_config.catheter.lumen_radii_m = self.rod_spec.lumen_radii_m
+        lumen_radii = self._navigation_lumen_radii()
+        if self.rod_spec.initial_path_world_m and lumen_radii:
+            self.action_config.catheter.lumen_path_world_m = self._navigation_routes()
+            self.action_config.catheter.lumen_radii_m = lumen_radii
             self.action_config.catheter.lumen_margin_m = float(self.rod_spec.radius_m)
 
         self._cart_xy_offset_m = tuple(float(value) for value in cart_xy_offset_m)
@@ -793,19 +841,40 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
         access site is exactly the bug this replaces -- it left the arm hanging
         in mid-air with its column nowhere and the flange inside the table.
         """
-        access_site = np.asarray(self.scene_config.catheter_root.init_state.pos, dtype=np.float64)
-        base_x = access_site[0] + self._cart_xy_offset_m[0]
-        base_y = access_site[1] + self._cart_xy_offset_m[1]
-
-        self.scene_config.robot.init_state.pos = (base_x, base_y, self._base_height_m)
-        self.scene_config.robot.init_state.rot = ARM_BASE_YAW_QUAT
-
         column_height = self._base_height_m - _PROCEDURE_FLOOR_TOP_M
         self.scene_config.arm_cart.spawn.size = (*ARM_CART_FOOTPRINT_M, column_height)
-        self.scene_config.arm_cart.init_state.pos = (
-            base_x,
-            base_y,
-            _PROCEDURE_FLOOR_TOP_M + column_height / 2.0,
+        bases = self.arm_base_positions_world_m()
+        carts = self.arm_cart_positions_world_m()
+
+        self.scene_config.robot.init_state.pos = bases[0]
+        self.scene_config.robot.init_state.rot = ARM_BASE_YAW_QUAT
+        self.scene_config.arm_cart.init_state.pos = carts[0]
+
+    def arm_base_positions_world_m(self) -> tuple[tuple[float, float, float], ...]:
+        """Where each environment's arm is bolted: one entry, or one per environment.
+
+        Each follows its own patient's access site, so the arm stays within
+        reach of the introducer however far apart the patients' sites are.
+        """
+        if self.rod_spec.env_anatomies is None:
+            sites = (self.scene_config.catheter_root.init_state.pos,)
+        else:
+            sites = self.rod_spec.env_origins_world_m()
+        return tuple(
+            (
+                float(site[0]) + self._cart_xy_offset_m[0],
+                float(site[1]) + self._cart_xy_offset_m[1],
+                self._base_height_m,
+            )
+            for site in np.asarray(sites, dtype=np.float64)
+        )
+
+    def arm_cart_positions_world_m(self) -> tuple[tuple[float, float, float], ...]:
+        """Centre of each environment's cart column, standing on the floor under its arm."""
+        column_height = self._base_height_m - _PROCEDURE_FLOOR_TOP_M
+        return tuple(
+            (base[0], base[1], _PROCEDURE_FLOOR_TOP_M + column_height / 2.0)
+            for base in self.arm_base_positions_world_m()
         )
 
     def modify_env_cfg(self, env_cfg: Any) -> Any:
@@ -845,7 +914,33 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
         env_cfg.scene.env_spacing = 0.0
         env_cfg.sim.physics = newton_physics_cfg(self.rod_spec)
         self._seed_the_arm_pose_on_reset(env_cfg)
+        if self.per_env_anatomy:
+            self._place_each_arm_at_its_patient(env_cfg)
         return env_cfg
+
+    def _place_each_arm_at_its_patient(self, env_cfg: Any) -> None:
+        """Move each environment's arm and cart beside its own patient's access site.
+
+        The scene config carries one spawn pose, which replication copies into
+        every environment, so environment 0's is the only one it can express.
+        A fixed base's root pose is its anchoring joint's transform, which a
+        root-pose write moves for good; the cart is visual-only USD.
+        """
+        from isaaclab.managers import EventTermCfg, SceneEntityCfg
+
+        env_cfg.events.place_arm_carts = EventTermCfg(
+            func=place_arm_carts,
+            mode="startup",
+            params={"positions_world_m": self.arm_cart_positions_world_m()},
+        )
+        env_cfg.events.place_arm_bases = EventTermCfg(
+            func=place_arm_bases,
+            mode="reset",
+            params={
+                "positions_world_m": self.arm_base_positions_world_m(),
+                "asset_cfg": SceneEntityCfg("robot"),
+            },
+        )
 
     @staticmethod
     def _seed_the_arm_pose_on_reset(env_cfg: Any) -> None:

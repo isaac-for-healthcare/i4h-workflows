@@ -125,15 +125,27 @@ def initialize_rod_state(solver: Any, positions_world_m: np.ndarray) -> None:
     placement and transported frames, while lengths, stiffness and rest Darboux
     values retain the configured device properties. Subsequent resets use the
     solver's existing in-place, per-environment reset kernels.
+
+    ``positions_world_m`` is ``(num_points, 3)`` shared by every environment,
+    or ``(num_envs, num_points, 3)`` when each environment holds its own
+    patient. The single-rod workspace then takes environment 0's placement.
     """
     points = np.asarray(positions_world_m, dtype=np.float32)
-    if points.shape != (solver.num_points, 3):
-        raise ValueError(f"positions must have shape ({solver.num_points}, 3), got {points.shape}")
-    frames = rod_frames_along_polyline(points)
+    num_envs = int(getattr(solver, "num_envs", 1))
+    if points.shape == (solver.num_points, 3):
+        frames = np.broadcast_to(rod_frames_along_polyline(points), (num_envs, solver.num_points, 4))
+        points = np.broadcast_to(points, (num_envs, solver.num_points, 3))
+    elif points.shape == (num_envs, solver.num_points, 3):
+        frames = np.stack([rod_frames_along_polyline(env_points) for env_points in points])
+    else:
+        raise ValueError(
+            f"positions must have shape ({solver.num_points}, 3) or "
+            f"({num_envs}, {solver.num_points}, 3), got {points.shape}"
+        )
     for workspace in solver_workspaces(solver):
-        copies = workspace.positions.shape[0] // len(points)
-        positions = np.tile(points, (copies, 1))
-        orientations = np.tile(frames, (copies, 1))
+        copies = workspace.positions.shape[0] // solver.num_points
+        positions = np.ascontiguousarray(points[:copies].reshape(-1, 3))
+        orientations = np.ascontiguousarray(frames[:copies].reshape(-1, 4))
         for name in ("positions", "predicted_positions", "rest_positions"):
             getattr(workspace, name).assign(positions)
         for name in ("orientations", "predicted_orientations", "prev_orientations", "rest_orientations"):

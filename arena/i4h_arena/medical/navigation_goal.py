@@ -24,7 +24,7 @@ from typing import Any
 
 import torch
 
-from i4h_arena.medical.route_progress import RouteProgress, route_progress
+from i4h_arena.medical.route_progress import RouteProgress, route_for_env, route_progress
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -126,8 +126,9 @@ def tip_distance_to_target_m(env: Any, target_world_m: Iterable[float]) -> torch
     """Distance from each catheter tip to the navigation target.
 
     The target is deliberately not offset by ``env.scene.env_origins``. Every
-    environment's rod is seeded from the same absolute centerline positions, so
-    the cloned environments share one world-space goal.
+    environment's rod is seeded from absolute centerline positions, so the goal
+    is a world-space point: one ``(3,)`` shared by every environment, or one
+    per environment, ``(E, 3)``, when each holds its own patient.
     """
     target = torch.as_tensor(tuple(target_world_m), device=env.device, dtype=torch.float32)
     return torch.linalg.norm(catheter_tip_world_m(env) - target, dim=-1)
@@ -238,7 +239,7 @@ def _route_progress(env: Any, route_world_m: Any, distance_m: float) -> RoutePro
         return None
     try:
         tip = catheter_tip_world_m(env)[0].detach().cpu().numpy()
-        return route_progress(route_world_m, tip)
+        return route_progress(route_for_env(route_world_m, 0), tip)
     except (ValueError, IndexError, RuntimeError):
         global _route_warned
         if not _route_warned:

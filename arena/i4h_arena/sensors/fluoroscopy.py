@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 import torch
@@ -43,9 +44,24 @@ class FluoroscopySensor(SensorBase):
     def __init__(self, cfg: FluoroscopySensorCfg):
         self._data = FluoroscopySensorData()
         self._renderer: SyntheticFluoroscopyRenderer | SlangFluoroscopyRenderer | None = None
-        self._patient_twin = (
-            PatientTwin.load(cfg.patient_twin_manifest) if cfg.patient_twin_manifest is not None else None
+        #: One Slang renderer per distinct patient, in :attr:`patient_groups` order.
+        self._patient_renderers: list[SlangFluoroscopyRenderer] = []
+        manifests = cfg.patient_twin_manifest
+        self._env_manifests: tuple[str, ...] | None = None
+        if manifests is not None and not isinstance(manifests, str):
+            self._env_manifests = tuple(str(manifest) for manifest in manifests)
+            manifests = self._env_manifests[0] if self._env_manifests else None
+        distinct = list(dict.fromkeys(self._env_manifests or ()))
+        if len(distinct) < 2:
+            distinct = []
+        self._group_twins = tuple(PatientTwin.load(manifest) for manifest in distinct)
+        self._group_env_ids = tuple(
+            np.flatnonzero([manifest == name for manifest in self._env_manifests]) for name in distinct
         )
+        if self._group_twins:
+            self._patient_twin: PatientTwin | None = self._group_twins[0]
+        else:
+            self._patient_twin = PatientTwin.load(manifests) if manifests is not None else None
         self._catheter_provider: CatheterStateProvider | None = None
         self._carm_provider: CArmStateProvider | None = None
         self._dsa_brightness = 1.0
@@ -58,7 +74,13 @@ class FluoroscopySensor(SensorBase):
 
     @property
     def patient_twin(self) -> PatientTwin | None:
+        """The patient imaged by environment 0, or by every environment when they share one."""
         return self._patient_twin
+
+    @property
+    def patient_groups(self) -> tuple[tuple[PatientTwin, np.ndarray], ...]:
+        """Each distinct patient with the environments holding it, or empty when all share one."""
+        return tuple(zip(self._group_twins, self._group_env_ids))
 
     @property
     def is_renderable(self) -> bool:
@@ -98,6 +120,11 @@ class FluoroscopySensor(SensorBase):
         elif self.cfg.backend == "slang":
             if self._patient_twin is None:
                 raise ValueError("the slang fluoroscopy backend requires patient_twin_manifest")
+            if self._env_manifests is not None and len(self._env_manifests) != self._num_envs:
+                raise ValueError(
+                    f"patient_twin_manifest names {len(self._env_manifests)} patients for "
+                    f"{self._num_envs} environments; give exactly one per environment"
+                )
         else:
             raise ValueError(f"unsupported fluoroscopy backend {self.cfg.backend!r}; expected 'synthetic' or 'slang'")
         self._data.output = {
@@ -137,52 +164,92 @@ class FluoroscopySensor(SensorBase):
         carm = self._carm_provider.snapshot(self._num_envs) if self._carm_provider is not None else None
         if self.cfg.backend == "slang" and carm is None:
             raise RuntimeError("the slang fluoroscopy backend requires a bound C-arm provider")
+        mask = wp.to_torch(env_mask).to(device=self._device, dtype=torch.bool)
+        if self.cfg.backend == "slang" and self._group_twins:
+            assert carm is not None
+            self._render_each_patient(catheter, carm, mask)
+            self._data.frame_id[mask] += 1
+            return
         if self._renderer is None:
             assert self._patient_twin is not None
             assert carm is not None
-            self._renderer = SlangFluoroscopyRenderer(
-                PatientVolume.load(self._patient_twin),
-                carm,
-                width=self.cfg.width,
-                height=self.cfg.height,
-                step_mm=self.cfg.step_mm,
-                device_type=self.cfg.slang_device_type,
-                dsa=self.cfg.dsa,
-                dsa_boost=self.cfg.dsa_boost,
-                dsa_gamma=self.cfg.dsa_gamma,
-                visual_style=self.cfg.visual_style,
-                display=DisplaySettings(polarity=self.cfg.display_polarity),
-                catheter_attenuation=self.cfg.catheter_attenuation,
-                # Keep the compositing kernel on the simulation's device instead of Warp's default,
-                # which differs on a multi-GPU host.
-                catheter_device=str(self._device),
-                catheter_material=CatheterMaterial(
-                    shaft_mu_per_mm=self.cfg.catheter_shaft_mu_per_mm,
-                    tip_mu_per_mm=self.cfg.catheter_tip_mu_per_mm,
-                    tip_length_mm=self.cfg.catheter_tip_length_mm,
-                ),
-            )
+            self._renderer = self._slang_renderer(self._patient_twin, carm)
         rendered = self._renderer.render(catheter, carm)
-        mask = wp.to_torch(env_mask).to(device=self._device, dtype=torch.bool)
+        self._write(rendered, mask, slice(None))
+        self._data.frame_id[mask] += 1
+
+    def _render_each_patient(self, catheter: CatheterState, carm: Any, mask: torch.Tensor) -> None:
+        """Image each environment through its own patient's volume.
+
+        One renderer per distinct patient, all on the first one's Slang device,
+        and each renders only the environments holding its patient.
+        """
+        if not self._patient_renderers:
+            for twin, env_ids in self.patient_groups:
+                shared = self._patient_renderers[0] if self._patient_renderers else None
+                self._patient_renderers.append(self._slang_renderer(twin, carm.take(env_ids), shared))
+            self._renderer = self._patient_renderers[0]
+        for renderer, env_ids in zip(self._patient_renderers, self._group_env_ids):
+            rendered = renderer.render(catheter.take(env_ids), carm.take(env_ids))
+            rows = torch.as_tensor(env_ids, device=self._device)
+            self._write(rendered, mask, rows)
+
+    def _write(self, rendered: dict[str, Any], mask: torch.Tensor, rows: Any) -> None:
+        """Store rendered frames into ``rows`` of the outputs, for rows the mask selects."""
+        selected = mask[rows]
         for name, values in rendered.items():
             tensor = torch.as_tensor(values, device=self._device)
-            self._data.output[name][mask] = tensor[mask]
-        self._data.frame_id[mask] += 1
+            target = self._data.output[name]
+            if isinstance(rows, slice):
+                target[selected] = tensor[selected]
+            else:
+                target[rows[selected]] = tensor[selected]
+
+    def _slang_renderer(
+        self, twin: PatientTwin, carm: Any, share_device_with: SlangFluoroscopyRenderer | None = None
+    ) -> SlangFluoroscopyRenderer:
+        return SlangFluoroscopyRenderer(
+            PatientVolume.load(twin),
+            carm,
+            width=self.cfg.width,
+            height=self.cfg.height,
+            step_mm=self.cfg.step_mm,
+            device_type=self.cfg.slang_device_type,
+            dsa=self.cfg.dsa,
+            dsa_boost=self.cfg.dsa_boost,
+            dsa_gamma=self.cfg.dsa_gamma,
+            visual_style=self.cfg.visual_style,
+            display=DisplaySettings(polarity=self.cfg.display_polarity),
+            catheter_attenuation=self.cfg.catheter_attenuation,
+            # Keep the compositing kernel on the simulation's device instead of Warp's default,
+            # which differs on a multi-GPU host.
+            catheter_device=str(self._device),
+            catheter_material=CatheterMaterial(
+                shaft_mu_per_mm=self.cfg.catheter_shaft_mu_per_mm,
+                tip_mu_per_mm=self.cfg.catheter_tip_mu_per_mm,
+                tip_length_mm=self.cfg.catheter_tip_length_mm,
+            ),
+            share_device_with=share_device_with,
+        )
+
+    def _slang_renderers(self) -> list[SlangFluoroscopyRenderer]:
+        if self._patient_renderers:
+            return self._patient_renderers
+        return [self._renderer] if isinstance(self._renderer, SlangFluoroscopyRenderer) else []
 
     def adjust_dsa_gamma(self, delta: float) -> float:
         """Adjust the live DSA brightness using the reference gamma range."""
         self.cfg.dsa_gamma = float(np.clip(self.cfg.dsa_gamma + float(delta), 0.3, 3.0))
-        if isinstance(self._renderer, SlangFluoroscopyRenderer):
-            return self._renderer.adjust_dsa_gamma(delta)
-        return self.cfg.dsa_gamma
+        results = [renderer.adjust_dsa_gamma(delta) for renderer in self._slang_renderers()]
+        return results[0] if results else self.cfg.dsa_gamma
 
     def set_dsa_brightness(self, brightness: float) -> float:
         """Set intuitive DSA brightness where larger values make the image brighter."""
         self._dsa_brightness = float(np.clip(brightness, 0.3, 3.0))
         gamma = float(np.clip(1.0 / self._dsa_brightness, 0.3, 3.0))
         self.cfg.dsa_gamma = gamma
-        if isinstance(self._renderer, SlangFluoroscopyRenderer):
-            self._renderer.set_dsa_gamma(gamma)
+        for renderer in self._slang_renderers():
+            renderer.set_dsa_gamma(gamma)
         return self._dsa_brightness
 
     def set_display_appearance(self, appearance: str) -> str | None:
@@ -190,24 +257,26 @@ class FluoroscopySensor(SensorBase):
 
         The synthetic CI phantom has no display mapping, so it keeps its fixed appearance.
         """
-        if not isinstance(self._renderer, SlangFluoroscopyRenderer):
+        renderers = self._slang_renderers()
+        if not renderers:
             return None
-        polarity = self._renderer.set_display_appearance(appearance)
+        polarity = [renderer.set_display_appearance(appearance) for renderer in renderers][0]
         self.cfg.display_polarity = polarity
         return polarity
 
     def set_display_control(self, control: str, value: float) -> float | None:
         """Adjust the display window, or report None when the backend has no mapping."""
-        if not isinstance(self._renderer, SlangFluoroscopyRenderer):
+        renderers = self._slang_renderers()
+        if not renderers:
             return None
-        return self._renderer.set_display_control(control, value)
+        return [renderer.set_display_control(control, value) for renderer in renderers][0]
 
     def recalibrate_display(self) -> bool:
         """Re-fit the display window to the next rendered frame."""
-        if not isinstance(self._renderer, SlangFluoroscopyRenderer):
-            return False
-        self._renderer.recalibrate_display()
-        return True
+        renderers = self._slang_renderers()
+        for renderer in renderers:
+            renderer.recalibrate_display()
+        return bool(renderers)
 
     def select_projection(self, angle_rad: float) -> float:
         """Select a calibrated projection through the bound C-arm provider."""
@@ -233,7 +302,8 @@ class FluoroscopySensorCfg(SensorBaseCfg):
     width: int = 512
     height: int = 512
     backend: str = "synthetic"
-    patient_twin_manifest: str | None = None
+    #: One twin for every environment, or a sequence naming one per environment.
+    patient_twin_manifest: Any = None
     world_bounds_m: tuple[float, float, float, float] = (-0.35, 0.35, -0.30, 0.30)
     demo_catheter: bool = False
     step_mm: float = 1.0

@@ -134,7 +134,7 @@ def _evaluation_command(
     episodes: int,
     num_envs: int,
     output: Path,
-    patient_twin: Path | None = None,
+    patient_twins: tuple[Path, ...] = (),
     export_policy: Path | None = None,
 ) -> list[str]:
     command = [
@@ -158,8 +158,8 @@ def _evaluation_command(
     ]
     if profile.adapter_module:
         command.extend(("--adapter-module", profile.adapter_module))
-    if patient_twin is not None:
-        command.extend(("--patient-twin", str(patient_twin)))
+    for twin in patient_twins:
+        command.extend(("--patient-twin", str(twin)))
     if export_policy is not None:
         command.extend(("--export-policy", str(export_policy)))
     return command
@@ -192,6 +192,12 @@ def launch(
     overrides: tuple[str, ...],
 ) -> int:
     patient_twin = getattr(args, "resolved_patient_twin", None)
+    patient_twins = tuple(getattr(args, "resolved_patient_twins", ()))
+    per_env_patients = len(patient_twins) > 1
+    if args.only_eval and per_env_patients and args.episodes < num_envs:
+        raise SystemExit(
+            f"evaluating across {num_envs} per-environment patients needs --episodes of at least {num_envs}"
+        )
     checkpoint: Path | None = None
     if args.only_eval:
         checkpoint = resolve_input_path(workflows_root, args.rl_model_path)
@@ -211,7 +217,7 @@ def launch(
         "trainer": profile.trainer,
         "algorithm": profile.algorithm,
         "run_dir": str(run_dir),
-        "num_envs": min(num_envs, args.episodes) if args.only_eval else num_envs,
+        "num_envs": min(num_envs, args.episodes) if args.only_eval and not per_env_patients else num_envs,
         # As in the RLinf backend: the knobs read from the environment, so
         # two runs of one profile cannot differ in physics invisibly.
         "overrides": environment_overrides(),
@@ -219,6 +225,8 @@ def launch(
     }
     if patient_twin is not None:
         metadata["patient_twin"] = str(patient_twin)
+    if per_env_patients:
+        metadata["patient_twins"] = [str(twin) for twin in patient_twins]
     if args.only_eval:
         metadata.update({"checkpoint": str(checkpoint), "episodes": args.episodes})
     else:
@@ -233,9 +241,9 @@ def launch(
             profile,
             checkpoint,
             episodes=args.episodes,
-            num_envs=min(num_envs, args.episodes),
+            num_envs=metadata["num_envs"],
             output=evaluation,
-            patient_twin=patient_twin,
+            patient_twins=patient_twins,
         )
         print(f"run dir: {run_dir}")
         print("launch: " + shlex.join(command), flush=True)
@@ -267,8 +275,8 @@ def launch(
         profile.simulation.presets,
         f"agent.experiment_name={run_dir}",
     ]
-    if patient_twin is not None:
-        command.extend(("--patient-twin", str(patient_twin)))
+    for twin in patient_twins:
+        command.extend(("--patient-twin", str(twin)))
     if args.video:
         command.append("--video")
     command.extend(overrides)
@@ -318,7 +326,7 @@ def export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -
         episodes=1,
         num_envs=1,
         output=evaluation,
-        patient_twin=patient_twin,
+        patient_twins=() if patient_twin is None else (patient_twin,),
         export_policy=policy,
     )
     print(f"workflow: {profile.workflow}")
