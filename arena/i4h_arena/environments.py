@@ -53,6 +53,19 @@ class SceneEnvironment(ExampleEnvironmentBase):
                 # Render the reset scene before the first observation, as Isaac Lab's camera
                 # tasks do; otherwise the first frames after a reset show the previous episode.
                 env_cfg.num_rerenders_on_reset = max(env_cfg.num_rerenders_on_reset, 3)
+            recorders = getattr(env_cfg, "recorders", None)
+            if getattr(args_cli, "recorder_dataset_export_dir_path", None) is None and recorders is not None:
+                # Arena records every run for its metrics, which read only their own terms. The
+                # observations, camera frames included, are worth recording only into a dataset
+                # someone asked for: Isaac Lab writes them at full size, compressed, at each reset.
+                for term in ("record_pre_step_flat_policy_observations", "record_pre_step_flat_camera_observations"):
+                    if hasattr(recorders, term):
+                        setattr(recorders, term, None)
+            if getattr(getattr(env_cfg, "observations", None), "camera_obs", None) is None:
+                # Arena's demo recorder reads its camera group, which an embodiment observing its
+                # cameras in the policy group lacks; Isaac Lab's record_demos.py then records the
+                # action, state and observation terms the policy runner records.
+                env_cfg.demo_recorder_config = None
             return env_cfg
 
         arena_env.env_cfg_callback = env_cfg_callback

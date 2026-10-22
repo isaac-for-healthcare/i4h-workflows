@@ -160,3 +160,43 @@ def test_environment_times_out_after_the_validated_step_budget(monkeypatch, epis
     assert configured == [env_cfg]
     step_dt = env_cfg.sim.dt * env_cfg.decimation
     assert math.ceil(env_cfg.episode_length_s / step_dt) == expected
+
+
+def _configured_env_cfg(monkeypatch, **flags) -> SimpleNamespace:
+    scene = SimpleNamespace(
+        spec=SimpleNamespace(max_steps=150),
+        arena_environment=lambda: SimpleNamespace(env_cfg_callback=lambda cfg: cfg),
+        configure_env_cfg=lambda _cfg: None,
+    )
+    monkeypatch.setattr(environments, "load_scene", lambda _name, _args: scene)
+    arena_env = environments.SoarmScissors().get_env(argparse.Namespace(**flags))
+    env_cfg = SimpleNamespace(
+        sim=SimpleNamespace(dt=1 / 60),
+        decimation=1,
+        episode_length_s=5.0,
+        num_rerenders_on_reset=0,
+        recorders=SimpleNamespace(
+            record_pre_step_actions="actions", record_pre_step_flat_policy_observations="observations"
+        ),
+        observations=SimpleNamespace(policy="policy"),
+        demo_recorder_config="arena demo recorder",
+    )
+    return arena_env.env_cfg_callback(env_cfg)
+
+
+def test_camera_runs_render_the_reset_scene_before_the_first_observation(monkeypatch) -> None:
+    assert _configured_env_cfg(monkeypatch, enable_cameras=True).num_rerenders_on_reset == 3
+    assert _configured_env_cfg(monkeypatch, enable_cameras=False).num_rerenders_on_reset == 0
+
+
+def test_observations_are_recorded_only_into_a_requested_dataset(monkeypatch) -> None:
+    evaluation = _configured_env_cfg(monkeypatch)
+    assert evaluation.recorders.record_pre_step_flat_policy_observations is None
+    assert evaluation.recorders.record_pre_step_actions == "actions"
+
+    dataset = _configured_env_cfg(monkeypatch, recorder_dataset_export_dir_path="runs/scissors")
+    assert dataset.recorders.record_pre_step_flat_policy_observations == "observations"
+
+
+def test_demonstrations_use_isaac_labs_recorder_without_an_arena_camera_group(monkeypatch) -> None:
+    assert _configured_env_cfg(monkeypatch).demo_recorder_config is None
