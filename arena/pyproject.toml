@@ -87,7 +87,8 @@ isaaclab-assets = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_asse
 leisaac = { path = "../third_party/leisaac-cd61a20/source/leisaac", editable = true }
 isaaclab-arena = { path = "../third_party/IsaacLab-Arena-c7edf3a", editable = true }
 gr00t = { path = "../third_party/Isaac-GR00T-1.6", editable = true }
-openpi-client = { path = "../third_party/openpi-581e07d/packages/openpi-client", editable = true }
+# Arena pins its openpi client (it passes api_key, which the training checkout's client predates).
+openpi-client = { git = "https://github.com/Physical-Intelligence/openpi", rev = "c23745b5ad24e98f66967ea795a07b2588ed6c79", subdirectory = "packages/openpi-client" }
 catheter-vasculature-solver = { path = "../third_party/i4h-physics-simulation-internal/physics_simulation/endoluminal/catheter-vasculature-solver", editable = true }
 xray-simulator = { path = "../third_party/i4h-sensor-simulation-internal/xray-simulator", editable = true }
 torch = [
