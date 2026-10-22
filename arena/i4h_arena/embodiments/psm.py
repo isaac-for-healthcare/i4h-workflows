@@ -33,7 +33,7 @@ from isaaclab_physx.sim.schemas import PhysxArticulationRootPropertiesCfg, Physx
 
 from i4h_arena.assets.constants import DVRK_PSM_USD
 from i4h_arena.embodiments._psm_newton import configure_psm_articulation
-from i4h_arena.embodiments.recorders import action_state_recorders
+from i4h_arena.embodiments.recorders import action_state_recorders, with_joint_positions
 
 _ARM_NAMES = [
     "psm_yaw_joint",
@@ -500,7 +500,8 @@ class DualPsmEmbodiment(EmbodimentBase):
 
     def get_recorder_term_cfg(self, record_trajectories: bool = False) -> Any:
         # Arena's trajectory terms read one articulation under one scene key; this embodiment has two.
-        return action_state_recorders()
+        # Its observations hold each arm's joints separately, so obs/joint_pos is recorded on its own.
+        return with_joint_positions(action_state_recorders(), assets=("robot_1", "robot_2"))
 
     def tune_env_cfg(self, env_cfg: Any) -> Any:
         env_cfg.sim.dt = self.sim_dt

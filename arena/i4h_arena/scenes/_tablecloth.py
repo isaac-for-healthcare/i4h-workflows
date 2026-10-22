@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from i4h_arena.scenes.base import Scene
+from i4h_common.config import get_robot_config
 from i4h_common.paths import workflow_root
 
 
@@ -64,7 +65,7 @@ class TableclothScene(Scene):
             cfg.observations.camera_images = None
         return IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=TableclothEmbodiment(cfg, cameras),
+            embodiment=TableclothEmbodiment(cfg, cameras, get_robot_config(self.spec.embodiment).joint_names),
             scene=ArenaScene(assets=room_assets(cfg, ("robot", *self.camera_aliases().values()))),
             task=TableclothTask(cfg),
         )

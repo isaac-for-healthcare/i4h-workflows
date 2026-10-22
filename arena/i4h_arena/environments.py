@@ -33,6 +33,7 @@ OBSERVATION_RECORDER_TERMS = (
     "record_pre_step_flat_policy_observations",
     "record_pre_step_flat_camera_observations",
     "record_fluoroscopy_frames",
+    "record_joint_pos",
 )
 
 

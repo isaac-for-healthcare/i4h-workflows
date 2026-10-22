@@ -113,10 +113,11 @@ class _G1Locomanip:
 
     def get_recorder_term_cfg(self, record_trajectories: bool = False):
         # Arena's G1 records nothing per step, which leaves IsaacLab's demo groups
-        # without actions, observations or states.
-        from i4h_arena.embodiments.recorders import action_state_recorders
+        # without actions, observations or states. Its observations name the joints
+        # robot_joint_pos, so the converter's obs/joint_pos is recorded on its own.
+        from i4h_arena.embodiments.recorders import action_state_recorders, with_joint_positions
 
-        return action_state_recorders(super().get_recorder_term_cfg(record_trajectories))
+        return with_joint_positions(action_state_recorders(super().get_recorder_term_cfg(record_trajectories)))
 
 
 @register_asset
@@ -321,6 +322,11 @@ class G1AssembleTrocarJointEmbodiment(EmbodimentBase):
                 setattr(self.observation_config.policy, term, None)
 
     def get_recorder_term_cfg(self, record_trajectories: bool = False):
-        from i4h_arena.embodiments.recorders import action_state_recorders
+        from i4h_arena.embodiments.recorders import action_state_recorders, with_joint_positions
+        from i4h_arena.envcfg.g1_trocar import ASSEMBLE_TROCAR_JOINT_NAMES
 
-        return action_state_recorders(super().get_recorder_term_cfg(record_trajectories))
+        # In the checkpoint's 29-body + 14-Dex3 order, not the USD's topology order.
+        return with_joint_positions(
+            action_state_recorders(super().get_recorder_term_cfg(record_trajectories)),
+            joint_names=ASSEMBLE_TROCAR_JOINT_NAMES,
+        )

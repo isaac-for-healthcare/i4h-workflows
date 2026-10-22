@@ -27,8 +27,9 @@ class TableclothEmbodiment(EmbodimentBase):
     name = "tablecloth_robot"
     tags = ["embodiment"]
 
-    def __init__(self, env_cfg: Any, camera_names: Iterable[str]) -> None:
+    def __init__(self, env_cfg: Any, camera_names: Iterable[str], joint_names: Iterable[str] = ()) -> None:
         super().__init__(enable_cameras=True)
+        self.joint_names = tuple(joint_names)
         fields = [("robot", type(env_cfg.scene.robot), env_cfg.scene.robot)]
         for name in camera_names:
             camera = getattr(env_cfg.scene, name)
@@ -41,9 +42,13 @@ class TableclothEmbodiment(EmbodimentBase):
         self.xr = env_cfg.xr
 
     def get_recorder_term_cfg(self, record_trajectories: bool = False) -> Any:
-        from i4h_arena.embodiments.recorders import action_state_recorders  # noqa: PLC0415
+        from i4h_arena.embodiments.recorders import action_state_recorders, with_joint_positions  # noqa: PLC0415
 
-        return action_state_recorders(super().get_recorder_term_cfg(record_trajectories))
+        # The observations hold the joints as robot_joint_state; the converter reads obs/joint_pos,
+        # in the robot descriptor's order.
+        return with_joint_positions(
+            action_state_recorders(super().get_recorder_term_cfg(record_trajectories)), joint_names=self.joint_names
+        )
 
 
 class TableclothTask(TaskBase):

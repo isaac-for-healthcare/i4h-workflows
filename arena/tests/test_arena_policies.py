@@ -233,3 +233,19 @@ def test_hold_keeps_pink_ik_wrists_and_fingers_where_they_are() -> None:
 
     expected = [0.0, 1.0, 3.0, 0.0, 0.0, 0.0, 1.0, 3.0, 4.0, 6.0, 0.0, 0.0, 1.0, 0.0, 0.4, 0.2]
     assert torch.allclose(action, torch.tensor([expected]))
+
+
+def test_joint_positions_are_recorded_in_the_descriptor_order_across_arms() -> None:
+    from i4h_arena.embodiments.recorders import JointPositionRecorder, JointPositionRecorderCfg
+
+    def arm(names, values):
+        return SimpleNamespace(data=SimpleNamespace(joint_names=names, joint_pos=torch.tensor([values])))
+
+    env = SimpleNamespace(scene={"robot_1": arm(["a", "b"], [1.0, 2.0]), "robot_2": arm(["a", "b"], [3.0, 4.0])})
+    both = JointPositionRecorder(JointPositionRecorderCfg(assets=("robot_1", "robot_2")), env)
+    assert both.record_pre_step()[1].tolist() == [[1.0, 2.0, 3.0, 4.0]]
+
+    reordered = JointPositionRecorder(JointPositionRecorderCfg(assets=("robot_1",), joint_names=("b", "a")), env)
+    key, value = reordered.record_pre_step()
+    assert key == "obs/joint_pos"
+    assert value.tolist() == [[2.0, 1.0]]
