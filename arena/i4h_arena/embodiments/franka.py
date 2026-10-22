@@ -238,6 +238,11 @@ class FrankaUltrasoundEmbodiment(_EmbodimentBase):
     def __init__(self, enable_cameras: bool = True, initial_pose=None):
         super().__init__(enable_cameras=enable_cameras, initial_pose=initial_pose)
         self.scene_config = _RobotSceneCfg()
+        # Every episode starts with the probe pointing down above the phantom, the pose
+        # the scan policies were trained from.
+        self.scene_config.robot.init_state.joint_pos = {
+            f"panda_joint{index}": value for index, value in enumerate(FRANKA_ULTRASOUND_READY_JOINT_POS, start=1)
+        }
         self.camera_config = _CameraSceneCfg()
         # Isaac Lab 3's Camera already renders tiled; TiledCameraCfg is deprecated.
         self.camera_config.set_use_tiled_camera(False)
@@ -270,10 +275,8 @@ class FrankaUltrasoundRLEmbodiment(FrankaUltrasoundEmbodiment):
         # this low-dimensional reach objective.  The task contributes probe and
         # target poses in its own ``task_obs`` group.
         self.observation_config.policy.object_position = None
+        self.observation_config.policy.joint_pos = None
         self.observation_config.policy.concatenate_terms = True
-        self.scene_config.robot.init_state.joint_pos = {
-            f"panda_joint{index}": value for index, value in enumerate(FRANKA_ULTRASOUND_READY_JOINT_POS, start=1)
-        }
         # Bound one normalized action to a small Cartesian delta.  This keeps
         # early PPO exploration from commanding metre-scale IK jumps.
         self.action_config.arm_action.scale = 0.05
@@ -371,6 +374,8 @@ class _ObservationsCfg:
         joint_vel_rel = _ObsTerm(func=_mdp.joint_vel_rel)
         object_position = _ObsTerm(func=_object_position)
         actions = _ObsTerm(func=_mdp.last_action)
+        #: Absolute joint angles, the scan policy's state.
+        joint_pos = _ObsTerm(func=_mdp.joint_pos)
         wrist = _ObsTerm(
             func=_mdp.image_rgb,
             params={"sensor_cfg": _SceneEntityCfg("wrist_camera"), "data_type": "rgb", "normalize": False},

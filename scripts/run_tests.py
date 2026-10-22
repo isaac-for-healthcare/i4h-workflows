@@ -167,7 +167,7 @@ GPU_SMOKES = (
             "5555",
         ),
     ),
-    WorkflowSmoke("ultrasound_liver_scan", ("--rule-based",)),
+    PolicyRunnerSmoke("panda_phantom", "i4h_arena.policies.scan.ProbeSweepPolicy"),
     WorkflowSmoke("scissor_pick_and_place", ("--rule-based",)),
     WorkflowSmoke("endoluminal_navigation", ("--mode", "demo")),
 )

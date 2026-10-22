@@ -19,6 +19,8 @@ from typing import Any
 
 import yaml
 
+from i4h_common.annotate import Annotate
+
 
 class ManifestError(ValueError):
     """A manifest is malformed or internally inconsistent."""
@@ -130,6 +132,8 @@ class SceneSpec:
     control_hz: float = 60.0
     description: str = ""
     mode_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
+    #: How a vision model grades this scene's recordings, whoever produced them.
+    annotate: Annotate | None = None
     source: Path | None = None
 
     def provides(self) -> dict[str, Any]:
@@ -199,13 +203,28 @@ def load_scene_spec(path: Path) -> SceneSpec:
         if unknown:
             raise ManifestError(f"{path}: mode_overrides.{mode} has unknown keys: {sorted(unknown)}")
 
+    cameras = tuple(raw.get("cameras", ()) or ())
+    annotate = None
+    if raw.get("annotate") is not None:
+        if not isinstance(raw["annotate"], dict):
+            raise ManifestError(f"{path}: annotate must be a mapping")
+        try:
+            annotate = Annotate(**raw["annotate"])
+        except (TypeError, ValueError) as exc:
+            raise ManifestError(f"{path}: annotate: {exc}") from exc
+        unrecorded = [name for name in annotate.cameras if name not in cameras]
+        if unrecorded:
+            raise ManifestError(
+                f"{path}: annotate grades cameras {unrecorded} the scene does not record {list(cameras)}"
+            )
+
     return SceneSpec(
         name=path.stem,
         impl=str(raw["impl"]),
         embodiment=str(raw["embodiment"]),
         action_space=str(raw["action_space"]),
         dof=int(raw["dof"]),
-        cameras=tuple(raw.get("cameras", ()) or ()),
+        cameras=cameras,
         objects=tuple(raw.get("objects", ()) or ()),
         robots=tuple(raw["robots"] or ()) if "robots" in raw else ("robot",),
         gripper=bool(raw.get("gripper", True)),
@@ -213,6 +232,7 @@ def load_scene_spec(path: Path) -> SceneSpec:
         control_hz=float(raw.get("control_hz", 60.0)),
         description=str(raw.get("description", "")),
         mode_overrides={str(mode): dict(values) for mode, values in mode_overrides.items()},
+        annotate=annotate,
         source=path,
     )
 

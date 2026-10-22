@@ -37,7 +37,7 @@ The public authoring surface is `engine/i4h_engine/interface.py` and `engine/i4h
 - G1 locomanipulation: IsaacLab-Arena environments `G1Cart` and `G1Tray` (`arena/i4h_arena/environments.py`); GR00T N1.6 on its own server with Arena's client, `record_demos.py` keyboard teleop with `--embodiment g1_locomanip_wbc_pink`, and `replay_demos.py`.
 - G1 trocar: `assemble_trocar`; dex-hand scene, N1.5 policy Task, and separate RLinf PPO post-training profile.
 - Ultrasound reach: `ultrasound_probe_reach`; Franka probe Scene, RSL-RL PPO profile, exported TorchScript Task, policy, and idle modes.
-- Ultrasound: `ultrasound_liver_scan`; Panda scene with openpi policy, rule-based, teleop, replay, and idle.
+- Ultrasound: `ultrasound_liver_scan` as the IsaacLab-Arena environment `PandaPhantom`; PI0 served by `i4h_tasks.openpi_pi0.serve` with `i4h_arena.policies.pi0.LiverScanPi0Policy`, the rule-based `i4h_arena.policies.scan.ProbeSweepPolicy`, `record_demos.py` keyboard teleop, `replay_demos.py`, and the e2e loop in `scripts/e2e/run.sh`.
 - Surgical: PSM, dual-PSM, and STAR scenes with rule-based, replay, and idle modes.
 
 Confirm these families with `./run.sh list`; manifests and workflows may evolve.

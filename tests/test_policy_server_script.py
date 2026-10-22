@@ -72,12 +72,12 @@ def test_remote_policy_can_listen_for_the_workflow(tmp_path: Path) -> None:
 
 
 def test_task_id_selects_another_policy_stack(tmp_path: Path) -> None:
-    result, payload = _run(tmp_path, "openpi_pi0/ultrasound_liver_scan")
+    result, payload = _run(tmp_path, "gr00t_n17/catheter_navigation")
 
     assert result.returncode == 0, result.stderr
     assert payload is not None
-    assert payload["args"][2] == "tasks/openpi_pi0"
-    assert "i4h_tasks.openpi_pi0.server" in payload["args"]
+    assert payload["args"][2] == "tasks/gr00t_n17"
+    assert "i4h_tasks.gr00t_n17.server" in payload["args"]
 
 
 def test_stack_option_selects_policy_for_a_workflow_id(tmp_path: Path) -> None:
@@ -87,3 +87,12 @@ def test_stack_option_selects_policy_for_a_workflow_id(tmp_path: Path) -> None:
     assert payload is not None
     assert payload["args"][2] == "tasks/gr00t_n17"
     assert "gr00t_n17/scissor_pick_and_place" in payload["args"]
+
+
+def test_stacks_served_upstream_are_rejected(tmp_path: Path) -> None:
+    for task in ("gr00t_n16/locomanip_push_cart", "openpi_pi0/ultrasound_liver_scan"):
+        result, payload = _run(tmp_path, task)
+
+        assert result.returncode == 2
+        assert "unsupported policy stack" in result.stderr
+        assert payload is None

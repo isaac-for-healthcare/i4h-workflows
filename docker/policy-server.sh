@@ -58,7 +58,7 @@ case "$target" in
 esac
 
 case "$stack" in
-  gr00t_n15|gr00t_n16|gr00t_n17|openpi_pi0) ;;
+  gr00t_n15|gr00t_n17) ;;
   *) echo "unsupported policy stack: $stack" >&2; exit 2 ;;
 esac
 

@@ -9,7 +9,6 @@ this class, because the backend is a manifest lookup.
 
 from __future__ import annotations
 
-import math
 from typing import Any
 
 import numpy as np
@@ -70,40 +69,16 @@ class PandaPhantomScene(Scene):
         width = int(env.action_space.shape[-1])
         return (RobotSlice("robot", 0, width, gripper_index=None),)
 
-    def on_reset(self, env: Any, view: Any) -> None:
-        """Servo to the PI0 training start pose before publishing frame zero."""
-        import torch  # noqa: PLC0415
-        from isaaclab.utils.math import compute_pose_error  # noqa: PLC0415
-        from isaaclab.utils.math import quat_from_euler_xyz
+    def configure_env_cfg(self, env_cfg: Any) -> None:
+        from isaaclab.devices import Se3KeyboardCfg  # noqa: PLC0415
+        from isaaclab.devices.device_base import DevicesCfg  # noqa: PLC0415
 
-        from i4h_arena.envcfg.panda_phantom import reset_ultrasound_success_state  # noqa: PLC0415
-        from i4h_arena.tensor_utils import to_torch  # noqa: PLC0415
-
-        unwrapped = env.unwrapped
-        device = unwrapped.device
-        num_envs = unwrapped.num_envs
-        setup_pos = torch.tensor((0.3229, -0.0110, 0.3000), device=device, dtype=torch.float32)
-        down_quat = quat_from_euler_xyz(
-            torch.tensor(math.pi, device=device),
-            torch.tensor(0.0, device=device),
-            torch.tensor(math.pi, device=device),
+        # Isaac Lab's record_demos.py --teleop_device keyboard finds the device here. Its six
+        # values are the relative pose command; the probe has no gripper.
+        env_cfg.teleop_devices = DevicesCfg(
+            devices={
+                "keyboard": Se3KeyboardCfg(
+                    pos_sensitivity=0.05, rot_sensitivity=0.15, gripper_term=False, sim_device=env_cfg.sim.device
+                )
+            }
         )
-        target_pos = setup_pos.repeat(num_envs, 1)
-        target_quat = down_quat.repeat(num_envs, 1)
-
-        for _ in range(40):
-            ee_data = unwrapped.scene["ee_frame"].data
-            current_pos = to_torch(ee_data.target_pos_w)[:, 0, :] - unwrapped.scene.env_origins
-            current_quat = to_torch(ee_data.target_quat_w)[:, 0, :]
-            delta_pos, delta_angle = compute_pose_error(
-                current_pos,
-                current_quat,
-                target_pos,
-                target_quat,
-                rot_error_type="axis_angle",
-            )
-            env.step(torch.cat([delta_pos, delta_angle], dim=-1))
-
-        env_ids = torch.arange(num_envs, device=device)
-        reset_ultrasound_success_state(unwrapped, env_ids)
-        view.invalidate()

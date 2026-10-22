@@ -193,3 +193,40 @@ def test_scene_directory_scan(tmp_path):
 def test_scene_directory_must_exist(tmp_path):
     with pytest.raises(ManifestError, match="no such manifest directory"):
         load_scene_manifest(tmp_path / "nope")
+
+
+PHANTOM_SCENE = """\
+impl: i4h_arena.scenes.panda_phantom:PandaPhantomScene
+embodiment: panda
+action_space: ee_pose
+dof: 6
+cameras: [room, wrist]
+"""
+
+
+def test_a_scene_declares_how_its_recordings_are_graded(tmp_path):
+    body = (
+        PHANTOM_SCENE
+        + "annotate:\n  criterion: >-\n    The probe rests\n    on the phantom.\n"
+        + "  cameras: [room, wrist]\n  judge: trajectory\n"
+    )
+    spec = load_scene_spec(_write(tmp_path, body, "panda_phantom.yaml"))
+
+    assert spec.annotate is not None
+    assert spec.annotate.criterion == "The probe rests on the phantom."
+    assert spec.annotate.cameras == ("room", "wrist")
+    assert spec.annotate.judge == "trajectory"
+    assert load_scene_spec(_write(tmp_path, PHANTOM_SCENE, "psm_reach.yaml")).annotate is None
+
+
+@pytest.mark.parametrize(
+    ("annotate", "message"),
+    [
+        ("  cameras: [room, overview]\n", r"\['overview'\] the scene does not record \['room', 'wrist'\]"),
+        ("  judge: final\n", "judge"),
+        ("  cameras: room\n", "sequence of camera names"),
+    ],
+)
+def test_a_scene_cannot_grade_with_what_it_does_not_record(tmp_path, annotate, message):
+    with pytest.raises(ManifestError, match=message):
+        load_scene_spec(_write(tmp_path, PHANTOM_SCENE + "annotate:\n" + annotate, "panda_phantom.yaml"))

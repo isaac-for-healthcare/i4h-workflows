@@ -7,29 +7,32 @@ WORKFLOWS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$WORKFLOWS_ROOT"
 export I4H_WORKFLOWS="$WORKFLOWS_ROOT"
 
-ENV_ID=scissor_pick_and_place
+ENV_ID=ultrasound_liver_scan
 DRY_RUN=0
 SKIP_MIMIC=0
 SKIP_ANNOTATE=0
 SKIP_REPLAY=0
 SKIP_VIZ=0
-HEADLESS=()
+VIZ=(--viz kit)
 RUN_DIR=""
+PORT="${I4H_POLICY_PORT:-8000}"
 RECORD_EPISODES="${RECORD_EPISODES:-3}"
-RECORD_ATTEMPTS="${RECORD_ATTEMPTS:-3}"
 MIMIC_EPISODES="${MIMIC_EPISODES:-3}"
 FINETUNE_STEPS="${FINETUNE_STEPS:-500}"
 FINETUNE_BATCH_SIZE="${FINETUNE_BATCH_SIZE:-32}"
+VALIDATE_EPISODES="${VALIDATE_EPISODES:-3}"
 
 usage() {
   cat <<EOF
-Usage: scripts/e2e/run.sh [ENV] [options]
+Usage: scripts/e2e/run.sh [options]
 
 Runs setup -> policy record -> mimic -> annotate/filter -> replay -> convert ->
-visualize -> finetune -> validate.
+visualize -> finetune -> validate. The simulator stages run the workflow's
+IsaacLab-Arena environment with Arena's policy runner and Isaac Lab's
+replay_demos.py, against the policy server of the workflow's checkpoint.
 
 Options:
-  --env ENV              workflow name (default: scissor_pick_and_place)
+  --env ENV              workflow name (default: ultrasound_liver_scan)
   --run-dir PATH         output directory
   --dry-run              resolve and print every stage without executing it
   --skip-mimic           use policy recordings directly
@@ -53,62 +56,62 @@ while (($#)); do
     --skip-annotate) SKIP_ANNOTATE=1; shift ;;
     --skip-replay) SKIP_REPLAY=1; shift ;;
     --skip-viz) SKIP_VIZ=1; shift ;;
-    --headless) HEADLESS=(--headless); shift ;;
+    --headless) VIZ=(); shift ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) ENV_ID="$1"; shift ;;
   esac
 done
 
-LIGHT=(env -u VIRTUAL_ENV uv run --project workflows --no-sync)
-if ! META_TEXT=$("${LIGHT[@]}" python - "$ENV_ID" <<'PY'
-import sys
-from i4h_engine.loader import resolve_workflow
-from i4h_engine.registry import default_registry
+# Each workflow's environment, its policy task, the Arena client for that task's
+# server, and the server itself (which takes --checkpoint for a finetuned one).
+case "$ENV_ID" in
+  ultrasound_liver_scan)
+    SCENE=panda_phantom
+    ENVIRONMENT=(--external_environment_class_path i4h_arena.environments:PandaPhantom "$SCENE")
+    TASK_ID=openpi_pi0/ultrasound_liver_scan
+    CLIENT=(--policy_type i4h_arena.policies.pi0.LiverScanPi0Policy --remote_port "$PORT")
+    SERVER=(tasks/openpi_pi0/.venv/bin/python -m i4h_tasks.openpi_pi0.serve ultrasound_liver_scan --port "$PORT")
+    ;;
+  *)
+    echo "[e2e] $ENV_ID has no e2e pipeline; supported: ultrasound_liver_scan" >&2
+    exit 2
+    ;;
+esac
+STACK="${TASK_ID%%/*}"
 
-name = sys.argv[1]
-try:
-    workflow = resolve_workflow(name, "policy")
-except KeyError as exc:
-    print(exc, file=sys.stderr)
-    raise SystemExit(2) from None
-registry = default_registry()
-remote = []
-for node in workflow.graph.nodes:
-    spec = node.spec or registry.tasks.get(node.task_id)
-    if spec is not None and spec.runtime == "remote":
-        remote.append(spec)
-if len(remote) != 1:
-    raise SystemExit(f"{name}: e2e needs exactly one policy task, found {len(remote)}")
-spec = remote[0]
-# The annotate stage grades against the workflow's visible success criterion
-# when it declares one; the policy's language prompt may name no end state.
-annotate = workflow.annotate
-print(spec.project)
-print(spec.id)
-print(spec.requires.get("embodiment", ""))
-print(" ".join(spec.effective_prompt.split()))
+LIGHT=(env -u VIRTUAL_ENV uv run --project workflows --no-sync)
+META_TEXT=$("${LIGHT[@]}" python - "$TASK_ID" "$SCENE" <<'PY'
+import sys
+from pathlib import Path
+
+from i4h_common.manifest import load_scene_spec
+from i4h_common.training import task_spec
+
+spec = task_spec(sys.argv[1])
+scene = load_scene_spec(Path("arena/i4h_arena/scenes/manifest") / f"{sys.argv[2]}.yaml")
+# The annotate stage grades against the scene's visible success criterion when it
+# declares one; the policy's language prompt may name no end state.
+annotate = scene.annotate
+prompt = " ".join((spec.prompt or spec.summary).split())
+print(spec.embodiment)
+print(prompt)
 print("1" if spec.trainable else "0")
-print((annotate and annotate.criterion) or " ".join(spec.effective_prompt.split()))
+print((annotate and annotate.criterion) or prompt)
 print(",".join(annotate.cameras) if annotate else "")
 print(annotate.judge if annotate else "")
 print((annotate and annotate.frames) or "")
 PY
-); then
-  echo "[e2e] $ENV_ID does not provide a policy mode; use ./run.sh $ENV_ID --rule-based" >&2
-  exit 2
-fi
+)
 readarray -t META <<<"$META_TEXT"
 
-STACK="${META[0]}"
-TASK_ID="${META[1]}"
-ROBOT="${META[2]}"
-TASK_DESCRIPTION="${META[3]}"
-TRAINABLE="${META[4]}"
-ANNOTATE_CRITERION="${META[5]}"
-ANNOTATE_CAMERAS="${META[6]:-}"
-ANNOTATE_JUDGE="${META[7]:-}"
-ANNOTATE_FRAMES="${META[8]:-}"
+ROBOT="${META[0]}"
+TASK_DESCRIPTION="${META[1]}"
+TRAINABLE="${META[2]}"
+ANNOTATE_CRITERION="${META[3]}"
+ANNOTATE_CAMERAS="${META[4]:-}"
+ANNOTATE_JUDGE="${META[5]:-}"
+ANNOTATE_FRAMES="${META[6]:-}"
 ANNOTATE_ARGS=(--task "$ANNOTATE_CRITERION")
 [ -z "$ANNOTATE_CAMERAS" ] || ANNOTATE_ARGS+=(--camera "$ANNOTATE_CAMERAS")
 [ -z "$ANNOTATE_JUDGE" ] || ANNOTATE_ARGS+=(--judge "$ANNOTATE_JUDGE")
@@ -123,10 +126,19 @@ EXPANDED="$DATA_DIR/expanded.hdf5"
 FILTERED="$DATA_DIR/filtered.hdf5"
 DATASET="$RUN_DIR/lerobot/local/${ENV_ID}_e2e"
 CHECKPOINTS="$RUN_DIR/checkpoints"
-VERIFY="$DATA_DIR/verify.hdf5"
+VERIFY_DIR="$RUN_DIR/validate"
 VIZ_STATE="$RUN_DIR/viz-state"
 VLLM_CONTAINER="${I4H_ANNOTATOR_VLLM_CONTAINER:-i4h-workflows-annotator-vllm}"
 VLLM_OWNED=0
+SERVER_PID=""
+
+ARENA=(env -u VIRTUAL_ENV arena/.venv/bin/python)
+POLICY_RUNNER=("${ARENA[@]}" -m isaaclab_arena.evaluation.policy_runner)
+REPLAY_DEMOS=(
+  "${ARENA[@]}" third_party/IsaacLab-e3f7d9f/scripts/tools/replay_demos.py
+  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback
+  "${ENVIRONMENT[@]:0:2}" --task "$SCENE"
+)
 
 stage() { printf '\n========== %s ==========\n' "$1"; }
 run() {
@@ -135,7 +147,40 @@ run() {
   printf '\n'
   [ "$DRY_RUN" -eq 1 ] || "$@"
 }
+# Start the policy server in the background; the Arena client waits until it answers.
+serve() {
+  local log="$1"
+  shift
+  printf '+'
+  printf ' %q' "$@"
+  printf ' > %q &\n' "$log"
+  [ "$DRY_RUN" -eq 1 ] && return
+  "$@" >"$log" 2>&1 &
+  SERVER_PID=$!
+}
+stop_server() {
+  [ -n "$SERVER_PID" ] || return 0
+  kill "$SERVER_PID" 2>/dev/null || true
+  wait "$SERVER_PID" 2>/dev/null || true
+  SERVER_PID=""
+}
+# Fail the stage unless at least one episode of the run in $1 succeeded.
+require_success() {
+  printf '+ require a successful episode under %q\n' "$1"
+  [ "$DRY_RUN" -eq 1 ] && return
+  python3 - "$1" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+results = [json.loads(line) for path in Path(sys.argv[1]).glob("outputs/*/episode_results_rank0.jsonl") for line in path.read_text().splitlines() if line.strip()]
+successes = sum(bool(result.get("success")) for result in results)
+print(f"[e2e] {successes}/{len(results)} validation episodes succeeded")
+raise SystemExit(0 if successes else 1)
+PY
+}
 cleanup() {
+  stop_server
   if [ "$VLLM_OWNED" -eq 1 ]; then
     tools/annotator/scripts/vllm.sh stop >/dev/null 2>&1 || true
   fi
@@ -143,7 +188,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 cat <<EOF
-[e2e] env=$ENV_ID stack=$STACK task=$TASK_ID robot=$ROBOT trainable=$TRAINABLE
+[e2e] env=$ENV_ID scene=$SCENE stack=$STACK task=$TASK_ID robot=$ROBOT trainable=$TRAINABLE
 [e2e] annotate: judge=${ANNOTATE_JUDGE:-terminal} cameras=${ANNOTATE_CAMERAS:-first} criterion="$ANNOTATE_CRITERION"
 [e2e] run_dir=$RUN_DIR
 EOF
@@ -158,8 +203,11 @@ stage setup
 run ./setup.sh
 
 stage record
-run ./run.sh "$ENV_ID" --policy --episodes "$RECORD_EPISODES" --attempts "$RECORD_ATTEMPTS" \
-  ${HEADLESS[@]+"${HEADLESS[@]}"} --run-dir "$RUN_DIR/record" --record "$RECORDING"
+serve "$LOG_DIR/server-record.log" "${SERVER[@]}"
+run "${POLICY_RUNNER[@]}" "${CLIENT[@]}" --num_episodes "$RECORD_EPISODES" --enable_cameras \
+  ${VIZ[@]+"${VIZ[@]}"} --output_base_dir "$RUN_DIR/record" "${ENVIRONMENT[@]}" \
+  --recorder_dataset_export_dir_path "$DATA_DIR" --recorder_dataset_filename "$(basename "$RECORDING" .hdf5)"
+stop_server
 
 stage mimic
 if [ "$SKIP_MIMIC" -eq 1 ]; then
@@ -186,8 +234,10 @@ else
 fi
 
 stage replay
-[ "$SKIP_REPLAY" -eq 1 ] || run ./run.sh "$ENV_ID" --replay "$FILTERED" --episode 0 \
-  ${HEADLESS[@]+"${HEADLESS[@]}"} --run-dir "$RUN_DIR/replay"
+# Replay runs without cameras: Arena's registration callback starts Kit before
+# Isaac Lab can enable camera rendering.
+[ "$SKIP_REPLAY" -eq 1 ] || run "${REPLAY_DEMOS[@]}" --dataset_file "$FILTERED" --select_episodes 0 \
+  ${VIZ[@]+"${VIZ[@]}"}
 
 stage convert
 run uv run --project tools/dataset i4h-dataset convert "$FILTERED" "$DATASET" \
@@ -217,8 +267,12 @@ else
   fi
 
   stage validate
-  run ./run.sh "$ENV_ID" --policy --checkpoint "$CHECKPOINT" --episodes 1 --attempts 3 \
-    --headless --run-dir "$RUN_DIR/validate" --record "$VERIFY"
+  serve "$LOG_DIR/server-validate.log" "${SERVER[@]}" --checkpoint "$CHECKPOINT"
+  run "${POLICY_RUNNER[@]}" "${CLIENT[@]}" --num_episodes "$VALIDATE_EPISODES" --enable_cameras \
+    --output_base_dir "$VERIFY_DIR/outputs" "${ENVIRONMENT[@]}" \
+    --recorder_dataset_export_dir_path "$VERIFY_DIR" --recorder_dataset_filename verify
+  stop_server
+  require_success "$VERIFY_DIR"
 fi
 
 stage summary

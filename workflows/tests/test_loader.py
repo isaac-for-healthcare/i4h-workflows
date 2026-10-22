@@ -14,7 +14,7 @@ from i4h_engine.loader import available_workflows, load_workflow_module, resolve
 EXPECTED_SPECIALTIES = {
     # The surgical workflows run as IsaacLab-Arena environments with i4h policies (see the README).
     "laparoscopic-robotics": set(),
-    "ultrasound-robotics": {"ultrasound_liver_scan"},
+    "ultrasound-robotics": set(),
     "endoluminal-robotics": {"endoluminal_navigation", "endoluminal_navigation_arm"},
     "hospital-automation-robotics": {
         "scissor_pick_and_place",
@@ -53,13 +53,12 @@ def test_authored_module_exports_one_workflow_value() -> None:
 
 
 def test_resolve_builds_a_mode_specific_task_graph() -> None:
-    resolved = resolve_workflow("ultrasound_liver_scan", "rule-based")
+    resolved = resolve_workflow("scissor_pick_and_place", "rule-based")
 
-    assert resolved.name == "ultrasound_liver_scan"
-    assert resolved.scene == "panda_phantom"
+    assert resolved.name == "scissor_pick_and_place"
+    assert resolved.scene == "soarm_scissors"
     assert resolved.mode == "rule-based"
     assert isinstance(resolved.graph, TaskGraph)
-    assert [node.id for node in resolved.graph.nodes][:2] == ["locate", "approach"]
 
 
 def test_resolve_uses_the_authored_default_mode() -> None:
@@ -82,14 +81,6 @@ def test_scissor_rule_based_verifies_placement_before_returning_home() -> None:
     ids = [node.id for node in resolved.graph.nodes]
     assert ids[-4:] == ["retreat", "settle", "verify_placement", "home"]
     assert [node.id for node in resolved.graph.terminals()] == ["home"]
-
-
-def test_ultrasound_rule_based_finishes_on_simulator_success() -> None:
-    resolved = resolve_workflow("ultrasound_liver_scan", "rule-based")
-
-    ids = [node.id for node in resolved.graph.nodes]
-    assert ids[-2:] == ["hold", "verify_scan"]
-    assert [node.id for node in resolved.graph.terminals()] == ["verify_scan"]
 
 
 def test_replay_builder_forwards_all_supported_arguments() -> None:

@@ -29,7 +29,7 @@ def test_gpu_smoke_workflows() -> None:
         ("psm_reach", "i4h_arena.policies.reach.CartesianReachPolicy"),
         ("psm_needle", "i4h_arena.policies.lift.CartesianLiftPolicy"),
         ("g1_trocar", "i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy"),
-        ("ultrasound_liver_scan", ("--rule-based",)),
+        ("panda_phantom", "i4h_arena.policies.scan.ProbeSweepPolicy"),
         ("scissor_pick_and_place", ("--rule-based",)),
         ("endoluminal_navigation", ("--mode", "demo")),
     ]
@@ -156,9 +156,9 @@ def test_gpu_smoke_runs_rollout_and_inspects_recording(tmp_path, monkeypatch) ->
 
     monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
 
-    smoke = next(smoke for smoke in run_tests.GPU_SMOKES if smoke.workflow == "ultrasound_liver_scan")
+    smoke = next(smoke for smoke in run_tests.GPU_SMOKES if smoke.workflow == "scissor_pick_and_place")
     assert run_tests._run_gpu_smoke(smoke, timeout=30)
-    assert calls[0][:3] == ["./run.sh", "ultrasound_liver_scan", "--rule-based"]
+    assert calls[0][:3] == ["./run.sh", "scissor_pick_and_place", "--rule-based"]
     assert "--headless" in calls[0]
     assert "--record-failures" in calls[0]
     assert calls[0][calls[0].index("--attempts") + 1] == "1"
@@ -191,7 +191,7 @@ def test_gpu_smoke_requires_episode_summary(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
 
-    assert not run_tests._run_gpu_smoke(_smoke("ultrasound_liver_scan"), timeout=30)
+    assert not run_tests._run_gpu_smoke(_smoke("scissor_pick_and_place"), timeout=30)
 
 
 @pytest.mark.parametrize("suite", ["ci", "rl"])
