@@ -15,7 +15,7 @@ import pytest
 WORKFLOWS_ROOT = Path(__file__).resolve().parent.parent
 RUN_SH = WORKFLOWS_ROOT / "run.sh"
 STOP_SH = WORKFLOWS_ROOT / "stop.sh"
-WORKFLOW = "scissor_pick_and_place"
+WORKFLOW = "endoluminal_navigation"
 
 
 def _dry_run(cwd: Path, *args: str) -> str:
@@ -106,7 +106,8 @@ def test_policy_endpoint_accepts_copy_pasteable_host_port(
         [
             str(RUN_SH),
             WORKFLOW,
-            "--policy",
+            "--mode",
+            "policy_n17",
             "--policy-endpoint",
             endpoint,
             "--dry-run",

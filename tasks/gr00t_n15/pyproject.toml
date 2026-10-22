@@ -41,7 +41,7 @@ rl = [
 ]
 
 [project.scripts]
-i4h-tasks-gr00t-n15 = "i4h_tasks.gr00t_n15.server:main"
+i4h-tasks-gr00t-n15 = "i4h_tasks.gr00t_n15.serve:main"
 i4h-tasks-gr00t-n15-train = "i4h_tasks.gr00t_n15.train:main"
 
 [build-system]

@@ -109,3 +109,56 @@ def test_pi0_requests_carry_the_arm_joints_and_both_views_at_the_trained_size() 
     assert request["observation/image"].shape == (224, 224, 3)
     assert request["observation/wrist_image"].dtype == np.uint8
     assert request["prompt"] == "Perform a liver ultrasound."
+
+
+class _SoArmEnv:
+    """A one-env SO-ARM scene at 60 Hz whose joints land exactly on each command."""
+
+    num_envs = 1
+    device = "cpu"
+    step_dt = 1 / 60
+
+    def __init__(self, scissors_xy: tuple[float, float]) -> None:
+        self.unwrapped = self
+        home = torch.tensor([[0.0, -1.6, 1.4, 1.5, -1.8, 0.0]])
+        self.robot = SimpleNamespace(data=SimpleNamespace(joint_pos=home.clone(), default_joint_pos=home))
+        self.scissors = SimpleNamespace(
+            data=SimpleNamespace(root_pos_w=torch.tensor([[*scissors_xy, 0.0]]), root_lin_vel_w=torch.zeros(1, 3))
+        )
+        self.scene = _Scene({"robot": self.robot, "scissors": self.scissors})
+
+
+class _Scene(dict):
+    env_origins = torch.zeros(1, 3)
+
+
+def test_scissor_keyframes_follow_the_task_graph_schedule_and_corrections() -> None:
+    from i4h_arena.policies import scissors
+
+    env = _SoArmEnv((0.12, -0.0267))
+    policy = scissors.ScissorPickPlacePolicy(scissors.ScissorPickPlacePolicyCfg())
+    home = env.robot.data.default_joint_pos
+    commands = []
+    for _ in range(1 + 495):
+        command = policy.get_action(env, None)
+        env.robot.data.joint_pos = command.clone()
+        commands.append(command)
+
+    # Locate holds home; the eight keyframe stages take 495 steps at 60 Hz.
+    assert torch.equal(commands[0], home)
+    leave_home_end = home + torch.tensor(scissors.STAGES[0][0][-1][0])
+    assert torch.allclose(commands[96], leave_home_end)
+    retreat_end = home + torch.tensor(scissors.STAGES[-1][0][-1][0])
+    assert torch.allclose(commands[495], retreat_end)
+    assert int(policy._phase[0]) == scissors.SETTLE
+
+    # At the reference pose the corrections vanish; displaced scissors shift the grasp.
+    displaced = _SoArmEnv((0.13, -0.0167))
+    policy = scissors.ScissorPickPlacePolicy(scissors.ScissorPickPlacePolicyCfg())
+    for step in range(1 + 96 + 40 + 80):
+        command = policy.get_action(displaced, None)
+        displaced.robot.data.joint_pos = command.clone()
+    descend_end = home + torch.tensor(scissors.STAGES[2][0][-1][0])
+    pan = 0.01 * 4.51
+    reach = 0.01 * torch.tensor(scissors._REACH.gains)
+    assert torch.allclose(command[0], (descend_end[0] + reach + torch.tensor([pan, 0, 0, 0, 0, 0])).float(), atol=1e-6)

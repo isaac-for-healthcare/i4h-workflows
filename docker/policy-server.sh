@@ -11,7 +11,7 @@ require_value() {
   [ "$2" -ge 2 ] || { echo "$1 requires a value" >&2; usage; exit 2; }
 }
 
-stack="${I4H_POLICY_STACK:-gr00t_n15}"
+stack="${I4H_POLICY_STACK:-gr00t_n17}"
 target=""
 namespace=""
 checkpoint="${I4H_POLICY_CHECKPOINT:-}"
@@ -58,7 +58,7 @@ case "$target" in
 esac
 
 case "$stack" in
-  gr00t_n15|gr00t_n17) ;;
+  gr00t_n17) ;;
   *) echo "unsupported policy stack: $stack" >&2; exit 2 ;;
 esac
 

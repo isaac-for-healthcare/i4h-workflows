@@ -63,6 +63,33 @@ class SoArmScissorsScene(Scene):
             home_joint_pos_rad=get_robot_config(self.spec.embodiment).home_joint_pos_rad,
         )
 
+    @classmethod
+    def add_cli_args(cls, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "--leader_port",
+            default="/dev/ttyACM1",
+            help="Serial port of the SO-ARM 101 leader arm, for --teleop_device so101_leader.",
+        )
+
+    def configure_env_cfg(self, env_cfg: Any) -> None:
+        from isaaclab.devices.device_base import DevicesCfg  # noqa: PLC0415
+
+        from i4h_arena.devices.so_arm import SoArmKeyboardCfg, SoArmLeaderCfg  # noqa: PLC0415
+
+        # Isaac Lab's record_demos.py --teleop_device keyboard|so101_leader finds the devices here.
+        home = tuple(get_robot_config(self.spec.embodiment).home_joint_pos_rad)
+        device = env_cfg.sim.device
+        env_cfg.teleop_devices = DevicesCfg(
+            devices={
+                "keyboard": SoArmKeyboardCfg(home_joint_pos_rad=home, sim_device=device),
+                "so101_leader": SoArmLeaderCfg(
+                    port=getattr(self.args, "leader_port", "/dev/ttyACM1"),
+                    robot=self.spec.embodiment,
+                    sim_device=device,
+                ),
+            }
+        )
+
     # -- adapters --------------------------------------------------------
     def home_joints(self, env: Any) -> np.ndarray:
         home = np.asarray(get_robot_config(self.spec.embodiment).home_joint_pos_rad, dtype=np.float32)

@@ -9,7 +9,7 @@ Workflows for robotic manipulation, transport, and procedural support in hospita
 | `assemble_trocar` | Lift, align, insert, place, and release a trocar with a Unitree G1. | IsaacLab-Arena environment `G1Trocar` (`g1_trocar`): GR00T N1.5 policy, replay ([commands](#assemble-trocar)) |
 | `locomanip_push_cart` | Walk to a cart, grip it, and push it forward with a Unitree G1. | IsaacLab-Arena environment `G1Cart` (`g1_cart`): GR00T N1.6 policy, keyboard teleop, replay ([commands](#g1-loco-manipulation)) |
 | `locomanip_tray_pick_and_place` | Move a surgical tray from a shelf to a cart with a Unitree G1. | IsaacLab-Arena environment `G1Tray` (`g1_tray`): GR00T N1.6 policy, keyboard teleop, replay ([commands](#g1-loco-manipulation)) |
-| [`scissor_pick_and_place`](scissor_pick_and_place.py) | Pick up surgical scissors, place them in a tray, and return an SO-ARM 101 home. | `policy`, `policy_n17`, `rule-based`, `teleop`, `replay`, `idle` |
+| `scissor_pick_and_place` | Pick up surgical scissors, place them in a tray, and return an SO-ARM 101 home. | IsaacLab-Arena environment `SoarmScissors` (`soarm_scissors`): GR00T N1.5 policy, rule-based keyframes, keyboard or leader-arm teleop, replay ([commands](#scissor-pick-and-place)) |
 | [`spread_tablecloth_g1`](spread_tablecloth_g1.py) | Spread a deformable tablecloth with Unitree G1 and Inspire hands. | `teleop` (XR), `replay`, `idle` |
 | [`spread_tablecloth_h2`](spread_tablecloth_h2.py) | Spread a deformable tablecloth with Unitree H2 and Sharpa Wave hands. | `teleop` (XR), `replay`, `idle` |
 
@@ -25,7 +25,7 @@ Open a preview to view the animated demonstration.
 | :---: | :---: |
 | [![Unitree G1 assembling a trocar](../../../docs/workflows/images/assemble_trocar.webp)](../../../docs/workflows/images/assemble_trocar.gif) | [![Unitree G1 pushing a cart](../../../docs/workflows/images/locomanip_push_cart.webp)](../../../docs/workflows/images/locomanip_push_cart.gif) |
 
-| `locomanip_tray_pick_and_place` | [`scissor_pick_and_place`](scissor_pick_and_place.py) |
+| `locomanip_tray_pick_and_place` | `scissor_pick_and_place` |
 | :---: | :---: |
 | [![Unitree G1 moving a surgical tray](../../../docs/workflows/images/locomanip_tray_pick_and_place.webp)](../../../docs/workflows/images/locomanip_tray_pick_and_place.gif) | [![SO-ARM picking and placing surgical scissors](../../../docs/workflows/images/scissor_pick_and_place.webp)](../../../docs/workflows/images/scissor_pick_and_place.gif) |
 
@@ -37,25 +37,42 @@ Tablecloth camera screenshots from simulator validation:
 
 Note: Complete the [project setup](../../../README.md#setup-from-the-command-line) before you begin.
 
-## Run with an AI Agent
+## Scissor Pick and Place
 
-Paste any prompt into Claude Code, Codex, or the repository's [Local Agent](../../../local-agent/README.md):
-
-```text
-Evaluate scissor pick and place for 1 episode.
-```
-
-The agent runs the selected workflow, verifies the episode result, and inspects its recorded artifacts.
-
-## Run from the Command Line
+`scissor_pick_and_place` runs as the IsaacLab-Arena environment `SoarmScissors` (`soarm_scissors`). An episode succeeds once the scissors have settled in the tray and the arm is back home; it times out after 600 steps. From the repository root:
 
 ```bash
-# Pick and place scissors with the rule-based controller.
-./run.sh scissor_pick_and_place --rule-based
-
-# Control the scissor workflow with the keyboard.
-./run.sh scissor_pick_and_place --teleop
+# Pick and place the scissors with the rule-based joint keyframes for 3 episodes.
+# The controller reads no camera; add --enable_cameras to record the views.
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.scissors.ScissorPickPlacePolicy --num_episodes 3 \
+  --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
 ```
+
+The GR00T N1.5 checkpoint, `nvidia/SO_ARM_Starter_Gr00t`, works in the arm's LeRobot joint calibration; `i4h_tasks.gr00t_n15.serve` serves it, and `Gr00tN15RemotePolicy` converts the joints both ways:
+
+```bash
+# Start the policy server (terminal 1); pass --model-path for a local or finetuned checkpoint.
+tasks/gr00t_n15/.venv/bin/python -m i4h_tasks.gr00t_n15.serve scissor_pick_and_place --port 5555
+
+# Evaluate it for 3 episodes (terminal 2). Add --viz kit to watch.
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --embodiment so101_scissors \
+  --remote_port 5555 --num_episodes 3 --enable_cameras \
+  --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
+```
+
+Teleoperate the arm and record successful demonstrations with Isaac Lab's tool. With `--teleop_device keyboard`, `W/S/A/D/Q/E/Z/X/T/G` step the five arm joints and `K` toggles the jaw; with `--teleop_device so101_leader --leader_port /dev/ttyACM1`, the arm mirrors an SO-ARM 101 leader arm:
+
+```bash
+arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.py \
+  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+  --external_environment_class_path i4h_arena.environments:SoarmScissors --task soarm_scissors \
+  --teleop_device keyboard --enable_cameras --viz kit \
+  --dataset_file runs/scissor_pick_and_place/teleop.hdf5 --num_demos 1
+```
+
+Replay a recording with `scripts/tools/replay_demos.py` as in [G1 Loco-manipulation](#g1-loco-manipulation), using `--external_environment_class_path i4h_arena.environments:SoarmScissors --task soarm_scissors`. [`scripts/e2e/run.sh`](../../../scripts/e2e/run.sh) runs the data-to-policy loop on this environment: record N1.5 episodes, augment, grade, replay, convert to LeRobot, finetune, and validate the finetuned checkpoint.
 
 ## G1 Loco-manipulation
 

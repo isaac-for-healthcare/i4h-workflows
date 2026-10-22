@@ -3,8 +3,9 @@
 """Serve an i4h GR00T N1.5 checkpoint with GR00T 1.5's own ``RobotInferenceServer``.
 
 The stock ``scripts/inference_service.py`` cannot load these checkpoints: the Trocar
-checkpoint needs its own data config and inference preprocessing. This module builds
-that policy and serves it on GR00T's ZMQ protocol. Requests and replies carry torch
+checkpoint needs its own data config and inference preprocessing, and the scissors
+checkpoint names cameras its stock data config does not. This module builds each policy
+and serves it on GR00T's ZMQ protocol. Requests and replies carry torch
 tensors rather than numpy arrays, because the simulator's numpy 2 pickles do not load
 under this environment's numpy 1; the bridge converts at the boundary.
 
@@ -23,7 +24,7 @@ import torch
 logger = logging.getLogger("i4h_tasks.gr00t_n15.serve")
 
 #: Tasks served here; each one's checkpoint is pinned in manifest/<task>.yaml.
-TASKS = ("assemble_trocar",)
+TASKS = ("assemble_trocar", "scissor_pick_and_place")
 
 
 class TensorBridge:
@@ -43,13 +44,36 @@ class TensorBridge:
 
 def load(task: str, model_path: str | None, *, device: str) -> Any:
     from i4h_common.training import task_spec
-    from i4h_tasks.gr00t_n15.assemble_trocar.infer.policy import load_assemble_trocar_policy, resolve_model_path
 
-    model = task_spec(f"gr00t_n15/{task}").model
-    path = resolve_model_path(model_path, model.get("repo"), model.get("revision"))
+    spec = task_spec(f"gr00t_n15/{task}")
+    model = spec.model
     if task == "assemble_trocar":
+        from i4h_tasks.gr00t_n15.assemble_trocar.infer.policy import load_assemble_trocar_policy, resolve_model_path
+
+        path = resolve_model_path(model_path, model.get("repo"), model.get("revision"))
         return load_assemble_trocar_policy(
             path, device=device, action_head_future_tokens=int(model.get("action_head_future_tokens", 32))
+        )
+    if task == "scissor_pick_and_place":
+        from gr00t.experiment.data_config import DATA_CONFIG_MAP
+        from gr00t.model.policy import Gr00tPolicy
+
+        data_config = DATA_CONFIG_MAP[str(model["data_config"])]
+        # The stock data_config names the cameras it was written for (so100_dualcam says
+        # video.front); the checkpoint was trained on the scene's, and loading checks them.
+        cameras = list(spec.observation.get("cameras") or ())
+        if cameras:
+            data_config.video_keys = [f"video.{name}" for name in cameras]
+        return Gr00tPolicy(
+            model_path=model_path or str(model["repo"]),
+            modality_config=data_config.modality_config(),
+            modality_transform=data_config.transform(),
+            embodiment_tag=str(model.get("embodiment_tag", "new_embodiment")),
+            denoising_steps=int(model.get("denoising_steps", 4)),
+            # Without this the head builds future_tokens from scratch and the checkpoint's
+            # weights are silently replaced by random ones (NaN on the first inference).
+            action_head_future_tokens=int(model.get("action_head_future_tokens", 0)),
+            device=device,
         )
     raise ValueError(f"unknown task {task!r}; known: {list(TASKS)}")
 

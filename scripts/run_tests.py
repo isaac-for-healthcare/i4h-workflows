@@ -168,7 +168,7 @@ GPU_SMOKES = (
         ),
     ),
     PolicyRunnerSmoke("panda_phantom", "i4h_arena.policies.scan.ProbeSweepPolicy"),
-    WorkflowSmoke("scissor_pick_and_place", ("--rule-based",)),
+    PolicyRunnerSmoke("soarm_scissors", "i4h_arena.policies.scissors.ScissorPickPlacePolicy"),
     WorkflowSmoke("endoluminal_navigation", ("--mode", "demo")),
 )
 

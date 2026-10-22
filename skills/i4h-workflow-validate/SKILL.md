@@ -107,13 +107,15 @@ For another declared mode, use `--mode <name>`. For “300 timesteps,” pass `-
 
 Resolve the supplied checkpoint to an existing absolute path and pass that same path with `--checkpoint`. Run `./run.sh show <workflow> --mode <mode>` to identify the selected policy Task. Read its manifest and loader under `tasks/<project>/i4h_tasks/<project>/` and compare the checkpoint's model/export metadata with the required model, format, observation ordering/dimensions, and action mapping. Stop if the path or contract is unresolved; do not infer compatibility from a filename.
 
-For a remote Task, use its declared backend's `--preload-only` option to load the checkpoint and exit before starting a simulator. For example, the `gr00t_n15/assemble_trocar` Task uses:
+For a remote Task, use its declared backend's `--preload-only` option to load the checkpoint and exit before starting a simulator. For example, the `gr00t_n17/catheter_navigation` Task uses:
 
 ```bash
-uv run --project tasks/gr00t_n15 python -m i4h_tasks.gr00t_n15.server \
-  --namespace assemble_trocar --preload gr00t_n15/assemble_trocar \
+uv run --project tasks/gr00t_n17 python -m i4h_tasks.gr00t_n17.server \
+  --namespace endoluminal_navigation --preload gr00t_n17/catheter_navigation \
   --checkpoint /absolute/path/to/checkpoint --preload-only
 ```
+
+Workflows that run as IsaacLab-Arena environments serve their checkpoints with the stack's `serve` module instead (see the specialty README).
 
 For another Task, resolve its own backend project, server entrypoint, and Task id from the live declarations; do not reuse the example's model family. Require exit status 0 and no loader error. During the normal foreground rollout, also require `ready for specs` in the run directory's backend log and successful runtime observation/action contract checks. Successful loading alone does not establish Scene compatibility.
 

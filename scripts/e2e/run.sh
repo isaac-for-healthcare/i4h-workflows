@@ -7,7 +7,7 @@ WORKFLOWS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$WORKFLOWS_ROOT"
 export I4H_WORKFLOWS="$WORKFLOWS_ROOT"
 
-ENV_ID=ultrasound_liver_scan
+ENV_ID=scissor_pick_and_place
 DRY_RUN=0
 SKIP_MIMIC=0
 SKIP_ANNOTATE=0
@@ -32,7 +32,7 @@ IsaacLab-Arena environment with Arena's policy runner and Isaac Lab's
 replay_demos.py, against the policy server of the workflow's checkpoint.
 
 Options:
-  --env ENV              workflow name (default: ultrasound_liver_scan)
+  --env ENV              workflow name: scissor_pick_and_place (default) or ultrasound_liver_scan
   --run-dir PATH         output directory
   --dry-run              resolve and print every stage without executing it
   --skip-mimic           use policy recordings directly
@@ -64,17 +64,26 @@ while (($#)); do
 done
 
 # Each workflow's environment, its policy task, the Arena client for that task's
-# server, and the server itself (which takes --checkpoint for a finetuned one).
+# server, the server itself, and the server's flag for a finetuned checkpoint.
 case "$ENV_ID" in
+  scissor_pick_and_place)
+    SCENE=soarm_scissors
+    ENVIRONMENT=(--external_environment_class_path i4h_arena.environments:SoarmScissors "$SCENE")
+    TASK_ID=gr00t_n15/scissor_pick_and_place
+    CLIENT=(--policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --embodiment so101_scissors --remote_port "$PORT")
+    SERVER=(tasks/gr00t_n15/.venv/bin/python -m i4h_tasks.gr00t_n15.serve scissor_pick_and_place --port "$PORT")
+    CHECKPOINT_FLAG=--model-path
+    ;;
   ultrasound_liver_scan)
     SCENE=panda_phantom
     ENVIRONMENT=(--external_environment_class_path i4h_arena.environments:PandaPhantom "$SCENE")
     TASK_ID=openpi_pi0/ultrasound_liver_scan
     CLIENT=(--policy_type i4h_arena.policies.pi0.LiverScanPi0Policy --remote_port "$PORT")
     SERVER=(tasks/openpi_pi0/.venv/bin/python -m i4h_tasks.openpi_pi0.serve ultrasound_liver_scan --port "$PORT")
+    CHECKPOINT_FLAG=--checkpoint
     ;;
   *)
-    echo "[e2e] $ENV_ID has no e2e pipeline; supported: ultrasound_liver_scan" >&2
+    echo "[e2e] $ENV_ID has no e2e pipeline; supported: scissor_pick_and_place, ultrasound_liver_scan" >&2
     exit 2
     ;;
 esac
@@ -267,7 +276,7 @@ else
   fi
 
   stage validate
-  serve "$LOG_DIR/server-validate.log" "${SERVER[@]}" --checkpoint "$CHECKPOINT"
+  serve "$LOG_DIR/server-validate.log" "${SERVER[@]}" "$CHECKPOINT_FLAG" "$CHECKPOINT"
   run "${POLICY_RUNNER[@]}" "${CLIENT[@]}" --num_episodes "$VALIDATE_EPISODES" --enable_cameras \
     --output_base_dir "$VERIFY_DIR/outputs" "${ENVIRONMENT[@]}" \
     --recorder_dataset_export_dir_path "$VERIFY_DIR" --recorder_dataset_filename verify

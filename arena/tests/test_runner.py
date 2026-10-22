@@ -813,44 +813,6 @@ def test_terminal_advance_without_pending_reset_still_applies_final_action(tmp_p
         np.testing.assert_array_equal(handle["data/demo_0/actions"][:, 0], [1, 2])
 
 
-@pytest.mark.parametrize("term", ["success", "object_dropped"])
-def test_scissor_final_home_consumes_success_without_crossing_the_reset(tmp_path, term):
-    import h5py
-
-    from i4h_engine.executor import Engine
-    from i4h_engine.graph import TaskGraph
-    from i4h_engine.loader import resolve_workflow
-
-    simulation, path = _boundary_runner(tmp_path, record_failures=True)
-    env = simulation.env
-    env.termination_manager = _TermManager(env, term)
-    simulation._view.termination = lambda name: env.termination_manager.get_term(name).numpy()
-    simulation._view.home_joints = lambda: np.zeros((1, 3))
-    make_actuation = simulation.scene.make_actuation
-
-    def actuation(*args):
-        act = make_actuation(*args)
-        act.set_joint_targets = lambda *_args: None
-        act.set_gripper = lambda *_args: None
-        return act
-
-    simulation.scene.make_actuation = actuation
-    graph = resolve_workflow("scissor_pick_and_place", "rule-based").graph
-    home = next(node for node in graph.nodes if node.id == "home")
-    try:
-        result = simulation._run_episode(Engine(TaskGraph().flow(home)), 0, 1)
-    finally:
-        simulation.recorder.close()
-
-    assert result.status is (WorkflowStatus.SUCCEEDED if term == "success" else WorkflowStatus.ABORTED)
-    assert env.total_steps == 3
-    with h5py.File(path, "r") as handle:
-        demo = handle["data/demo_0"]
-        assert demo.attrs["status"] == result.status.value
-        assert bool(demo.attrs["success"]) == (term == "success")
-        np.testing.assert_array_equal(demo["obs/room"][:, 0, 0, 0], [11, 12])
-
-
 def test_three_reset_episodes_commit_three_new_demos_when_appending(tmp_path):
     import h5py
 

@@ -235,26 +235,23 @@ Container builds, DGX Spark, Jetson AGX Thor, Zenoh, and sibling vLLM usage are 
 
 ### Run Workflows from the Command Line
 
+Most workflows run as IsaacLab-Arena environments under Arena's policy runner, with Isaac Lab's `record_demos.py` and `replay_demos.py` for teleoperation and replay. Each specialty README lists its workflows' commands; for example:
+
 ```bash
-./run.sh list
-./run.sh scissor_pick_and_place --rule-based --episodes 1
-./run.sh scissor_pick_and_place --policy --episodes 2
-./run.sh scissor_pick_and_place --replay demos.hdf5 --episode 0
-./run.sh scissor_pick_and_place --teleop keyboard --record
+# Pick and place the scissors with the rule-based controller for 3 episodes.
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.scissors.ScissorPickPlacePolicy --num_episodes 3 \
+  --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
 
-./run.sh surgical_reach_psm --rule-based --episodes 1
-./run.sh surgical_reach_psm --rule-based --episodes 1 --presets newton
-
-./stop.sh all
+# Reach a target with a dVRK PSM on Newton physics and watch it.
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.reach.CartesianReachPolicy --num_episodes 1 --viz kit --presets newton \
+  --external_environment_class_path i4h_arena.environments:PsmReach psm_reach
 ```
 
-Pass `--presets newton` to run a laparoscopic workflow with Newton physics. Without this preset, the workflow uses PhysX.
+Policy checkpoints run in their own environments behind a policy server; Arena's runner connects to it as a client (see each specialty README). Each episode ends on its environment's success term or after the step budget its workflow was validated with.
 
-A bare workflow opens its Scene in idle mode. `./run.sh --help` lists episode, retry, recording, checkpoint, prompt, camera, headless, and device options.
-
-Each workflow keeps the same per-episode step cap used by its validated workflow. Policy inference wait time does not consume simulation steps.
-
-Each run stores its logs, metadata, and recordings under `./runs/<workflow>/<YYYYMMDD_HHMMSS>/`. Bare `--record` writes `demos.hdf5` there. Use `--run-dir PATH` to choose a specific run directory.
+The endoluminal and tablecloth workflows still run through `./run.sh <workflow>`; `./run.sh --help` lists its options, and `./stop.sh all` stops its processes.
 
 <!-- markdownlint-disable MD033 -->
 

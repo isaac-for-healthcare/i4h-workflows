@@ -105,3 +105,19 @@ def test_a_workflow_without_an_e2e_pipeline_is_refused(tmp_path) -> None:
 
     assert result.returncode == 2
     assert "has no e2e pipeline" in result.stderr
+
+
+def test_the_scissors_validate_their_finetuned_checkpoint_with_the_n15_server(tmp_path) -> None:
+    commands = _dry_run(tmp_path, "scissor_pick_and_place")
+    server = _command(commands, "i4h_tasks.gr00t_n15.serve", occurrence=1)
+    record = _command(commands, "isaaclab_arena.evaluation.policy_runner")
+    annotate = _command(commands, "i4h-annotator")
+
+    assert _option(server, "--model-path") == "<latest-checkpoint>"
+    assert _option(record, "--embodiment") == "so101_scissors"
+    assert _option(record, "--external_environment_class_path") == "i4h_arena.environments:SoarmScissors"
+    # A scene without annotate settings is graded against the policy prompt.
+    assert annotate[annotate.index("i4h-annotator") + 1 : annotate.index("offline")] == [
+        "--task",
+        "Grip the scissors and put it into the tray",
+    ]

@@ -17,7 +17,6 @@ EXPECTED_SPECIALTIES = {
     "ultrasound-robotics": set(),
     "endoluminal-robotics": {"endoluminal_navigation", "endoluminal_navigation_arm"},
     "hospital-automation-robotics": {
-        "scissor_pick_and_place",
         "spread_tablecloth_g1",
         "spread_tablecloth_h2",
     },
@@ -44,20 +43,20 @@ def test_workflows_are_grouped_by_approved_specialty() -> None:
 
 
 def test_authored_module_exports_one_workflow_value() -> None:
-    source = load_workflow_module("scissor_pick_and_place")
+    source = load_workflow_module("endoluminal_navigation")
 
     assert isinstance(source.workflow, Workflow)
-    assert source.scene == "soarm_scissors"
-    assert "rule-based" in source.modes
+    assert source.scene == "endoluminal_navigation"
+    assert "demo" in source.modes
     assert source.default_mode == "idle"
 
 
 def test_resolve_builds_a_mode_specific_task_graph() -> None:
-    resolved = resolve_workflow("scissor_pick_and_place", "rule-based")
+    resolved = resolve_workflow("endoluminal_navigation", "demo")
 
-    assert resolved.name == "scissor_pick_and_place"
-    assert resolved.scene == "soarm_scissors"
-    assert resolved.mode == "rule-based"
+    assert resolved.name == "endoluminal_navigation"
+    assert resolved.scene == "endoluminal_navigation"
+    assert resolved.mode == "demo"
     assert isinstance(resolved.graph, TaskGraph)
 
 
@@ -68,24 +67,18 @@ def test_resolve_uses_the_authored_default_mode() -> None:
 
 
 def test_policy_node_uses_the_task_owned_prompt() -> None:
-    resolved = resolve_workflow("scissor_pick_and_place", "policy")
+    resolved = resolve_workflow("endoluminal_navigation", "policy_n17")
 
-    assert resolved.graph.nodes[0].spec.prompt == ""
-    assert resolved.graph.nodes[0].spec.effective_prompt == "Grip the scissors and put it into the tray"
+    assert (
+        resolved.graph.nodes[0].spec.effective_prompt
+        == "Steer the catheter along the vessel and stop at the target branch"
+    )
     assert "prompt" not in resolved.graph.nodes[0].params
-
-
-def test_scissor_rule_based_verifies_placement_before_returning_home() -> None:
-    resolved = resolve_workflow("scissor_pick_and_place", "rule-based")
-
-    ids = [node.id for node in resolved.graph.nodes]
-    assert ids[-4:] == ["retreat", "settle", "verify_placement", "home"]
-    assert [node.id for node in resolved.graph.terminals()] == ["home"]
 
 
 def test_replay_builder_forwards_all_supported_arguments() -> None:
     resolved = resolve_workflow(
-        "scissor_pick_and_place",
+        "endoluminal_navigation",
         "replay",
         dataset="/tmp/demo.hdf5",
         episode=2,

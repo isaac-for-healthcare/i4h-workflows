@@ -20,7 +20,7 @@ from pathlib import Path
 WORKFLOWS_ROOT = Path(__file__).resolve().parent.parent
 RUN_SH = WORKFLOWS_ROOT / "run.sh"
 STOP_SH = WORKFLOWS_ROOT / "stop.sh"
-WORKFLOW = "scissor_pick_and_place"
+WORKFLOW = "endoluminal_navigation"
 
 # Stands in for the Arena CLI: plays a backend this launch started by adding a
 # process to the one tracking file that is not another run's.

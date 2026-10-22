@@ -71,3 +71,48 @@ def test_each_env_replays_its_chunk_before_requesting_another(monkeypatch) -> No
     policy.get_action(env, observation)
     assert len(requests) == 4  # env 0 finished its chunk, env 1 was reset
     policy.close()
+
+
+def test_so101_requests_cross_in_lerobot_units_and_actions_come_back_in_radians(monkeypatch) -> None:
+    from i4h_common.config import get_robot_config
+    from i4h_common.joint_utils import isaaclab_rad_to_lerobot
+
+    policy = Gr00tN15RemotePolicy(Gr00tN15RemotePolicyCfg(embodiment="so101_scissors"))
+    policy.set_task_description("Grip the scissors and put it into the tray")
+    robot = get_robot_config("so101")
+    home = torch.tensor(robot.home_joint_pos_rad)
+    in_lerobot = isaaclab_rad_to_lerobot(
+        home.double().numpy(), robot.isaaclab_joint_pos_limit_range, robot.lerobot_joint_pos_limit_range
+    )
+    requests: list[dict] = []
+
+    def reply(request: dict) -> dict:
+        requests.append(request)
+        # The model answers in LeRobot units; send the home pose back for all 16 steps.
+        arm = torch.from_numpy(in_lerobot[:5]).expand(16, 5)
+        return {"action.single_arm": arm, "action.gripper": torch.from_numpy(in_lerobot[5:]).expand(16)}
+
+    monkeypatch.setattr(policy, "_call", reply)
+    observation = {
+        "policy": {
+            "joint_pos": home.unsqueeze(0),
+            "room": torch.zeros(1, 480, 640, 3, dtype=torch.uint8),
+            "wrist": torch.zeros(1, 480, 640, 3, dtype=torch.uint8),
+        }
+    }
+    env = SimpleNamespace(
+        unwrapped=SimpleNamespace(num_envs=1, action_manager=SimpleNamespace(total_action_dim=6), device="cpu")
+    )
+
+    actions = [policy.get_action(env, observation) for _ in range(17)]
+    policy.close()
+
+    (first, second) = requests
+    assert first["state.single_arm"].shape == (1, 5)
+    assert first["state.single_arm"].dtype == torch.float64
+    assert torch.allclose(first["state.gripper"][0], torch.from_numpy(in_lerobot[5:]))
+    assert first["video.room"].shape == (1, 480, 640, 3)
+    assert first["annotation.human.task_description"] == "Grip the scissors and put it into the tray"
+    # One request per 16 executed actions, each back in Isaac Lab radians.
+    assert second is not first
+    assert torch.allclose(actions[0][0], home, atol=1e-5)

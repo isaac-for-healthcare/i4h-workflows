@@ -11,7 +11,7 @@ import pytest
 
 WORKFLOWS_ROOT = Path(__file__).resolve().parent.parent
 RUN_SH = WORKFLOWS_ROOT / "run.sh"
-WORKFLOW = "scissor_pick_and_place"
+WORKFLOW = "endoluminal_navigation"
 
 # Options run.sh does not parse itself but forwards to the Arena CLI through the
 # catch-all branch. They work either way, so only the help text keeps them

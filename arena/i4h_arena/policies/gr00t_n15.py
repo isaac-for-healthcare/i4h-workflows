@@ -21,9 +21,14 @@ import zmq
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
-#: Per embodiment: the observation group, its joint term, (camera term -> video key),
-#: (state key -> slice of the joints), the action keys in action order, and how many leading
-#: action columns the model leaves at zero.
+from i4h_common.config import get_robot_config
+from i4h_common.joint_utils import isaaclab_rad_to_lerobot, lerobot_to_isaaclab_rad
+
+#: Per checkpoint: the observation group, its joint term, (camera term -> video key),
+#: (state key -> slice of the joints), the action keys in action order, how many leading
+#: action columns the model leaves at zero, how many actions of a chunk to execute, whether
+#: requests carry a batch axis ahead of the time axis, and the robot whose LeRobot joint
+#: calibration the model works in, if any.
 LAYOUTS = {
     "g1_trocar": {
         "group": "policy",
@@ -42,6 +47,21 @@ LAYOUTS = {
         "action": ("action.left_arm", "action.right_arm", "action.left_hand", "action.right_hand"),
         # The checkpoint drives arms and hands; the 15 leg and waist targets stay at zero.
         "action_offset": 15,
+        "open_loop_horizon": 1,
+        "batched": True,
+        "lerobot_units": None,
+    },
+    "so101_scissors": {
+        "group": "policy",
+        "joints": "joint_pos",
+        "video": {"room": "video.room", "wrist": "video.wrist"},
+        "state": {"state.single_arm": slice(0, 5), "state.gripper": slice(5, 6)},
+        "action": ("action.single_arm", "action.gripper"),
+        "action_offset": 0,
+        "open_loop_horizon": 16,
+        "batched": False,
+        # Trained on LeRobot recordings: joints in the arm's calibrated LeRobot range.
+        "lerobot_units": "so101",
     },
 }
 
@@ -51,9 +71,9 @@ class Gr00tN15RemotePolicyCfg(PolicyCfg):
     remote_host: str = "localhost"
     remote_port: int = 5555
     embodiment: str = "g1_trocar"
-    """Observation and action layout of the checkpoint (one of LAYOUTS)."""
-    open_loop_horizon: int = 1
-    """Actions executed from each inferred chunk before the next request."""
+    """Observation and action layout of the checkpoint: one of LAYOUTS."""
+    open_loop_horizon: int = 0
+    """Actions executed from each inferred chunk before the next request; 0 uses the layout's."""
     timeout_s: float = 120.0
     """How long to wait for one inference; the first one also warms the model up."""
 
@@ -67,6 +87,7 @@ class Gr00tN15RemotePolicy(PolicyBase[Gr00tN15RemotePolicyCfg]):
     def __init__(self, config: Gr00tN15RemotePolicyCfg):
         super().__init__(config)
         self.layout = LAYOUTS[config.embodiment]
+        self.horizon = config.open_loop_horizon or self.layout["open_loop_horizon"]
         self._context = zmq.Context()
         self._socket = self._context.socket(zmq.REQ)
         self._socket.setsockopt(zmq.RCVTIMEO, int(config.timeout_s * 1000))
@@ -86,20 +107,36 @@ class Gr00tN15RemotePolicy(PolicyBase[Gr00tN15RemotePolicyCfg]):
 
     def _infer(self, observation: dict, env_id: int, action_dim: int) -> torch.Tensor:
         layout = self.layout
+        lead = (1, 1) if layout["batched"] else (1,)
         group = observation[layout["group"]]
         joints = group[layout["joints"]][env_id].float().cpu()
-        request = {key: joints[part].reshape(1, 1, -1) for key, part in layout["state"].items()}
+        if layout["lerobot_units"]:
+            robot = get_robot_config(layout["lerobot_units"])
+            joints = torch.from_numpy(
+                isaaclab_rad_to_lerobot(
+                    joints.double().numpy(), robot.isaaclab_joint_pos_limit_range, robot.lerobot_joint_pos_limit_range
+                )
+            )
+        request = {key: joints[part].reshape(*lead, -1) for key, part in layout["state"].items()}
         for camera, key in layout["video"].items():
             image = group[camera][env_id].cpu()
             if image.is_floating_point():
                 image = (image * 255.0 if image.max() <= 1.0 else image).clamp(0, 255)
-            request[key] = image.to(torch.uint8).reshape(1, 1, *image.shape)
-        request["annotation.human.task_description"] = [self.task_description]
+            request[key] = image.to(torch.uint8).reshape(*lead, *image.shape)
+        prompt = self.task_description
+        request["annotation.human.task_description"] = [prompt] if layout["batched"] else prompt
         actions = self._call(request)
-        # One chunk per modality in action order: (1, horizon, width) for this batch of one,
-        # or (horizon,) for a single value.
-        parts = [torch.as_tensor(actions[key]).float() for key in layout["action"]]
+        # One chunk per modality in action order: (1, horizon, width) for a batch of one,
+        # (horizon, width) unbatched, or (horizon,) for a single value.
+        parts = [torch.as_tensor(actions[key]).double() for key in layout["action"]]
         chunk = torch.cat([part.reshape(-1, part.shape[-1] if part.ndim > 1 else 1) for part in parts], dim=-1)
+        if layout["lerobot_units"]:
+            chunk = torch.from_numpy(
+                lerobot_to_isaaclab_rad(
+                    chunk.numpy(), robot.lerobot_joint_pos_limit_range, robot.isaaclab_joint_pos_limit_range
+                )
+            )
+        chunk = chunk.float()
         full = torch.zeros(chunk.shape[0], action_dim)
         full[:, layout["action_offset"] : layout["action_offset"] + chunk.shape[-1]] = chunk
         return full
@@ -108,11 +145,11 @@ class Gr00tN15RemotePolicy(PolicyBase[Gr00tN15RemotePolicyCfg]):
         env = env.unwrapped
         n, action_dim = env.num_envs, env.action_manager.total_action_dim
         if self._chunk is None:
-            self._chunk = torch.zeros(n, self.config.open_loop_horizon, action_dim)
-            self._index = torch.full((n,), self.config.open_loop_horizon, dtype=torch.long)
+            self._chunk = torch.zeros(n, self.horizon, action_dim)
+            self._index = torch.full((n,), self.horizon, dtype=torch.long)
         for env_id in range(n):
-            if self._index[env_id] >= self.config.open_loop_horizon:
-                self._chunk[env_id] = self._infer(observation, env_id, action_dim)[: self.config.open_loop_horizon]
+            if self._index[env_id] >= self.horizon:
+                self._chunk[env_id] = self._infer(observation, env_id, action_dim)[: self.horizon]
                 self._index[env_id] = 0
         action = self._chunk[torch.arange(n), self._index]
         self._index += 1
@@ -120,7 +157,7 @@ class Gr00tN15RemotePolicy(PolicyBase[Gr00tN15RemotePolicyCfg]):
 
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         if self._index is not None:
-            self._index[slice(None) if env_ids is None else env_ids.cpu()] = self.config.open_loop_horizon
+            self._index[slice(None) if env_ids is None else env_ids.cpu()] = self.horizon
 
     def close(self) -> None:
         self._socket.close(linger=0)
