@@ -165,7 +165,7 @@ class FluoroscopySensor(SensorBase):
         if self.cfg.backend == "slang" and carm is None:
             raise RuntimeError("the slang fluoroscopy backend requires a bound C-arm provider")
         mask = wp.to_torch(env_mask).to(device=self._device, dtype=torch.bool)
-        if self._group_twins:
+        if self.cfg.backend == "slang" and self._group_twins:
             assert carm is not None
             self._render_each_patient(catheter, carm, mask)
             self._data.frame_id[mask] += 1

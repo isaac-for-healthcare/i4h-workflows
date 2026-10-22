@@ -239,3 +239,42 @@ def test_states_restrict_to_a_patient_group():
     np.testing.assert_array_equal(taken.positions_world_m, catheter.positions_world_m[[2, 0]])
     np.testing.assert_array_equal(taken.valid_nodes, [2, 2])
     assert carm.take(np.array([1])).num_envs == 1
+
+
+def test_synthetic_fluoroscopy_ignores_distinct_patients():
+    wp = pytest.importorskip("warp")
+    fluoroscopy = pytest.importorskip("i4h_arena.sensors.fluoroscopy", reason="needs Isaac Lab")
+    from i4h_arena.medical.synthetic_fluoroscopy import SyntheticFluoroscopyRenderer
+
+    sensor = object.__new__(fluoroscopy.FluoroscopySensor)
+    sensor._clear_callbacks = lambda: None
+    sensor.cfg = SimpleNamespace(backend="synthetic")
+    sensor._num_envs = 2
+    sensor._device = "cpu"
+    sensor._group_twins = (object(), object())
+    sensor._group_env_ids = (np.array([0]), np.array([1]))
+    sensor._catheter_provider = None
+    sensor._carm_provider = None
+    sensor._renderer = SyntheticFluoroscopyRenderer(width=4, height=3)
+    sensor._data = fluoroscopy.FluoroscopySensorData(
+        output={
+            name: torch.zeros((2, 3, 4, channels), dtype=dtype)
+            for name, channels, dtype in (
+                ("rgb", 3, torch.uint8),
+                ("guidance", 3, torch.uint8),
+                ("dsa", 3, torch.uint8),
+                ("dsa_guidance", 3, torch.uint8),
+                ("attenuation", 1, torch.float32),
+            )
+        },
+        frame_id=torch.zeros(2, dtype=torch.int64),
+    )
+
+    def _fail(*_args):
+        raise AssertionError("the synthetic backend must not build Slang renderers")
+
+    sensor._render_each_patient = _fail
+    sensor._update_buffers_impl(wp.array([True, True], dtype=wp.bool, device="cpu"))
+
+    assert sensor._data.frame_id.tolist() == [1, 1]
+    assert sensor._data.output["attenuation"].abs().sum() > 0
