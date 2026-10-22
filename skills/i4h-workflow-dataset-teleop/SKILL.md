@@ -18,11 +18,11 @@ metadata:
 
 ## Purpose
 
-Drive a workflow's IsaacLab-Arena environment with a human-input device through Isaac Lab's `record_demos.py`, which writes each demonstration that reaches the environment's success termination to an Isaac Lab HDF5 dataset.
+Drive a workflow's IsaacLab-Arena environment with a human-input device through `./run.sh <workflow> --teleop`, which runs Isaac Lab's `record_demos.py`. It writes each demonstration that reaches the environment's success termination to an Isaac Lab HDF5 dataset.
 
 ## Instructions
 
-1. Resolve the checkout, the workflow's environment, and its teleop device.
+1. Resolve the checkout, the workflow, and its teleop device.
 2. Choose the requested demo count and a fresh run directory.
 3. Record in the foreground with a visible viewport while a human operator drives.
 4. Inspect the saved demos.
@@ -43,38 +43,32 @@ if [ ! -d "$ROOT/arena/i4h_arena/scenes/manifest" ]; then
 fi
 export I4H_WORKFLOWS="$ROOT"
 cd "$ROOT"
-ls arena/i4h_arena/scenes/manifest
-grep -rn -A4 "teleop_devices = DevicesCfg" arena/i4h_arena/scenes
-grep -rln "isaac_teleop" arena/i4h_arena/scenes
+./run.sh list
+./run.sh show <workflow> --teleop
 ```
 
 Treat the resolver above as part of the skill contract: a hosted copy may run outside the base repository, so never assume the current checkout contains `arena/i4h_arena/scenes/manifest`. `I4H_WORKFLOWS_REPO_URL` selects the clone source. When `I4H_WORKFLOWS` is unset, derive the fallback directory from that URL; set `I4H_WORKFLOWS` only to reuse or choose a specific destination. Never replace an existing checkout.
 
-Map the workflow id to its environment class and scene name with the tables in `docs/workflows/<specialty>.md` (for example `scissor_pick_and_place` is `SoarmScissors`, `soarm_scissors`), and read that page's teleop command and controls. The device name `--teleop_device` takes must be a key of `teleop_devices` in the scene's `configure_env_cfg`, which the first grep lists per scene module; subclasses inherit them (`_locomanip.py` serves `g1_cart` and `g1_tray`, `endoluminal_navigation.py` also serves `endoluminal_navigation_arm`).
+Map the workflow id to a workflow `./run.sh list` shows, and read the teleop controls on its page in `docs/workflows/<specialty>.md`. Its declaration, `workflows/<specialty>/<workflow>.yaml`, lists the devices of its `teleop` mode, the first being the default, with any options a device needs; each is a key of `teleop_devices` in the scene's `configure_env_cfg`. `./run.sh show <workflow> --teleop [DEVICE]` prints the `record_demos.py` command.
 
-The tablecloth scenes (`_tablecloth.py`) declare Isaac Teleop instead and take no `--teleop_device`. A scene that declares neither does not support teleoperation: say so instead of relying on Isaac Lab's built-in `keyboard` or `spacemouse` fallback, whose actions do not match i4h embodiments.
+The tablecloth workflows declare Isaac Teleop (`xr: true`) and take no device. A workflow without a `teleop` mode does not support teleoperation: say so instead of passing Isaac Lab's built-in `keyboard` or `spacemouse` device, whose actions do not match i4h embodiments.
 
 ## Choose input
 
-- Use the named device when the scene declares it; otherwise use the device on the workflow's docs page.
-- Copy the device's scene options from that page: G1 `keyboard_23d` needs `--embodiment g1_locomanip_wbc_pink`; SO-ARM `so101_leader` takes `--leader_port` (default `/dev/ttyACM1`); endoluminal `catheter_keyboard` needs `--presets newton` and a prepared `--patient_twin`; tablecloth XR needs `--presets newton`, `PXR_WORK_THREAD_LIMIT=1`, and CloudXR running as `docs/workflows/tablecloth.md` describes.
+- Use the named device when the workflow declares it; otherwise its default device. `run.sh` rejects a device the workflow does not declare.
+- The declaration supplies the device's scene options, such as G1 `keyboard_23d`'s `--embodiment g1_locomanip_wbc_pink`, and Newton for the endoluminal and tablecloth scenes. Add what depends on the session: SO-ARM `so101_leader` takes `-- --leader_port <port>` (default `/dev/ttyACM1`); endoluminal `catheter_keyboard` needs a prepared `--patient-twin`; tablecloth XR needs CloudXR running as `docs/workflows/tablecloth.md` describes, or `--cloudxr-env` to start it.
 - Surface the device controls from the docs page and require the human operator to complete the task. Never pretend to provide human input in an unattended shell.
 
 ## Record
 
 ```bash
 RUN_DIR="$PWD/runs/<workflow>/$(date +%Y%m%d_%H%M%S)"
-mkdir -p "$RUN_DIR"
-arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.py \
-  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-  --external_environment_class_path i4h_arena.environments:<Class> --task <scene> \
-  --teleop_device <device> --enable_cameras --viz kit \
-  --dataset_file "$RUN_DIR/teleop.hdf5" --num_demos <N>
+./run.sh <workflow> --teleop <device> --episodes <N> --run-dir "$RUN_DIR"
 ```
 
-Add `--enable_cameras` for scenes whose docs command passes it (camera scenes); the endoluminal commands record fluoroscopy without it. Add the device's scene options from above. Teleop requires `--viz kit`. `--num_demos` counts saved demos; `0` records until the session is stopped. Use a new run directory for each session, because the recorder creates the dataset file afresh.
+The demonstrations go to `$RUN_DIR/teleop.hdf5`; `--record <path>.hdf5` chooses another file. `run.sh` enables cameras when the scene declares them; the endoluminal scenes record fluoroscopy without them. Teleop requires a visible session, so `run.sh` refuses `--headless`. `--episodes` counts saved demos; without it the session records until it is stopped. Use a new run directory for each session, because the recorder creates the dataset file afresh.
 
-Keep the session visible and in the foreground. If the agent shell must yield, start it in the background with its output in `$RUN_DIR/record.log`, record its PID, and wait on that PID. Stop a foreground session with Ctrl+C and a background one only by its recorded PID, never by tool or module name.
+Keep the session visible and in the foreground. If the agent shell must yield, start it in the background with its output in `$RUN_DIR/record.log` and wait on its PID. Stop a foreground session with Ctrl+C and a background one with `./stop.sh <workflow>`, never by tool or module name.
 
 `record_demos.py` saves a demo only after the environment's success term has held for `--num_success_steps` consecutive steps (default 10); time-outs and operator resets (`R`) are discarded. Tablecloth scenes have no success term: the operator accepts each demo through Isaac Teleop's controls. An endoluminal session without a patient twin has no goal, so it can save nothing.
 
@@ -91,11 +85,11 @@ Each `data/demo_N` holds Isaac Lab's `actions`, `processed_actions`, `states`, `
 
 ## Troubleshooting
 
-If `--teleop_device` is rejected, compare the name with the scene's `teleop_devices` and the options that register it (`--embodiment g1_locomanip_wbc_pink` for `keyboard_23d`). If keys do nothing, click inside the Isaac window; the catheter keyboard clears a stuck command with `L`. If no demo is saved, check that the success term can be reached in that scene and configuration.
+If `run.sh` rejects the device, use one the workflow declares; if `record_demos.py` rejects it, compare the declaration with the scene's `teleop_devices` and the options that register it (`--embodiment g1_locomanip_wbc_pink` for `keyboard_23d`). If keys do nothing, click inside the Isaac window; the catheter keyboard clears a stuck command with `L`. If no demo is saved, check that the success term can be reached in that scene and configuration.
 
 ## Prerequisites
 
-Require `./setup.sh` to have built `arena/.venv`, a display for `--viz kit`, the physical device (leader arm on its serial port, XR headset with CloudXR), any patient twin the scene needs, and a present human operator.
+Require `./setup.sh` to have built `common/.venv` and `arena/.venv`, a display for the visible session, the physical device (leader arm on its serial port, XR headset with CloudXR), any patient twin the scene needs, and a present human operator.
 
 ## Limitations
 
@@ -103,7 +97,7 @@ Require `./setup.sh` to have built `arena/.venv`, a display for `--viz kit`, the
 
 ## Examples
 
-- `Record 5 keyboard teleop demonstrations for locomanip tray pick and place.` → run `record_demos.py` on `G1Tray`/`g1_tray` with `--embodiment g1_locomanip_wbc_pink --teleop_device keyboard_23d --enable_cameras --viz kit --num_demos 5`, require a human operator, and inspect the saved demos.
+- `Record 5 keyboard teleop demonstrations for locomanip tray pick and place.` → run `./run.sh locomanip_tray_pick_and_place --teleop keyboard_23d --episodes 5` with a fresh run directory, which runs `record_demos.py` on `G1Tray`/`g1_tray` with `--embodiment g1_locomanip_wbc_pink`; require a human operator and inspect the saved demos.
 
 ## Completion gate
 

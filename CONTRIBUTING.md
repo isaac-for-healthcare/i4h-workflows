@@ -105,7 +105,7 @@ The generated `coverage.xml` reports coverage for CPU-testable repository code. 
 
 Suites whose project depends on a component checkout are skipped, and named at the end of the run, when `./setup.sh` has not cloned it. GitHub Actions checks out the public patient digital twin at the release tag that `third_party/setup.sh` pins, so the patient-twin suite runs in CI on every ready-for-review pull request, including those from forks.
 
-On a configured GPU host, run the recorded headless workflow smokes used by Blossom:
+On a configured GPU host, run the recorded headless workflow smokes used by Blossom, one episode each of six workflow modes through `./run.sh`:
 
 ```bash
 python scripts/run_tests.py --suite gpu

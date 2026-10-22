@@ -102,11 +102,8 @@ Serve the policy in one container and run the environment in another; both use t
 # Terminal 1: serve the checkpoint.
 i4h-docker i4h-policy gr00t_n15/scissor_pick_and_place --port 5555
 
-# Terminal 2: evaluate it for one episode.
-i4h-docker arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --embodiment so101_scissors \
-  --remote_port 5555 --num_episodes 1 --enable_cameras \
-  --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
+# Terminal 2: evaluate it for one episode against that server.
+i4h-docker ./run.sh scissor_pick_and_place --policy --policy-endpoint localhost:5555 --episodes 1 --headless
 ```
 
 Each workflow's commands are in its specialty page under [docs/workflows](../docs/workflows/).
@@ -122,10 +119,7 @@ i4h-docker i4h-policy gr00t_n15/scissor_pick_and_place --port 5555
 Run the environment on an x86 or DGX Spark host and point the client policy at Thor:
 
 ```bash
-i4h-docker arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --embodiment so101_scissors \
-  --remote_host 192.168.1.50 --remote_port 5555 --num_episodes 1 --enable_cameras \
-  --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
+i4h-docker ./run.sh scissor_pick_and_place --policy --policy-endpoint 192.168.1.50:5555 --episodes 1 --headless
 ```
 
 ## Visual validation

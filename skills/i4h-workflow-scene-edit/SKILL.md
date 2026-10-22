@@ -61,7 +61,7 @@ For a G1 face, walk, reach, or collision-sensitive success contract, read `refer
 
 A rule-based Task or run-mode request means making the environment runnable that way: rule-based is an Arena `PolicyBase` in `arena/i4h_arena/policies/`; teleop is an Isaac Lab device in `teleop_devices`; a trained policy is a stack task manifest plus an Arena client (for GR00T N1.6, `Gr00tRemoteClosedloopPolicy` with a config like `tasks/gr00t_n16/config/g1_locomanipulation.yaml`); an RSL-RL checkpoint runs with Arena's `rsl_rl` once the scene offers the trainer's observations, like `ultrasound_probe_reach` behind `--rl_observations`. Add only what was requested; an untrained policy is structurally valid, never rollout-validated.
 
-An open/view request without an edit means a `HoldPolicy` viewing run with `--viz kit`; do not invent source changes. An edit-scene request always means start or reuse the live bridge session unless the user explicitly requests offline/no-live operation. Live authoring is the default and does not require confirmation. “Save,” “persist,” or “bake” means serialize the accumulated live-stage edits into their owning sources; without one of those words, leave source untouched. “Stop” or “exit” closes the session; if persistence was not requested, discard the live-only edits. Do not stop merely because one edit prompt completed.
+An open/view request without an edit means a visible `./run.sh <workflow>` run, which holds the robot still; do not invent source changes. An edit-scene request always means start or reuse the live bridge session unless the user explicitly requests offline/no-live operation. Live authoring is the default and does not require confirmation. “Save,” “persist,” or “bake” means serialize the accumulated live-stage edits into their owning sources; without one of those words, leave source untouched. “Stop” or “exit” closes the session; if persistence was not requested, discard the live-only edits. Do not stop merely because one edit prompt completed.
 
 Before adding or resizing an asset that already appears in a maintained scene, read `references/existing-scene-assets.md`. Reuse its known USD identity, authored scale, support height, physics role, and embodiment convention instead of rediscovering them from the raw USD. Treat owning Python as source of truth and use visual-language inspection only for bounded scene-specific refinement after the known baseline is visible.
 
@@ -74,7 +74,7 @@ I4H_RUN_DIR="$(pwd)/runs/<scene>/$(date +%Y%m%d_%H%M%S)"
 ./local-agent/bridge.sh start <scene> "$I4H_RUN_DIR"
 ```
 
-The bridge runs the scene, detached, under Arena's policy runner with `HoldPolicy`, `--viz kit`, and Isaac Sim's Python server on `127.0.0.1:8226`. Within `${I4H_AGENT_BRIDGE_TIMEOUT:-900}` seconds it prints `[bridge] READY`, with the timeline paused so physics stays frozen while edits apply, or `FAILED` with the log tail; give it a covering tool timeout or poll `./local-agent/bridge.sh status <scene>`. The run directory must be under `runs/<scene>/`. Pass launcher options after `--`, such as `-- --presets newton`.
+The bridge runs `./run.sh <scene> --live`, detached: the scene under Arena's policy runner with `HoldPolicy`, visible, and Isaac Sim's Python server on `127.0.0.1:8226`. Within `${I4H_AGENT_BRIDGE_TIMEOUT:-900}` seconds it prints `[bridge] READY`, with the timeline paused so physics stays frozen while edits apply, or `FAILED` with the log tail; give it a covering tool timeout or poll `./local-agent/bridge.sh status <scene>`. The run directory must be under `runs/<scene>/`. A workflow's declaration supplies its launcher options; pass others to `run.sh` after `--`, such as `-- --presets newton`.
 
 Port 8226 serves one session per host; if it is in use by an unmanaged session, report it instead of stopping someone else's simulator. On a startup failure, report the log and blocker and use the offline fallback only for work already authorized.
 
@@ -183,20 +183,18 @@ uvx ruff==0.5.2 check --config pyproject.toml <changed-python-files...>
 
 The light suite checks the scene's contract test, manifests, and layering; the Arena scene test checks that the scene is still an Arena environment named after it. Use the Ruff version pinned in `.pre-commit-config.yaml`. Run focused tests through each affected component's uv project. Then stop the exported live session and reopen once with `./local-agent/bridge.sh start <scene>`, compare every requested visual change, transform, world bound, and declared camera against the exported snapshot with `inspect` and `capture-camera`, and stop when requested; static tests cannot catch a wrong quaternion convention. Do not add extra restarts between export, source editing, and this check.
 
-When physics, reset, actuation, policy observations, behavior, or success changed, run every policy or device from the workflow's docs page and the scene's `teleop_devices` that consumes the change; a `HoldPolicy` view is insufficient:
+When physics, reset, actuation, policy observations, behavior, or success changed, run every mode of the workflow that consumes the change, as `./run.sh list` shows them; holding the robot still is insufficient:
 
 ```bash
 I4H_RUN_DIR="$(pwd)/runs/<workflow>/$(date +%Y%m%d_%H%M%S)"
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type <policy-class-path> --num_episodes 1 --viz kit --output_base_dir "$I4H_RUN_DIR" \
-  --external_environment_class_path i4h_arena.environments:<Class> <scene>
+./run.sh <workflow> --rule-based --episodes 1 --run-dir "$I4H_RUN_DIR"
 ```
 
-Read each episode's `success` and `episode_length` from `$I4H_RUN_DIR/<timestamp>/episode_results_rank0.jsonl`.
+Read each episode's `success` and `episode_length` from `$I4H_RUN_DIR/outputs/<timestamp>/episode_results_rank0.jsonl`; `run.sh` also prints how many succeeded.
 
 When success excludes collision, dynamic validation must include a forced-contact negative case and a fresh-reset recovery case from `references/g1-reach-and-contact.md`. Do not call the success termination validated if its configured contact signal has only ever returned false.
 
-For cleanup, stop the managed session with `./local-agent/bridge.sh stop <scene>`, a foreground run with Ctrl+C, and a background run by the PID you started it with; never by tool or module name, which other sessions share.
+For cleanup, stop the managed session with `./local-agent/bridge.sh stop <scene>`, a foreground run with Ctrl+C, and a background run with `./stop.sh <workflow>`; never by tool or module name, which other sessions share.
 
 ## Troubleshooting
 

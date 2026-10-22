@@ -36,21 +36,18 @@ Start endoluminal_navigation keyboard teleop with the prepared s0011 patient twi
 
 ## Run from the Command Line
 
-Both environments run with IsaacLab-Arena's policy runner and Isaac Lab's recording tools, from the repository root. The catheter is a Newton rod, so every command passes `--presets newton` before the environment name; the environment's own options (`--patient_twin`, `--episode_steps`, recording paths) follow it. Swap in `EndoluminalNavigationArm endoluminal_navigation_arm` for the arm-borne drive.
+Run both workflows with `./run.sh` from the repository root. It runs each mode as an IsaacLab-Arena environment with Arena's policy runner, or with Isaac Lab's `record_demos.py` and `replay_demos.py`. [`workflows/endoluminal-robotics/endoluminal_navigation.yaml`](../../workflows/endoluminal-robotics/endoluminal_navigation.yaml) declares the modes and runs the catheter on Newton. Each run opens a Kit window unless you pass `--headless`. Add `show` after `./run.sh` to print the commands instead of running them. Swap in `endoluminal_navigation_arm` for the arm-borne drive.
 
 ### Procedural demonstration
 
 Exercise every channel once without patient data: settle, advance, hold, rotate, bend and unbend the tip, retract, then orbit the C-arm out and back.
 
 ```bash
-# Add --viz kit to watch; the fluoroscopy panel opens beside the viewport.
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.catheter.CatheterSweepPolicy --num_episodes 1 --presets newton \
-  --external_environment_class_path i4h_arena.environments:EndoluminalNavigation endoluminal_navigation \
-  --episode_steps 192
+# The fluoroscopy panel opens beside the viewport.
+./run.sh endoluminal_navigation --mode demo
 ```
 
-This uses a procedural patient shape, synthetic fluoroscopy, and the default physics settings. The catheter still runs on the Newton rod solver, but with no vessel to contain it, so the episode has no goal and ends at `--episode_steps`.
+This uses a procedural patient shape, synthetic fluoroscopy, and the default physics settings. The catheter still runs on the Newton rod solver, but with no vessel to contain it, so the episode has no goal and ends after the sweep's 192 steps.
 
 ### Patient CT
 
@@ -71,28 +68,21 @@ Preparation reads the CT and its vessel labels through the `vasculature_digital_
 
 For a subject that ships a CT and no `segmentations/` directory, pass `--segment-vessels` to derive the vasculature with the package's own segmenter instead of reading label files.
 
-Pass the generated manifest to any command with `--patient_twin`:
+Pass the generated manifest to any command with `--patient-twin`:
 
 ```bash
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.catheter.CatheterSweepPolicy --num_episodes 1 --presets newton \
-  --external_environment_class_path i4h_arena.environments:EndoluminalNavigation endoluminal_navigation \
-  --episode_steps 192 --patient_twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+./run.sh endoluminal_navigation --mode demo --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
 ```
 
 With a twin, an episode succeeds when the catheter tip reaches the distal end of the vessel centerline and holds there, and times out after 600 steps. Patient-CT fluoroscopy renders with Slang on Vulkan.
 
 ### Keyboard teleoperation
 
-Drive the catheter with Isaac Lab's recording tool, which stores each demonstration that reaches the goal:
+Drive the catheter with Isaac Lab's `record_demos.py`, which stores each demonstration that reaches the goal. The recording goes to `teleop.hdf5` in the run directory unless `--record` names a file:
 
 ```bash
-arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.py \
-  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-  --external_environment_class_path i4h_arena.environments:EndoluminalNavigation --task endoluminal_navigation \
-  --presets newton --teleop_device catheter_keyboard --viz kit \
-  --patient_twin ./data/TotalSegmentator/s0011/patient_twin.yaml \
-  --dataset_file runs/endoluminal_navigation/teleop.hdf5 --num_demos 1
+./run.sh endoluminal_navigation --teleop --episodes 1 \
+  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
 ```
 
 Click inside the Isaac window before using the keyboard. The fluoroscopy window provides image, C-arm view, velocity, and brightness controls; its velocity slider sets the insertion speed.
@@ -115,36 +105,33 @@ Without a patient twin there is no centerline, so no demonstration can succeed a
 Check that moving the C-arm changes the fluoroscopy image. The policy orbits the C-arm out and back and prints `[fluoroscopy] C-arm sweep PASS` or `FAIL` with the largest mean frame change it saw:
 
 ```bash
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.catheter.FluoroscopyCArmSweepPolicy --num_episodes 1 --presets newton \
-  --external_environment_class_path i4h_arena.environments:EndoluminalNavigation endoluminal_navigation \
-  --episode_steps 80 --patient_twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+./run.sh endoluminal_navigation --mode validate_fluoroscopy \
+  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
 ```
 
 ### Recording and replay
 
-Add `--recorder_dataset_export_dir_path <dir> --recorder_dataset_filename <name>` after the environment name to record a policy runner's episodes. Recordings, from either tool, store Isaac Lab's actions and states plus what the [converter](../../tools/dataset/i4h_tools/dataset/cli.py) reads: the procedure state as `obs/joint_pos`, the fluoroscopy frame at 256 px as `obs/fluoroscopy` with its display-independent signal as `obs/fluoroscopy_attenuation`, and the rod's tip and root positions, distance to the target, and containment under `diagnostics/`. Each step pairs the action with the state and frame it was chosen from, as Isaac Lab records; recordings made with the earlier `run.sh` launcher stored the state after the action, one control step later.
+Add `--record` to record a run's episodes into `demos.hdf5` in its run directory, or `--record <path>.hdf5` to choose the file. Recordings, from either tool, store Isaac Lab's actions and states plus what the [converter](../../tools/dataset/i4h_tools/dataset/cli.py) reads: the procedure state as `obs/joint_pos`, the fluoroscopy frame at 256 px as `obs/fluoroscopy` with its display-independent signal as `obs/fluoroscopy_attenuation`, and the rod's tip and root positions, distance to the target, and containment under `diagnostics/`. Each step pairs the action with the state and frame it was chosen from, as Isaac Lab records; recordings made with the earlier `run.sh` launcher stored the state after the action, one control step later.
 
-Replay a recording with `scripts/tools/replay_demos.py`, the same `--external_callback`, `--external_environment_class_path`, `--task`, `--presets newton` and `--patient_twin`, and `--dataset_file <recording>` (see [Hospital Automation Robotics](hospital-automation-robotics.md#g1-loco-manipulation)).
+Replay a recording with Isaac Lab's `replay_demos.py`, against the patient twin it was recorded with. Add `--episode N` to replay one episode:
+
+```bash
+./run.sh endoluminal_navigation --replay runs/endoluminal_navigation/<run>/teleop.hdf5 \
+  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+```
 
 ### Policy rollout
 
-Roll out a finetuned GR00T N1.7 checkpoint against the same goal the demonstrations were terminated on. [`gr00t_n17/catheter_navigation`](../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation.yaml) declares no published checkpoint, so pass one with `--model-path`:
+Roll out a finetuned GR00T N1.7 checkpoint against the same goal the demonstrations were terminated on. [`gr00t_n17/catheter_navigation`](../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation.yaml) declares no published checkpoint, so pass one with `--checkpoint`:
 
 ```bash
-# Serve the checkpoint with GR00T's inference server (terminal 1).
-tasks/gr00t_n17/.venv/bin/python -m i4h_tasks.gr00t_n17.serve catheter_navigation \
-  --model-path /path/to/checkpoint --port 5555
-
-# Evaluate it for 10 episodes (terminal 2).
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.gr00t_n17.Gr00tN17RemotePolicy --embodiment catheter --remote_port 5555 \
-  --num_episodes 10 --presets newton \
-  --external_environment_class_path i4h_arena.environments:EndoluminalNavigation endoluminal_navigation \
-  --patient_twin ./data/TotalSegmentator/s0011/patient_twin.yaml
+./run.sh endoluminal_navigation --mode policy_n17 --checkpoint /path/to/checkpoint --episodes 10 \
+  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
 ```
 
-Swap in `EndoluminalNavigationArm endoluminal_navigation_arm` to roll the same checkpoint out in the arm-borne scene. Both scenes give the policy the same `catheter`, `carm`, `target`, and `route` state and the fluoroscopy image; the arm's seven servo'd joints are additional recorded state that GR00T does not consume. Recordings from either scene train the shared `gr00t_n17/catheter_navigation` task.
+`run.sh` serves the checkpoint with GR00T's inference server (`python -m i4h_tasks.gr00t_n17.serve catheter_navigation`), starts the rollout once the server listens, and stops the server afterwards. The server log is `server.log` in the run directory. To use a server that is already running, pass `--policy-endpoint HOST:PORT` instead of `--checkpoint`.
+
+Swap in `endoluminal_navigation_arm` to roll the same checkpoint out in the arm-borne scene. Both scenes give the policy the same `catheter`, `carm`, `target`, and `route` state and the fluoroscopy image; the arm's seven servo'd joints are additional recorded state that GR00T does not consume. Recordings from either scene train the shared `gr00t_n17/catheter_navigation` task.
 
 ## IL to RL Pipeline and Training Strategy
 
@@ -180,12 +167,9 @@ Older checkpoints trained with only `catheter` and `carm` state do not have the 
 Use a patient twin so recording, goal labels, and reward all refer to the same route. For the intended Franka deployment, collect and validate in `endoluminal_navigation_arm`, which uses the coupled MJWarp + XPBD solver. Its four command channels match the armless scene, but the carrier arm changes the simulated dynamics.
 
 ```bash
-arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.py \
-  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-  --external_environment_class_path i4h_arena.environments:EndoluminalNavigationArm --task endoluminal_navigation_arm \
-  --presets newton --teleop_device catheter_keyboard --viz kit \
-  --patient_twin /absolute/path/to/patient_twin.yaml \
-  --dataset_file "$(pwd)/runs/endoluminal_navigation_arm/teleop.hdf5" --num_demos 10
+./run.sh endoluminal_navigation_arm --teleop --episodes 10 \
+  --patient-twin /absolute/path/to/patient_twin.yaml \
+  --record "$(pwd)/runs/endoluminal_navigation_arm/teleop.hdf5"
 ```
 
 The tool keeps the demonstrations that reach the goal. Keep the well-controlled ones for the initial IL dataset; blindly copying failed actions does not teach recovery. Demonstrate recovery explicitly when it should become policy behavior.
@@ -325,12 +309,9 @@ RLinf saves native actor weights under `actor/model_state_dict/full_weights.pt` 
 ./train.sh rl export endoluminal_navigation_arm \
   --checkpoint /absolute/path/to/rl_run \
   --output-dir /absolute/path/to/exported_gr00t_checkpoint
-
-tasks/gr00t_n17/.venv/bin/python -m i4h_tasks.gr00t_n17.serve catheter_navigation \
-  --model-path /absolute/path/to/exported_gr00t_checkpoint --port 5555
 ```
 
-and evaluate it with the [policy rollout command](#policy-rollout) in the arm environment.
+Then evaluate the exported checkpoint with the [policy rollout command](#policy-rollout) in the arm environment, passing `--checkpoint /absolute/path/to/exported_gr00t_checkpoint`.
 
 Use the run directory containing `checkpoint.json`, or a supported native checkpoint path with its corresponding configuration. Inspect the evaluation output and visibly validate the exported policy in Isaac Sim; written checkpoint files alone do not demonstrate task success. Keep the physics setup, solver revision, arrival tolerance, input contract, and patient twin traceable with the run artifacts.
 
@@ -338,27 +319,17 @@ Use the run directory containing `checkpoint.json`, or a supported native checkp
 
 Checkpoint validation has two parts: confirm that inference can load the model, then measure what it does in the simulator. Apply both to the IL checkpoint and to each selected RL checkpoint after export.
 
-First, serve the checkpoint with the actual GR00T serving backend. Set `CHECKPOINT` to the IL checkpoint directory or the exported RL checkpoint directory:
+Set `CHECKPOINT` to the IL checkpoint directory or the exported RL checkpoint directory. `run.sh` serves it with the GR00T serving backend and starts the rollout once the server has loaded the model; if loading fails, the run stops and `server.log` in the run directory says why. The rollout then verifies that the observation/action contract works and the catheter navigates. Run repeated episodes and record all of them, failures included, so the recordings show the complete evaluation rather than only successful attempts:
 
 ```bash
 CHECKPOINT=/absolute/path/to/gr00t_checkpoint
-tasks/gr00t_n17/.venv/bin/python -m i4h_tasks.gr00t_n17.serve catheter_navigation \
-  --model-path "$CHECKPOINT" --port 5555
-```
-
-`Server is ready` confirms model loading; the simulator rollout still needs to verify that the observation/action contract works and the catheter navigates. Run repeated episodes and record all of them, failures included, so the recordings show the complete evaluation rather than only successful attempts:
-
-```bash
 EVAL_RUN="$(pwd)/runs/endoluminal_navigation_arm/$(date +%Y%m%d_%H%M%S)"
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.gr00t_n17.Gr00tN17RemotePolicy --embodiment catheter --remote_port 5555 \
-  --num_episodes 20 --presets newton --output_base_dir "$EVAL_RUN" \
-  --external_environment_class_path i4h_arena.environments:EndoluminalNavigationArm endoluminal_navigation_arm \
-  --patient_twin /absolute/path/to/patient_twin.yaml \
-  --recorder_dataset_export_dir_path "$EVAL_RUN" --recorder_dataset_filename evaluation
+./run.sh endoluminal_navigation_arm --mode policy_n17 --checkpoint "$CHECKPOINT" \
+  --episodes 20 --headless --run-dir "$EVAL_RUN" --record "$EVAL_RUN/evaluation.hdf5" \
+  --patient-twin /absolute/path/to/patient_twin.yaml
 ```
 
-The runner writes each episode's success and length to `episode_results_rank0.jsonl` under `$EVAL_RUN`.
+The policy runner writes each episode's success and length to `outputs/<timestamp>/episode_results_rank0.jsonl` under `$EVAL_RUN`, and `run.sh` prints how many succeeded.
 
 Repeat this for an early and a later IL checkpoint, then for the initial IL checkpoint and selected exported RL checkpoints. Use fresh evaluation directories. Compare the same anatomies, initial conditions, sampling settings, solver revision, control rate, arrival tolerance, and 600-step budget. Repeat on held-out anatomies as well as training subjects. Twenty episodes is a useful first comparison, not a guarantee of a reliable success estimate; repeated identical deterministic episodes only test repeatability, so include varied valid starts or additional subjects when assessing robustness.
 

@@ -18,12 +18,12 @@ metadata:
 
 ## Purpose
 
-Restore each selected episode's recorded initial state, apply its stored actions in the matching IsaacLab-Arena environment, and inspect the result visibly.
+Restore each selected episode's recorded initial state, apply its stored actions in the matching IsaacLab-Arena environment with `./run.sh <workflow> --replay`, which runs Isaac Lab's `replay_demos.py`, and inspect the result visibly.
 
 ## Instructions
 
 1. Run the checkout resolver and select the exact HDF5.
-2. Identify the environment and the scene options the recording was made with.
+2. Identify the workflow or scene and the options the recording was made with.
 3. Map the requested episode to a replay index.
 4. Run the replay visibly in the foreground through completion.
 
@@ -58,24 +58,21 @@ uv run --project tools/dataset i4h-dataset inspect "$HDF5_PATH"
 uv run --project tools/dataset python -c 'import h5py, json, sys; d = h5py.File(sys.argv[1], "r")["data"]; print(json.loads(d.attrs["env_args"]).get("env_name")); print(list(d))' "$HDF5_PATH"
 ```
 
-The second command prints the scene name `record_demos.py` stores in `env_args` (policy-runner recordings leave it empty, so take the scene from the run context) and the demo names in the order replay indexes them. The environment class is that scene name in CamelCase (`soarm_scissors` is `SoarmScissors`); `docs/workflows/<specialty>.md` maps it back to the workflow id. Confirm the requested episode exists and has a top-level `actions` dataset.
+The second command prints the scene name `record_demos.py` stores in `env_args` (policy-runner recordings leave it empty, so take the scene from the run context, `runs/<workflow>/...`) and the demo names in the order replay indexes them. `./run.sh list` maps the scene to its workflow id (`soarm_scissors` is `scissor_pick_and_place`); `run.sh` also accepts the bare scene name for replay. Confirm the requested episode exists and has a top-level `actions` dataset.
 
-Pass the options the recording was made with, from its run context or the workflow's docs page: `--presets newton` for endoluminal and tablecloth scenes or any Newton run (tablecloth also needs `export PXR_WORK_THREAD_LIMIT=1`), the same `--patient_twin` for endoluminal recordings, `--embodiment g1_locomanip_wbc_pink` for a G1 keyboard recording (23-D actions), and `--episode_steps` when the recording ran longer than the scene's default budget.
+The workflow declaration supplies its launcher options, such as Newton and `PXR_WORK_THREAD_LIMIT=1` for the tablecloth scenes. Pass the options the recording was made with, from its run context or the workflow's docs page: `--presets newton` for any other Newton run, the same `--patient-twin` for endoluminal recordings, `-- --embodiment g1_locomanip_wbc_pink` for a G1 keyboard recording (23-D actions), and `--episode-steps` when the recording ran longer than the scene's default budget.
 
-Interpret natural ordinals as zero-based demo numbers: first is `demo_0`, second is `demo_1`. `--select_episodes` takes positions in the printed order, which is lexicographic (`demo_0`, `demo_1`, `demo_10`, `demo_11`, `demo_2`, ...); with ten demos or fewer the position equals the demo number, otherwise use the demo's position in that list.
+Interpret natural ordinals as zero-based demo numbers: first is `demo_0`, second is `demo_1`. `--episode`, which `run.sh` passes as `replay_demos.py --select_episodes`, takes positions in the printed order, which is lexicographic (`demo_0`, `demo_1`, `demo_10`, `demo_11`, `demo_2`, ...); with ten demos or fewer the position equals the demo number, otherwise use the demo's position in that list.
 
 ## Replay
 
 ```bash
-arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/replay_demos.py \
-  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-  --external_environment_class_path i4h_arena.environments:<Class> --task <scene> \
-  --viz kit --dataset_file "$HDF5_PATH" --select_episodes <index> --validate_success_rate
+./run.sh <workflow> --replay "$HDF5_PATH" --episode <index> -- --validate_success_rate
 ```
 
-Omit `--select_episodes` to replay every episode. Never pass `--enable_cameras`: Arena's registration callback starts Kit before Isaac Lab can enable camera rendering, so camera sensors fail. Isaac Lab 3 has no `--headless`; replay is headless unless `--viz kit` is given, so keep `--viz kit` for a visible check. Add `--validate_states` to compare the recorded `states` step by step in a single environment.
+Omit `--episode` to replay every episode. Options after `--` go to `replay_demos.py`; add `--validate_states` there to compare the recorded `states` step by step in a single environment. `run.sh` replays without cameras: Arena's registration callback starts Kit before Isaac Lab can enable camera rendering, so camera sensors would fail. Replay is visible unless `--headless` is given; keep it visible for a visual check. `./run.sh show` prints the `replay_demos.py` command.
 
-Keep the visible simulator and command in the foreground; `B` pauses and `N` resumes. Poll yielded execution until `replay_demos.py` exits; do not detach or return while replay is still running. Stop it with Ctrl+C, or by its recorded PID if it was started in the background.
+Keep the visible simulator and command in the foreground; `B` pauses and `N` resumes. Poll yielded execution until `run.sh` exits; do not detach or return while replay is still running. Stop it with Ctrl+C, or with `./stop.sh <workflow>` if it was started in the background.
 
 ## Verify
 
@@ -83,11 +80,11 @@ Observe the complete trajectory, relevant objects, and final state, and require 
 
 ## Troubleshooting
 
-On launch failure, verify the environment class, scene options, episode index, and action width against the environment the recording came from. A reach episode replays the same arm motion toward a newly sampled target, because targets are sampled commands rather than scene state. Cloth replay does not restore a deformed mesh, and contact-rich trajectories may diverge. Episodes produced by `tools/mimic` keep their source's `states`, so `--validate_states` reports their jitter as mismatches.
+On launch failure, verify the workflow or scene, its options, the episode index, and the action width against the environment the recording came from. A reach episode replays the same arm motion toward a newly sampled target, because targets are sampled commands rather than scene state. Cloth replay does not restore a deformed mesh, and contact-rich trajectories may diverge. Episodes produced by `tools/mimic` keep their source's `states`, so `--validate_states` reports their jitter as mismatches.
 
 ## Prerequisites
 
-Require `arena/.venv` from `./setup.sh`, the workflow's assets and any patient twin it was recorded with, a display for `--viz kit`, and a readable episode with top-level `actions` whose width matches the environment.
+Require `common/.venv` and `arena/.venv` from `./setup.sh`, the workflow's assets and any patient twin it was recorded with, a display for the visible replay, and a readable episode with top-level `actions` whose width matches the environment.
 
 ## Limitations
 
@@ -95,7 +92,7 @@ Replay verifies stored actions in one environment; it does not evaluate a learne
 
 ## Examples
 
-- `Replay the second episode.` → select the current recording, map "second" to `demo_1` and its position in replay order, and observe the visible replay.
+- `Replay the second episode.` → select the current recording, map "second" to `demo_1` and its position in replay order, run `./run.sh <workflow> --replay <recording> --episode <index>`, and observe the visible replay.
 
 ## Completion gate
 

@@ -7,12 +7,13 @@
 
 Healthcare robotics workflows as IsaacLab-Arena environments: the scenes, robots, success criteria, policies, and teleoperation devices for each procedure, run with the tools Isaac Lab and IsaacLab-Arena users already have.
 
-Each workflow is an i4h scene that runs as an IsaacLab-Arena environment. Arena's policy runner evaluates a rule-based controller or a policy checkpoint in it, Isaac Lab's `record_demos.py` and `replay_demos.py` record and replay demonstrations, and each policy checkpoint is served from its own environment by its stack's own server.
+Each workflow is an i4h scene that runs as an IsaacLab-Arena environment. Arena's policy runner evaluates a rule-based controller or a policy checkpoint in it, Isaac Lab's `record_demos.py` and `replay_demos.py` record and replay demonstrations, and each policy checkpoint is served from its own environment by its stack's own server. `./run.sh` runs each workflow's modes with those tools, and `./stop.sh` stops them.
 
 ## Layout
 
-The repository has six main components:
+The repository has seven main components:
 
+- `workflows/` — each workflow's declaration: its scene and the policy, policy server, or device of each mode, which `run.sh` runs
 - `arena/` — the scenes as IsaacLab-Arena environments, with their embodiments, policies, teleoperation devices, and operator UI
 - `common/` — scene and task manifests, robot descriptors, and the recording schema
 - `tasks/` — policy stacks (GR00T, openpi), each with its server, fine-tuning, and task manifests
@@ -235,21 +236,23 @@ eval "$(python3 rl/i4h_rl/runtime.py --shell)"
 
 ### Run Workflows from the Command Line
 
-Every workflow runs as an IsaacLab-Arena environment under Arena's policy runner, with Isaac Lab's `record_demos.py` and `replay_demos.py` for teleoperation and replay. Each specialty page lists its workflows' commands; for example:
+Run a workflow with `./run.sh <workflow>` and a mode. Every workflow runs as an IsaacLab-Arena environment: `run.sh` runs its modes with Arena's policy runner, and teleoperation and replay with Isaac Lab's `record_demos.py` and `replay_demos.py`. Each specialty page lists its workflows' modes; for example:
 
 ```bash
-# Pick and place the scissors with the rule-based controller for 3 episodes.
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.scissors.ScissorPickPlacePolicy --num_episodes 3 \
-  --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
+# List the workflows, their environments and modes.
+./run.sh list
 
-# Reach a target with a dVRK PSM on Newton physics and watch it.
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.reach.CartesianReachPolicy --num_episodes 1 --viz kit --presets newton \
-  --external_environment_class_path i4h_arena.environments:PsmReach psm_reach
+# Pick and place the scissors with the rule-based controller for 3 episodes.
+./run.sh scissor_pick_and_place --rule-based --episodes 3
+
+# Evaluate the GR00T N1.5 checkpoint headless and record the episodes.
+./run.sh scissor_pick_and_place --policy --episodes 3 --headless --record
+
+# Reach a target with a dVRK PSM on Newton physics.
+./run.sh surgical_reach_psm --rule-based --presets newton
 ```
 
-Launcher options such as `--presets newton`, `--enable_cameras`, and `--viz kit` go before the environment name, the environment's own options after it. Policy checkpoints run in their own environments behind a policy server; Arena's runner connects to it as a client (see each specialty page). Each episode ends on its environment's success term or after the step budget its workflow was validated with. Stop a run with Ctrl+C, or a background run or policy server by its process ID.
+Each run writes its outputs, recordings and policy-server log to `runs/<workflow>/<timestamp>/` and prints how many episodes succeeded. A policy mode starts the checkpoint's server from its own environment, runs the episodes once the server listens, and stops it afterwards. Each episode ends on its environment's success term or after the step budget its workflow was validated with. `./run.sh show <workflow> [mode] [options]` prints the Arena or Isaac Lab commands a run would execute; [`workflows/<specialty>/<workflow>.yaml`](workflows/) declares them. Stop a run with Ctrl+C, or a background one with `./stop.sh <workflow>`; `./stop.sh` stops every run `run.sh` started in this checkout. Run `./run.sh --help` for every option.
 
 <!-- markdownlint-disable MD033 -->
 
@@ -264,12 +267,10 @@ Create a blank scene:
 ./scripts/create_blank_environment.py my_workflow --validate
 ```
 
-The generator creates the scene source, asset source, scene manifest, and a contract test, and stops without writing files if the scene already exists. The scene is an IsaacLab-Arena environment from then on, under its name in CamelCase:
+The generator creates the scene source, asset source, scene manifest, and a contract test, and stops without writing files if the scene already exists. The scene is an IsaacLab-Arena environment from then on, under its name in CamelCase, and `run.sh` opens it with the robot held still:
 
 ```bash
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type zero_action --num_steps 300 --viz kit \
-  --external_environment_class_path i4h_arena.environments:MyWorkflow my_workflow
+./run.sh my_workflow
 ```
 
 Use `--dry-run` to preview the files or `--description TEXT` to customize the scene description. Do not combine `--dry-run` with `--validate`.
@@ -314,18 +315,17 @@ These files are run artifacts, not scene source. Apply the confirmed scene, asse
 2. Build the robot, the observations, and the success termination in the scene's IsaacLab-Arena embodiment and task under `arena/i4h_arena/`.
 3. Add a rule-based controller as an Arena policy (a `PolicyBase` subclass) under `arena/i4h_arena/policies/`, and a teleoperation device as an Isaac Lab device in the scene's `teleop_devices`.
 4. For a trained checkpoint, add or reuse a task manifest under `tasks/<stack>/` and an Arena client policy that builds its requests.
-5. Add focused CPU tests under `arena/tests/` or the owning stack.
+5. Declare the workflow in `workflows/<specialty>/<workflow>.yaml`: its scene and, per mode, the policy, policy server, or teleoperation devices. The files beside it are the examples, and `tests/test_run_workflow.py` checks that each declaration names what exists.
+6. Add focused CPU tests under `arena/tests/` or the owning stack.
 
 #### Validate the Workflow
 
 Run the scene's contract test and the scene tests, then a visible simulator run of each way to run it:
 
 ```bash
-common/.venv/bin/python -m pytest tests/test_my_workflow_contract.py -q
+common/.venv/bin/python -m pytest tests/test_my_workflow_contract.py tests/test_run_workflow.py -q
 arena/.venv/bin/python -m pytest arena/tests/test_scene.py -q
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type <your rule-based policy> --num_episodes 1 --viz kit \
-  --external_environment_class_path i4h_arena.environments:MyWorkflow my_workflow
+./run.sh my_workflow --rule-based --episodes 1
 ```
 
 ### Author New Workflow with an RL Policy from the Command Line
@@ -366,7 +366,7 @@ After the dry run succeeds, repeat the training command without `--dry-run`. Eva
   --output-dir <export-directory>
 ```
 
-Then evaluate the checkpoint in the environment under Arena's policy runner: an RSL-RL checkpoint with Arena's `rsl_rl` policy (see [Ultrasound Robotics](docs/workflows/ultrasound-robotics.md#rl-training)), and an exported GR00T checkpoint behind its stack's server with the matching Arena client policy (see [Assemble trocar RL post-training](docs/workflows/hospital-automation-robotics.md#assemble-trocar-rl-post-training), which also documents the two-GPU runtime). `ultrasound_probe_reach` demonstrates RSL-RL PPO training from scratch; `assemble_trocar` demonstrates RLinf post-training from a GR00T checkpoint.
+Then evaluate the checkpoint with `./run.sh <workflow> --policy --checkpoint <path>`: an RSL-RL checkpoint runs with Arena's `rsl_rl` policy (see [Ultrasound Robotics](docs/workflows/ultrasound-robotics.md#rl-training)), and an exported GR00T checkpoint behind its stack's server with the matching Arena client policy (see [Assemble trocar RL post-training](docs/workflows/hospital-automation-robotics.md#assemble-trocar-rl-post-training), which also documents the two-GPU runtime). `ultrasound_probe_reach` demonstrates RSL-RL PPO training from scratch; `assemble_trocar` demonstrates RLinf post-training from a GR00T checkpoint.
 
 The trainer owns vectorized stepping only while learning. Do not add RL optimization or simulator stepping to a policy or scene.
 

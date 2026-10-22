@@ -13,7 +13,7 @@ STARTUP_TIMEOUT="${I4H_AGENT_BRIDGE_TIMEOUT:-900}"
 mkdir -p "$STATE_DIR"
 
 usage() {
-    echo "usage: ./local-agent/bridge.sh start <scene> [run-dir] [-- arena-options...]" >&2
+    echo "usage: ./local-agent/bridge.sh start <scene> [run-dir] [-- run.sh-options...]" >&2
     echo "       ./local-agent/bridge.sh <status|stop|rundir> <scene>" >&2
 }
 
@@ -70,7 +70,7 @@ env_ready() {
 }
 
 start_bridge() {
-    local workflow="$1" requested_run_dir="${2:-}" pid run_dir log deadline class_name
+    local workflow="$1" requested_run_dir="${2:-}" pid run_dir log deadline
     shift 2 || shift $#
     validate_workflow "$workflow"
     if pid="$(managed_pid "$workflow")" && kill -0 "$pid" 2>/dev/null; then
@@ -94,17 +94,9 @@ start_bridge() {
     mkdir -p "$run_dir"
     log="$run_dir/local-agent-live.log"
     echo "$run_dir" > "$(run_file "$workflow")"
-    class_name="$(python3 -c 'import sys; print("".join(p.capitalize() for p in sys.argv[1].split("_")))' "$workflow")"
-
-    # The hold policy keeps the robot where it is, and an episode as long as the
-    # session keeps a reset from undoing an edit.
-    (cd "$ROOT" && setsid env -u VIRTUAL_ENV OMNI_KIT_ACCEPT_EULA="${OMNI_KIT_ACCEPT_EULA:-}" \
-        arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-        --policy_type i4h_arena.policies.hold.HoldPolicy --num_steps 1000000000 --viz kit \
-        --kit_args "--enable isaacsim.code_editor.python_server --enable isaacsim.test.utils --enable isaacsim.core.rendering_manager" \
-        --output_base_dir "$run_dir/outputs" "$@" \
-        --external_environment_class_path "i4h_arena.environments:$class_name" "$workflow" \
-        --episode_steps 1000000000) >"$log" 2>&1 &
+    # run.sh --live holds the robot still, keeps the episode as long as the session so a
+    # reset never undoes an edit, and opens Isaac Sim's Python server.
+    setsid "$ROOT/run.sh" "$workflow" --live --run-dir "$run_dir" "$@" >"$log" 2>&1 &
     pid=$!
     echo "$pid" > "$(pid_file "$workflow")"
     echo "[bridge] launching scene=$workflow pid=$pid"
@@ -152,8 +144,9 @@ stop_bridge() {
         echo "bridge: no managed session for $workflow"
         return
     fi
+    # run.sh stops the simulator on SIGTERM and kills it if it has not exited after 20 s.
     kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
-    for _ in $(seq 20); do
+    for _ in $(seq 45); do
         kill -0 "$pid" 2>/dev/null || break
         sleep 1
     done

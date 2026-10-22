@@ -6,7 +6,8 @@ Use this map after reading `./AGENTS.md` and `./DESIGN.md`. Inspect the concrete
 
 | Concern | Owner | Source |
 |---|---|---|
-| Workflow id → environment, policies, devices, commands | Specialty page | `./docs/workflows/<specialty>.md` |
+| Workflow id → scene and modes: policy, policy server, devices | Workflow declaration, run by `run.sh` and `stop.sh` | `./workflows/<specialty>/<workflow>.yaml`, `./scripts/run_workflow.py` |
+| Workflow guides and commands | Specialty page | `./docs/workflows/<specialty>.md` |
 | Every scene as an IsaacLab-Arena external environment, shared environment flags | Environments | `./arena/i4h_arena/environments.py` |
 | World assets, cameras, randomization, embodiment choice, scene-specific flags, teleop device declaration | Scene | `./arena/i4h_arena/scenes/<scene>.py`, `./arena/i4h_arena/assets/` |
 | Observations, events, rewards, success and failure terminations | Scene task | `./arena/i4h_arena/envcfg/` |
@@ -25,7 +26,7 @@ Use this map after reading `./AGENTS.md` and `./DESIGN.md`. Inspect the concrete
 | Blank scene generation | Generator | `./scripts/create_blank_environment.py` |
 | Maintained data-to-policy loop | End-to-end driver | `./scripts/e2e/run.sh` |
 
-`i4h_arena.environments` creates one `<CamelCase>` environment class per scene manifest, so a new manifest is runnable as `--external_environment_class_path i4h_arena.environments:<CamelCase> <scene>` without registration. Environment flags follow the scene name: the shared `--episode_steps`, `--recorder_dataset_export_dir_path`, and `--recorder_dataset_filename`, plus the scene's own `add_cli_args`, such as `--patient_twin`, `--leader_port`, or `--rl_observations`. Launcher and policy flags precede it: Arena turns each policy `Cfg` field into a flag, such as `--embodiment` or `--remote_port`.
+`i4h_arena.environments` creates one `<CamelCase>` environment class per scene manifest, so a new manifest is runnable as `--external_environment_class_path i4h_arena.environments:<CamelCase> <scene>`, and as `./run.sh <scene>`, without registration. Environment flags follow the scene name: the shared `--episode_steps`, `--recorder_dataset_export_dir_path`, and `--recorder_dataset_filename`, plus the scene's own `add_cli_args`, such as `--patient_twin`, `--leader_port`, or `--rl_observations`. Launcher and policy flags precede it: Arena turns each policy `Cfg` field into a flag, such as `--embodiment` or `--remote_port`.
 
 ## Dependency rules
 

@@ -81,13 +81,13 @@ arena/.venv/bin/python -m pytest arena/tests/test_scene.py -q
 
 `--validate` requires the `common` and `arena` environments; run `./setup.sh` first if either is missing. It verifies the generated manifest contract and that every scene, including the new one, is an Arena environment named after it, and that a zero-DOF scene opens no sensor panels, without launching Isaac Sim. If a component virtual environment is elsewhere, use that component's Python for its direct test command.
 
-Do not run visible or dynamic validation unless the user explicitly requests it. A blank scene has no embodiment to hold, so open it with Arena's built-in zero-action policy and a step count:
+Do not run visible or dynamic validation unless the user explicitly requests it. `run.sh` opens a scene by name before any workflow declares it; with no mode it runs `HoldPolicy` under Arena's policy runner, which sends a blank scene an empty action, until Ctrl+C:
 
 ```bash
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type zero_action --num_steps 300 --viz kit \
-  --external_environment_class_path i4h_arena.environments:<CamelCase> <scene_id>
+./run.sh <scene_id>
 ```
+
+Once the scene has a robot and a rule-based policy, declare the workflow's modes in `workflows/<specialty>/<workflow>.yaml` so `./run.sh <workflow> --rule-based` runs it.
 
 ## Troubleshooting
 

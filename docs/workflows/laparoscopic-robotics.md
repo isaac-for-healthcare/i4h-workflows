@@ -4,7 +4,7 @@ These workflows use dVRK PSM or STAR robots for laparoscopic manipulation and in
 
 ## Workflows
 
-Each workflow is an [IsaacLab-Arena](https://github.com/isaac-sim/IsaacLab-Arena) environment run by Arena's policy runner with an i4h rule-based policy. The environment classes live in [`i4h_arena.environments`](../../arena/i4h_arena/environments.py) and the policies in [`i4h_arena.policies`](../../arena/i4h_arena/policies/).
+Each workflow is an [IsaacLab-Arena](https://github.com/isaac-sim/IsaacLab-Arena) environment run by Arena's policy runner with an i4h rule-based policy, declared in [`workflows/laparoscopic-robotics/`](../../workflows/laparoscopic-robotics/). The environment classes live in [`i4h_arena.environments`](../../arena/i4h_arena/environments.py) and the policies in [`i4h_arena.policies`](../../arena/i4h_arena/policies/).
 
 | Workflow | Demonstration | Environment (class, name) | Rule-based policy (`i4h_arena.policies.`) |
 | --- | --- | --- | --- |
@@ -49,29 +49,24 @@ The agent runs the selected workflow, verifies the episode result, and inspects 
 
 ## Run from the Command Line
 
-Run from the repository root. Arena's runner takes policy flags before the environment name and environment flags after it.
+Run from the repository root with `./run.sh`, which runs the rule-based policy under Arena's policy runner:
 
 ```bash
 # Reach a target with one dVRK PSM for 3 episodes and record them to runs/psm_reach/demos.hdf5.
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.reach.CartesianReachPolicy --num_episodes 3 --enable_cameras \
-  --external_environment_class_path i4h_arena.environments:PsmReach psm_reach \
-  --recorder_dataset_export_dir_path runs/psm_reach --recorder_dataset_filename demos
+./run.sh surgical_reach_psm --rule-based --episodes 3 --record runs/psm_reach/demos.hdf5
 ```
 
-Swap the policy and environment from the table for the other workflows. Common additions:
+Swap in the other workflow names from the table. Common additions:
 
-- `--viz kit` opens the viewport; `--seed N` fixes the randomization; `--presets newton` runs on Newton.
-- `--policy_type i4h_arena.policies.hold.HoldPolicy` holds the arm still to look at a scene.
-- Each run writes per-episode results to `outputs/<time>/episode_results_rank0.jsonl` (`--output_base_dir` to move it). Recordings use the Isaac Lab dataset format and keep every episode with its `success` flag.
+- `--headless` runs without the viewport; `--seed N` fixes the randomization; `--presets newton` runs on Newton.
+- Without a mode, `./run.sh surgical_reach_psm` holds the arm still to look at a scene.
+- `./run.sh show surgical_reach_psm --rule-based` prints the policy-runner command instead of running it.
+- Each run writes per-episode results to `outputs/<time>/episode_results_rank0.jsonl` in its run directory, `runs/<workflow>/<time>/` unless `--run-dir` names one, and prints how many episodes succeeded. Recordings use the Isaac Lab dataset format and keep every episode with its `success` flag.
 
-Replay a recording with Isaac Lab's tool:
+Replay a recording with Isaac Lab's `replay_demos.py`:
 
 ```bash
-arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/replay_demos.py \
-  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-  --external_environment_class_path i4h_arena.environments:PsmReach --task psm_reach \
-  --dataset_file runs/psm_reach/demos.hdf5
+./run.sh surgical_reach_psm --replay runs/psm_reach/demos.hdf5
 ```
 
 Replay restores each episode's initial scene state and steps its recorded actions. Reach targets are sampled commands rather than scene state, so a replayed reach drives the same arm motion toward a newly sampled target.

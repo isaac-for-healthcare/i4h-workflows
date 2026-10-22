@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: A STAR arm reaches a target.
+scene: star_reach
+modes:
+  rule-based:
+    policy: i4h_arena.policies.reach.CartesianReachPolicy
+    args: [--duration_s, "0.01"]

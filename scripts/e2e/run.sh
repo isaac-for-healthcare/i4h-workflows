@@ -13,9 +13,8 @@ SKIP_MIMIC=0
 SKIP_ANNOTATE=0
 SKIP_REPLAY=0
 SKIP_VIZ=0
-VIZ=(--viz kit)
+HEADLESS=()
 RUN_DIR=""
-PORT="${I4H_POLICY_PORT:-8000}"
 RECORD_EPISODES="${RECORD_EPISODES:-3}"
 MIMIC_EPISODES="${MIMIC_EPISODES:-3}"
 FINETUNE_STEPS="${FINETUNE_STEPS:-500}"
@@ -27,9 +26,9 @@ usage() {
 Usage: scripts/e2e/run.sh [options]
 
 Runs setup -> policy record -> mimic -> annotate/filter -> replay -> convert ->
-visualize -> finetune -> validate. The simulator stages run the workflow's
-IsaacLab-Arena environment with Arena's policy runner and Isaac Lab's
-replay_demos.py, against the policy server of the workflow's checkpoint.
+visualize -> finetune -> validate. The simulator stages run the workflow with
+./run.sh: its policy mode under Arena's policy runner, against the policy
+server of the workflow's checkpoint, and replay with Isaac Lab's replay_demos.py.
 
 Options:
   --env ENV              workflow name: scissor_pick_and_place (default) or ultrasound_liver_scan
@@ -56,31 +55,23 @@ while (($#)); do
     --skip-annotate) SKIP_ANNOTATE=1; shift ;;
     --skip-replay) SKIP_REPLAY=1; shift ;;
     --skip-viz) SKIP_VIZ=1; shift ;;
-    --headless) VIZ=(); shift ;;
+    --headless) HEADLESS=(--headless); shift ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
     *) ENV_ID="$1"; shift ;;
   esac
 done
 
-# Each workflow's environment, its policy task, the Arena client for that task's
-# server, the server itself, and the server's flag for a finetuned checkpoint.
+# Each workflow's scene and the policy task its policy mode serves
+# (workflows/<specialty>/<workflow>.yaml).
 case "$ENV_ID" in
   scissor_pick_and_place)
     SCENE=soarm_scissors
-    ENVIRONMENT=(--external_environment_class_path i4h_arena.environments:SoarmScissors "$SCENE")
     TASK_ID=gr00t_n15/scissor_pick_and_place
-    CLIENT=(--policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --embodiment so101_scissors --remote_port "$PORT")
-    SERVER=(tasks/gr00t_n15/.venv/bin/python -m i4h_tasks.gr00t_n15.serve scissor_pick_and_place --port "$PORT")
-    CHECKPOINT_FLAG=--model-path
     ;;
   ultrasound_liver_scan)
     SCENE=panda_phantom
-    ENVIRONMENT=(--external_environment_class_path i4h_arena.environments:PandaPhantom "$SCENE")
     TASK_ID=openpi_pi0/ultrasound_liver_scan
-    CLIENT=(--policy_type i4h_arena.policies.pi0.LiverScanPi0Policy --remote_port "$PORT")
-    SERVER=(tasks/openpi_pi0/.venv/bin/python -m i4h_tasks.openpi_pi0.serve ultrasound_liver_scan --port "$PORT")
-    CHECKPOINT_FLAG=--checkpoint
     ;;
   *)
     echo "[e2e] $ENV_ID has no e2e pipeline; supported: scissor_pick_and_place, ultrasound_liver_scan" >&2
@@ -139,15 +130,6 @@ VERIFY_DIR="$RUN_DIR/validate"
 VIZ_STATE="$RUN_DIR/viz-state"
 VLLM_CONTAINER="${I4H_ANNOTATOR_VLLM_CONTAINER:-i4h-workflows-annotator-vllm}"
 VLLM_OWNED=0
-SERVER_PID=""
-
-ARENA=(env -u VIRTUAL_ENV arena/.venv/bin/python)
-POLICY_RUNNER=("${ARENA[@]}" -m isaaclab_arena.evaluation.policy_runner)
-REPLAY_DEMOS=(
-  "${ARENA[@]}" third_party/IsaacLab-e3f7d9f/scripts/tools/replay_demos.py
-  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback
-  "${ENVIRONMENT[@]:0:2}" --task "$SCENE"
-)
 
 stage() { printf '\n========== %s ==========\n' "$1"; }
 run() {
@@ -155,37 +137,6 @@ run() {
   printf ' %q' "$@"
   printf '\n'
   [ "$DRY_RUN" -eq 1 ] || "$@"
-}
-# Start the policy server in the background; the Arena client waits until it answers.
-serve() {
-  local log="$1"
-  shift
-  printf '+'
-  printf ' %q' "$@"
-  printf ' > %q &\n' "$log"
-  [ "$DRY_RUN" -eq 1 ] && return
-  "$@" >"$log" 2>&1 &
-  SERVER_PID=$!
-  # Each server binds its port only once its checkpoint is loaded, which takes a
-  # download on first use; the client would otherwise time out waiting for it.
-  local deadline=$((SECONDS + ${I4H_E2E_SERVER_TIMEOUT_S:-3600}))
-  until python3 -c 'import socket, sys; socket.create_connection(("127.0.0.1", int(sys.argv[1])), 1).close()' "$PORT" 2>/dev/null; do
-    if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-      echo "[e2e] policy server exited before it was ready; see $log" >&2
-      exit 1
-    fi
-    if [ "$SECONDS" -ge "$deadline" ]; then
-      echo "[e2e] policy server not ready after ${I4H_E2E_SERVER_TIMEOUT_S:-3600}s; see $log" >&2
-      exit 1
-    fi
-    sleep 5
-  done
-}
-stop_server() {
-  [ -n "$SERVER_PID" ] || return 0
-  kill "$SERVER_PID" 2>/dev/null || true
-  wait "$SERVER_PID" 2>/dev/null || true
-  SERVER_PID=""
 }
 # Fail the stage unless at least one episode of the run in $1 succeeded.
 require_success() {
@@ -203,7 +154,6 @@ raise SystemExit(0 if successes else 1)
 PY
 }
 cleanup() {
-  stop_server
   if [ "$VLLM_OWNED" -eq 1 ]; then
     tools/annotator/scripts/vllm.sh stop >/dev/null 2>&1 || true
   fi
@@ -226,11 +176,9 @@ stage setup
 run ./setup.sh
 
 stage record
-serve "$LOG_DIR/server-record.log" "${SERVER[@]}"
-run "${POLICY_RUNNER[@]}" "${CLIENT[@]}" --num_episodes "$RECORD_EPISODES" --enable_cameras \
-  ${VIZ[@]+"${VIZ[@]}"} --output_base_dir "$RUN_DIR/record" "${ENVIRONMENT[@]}" \
-  --recorder_dataset_export_dir_path "$DATA_DIR" --recorder_dataset_filename "$(basename "$RECORDING" .hdf5)"
-stop_server
+# run.sh starts the checkpoint's policy server, waits for it, and stops it afterwards.
+run ./run.sh "$ENV_ID" --policy --episodes "$RECORD_EPISODES" ${HEADLESS[@]+"${HEADLESS[@]}"} \
+  --run-dir "$RUN_DIR/record" --record "$RECORDING"
 
 stage mimic
 if [ "$SKIP_MIMIC" -eq 1 ]; then
@@ -259,8 +207,8 @@ fi
 stage replay
 # Replay runs without cameras: Arena's registration callback starts Kit before
 # Isaac Lab can enable camera rendering.
-[ "$SKIP_REPLAY" -eq 1 ] || run "${REPLAY_DEMOS[@]}" --dataset_file "$FILTERED" --select_episodes 0 \
-  ${VIZ[@]+"${VIZ[@]}"}
+[ "$SKIP_REPLAY" -eq 1 ] || run ./run.sh "$ENV_ID" --replay "$FILTERED" --episode 0 \
+  ${HEADLESS[@]+"${HEADLESS[@]}"} --run-dir "$RUN_DIR/replay"
 
 stage convert
 run uv run --project tools/dataset i4h-dataset convert "$FILTERED" "$DATASET" \
@@ -290,11 +238,8 @@ else
   fi
 
   stage validate
-  serve "$LOG_DIR/server-validate.log" "${SERVER[@]}" "$CHECKPOINT_FLAG" "$CHECKPOINT"
-  run "${POLICY_RUNNER[@]}" "${CLIENT[@]}" --num_episodes "$VALIDATE_EPISODES" --enable_cameras \
-    --output_base_dir "$VERIFY_DIR/outputs" "${ENVIRONMENT[@]}" \
-    --recorder_dataset_export_dir_path "$VERIFY_DIR" --recorder_dataset_filename verify
-  stop_server
+  run ./run.sh "$ENV_ID" --policy --checkpoint "$CHECKPOINT" --episodes "$VALIDATE_EPISODES" --headless \
+    --run-dir "$VERIFY_DIR" --record "$VERIFY_DIR/verify.hdf5"
   require_success "$VERIFY_DIR"
 fi
 

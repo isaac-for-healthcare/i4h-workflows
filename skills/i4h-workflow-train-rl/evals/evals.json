@@ -107,14 +107,14 @@
     "id": "i4h-workflow-train-rl-specialty-trocar-full-lifecycle",
     "question": "Use my checkpoint at /absolute/path/to/gr00t-checkpoint to RL post-train\nassemble_trocar.\nEvaluate and export the result, then validate assemble_trocar.",
     "expected_skill": "i4h-workflow-train-rl",
-    "ground_truth": "This hospital-automation specialty prompt runs the maintained assemble_trocar RLinf lifecycle from a local GR00T N1.5 checkpoint through dry-run, post-training, evaluation, inference export, and validation of the served export in the G1Trocar environment.",
+    "ground_truth": "This hospital-automation specialty prompt runs the maintained assemble_trocar RLinf lifecycle from a local GR00T N1.5 checkpoint through dry-run, post-training, evaluation, inference export, and validation of the export with ./run.sh assemble_trocar --policy --checkpoint in the G1Trocar environment.",
     "expected_behavior": [
       "routes to i4h-workflow-train-rl",
       "requires the placeholder to be replaced by a compatible local GR00T N1.5 checkpoint path",
       "uses the maintained assemble_trocar RLinf PPO profile and two isolated GPU runtimes",
       "dry-runs before post-training",
       "evaluates the native RLinf run bundle before export",
-      "serves the export with i4h_tasks.gr00t_n15.serve assemble_trocar --model-path, waits for Server is ready, validates with Gr00tN15RemotePolicy in G1Trocar g1_trocar, and stops the server by its PID"
+      "validates the export with ./run.sh assemble_trocar --policy --checkpoint <export>, which serves it with i4h_tasks.gr00t_n15.serve and runs Gr00tN15RemotePolicy in G1Trocar g1_trocar"
     ]
   },
   {

@@ -10,12 +10,15 @@ i4h scene (arena/i4h_arena/scenes)
     or an RL trainer in rl/
 ```
 
+`./run.sh` runs a workflow's modes with those tools, as declared in `workflows/<specialty>/<workflow>.yaml`, and `./run.sh show` prints the commands it would run.
+
 All paths in this document are relative to `./`.
 
 ## Architecture at a Glance
 
 | Component | Owns | Location |
 | --- | --- | --- |
+| Workflow | Its scene and, per mode, the policy, policy server, or teleoperation devices; data only | `workflows/<specialty>/<workflow>.yaml` |
 | Scene | One simulated world: assets, cameras, randomization, its embodiment and task, CLI options, operator panels, and the Isaac Lab cfg tuning the world needs | `arena/i4h_arena/scenes/` |
 | Environment | Each scene as an Arena external environment, named after it in CamelCase; time-out at the scene's step budget, re-rendering after reset, recording rules | `arena/i4h_arena/environments.py` |
 | Embodiment | The robot: articulation, action terms, proprioception, cameras, recorder terms | `arena/i4h_arena/embodiments/` |
@@ -41,6 +44,7 @@ Use Isaac Lab for anything it expresses, IsaacLab-Arena for a concept Isaac Lab 
 | Robot | Arena `EmbodimentBase` subclasses, including subclasses of Arena's own G1 embodiments | None |
 | Goal | Arena `TaskBase` subclasses returning `TaskTerminationCfg`, built from Isaac Lab manager term cfgs | None |
 | Running an environment | Arena's `policy_runner`: `get_action`, then `env.step`, until each episode ends on a termination | `environments.py` times episodes out at the step budget each scene was validated with |
+| Launching a workflow | The policy runner, `record_demos.py`, `replay_demos.py`, and each stack's server, each a separate command | `run.sh` (`scripts/run_workflow.py`) composes a mode's commands from its workflow declaration, starts its policy server and waits for it, and stops what it started; `stop.sh` stops a background run. It runs nothing those tools cannot, and `run.sh show` prints the commands |
 | Rule-based controllers | Arena `PolicyBase` | Controllers for each procedure: reach, lift, probe sweep, scissor keyframes, catheter sweeps, holding still |
 | Policies whose dependencies conflict with Isaac Sim | Arena's remote policies and clients (GR00T's `PolicyClient`, openpi's websocket client) | Client policies that build each i4h checkpoint's request from the environment's observations, and `serve` modules that start the stack's own server with i4h's modality configs and fixes |
 | Teleoperation | Isaac Lab devices, `record_demos.py`, Isaac Teleop | Devices for the SO-ARM, the G1 and the catheter where Isaac Lab has none |
@@ -171,7 +175,8 @@ Start by deciding which component owns the change:
 2. **Build the world.** Add assets, cameras, and layout to the scene, live with `local-agent/bridge.sh` and `scripts/live_scene_edit.py` or directly in source. Declare its capabilities and step budget in the manifest.
 3. **Add the robot and the goal.** Reuse or add an Arena embodiment, and an Arena task whose success termination ends an episode when the goal is met.
 4. **Add the ways to run it.** A rule-based controller as an Arena policy, a teleoperation device, and, for a trained checkpoint, a task manifest in its stack with an Arena client policy.
-5. **Document it.** Add the workflow to its specialty page in `docs/workflows/` with its environment and commands.
-6. **Test the owning layer.** Test policies, devices, and recorder terms on CPU. If assets, physics, or cameras changed, finish with a visible simulator run of each way to run it under the policy runner.
+5. **Declare it.** Add `workflows/<specialty>/<workflow>.yaml` naming the scene and each mode's policy, policy server, or devices, so `./run.sh <workflow>` runs it.
+6. **Document it.** Add the workflow to its specialty page in `docs/workflows/` with its environment and commands.
+7. **Test the owning layer.** Test policies, devices, and recorder terms on CPU; `tests/test_run_workflow.py` checks the declaration. If assets, physics, or cameras changed, finish with a visible simulator run of each mode with `./run.sh`.
 
 Use upstream Isaac Sim skills for generic USD, camera, physics, rendering, and spatial authoring. Keep the i4h layer focused on scene integration, policies, devices, recording, and workflow-specific validation.

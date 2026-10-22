@@ -3,14 +3,14 @@
     "id": "i4h-workflow-validate-readme-quick-scissor-two",
     "question": "Evaluate scissor pick and place in policy mode and record 2 successful episodes.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This README Quick Run prompt routes to validation for scissor_pick_and_place in the SoarmScissors (soarm_scissors) IsaacLab-Arena environment with its ordinary GR00T N1.5 policy: serve the task manifest's checkpoint with i4h_tasks.gr00t_n15.serve, wait for Server is ready, run Arena's policy runner with Gr00tN15RemotePolicy --embodiment so101_scissors for two recorded episodes, stop the server by its PID, and report how many of the two succeeded.",
+    "ground_truth": "This README Quick Run prompt routes to validation for scissor_pick_and_place with its ordinary GR00T N1.5 policy: ./run.sh scissor_pick_and_place --policy --episodes 2 with a run directory and --record, which serves the task manifest's checkpoint with i4h_tasks.gr00t_n15.serve, runs Gr00tN15RemotePolicy in the SoarmScissors (soarm_scissors) environment once the server listens, stops the server, and reports how many of the two succeeded.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
       "maps the natural env name to scissor_pick_and_place and the SoarmScissors soarm_scissors environment",
-      "passes --num_episodes 2 to the policy runner",
-      "uses the GR00T N1.5 served policy and does not switch to the rule-based controller because the prompt says successful",
-      "serves the task manifest's checkpoint with i4h_tasks.gr00t_n15.serve unless a checkpoint is provided, and waits for its ready line before the rollout",
-      "keeps the policy runner in the foreground and stops the policy server by its PID afterwards",
+      "runs ./run.sh scissor_pick_and_place --policy --episodes 2",
+      "uses the GR00T N1.5 policy mode and does not switch to the rule-based controller because the prompt says successful",
+      "lets run.sh serve the task manifest's checkpoint unless a checkpoint is provided with --checkpoint",
+      "keeps run.sh in the foreground, which starts the policy server before the rollout and stops it afterwards",
       "records the episodes to HDF5 under runs/scissor_pick_and_place/<timestamp>/ and reads success from episode_results_rank0.jsonl",
       "reports the success count out of two without rerunning failed episodes"
     ]
@@ -19,41 +19,41 @@
     "id": "i4h-workflow-validate-readme-quick-ultrasound",
     "question": "Evaluate ultrasound_liver_scan in policy mode for 1 episode.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This README Quick Run prompt routes to validation for ultrasound_liver_scan in the PandaPhantom (panda_phantom) environment with one episode of the PI0 policy served by i4h_tasks.openpi_pi0.serve and driven by LiverScanPi0Policy.",
+    "ground_truth": "This README Quick Run prompt routes to validation for ultrasound_liver_scan with one episode of its PI0 policy mode: ./run.sh ultrasound_liver_scan --policy --episodes 1, which serves the checkpoint with i4h_tasks.openpi_pi0.serve and drives the PandaPhantom (panda_phantom) environment with LiverScanPi0Policy.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
-      "uses the explicit ultrasound_liver_scan workflow ID and the PandaPhantom panda_phantom environment",
-      "passes --num_episodes 1 to the policy runner",
-      "starts tasks/openpi_pi0/.venv/bin/python -m i4h_tasks.openpi_pi0.serve ultrasound_liver_scan --port 8000 and waits for it to compile and listen",
-      "uses --policy_type i4h_arena.policies.pi0.LiverScanPi0Policy --remote_port 8000 with --enable_cameras",
-      "stops the server by its PID and reports the episode result"
+      "uses the explicit ultrasound_liver_scan workflow ID and its PandaPhantom panda_phantom environment",
+      "runs ./run.sh ultrasound_liver_scan --policy --episodes 1",
+      "lets run.sh start i4h_tasks.openpi_pi0.serve ultrasound_liver_scan and wait for it to compile and listen before the rollout",
+      "keeps run.sh in the foreground and lets it stop the server after the episode",
+      "reports the episode result from episode_results_rank0.jsonl"
     ]
   },
   {
     "id": "i4h-workflow-validate-readme-quick-trocar",
     "question": "Evaluate trocar assembly in policy mode for 1 episode.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This README Quick Run prompt routes to validation for assemble_trocar in the G1Trocar (g1_trocar) environment with one GR00T N1.5 episode, serving the pinned checkpoint or an explicitly exported RLinf checkpoint with i4h_tasks.gr00t_n15.serve assemble_trocar and connecting with Gr00tN15RemotePolicy.",
+    "ground_truth": "This README Quick Run prompt routes to validation for assemble_trocar with one GR00T N1.5 episode: ./run.sh assemble_trocar --policy --episodes 1 serves the pinned checkpoint, or an explicitly exported RLinf checkpoint passed with --checkpoint, with i4h_tasks.gr00t_n15.serve assemble_trocar, and connects Gr00tN15RemotePolicy in the G1Trocar (g1_trocar) environment.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
       "maps trocar assembly to assemble_trocar and the G1Trocar g1_trocar environment",
-      "passes --num_episodes 1 to the policy runner",
-      "serves i4h_tasks.gr00t_n15.serve assemble_trocar and accepts a compatible exported RLinf checkpoint through --model-path when supplied",
-      "uses Gr00tN15RemotePolicy with --remote_port and --enable_cameras",
-      "waits for Server is ready before the rollout and stops the server by its PID afterwards"
+      "runs ./run.sh assemble_trocar --policy --episodes 1",
+      "accepts a compatible exported RLinf checkpoint through --checkpoint when supplied",
+      "keeps run.sh in the foreground; it starts the rollout once the server listens and stops the server afterwards",
+      "reports the episode result from episode_results_rank0.jsonl"
     ]
   },
   {
     "id": "i4h-workflow-validate-ultrasound-probe-reach",
     "question": "Validate ultrasound_probe_reach in policy mode and report its simulator success rate.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This prompt evaluates a trained RSL-RL checkpoint as a policy in the UltrasoundProbeReach (ultrasound_probe_reach) environment with Arena's rsl_rl policy, a model_<N>.pt from the training run's Isaac Lab log directory with params/agent.yaml beside it, and the --rl_observations environment flag.",
+    "ground_truth": "This prompt evaluates a trained RSL-RL checkpoint with ./run.sh ultrasound_probe_reach --policy --checkpoint <model_<N>.pt>, which runs Arena's rsl_rl policy in the UltrasoundProbeReach (ultrasound_probe_reach) environment with the --rl_observations flag; the checkpoint comes from the training run's Isaac Lab log directory with params/agent.yaml beside it.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
-      "resolves the UltrasoundProbeReach ultrasound_probe_reach environment",
+      "resolves the ultrasound_probe_reach workflow and its UltrasoundProbeReach environment",
       "requires a trained RSL-RL checkpoint whose directory holds params/agent.yaml and does not substitute model_final.pt or an exported policy.pt",
-      "runs --policy_type rsl_rl --checkpoint_path with --rl_observations after the scene name",
-      "runs the requested episodes in the foreground under Arena's policy runner",
+      "runs ./run.sh ultrasound_probe_reach --policy --checkpoint with that model_<N>.pt",
+      "runs the requested episodes in the foreground",
       "reports successes out of episodes from episode_results_rank0.jsonl and the visible torso-target behavior"
     ]
   },
@@ -61,40 +61,39 @@
     "id": "i4h-workflow-validate-readme-quick-locomanip-tray",
     "question": "Evaluate locomanip tray pick and place in policy mode for 1 episode.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This README Quick Run prompt routes to validation for locomanip_tray_pick_and_place in the G1Tray (g1_tray) environment with one GR00T N1.6 episode served by GR00T's own run_gr00t_server.py and driven by Arena's GR00T client.",
+    "ground_truth": "This README Quick Run prompt routes to validation for locomanip_tray_pick_and_place with one GR00T N1.6 episode: ./run.sh locomanip_tray_pick_and_place --policy --episodes 1 serves the pinned tray checkpoint with GR00T's own run_gr00t_server.py through i4h_tasks.gr00t_n16.serve and drives the G1Tray (g1_tray) environment with Arena's GR00T client.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
       "maps the prompt to locomanip_tray_pick_and_place and the G1Tray g1_tray environment",
-      "passes --num_episodes 1 to the policy runner",
-      "serves the pinned GR00T N1.6 tray checkpoint with run_gr00t_server.py from the tasks/gr00t_n16 environment",
-      "uses Gr00tRemoteClosedloopPolicy with --policy_config_yaml_path tasks/gr00t_n16/config/g1_locomanipulation.yaml",
-      "stops the server by its PID and reports the episode result"
+      "runs ./run.sh locomanip_tray_pick_and_place --policy --episodes 1",
+      "lets run.sh serve the pinned GR00T N1.6 tray checkpoint from the tasks/gr00t_n16 environment",
+      "keeps run.sh in the foreground and lets it stop the server after the rollout",
+      "reports the episode result"
     ]
   },
   {
     "id": "i4h-workflow-validate-readme-quick-locomanip-cart",
     "question": "Evaluate locomanip push cart in policy mode for 1 episode.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This README Quick Run prompt routes to validation for locomanip_push_cart in the G1Cart (g1_cart) environment with one GR00T N1.6 episode served by GR00T's own run_gr00t_server.py and driven by Arena's GR00T client.",
+    "ground_truth": "This README Quick Run prompt routes to validation for locomanip_push_cart with one GR00T N1.6 episode: ./run.sh locomanip_push_cart --policy --episodes 1 serves the pinned push-cart checkpoint with GR00T's own run_gr00t_server.py through i4h_tasks.gr00t_n16.serve and drives the G1Cart (g1_cart) environment with Arena's GR00T client.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
       "maps the prompt to locomanip_push_cart and the G1Cart g1_cart environment",
-      "passes --num_episodes 1 to the policy runner",
-      "serves the pinned GR00T N1.6 push-cart checkpoint with run_gr00t_server.py from the tasks/gr00t_n16 environment",
-      "uses Gr00tRemoteClosedloopPolicy with --policy_config_yaml_path tasks/gr00t_n16/config/g1_locomanipulation.yaml",
-      "stops the server by its PID and reports the episode result"
+      "runs ./run.sh locomanip_push_cart --policy --episodes 1",
+      "lets run.sh serve the pinned GR00T N1.6 push-cart checkpoint from the tasks/gr00t_n16 environment",
+      "keeps run.sh in the foreground and lets it stop the server after the rollout",
+      "reports the episode result"
     ]
   },
   {
     "id": "i4h-workflow-validate-readme-quick-surgical-reach-rule-based",
     "question": "Run surgical_reach_psm in rule-based mode for 1 episode.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This README Quick Run prompt runs one surgical_reach_psm episode with the CartesianReachPolicy rule-based controller in the PsmReach (psm_reach) environment.",
+    "ground_truth": "This README Quick Run prompt runs one surgical_reach_psm episode with ./run.sh surgical_reach_psm --rule-based --episodes 1, the CartesianReachPolicy controller in the PsmReach (psm_reach) environment.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
       "maps the workflow to surgical_reach_psm and the PsmReach psm_reach environment",
-      "passes --num_episodes 1 to the policy runner",
-      "uses --policy_type i4h_arena.policies.reach.CartesianReachPolicy",
+      "runs ./run.sh surgical_reach_psm --rule-based --episodes 1",
       "does not request an unavailable surgical policy or start a policy server"
     ]
   },
@@ -102,12 +101,12 @@
     "id": "i4h-workflow-validate-readme-quick-surgical-reach-newton",
     "question": "Run surgical_reach_psm in rule-based mode for 1 episode with Newton physics.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This README prompt runs one surgical_reach_psm CartesianReachPolicy episode in the PsmReach environment with the explicitly requested --presets newton launcher option.",
+    "ground_truth": "This README prompt runs one surgical_reach_psm CartesianReachPolicy episode with ./run.sh surgical_reach_psm --rule-based --episodes 1 --presets newton, the explicitly requested Newton backend.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
       "maps the workflow to surgical_reach_psm and the PsmReach psm_reach environment",
-      "passes --num_episodes 1 to the policy runner",
-      "uses CartesianReachPolicy with --presets newton before the scene name",
+      "runs ./run.sh surgical_reach_psm --rule-based --episodes 1",
+      "passes --presets newton",
       "does not silently use the default PhysX backend",
       "requires the per-episode result in episode_results_rank0.jsonl"
     ]
@@ -116,12 +115,11 @@
     "id": "i4h-workflow-validate-readme-quick-surgical-lift-needle-rule-based",
     "question": "Run surgical_lift_needle in rule-based mode for 1 episode.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This README Quick Run prompt runs one surgical_lift_needle episode with the CartesianLiftPolicy rule-based controller in the PsmNeedle (psm_needle) environment.",
+    "ground_truth": "This README Quick Run prompt runs one surgical_lift_needle episode with ./run.sh surgical_lift_needle --rule-based --episodes 1, the CartesianLiftPolicy controller in the PsmNeedle (psm_needle) environment.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
       "maps the workflow to surgical_lift_needle and the PsmNeedle psm_needle environment",
-      "passes --num_episodes 1 to the policy runner",
-      "uses --policy_type i4h_arena.policies.lift.CartesianLiftPolicy",
+      "runs ./run.sh surgical_lift_needle --rule-based --episodes 1",
       "does not request an unavailable surgical policy or start a policy server"
     ]
   },
@@ -129,12 +127,12 @@
     "id": "i4h-workflow-validate-readme-quick-new-checkpoint",
     "question": "Evaluate the new checkpoint.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This README continuation evaluates the newly fine-tuned my_workflow checkpoint: serve it with the policy stack the workflow's policy uses, confirm the server is ready, roll it out in the MyWorkflow (my_workflow) environment with the scene's own step budget, and report the recorded per-episode results.",
+    "ground_truth": "This README continuation evaluates the newly fine-tuned my_workflow checkpoint: ./run.sh my_workflow --policy --checkpoint <checkpoint> serves it with the policy stack the workflow's policy mode uses, waits until the server listens, rolls it out in the MyWorkflow (my_workflow) environment with the scene's own step budget, and the agent reports the recorded per-episode results.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
-      "resolves the exact checkpoint path handed off by fine-tuning and passes it to the stack's server explicitly",
-      "waits for the server's ready line before the rollout and stops the server by its PID afterwards",
-      "rolls out in the MyWorkflow my_workflow environment with the workflow's served policy client and does not invent an --episode_steps override",
+      "resolves the exact checkpoint path handed off by fine-tuning and passes it explicitly with --checkpoint",
+      "runs ./run.sh my_workflow --policy in the foreground, which starts the server before the rollout and stops it afterwards",
+      "does not invent an --episode-steps override",
       "records the rollout and reports successes from episode_results_rank0.jsonl"
     ]
   },
@@ -142,12 +140,12 @@
     "id": "i4h-workflow-validate-readme-new-env-rule-based-record",
     "question": "Run and record 5 successful rule-based episodes for my_workflow.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This README authoring prompt records five episodes of the newly created my_workflow scene with its rule-based G1 reach-table policy under Arena's policy runner and reports how many succeeded.",
+    "ground_truth": "This README authoring prompt records five episodes of the newly created my_workflow scene with ./run.sh my_workflow --rule-based --episodes 5 --record, its rule-based G1 reach-table policy under Arena's policy runner, and reports how many succeeded.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
-      "resolves the MyWorkflow my_workflow environment and the rule-based policy class authored for it",
-      "runs the policy runner with --num_episodes 5 and records to runs/my_workflow/<timestamp>/",
-      "keeps the rollout in the foreground with --viz kit and visibly verifies G1 reaches the table",
+      "resolves the my_workflow declaration, its MyWorkflow environment, and the rule-based policy authored for it",
+      "runs ./run.sh my_workflow --rule-based --episodes 5 and records to runs/my_workflow/<timestamp>/",
+      "keeps the rollout visible in the foreground and verifies G1 reaches the table",
       "does not silently switch the rollout to headless mode",
       "inspects the HDF5 demos, success flags, action widths, and cameras against episode_results_rank0.jsonl",
       "reports the success count against five and any shortfall without silently rerunning episodes",
@@ -159,12 +157,11 @@
     "id": "i4h-workflow-validate-table-scissor-three",
     "question": "Evaluate scissor pick and place with 3 episodes.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This README skill-table prompt routes to validation for scissor_pick_and_place with three GR00T N1.5 episodes in the SoarmScissors environment.",
+    "ground_truth": "This README skill-table prompt routes to validation for scissor_pick_and_place with three GR00T N1.5 episodes: ./run.sh scissor_pick_and_place --policy --episodes 3.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
       "maps the prompt to scissor_pick_and_place and the SoarmScissors soarm_scissors environment",
-      "passes --num_episodes 3 to the policy runner",
-      "serves the GR00T N1.5 checkpoint and stops the server by its PID afterwards",
+      "runs ./run.sh scissor_pick_and_place --policy --episodes 3, which serves the GR00T N1.5 checkpoint and stops the server afterwards",
       "does not run annotation unless separately requested"
     ]
   },
@@ -172,12 +169,12 @@
     "id": "i4h-workflow-validate-readme-robotic-instrument-reach",
     "question": "Validate robotic_instrument_reach in policy mode and report its simulator success rate.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This README RL-authoring prompt evaluates the trained robotic_instrument_reach RSL-RL checkpoint as a policy in the RoboticInstrumentReach (robotic_instrument_reach) environment with Arena's rsl_rl policy and the training observations.",
+    "ground_truth": "This README RL-authoring prompt evaluates the trained robotic_instrument_reach RSL-RL checkpoint with ./run.sh robotic_instrument_reach --policy --checkpoint <model_<N>.pt>, which runs Arena's rsl_rl policy in the RoboticInstrumentReach (robotic_instrument_reach) environment with the training observations its workflow declaration selects.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
-      "resolves the RoboticInstrumentReach robotic_instrument_reach environment",
-      "passes the exact trained model_<N>.pt with params/agent.yaml beside it through --policy_type rsl_rl --checkpoint_path",
-      "selects the observations the policy was trained on with the scene's RL observation flag",
+      "resolves the robotic_instrument_reach workflow and its RoboticInstrumentReach environment",
+      "passes the exact trained model_<N>.pt with params/agent.yaml beside it through --checkpoint",
+      "uses the policy mode whose declaration selects the observations the policy was trained on",
       "runs the requested episodes visibly in the foreground and records them",
       "reports successes out of episodes from episode_results_rank0.jsonl, episode lengths, checkpoint source, and the recording inspection"
     ]
@@ -186,11 +183,11 @@
     "id": "i4h-workflow-validate-specialty-surgical-dual-psm",
     "question": "Run surgical_reach_dual_psm in rule-based mode for 1 episode.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This laparoscopic specialty prompt runs one surgical_reach_dual_psm episode with CartesianReachPolicy in the DualPsmReach (dual_psm_reach) environment.",
+    "ground_truth": "This laparoscopic specialty prompt runs one surgical_reach_dual_psm episode with ./run.sh surgical_reach_dual_psm --rule-based --episodes 1, CartesianReachPolicy in the DualPsmReach (dual_psm_reach) environment.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
-      "uses CartesianReachPolicy in the DualPsmReach dual_psm_reach environment",
-      "passes --num_episodes 1 to the policy runner",
+      "runs ./run.sh surgical_reach_dual_psm --rule-based --episodes 1",
+      "uses the declared CartesianReachPolicy in the DualPsmReach dual_psm_reach environment",
       "records and inspects the rollout artifacts"
     ]
   },
@@ -198,11 +195,11 @@
     "id": "i4h-workflow-validate-specialty-surgical-star",
     "question": "Run surgical_reach_star in rule-based mode for 1 episode.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This laparoscopic specialty prompt runs one surgical_reach_star episode with CartesianReachPolicy --duration_s 0.01 in the StarReach (star_reach) environment.",
+    "ground_truth": "This laparoscopic specialty prompt runs one surgical_reach_star episode with ./run.sh surgical_reach_star --rule-based --episodes 1, CartesianReachPolicy --duration_s 0.01 in the StarReach (star_reach) environment.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
-      "uses CartesianReachPolicy with --duration_s 0.01 in the StarReach star_reach environment",
-      "passes --num_episodes 1 to the policy runner",
+      "runs ./run.sh surgical_reach_star --rule-based --episodes 1",
+      "uses the declared CartesianReachPolicy --duration_s 0.01 in the StarReach star_reach environment",
       "records and inspects the rollout artifacts"
     ]
   },
@@ -210,11 +207,11 @@
     "id": "i4h-workflow-validate-specialty-surgical-lift-block",
     "question": "Run surgical_lift_block in rule-based mode for 1 episode.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This laparoscopic specialty prompt runs one surgical_lift_block episode with CartesianLiftPolicy in the PsmBlock (psm_block) environment.",
+    "ground_truth": "This laparoscopic specialty prompt runs one surgical_lift_block episode with ./run.sh surgical_lift_block --rule-based --episodes 1, CartesianLiftPolicy in the PsmBlock (psm_block) environment.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
-      "uses CartesianLiftPolicy in the PsmBlock psm_block environment",
-      "passes --num_episodes 1 to the policy runner",
+      "runs ./run.sh surgical_lift_block --rule-based --episodes 1",
+      "uses the declared CartesianLiftPolicy in the PsmBlock psm_block environment",
       "records and inspects the rollout artifacts"
     ]
   },
@@ -222,11 +219,11 @@
     "id": "i4h-workflow-validate-specialty-surgical-lift-needle-organs",
     "question": "Run surgical_lift_needle_organs in rule-based mode for 1 episode.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This laparoscopic specialty prompt runs one surgical_lift_needle_organs episode with CartesianLiftPolicy --position_tolerance 0.07 in the PsmNeedleOrgans (psm_needle_organs) environment.",
+    "ground_truth": "This laparoscopic specialty prompt runs one surgical_lift_needle_organs episode with ./run.sh surgical_lift_needle_organs --rule-based --episodes 1, CartesianLiftPolicy --position_tolerance 0.07 in the PsmNeedleOrgans (psm_needle_organs) environment.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
-      "uses CartesianLiftPolicy with --position_tolerance 0.07 in the PsmNeedleOrgans psm_needle_organs environment",
-      "passes --num_episodes 1 to the policy runner",
+      "runs ./run.sh surgical_lift_needle_organs --rule-based --episodes 1",
+      "uses the declared CartesianLiftPolicy --position_tolerance 0.07 in the PsmNeedleOrgans psm_needle_organs environment",
       "records and inspects the rollout artifacts"
     ]
   },
@@ -234,11 +231,11 @@
     "id": "i4h-workflow-validate-specialty-endoluminal-demo",
     "question": "Run the endoluminal_navigation sweep for 1 episode without patient CT data.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This endoluminal specialty prompt runs one procedural CatheterSweepPolicy episode in the EndoluminalNavigation (endoluminal_navigation) environment with --presets newton and --episode_steps 192 and no patient twin; without a vessel the episode has no goal and ends at its step budget.",
+    "ground_truth": "This endoluminal specialty prompt runs one procedural CatheterSweepPolicy episode with ./run.sh endoluminal_navigation --mode demo --episodes 1, on Newton with its 192-step sweep and no patient twin; without a vessel the episode has no goal and ends at its step budget.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
-      "uses CatheterSweepPolicy in the EndoluminalNavigation endoluminal_navigation environment with --presets newton before the scene name",
-      "passes --episode_steps 192 after the scene name and --num_episodes 1",
+      "runs ./run.sh endoluminal_navigation --mode demo --episodes 1",
+      "relies on the workflow declaration for Newton and the 192-step sweep",
       "does not require or invent a patient CT path",
       "reports that the procedural scene has no success term and judges the completed episode and visible behavior instead"
     ]
@@ -247,25 +244,25 @@
     "id": "i4h-workflow-validate-specialty-scissor-policy",
     "question": "Evaluate scissor pick and place for 1 episode.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This hospital-automation specialty prompt runs one scissor_pick_and_place episode with its ordinary GR00T N1.5 served policy in the SoarmScissors environment.",
+    "ground_truth": "This hospital-automation specialty prompt runs one scissor_pick_and_place episode with its ordinary GR00T N1.5 policy mode: ./run.sh scissor_pick_and_place --policy --episodes 1.",
     "expected_behavior": [
       "routes to i4h-workflow-validate",
       "maps the natural workflow name to scissor_pick_and_place and the SoarmScissors soarm_scissors environment",
-      "serves the GR00T N1.5 checkpoint and runs Gr00tN15RemotePolicy --embodiment so101_scissors for one episode",
-      "records and inspects the rollout artifacts and stops the server by its PID"
+      "runs ./run.sh scissor_pick_and_place --policy --episodes 1, which serves the GR00T N1.5 checkpoint and runs Gr00tN15RemotePolicy",
+      "records and inspects the rollout artifacts"
     ]
   },
   {
     "id": "i4h-workflow-validate-specialty-endoluminal-total-segmentator",
     "question": "Prepare TotalSegmentator sample s0011 as a patient twin.\nRun the endoluminal_navigation fluoroscopy check with it.",
     "expected_skill": "i4h-workflow-validate",
-    "ground_truth": "This endoluminal specialty prompt downloads the public TotalSegmentator small sample when it is missing, converts subject s0011 with tools/patient_twin/run.sh, and runs FluoroscopyCArmSweepPolicy in the EndoluminalNavigation environment with --presets newton, --episode_steps 80, and --patient_twin ./data/TotalSegmentator/s0011/patient_twin.yaml, requiring the C-arm sweep PASS line.",
+    "ground_truth": "This endoluminal specialty prompt downloads the public TotalSegmentator small sample when it is missing, converts subject s0011 with tools/patient_twin/run.sh, and runs ./run.sh endoluminal_navigation --mode validate_fluoroscopy --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml, FluoroscopyCArmSweepPolicy on Newton for 80 steps, requiring the C-arm sweep PASS line.",
     "expected_behavior": [
       "routes the final rollout to i4h-workflow-validate",
       "downloads the documented public TotalSegmentator small dataset only when it is not already available",
       "prepares subject s0011 with tools/patient_twin/run.sh",
-      "runs FluoroscopyCArmSweepPolicy with --presets newton and passes --episode_steps 80 --patient_twin with the generated patient_twin.yaml after the scene name",
-      "runs the policy runner in the foreground",
+      "runs ./run.sh endoluminal_navigation --mode validate_fluoroscopy with --patient-twin and the generated patient_twin.yaml",
+      "runs it in the foreground",
       "requires the [fluoroscopy] C-arm sweep PASS line and reports the visible fluoroscopy result"
     ]
   }

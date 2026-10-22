@@ -186,16 +186,12 @@ TRAIN_RUN="$PWD/runs/ultrasound_probe_reach/YYYYMMDD_HHMMSS"
   --episodes 20
 ```
 
-Validate the checkpoint as a policy in the environment with Arena's policy runner. Arena's `rsl_rl` policy reads `params/agent.yaml` beside the checkpoint, so pass the last `model_<N>.pt` from `run.json`, not `model_final.pt`:
+Validate the checkpoint as a policy in the environment with `./run.sh`, whose policy mode runs Arena's `rsl_rl` policy on the training observations under Arena's policy runner. That policy reads `params/agent.yaml` beside the checkpoint, so pass the last `model_<N>.pt` from `run.json`, not `model_final.pt`:
 
 ```bash
 CHECKPOINT="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["checkpoints"][-1])' "$TRAIN_RUN/run.json")"
 EVAL_RUN="$PWD/runs/ultrasound_probe_reach/$(date +%Y%m%d_%H%M%S)"
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type rsl_rl --checkpoint_path "$CHECKPOINT" \
-  --num_episodes 20 --viz kit --output_base_dir "$EVAL_RUN/outputs" \
-  --external_environment_class_path i4h_arena.environments:UltrasoundProbeReach ultrasound_probe_reach \
-  --rl_observations
+./run.sh ultrasound_probe_reach --policy --checkpoint "$CHECKPOINT" --episodes 20 --run-dir "$EVAL_RUN"
 ```
 
 Read each episode's `success` from `$EVAL_RUN/outputs/<time>/episode_results_rank0.jsonl`. When an export is requested, write a TorchScript actor for deployment:
@@ -223,7 +219,7 @@ TRAIN_RUN="$PWD/runs/assemble_trocar/YYYYMMDD_HHMMSS"
   --output-dir "$TRAIN_RUN/exported"
 ```
 
-Hand `$TRAIN_RUN/exported` to `i4h-workflow-validate`, or run its served-policy block here: start `tasks/gr00t_n15/.venv/bin/python -m i4h_tasks.gr00t_n15.serve assemble_trocar --model-path "$TRAIN_RUN/exported" --port 5555` in the background with its PID kept, wait for `Server is ready`, roll out `--policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --remote_port 5555 --enable_cameras` in `--external_environment_class_path i4h_arena.environments:G1Trocar g1_trocar`, and stop the server by its PID. The endoluminal export is served with `i4h_tasks.gr00t_n17.serve catheter_navigation` and rolled out as in `docs/workflows/endoluminal-robotics.md`.
+Hand `$TRAIN_RUN/exported` to `i4h-workflow-validate`, or validate it here with `./run.sh assemble_trocar --policy --checkpoint "$TRAIN_RUN/exported" --episodes <N>`, which serves it with `i4h_tasks.gr00t_n15.serve assemble_trocar`, rolls out `Gr00tN15RemotePolicy` in `G1Trocar` (`g1_trocar`) once the server listens, and stops the server. The endoluminal export runs with `./run.sh endoluminal_navigation_arm --mode policy_n17 --checkpoint <export> --patient-twin <twin>`, as in `docs/workflows/endoluminal-robotics.md`.
 
 Across RLinf profiles, optional training and periodic evaluation recordings warn on encoder or writer-close failures. Standalone evaluation requires a decodable video when requested with `--video` or effective `env.eval.video_cfg.save_video=true`; video failures return nonzero with a video diagnostic. `--set` uses Hydra 1.3.2 in both dry-run preflight and launch, including `+` additions and `++` forced overrides.
 

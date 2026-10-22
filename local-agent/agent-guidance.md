@@ -31,13 +31,13 @@ If no specialized row matches, invoke `i4h-workflow` for discovery and routing. 
 | Run the maintained end-to-end pipeline | `i4h-workflow-e2e` |
 | Inspect a converted LeRobot dataset | `i4h-lerobot-viz` |
 
-For `Stop all`, do not load a stage skill. Stop the processes you started, by the process IDs you recorded when starting them, stop any live session with `./local-agent/bridge.sh stop <scene>`, and report what stopped. Never stop processes by tool or module name: other sessions run the same tools.
+For `Stop all`, do not load a stage skill. Stop each workflow you started with `./stop.sh <workflow>`, any live session with `./local-agent/bridge.sh stop <scene>`, and anything else you started by the process ID you recorded, and report what stopped. Never stop processes by tool or module name: other sessions run the same tools.
 
 ## Root layout and commands
 
 - Stay at the repository root unless a skill explicitly changes directory.
 - The repository is rooted at `common/`, `arena/`, `tasks/`, `rl/`, `tools/`, `docs/`, and `scripts/`; do not add an extra nesting prefix.
-- Use `./setup.sh` and `./train.sh` as the root entry points, `arena/.venv/bin/python` for Arena's policy runner and Isaac Lab's recording and replay scripts, and each policy stack's own `.venv` for its server.
+- Use `./setup.sh`, `./run.sh`, `./stop.sh` and `./train.sh` as the root entry points. `./run.sh show <workflow> [mode]` prints the Arena policy runner, Isaac Lab recording or replay, and policy server commands a run executes.
 - Put run artifacts under `runs/<workflow>/<timestamp>/`, and pass that directory to every stage that must share it.
 - Never write scratch output to `/tmp`; use the active run directory or `.run/`.
 - Do not edit `third_party/` or copy upstream Isaac Sim skills into `skills/`.

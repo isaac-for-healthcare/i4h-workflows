@@ -3,14 +3,14 @@
     "id": "i4h-workflow-dataset-teleop-g1-keyboard-five",
     "question": "Record 5 keyboard teleop demonstrations for locomanip tray pick and place.",
     "expected_skill": "i4h-workflow-dataset-teleop",
-    "ground_truth": "This G1 teleop prompt runs Isaac Lab's record_demos.py through the Arena registration callback on G1Tray (g1_tray) with --embodiment g1_locomanip_wbc_pink --teleop_device keyboard_23d --enable_cameras --viz kit --num_demos 5, writes the dataset under runs/locomanip_tray_pick_and_place/<timestamp>/, and requires a human operator.",
+    "ground_truth": "This G1 teleop prompt runs ./run.sh locomanip_tray_pick_and_place --teleop keyboard_23d --episodes 5 with a fresh run directory: Isaac Lab's record_demos.py through the Arena registration callback on G1Tray (g1_tray) with the workflow's --embodiment g1_locomanip_wbc_pink, cameras, and a visible viewport, writing the dataset under runs/locomanip_tray_pick_and_place/<timestamp>/, with a human operator driving.",
     "expected_behavior": [
       "routes to i4h-workflow-dataset-teleop",
-      "maps the prompt to locomanip_tray_pick_and_place and its environment G1Tray, scene g1_tray",
-      "runs third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.py with --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback, --external_environment_class_path i4h_arena.environments:G1Tray, and --task g1_tray",
-      "selects --teleop_device keyboard_23d together with --embodiment g1_locomanip_wbc_pink",
-      "passes --enable_cameras and --viz kit, keeps the simulator visible, and requires a human operator",
-      "passes --num_demos 5 and a --dataset_file inside a new runs/<workflow>/<timestamp>/ directory",
+      "maps the prompt to the locomanip_tray_pick_and_place workflow and its environment G1Tray, scene g1_tray",
+      "runs ./run.sh locomanip_tray_pick_and_place --teleop keyboard_23d --episodes 5",
+      "relies on the workflow declaration for --embodiment g1_locomanip_wbc_pink, which keyboard_23d needs",
+      "keeps the simulator visible and does not pass --headless, and requires a human operator",
+      "records into a new runs/<workflow>/<timestamp>/ directory",
       "inspects the saved demos, action motion, and cameras with i4h-dataset inspect and actions",
       "reports the output HDF5 path and the saved demo count"
     ]
@@ -19,12 +19,12 @@
     "id": "i4h-workflow-dataset-teleop-table-keyboard-five",
     "question": "Record 5 keyboard teleop demos for the scissor pick-and-place task.",
     "expected_skill": "i4h-workflow-dataset-teleop",
-    "ground_truth": "This prompt records five scissor_pick_and_place keyboard demonstrations with Isaac Lab's record_demos.py on SoarmScissors (soarm_scissors) using --teleop_device keyboard --enable_cameras --viz kit --num_demos 5.",
+    "ground_truth": "This prompt records five scissor_pick_and_place keyboard demonstrations with ./run.sh scissor_pick_and_place --teleop keyboard --episodes 5, which runs Isaac Lab's record_demos.py on SoarmScissors (soarm_scissors) with cameras and a visible viewport.",
     "expected_behavior": [
       "routes to i4h-workflow-dataset-teleop",
       "maps scissor pick-and-place to scissor_pick_and_place and its environment SoarmScissors, scene soarm_scissors",
-      "runs record_demos.py through the Arena registration callback with --teleop_device keyboard",
-      "passes --enable_cameras, --viz kit, and --num_demos 5",
+      "runs ./run.sh scissor_pick_and_place --teleop keyboard --episodes 5",
+      "keeps the simulator visible and requires a human operator",
       "writes the demonstrations to an HDF5 file under runs/scissor_pick_and_place/<timestamp>/",
       "states that only demonstrations reaching the success term are saved"
     ]
@@ -33,12 +33,12 @@
     "id": "i4h-workflow-dataset-teleop-specialty-endoluminal-patient-twin",
     "question": "Start endoluminal_navigation teleop with the prepared s0011 patient twin.",
     "expected_skill": "i4h-workflow-dataset-teleop",
-    "ground_truth": "This endoluminal prompt runs Isaac Lab's record_demos.py on EndoluminalNavigation (endoluminal_navigation) with --presets newton --teleop_device catheter_keyboard --viz kit and --patient_twin ./data/TotalSegmentator/s0011/patient_twin.yaml, and leaves control to the human operator.",
+    "ground_truth": "This endoluminal prompt runs ./run.sh endoluminal_navigation --teleop --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml, Isaac Lab's record_demos.py on EndoluminalNavigation (endoluminal_navigation) with the catheter_keyboard device on Newton, and leaves control to the human operator.",
     "expected_behavior": [
       "routes to i4h-workflow-dataset-teleop",
       "requires the generated ./data/TotalSegmentator/s0011/patient_twin.yaml to exist",
-      "runs record_demos.py through the Arena registration callback with --external_environment_class_path i4h_arena.environments:EndoluminalNavigation and --task endoluminal_navigation",
-      "passes --presets newton, --teleop_device catheter_keyboard, --viz kit, and --patient_twin with the s0011 manifest",
+      "runs ./run.sh endoluminal_navigation --teleop with --patient-twin and the s0011 manifest",
+      "uses the workflow's catheter_keyboard device and its Newton physics",
       "keeps the simulator visible and in the foreground and surfaces the catheter keyboard controls",
       "requires a human operator and never pretends to provide keyboard input",
       "reports that only demonstrations reaching the goal are saved"

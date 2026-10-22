@@ -39,51 +39,33 @@ Note: Complete the [project setup](../../README.md#setup-from-the-command-line) 
 
 ## Scissor Pick and Place
 
-`scissor_pick_and_place` runs as the IsaacLab-Arena environment `SoarmScissors` (`soarm_scissors`). An episode succeeds once the scissors have settled in the tray and the arm is back home; it times out after 600 steps. From the repository root:
+`scissor_pick_and_place` runs as the IsaacLab-Arena environment `SoarmScissors` (`soarm_scissors`). An episode succeeds once the scissors have settled in the tray and the arm is back home; it times out after 600 steps. Run it with `./run.sh` from the repository root. Each run opens a Kit window unless you pass `--headless`, and `./run.sh show` prints the underlying commands:
 
 ```bash
 # Pick and place the scissors with the rule-based joint keyframes for 3 episodes.
-# The controller reads no camera; add --enable_cameras to record the views.
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.scissors.ScissorPickPlacePolicy --num_episodes 3 \
-  --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
+# The controller reads no camera; add --no-cameras to skip rendering the views.
+./run.sh scissor_pick_and_place --rule-based --episodes 3
 ```
 
-The GR00T N1.5 checkpoint, `nvidia/SO_ARM_Starter_Gr00t`, works in the arm's LeRobot joint calibration; `i4h_tasks.gr00t_n15.serve` serves it, and `Gr00tN15RemotePolicy` converts the joints both ways:
+The GR00T N1.5 checkpoint, `nvidia/SO_ARM_Starter_Gr00t`, works in the arm's LeRobot joint calibration; `i4h_tasks.gr00t_n15.serve` serves it, and `Gr00tN15RemotePolicy` converts the joints both ways. `run.sh` starts the server, runs the episodes once it listens, and stops it afterwards; pass `--checkpoint` for a local or finetuned checkpoint:
 
 ```bash
-# Start the policy server (terminal 1); pass --model-path for a local or finetuned checkpoint.
-tasks/gr00t_n15/.venv/bin/python -m i4h_tasks.gr00t_n15.serve scissor_pick_and_place --port 5555
-
-# Evaluate it for 3 episodes (terminal 2). Add --viz kit to watch.
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --embodiment so101_scissors \
-  --remote_port 5555 --num_episodes 3 --enable_cameras \
-  --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
+./run.sh scissor_pick_and_place --policy --episodes 3
 ```
 
 The GR00T N1.7 checkpoint, `nvidia/SO_ARM_Starter_Gr00tN17`, runs on GR00T 1.7's own inference server; `i4h_tasks.gr00t_n17.serve` registers its modality config before starting it, and `Gr00tN17RemotePolicy` speaks GR00T's client protocol. Its backbone, `nvidia/Cosmos-Reason2-2B`, is gated on Hugging Face: request access on the model page with the account `hf auth login` uses.
 
 ```bash
-tasks/gr00t_n17/.venv/bin/python -m i4h_tasks.gr00t_n17.serve scissor_pick_and_place --port 5555
-
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.gr00t_n17.Gr00tN17RemotePolicy --embodiment so101_scissors \
-  --remote_port 5555 --num_episodes 3 --enable_cameras \
-  --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
+./run.sh scissor_pick_and_place --mode policy_n17 --episodes 3
 ```
 
-Teleoperate the arm and record successful demonstrations with Isaac Lab's tool. With `--teleop_device keyboard`, `W/S/A/D/Q/E/Z/X/T/G` step the five arm joints and `K` toggles the jaw; with `--teleop_device so101_leader --leader_port /dev/ttyACM1`, the arm mirrors an SO-ARM 101 leader arm:
+Teleoperate the arm and record successful demonstrations with Isaac Lab's `record_demos.py`. With `--teleop keyboard`, `W/S/A/D/Q/E/Z/X/T/G` step the five arm joints and `K` toggles the jaw; with `--teleop so101_leader -- --leader_port /dev/ttyACM1`, the arm mirrors an SO-ARM 101 leader arm:
 
 ```bash
-arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.py \
-  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-  --external_environment_class_path i4h_arena.environments:SoarmScissors --task soarm_scissors \
-  --teleop_device keyboard --enable_cameras --viz kit \
-  --dataset_file runs/scissor_pick_and_place/teleop.hdf5 --num_demos 1
+./run.sh scissor_pick_and_place --teleop keyboard --episodes 1
 ```
 
-Replay a recording with `scripts/tools/replay_demos.py` as in [G1 Loco-manipulation](#g1-loco-manipulation), using `--external_environment_class_path i4h_arena.environments:SoarmScissors --task soarm_scissors`. [`scripts/e2e/run.sh`](../../scripts/e2e/run.sh) runs the data-to-policy loop on this environment: record N1.5 episodes, augment, grade, replay, convert to LeRobot, finetune, and validate the finetuned checkpoint.
+Replay a recording with `./run.sh scissor_pick_and_place --replay <recording>`, which runs Isaac Lab's `replay_demos.py`. [`scripts/e2e/run.sh`](../../scripts/e2e/run.sh) runs the data-to-policy loop on this environment: record N1.5 episodes, augment, grade, replay, convert to LeRobot, finetune, and validate the finetuned checkpoint.
 
 ## G1 Loco-manipulation
 
@@ -94,56 +76,39 @@ Replay a recording with `scripts/tools/replay_demos.py` as in [G1 Loco-manipulat
 | `locomanip_push_cart` | `G1Cart`, `g1_cart` | `nvidia/GR00T-N1.6-Rheo-Sim-PushCart` @ `0e24b9b225da4a2cff53049eb8b6e57f435814ec` |
 | `locomanip_tray_pick_and_place` | `G1Tray`, `g1_tray` | `nvidia/GR00T-N1.6-Rheo-PickNPlaceTray` @ `76a205040fc8489de91487c82e51eecb82f7d250` |
 
-GR00T runs in its own environment with GR00T's server; the simulator uses Arena's GR00T client. From the repository root:
+GR00T runs in its own environment with GR00T's server, `run_gr00t_server.py`, which `python -m i4h_tasks.gr00t_n16.serve <task>` starts after downloading the pinned checkpoint; the simulator uses Arena's GR00T client. `run.sh` starts both, from the repository root:
 
 ```bash
-# Download the checkpoint once and start the policy server (terminal 1).
-tasks/gr00t_n16/.venv/bin/hf download nvidia/GR00T-N1.6-Rheo-Sim-PushCart \
-  --revision 0e24b9b225da4a2cff53049eb8b6e57f435814ec --local-dir data/models/GR00T-N1.6-Rheo-Sim-PushCart
-tasks/gr00t_n16/.venv/bin/python third_party/Isaac-GR00T-1.6/gr00t/eval/run_gr00t_server.py \
-  --model-path data/models/GR00T-N1.6-Rheo-Sim-PushCart --embodiment-tag NEW_EMBODIMENT --port 5555
-
-# Evaluate it for 5 episodes (terminal 2). Add --viz kit to watch.
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
-  --policy_config_yaml_path tasks/gr00t_n16/config/g1_locomanipulation.yaml --remote_port 5555 \
-  --num_episodes 5 --enable_cameras \
-  --external_environment_class_path i4h_arena.environments:G1Cart g1_cart
+./run.sh locomanip_push_cart --policy --episodes 5
 ```
 
-The tray works the same way with its checkpoint and `G1Tray g1_tray`. Each episode ends on the task's success term or after 1,800 (cart) or 1,500 (tray) steps.
+The tray works the same way: `./run.sh locomanip_tray_pick_and_place --policy`. Each episode ends on the task's success term or after 1,800 (cart) or 1,500 (tray) steps.
 
-Teleoperate the G1 with the keyboard and record successful demonstrations with Isaac Lab's tool. The Pink IK embodiment takes the 23-value whole-body command the keyboard produces (`0` both hands, `1`/`2` one hand, `3` walking, `4` torso, `5` height; `W/S/A/D/Q/E` move, `K/J` close and open the hands, `R` resets):
+Teleoperate the G1 with the keyboard and record successful demonstrations with Isaac Lab's `record_demos.py`. The teleop mode uses the Pink IK embodiment, which takes the 23-value whole-body command the keyboard produces (`0` both hands, `1`/`2` one hand, `3` walking, `4` torso, `5` height; `W/S/A/D/Q/E` move, `K/J` close and open the hands, `R` resets):
 
 ```bash
-arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.py \
-  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-  --external_environment_class_path i4h_arena.environments:G1Cart --task g1_cart \
-  --embodiment g1_locomanip_wbc_pink --teleop_device keyboard_23d --enable_cameras --viz kit \
-  --dataset_file runs/g1_cart/teleop.hdf5 --num_demos 1
+./run.sh locomanip_push_cart --teleop --episodes 1
 ```
 
-Replay a recording, from its recorded initial state, with `scripts/tools/replay_demos.py` and the same `--external_callback`, `--external_environment_class_path`, `--task` and `--embodiment` it was recorded with, plus `--dataset_file <recording> --validate_success_rate`; the keyboard's Pink embodiment and the policy's joint embodiment take different actions. Replay without `--enable_cameras`: Arena's registration callback starts Kit before Isaac Lab can enable camera rendering, so camera sensors fail to initialize. Watch the scene without a policy with `--policy_type i4h_arena.policies.hold.HoldPolicy --viz kit --num_episodes 1`.
+Replay a recording from its recorded initial state with the embodiment it was recorded with; the keyboard's Pink embodiment and the policy's joint embodiment take different actions. Options after `--` go to Isaac Lab's `replay_demos.py`:
+
+```bash
+./run.sh locomanip_push_cart --replay <teleop recording> -- --embodiment g1_locomanip_wbc_pink --validate_success_rate
+```
+
+Replay runs without cameras: Arena's registration callback starts Kit before Isaac Lab can enable camera rendering, so camera sensors fail to initialize. Watch the scene without a policy with `./run.sh locomanip_push_cart`, which holds the robot still.
 
 ## Assemble Trocar
 
 `assemble_trocar` runs as the IsaacLab-Arena environment `G1Trocar` (`g1_trocar`), whose success term is the fifth milestone: both trocars lifted, aligned, inserted, placed and released. An episode times out after 250 steps.
 
-The checkpoint, `nvidia/GR00T-N1.5-RL-Rheo-AssembleTrocar` @ `b54e14286ed3f8392d614741748739e09c7fefe4`, needs its own data config and preprocessing, so `i4h_tasks.gr00t_n15.serve` loads it and serves it with GR00T 1.5's `RobotInferenceServer`. The simulator connects with `i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy`:
+The checkpoint, `nvidia/GR00T-N1.5-RL-Rheo-AssembleTrocar` @ `b54e14286ed3f8392d614741748739e09c7fefe4`, needs its own data config and preprocessing, so `i4h_tasks.gr00t_n15.serve` loads it and serves it with GR00T 1.5's `RobotInferenceServer`. The simulator connects with `i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy`. The server downloads the pinned checkpoint on first use; pass `--checkpoint` for a local or exported one:
 
 ```bash
-# Start the policy server (terminal 1). It downloads the pinned checkpoint on first use;
-# pass --model-path for a local or exported one.
-tasks/gr00t_n15/.venv/bin/python -m i4h_tasks.gr00t_n15.serve assemble_trocar --port 5555
-
-# Evaluate it for 4 episodes (terminal 2). Add --viz kit to watch.
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --remote_port 5555 \
-  --num_episodes 4 --enable_cameras \
-  --external_environment_class_path i4h_arena.environments:G1Trocar g1_trocar
+./run.sh assemble_trocar --policy --episodes 4
 ```
 
-Record the episodes with `--recorder_dataset_export_dir_path <dir> --recorder_dataset_filename <name>` after the environment name, and replay one with Isaac Lab's `scripts/tools/replay_demos.py` as in [G1 Loco-manipulation](#g1-loco-manipulation), using `--external_environment_class_path i4h_arena.environments:G1Trocar --task g1_trocar`.
+Add `--record` to record the episodes into `demos.hdf5` in the run directory, and replay one with `./run.sh assemble_trocar --replay <recording> --episode 0`.
 
 ## Assemble Trocar RL Post-training
 
@@ -199,11 +164,8 @@ TRAIN_RUN="$PWD/runs/assemble_trocar/YYYYMMDD_HHMMSS"
 ./train.sh rl export assemble_trocar \
   --checkpoint "$TRAIN_RUN" \
   --output-dir "$TRAIN_RUN/exported"
-tasks/gr00t_n15/.venv/bin/python -m i4h_tasks.gr00t_n15.serve assemble_trocar \
-  --model-path "$TRAIN_RUN/exported" --port 5555
+./run.sh assemble_trocar --policy --checkpoint "$TRAIN_RUN/exported" --episodes 4
 ```
-
-Then evaluate the exported policy with the `policy_runner` command in [Assemble Trocar](#assemble-trocar).
 
 RLinf PPO post-training is a separate training lifecycle in `rl/`; its exported checkpoint returns to the policy runner for evaluation.
 

@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Pick up surgical scissors, place them in a tray, and return an SO-ARM 101 home.
+scene: soarm_scissors
+modes:
+  policy:
+    server: {stack: gr00t_n15, task: scissor_pick_and_place}
+    policy: i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy
+    args: [--embodiment, so101_scissors]
+  policy_n17:
+    server: {stack: gr00t_n17, task: scissor_pick_and_place}
+    policy: i4h_arena.policies.gr00t_n17.Gr00tN17RemotePolicy
+    args: [--embodiment, so101_scissors]
+  rule-based:
+    policy: i4h_arena.policies.scissors.ScissorPickPlacePolicy
+  teleop:
+    # so101_leader reads the leader arm on --leader_port (pass it after --).
+    devices: [keyboard, so101_leader]

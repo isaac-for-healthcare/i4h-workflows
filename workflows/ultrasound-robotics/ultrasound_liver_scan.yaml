@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Sweep an ultrasound probe across an abdominal phantom.
+scene: panda_phantom
+modes:
+  policy:
+    server: {stack: openpi_pi0, task: ultrasound_liver_scan}
+    policy: i4h_arena.policies.pi0.LiverScanPi0Policy
+  rule-based:
+    policy: i4h_arena.policies.scan.ProbeSweepPolicy
+  teleop:
+    devices: [keyboard]

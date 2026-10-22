@@ -50,20 +50,22 @@ so being able to view the model page is not evidence that a download will succee
 
 ## A run fails after the simulator boots, with a traceback
 
-Arena imports the environment only after Isaac Sim has started, so several mistakes are
-reported roughly 40 seconds in rather than at once:
+`run.sh` checks the workflow, its mode, a teleoperation device and a required checkpoint
+before anything starts. Arena imports the environment only after Isaac Sim has started, so
+other mistakes are reported roughly 40 seconds in rather than at once:
 
-- **An unknown environment.** The class after `i4h_arena.environments:` must be the scene
-  name in CamelCase, and the scene name follows it; `ls arena/i4h_arena/scenes/manifest`
-  lists the scenes.
+- **An unknown environment,** in a command you run yourself, such as one `./run.sh show`
+  printed. The class after `i4h_arena.environments:` must be the scene name in CamelCase,
+  and the scene name follows it; `ls arena/i4h_arena/scenes/manifest` lists the scenes.
 - **Options on the wrong side of the scene name.** Launcher and policy options, such as
   `--presets newton`, `--enable_cameras` and `--viz kit`, go before it; the environment's
-  own, such as `--episode_steps` or `--patient_twin`, after it.
-- **A missing recording.** `replay_demos.py --dataset_file` names a file that is not there.
+  own, such as `--episode_steps` or `--patient_twin`, after it. `run.sh` passes options
+  after `--` on after the scene name.
+- **A missing recording.** `./run.sh <workflow> --replay` names a file that is not there.
 
-A policy server that needs a checkpoint you have to train first stops at once instead: it
-reports that its task names no published checkpoint and asks for `--model-path` or
-`--checkpoint`.
+A policy mode whose task names no published checkpoint stops at once instead and asks for
+`--checkpoint`. A policy server that exits while loading stops the run; its log is
+`server.log` in the run directory.
 
 ## `Failed to create device!` from Slang fluoroscopy
 
@@ -138,9 +140,10 @@ and quote the ratio.
 
 ## Processes or GPU memory left behind
 
-Stop a run with Ctrl+C. Stop a background run or a policy server by the process ID you
-started it with; matching on a tool or module name also stops other people's runs on a shared
-machine. Stop a live scene session with `./local-agent/bridge.sh stop <scene>`. To find what is
+Stop a run with Ctrl+C, or a background one with `./stop.sh <workflow>`, which stops the
+simulator and policy server that `run.sh` started and recorded under `.run/pids.d/`. Stop
+anything you started yourself by its process ID; matching on a tool or module name also stops
+other people's runs on a shared machine. Stop a live scene session with `./local-agent/bridge.sh stop <scene>`. To find what is
 holding a GPU, run `nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv`.
 
 ## Docker: the first command takes much longer than expected

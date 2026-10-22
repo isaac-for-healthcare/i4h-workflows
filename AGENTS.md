@@ -4,23 +4,23 @@ Run commands from the repository root.
 
 ## First Checks
 
-Every workflow runs as an IsaacLab-Arena environment: an i4h scene, exposed by `arena/i4h_arena/environments.py` under its CamelCase name. The specialty pages in `docs/workflows/` map each workflow to its environment, policies, devices, and commands. List the scenes with:
+Every workflow runs as an IsaacLab-Arena environment: an i4h scene, exposed by `arena/i4h_arena/environments.py` under its CamelCase name. `workflows/<specialty>/<workflow>.yaml` declares each workflow's scene and modes, and the specialty pages in `docs/workflows/` describe them. List the workflows with:
 
 ```bash
-ls arena/i4h_arena/scenes/manifest
+./run.sh list
 ```
 
-If a component environment is missing, run `./setup.sh`. Run a scene with Arena's policy runner; launcher options such as `--presets newton`, `--enable_cameras`, and `--viz kit` go before the environment, the environment's own options after it:
+If a component environment is missing, run `./setup.sh`. Run a workflow with `./run.sh`; it runs rule-based, policy, and idle modes with Arena's policy runner, teleoperation with Isaac Lab's `record_demos.py`, and replay with `replay_demos.py`. A policy mode starts the checkpoint's server from its own stack, waits for it, and stops it after the run:
 
 ```bash
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.hold.HoldPolicy --num_episodes 1 \
-  --external_environment_class_path i4h_arena.environments:PsmReach psm_reach
+./run.sh surgical_reach_psm --rule-based --episodes 1 --headless --record
+./run.sh scissor_pick_and_place --policy --episodes 1 --headless
+./run.sh show scissor_pick_and_place --policy
 ```
 
-Record teleoperation with Isaac Lab's `scripts/tools/record_demos.py` and replay with `replay_demos.py`, both through `--external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback --external_environment_class_path i4h_arena.environments:<Class> --task <scene>`. Serve a policy checkpoint from its own stack with `tasks/<stack>/.venv/bin/python -m i4h_tasks.<stack>.serve <task>` (GR00T N1.6 uses GR00T's own server; see `docs/workflows/hospital-automation-robotics.md`).
+`./run.sh show` prints the server and Arena or Isaac Lab commands without running them; use it to explain or debug a run. Each run writes to `runs/<workflow>/<YYYYMMDD_HHMMSS>/` unless `--run-dir` names a directory, and prints how many episodes succeeded. A bare scene name runs too, for viewing, live editing, and replay.
 
-Stop a foreground run with Ctrl+C. Stop a background run or policy server by the PID you started it with, never by a tool or module name that other sessions may also be running. Stop a live scene session with `./local-agent/bridge.sh stop <scene>`.
+Stop a foreground run with Ctrl+C and a background one with `./stop.sh <workflow>`, which stops only the runs `run.sh` started in this checkout. Never stop a run by a tool or module name that other sessions may also be running. Stop a live scene session with `./local-agent/bridge.sh stop <scene>`.
 
 Create a blank scene with `./scripts/create_blank_environment.py <scene_id>`. Pass `--dry-run` to preview the generated files or `--validate` to run its contract and scene tests after creation.
 
@@ -46,13 +46,14 @@ cd "$ROOT"
 
 `I4H_WORKFLOWS_REPO_URL` chooses the clone source and `I4H_WORKFLOWS` chooses or reuses a specific checkout. Never replace an existing checkout.
 
-To edit a scene live, open it with `./local-agent/bridge.sh start <scene>`, which runs it as an Arena environment with its timeline paused and Isaac Sim's Python server open, then apply one edit at a time with `arena/.venv/bin/python scripts/live_scene_edit.py`. Export confirmed edits with `scripts/live_scene_edit.py export-scene --workflow <scene> --output-path <run-dir>/live_scene.json` and resolve reusable facts with `arena/.venv/bin/python scripts/authoring_info.py snapshot <scene> <run-dir>/live_scene.json`. These utilities do not generate code; the coding agent patches the owning scene, asset source, and manifest while the snapshot remains a run artifact.
+To edit a scene live, open it with `./local-agent/bridge.sh start <scene>`, which runs `./run.sh <scene> --live` with its timeline paused and Isaac Sim's Python server open, then apply one edit at a time with `arena/.venv/bin/python scripts/live_scene_edit.py`. Export confirmed edits with `scripts/live_scene_edit.py export-scene --workflow <scene> --output-path <run-dir>/live_scene.json` and resolve reusable facts with `arena/.venv/bin/python scripts/authoring_info.py snapshot <scene> <run-dir>/live_scene.json`. These utilities do not generate code; the coding agent patches the owning scene, asset source, and manifest while the snapshot remains a run artifact.
 
-Keep generated runtime artifacts under `runs/<workflow>/<YYYYMMDD_HHMMSS>/`: pass that directory as `--output_base_dir` and `--recorder_dataset_export_dir_path` to the policy runner, and put `record_demos.py --dataset_file` inside it.
+Keep generated runtime artifacts under `runs/<workflow>/<YYYYMMDD_HHMMSS>/`, where `run.sh` puts them by default.
 
 ## Source of Truth
 
-- Workflows, their environments and commands: `docs/workflows/<specialty>.md`
+- Workflows and their modes: `workflows/<specialty>/<workflow>.yaml`, run by `scripts/run_workflow.py` behind `run.sh` and `stop.sh`
+- Workflow guides and commands: `docs/workflows/<specialty>.md`
 - Scenes as Arena environments: `arena/i4h_arena/environments.py`
 - Scene construction: `arena/i4h_arena/scenes/`
 - Scene capabilities and step budget: `arena/i4h_arena/scenes/manifest/<scene>.yaml`

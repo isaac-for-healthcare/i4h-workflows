@@ -117,48 +117,21 @@ GPU_RECORDING = "verify.hdf5"
 
 
 @dataclass(frozen=True)
-class PolicyRunnerSmoke:
-    """One recorded episode of an i4h environment under IsaacLab-Arena's policy runner."""
+class WorkflowSmoke:
+    """One recorded, headless episode of a workflow mode, run through run.sh."""
 
-    environment: str
-    policy_type: str
-    policy_args: tuple[str, ...] = ()
-    environment_args: tuple[str, ...] = ()
-    server: tuple[str, ...] = ()
-    """A policy server the rollout connects to, started before it and stopped after."""
-
-    @property
-    def environment_class(self) -> str:
-        return "".join(part.capitalize() for part in self.environment.split("_"))
+    workflow: str
+    mode: str
 
 
 GPU_SMOKES = (
-    PolicyRunnerSmoke("psm_reach", "i4h_arena.policies.reach.CartesianReachPolicy"),
-    PolicyRunnerSmoke("psm_needle", "i4h_arena.policies.lift.CartesianLiftPolicy"),
-    PolicyRunnerSmoke(
-        "g1_trocar",
-        "i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy",
-        # The first request waits for the server to load (or download) the checkpoint.
-        policy_args=("--remote_port", "5555", "--timeout_s", "1800"),
-        server=(
-            "tasks/gr00t_n15/.venv/bin/python",
-            "-m",
-            "i4h_tasks.gr00t_n15.serve",
-            "assemble_trocar",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            "5555",
-        ),
-    ),
-    PolicyRunnerSmoke("panda_phantom", "i4h_arena.policies.scan.ProbeSweepPolicy"),
-    PolicyRunnerSmoke("soarm_scissors", "i4h_arena.policies.scissors.ScissorPickPlacePolicy"),
-    PolicyRunnerSmoke(
-        "endoluminal_navigation",
-        "i4h_arena.policies.catheter.CatheterSweepPolicy",
-        policy_args=("--presets", "newton"),
-        environment_args=("--episode_steps", "192"),
-    ),
+    WorkflowSmoke("surgical_reach_psm", "rule-based"),
+    WorkflowSmoke("surgical_lift_needle", "rule-based"),
+    # run.sh serves the checkpoint and starts the rollout once the server listens.
+    WorkflowSmoke("assemble_trocar", "policy"),
+    WorkflowSmoke("ultrasound_liver_scan", "rule-based"),
+    WorkflowSmoke("scissor_pick_and_place", "rule-based"),
+    WorkflowSmoke("endoluminal_navigation", "demo"),
 )
 
 
@@ -230,69 +203,46 @@ def _finish_coverage(timeout: int) -> bool:
     return True
 
 
-def _run_policy_runner_smoke(smoke: PolicyRunnerSmoke, timeout: int) -> bool:
-    print(f"\n==> [gpu] {smoke.environment} {smoke.policy_type}", flush=True)
-    output_dir = Path(tempfile.mkdtemp(prefix=f"i4h-smoke-{smoke.environment}-"))
-    server = None
-    if smoke.server:
-        print("    " + " ".join(smoke.server), flush=True)
-        with (output_dir / "server.log").open("w") as log:
-            server = subprocess.Popen(smoke.server, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+def _run_workflow_smoke(smoke: WorkflowSmoke, timeout: int) -> bool:
+    print(f"\n==> [gpu] {smoke.workflow} {smoke.mode}", flush=True)
+    run_dir = Path(tempfile.mkdtemp(prefix=f"i4h-smoke-{smoke.workflow}-"))
+    argv = [
+        str(ROOT / "run.sh"),
+        smoke.workflow,
+        "--mode",
+        smoke.mode,
+        "--episodes",
+        "1",
+        "--seed",
+        "0",
+        "--headless",
+        "--run-dir",
+        str(run_dir),
+        "--record",
+        str(run_dir / GPU_RECORDING),
+    ]
+    print("    " + " ".join(argv), flush=True)
+    process = subprocess.Popen(argv, cwd=ROOT)
     try:
-        rollout = _run_policy_runner(smoke, output_dir, timeout)
-    finally:
-        if server is not None:
-            server.terminate()
-            server.wait(timeout=60)
-    if rollout is None or rollout.returncode:
-        print("!! policy runner failed", file=sys.stderr)
+        returncode = process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # run.sh stops its simulator and policy server on SIGTERM, as on Ctrl+C.
+        process.terminate()
+        process.wait()
+        print(f"!! timed out after {timeout}s", file=sys.stderr)
         return False
-    results = sorted(output_dir.glob("outputs/*/episode_results_rank0.jsonl"))
+    if returncode:
+        print("!! run.sh failed", file=sys.stderr)
+        return False
+    results = sorted(run_dir.glob("outputs/*/episode_results_rank0.jsonl"))
     if not results or not results[-1].read_text().strip():
-        print("!! policy runner reported no completed episode", file=sys.stderr)
+        print("!! the policy runner reported no completed episode", file=sys.stderr)
         return False
-    recording = output_dir / GPU_RECORDING
+    recording = run_dir / GPU_RECORDING
     if not recording.is_file():
         print(f"!! rollout recording is missing: {recording}", file=sys.stderr)
         return False
     return True
-
-
-def _run_policy_runner(
-    smoke: PolicyRunnerSmoke, output_dir: Path, timeout: int
-) -> subprocess.CompletedProcess[str] | None:
-    return _run_command(
-        [
-            "uv",
-            "run",
-            "--project",
-            "arena",
-            "--no-sync",
-            "python",
-            "-m",
-            "isaaclab_arena.evaluation.policy_runner",
-            "--policy_type",
-            smoke.policy_type,
-            *smoke.policy_args,
-            "--num_episodes",
-            "1",
-            "--seed",
-            "0",
-            "--enable_cameras",
-            "--output_base_dir",
-            str(output_dir / "outputs"),
-            "--external_environment_class_path",
-            f"i4h_arena.environments:{smoke.environment_class}",
-            smoke.environment,
-            "--recorder_dataset_export_dir_path",
-            str(output_dir),
-            "--recorder_dataset_filename",
-            Path(GPU_RECORDING).stem,
-            *smoke.environment_args,
-        ],
-        timeout=timeout,
-        capture=True,
-    )
 
 
 def main() -> int:
@@ -332,8 +282,8 @@ def main() -> int:
         failures.append("coverage report")
     if args.suite == "gpu":
         for smoke in GPU_SMOKES:
-            if not _run_policy_runner_smoke(smoke, args.timeout):
-                failures.append(smoke.environment)
+            if not _run_workflow_smoke(smoke, args.timeout):
+                failures.append(f"{smoke.workflow} {smoke.mode}")
     if args.suite in {"gpu", "dependency-pins"}:
         result = _run_command(
             [

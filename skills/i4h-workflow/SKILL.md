@@ -51,13 +51,13 @@ Treat this resolver as part of the skill contract: a hosted copy may run outside
 Read `./AGENTS.md` and `./DESIGN.md` for architecture and `skills/i4h-workflow/references/repo-map.md` for ownership. Discover current support instead of copying a static table:
 
 ```bash
-ls docs/workflows
-ls arena/i4h_arena/scenes/manifest
+ls docs/workflows workflows/*
+./run.sh list
 ```
 
-Read the Workflows table of each relevant `docs/workflows/<specialty>.md` page. It maps every workflow id, such as `scissor_pick_and_place`, to its environment class and scene, such as `SoarmScissors` and `soarm_scissors`, and lists its policies, teleoperation devices, and exact commands. Map a natural-language name to the workflow id first, then to its environment.
+`./run.sh list` prints every workflow id, such as `scissor_pick_and_place`, with its scene, such as `soarm_scissors`, and its modes; `workflows/<specialty>/<workflow>.yaml` declares them. The Workflows table of each `docs/workflows/<specialty>.md` page adds the environment class, such as `SoarmScissors`, and describes the policies and teleoperation devices. Map a natural-language name to the workflow id first, then to its mode.
 
-Discovery needs no component environment. If `arena/.venv` is missing, report that running a workflow needs setup and route to `i4h-workflow-setup`.
+Discovery needs only the `common` environment that `./run.sh list` runs in; reading `workflows/` needs none. If `arena/.venv` is missing, report that running a workflow needs setup and route to `i4h-workflow-setup`.
 
 ## Explain the design
 
@@ -65,7 +65,7 @@ Keep the summary precise:
 
 - A scene owns the simulated world (assets, cameras, randomization, reset events), its embodiment, and its task, whose success termination is the workflow's success criterion. `arena/i4h_arena/environments.py` exposes every scene manifest as an IsaacLab-Arena external environment under its CamelCase name (`psm_reach` → `PsmReach`).
 - The scene manifest declares the scene's capabilities and the step budget its workflows were validated with; episodes end on the success termination or time out at that budget.
-- A workflow id is the user-facing name for one environment plus the policies, devices, and commands its `docs/workflows/` page documents. There is no separate workflow module or run mode.
+- A workflow id is the user-facing name for one environment plus its modes, declared as data in `workflows/<specialty>/<workflow>.yaml`: per mode, the Arena policy, the policy server, or the teleoperation devices. `./run.sh <workflow> --<mode>` runs the Arena or Isaac Lab tool for it, and `./run.sh show` prints the command; there is no workflow engine or workflow module.
 - Policies are IsaacLab-Arena `PolicyBase` classes. Rule-based controllers and remote-policy clients live in `arena/i4h_arena/policies/`; Arena also provides its own, such as `zero_action`, `rsl_rl`, and its GR00T client. Arena's policy runner steps the environment and writes per-episode results.
 - Foundation-model checkpoints run out of process, each in its policy stack's own environment under `tasks/<stack>/`, behind a server that an Arena client policy connects to. The simulator environment never imports a policy stack.
 - Teleoperation devices are Isaac Lab `DeviceBase` classes that a scene declares in `env_cfg.teleop_devices`. Isaac Lab's `record_demos.py` and `replay_demos.py` record and replay through Arena's registration callback, and recordings use Isaac Lab's recorder and HDF5 dataset format.
@@ -73,7 +73,7 @@ Keep the summary precise:
 - Offline tools in `tools/` (mimic, dataset conversion, annotation, Cosmos, patient twin) remain independent of the simulator.
 - Python owns behavior. Scene, embodiment, and task manifests carry facts across dependency boundaries.
 
-Do not describe the retired i4h runtime (`run.sh`, `stop.sh`, run modes, Workflow modules, TaskGraphs, the Engine, or Zenoh). If a user asks for it, map the request to the current Arena or Isaac Lab command from the workflow's docs page.
+Do not describe the retired i4h runtime (Workflow modules, TaskGraphs, the Engine, its own runner and recorder, or Zenoh). `run.sh` and `stop.sh` remain as thin launchers over Arena's and Isaac Lab's tools; options of the earlier launcher with no equivalent, such as `--attempts` or `--record-failures`, are rejected with what replaces them.
 
 ## Route the next action
 
@@ -93,11 +93,11 @@ Do not describe the retired i4h runtime (`run.sh`, `stop.sh`, run modes, Workflo
 | Run policy or rule-based rollouts | `i4h-workflow-validate` |
 | Run the maintained complete pipeline | `i4h-workflow-e2e` |
 
-For `Stop all`, do not load a stage skill. From the repository root, stop the processes this agent started: interrupt a foreground run with Ctrl+C and stop a background run or policy server by the PID recorded when it started. Stop each live scene session that has a `<scene>.pid` file in `.run/local-agent-bridge/` with `./local-agent/bridge.sh stop <scene>`. Never stop processes by tool or module name, because other sessions run the same tools. Report what was stopped.
+For `Stop all`, do not load a stage skill. From the repository root, stop the runs this agent started: interrupt a foreground run with Ctrl+C and stop a background one with `./stop.sh <workflow>`, which stops its simulator and policy server. Stop each live scene session that has a `<scene>.pid` file in `.run/local-agent-bridge/` with `./local-agent/bridge.sh stop <scene>`, and anything else this agent started by its recorded PID. Never stop processes by tool or module name, because other sessions run the same tools. Report what was stopped.
 
 ## Troubleshooting
 
-If discovery fails, verify the resolved checkout. If a workflow, policy, or teleoperation device is absent from its `docs/workflows/` page and the scene manifests, report it as unsupported.
+If discovery fails, verify the resolved checkout. If a workflow, mode, or teleoperation device is absent from `./run.sh list` and the workflow declarations, report it as unsupported.
 
 ## Prerequisites
 

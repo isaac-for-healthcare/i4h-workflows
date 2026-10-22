@@ -16,29 +16,27 @@ environment hands its Isaac Teleop retargeting configuration to Isaac Lab.
 
 Run `./setup.sh` after updating. The simulator environment includes
 `isaaclab-contrib` for coupled MJWarp rigid-body and VBD cloth physics.
-Newton is required for these two scenes: pass `--presets newton` to every command.
-The inherited PhysX path reports an invalid cloth simulation view with the pinned
-runtime, so the environment refuses any other backend. Other workflows retain
-their PhysX default.
+Newton is required for these two scenes, and their workflow declarations in
+[`workflows/hospital-automation-robotics/`](../../workflows/hospital-automation-robotics/)
+pass `--presets newton` to every command. The inherited PhysX path reports an invalid
+cloth simulation view with the pinned runtime, so the environment refuses any other
+backend. Other workflows retain their PhysX default.
 
 ## Inspect the scenes
 
 From the repository root:
 
 ```bash
-export PXR_WORK_THREAD_LIMIT=1
-# Hold the G1 at its reset pose and watch the cloth; use H2Tablecloth h2_tablecloth for the H2.
-arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
-  --policy_type i4h_arena.policies.hold.HoldPolicy --num_episodes 1 --presets newton --viz kit \
-  --external_environment_class_path i4h_arena.environments:G1Tablecloth g1_tablecloth
+# Hold the G1 at its reset pose and watch the cloth; use spread_tablecloth_h2 for the H2.
+./run.sh spread_tablecloth_g1
 ```
 
-`HoldPolicy` commands the measured wrist poses and finger joints, so the robot
+Without a mode, `run.sh` runs `HoldPolicy` under Arena's policy runner. `HoldPolicy` commands the measured wrist poses and finger joints, so the robot
 settles where it was reset (the H2 within about 20 steps) and stays there. One
 environment is supported per session.
 
 These scenes require `PXR_WORK_THREAD_LIMIT=1` in the environment Kit starts in,
-to avoid the USD physics parser's race on bodies with many colliders; see
+which their workflow declarations set, to avoid the USD physics parser's race on bodies with many colliders; see
 [Isaac Sim issue #692](https://github.com/isaac-sim/IsaacSim/issues/692). Isaac Sim
 6.2 keeps a value already set. Physics and rendering retain their own worker threads.
 
@@ -66,20 +64,15 @@ and choose a robot:
 
 ```bash
 source "$HOME/.cloudxr/run/cloudxr.env"
-export PXR_WORK_THREAD_LIMIT=1
-# Use H2Tablecloth h2_tablecloth for the H2.
-arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.py \
-  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-  --external_environment_class_path i4h_arena.environments:G1Tablecloth --task g1_tablecloth \
-  --presets newton --enable_cameras --viz kit --no-auto_launch_cloudxr \
-  --dataset_file runs/spread_tablecloth_g1/demos.hdf5 --num_demos 10
+# Use spread_tablecloth_h2 for the H2.
+./run.sh spread_tablecloth_g1 --teleop --episodes 10 --record runs/spread_tablecloth_g1/demos.hdf5
 ```
 
-`record_demos.py` uses Isaac Teleop because the environment declares its
-retargeting configuration, and follows Isaac Lab's recording controls for
-starting, accepting and resetting a demonstration. CloudXR is externally managed
-here; to have the script start it instead, drop `--no-auto_launch_cloudxr` and pass
-`--cloudxr_env /absolute/path/to/handtracking.env`. The first start asks the
+The teleop mode runs Isaac Lab's `record_demos.py`, which uses Isaac Teleop because
+the environment declares its retargeting configuration, and follows Isaac Lab's
+recording controls for starting, accepting and resetting a demonstration. CloudXR is
+externally managed here; to have the script start it instead, pass
+`--cloudxr-env /absolute/path/to/handtracking.env`. The first start asks the
 operator to accept the CloudXR EULA. Teleop requires a visible Kit session.
 An episode times out after 3,600 steps for G1 and 9,000 for H2.
 
@@ -103,13 +96,11 @@ H2 downloads its URDF and retargeting assets to
 can be selected with `RHEO_H2_SHARPA_ASSETS_DIR`.
 
 ```bash
-arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/replay_demos.py \
-  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
-  --external_environment_class_path i4h_arena.environments:G1Tablecloth --task g1_tablecloth \
-  --presets newton --dataset_file /absolute/path/to/demos.hdf5
+./run.sh spread_tablecloth_g1 --replay /absolute/path/to/demos.hdf5
 ```
 
-Use the environment matching the recording, without `--enable_cameras`. Replaying
+Use the workflow matching the recording; replay runs Isaac Lab's `replay_demos.py`
+without cameras. Replaying
 cloth actions does not restore an arbitrary deformed initial mesh, and
 contact-rich trajectories may diverge.
 
