@@ -1,6 +1,6 @@
 ---
 name: i4h-workflow-dataset-replay
-description: Replay a workflow HDF5 episode through its original Scene. Use for visual trajectory and recording verification; do not use for policy evaluation or LeRobot data.
+description: Replay recorded HDF5 episodes in the workflow's Arena environment with replay_demos.py. Use for visual trajectory and recording verification; do not use for policy evaluation or LeRobot data.
 license: Apache-2.0
 metadata:
   author: "Isaac for Healthcare Team <isaac-for-healthcare-support@nvidia.com>"
@@ -18,13 +18,13 @@ metadata:
 
 ## Purpose
 
-Replay the exact recorded action sequence through the matching workflow and inspect it visibly.
+Restore each selected episode's recorded initial state, apply its stored actions in the matching IsaacLab-Arena environment, and inspect the result visibly.
 
 ## Instructions
 
 1. Run the checkout resolver and select the exact HDF5.
-2. Read the original workflow and requested episode.
-3. Inspect action-contract compatibility.
+2. Identify the environment and the scene options the recording was made with.
+3. Map the requested episode to a replay index.
 4. Run the replay visibly in the foreground through completion.
 
 ## Resolve the recording
@@ -37,58 +37,66 @@ I4H_REPO_DIR_NAME="${I4H_REPO_DIR_NAME##*:}"
 I4H_REPO_DIR_NAME="${I4H_REPO_DIR_NAME%.git}"
 [ -n "$I4H_REPO_DIR_NAME" ] || { echo "Cannot derive a checkout name from I4H_WORKFLOWS_REPO_URL" >&2; exit 2; }
 ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"
-if [ ! -d "$ROOT/workflows/i4h_workflows" ]; then
+if [ ! -d "$ROOT/arena/i4h_arena/scenes/manifest" ]; then
   ROOT="${I4H_WORKFLOWS:-$HOME/$I4H_REPO_DIR_NAME}"
-  [ -d "$ROOT/workflows/i4h_workflows" ] || git clone "$I4H_WORKFLOWS_REPO_URL" "$ROOT"
+  [ -d "$ROOT/arena/i4h_arena/scenes/manifest" ] || git clone "$I4H_WORKFLOWS_REPO_URL" "$ROOT"
 fi
 export I4H_WORKFLOWS="$ROOT"
 cd "$ROOT"
 find runs -name '*.hdf5' -type f -printf '%T@ %p\n' | sort -nr | head
 ```
 
-Treat the resolver above as part of the skill contract: a hosted copy may run outside the base repository, so never assume the current checkout contains `workflows/i4h_workflows`. `I4H_WORKFLOWS_REPO_URL` selects the clone source. When `I4H_WORKFLOWS` is unset, derive the fallback directory from that URL; set `I4H_WORKFLOWS` only to reuse or choose a specific destination. Never replace an existing checkout.
+Treat the resolver above as part of the skill contract: a hosted copy may run outside the base repository, so never assume the current checkout contains `arena/i4h_arena/scenes/manifest`. `I4H_WORKFLOWS_REPO_URL` selects the clone source. When `I4H_WORKFLOWS` is unset, derive the fallback directory from that URL; set `I4H_WORKFLOWS` only to reuse or choose a specific destination. Never replace an existing checkout.
 
 Use an explicit or current-chain recording first. Otherwise select the newest plausible HDF5 and state that choice. Never substitute an older file after a failed recording.
-
-Interpret natural ordinals as zero-based indices: first is `0`, second is `1`.
 
 ## Inspect before launch
 
 ```bash
 HDF5_PATH=/absolute/path/to/recording.hdf5
-uv run --project tools/dataset i4h-dataset inspect "$HDF5_PATH" --segments
+uv run --project tools/dataset i4h-dataset inspect "$HDF5_PATH"
+uv run --project tools/dataset python -c 'import h5py, json, sys; d = h5py.File(sys.argv[1], "r")["data"]; print(json.loads(d.attrs["env_args"]).get("env_name")); print(list(d))' "$HDF5_PATH"
 ```
 
-Resolve the original workflow from recording metadata and conversation context. Confirm the requested episode exists and its action width matches the workflow's replay Scene contract.
+The second command prints the scene name `record_demos.py` stores in `env_args` (policy-runner recordings leave it empty, so take the scene from the run context) and the demo names in the order replay indexes them. The environment class is that scene name in CamelCase (`soarm_scissors` is `SoarmScissors`); `docs/workflows/<specialty>.md` maps it back to the workflow id. Confirm the requested episode exists and has a top-level `actions` dataset.
+
+Pass the options the recording was made with, from its run context or the workflow's docs page: `--presets newton` for endoluminal and tablecloth scenes or any Newton run (tablecloth also needs `export PXR_WORK_THREAD_LIMIT=1`), the same `--patient_twin` for endoluminal recordings, `--embodiment g1_locomanip_wbc_pink` for a G1 keyboard recording (23-D actions), and `--episode_steps` when the recording ran longer than the scene's default budget.
+
+Interpret natural ordinals as zero-based demo numbers: first is `demo_0`, second is `demo_1`. `--select_episodes` takes positions in the printed order, which is lexicographic (`demo_0`, `demo_1`, `demo_10`, `demo_11`, `demo_2`, ...); with ten demos or fewer the position equals the demo number, otherwise use the demo's position in that list.
 
 ## Replay
 
 ```bash
-./run.sh <workflow> --replay "$HDF5_PATH" --episode <zero-based-index>
+arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/replay_demos.py \
+  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+  --external_environment_class_path i4h_arena.environments:<Class> --task <scene> \
+  --viz kit --dataset_file "$HDF5_PATH" --select_episodes <index> --validate_success_rate
 ```
 
-Keep the visible simulator and command in the foreground. Poll yielded execution until `run.sh` exits; do not detach or return while replay is still running.
+Omit `--select_episodes` to replay every episode. Never pass `--enable_cameras`: Arena's registration callback starts Kit before Isaac Lab can enable camera rendering, so camera sensors fail. Isaac Lab 3 has no `--headless`; replay is headless unless `--viz kit` is given, so keep `--viz kit` for a visible check. Add `--validate_states` to compare the recorded `states` step by step in a single environment.
+
+Keep the visible simulator and command in the foreground; `B` pauses and `N` resumes. Poll yielded execution until `replay_demos.py` exits; do not detach or return while replay is still running. Stop it with Ctrl+C, or by its recorded PID if it was started in the background.
 
 ## Verify
 
-Observe the complete trajectory, relevant objects, camera views, segment boundaries, and final status. If motion diverges, report the first mismatching segment or action-contract error. Do not change workflow, episode, or recording silently.
+Observe the complete trajectory, relevant objects, and final state, and require `Finished replaying <N> episodes`. With `--validate_success_rate`, report `Successfully replayed: <X>/<Y>` and any failed demo IDs; scenes without a success term, such as the tablecloth scenes, print that none was found. If motion diverges, report the first diverging step or the action-width error. Do not change workflow, episode, or recording silently.
 
 ## Troubleshooting
 
-On launch failure, verify workflow metadata, episode existence, and action width. On divergence, report the first mismatching segment.
+On launch failure, verify the environment class, scene options, episode index, and action width against the environment the recording came from. A reach episode replays the same arm motion toward a newly sampled target, because targets are sampled commands rather than scene state. Cloth replay does not restore a deformed mesh, and contact-rich trajectories may diverge. Episodes produced by `tools/mimic` keep their source's `states`, so `--validate_states` reports their jitter as mismatches.
 
 ## Prerequisites
 
-Require the original workflow assets and a readable episode whose action width matches replay mode.
+Require `arena/.venv` from `./setup.sh`, the workflow's assets and any patient twin it was recorded with, a display for `--viz kit`, and a readable episode with top-level `actions` whose width matches the environment.
 
 ## Limitations
 
-Replay verifies stored actions in one Scene; it does not evaluate a learned policy or guarantee transfer to another Scene.
+Replay verifies stored actions in one environment; it does not evaluate a learned policy, re-render recorded frames, or guarantee transfer to another environment.
 
 ## Examples
 
-- `Replay the second episode.` → select the current recording, map “second” to index `1`, and observe the visible replay.
+- `Replay the second episode.` → select the current recording, map "second" to `demo_1` and its position in replay order, and observe the visible replay.
 
 ## Completion gate
 
-Report workflow, HDF5 path, episode index, frame/segment count, action width, exit/final status, and visible agreement or first mismatch.
+Report workflow, environment class and scene, options passed, HDF5 path, demo name and replay index, frame count, action width, the replay summary lines and exit status, and visible agreement or the first mismatch.

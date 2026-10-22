@@ -3,23 +3,26 @@
     "id": "i4h-workflow-readme-quick-overview",
     "question": "What does the i4h workflow include, and where should I start?",
     "expected_skill": "i4h-workflow",
-    "ground_truth": "This README Quick Run prompt routes to the overview skill. The agent summarizes the root-level workflow pipeline, supported environments, and which stage skill to use next.",
+    "ground_truth": "This README Quick Run prompt routes to the overview skill. The agent summarizes how every workflow runs as an IsaacLab-Arena environment, lists the current workflows and their environments from the live docs and scene manifests, and names the stage skill to use next.",
     "expected_behavior": [
       "routes to i4h-workflow",
-      "summarizes the Scene, Task, Workflow, Engine, and SimulationRunner ownership defined by DESIGN.md",
+      "summarizes that each workflow is a scene exposed by arena/i4h_arena/environments.py as an IsaacLab-Arena environment under its CamelCase name, owning its world, embodiment, and task with a success termination",
+      "explains that policies are Arena PolicyBase classes, that checkpoints are served from their own policy stack environments behind a server, that teleoperation devices are Isaac Lab DeviceBase classes, and that recording and replay use Isaac Lab's record_demos.py and replay_demos.py",
       "mentions Python behavior plus scene, embodiment, and task manifests as the source of cross-boundary facts",
-      "uses run.sh list for current workflow and mode support instead of a stale table",
-      "points concrete next steps to setup, create, teleop, replay, mimic, annotate, convert, visualize, finetune, validate, or e2e skills"
+      "discovers current workflows and their environments from the docs/workflows pages and arena/i4h_arena/scenes/manifest instead of a stale table or the removed run.sh list",
+      "points concrete next steps to setup, create, scene-edit, teleop, replay, mimic, annotate, convert, visualize, finetune, train-rl, validate, or e2e skills"
     ]
   },
   {
     "id": "i4h-workflow-readme-quick-stop-all",
     "question": "Stop all",
     "expected_skill": null,
-    "ground_truth": "This README Quick Run prompt is a direct operational cleanup request. No stage skill is required; the agent should run the workflow stop-all command from the repo root and report what was stopped.",
+    "ground_truth": "This README Quick Run prompt is a direct operational cleanup request. No stage skill is required; the agent stops the runs and policy servers it started, by their recorded PIDs, stops any live scene session through the bridge, and reports what was stopped.",
     "expected_behavior": [
       "does not launch a new workflow stage",
-      "uses ./stop.sh all from the repository root",
+      "stops the runs and policy servers this agent started by their recorded PIDs, or with Ctrl+C for a foreground run",
+      "stops each live scene session listed under .run/local-agent-bridge with ./local-agent/bridge.sh stop <scene>",
+      "does not kill processes by tool or module name and does not use the removed ./stop.sh",
       "reports process cleanup status succinctly"
     ]
   }

@@ -4,7 +4,7 @@ These workflows use dVRK PSM or STAR robots for laparoscopic manipulation and in
 
 ## Workflows
 
-Each workflow is an [IsaacLab-Arena](https://github.com/isaac-sim/IsaacLab-Arena) environment run by Arena's policy runner with an i4h rule-based policy. The environment classes live in [`i4h_arena.environments`](../../../arena/i4h_arena/environments.py) and the policies in [`i4h_arena.policies`](../../../arena/i4h_arena/policies/).
+Each workflow is an [IsaacLab-Arena](https://github.com/isaac-sim/IsaacLab-Arena) environment run by Arena's policy runner with an i4h rule-based policy. The environment classes live in [`i4h_arena.environments`](../../arena/i4h_arena/environments.py) and the policies in [`i4h_arena.policies`](../../arena/i4h_arena/policies/).
 
 | Workflow | Demonstration | Environment (class, name) | Rule-based policy (`i4h_arena.policies.`) |
 | --- | --- | --- | --- |
@@ -23,13 +23,13 @@ Open the preview to view the animated demonstration.
 
 | Rule-based workflow evaluations |
 | :---: |
-| [![Laparoscopic robotics workflow evaluations](../../../docs/workflows/images/surgical-workflows.png)](../../../docs/workflows/images/surgical-workflows.gif) |
+| [![Laparoscopic robotics workflow evaluations](images/surgical-workflows.png)](images/surgical-workflows.gif) |
 
-Note: Complete the [project setup](../../../README.md#setup-from-the-command-line) before you begin.
+Note: Complete the [project setup](../../README.md#setup-from-the-command-line) before you begin.
 
 ## Run with an AI Agent
 
-Paste any prompt into Claude Code, Codex, or the repository's [Local Agent](../../../local-agent/README.md):
+Paste any prompt into Claude Code, Codex, or the repository's [Local Agent](../../local-agent/README.md):
 
 ```text
 Run surgical_reach_psm in rule-based mode for 1 episode.

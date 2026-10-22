@@ -4,6 +4,13 @@ All notable changes to Isaac for Healthcare Workflows are documented in this fil
 
 Entries describe the repository layout at the time of each release. Links to removed layouts are pinned to the corresponding historical tag.
 
+## [Unreleased] - Workflows as IsaacLab-Arena Environments
+
+- **Every workflow runs as an IsaacLab-Arena environment.** Each i4h scene is an Arena external environment (`i4h_arena.environments:<Scene>`). Rule-based controllers and policy clients are Arena policies run by Arena's policy runner; teleoperation uses Isaac Lab's `record_demos.py` with i4h devices, and replay uses Isaac Lab's `replay_demos.py`. Each policy stack serves its checkpoints with its own server (`python -m i4h_tasks.<stack>.serve`).
+- **The i4h workflow runtime is removed.** `run.sh`, `stop.sh`, the workflow engine and task graphs, the workflow modules and run modes, the in-process task packages, the runner and recorder, and the Zenoh bus are gone. Recordings use Isaac Lab's recorder and HDF5 format.
+- **Documentation moved.** Each specialty's workflows, environments, and commands are in `docs/workflows/<specialty>.md`.
+- **Authoring tools run on their own.** `local-agent/bridge.sh` opens a scene for live editing with its timeline paused, `arena/scripts/robot_pd_tune.py` runs as an Isaac Lab script, and `scripts/create_blank_environment.py` creates a scene that is an Arena environment by name.
+
 ## [0.7.0] - Endoluminal Workflow, Agentic Surgical Environments, NVSkills Agent Platform, Rheo Deformable Cloth
 
 - **Endoluminal Workflow**: New GPU fluoroscopy + XPBD catheter navigation workflow with CT digital-twin generation, Slang DRR/DSA rendering, interactive viewport, and `./i4h` CLI modes; user-facing name is **Endoluminal Workflow** (directory remains `workflows/catheter_navigation/`).

@@ -4,16 +4,16 @@ Workflows for robotic manipulation, transport, and procedural support in hospita
 
 ## Workflows
 
-| Workflow | Demonstration | Supported modes ([guide](../../i4h_workflow_modes/README.md)) |
+| Workflow | Demonstration | How it runs |
 | --- | --- | --- |
 | `assemble_trocar` | Lift, align, insert, place, and release a trocar with a Unitree G1. | IsaacLab-Arena environment `G1Trocar` (`g1_trocar`): GR00T N1.5 policy, replay ([commands](#assemble-trocar)) |
 | `locomanip_push_cart` | Walk to a cart, grip it, and push it forward with a Unitree G1. | IsaacLab-Arena environment `G1Cart` (`g1_cart`): GR00T N1.6 policy, keyboard teleop, replay ([commands](#g1-loco-manipulation)) |
 | `locomanip_tray_pick_and_place` | Move a surgical tray from a shelf to a cart with a Unitree G1. | IsaacLab-Arena environment `G1Tray` (`g1_tray`): GR00T N1.6 policy, keyboard teleop, replay ([commands](#g1-loco-manipulation)) |
 | `scissor_pick_and_place` | Pick up surgical scissors, place them in a tray, and return an SO-ARM 101 home. | IsaacLab-Arena environment `SoarmScissors` (`soarm_scissors`): GR00T N1.5 or N1.7 policy, rule-based keyframes, keyboard or leader-arm teleop, replay ([commands](#scissor-pick-and-place)) |
-| `spread_tablecloth_g1` | Spread a deformable tablecloth with Unitree G1 and Inspire hands. | IsaacLab-Arena environment `G1Tablecloth` (`g1_tablecloth`): XR teleop, replay ([guide](../../../docs/workflows/tablecloth.md)) |
-| `spread_tablecloth_h2` | Spread a deformable tablecloth with Unitree H2 and Sharpa Wave hands. | IsaacLab-Arena environment `H2Tablecloth` (`h2_tablecloth`): XR teleop, replay ([guide](../../../docs/workflows/tablecloth.md)) |
+| `spread_tablecloth_g1` | Spread a deformable tablecloth with Unitree G1 and Inspire hands. | IsaacLab-Arena environment `G1Tablecloth` (`g1_tablecloth`): XR teleop, replay ([guide](tablecloth.md)) |
+| `spread_tablecloth_h2` | Spread a deformable tablecloth with Unitree H2 and Sharpa Wave hands. | IsaacLab-Arena environment `H2Tablecloth` (`h2_tablecloth`): XR teleop, replay ([guide](tablecloth.md)) |
 
-See [tablecloth XR setup and recording](../../../docs/workflows/tablecloth.md).
+See [tablecloth XR setup and recording](tablecloth.md).
 
 `policy_n17` is a workflow-specific extension for an alternative policy stack.
 
@@ -23,19 +23,19 @@ Open a preview to view the animated demonstration.
 
 | `assemble_trocar` | `locomanip_push_cart` |
 | :---: | :---: |
-| [![Unitree G1 assembling a trocar](../../../docs/workflows/images/assemble_trocar.webp)](../../../docs/workflows/images/assemble_trocar.gif) | [![Unitree G1 pushing a cart](../../../docs/workflows/images/locomanip_push_cart.webp)](../../../docs/workflows/images/locomanip_push_cart.gif) |
+| [![Unitree G1 assembling a trocar](images/assemble_trocar.webp)](images/assemble_trocar.gif) | [![Unitree G1 pushing a cart](images/locomanip_push_cart.webp)](images/locomanip_push_cart.gif) |
 
 | `locomanip_tray_pick_and_place` | `scissor_pick_and_place` |
 | :---: | :---: |
-| [![Unitree G1 moving a surgical tray](../../../docs/workflows/images/locomanip_tray_pick_and_place.webp)](../../../docs/workflows/images/locomanip_tray_pick_and_place.gif) | [![SO-ARM picking and placing surgical scissors](../../../docs/workflows/images/scissor_pick_and_place.webp)](../../../docs/workflows/images/scissor_pick_and_place.gif) |
+| [![Unitree G1 moving a surgical tray](images/locomanip_tray_pick_and_place.webp)](images/locomanip_tray_pick_and_place.gif) | [![SO-ARM picking and placing surgical scissors](images/scissor_pick_and_place.webp)](images/scissor_pick_and_place.gif) |
 
 Tablecloth camera screenshots from simulator validation:
 
 | `spread_tablecloth_g1` | `spread_tablecloth_h2` |
 | :---: | :---: |
-| [![G1 Inspire hands and tablecloth](../../../docs/workflows/images/spread_tablecloth_g1.webp)](../../../docs/workflows/images/spread_tablecloth_g1.webp) | [![H2 Sharpa hands and tablecloth](../../../docs/workflows/images/spread_tablecloth_h2.webp)](../../../docs/workflows/images/spread_tablecloth_h2.webp) |
+| [![G1 Inspire hands and tablecloth](images/spread_tablecloth_g1.webp)](images/spread_tablecloth_g1.webp) | [![H2 Sharpa hands and tablecloth](images/spread_tablecloth_h2.webp)](images/spread_tablecloth_h2.webp) |
 
-Note: Complete the [project setup](../../../README.md#setup-from-the-command-line) before you begin.
+Note: Complete the [project setup](../../README.md#setup-from-the-command-line) before you begin.
 
 ## Scissor Pick and Place
 
@@ -83,11 +83,11 @@ arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.p
   --dataset_file runs/scissor_pick_and_place/teleop.hdf5 --num_demos 1
 ```
 
-Replay a recording with `scripts/tools/replay_demos.py` as in [G1 Loco-manipulation](#g1-loco-manipulation), using `--external_environment_class_path i4h_arena.environments:SoarmScissors --task soarm_scissors`. [`scripts/e2e/run.sh`](../../../scripts/e2e/run.sh) runs the data-to-policy loop on this environment: record N1.5 episodes, augment, grade, replay, convert to LeRobot, finetune, and validate the finetuned checkpoint.
+Replay a recording with `scripts/tools/replay_demos.py` as in [G1 Loco-manipulation](#g1-loco-manipulation), using `--external_environment_class_path i4h_arena.environments:SoarmScissors --task soarm_scissors`. [`scripts/e2e/run.sh`](../../scripts/e2e/run.sh) runs the data-to-policy loop on this environment: record N1.5 episodes, augment, grade, replay, convert to LeRobot, finetune, and validate the finetuned checkpoint.
 
 ## G1 Loco-manipulation
 
-`locomanip_push_cart` and `locomanip_tray_pick_and_place` run as IsaacLab-Arena environments (`G1Cart`, `G1Tray` in [`i4h_arena.environments`](../../../arena/i4h_arena/environments.py)). Each task's description is the instruction its GR00T N1.6 checkpoint was trained on, and Arena's runner passes it to the policy.
+`locomanip_push_cart` and `locomanip_tray_pick_and_place` run as IsaacLab-Arena environments (`G1Cart`, `G1Tray` in [`i4h_arena.environments`](../../arena/i4h_arena/environments.py)). Each task's description is the instruction its GR00T N1.6 checkpoint was trained on, and Arena's runner passes it to the policy.
 
 | Workflow | Environment | Checkpoint |
 | --- | --- | --- |
@@ -123,7 +123,7 @@ arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.p
   --dataset_file runs/g1_cart/teleop.hdf5 --num_demos 1
 ```
 
-Replay a recording, from its recorded initial state, with `scripts/tools/replay_demos.py` and the same `--external_callback`, `--external_environment_class_path` and `--task`, plus `--dataset_file <recording> --validate_success_rate`. Replay without `--enable_cameras`: Arena's registration callback starts Kit before Isaac Lab can enable camera rendering, so camera sensors fail to initialize. Watch the scene without a policy with `--policy_type i4h_arena.policies.hold.HoldPolicy --viz kit --num_episodes 1`.
+Replay a recording, from its recorded initial state, with `scripts/tools/replay_demos.py` and the same `--external_callback`, `--external_environment_class_path`, `--task` and `--embodiment` it was recorded with, plus `--dataset_file <recording> --validate_success_rate`; the keyboard's Pink embodiment and the policy's joint embodiment take different actions. Replay without `--enable_cameras`: Arena's registration callback starts Kit before Isaac Lab can enable camera rendering, so camera sensors fail to initialize. Watch the scene without a policy with `--policy_type i4h_arena.policies.hold.HoldPolicy --viz kit --num_episodes 1`.
 
 ## Assemble Trocar
 
@@ -205,6 +205,6 @@ tasks/gr00t_n15/.venv/bin/python -m i4h_tasks.gr00t_n15.serve assemble_trocar \
 
 Then evaluate the exported policy with the `policy_runner` command in [Assemble Trocar](#assemble-trocar).
 
-RLinf PPO post-training is a separate training lifecycle, not a workflow run mode.
+RLinf PPO post-training is a separate training lifecycle in `rl/`; its exported checkpoint returns to the policy runner for evaluation.
 
 Across RLinf profiles, optional training and periodic evaluation recordings warn on encoder or writer-close failures. Standalone evaluation requires a decodable video when requested with `--video` or effective `env.eval.video_cfg.save_video=true`; video failures return nonzero with a video diagnostic. `--set` uses Hydra 1.3.2 in both dry-run preflight and launch, including `+` additions and `++` forced overrides.

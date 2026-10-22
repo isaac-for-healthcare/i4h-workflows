@@ -5,21 +5,20 @@
 [![License](https://img.shields.io/badge/License-Apache--2.0-yellow.svg)](LICENSE)
 [![General Linting](https://github.com/isaac-for-healthcare/i4h-workflows/actions/workflows/pre-commit.yml/badge.svg?branch=main)](https://github.com/isaac-for-healthcare/i4h-workflows/actions/workflows/pre-commit.yml)
 
-IsaacLab-Arena simulation for healthcare robotics, with one workflow-based runtime for task execution, data collection, and policy evaluation.
+Healthcare robotics workflows as IsaacLab-Arena environments: the scenes, robots, success criteria, policies, and teleoperation devices for each procedure, run with the tools Isaac Lab and IsaacLab-Arena users already have.
 
-A Scene describes the simulated world. A Workflow connects that Scene to the Tasks needed for a healthcare robotics procedure. The Engine runs those Tasks in the simulator.
+Each workflow is an i4h scene that runs as an IsaacLab-Arena environment. Arena's policy runner evaluates a rule-based controller or a policy checkpoint in it, Isaac Lab's `record_demos.py` and `replay_demos.py` record and replay demonstrations, and each policy checkpoint is served from its own environment by its stack's own server.
 
 ## Layout
 
-The repository has seven main components:
+The repository has six main components:
 
-- `common/` — shared data contracts and recording formats
-- `arena/` — Isaac Sim scenes and runtime
-- `tasks/` — reusable robot behaviors and policy integrations
-- `rl/` — reinforcement learning profiles
-- `workflows/` — workflow definitions organized in the [workflow layout and specialty catalog](workflows/README.md)
-- `engine/` — task graph execution and workflow validation
+- `arena/` — the scenes as IsaacLab-Arena environments, with their embodiments, policies, teleoperation devices, and operator UI
+- `common/` — scene and task manifests, robot descriptors, and the recording schema
+- `tasks/` — policy stacks (GR00T, openpi), each with its server, fine-tuning, and task manifests
+- `rl/` — reinforcement learning profiles and trainers
 - `tools/` — dataset processing and visualization tools
+- `docs/workflows/` — each specialty's workflows, environments, and commands
 
 See [DESIGN.md](DESIGN.md) for detailed architecture and ownership rules.
 
@@ -37,43 +36,43 @@ See [DESIGN.md](DESIGN.md) for detailed architecture and ownership rules.
 
 ## Supported Workflows
 
-Workflows are organized by clinical robotics specialty. The specialty affects source layout only; workflow IDs and `run.sh` commands remain unchanged.
+Workflows are organized by clinical robotics specialty. Each specialty page lists its workflows' IsaacLab-Arena environments and commands.
 
 `✓` means available, `—` means unavailable, and “RL training required” means you must train and export a policy first.
 
-### [Laparoscopic Robotics](workflows/i4h_workflows/laparoscopic-robotics/README.md)
+### [Laparoscopic Robotics](docs/workflows/laparoscopic-robotics.md)
 
 | Preview | Workflow | Purpose | Robot | Policy readiness | Rule-based |
 | --- | --- | --- | --- | --- | --- |
-| ![PSM block lift scene](docs/workflows/images/thumbnail-surgical_lift_block.webp) | [`surgical_lift_block`](workflows/i4h_workflows/laparoscopic-robotics/README.md) | Grasp and lift a peg-transfer block. | dVRK PSM | — | ✓ |
-| ![PSM needle lift scene](docs/workflows/images/thumbnail-surgical_lift_needle.webp) | [`surgical_lift_needle`](workflows/i4h_workflows/laparoscopic-robotics/README.md) | Grasp and lift a suture needle. | dVRK PSM | — | ✓ |
-| ![PSM organ-bed needle scene](docs/workflows/images/thumbnail-surgical_lift_needle_organs.webp) | [`surgical_lift_needle_organs`](workflows/i4h_workflows/laparoscopic-robotics/README.md) | Lift a suture needle from an organ bed. | dVRK PSM | — | ✓ |
-| ![Dual PSM reach scene](docs/workflows/images/thumbnail-surgical_reach_dual_psm.webp) | [`surgical_reach_dual_psm`](workflows/i4h_workflows/laparoscopic-robotics/README.md) | Reach two targets with two arms. | dual dVRK PSM | — | ✓ |
-| ![PSM reach scene](docs/workflows/images/thumbnail-surgical_reach_psm.webp) | [`surgical_reach_psm`](workflows/i4h_workflows/laparoscopic-robotics/README.md) | Reach a target with one PSM arm. | dVRK PSM | — | ✓ |
-| ![STAR reach scene](docs/workflows/images/thumbnail-surgical_reach_star.webp) | [`surgical_reach_star`](workflows/i4h_workflows/laparoscopic-robotics/README.md) | Reach a target with a STAR arm. | STAR | — | ✓ |
+| ![PSM block lift scene](docs/workflows/images/thumbnail-surgical_lift_block.webp) | [`surgical_lift_block`](docs/workflows/laparoscopic-robotics.md) | Grasp and lift a peg-transfer block. | dVRK PSM | — | ✓ |
+| ![PSM needle lift scene](docs/workflows/images/thumbnail-surgical_lift_needle.webp) | [`surgical_lift_needle`](docs/workflows/laparoscopic-robotics.md) | Grasp and lift a suture needle. | dVRK PSM | — | ✓ |
+| ![PSM organ-bed needle scene](docs/workflows/images/thumbnail-surgical_lift_needle_organs.webp) | [`surgical_lift_needle_organs`](docs/workflows/laparoscopic-robotics.md) | Lift a suture needle from an organ bed. | dVRK PSM | — | ✓ |
+| ![Dual PSM reach scene](docs/workflows/images/thumbnail-surgical_reach_dual_psm.webp) | [`surgical_reach_dual_psm`](docs/workflows/laparoscopic-robotics.md) | Reach two targets with two arms. | dual dVRK PSM | — | ✓ |
+| ![PSM reach scene](docs/workflows/images/thumbnail-surgical_reach_psm.webp) | [`surgical_reach_psm`](docs/workflows/laparoscopic-robotics.md) | Reach a target with one PSM arm. | dVRK PSM | — | ✓ |
+| ![STAR reach scene](docs/workflows/images/thumbnail-surgical_reach_star.webp) | [`surgical_reach_star`](docs/workflows/laparoscopic-robotics.md) | Reach a target with a STAR arm. | STAR | — | ✓ |
 
-### [Ultrasound Robotics](workflows/i4h_workflows/ultrasound-robotics/README.md)
-
-| Preview | Workflow | Purpose | Robot | Policy readiness | Rule-based |
-| --- | --- | --- | --- | --- | --- |
-| ![Ultrasound phantom scene](docs/workflows/images/thumbnail-ultrasound_liver_scan.webp) | [`ultrasound_liver_scan`](workflows/i4h_workflows/ultrasound-robotics/README.md) | Sweep an ultrasound probe across an abdominal phantom. | Franka-style arm | ✓ openpi PI0 | ✓ |
-| ![Ultrasound probe reach scene](docs/workflows/images/thumbnail-ultrasound_liver_scan.webp) | [`ultrasound_probe_reach`](workflows/i4h_workflows/ultrasound-robotics/README.md) | Align a probe with a randomized target. | Franka-style arm | RL training required | — |
-
-### [Endoluminal Robotics](workflows/i4h_workflows/endoluminal-robotics/README.md)
+### [Ultrasound Robotics](docs/workflows/ultrasound-robotics.md)
 
 | Preview | Workflow | Purpose | Robot | Policy readiness | Rule-based |
 | --- | --- | --- | --- | --- | --- |
-| ![Fluoroscopy scene](docs/workflows/images/thumbnail-fluoroscopy_catheter_navigation.webp) | [`endoluminal_navigation`](workflows/i4h_workflows/endoluminal-robotics/README.md) | Navigate a catheter with live fluoroscopy in `demo` mode. | XPBD catheter + orbital C-arm | — | — |
-| ![Fluoroscopy scene](docs/workflows/images/thumbnail-fluoroscopy_catheter_navigation.webp) | [`endoluminal_navigation_arm`](workflows/i4h_workflows/endoluminal-robotics/README.md) | Navigate a catheter carried on a Franka Panda flange with live fluoroscopy. | Franka Panda + XPBD catheter + orbital C-arm | GR00T N1.7 training required | — |
+| ![Ultrasound phantom scene](docs/workflows/images/thumbnail-ultrasound_liver_scan.webp) | [`ultrasound_liver_scan`](docs/workflows/ultrasound-robotics.md) | Sweep an ultrasound probe across an abdominal phantom. | Franka-style arm | ✓ openpi PI0 | ✓ |
+| ![Ultrasound probe reach scene](docs/workflows/images/thumbnail-ultrasound_liver_scan.webp) | [`ultrasound_probe_reach`](docs/workflows/ultrasound-robotics.md) | Align a probe with a randomized target. | Franka-style arm | RL training required | — |
 
-### [Hospital Automation Robotics](workflows/i4h_workflows/hospital-automation-robotics/README.md)
+### [Endoluminal Robotics](docs/workflows/endoluminal-robotics.md)
 
 | Preview | Workflow | Purpose | Robot | Policy readiness | Rule-based |
 | --- | --- | --- | --- | --- | --- |
-| ![G1 trocar scene](docs/workflows/images/thumbnail-assemble_trocar.webp) | [`assemble_trocar`](workflows/i4h_workflows/hospital-automation-robotics/README.md) | Assemble and place a trocar. | Unitree G1 + dex hands | ✓ GR00T N1.5 | — |
-| ![G1 cart scene](docs/workflows/images/thumbnail-locomanip_push_cart.webp) | [`locomanip_push_cart`](workflows/i4h_workflows/hospital-automation-robotics/README.md) | Walk to and push a cart. | Unitree G1 | ✓ GR00T N1.6 | — |
-| ![G1 tray scene](docs/workflows/images/thumbnail-locomanip_tray_pick_and_place.webp) | [`locomanip_tray_pick_and_place`](workflows/i4h_workflows/hospital-automation-robotics/README.md) | Move a surgical tray from a shelf to a cart. | Unitree G1 | ✓ GR00T N1.6 | — |
-| ![SO-ARM scissor scene](docs/workflows/images/thumbnail-scissor_pick_and_place.webp) | [`scissor_pick_and_place`](workflows/i4h_workflows/hospital-automation-robotics/README.md) | Pick up scissors and place them in a tray. | SO-ARM 101 | ✓ GR00T N1.5 / N1.7 | ✓ |
+| ![Fluoroscopy scene](docs/workflows/images/thumbnail-fluoroscopy_catheter_navigation.webp) | [`endoluminal_navigation`](docs/workflows/endoluminal-robotics.md) | Navigate a catheter with live fluoroscopy. | XPBD catheter + orbital C-arm | — | — |
+| ![Fluoroscopy scene](docs/workflows/images/thumbnail-fluoroscopy_catheter_navigation.webp) | [`endoluminal_navigation_arm`](docs/workflows/endoluminal-robotics.md) | Navigate a catheter carried on a Franka Panda flange with live fluoroscopy. | Franka Panda + XPBD catheter + orbital C-arm | GR00T N1.7 training required | — |
+
+### [Hospital Automation Robotics](docs/workflows/hospital-automation-robotics.md)
+
+| Preview | Workflow | Purpose | Robot | Policy readiness | Rule-based |
+| --- | --- | --- | --- | --- | --- |
+| ![G1 trocar scene](docs/workflows/images/thumbnail-assemble_trocar.webp) | [`assemble_trocar`](docs/workflows/hospital-automation-robotics.md) | Assemble and place a trocar. | Unitree G1 + dex hands | ✓ GR00T N1.5 | — |
+| ![G1 cart scene](docs/workflows/images/thumbnail-locomanip_push_cart.webp) | [`locomanip_push_cart`](docs/workflows/hospital-automation-robotics.md) | Walk to and push a cart. | Unitree G1 | ✓ GR00T N1.6 | — |
+| ![G1 tray scene](docs/workflows/images/thumbnail-locomanip_tray_pick_and_place.webp) | [`locomanip_tray_pick_and_place`](docs/workflows/hospital-automation-robotics.md) | Move a surgical tray from a shelf to a cart. | Unitree G1 | ✓ GR00T N1.6 | — |
+| ![SO-ARM scissor scene](docs/workflows/images/thumbnail-scissor_pick_and_place.webp) | [`scissor_pick_and_place`](docs/workflows/hospital-automation-robotics.md) | Pick up scissors and place them in a tray. | SO-ARM 101 | ✓ GR00T N1.5 / N1.7 | ✓ |
 | [![G1 tablecloth scene](docs/workflows/images/thumbnail-spread_tablecloth_g1.webp)](docs/workflows/images/spread_tablecloth_g1.webp) | [`spread_tablecloth_g1`](docs/workflows/tablecloth.md) | Tablecloth spreading via XR hand tracking. | Unitree G1 + Inspire hands | — | — |
 | [![H2 tablecloth scene](docs/workflows/images/thumbnail-spread_tablecloth_h2.webp)](docs/workflows/images/spread_tablecloth_h2.webp) | [`spread_tablecloth_h2`](docs/workflows/tablecloth.md) | Tablecloth spreading via XR hand tracking. | Unitree H2 + Sharpa hands | — | — |
 
@@ -113,23 +112,23 @@ Run surgical_lift_needle in rule-based mode for 1 episode.
 
 ### Author New Workflow with an AI Agent
 
-Start with an empty Scene, then add reusable Task behavior, define the Workflow goal, and expose the run modes you need.
+Start with an empty scene, then add the robot and its behavior, define the goal, and add the ways to run it.
 
 ```text
 create a new workflow with an empty scene
           ↓
 edit the scene: add assets, robot, cameras, layout, physics
           ↓
-add reusable task behavior
+add a rule-based policy for the behavior
           ↓
-define the workflow goal + success condition
+define the goal + success condition
           ↓
-add run modes: rule-based, teleop, replay, policy
+add the ways to run it: rule-based, teleop, replay, policy
           ↓
-validate each enabled mode
+validate each one in the simulator
 ```
 
-A Scene owns the simulated world. A Task owns one reusable behavior. A Workflow selects the Scene and Tasks, exposes run modes, and defines the goal and success condition.
+A scene owns the simulated world, its robot, and its success condition, and runs as an IsaacLab-Arena environment. A rule-based controller is an Arena policy; a trained checkpoint runs behind its stack's server with an Arena client policy.
 
 Issue the following prompts in order. Each prompt completes one ownership boundary before the next stage depends on it:
 
@@ -168,12 +167,12 @@ Stop all
 
 ### Author New Workflow with an RL Policy using an AI Agent
 
-Online RL is a separate training lifecycle. It trains a policy against a Workflow's Scene, then returns the verified checkpoint to the Workflow for normal policy validation.
+Online RL is a separate training lifecycle. It trains a policy against a scene's environment, then returns the verified checkpoint for policy evaluation under Arena's policy runner.
 
 ```text
-create a blank Workflow
+create a blank scene
           ↓
-author and validate its Scene
+author and validate the scene
           ↓
 define the RL objective: observations + actions + rewards + success + resets
           ↓
@@ -181,11 +180,9 @@ train from scratch or RL post-train a pretrained policy
           ↓
 evaluate the policy in vectorized simulation
           ↓
-export the trained checkpoint and create its reusable policy Task
+export the trained checkpoint
           ↓
-add the Task to the Workflow's policy TaskGraph
-          ↓
-validate the complete Workflow through the normal runner
+evaluate it in the environment under Arena's policy runner
 ```
 
 Issue these prompts in order:
@@ -212,16 +209,15 @@ Add an RL training objective to robotic_instrument_reach.
   - Dry-run the training configuration.
 
 Train the robotic_instrument_reach policy with RL and evaluate 20 randomized episodes.
-Export the verified checkpoint and create a RoboticInstrumentReach policy Task from it.
-Add that Task as the policy run mode of robotic_instrument_reach.
+Export the verified checkpoint.
 Validate robotic_instrument_reach in policy mode and report its simulator success rate.
 ```
 
-`ultrasound_probe_reach` demonstrates PPO training from scratch. `assemble_trocar` demonstrates RL post-training from a GR00T checkpoint. The agent resolves the appropriate profile, trainer, export, and Workflow validation path.
+`ultrasound_probe_reach` demonstrates PPO training from scratch. `assemble_trocar` demonstrates RL post-training from a GR00T checkpoint. The agent resolves the appropriate profile, trainer, export, and policy-runner validation path.
 
 ## Use from the Command Line
 
-Use this interface when running, debugging, scripting, or integrating the runtime without an agent. Run commands from the repository root.
+Use this interface when running, debugging, scripting, or integrating the workflows without an agent. Run commands from the repository root.
 
 ### Setup from the Command Line
 
@@ -231,11 +227,15 @@ Use this interface when running, debugging, scripting, or integrating the runtim
 
 This is the command-line equivalent of asking an AI agent to set up the repository.
 
-Container builds, DGX Spark, Jetson AGX Thor, Zenoh, and sibling vLLM usage are documented in the [Docker guide](docker/README.md).
+Container builds, DGX Spark, Jetson AGX Thor, and sibling vLLM usage are documented in the [Docker guide](docker/README.md). On `aarch64` hosts, apply the OpenMP preload Isaac Sim and torch need before launching anything that runs Isaac Sim:
+
+```bash
+eval "$(python3 rl/i4h_rl/runtime.py --shell)"
+```
 
 ### Run Workflows from the Command Line
 
-Most workflows run as IsaacLab-Arena environments under Arena's policy runner, with Isaac Lab's `record_demos.py` and `replay_demos.py` for teleoperation and replay. Each specialty README lists its workflows' commands; for example:
+Every workflow runs as an IsaacLab-Arena environment under Arena's policy runner, with Isaac Lab's `record_demos.py` and `replay_demos.py` for teleoperation and replay. Each specialty page lists its workflows' commands; for example:
 
 ```bash
 # Pick and place the scissors with the rule-based controller for 3 episodes.
@@ -249,7 +249,7 @@ arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
   --external_environment_class_path i4h_arena.environments:PsmReach psm_reach
 ```
 
-Policy checkpoints run in their own environments behind a policy server; Arena's runner connects to it as a client (see each specialty README). Each episode ends on its environment's success term or after the step budget its workflow was validated with.
+Launcher options such as `--presets newton`, `--enable_cameras`, and `--viz kit` go before the environment name, the environment's own options after it. Policy checkpoints run in their own environments behind a policy server; Arena's runner connects to it as a client (see each specialty page). Each episode ends on its environment's success term or after the step budget its workflow was validated with. Stop a run with Ctrl+C, or a background run or policy server by its process ID.
 
 <!-- markdownlint-disable MD033 -->
 
@@ -258,24 +258,28 @@ Policy checkpoints run in their own environments behind a policy server; Arena's
 
 ### Author New Workflow from the Command Line
 
-Create an idle-only Workflow scaffold under an approved specialty:
+Create a blank scene:
 
 ```bash
-./scripts/create_blank_environment.py my_workflow \
-  --specialty hospital-automation-robotics \
-  --validate
+./scripts/create_blank_environment.py my_workflow --validate
 ```
 
-The generator creates the Scene source, asset source, Scene manifest, Workflow, and contract test. It stops without writing files if the workflow ID already exists in any specialty.
+The generator creates the scene source, asset source, scene manifest, and a contract test, and stops without writing files if the scene already exists. The scene is an IsaacLab-Arena environment from then on, under its name in CamelCase:
 
-Use `--dry-run` to preview the files or `--description TEXT` to customize the Scene description. Do not combine `--dry-run` with `--validate`.
+```bash
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type zero_action --num_steps 300 --viz kit \
+  --external_environment_class_path i4h_arena.environments:MyWorkflow my_workflow
+```
+
+Use `--dry-run` to preview the files or `--description TEXT` to customize the scene description. Do not combine `--dry-run` with `--validate`.
 
 #### Edit the Scene Live
 
-Edit the generated source directly, or keep one simulator session open while iterating visually:
+Edit the generated source directly, or keep one simulator session open while iterating visually. The bridge opens the scene in a Kit window with its timeline paused and Isaac Sim's Python server listening:
 
 ```bash
-./run.sh my_workflow --live
+./local-agent/bridge.sh start my_workflow
 ```
 
 Run individual edits from a second terminal:
@@ -286,83 +290,53 @@ arena/.venv/bin/python scripts/live_scene_edit.py add-known-asset \
   --prim-path /World/envs/env_0/Table
 ```
 
-When the Scene is ready, export it and capture reusable authoring facts in the standard run directory:
+When the scene is ready, export it and capture reusable authoring facts in the bridge's run directory, then stop the session:
 
 ```bash
-I4H_RUN_DIR="runs/my_workflow/$(date +%Y%m%d_%H%M%S)"
-mkdir -p "$I4H_RUN_DIR"
+RUN_DIR="$(./local-agent/bridge.sh rundir my_workflow)"
 
 arena/.venv/bin/python scripts/live_scene_edit.py export-scene \
   --workflow my_workflow \
   --root-path /World/envs/env_0 \
-  --output-path "$I4H_RUN_DIR/live_scene.json"
+  --output-path "$RUN_DIR/live_scene.json"
 
 arena/.venv/bin/python scripts/authoring_info.py snapshot \
-  my_workflow "$I4H_RUN_DIR/live_scene.json"
+  my_workflow "$RUN_DIR/live_scene.json"
+
+./local-agent/bridge.sh stop my_workflow
 ```
 
-These files are run artifacts, not workflow source. Apply the confirmed Scene, asset, and manifest changes to their owning source files. Run `scripts/live_scene_edit.py --help` to list the available live operations.
+These files are run artifacts, not scene source. Apply the confirmed scene, asset, and manifest changes to their owning source files. Run `scripts/live_scene_edit.py --help` to list the available live operations.
 
-#### Add Tasks and Run Modes
+#### Add the Robot, Goal, and Policies
 
-1. Declare the Scene capabilities in `arena/i4h_arena/scenes/manifest/<scene>.yaml`.
-2. Reuse or add Task implementations and manifests under `tasks/<project>/`.
-3. Update `workflows/i4h_workflows/<specialty>/<workflow>.py` with the Scene, TaskGraphs, and supported run modes.
-4. Expose only modes whose Task requirements are satisfied by the Scene.
-5. Add focused CPU tests under `workflows/tests/` or the owning Task project.
-
-Do not add ungrouped workflow modules or create a new specialty without an explicit product decision.
-
-Minimal Workflow definition:
-
-```python
-from i4h_engine.graph import TaskGraph, task
-from i4h_engine.interface import Workflow
-
-
-def rule_based() -> TaskGraph:
-    return TaskGraph().flow(task("basic/example"))
-
-
-WORKFLOW = Workflow(
-    scene="example_scene",
-    modes={
-        "rule-based": rule_based,
-    },
-    default_mode="rule-based",
-)
-```
-
-See the [run-mode guide](workflows/i4h_workflow_modes/README.md) for the standard modes and their contracts.
+1. Declare the scene's capabilities in `arena/i4h_arena/scenes/manifest/<scene>.yaml`, including its embodiment and its step budget.
+2. Build the robot, the observations, and the success termination in the scene's IsaacLab-Arena embodiment and task under `arena/i4h_arena/`.
+3. Add a rule-based controller as an Arena policy (a `PolicyBase` subclass) under `arena/i4h_arena/policies/`, and a teleoperation device as an Isaac Lab device in the scene's `teleop_devices`.
+4. For a trained checkpoint, add or reuse a task manifest under `tasks/<stack>/` and an Arena client policy that builds its requests.
+5. Add focused CPU tests under `arena/tests/` or the owning stack.
 
 #### Validate the Workflow
 
-Run the discovery and contract checks for every enabled mode:
+Run the scene's contract test and the scene tests, then a visible simulator run of each way to run it:
 
 ```bash
-./run.sh list
-./run.sh show my_workflow --mode rule-based
-./run.sh lint my_workflow --mode rule-based
-./run.sh lint --all
-workflows/.venv/bin/python -m pytest \
-  workflows/tests/test_my_workflow_contract.py -q
-```
-
-If the Scene changed, finish with a visible simulator validation:
-
-```bash
-./run.sh my_workflow --rule-based --episodes 1
+common/.venv/bin/python -m pytest tests/test_my_workflow_contract.py -q
+arena/.venv/bin/python -m pytest arena/tests/test_scene.py -q
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type <your rule-based policy> --num_episodes 1 --viz kit \
+  --external_environment_class_path i4h_arena.environments:MyWorkflow my_workflow
 ```
 
 ### Author New Workflow with an RL Policy from the Command Line
 
-Online RL trains a policy against a Workflow's Scene, then returns the verified checkpoint to the Workflow for normal policy validation. Author and validate the Scene before adding RL.
+Online RL trains a policy against a scene's environment, then returns the verified checkpoint for policy evaluation under Arena's policy runner. Author and validate the scene before adding RL.
 
 #### Define the Training Contract
 
-1. Define observations, actions, rewards, resets, success, and termination in Arena.
+1. Define observations, actions, rewards, resets, success, and termination in the scene's Arena task.
 2. Add `rl/profiles/<workflow>.yaml` and a trainer configuration under `rl/config/`.
-3. Add `rl/i4h_rl/adapters/<workflow>.py` only when the backend needs workflow-specific conversion or registration.
+3. Add `rl/i4h_rl/adapters/<workflow>.py` only when the backend needs scene-specific conversion or registration.
 
 #### Train and Export the Policy
 
@@ -381,7 +355,7 @@ List the maintained profiles, inspect one, and dry-run its configuration:
   --num-envs 64 --epochs 1000 --dry-run
 ```
 
-After the dry run succeeds, repeat the training command without `--dry-run`. Evaluate the native checkpoint, export it for a reusable policy Task, and validate it through the Workflow runtime:
+After the dry run succeeds, repeat the training command without `--dry-run`. Evaluate the native checkpoint and export it:
 
 ```bash
 ./train.sh rl <workflow> \
@@ -390,14 +364,11 @@ After the dry run succeeds, repeat the training command without `--dry-run`. Eva
 ./train.sh rl export <workflow> \
   --checkpoint <checkpoint-or-run> \
   --output-dir <export-directory>
-
-./run.sh <workflow> \
-  --policy --checkpoint <exported-policy> --episodes 1
 ```
 
-Add the exported Task to the Workflow's `policy` run mode after evaluation. `ultrasound_probe_reach` demonstrates RSL-RL PPO training from scratch. `assemble_trocar` demonstrates RLinf post-training from a GR00T checkpoint; its [specialty README](workflows/i4h_workflows/hospital-automation-robotics/README.md#assemble-trocar-rl-post-training) documents the two-GPU runtime.
+Then evaluate the checkpoint in the environment under Arena's policy runner: an RSL-RL checkpoint with Arena's `rsl_rl` policy (see [Ultrasound Robotics](docs/workflows/ultrasound-robotics.md#rl-training)), and an exported GR00T checkpoint behind its stack's server with the matching Arena client policy (see [Assemble trocar RL post-training](docs/workflows/hospital-automation-robotics.md#assemble-trocar-rl-post-training), which also documents the two-GPU runtime). `ultrasound_probe_reach` demonstrates RSL-RL PPO training from scratch; `assemble_trocar` demonstrates RLinf post-training from a GR00T checkpoint.
 
-The trainer owns vectorized stepping only while learning. Do not add RL optimization or simulator stepping to the Workflow module or runtime Task.
+The trainer owns vectorized stepping only while learning. Do not add RL optimization or simulator stepping to a policy or scene.
 
 </details>
 
@@ -420,12 +391,11 @@ From the command line:
 
 The runner streams progress to the terminal and prints the exact per-run `workflow.log` path. It performs setup, policy recording, mimic expansion, VLM filtering, replay, LeRobot conversion, visualization, fine-tuning, and checkpoint validation. Use its `--skip-*` flags to omit optional stages, and `--headless` on a host without a display.
 
-VLM filtering grades each episode against the workflow's `annotate` settings (`Workflow(annotate=Annotate(...))`), which name the visible success criterion, the cameras to show, and whether to judge the final state or the motion; `./run.sh show <workflow>` prints them, and a workflow without them is graded on its policy task's prompt. Fine-tuning needs no Weights & Biases account: PI0 logs there only with `--wandb` or `train.wandb: true` in its task manifest, and GR00T logs to TensorBoard.
+VLM filtering grades each episode against the `annotate` block of the scene manifest (`arena/i4h_arena/scenes/manifest/<scene>.yaml`), which names the visible success criterion, the cameras to show, and whether to judge the final state or the motion; a scene without one is graded on its policy task's prompt. Fine-tuning needs no Weights & Biases account: PI0 logs there only with `--wandb` or `train.wandb: true` in its task manifest, and GR00T logs to TensorBoard.
 
 ## Further Documentation
 
 - See the [troubleshooting guide](TROUBLESHOOTING.md) for setup, policy-backend, determinism, and Docker failures.
-- See the [workflow layout and specialty catalog](workflows/README.md) for source organization and specialty-specific documentation.
-- See the [run-mode guide](workflows/i4h_workflow_modes/README.md) for standard modes and workflow-specific extensions.
 - See the individual links in the [workflow catalog](#supported-workflows) for workflow-specific setup and usage.
+- See [DESIGN.md](DESIGN.md) for the architecture and ownership rules.
 - Use the repository skills under `skills/` for AI-agent workflows. Generic Isaac Sim scene, physics, camera, USD, rendering, and spatial-authoring work routes through the upstream skills selected by [`i4h-workflow-scene-edit`](skills/i4h-workflow-scene-edit/references/isaacsim-skill-routing.md).

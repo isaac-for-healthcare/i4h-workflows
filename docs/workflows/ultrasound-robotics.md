@@ -4,7 +4,7 @@ Workflows for robot-assisted ultrasound probe positioning and scanning.
 
 ## Workflows
 
-| Workflow | Demonstration | Supported modes ([guide](../../i4h_workflow_modes/README.md)) |
+| Workflow | Demonstration | How it runs |
 | --- | --- | --- |
 | `ultrasound_liver_scan` | Move an ultrasound probe across an abdominal phantom. | IsaacLab-Arena environment `PandaPhantom` (`panda_phantom`): PI0 policy, rule-based sweep, keyboard teleop, replay ([commands](#liver-scan)) |
 | `ultrasound_probe_reach` | Align an ultrasound probe with a randomized target. | IsaacLab-Arena environment `UltrasoundProbeReach` (`ultrasound_probe_reach`); evaluate a trained RSL-RL checkpoint with Arena's `rsl_rl` policy (see below) |
@@ -15,9 +15,9 @@ Open the preview to view the animated demonstration.
 
 | `ultrasound_liver_scan` |
 | :---: |
-| [![Robot performing an ultrasound liver scan](../../../docs/workflows/images/ultrasound_liver_scan.webp)](../../../docs/workflows/images/ultrasound_liver_scan.gif) |
+| [![Robot performing an ultrasound liver scan](images/ultrasound_liver_scan.webp)](images/ultrasound_liver_scan.gif) |
 
-Note: Complete the [project setup](../../../README.md#setup-from-the-command-line) before you begin.
+Note: Complete the [project setup](../../README.md#setup-from-the-command-line) before you begin.
 
 ## Liver Scan
 
@@ -56,9 +56,9 @@ arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.p
   --dataset_file runs/ultrasound_liver_scan/teleop.hdf5 --num_demos 1
 ```
 
-Replay a recording with `scripts/tools/replay_demos.py`, the same `--external_callback`, `--external_environment_class_path` and `--task`, and `--dataset_file <recording> --validate_success_rate`, without `--enable_cameras` (see [Hospital Automation Robotics](../hospital-automation-robotics/README.md#g1-loco-manipulation)).
+Replay a recording with `scripts/tools/replay_demos.py`, the same `--external_callback`, `--external_environment_class_path` and `--task`, and `--dataset_file <recording> --validate_success_rate`, without `--enable_cameras` (see [Hospital Automation Robotics](hospital-automation-robotics.md#g1-loco-manipulation)).
 
-[`scripts/e2e/run.sh`](../../../scripts/e2e/run.sh) runs the whole data-to-policy loop on this environment: record PI0 episodes, augment, grade them with a vision model against the scene's `annotate` criterion, replay, convert to LeRobot, finetune PI0, and validate the finetuned checkpoint.
+[`scripts/e2e/run.sh`](../../scripts/e2e/run.sh) runs the whole data-to-policy loop on this environment: record PI0 episodes, augment, grade them with a vision model against the scene's `annotate` criterion, replay, convert to LeRobot, finetune PI0, and validate the finetuned checkpoint.
 
 ## RL Training
 
@@ -110,7 +110,7 @@ arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
   --external_environment_class_path i4h_arena.environments:UltrasoundProbeReach ultrasound_probe_reach \
   --rl_observations
 
-# Optionally export the policy to TorchScript and ONNX for deployment.
+# Optionally export the policy as TorchScript (policy.pt, with policy.json) for deployment.
 ./train.sh rl export ultrasound_probe_reach \
   --checkpoint "$TRAIN_RUN/model_final.pt" \
   --output-dir "$TRAIN_RUN/exported"
@@ -118,4 +118,4 @@ arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
 
 Add `--viz kit` to watch the policy. `--rl_observations` selects the flat observations the policy was trained on.
 
-RSL-RL training and evaluation are a separate lifecycle, not workflow run modes.
+RSL-RL training and its vectorized evaluation are a separate lifecycle in `rl/`; the trained checkpoint returns to the policy runner for evaluation in the environment.

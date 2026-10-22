@@ -74,21 +74,21 @@ i4h-docker() {
 Commands use the default image. To use the full image, change only the image selection:
 
 ```bash
-I4H_DOCKER_IMAGE=i4h-workflows:full i4h-docker ./run.sh scissor_pick_and_place --policy --episodes 1
+I4H_DOCKER_IMAGE=i4h-workflows:full i4h-docker bash
 ```
 
 ## Commands
 
 | Container command | Use it for |
 | --- | --- |
-| `./run.sh ...` | Full workflow with arena, Isaac Sim, and any local policy backend selected by the workflow |
-| `i4h-policy <task-id>` | Policy inference only, including on Jetson AGX Thor |
+| `arena/.venv/bin/python ...` | Running a workflow's IsaacLab-Arena environment with Arena's policy runner or Isaac Lab's recording and replay tools |
+| `i4h-policy <stack>/<task> [serve options]` | Serving one policy checkpoint with its stack's server, including on Jetson AGX Thor |
 | `i4h-annotator ...` | Visual validation against an OpenAI-compatible VLM service |
 | `bash` | Interactive work inside the image |
 
 Use the same named `i4h-state` volume in every command. It preserves model downloads, simulator caches, recordings, and the default image's uv cache and virtual environments.
 
-With the default image, the first command downloads only the environment it needs and later containers reuse it automatically. The full image skips dependency setup, but policy models still download on first use and persist in `i4h-state`.
+With the default image, the first command downloads only the environment it needs and later containers reuse it automatically: `common` and `arena` by default, and only the named policy stack for `i4h-policy`. The full image skips dependency setup, but policy models still download on first use and persist in `i4h-state`.
 
 `HF_TOKEN` is forwarded when it is set, which allows gated model downloads to use the same helper.
 
@@ -96,32 +96,44 @@ To reuse an existing host uv cache during the default image's first setup, prefi
 
 ## Full workflow
 
-On x86 or DGX Spark, `run.sh` behaves like it does in a host checkout and starts the policy locally when the selected mode needs one.
+Serve the policy in one container and run the environment in another; both use the host network. For the scissors' GR00T N1.5 checkpoint:
 
 ```bash
-i4h-docker ./run.sh scissor_pick_and_place --policy --episodes 1
+# Terminal 1: serve the checkpoint.
+i4h-docker i4h-policy gr00t_n15/scissor_pick_and_place --port 5555
+
+# Terminal 2: evaluate it for one episode.
+i4h-docker arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --embodiment so101_scissors \
+  --remote_port 5555 --num_episodes 1 --enable_cameras \
+  --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
 ```
+
+Each workflow's commands are in its specialty page under [docs/workflows](../docs/workflows/).
 
 ## Policy on Thor
 
-Run only the policy on Thor. The task ID selects the policy stack and the Zenoh namespace, and the server listens on port `7448` by default.
+Run only the policy on Thor. The task ID selects the policy stack and the task it serves; the options after it go to the stack's `serve` module.
 
 ```bash
-i4h-docker i4h-policy gr00t_n15/scissor_pick_and_place
+i4h-docker i4h-policy gr00t_n15/scissor_pick_and_place --port 5555
 ```
 
-Run the arena on an x86 or DGX Spark host and point the same workflow at Thor:
+Run the environment on an x86 or DGX Spark host and point the client policy at Thor:
 
 ```bash
-i4h-docker ./run.sh scissor_pick_and_place --policy --policy-endpoint 192.168.1.50:7448 --episodes 1
+i4h-docker arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy --embodiment so101_scissors \
+  --remote_host 192.168.1.50 --remote_port 5555 --num_episodes 1 --enable_cameras \
+  --external_environment_class_path i4h_arena.environments:SoarmScissors soarm_scissors
 ```
 
 ## Visual validation
 
-Record a workflow to a known path:
+Record a workflow to a known path by adding the recorder options after the environment name in the [full workflow](#full-workflow) command:
 
 ```bash
-i4h-docker ./run.sh scissor_pick_and_place --policy --episodes 1 --record /workspace/runs/demos.hdf5
+  --recorder_dataset_export_dir_path /workspace/runs --recorder_dataset_filename demos
 ```
 
 Start vLLM as a sibling container:

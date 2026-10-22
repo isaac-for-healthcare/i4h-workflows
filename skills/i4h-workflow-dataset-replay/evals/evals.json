@@ -3,23 +3,27 @@
     "id": "i4h-workflow-dataset-replay-readme-quick-second-episode",
     "question": "Replay the second episode.",
     "expected_skill": "i4h-workflow-dataset-replay",
-    "ground_truth": "This README Quick Run prompt routes to HDF5 replay using the latest recorded run and episode index 1.",
+    "ground_truth": "This README Quick Run prompt replays demo_1 of the latest recording under ./runs with Isaac Lab's replay_demos.py through the Arena registration callback, the recording's environment class and scene, --select_episodes 1, and --viz kit.",
     "expected_behavior": [
       "routes to i4h-workflow-dataset-replay",
       "resolves the latest recorded HDF5 from ./runs",
-      "interprets second episode as episode index 1",
-      "launches replay in Isaac Sim rather than policy validation"
+      "reads the scene name from the recording's env_args or the preceding run and derives the environment class",
+      "interprets second episode as demo_1 and passes its replay index, 1",
+      "runs third_party/IsaacLab-e3f7d9f/scripts/tools/replay_demos.py with --external_callback, --external_environment_class_path, --task, and --dataset_file",
+      "keeps the replay visible with --viz kit and does not pass --enable_cameras or --headless",
+      "launches replay rather than policy validation"
     ]
   },
   {
     "id": "i4h-workflow-dataset-replay-table-episode-zero",
     "question": "Replay episode 0 from my scissor pick-and-place recording in Isaac Sim.",
     "expected_skill": "i4h-workflow-dataset-replay",
-    "ground_truth": "This README skill-table prompt routes to HDF5 replay for scissor_pick_and_place episode 0.",
+    "ground_truth": "This prompt replays episode 0 of the specified scissor_pick_and_place recording with replay_demos.py on SoarmScissors (soarm_scissors) with --select_episodes 0 and --viz kit.",
     "expected_behavior": [
       "routes to i4h-workflow-dataset-replay",
       "uses the specified recording as input",
-      "replays episode 0 in Isaac Sim",
+      "passes --external_environment_class_path i4h_arena.environments:SoarmScissors and --task soarm_scissors",
+      "replays episode 0 visibly with --select_episodes 0 and --viz kit",
       "does not convert the HDF5 to LeRobot as the main task"
     ]
   }

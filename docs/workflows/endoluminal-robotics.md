@@ -4,7 +4,7 @@ Workflows for navigation and intervention through luminal anatomy.
 
 ## Workflows
 
-| Workflow | Demonstration | Supported modes ([guide](../../i4h_workflow_modes/README.md)) |
+| Workflow | Demonstration | How it runs |
 | --- | --- | --- |
 | `endoluminal_navigation` | Navigate a catheter and movable C-arm with a live fluoroscopy view. | IsaacLab-Arena environment `EndoluminalNavigation` (`endoluminal_navigation`): scripted sweep, fluoroscopy check, keyboard teleop, replay, GR00T N1.7 policy ([commands](#run-from-the-command-line)) |
 | `endoluminal_navigation_arm` | The same navigation with the catheter drive carried on a Franka Panda flange. | IsaacLab-Arena environment `EndoluminalNavigationArm` (`endoluminal_navigation_arm`): the same commands |
@@ -15,15 +15,15 @@ The two environments drive the same catheter to the same goal and accept the sam
 
 | `endoluminal_navigation` |
 | :---: |
-| ![C-arm viewport beside the live fluoroscopy panel](../../../docs/workflows/images/endoluminal_navigation_fluoroscopy_session.webp) |
+| ![C-arm viewport beside the live fluoroscopy panel](images/endoluminal_navigation_fluoroscopy_session.webp) |
 
-The viewport carries the C-arm, table and patient; the fluoroscopy panel carries the detector image and the controls that drive it. An [animated capture](../../../docs/workflows/images/fluoroscopy_catheter_navigation.gif) shows a C-arm sweep in motion.
+The viewport carries the C-arm, table and patient; the fluoroscopy panel carries the detector image and the controls that drive it. An [animated capture](images/fluoroscopy_catheter_navigation.gif) shows a C-arm sweep in motion.
 
-Note: Complete the [project setup](../../../README.md#setup-from-the-command-line) before you begin.
+Note: Complete the [project setup](../../README.md#setup-from-the-command-line) before you begin.
 
 ## Run with an AI Agent
 
-Paste any prompt into Claude Code, Codex, or the repository's [Local Agent](../../../local-agent/README.md):
+Paste any prompt into Claude Code, Codex, or the repository's [Local Agent](../../local-agent/README.md):
 
 ```text
 Run the endoluminal_navigation sweep for 1 episode without patient CT data.
@@ -123,13 +123,13 @@ arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
 
 ### Recording and replay
 
-Add `--recorder_dataset_export_dir_path <dir> --recorder_dataset_filename <name>` after the environment name to record a policy runner's episodes. Recordings, from either tool, store Isaac Lab's actions and states plus what the [converter](../../../tools/dataset/i4h_tools/dataset/cli.py) reads: the procedure state as `obs/joint_pos`, the fluoroscopy frame at 256 px as `obs/fluoroscopy` with its display-independent signal as `obs/fluoroscopy_attenuation`, and the rod's tip and root positions, distance to the target, and containment under `diagnostics/`. Each step pairs the action with the state and frame it was chosen from, as Isaac Lab records; recordings made with the earlier `run.sh` launcher stored the state after the action, one control step later.
+Add `--recorder_dataset_export_dir_path <dir> --recorder_dataset_filename <name>` after the environment name to record a policy runner's episodes. Recordings, from either tool, store Isaac Lab's actions and states plus what the [converter](../../tools/dataset/i4h_tools/dataset/cli.py) reads: the procedure state as `obs/joint_pos`, the fluoroscopy frame at 256 px as `obs/fluoroscopy` with its display-independent signal as `obs/fluoroscopy_attenuation`, and the rod's tip and root positions, distance to the target, and containment under `diagnostics/`. Each step pairs the action with the state and frame it was chosen from, as Isaac Lab records; recordings made with the earlier `run.sh` launcher stored the state after the action, one control step later.
 
-Replay a recording with `scripts/tools/replay_demos.py`, the same `--external_callback`, `--external_environment_class_path`, `--task`, `--presets newton` and `--patient_twin`, and `--dataset_file <recording>` (see [Hospital Automation Robotics](../hospital-automation-robotics/README.md#g1-loco-manipulation)).
+Replay a recording with `scripts/tools/replay_demos.py`, the same `--external_callback`, `--external_environment_class_path`, `--task`, `--presets newton` and `--patient_twin`, and `--dataset_file <recording>` (see [Hospital Automation Robotics](hospital-automation-robotics.md#g1-loco-manipulation)).
 
 ### Policy rollout
 
-Roll out a finetuned GR00T N1.7 checkpoint against the same goal the demonstrations were terminated on. [`gr00t_n17/catheter_navigation`](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation.yaml) declares no published checkpoint, so pass one with `--model-path`:
+Roll out a finetuned GR00T N1.7 checkpoint against the same goal the demonstrations were terminated on. [`gr00t_n17/catheter_navigation`](../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation.yaml) declares no published checkpoint, so pass one with `--model-path`:
 
 ```bash
 # Serve the checkpoint with GR00T's inference server (terminal 1).
@@ -158,7 +158,7 @@ Teleoperation -> HDF5 recordings -> LeRobot dataset -> GR00T N1.7 IL checkpoint
 
 ### Model inputs and actions
 
-The current [modality configuration](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/config_catheter.py) consumes a fluoroscopy image, a language instruction, and nine numeric state values:
+The current [modality configuration](../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/config_catheter.py) consumes a fluoroscopy image, a language instruction, and nine numeric state values:
 
 | Input group | Values | Meaning |
 | --- | --- | --- |
@@ -169,7 +169,7 @@ The current [modality configuration](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n1
 | `state.route` | 2 | Remaining curved-route distance and tip lateral offset, in metres |
 | Language | Task description | What navigation task to perform |
 
-The RL Scene additionally publishes the tip's 3-D position and direction, producing a 15-value environment state. The [RL adapter](../../../rl/i4h_rl/adapters/endoluminal_navigation.py) maps only the nine values above into GR00T. The arm's joint positions are not policy inputs.
+The RL Scene additionally publishes the tip's 3-D position and direction, producing a 15-value environment state. The [RL adapter](../../rl/i4h_rl/adapters/endoluminal_navigation.py) maps only the nine values above into GR00T. The arm's joint positions are not policy inputs.
 
 The four outputs are insertion velocity (m/s), axial rotation rate (rad/s), tip bend rate (rad/s), and C-arm orbit rate (rad/s). They are commands to move the instrument and imaging gantry, rather than desired XYZ tip coordinates. IL predicts 16-step action sequences; the RL configuration uses one action chunk for its PPO policy.
 
@@ -204,13 +204,13 @@ uv run --project tools/dataset i4h-dataset convert \
   --task "Steer the catheter along the vessel and stop at the target branch"
 ```
 
-For armless recordings, use `--robot catheter`. The [converter](../../../tools/dataset/i4h_tools/dataset/cli.py) derives the five target/route columns from the recorded tip trajectory and the twin's route. It requires the `diagnostics/tip_world_m` trajectory; an old recording without that trajectory cannot supply these columns merely by naming a patient twin. Verify nonzero episode count, camera videos, episode parquet files, and `meta/info.json`, `meta/stats.json`, and `meta/modality.json` before training.
+For armless recordings, use `--robot catheter`. The [converter](../../tools/dataset/i4h_tools/dataset/cli.py) derives the five target/route columns from the recorded tip trajectory and the twin's route. It requires the `diagnostics/tip_world_m` trajectory; an old recording without that trajectory cannot supply these columns merely by naming a patient twin. Verify nonzero episode count, camera videos, episode parquet files, and `meta/info.json`, `meta/stats.json`, and `meta/modality.json` before training.
 
 The converter also accepts multiple HDF5 inputs before the output path. This allows recordings of subjects `s0058`, `s0223`, and `s0250` to share one dataset and normalization statistics. For that case, pass one `--patient-twin` manifest per recording, in the order the recordings are given; the converter refuses a single twin for several recordings rather than assign one anatomy's route to all three subjects. Use recordings from the same embodiment descriptor in one conversion.
 
 ### 2. Fine-tune and evaluate GR00T N1.7
 
-Both embodiments train the [shared catheter Task](../../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation.yaml). Resolve the configuration first:
+Both embodiments train the [shared catheter Task](../../tasks/gr00t_n17/i4h_tasks/gr00t_n17/manifest/catheter_navigation.yaml). Resolve the configuration first:
 
 ```bash
 uv run --project tasks/gr00t_n17 i4h-tasks-gr00t-n17-train \
@@ -226,7 +226,7 @@ Select an actual saved checkpoint directory and establish a baseline with the [p
 
 ### 3. Post-train with RLinf PPO
 
-The [arm profile](../../../rl/profiles/endoluminal_navigation_arm.yaml) selects RLinf and requires a patient twin plus a compatible local IL checkpoint. Preview it, then resolve a short, one-anatomy smoke run:
+The [arm profile](../../rl/profiles/endoluminal_navigation_arm.yaml) selects RLinf and requires a patient twin plus a compatible local IL checkpoint. Preview it, then resolve a short, one-anatomy smoke run:
 
 ```bash
 ./train.sh rl show endoluminal_navigation_arm
@@ -240,7 +240,7 @@ Remove `--dry-run` to run. For a training run, choose the environment count and 
 
 Profiles default to model GPU 0 and simulator GPU 1, with separate Python processes to isolate their dependencies. A single GPU is supported by prefixing the command with `I4H_RL_SIM_GPU=0`; model, simulation, and rendering then share its memory. The defaults of four arm environments and eight armless environments are starting estimates, not measured hardware limits. Measure memory and step throughput before raising them.
 
-The current [PPO configuration](../../../rl/config/endoluminal_navigation_arm_ppo_gr00t.yaml) uses:
+The current [PPO configuration](../../rl/config/endoluminal_navigation_arm_ppo_gr00t.yaml) uses:
 
 | Parameter | Default | Interpretation |
 | --- | --- | --- |
@@ -259,7 +259,7 @@ With `N` environments, a collection cycle has a configured budget of `8 Ã— 600 Ã
 
 ### Dense reward: advance, follow the route, avoid the wall
 
-The reward quantities are implemented in [navigation_reward.py](../../../arena/i4h_arena/medical/navigation_reward.py). Their weights and the final three-term wiring are in [`navigation_rewards_cfg`](../../../arena/i4h_arena/envcfg/endoluminal_navigation/terms.py). Isaac Lab's reward manager sums the weighted terms with control-step time scaling:
+The reward quantities are implemented in [navigation_reward.py](../../arena/i4h_arena/medical/navigation_reward.py). Their weights and the final three-term wiring are in [`navigation_rewards_cfg`](../../arena/i4h_arena/envcfg/endoluminal_navigation/terms.py). Isaac Lab's reward manager sums the weighted terms with control-step time scaling:
 
 ```text
 delta_s = clamp(previous_remaining - current_remaining, -0.0025, +0.0025)
@@ -276,11 +276,11 @@ dt_control = 1/30 second
 | `lateral` | Charge for straying too far from the planned centerline | The inner half of the local radius is free. Beyond it, the cost grows with deviation relative to vessel size. |
 | `penetration` | Charge for the deepest rod point outside the modeled lumen | Measures the whole catheter, including the shaft. A 2.5 mm violation cancels a maximum-scale progress term for that step before the lateral cost. |
 
-Remaining distance is measured along an ordered 3-D centerline polyline, including its curves. The shared [route builder](../../../common/i4h_common/navigation_route.py) resamples the route at 7.5 mm spacing for both simulation and dataset conversion. The tip is projected onto the nearest segment, and remaining arc equals total route length minus the projected arc position. These sampled points describe one continuous route; the policy is not rewarded for reaching discrete waypoints in sequence. At bifurcations, the selected route encodes the intended branch. Reward can favor that route, but the policy must also receive useful goal cues and demonstrations to steer into it.
+Remaining distance is measured along an ordered 3-D centerline polyline, including its curves. The shared [route builder](../../common/i4h_common/navigation_route.py) resamples the route at 7.5 mm spacing for both simulation and dataset conversion. The tip is projected onto the nearest segment, and remaining arc equals total route length minus the projected arc position. These sampled points describe one continuous route; the policy is not rewarded for reaching discrete waypoints in sequence. At bifurcations, the selected route encodes the intended branch. Reward can favor that route, but the policy must also receive useful goal cues and demonstrations to steer into it.
 
 The wall cost approximates the lumen with route points and local radii; it is not a tissue-damage model. If radii are absent, both lateral and penetration weights are zero. No approach bonus, arrival bonus, fold flag penalty, or action-rate penalty is configured. Reward is feedback used during training, rather than another observation passed to GR00T.
 
-Success is a separate [termination criterion](../../../arena/i4h_arena/medical/navigation_goal.py): the tip must stay within the configured straight-line target tolerance for 15 consecutive control steps (about 0.5 seconds). The endoluminal default is **8 mm**, overridable with `I4H_CATHETER_ARRIVAL_MM`; the generic medical helper defaults to 5 mm. Keep the same tolerance when collecting, training, and comparing evaluations. The 600-step budget is a timeout/truncation, not success. High route progress alone cannot establish arrival or safe navigation.
+Success is a separate [termination criterion](../../arena/i4h_arena/medical/navigation_goal.py): the tip must stay within the configured straight-line target tolerance for 15 consecutive control steps (about 0.5 seconds). The endoluminal default is **8 mm**, overridable with `I4H_CATHETER_ARRIVAL_MM`; the generic medical helper defaults to 5 mm. Keep the same tolerance when collecting, training, and comparing evaluations. The 600-step budget is a timeout/truncation, not success. High route progress alone cannot establish arrival or safe navigation.
 
 ### Monitoring in TensorBoard and Weights & Biases
 
@@ -291,7 +291,7 @@ tasks/gr00t_n17/.venv/bin/tensorboard \
   --logdir /absolute/path/to/rl_run/tensorboard --port 6006
 ```
 
-Look in **Scalars** (or the scalar cards in the **Time Series** view). The [rollout monitor](../../../rl/i4h_rl/rollout_monitor.py) flushes metrics after each completed rollout batch, while PPO loss appears only after all eight batches and the optimizer update. Its scalar step is the total completed rollout count. Values describe completed batches, not live tip motion between them.
+Look in **Scalars** (or the scalar cards in the **Time Series** view). The [rollout monitor](../../rl/i4h_rl/rollout_monitor.py) flushes metrics after each completed rollout batch, while PPO loss appears only after all eight batches and the optimizer update. Its scalar step is the total completed rollout count. Values describe completed batches, not live tip motion between them.
 
 | Metric | Meaning | Useful interpretation |
 | --- | --- | --- |
