@@ -123,6 +123,10 @@ class Scene(ABC):
     def configure_env_cfg(self, env_cfg: Any) -> None:
         """Apply workflow-specific simulator presentation settings after Arena builds the cfg."""
 
+    @classmethod
+    def add_cli_args(cls, parser: argparse.ArgumentParser) -> None:
+        """Flags this scene reads from the parsed CLI, added to its Arena environment's parser."""
+
     def configure_args(self, args: argparse.Namespace) -> None:
         """Adjust ``args`` before ``AppLauncher`` starts (e.g. enable cameras)."""
         if getattr(args, "presets", None) is None:
@@ -308,12 +312,8 @@ def arena_builder_cfg(args: argparse.Namespace) -> Any:
     return ArenaEnvBuilderCfg(**values)
 
 
-def load_scene(name: str, args: argparse.Namespace, *, register_assets: bool = True) -> Scene:
-    """Import and construct a scene by manifest name.
-
-    This is the only place ``arena`` imports a scene class, and it happens after
-    the manifest has already been validated against the workflow.
-    """
+def scene_class(name: str) -> type[Scene]:
+    """Import a scene's class by manifest name."""
     specs = scene_specs()
     spec = specs.get(name)
     if spec is None:
@@ -322,8 +322,6 @@ def load_scene(name: str, args: argparse.Namespace, *, register_assets: bool = T
         close = difflib.get_close_matches(name, specs, n=3, cutoff=0.5)
         hint = f"; did you mean {close}?" if close else f"; known scenes: {sorted(specs)}"
         raise KeyError(f"unknown scene {name!r}{hint}")
-
-    spec = spec.for_mode(getattr(args, "mode", None))
     module_name, _, attr = spec.impl.partition(":")
     if not attr:
         raise ValueError(f"scene {name}: impl must be 'module:Class', got {spec.impl!r}")
@@ -331,6 +329,17 @@ def load_scene(name: str, args: argparse.Namespace, *, register_assets: bool = T
     cls = getattr(module, attr, None)
     if cls is None:
         raise AttributeError(f"scene {name}: {module_name} has no attribute {attr!r} (from {spec.source})")
+    return cls
+
+
+def load_scene(name: str, args: argparse.Namespace, *, register_assets: bool = True) -> Scene:
+    """Import and construct a scene by manifest name.
+
+    This is the only place ``arena`` imports a scene class, and it happens after
+    the manifest has already been validated against the workflow.
+    """
+    cls = scene_class(name)
+    spec = scene_specs()[name].for_mode(getattr(args, "mode", None))
     scene = cls(spec, args)
     if register_assets:
         scene.register_assets()

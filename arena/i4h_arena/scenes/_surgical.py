@@ -39,6 +39,15 @@ class SurgicalScene(Scene):
     sim_decimation: int = 2
     render_interval: int = 2
 
+    @classmethod
+    def add_cli_args(cls, parser: Any) -> None:
+        parser.add_argument(
+            "--action_device",
+            choices=("ik_abs", "joint_position"),
+            default="ik_abs",
+            help="Command the arm by absolute tool-tip pose (default) or joint positions.",
+        )
+
     def register_assets(self) -> None:
         import i4h_arena.assets._surgical  # noqa: F401,PLC0415
 
@@ -179,6 +188,9 @@ class SurgicalLiftScene(SurgicalScene):
     sim_decimation: int = 4
     render_interval: int = 4
     task_description: str = "Lift the object with the dVRK PSM."
+    #: Object height in the PSM root frame that counts as lifted [m]. The root sits at
+    #: world z = 0.15 m, so -0.085 is world z = 0.065 m.
+    success_height: float = -0.085
     #: Whether the manipulandum sits on an organ bed.
     organs: bool = False
 
@@ -187,6 +199,7 @@ class SurgicalLiftScene(SurgicalScene):
 
         return SurgicalLiftEnvCfg(
             task_description=self.task_description,
+            success_height=self.success_height,
             organs=self.organs,
             env_spacing=float(getattr(self.args, "env_spacing", 2.5)),
         )

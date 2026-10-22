@@ -23,13 +23,50 @@ def test_parser_accepts_gpu_suite() -> None:
 
 
 def test_gpu_smoke_workflows() -> None:
-    assert [(smoke.workflow, smoke.mode_args) for smoke in run_tests.GPU_SMOKES] == [
-        ("surgical_reach_psm", ("--rule-based",)),
+    assert [
+        (smoke.workflow, getattr(smoke, "mode_args", None) or smoke.policy_type) for smoke in run_tests.GPU_SMOKES
+    ] == [
+        ("psm_reach", "i4h_arena.policies.reach.CartesianReachPolicy"),
+        ("psm_needle", "i4h_arena.policies.lift.CartesianLiftPolicy"),
         ("assemble_trocar", ("--policy",)),
         ("ultrasound_liver_scan", ("--rule-based",)),
         ("scissor_pick_and_place", ("--rule-based",)),
         ("endoluminal_navigation", ("--mode", "demo")),
     ]
+
+
+def _smoke(workflow: str):
+    return next(smoke for smoke in run_tests.GPU_SMOKES if smoke.workflow == workflow)
+
+
+def test_policy_runner_smoke_records_one_episode(tmp_path, monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(argv: list[str], **_kwargs) -> subprocess.CompletedProcess[str]:
+        calls.append(argv)
+        output = Path(argv[argv.index("--recorder_dataset_export_dir_path") + 1])
+        (output / "outputs" / "run").mkdir(parents=True)
+        (output / "outputs" / "run" / "episode_results_rank0.jsonl").write_text('{"success": true}\n')
+        (output / run_tests.GPU_RECORDING).touch()
+        return subprocess.CompletedProcess(argv, 0, stdout="")
+
+    monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
+    monkeypatch.setattr(run_tests.tempfile, "mkdtemp", lambda prefix: str(tmp_path))
+
+    assert run_tests._run_gpu_smoke(_smoke("psm_reach"), timeout=30)
+    command = calls[0]
+    assert command[command.index("-m") + 1] == "isaaclab_arena.evaluation.policy_runner"
+    assert command[command.index("--external_environment_class_path") + 1] == "i4h_arena.environments:PsmReach"
+    assert command[command.index("--num_episodes") + 1] == "1"
+
+
+def test_policy_runner_smoke_requires_an_episode_result(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        run_tests.subprocess, "run", lambda argv, **_kw: subprocess.CompletedProcess(argv, 0, stdout="")
+    )
+    monkeypatch.setattr(run_tests.tempfile, "mkdtemp", lambda prefix: str(tmp_path))
+
+    assert not run_tests._run_gpu_smoke(_smoke("psm_needle"), timeout=30)
 
 
 def test_coverage_command_uses_parallel_coverage_data() -> None:
@@ -113,7 +150,7 @@ def test_gpu_smoke_accepts_unsuccessful_episode(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
 
-    assert run_tests._run_gpu_smoke(run_tests.GPU_SMOKES[1], timeout=30)
+    assert run_tests._run_gpu_smoke(_smoke("assemble_trocar"), timeout=30)
     assert calls[1][-3:] == ["inspect", str(recording), "--segments"]
 
 
@@ -125,7 +162,7 @@ def test_gpu_smoke_requires_episode_summary(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr(run_tests.subprocess, "run", fake_run)
 
-    assert not run_tests._run_gpu_smoke(run_tests.GPU_SMOKES[2], timeout=30)
+    assert not run_tests._run_gpu_smoke(_smoke("ultrasound_liver_scan"), timeout=30)
 
 
 @pytest.mark.parametrize("suite", ["ci", "rl"])

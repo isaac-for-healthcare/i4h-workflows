@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -128,8 +129,27 @@ class WorkflowSmoke:
     mode_args: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class PolicyRunnerSmoke:
+    """One recorded episode of an i4h environment under IsaacLab-Arena's policy runner."""
+
+    environment: str
+    policy_type: str
+    policy_args: tuple[str, ...] = ()
+    environment_args: tuple[str, ...] = ()
+
+    @property
+    def workflow(self) -> str:
+        return self.environment
+
+    @property
+    def environment_class(self) -> str:
+        return "".join(part.capitalize() for part in self.environment.split("_"))
+
+
 GPU_SMOKES = (
-    WorkflowSmoke("surgical_reach_psm", ("--rule-based",)),
+    PolicyRunnerSmoke("psm_reach", "i4h_arena.policies.reach.CartesianReachPolicy"),
+    PolicyRunnerSmoke("psm_needle", "i4h_arena.policies.lift.CartesianLiftPolicy"),
     WorkflowSmoke("assemble_trocar", ("--policy",)),
     WorkflowSmoke("ultrasound_liver_scan", ("--rule-based",)),
     WorkflowSmoke("scissor_pick_and_place", ("--rule-based",)),
@@ -205,7 +225,58 @@ def _finish_coverage(timeout: int) -> bool:
     return True
 
 
-def _run_gpu_smoke(smoke: WorkflowSmoke, timeout: int) -> bool:
+def _run_policy_runner_smoke(smoke: PolicyRunnerSmoke, timeout: int) -> bool:
+    print(f"\n==> [gpu] {smoke.environment} {smoke.policy_type}", flush=True)
+    output_dir = Path(tempfile.mkdtemp(prefix=f"i4h-smoke-{smoke.environment}-"))
+    rollout = _run_command(
+        [
+            "uv",
+            "run",
+            "--project",
+            "arena",
+            "--no-sync",
+            "python",
+            "-m",
+            "isaaclab_arena.evaluation.policy_runner",
+            "--policy_type",
+            smoke.policy_type,
+            *smoke.policy_args,
+            "--num_episodes",
+            "1",
+            "--seed",
+            "0",
+            "--enable_cameras",
+            "--output_base_dir",
+            str(output_dir / "outputs"),
+            "--external_environment_class_path",
+            f"i4h_arena.environments:{smoke.environment_class}",
+            smoke.environment,
+            "--recorder_dataset_export_dir_path",
+            str(output_dir),
+            "--recorder_dataset_filename",
+            Path(GPU_RECORDING).stem,
+            *smoke.environment_args,
+        ],
+        timeout=timeout,
+        capture=True,
+    )
+    if rollout is None or rollout.returncode:
+        print("!! policy runner failed", file=sys.stderr)
+        return False
+    results = sorted(output_dir.glob("outputs/*/episode_results_rank0.jsonl"))
+    if not results or not results[-1].read_text().strip():
+        print("!! policy runner reported no completed episode", file=sys.stderr)
+        return False
+    recording = output_dir / GPU_RECORDING
+    if not recording.is_file():
+        print(f"!! rollout recording is missing: {recording}", file=sys.stderr)
+        return False
+    return True
+
+
+def _run_gpu_smoke(smoke: WorkflowSmoke | PolicyRunnerSmoke, timeout: int) -> bool:
+    if isinstance(smoke, PolicyRunnerSmoke):
+        return _run_policy_runner_smoke(smoke, timeout)
     mode = " ".join(smoke.mode_args)
     print(f"\n==> [gpu] {smoke.workflow} {mode}", flush=True)
     rollout = _run_command(

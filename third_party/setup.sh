@@ -252,6 +252,11 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}/.git" ]]; then
   apply_patch_once "Isaac Lab Pink IK local mesh directory" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_pink_ik_local_mesh_dir.patch"
+  # Isaac Lab 3.0's replay_demos.py builds a keyboard for pause/resume unconditionally, which
+  # fails without a Kit window; headless replays need it skipped.
+  apply_patch_once "Isaac Lab headless replay_demos" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_replay_demos_headless.patch"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEISAAC_DIR}/.git" ]]; then

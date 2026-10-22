@@ -6,18 +6,23 @@ from __future__ import annotations
 
 import math
 from dataclasses import MISSING
+from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as mdp
 import torch
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import EventTermCfg, RewardTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.math import combine_frame_transforms, quat_error_magnitude, quat_mul
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab.utils.math import combine_frame_transforms, quat_error_magnitude, quat_mul, subtract_frame_transforms
+from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
 from i4h_arena.tensor_utils import to_torch
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 
 # Workflow reach rollouts last five seconds and Locate intentionally snapshots
 # the sampled command. Keep that command stable until the episode resets so
@@ -37,6 +42,35 @@ def _body_pose_w(robot, body_id: int) -> tuple[torch.Tensor, torch.Tensor]:
 
 def _ee_position(env) -> torch.Tensor:
     return to_torch(env.scene["ee_frame"].data.target_pos_w)[:, 0, :]
+
+
+def tcp_pose_in_root(env, frame_name: str = "ee_frame", robot_name: str = "robot") -> tuple[torch.Tensor, torch.Tensor]:
+    """Position and ``xyzw`` orientation of ``frame_name``'s tool tip in ``robot_name``'s root frame."""
+    data = env.scene[frame_name].data
+    root_pos_w, root_quat_w = _root_pose_w(env.scene[robot_name])
+    return subtract_frame_transforms(
+        root_pos_w,
+        root_quat_w,
+        to_torch(data.target_pos_w)[:, 0, :],
+        to_torch(data.target_quat_w)[:, 0, :],
+    )
+
+
+def tcps_reached_commands(env, arms: tuple[tuple[str, str, str], ...], threshold: float) -> torch.Tensor:
+    """Whether every ``(command, frame, robot)`` arm's tool tip is within ``threshold`` of its command [m]."""
+    reached = torch.ones(env.num_envs, dtype=torch.bool, device=env.device)
+    for command_name, frame_name, robot_name in arms:
+        tcp_pos, _ = tcp_pose_in_root(env, frame_name, robot_name)
+        target_pos = to_torch(env.command_manager.get_command(command_name))[:, :3]
+        reached &= torch.linalg.norm(tcp_pos - target_pos, dim=-1) < threshold
+    return reached
+
+
+def object_above_root(env, height: float, object_name: str = "object", robot_name: str = "robot") -> torch.Tensor:
+    """Whether ``object_name``'s root is above ``height`` [m] in ``robot_name``'s root frame."""
+    root_pos_w, root_quat_w = _root_pose_w(env.scene[robot_name])
+    object_pos, _ = subtract_frame_transforms(root_pos_w, root_quat_w, to_torch(env.scene[object_name].data.root_pos_w))
+    return object_pos[:, 2] > height
 
 
 def object_ee_distance(env, std: float) -> torch.Tensor:
@@ -304,6 +338,14 @@ class _LiftEventsCfg:
     )
 
 
+#: Per reach mode: the ``(command, frame, robot)`` of each arm and the success radius [m].
+_REACH_SUCCESS: dict[str, tuple[tuple[tuple[str, str, str], ...], float]] = {
+    "psm": ((("ee_pose", "ee_frame", "robot"),), 0.01),
+    "star": ((("ee_pose", "ee_frame", "robot"),), 0.03),
+    "dual_psm": ((("ee_1_pose", "ee_frame", "robot_1"), ("ee_2_pose", "ee_2_frame", "robot_2")), 0.01),
+}
+
+
 class SurgicalReachEnvCfg(TaskBase):
     """Original robotic_surgery reach command task."""
 
@@ -354,8 +396,13 @@ class SurgicalReachEnvCfg(TaskBase):
         return None
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
-        # A reach has no terminal outcome of its own: the workflow judges the pose it reached.
-        return TaskTerminationCfg(timeout_s=self.get_episode_length_s())
+        """Succeed once every tool tip is within the mode's radius of its sampled target."""
+        arms, threshold = _REACH_SUCCESS[self.mode]
+        reached = TerminationTermCfg(func=tcps_reached_commands, params={"arms": arms, "threshold": threshold})
+        return TaskTerminationCfg(
+            timeout_s=self.get_episode_length_s(),
+            success=[CompletionCriteria(name="reach", predicate_sequence=[reached])],
+        )
 
     def get_events_cfg(self):
         if self.mode == "dual_psm":
@@ -405,7 +452,7 @@ class SurgicalReachEnvCfg(TaskBase):
         return None
 
     def get_metrics(self):
-        return []
+        return [SuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=self.viewer_eye, lookat=self.viewer_lookat or (0.0, 0.0, 0.0))
@@ -424,11 +471,13 @@ class SurgicalLiftEnvCfg(TaskBase):
         self,
         *,
         task_description: str,
+        success_height: float,
         organs: bool = False,
         episode_length_s: float = 5.0,
         env_spacing: float = 2.5,
     ):
         super().__init__(episode_length_s=episode_length_s, task_description=task_description)
+        self.success_height = success_height
         self.organs = organs
         self.env_spacing = env_spacing
 
@@ -436,8 +485,11 @@ class SurgicalLiftEnvCfg(TaskBase):
         return None
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Succeed once the object is above ``success_height`` in the robot root frame; fail if it falls."""
+        lifted = TerminationTermCfg(func=object_above_root, params={"height": self.success_height})
         return TaskTerminationCfg(
             timeout_s=self.get_episode_length_s(),
+            success=[CompletionCriteria(name="lift", predicate_sequence=[lifted])],
             failures={
                 "object_dropping": TerminationTermCfg(
                     func=mdp.root_height_below_minimum,
@@ -464,7 +516,7 @@ class SurgicalLiftEnvCfg(TaskBase):
         return None
 
     def get_metrics(self):
-        return []
+        return [SuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         if self.organs:

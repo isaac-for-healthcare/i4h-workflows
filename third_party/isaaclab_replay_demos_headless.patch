@@ -1,0 +1,41 @@
+diff --git a/scripts/tools/replay_demos.py b/scripts/tools/replay_demos.py
+index 19faa30a6..10821023f 100644
+--- a/scripts/tools/replay_demos.py
++++ b/scripts/tools/replay_demos.py
+@@ -304,6 +304,8 @@ def replay_dataset(
+ ):
+     """Create the environment and replay the selected episodes of the dataset."""
+     # the keyboard device needs the Kit runtime, which is running at this point
++    import omni
++
+     from isaaclab.devices import Se3Keyboard, Se3KeyboardCfg
+ 
+     num_envs = args_cli.num_envs
+@@ -311,10 +313,13 @@ def replay_dataset(
+     # create environment from loaded config
+     env = gym.make(args_cli.task, cfg=env_cfg).unwrapped
+ 
+-    teleop_interface = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0.1, rot_sensitivity=0.1))
+-    teleop_interface.add_callback("N", play_cb)
+-    teleop_interface.add_callback("B", pause_cb)
+-    print('Press "B" to pause and "N" to resume the replayed actions.')
++    # A headless Kit has no app window to read keys from; replay runs unpaused there.
++    teleop_interface = None
++    if getattr(getattr(omni, "appwindow", None), "get_default_app_window", lambda: None)() is not None:
++        teleop_interface = Se3Keyboard(Se3KeyboardCfg(pos_sensitivity=0.1, rot_sensitivity=0.1))
++        teleop_interface.add_callback("N", play_cb)
++        teleop_interface.add_callback("B", pause_cb)
++        print('Press "B" to pause and "N" to resume the replayed actions.')
+ 
+     # Determine if state validation should be conducted
+     state_validation_enabled = False
+@@ -331,7 +336,8 @@ def replay_dataset(
+ 
+     # reset before starting
+     env.reset()
+-    teleop_interface.reset()
++    if teleop_interface is not None:
++        teleop_interface.reset()
+ 
+     episode_names = list(dataset_file_handler.get_episode_names())
+     replayed_episode_count, recorded_episode_count, failed_demo_ids = replay_episodes_loop(

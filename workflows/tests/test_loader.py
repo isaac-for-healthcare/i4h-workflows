@@ -12,14 +12,8 @@ from i4h_engine.interface import Workflow
 from i4h_engine.loader import available_workflows, load_workflow_module, resolve_workflow
 
 EXPECTED_SPECIALTIES = {
-    "laparoscopic-robotics": {
-        "surgical_lift_block",
-        "surgical_lift_needle",
-        "surgical_lift_needle_organs",
-        "surgical_reach_dual_psm",
-        "surgical_reach_psm",
-        "surgical_reach_star",
-    },
+    # The surgical workflows run as IsaacLab-Arena environments with i4h policies (see the README).
+    "laparoscopic-robotics": set(),
     "ultrasound-robotics": {"ultrasound_liver_scan", "ultrasound_probe_reach"},
     "endoluminal-robotics": {"endoluminal_navigation", "endoluminal_navigation_arm"},
     "hospital-automation-robotics": {
@@ -49,7 +43,7 @@ def test_workflows_are_grouped_by_approved_specialty() -> None:
     assert not list(authored_root.glob("*.py"))
     assert actual == EXPECTED_SPECIALTIES
     assert set(available_workflows()) == set().union(*EXPECTED_SPECIALTIES.values())
-    assert {path.stem for path in modes_root.glob("*.py")} == {"idle", "policy", "replay", "rule_based", "teleop"}
+    assert {path.stem for path in modes_root.glob("*.py")} == {"idle", "policy", "replay", "teleop"}
 
 
 def test_authored_module_exports_one_workflow_value() -> None:
@@ -62,13 +56,13 @@ def test_authored_module_exports_one_workflow_value() -> None:
 
 
 def test_resolve_builds_a_mode_specific_task_graph() -> None:
-    resolved = resolve_workflow("surgical_reach_psm", "rule-based")
+    resolved = resolve_workflow("ultrasound_liver_scan", "rule-based")
 
-    assert resolved.name == "surgical_reach_psm"
-    assert resolved.scene == "psm_reach"
+    assert resolved.name == "ultrasound_liver_scan"
+    assert resolved.scene == "panda_phantom"
     assert resolved.mode == "rule-based"
     assert isinstance(resolved.graph, TaskGraph)
-    assert [node.id for node in resolved.graph.nodes] == ["locate", "rest", "reach", "hold"]
+    assert [node.id for node in resolved.graph.nodes][:2] == ["locate", "approach"]
 
 
 def test_resolve_uses_the_authored_default_mode() -> None:
@@ -91,30 +85,6 @@ def test_scissor_rule_based_verifies_placement_before_returning_home() -> None:
     ids = [node.id for node in resolved.graph.nodes]
     assert ids[-4:] == ["retreat", "settle", "verify_placement", "home"]
     assert [node.id for node in resolved.graph.terminals()] == ["home"]
-
-
-@pytest.mark.parametrize(
-    "workflow",
-    [
-        "surgical_lift_block",
-        "surgical_lift_needle",
-        "surgical_lift_needle_organs",
-    ],
-)
-def test_surgical_lift_verifies_the_object_height(workflow: str) -> None:
-    resolved = resolve_workflow(workflow, "rule-based")
-
-    ids = [node.id for node in resolved.graph.nodes]
-    assert ids[:2] == ["rest", "locate"]
-    assert ids[-2:] == ["verify_lift", "hold"]
-    assert [node.id for node in resolved.graph.terminals()] == ["hold"]
-
-
-def test_dual_psm_reach_holds_both_arms_before_moving() -> None:
-    resolved = resolve_workflow("surgical_reach_dual_psm", "rule-based")
-
-    ids = [node.id for node in resolved.graph.nodes]
-    assert ids == ["locate_1", "rest_1", "reach_1", "settle", "locate_2", "rest_2", "reach_2"]
 
 
 def test_ultrasound_rule_based_finishes_on_simulator_success() -> None:
@@ -143,4 +113,4 @@ def test_replay_builder_forwards_all_supported_arguments() -> None:
 
 def test_resolve_rejects_an_unexposed_mode() -> None:
     with pytest.raises(KeyError, match="has no mode 'policy'"):
-        resolve_workflow("surgical_reach_psm", "policy")
+        resolve_workflow("spread_tablecloth_g1", "policy")
