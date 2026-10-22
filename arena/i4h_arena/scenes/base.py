@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 """The Scene contract.
 
-A scene is a world: assets, embodiment, cameras, and randomization. Workflows and
-tasks own goals and run modes. Each scene has a YAML manifest declaring what it
+A scene is a world: assets, embodiment, cameras, randomization, and the task whose
+success ends an episode. ``i4h_arena.environments`` runs each scene as an
+IsaacLab-Arena environment. Each scene has a YAML manifest declaring what it
 provides; the layering tests keep that declaration aligned with its Python
 implementation.
 """

@@ -64,7 +64,7 @@ def test_snapshot_info_resolves_catalog_and_manifest_facts(tmp_path: Path, capsy
     assert payload["manifest_capabilities"] == {
         "action_space": "joint_position",
         "cameras": ["head"],
-        "control_hz": 30.0,
+        "control_hz": 50.0,
         "dof": 50,
         "embodiment": "g1",
         "gripper": False,

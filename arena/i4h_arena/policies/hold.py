@@ -88,4 +88,7 @@ def _reset_state_action(env) -> torch.Tensor:
             value[:, :joints] = term._asset.data.default_joint_pos.torch[:, :joints]
             value[:, joints + term.navigate_cmd_dim] = float(getattr(term.cfg, "default_base_height", 0.75))
         columns.append(value)
+    if not columns:
+        # A blank scene has no robot and so no action terms; it holds by doing nothing.
+        return torch.zeros(env.num_envs, 0, device=env.device)
     return torch.cat(columns, dim=-1)

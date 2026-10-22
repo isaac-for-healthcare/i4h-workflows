@@ -249,3 +249,16 @@ def test_joint_positions_are_recorded_in_the_descriptor_order_across_arms() -> N
     key, value = reordered.record_pre_step()
     assert key == "obs/joint_pos"
     assert value.tolist() == [[2.0, 1.0]]
+
+
+def test_hold_holds_a_blank_scene_with_no_action_terms() -> None:
+    from i4h_arena.policies.hold import HoldPolicy, HoldPolicyCfg
+
+    env = SimpleNamespace(
+        num_envs=2,
+        device="cpu",
+        action_manager=SimpleNamespace(total_action_dim=0, active_terms=[]),
+    )
+    env.unwrapped = env
+
+    assert HoldPolicy(HoldPolicyCfg()).get_action(env, None).shape == (2, 0)
