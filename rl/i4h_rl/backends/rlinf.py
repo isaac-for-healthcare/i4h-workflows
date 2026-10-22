@@ -672,6 +672,14 @@ def launch(
     }
     if native_checkpoint is not None:
         metadata["native_checkpoint"] = str(native_checkpoint)
+    patient_twin = getattr(args, "resolved_patient_twin", None)
+    patient_twins = tuple(getattr(args, "resolved_patient_twins", ())) or (
+        () if patient_twin is None else (patient_twin,)
+    )
+    if patient_twin is not None:
+        metadata["patient_twin"] = str(patient_twin)
+    if len(patient_twins) > 1:
+        metadata["patient_twins"] = [str(twin) for twin in patient_twins]
     write_json(run_dir / "run.json", metadata)
 
     command = [
@@ -719,10 +727,6 @@ def launch(
         str(_episode_steps(profile, only_eval=args.only_eval, overrides=overrides)),
         *_simulation_args(profile.simulation),
     ]
-    patient_twin = getattr(args, "resolved_patient_twin", None)
-    patient_twins = tuple(getattr(args, "resolved_patient_twins", ())) or (
-        () if patient_twin is None else (patient_twin,)
-    )
     for twin in patient_twins:
         # Already resolved and existence-checked by the caller. Passed as an
         # absolute path because the simulator runs with cwd set to the
