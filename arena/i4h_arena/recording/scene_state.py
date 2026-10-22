@@ -25,7 +25,7 @@ import h5py
 import numpy as np
 import torch
 
-from i4h_common.episode import demo_names, read_initial_state
+from i4h_common.episode import DATASET_FORMAT_VERSION, dataset_format_version, demo_names, read_initial_state
 
 logger = logging.getLogger("i4h_arena.recording")
 
@@ -86,11 +86,14 @@ def _to_torch(value: Any, num_envs: int, device: Any) -> Any:
 def load_initial_state(dataset: str | Path, episode: int, scene: str) -> dict[str, Any] | None:
     """The initial state one recorded episode started from, if it applies to ``scene``.
 
-    ``None``, with a warning, when the episode has no stored state or was
-    recorded in a different scene. Asset names alone cannot tell scenes apart
-    (``psm_needle`` and ``psm_block`` both call their manipulandum ``object``),
-    so the recording's scene is compared by name. The replay then starts from
-    the scene's own reset, as it did before states were recorded.
+    ``None``, with a warning, when the episode has no stored state, was
+    recorded in a different scene, or is in a file that declares a dataset
+    format other than the XYZW one ``reset_to`` expects. Asset names alone
+    cannot tell scenes apart (``psm_needle`` and ``psm_block`` both call their
+    manipulandum ``object``), so the recording's scene is compared by name. A
+    file that declares no format is an i4h recording and is XYZW. The replay
+    then starts from the scene's own reset, as it did before states were
+    recorded.
     """
     with h5py.File(str(dataset), "r") as handle:
         names = demo_names(handle)
@@ -99,6 +102,7 @@ def load_initial_state(dataset: str | Path, episode: int, scene: str) -> dict[st
         demo = handle["data"][names[episode]]
         recorded_scene = demo.attrs.get("scene", handle["data"].attrs.get("scene"))
         state = read_initial_state(demo)
+        format_version = dataset_format_version(handle)
     if isinstance(recorded_scene, bytes):
         recorded_scene = recorded_scene.decode()
     if state is None:
@@ -106,6 +110,16 @@ def load_initial_state(dataset: str | Path, episode: int, scene: str) -> dict[st
             "%s episode %s has no initial scene state (recorded before it was stored); "
             "the scene resets with its own randomization, so objects may not be where they were recorded",
             dataset,
+            episode,
+        )
+        return None
+    if format_version != DATASET_FORMAT_VERSION:
+        logger.warning(
+            "%s declares Isaac Lab dataset format_version %s, not %s; its root poses may not be XYZW, so episode %s's "
+            "initial state is not applied and the scene resets with its own randomization",
+            dataset,
+            format_version,
+            DATASET_FORMAT_VERSION,
             episode,
         )
         return None

@@ -19,7 +19,15 @@ import h5py
 import numpy as np
 from tqdm import tqdm
 
-from i4h_common.episode import DATA_GROUP, Episode, camera_keys, demo_names, read_segments
+from i4h_common.episode import (
+    DATA_GROUP,
+    Episode,
+    camera_keys,
+    dataset_format_version,
+    demo_names,
+    read_segments,
+    write_dataset_format_version,
+)
 
 MANIFEST = "manifest.json"
 
@@ -82,6 +90,9 @@ def import_videos(source: Path, videodir: Path, target: Path, *, camera: str, in
         dst_data = dst.create_group(DATA_GROUP)
         for key, value in src_data.attrs.items():
             dst_data.attrs[key] = value
+        # The copies keep the source's root poses, so they keep its declared
+        # format; an undeclared i4h recording is XYZW and is declared so here.
+        write_dataset_format_version(dst, dataset_format_version(src))
 
         written = 0
         if include_source:
