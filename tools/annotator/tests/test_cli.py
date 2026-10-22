@@ -312,15 +312,29 @@ def test_filtering_renames_the_demo_a_reused_verdict_points_at(tmp_path, vlm) ->
         assert "vlm_success_from" not in data["demo_0"].attrs
 
 
-def test_demos_recorded_before_the_reset_step_rule_are_named(tmp_path, vlm, caplog) -> None:
+def test_runtime_demos_recorded_before_the_reset_step_rule_are_named(tmp_path, vlm, caplog) -> None:
     path = _recording(tmp_path / "r.hdf5", {"demo_0": {"room": _video(5, 200)}, "demo_1": {"room": _video(5, 200)}})
     with h5py.File(path, "a") as handle:
+        handle["data"].attrs["workflow"] = "ultrasound_liver_scan"
         del handle["data/demo_1"].attrs["recording_version"]
 
     with caplog.at_level("WARNING", logger="i4h_tools.annotator"):
         cli.annotate(path, task="Scan", dry_run=True)
 
     assert "1 demo(s) predate recording_version 1 (demo_1)" in caplog.text
+
+
+def test_isaac_lab_recordings_are_not_suspected_of_the_reset_step(tmp_path, vlm, caplog) -> None:
+    """Isaac Lab writes an episode before resetting it, and stamps no recording_version."""
+    path = _recording(tmp_path / "r.hdf5", {"demo_0": {"room": _video(5, 200)}})
+    with h5py.File(path, "a") as handle:
+        handle["data"].attrs["env_args"] = "{}"
+        del handle["data/demo_0"].attrs["recording_version"]
+
+    with caplog.at_level("WARNING", logger="i4h_tools.annotator"):
+        cli.annotate(path, task="Scan", dry_run=True)
+
+    assert "predate" not in caplog.text
 
 
 def test_filter_remaps_reused_episode_and_node_verdicts_and_can_be_filtered_again(tmp_path, vlm, caplog) -> None:

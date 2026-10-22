@@ -1,44 +1,32 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""The HDF5 episode schema shared by the writer and every reader.
+"""The HDF5 episode schema every reader shares.
 
-Layout::
+Recordings are written by Isaac Lab's ``RecorderManager``, through Arena's policy
+runner or Isaac Lab's ``record_demos.py``. Layout::
 
     /                                  attrs: format_version
-    /data                              attrs: env_args, total, ...
-      demo_0                           attrs: success, num_samples, recording_version, workflow, ...
+    /data                              attrs: env_args, total
+      demo_0                           attrs: success, num_samples
         actions            (T, A)      or obs/actions on compatible files
         obs/joint_pos      (T, D)
         obs/<camera>       (T, H, W, 3) uint8
         diagnostics/<name> (T,) or (T, K) float32
-        segments           (S,)
         initial_state/<family>/<asset>/<field>   (1, ...)
 
-Sample ``t`` is one simulation step: the action applied on that step, and the
-joints, camera frames and diagnostics read after it. ``num_samples`` is the
-number of samples, which is ``T``.
+Sample ``t`` is one simulation step: the action applied on that step, beside the
+joints, camera frames and diagnostics it was chosen from. ``num_samples`` is the
+number of samples, which is ``T``. Isaac Lab writes an episode before resetting
+it, so no sample belongs to the next episode.
 
-**The step that ends an episode through a termination term is not recorded.**
-IsaacLab's ``ManagerBasedRLEnv.step`` resets a terminated environment before it
-returns, so the joints and frames that step leaves behind already belong to the
-next, re-randomized episode. A demo that ends this way -- every success whose
-predicate is a termination term, such as the liver scan's -- therefore holds
-one sample fewer than the steps the attempt took, and its last stored action is
-the one *before* the action that triggered the termination. Replaying such a
-demo applies every stored action and stops one action short of the state the
-simulator graded; the replay itself still completes. Nothing after such a
-reset is recorded either. The workflow may consume the retained termination
-signal, including across remote-policy WAITING ticks. If it is still running
-and requests another physics step, the attempt ends as ``aborted``, even when
-``success`` fired. Aborted attempts are retained only with
-``--record-failures``; empty attempts are always discarded. An explicit
-operator scene reset restarts the recording.
-
-Demos recorded under this rule carry ``recording_version`` (see
-:data:`RECORDING_VERSION`). A demo without it was recorded before the rule: if
-its episode ended through a termination, its last sample shows the next
-episode (the arm back at its reset pose), so re-record it before grading its
-final frames.
+Recordings made by the earlier ``run.sh`` runtime remain readable. Their ``/data``
+carries ``workflow`` and ``mode`` instead of ``env_args``, a sample holds what the
+step left behind rather than what it started from, and they may carry
+``segments`` and ``recording_version``. Under that runtime the step that ended an
+episode through a termination term was not recorded, because IsaacLab resets a
+terminated environment before ``step`` returns; a demo without
+``recording_version`` was recorded before that rule, so if its episode ended
+through a termination, its last sample shows the next episode.
 
 ``segments`` is a structured array of
 ``(node, task_id, start, end)`` recording which workflow node was active for each
@@ -145,6 +133,11 @@ def action_path(demo: h5py.Group) -> str:
         if candidate in demo:
             return candidate
     raise EpisodeError(f"{demo.name}: expected 'actions' or 'obs/actions'")
+
+
+def from_workflow_runtime(handle: h5py.File) -> bool:
+    """Whether the earlier ``run.sh`` runtime wrote ``handle``, rather than Isaac Lab's recorder."""
+    return "workflow" in handle[DATA_GROUP].attrs
 
 
 def recording_version(demo: h5py.Group) -> int:

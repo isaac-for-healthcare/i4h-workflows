@@ -38,7 +38,15 @@ from typing import NamedTuple
 import h5py
 import numpy as np
 
-from i4h_common.episode import DATA_GROUP, RECORDING_VERSION, camera_keys, demo_names, read_segments, recording_version
+from i4h_common.episode import (
+    DATA_GROUP,
+    RECORDING_VERSION,
+    camera_keys,
+    demo_names,
+    from_workflow_runtime,
+    read_segments,
+    recording_version,
+)
 
 logger = logging.getLogger("i4h_tools.annotator")
 
@@ -215,9 +223,11 @@ def annotate(
     unversioned: list[str] = []
     with h5py.File(str(dataset), "a" if write else "r") as handle:
         data = handle[DATA_GROUP]
+        # Only the earlier run.sh runtime could record a frame of the next episode.
+        runtime_recording = from_workflow_runtime(handle)
         for name in demo_names(handle):
             demo = data[name]
-            if recording_version(demo) < RECORDING_VERSION:
+            if runtime_recording and recording_version(demo) < RECORDING_VERSION:
                 unversioned.append(name)
             available = camera_keys(demo)
             if not available:
