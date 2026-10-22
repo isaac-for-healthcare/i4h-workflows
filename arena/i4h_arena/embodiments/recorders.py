@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Recorder terms the i4h embodiments hand to Isaac Lab's RecorderManager.
 
-Workflow runs record through ``run.sh --record`` and clear these terms, so they
-only matter to Isaac Lab and Arena tools that build the environment themselves,
-such as ``record_demos.py``.
+Arena's policy runner records with them into a requested dataset, and Isaac Lab's
+``record_demos.py`` records demonstrations with them.
 """
 
 from __future__ import annotations

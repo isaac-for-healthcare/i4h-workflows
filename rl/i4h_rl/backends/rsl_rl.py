@@ -105,9 +105,9 @@ def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
     env["PYTHONPATH"] = os.pathsep.join([*(str(path) for path in roots), *([existing] if existing else [])])
     env["I4H_WORKFLOWS"] = str(workflows_root)
     env["I4H_RL_TRAINER_CONFIG"] = str(profile.trainer_config)
-    # Match the normal Workflow launcher. RSL-RL starts Kit through Isaac Lab's
-    # trainer entry point instead of run.sh, so it must carry the noninteractive
-    # EULA acceptance itself or stdin-less agent/CI launches stop at a prompt.
+    # RSL-RL starts Kit through Isaac Lab's trainer entry point, so it must carry
+    # the noninteractive EULA acceptance itself or stdin-less agent/CI launches
+    # stop at a prompt.
     if not env.get("OMNI_KIT_ACCEPT_EULA"):
         env["OMNI_KIT_ACCEPT_EULA"] = "YES"
     apply_arm_openmp_env(env)

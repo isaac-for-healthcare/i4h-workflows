@@ -70,5 +70,3 @@ action_split:
 - - carm
   - 3
   - 4
-teleop_devices:
-- catheter_keyboard

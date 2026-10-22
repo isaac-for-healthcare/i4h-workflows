@@ -87,9 +87,3 @@ class SoArmScissorsScene(Scene):
                 ),
             }
         )
-
-    def configure_args(self, args: argparse.Namespace) -> None:
-        super().configure_args(args)
-        # The SO-ARM has no IK; nothing in this scene can accept a Cartesian
-        # target, which the scene manifest declares as joint_position so
-        # workflow-lint rejects tasks/ik nodes before Isaac boots.

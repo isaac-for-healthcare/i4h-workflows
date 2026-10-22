@@ -158,5 +158,3 @@ action_split:
 - - hands
   - 14
   - 38
-teleop_devices:
-- xr

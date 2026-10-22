@@ -10,14 +10,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-#: Wiring set by ``run.sh``, not behaviour. See ``i4h_common.run_overrides``,
-#: which this mirrors: ``rl`` depends on PyYAML alone and cannot import the
-#: light package, and a prefix scan is small enough to state twice.
+#: Wiring set by setup, docker and the launchers, not behaviour, so not recorded
+#: as an override.
 LAUNCHER_VARIABLES = frozenset(
     {
-        "I4H_RECORD_PATH",
-        "I4H_RUN_DIR",
-        "I4H_RUN_METADATA",
         "I4H_SETUP_PROJECTS",
         "I4H_THIRD_PARTY_TARGET",
         "I4H_VENV_ROOT",
