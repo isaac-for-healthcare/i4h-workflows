@@ -11,17 +11,19 @@ implementation.
 from __future__ import annotations
 
 import argparse
+import functools
 import importlib
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from i4h_arena.adapters.actuation import ArenaActuation, RobotSlice
 from i4h_arena.adapters.scene_view import ArenaSceneView
-from i4h_common.manifest import SceneSpec
+from i4h_common.manifest import SceneSpec, load_scene_manifest
 
 
 @dataclass(frozen=True, slots=True)
@@ -291,11 +293,10 @@ class Scene(ABC):
         return self.spec.description or self.name
 
 
+@functools.cache
 def scene_specs() -> dict[str, SceneSpec]:
-    """Every scene declared in the manifest. No imports."""
-    from i4h_engine.registry import default_registry
-
-    return dict(default_registry().scenes)
+    """Every scene declared in ``scenes/manifest``. No imports."""
+    return {spec.name: spec for spec in load_scene_manifest(Path(__file__).parent / "manifest")}
 
 
 def arena_builder_cfg(args: argparse.Namespace) -> Any:

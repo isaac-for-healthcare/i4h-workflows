@@ -197,8 +197,6 @@ def _sim_env(workflows_root: Path, model_env: dict[str, str], *, gpu: str) -> di
         workflows_root / "rl",
         workflows_root / "arena",
         workflows_root / "common",
-        workflows_root / "engine",
-        workflows_root / "workflows",
     )
     env = model_env.copy()
     env["PYTHONPATH"] = os.pathsep.join(str(path) for path in sim_roots)

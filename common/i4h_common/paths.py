@@ -17,7 +17,7 @@ from pathlib import Path
 ENV_VAR = "I4H_WORKFLOWS"
 
 #: Files that together identify the workflow root unambiguously.
-_MARKERS = ("DESIGN.md", "engine", "common")
+_MARKERS = ("DESIGN.md", "arena", "common")
 
 
 def _looks_like_root(path: Path) -> bool:

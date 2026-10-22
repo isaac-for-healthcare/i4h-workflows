@@ -97,8 +97,6 @@ def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
         workflows_root / "rl",
         workflows_root / "arena",
         workflows_root / "common",
-        workflows_root / "engine",
-        workflows_root / "workflows",
     )
     env = os.environ.copy()
     env.pop("VIRTUAL_ENV", None)
