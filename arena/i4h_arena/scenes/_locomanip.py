@@ -39,6 +39,16 @@ class LocomanipScene(Scene):
     pick_up_pose: Placement = ((-1.15, -1.6, -0.08), (0.0, 0.0, 0.707, 0.707))
     robot_pose: Placement = ((-0.5, -1.62, 0.0), (0.0, 0.0, 1.0, 0.0))
 
+    @classmethod
+    def add_cli_args(cls, parser: Any) -> None:
+        parser.add_argument(
+            "--embodiment",
+            choices=(G1_POLICY_EMBODIMENT, G1_TELEOP_EMBODIMENT),
+            default=G1_POLICY_EMBODIMENT,
+            help="G1 whole-body controller: joint targets for policies and replay (default), "
+            "or Pink IK wrist poses for keyboard_23d teleoperation.",
+        )
+
     def register_assets(self) -> None:
         # Side-effect imports: @register_asset populates the AssetRegistry.
         import i4h_arena.assets._locomanip  # noqa: F401,PLC0415
@@ -57,7 +67,7 @@ class LocomanipScene(Scene):
         background = registry.get_asset_by_name("pre_op")()
         pick_up_object = registry.get_asset_by_name("surgical_tray")()
         destination_cart = registry.get_asset_by_name("cart")()
-        embodiment_name = G1_TELEOP_EMBODIMENT if getattr(self.args, "mode", None) == "teleop" else self.embodiment_name
+        embodiment_name = getattr(self.args, "embodiment", None) or self.embodiment_name
         embodiment = registry.get_asset_by_name(embodiment_name)(
             enable_cameras=bool(getattr(self.args, "enable_cameras", True))
         )
@@ -83,6 +93,16 @@ class LocomanipScene(Scene):
     def envcfg(self, pick_up_object: Any, destination_cart: Any, background: Any) -> Any:
         """The IsaacLab env cfg for this scene. Subclasses name their own."""
         raise NotImplementedError(f"{type(self).__name__} must supply an env cfg")
+
+    def configure_env_cfg(self, env_cfg: Any) -> None:
+        if getattr(self.args, "embodiment", None) != G1_TELEOP_EMBODIMENT:
+            return
+        from isaaclab.devices.device_base import DevicesCfg  # noqa: PLC0415
+
+        from i4h_arena.devices.g1_keyboard import G1Keyboard23DCfg  # noqa: PLC0415
+
+        # Isaac Lab's record_demos.py --teleop_device keyboard_23d finds the device here.
+        env_cfg.teleop_devices = DevicesCfg(devices={"keyboard_23d": G1Keyboard23DCfg(sim_device=env_cfg.sim.device)})
 
     def episode_length_s(self, minimum: float = 10.0) -> float:
         steps = self.args.episode_steps or self.spec.max_steps

@@ -405,43 +405,6 @@ class CatheterKeyboardDevice(InputDevice):
         return True
 
 
-class G1Keyboard23DDevice(InputDevice):
-    """Keyboard controller for the G1 whole-body 23-value command space."""
-
-    def __init__(self, *, sensitivity: float = 1.0, base_height: float = 0.75) -> None:
-        self.sensitivity = sensitivity
-        self.base_height = base_height
-        self._impl: Any = None
-
-    def open(self, ctx: TickContext) -> None:
-        if ctx.act.dof != 23:
-            raise RuntimeError(
-                f"keyboard_23d requires the G1 23D WBC action space, but this scene exposes {ctx.act.dof} values"
-            )
-        from i4h_tasks.teleop.keyboard_23d import (  # noqa: PLC0415
-            KeyboardTo23DAdapter,
-            KeyboardTo23DConfig,
-        )
-
-        self._impl = KeyboardTo23DAdapter(
-            KeyboardTo23DConfig(
-                pos_sensitivity=0.01 * self.sensitivity,
-                rot_sensitivity=0.05 * self.sensitivity,
-                default_base_height=self.base_height,
-            )
-        )
-
-    def read(self, ctx: TickContext) -> np.ndarray | None:
-        if self._impl is None:
-            return None
-        return np.tile(self._impl.advance(), (ctx.num_envs, 1))
-
-    def close(self) -> None:
-        if self._impl is not None:
-            self._impl.close()
-            self._impl = None
-
-
 class SoArmLeaderDevice(InputDevice):
     """SO-ARM 101 leader arm over serial: the follower mirrors the leader.
 
@@ -511,7 +474,6 @@ def make_device(name: str, **kwargs: Any) -> InputDevice:
     builders: dict[str, Callable[..., InputDevice]] = {
         "catheter_keyboard": CatheterKeyboardDevice,
         "keyboard": KeyboardDevice,
-        "keyboard_23d": G1Keyboard23DDevice,
         "so101_leader": SoArmLeaderDevice,
         "vr": lambda **kw: BusDevice(kw.pop("key", "i4h/teleop/robot/command")),
         "bus": lambda **kw: BusDevice(kw.pop("key", "i4h/teleop/robot/command")),

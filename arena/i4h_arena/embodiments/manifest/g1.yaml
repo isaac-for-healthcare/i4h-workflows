@@ -143,5 +143,3 @@ state_names:
 - right_hand_middle_1_joint.pos
 - right_hand_thumb_1_joint.pos
 - right_hand_thumb_2_joint.pos
-teleop_devices:
-- keyboard_23d

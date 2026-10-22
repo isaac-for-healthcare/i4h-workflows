@@ -1,17 +1,23 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+"""Keyboard teleoperation of the G1 whole-body (Pink) embodiment as an Isaac Lab device.
 
-"""Keyboard to 23D G1 WBC action adapter."""
+The env declares it under ``teleop_devices`` as ``keyboard_23d``, so Isaac Lab's
+``record_demos.py --teleop_device keyboard_23d`` drives the 23-value command: hand
+closures, wrist poses, walking velocity, pelvis height and torso orientation.
+"""
 
 import math
 import weakref
 from collections.abc import Callable
-from dataclasses import dataclass
 from enum import Enum
 
 import carb
 import numpy as np
 import omni
+import torch
+from isaaclab.devices.device_base import DeviceBase, DeviceCfg
+from isaaclab.utils import configclass
 
 
 class ControlMode(Enum):
@@ -25,9 +31,9 @@ class ControlMode(Enum):
     HEIGHT = "height"
 
 
-@dataclass
-class KeyboardTo23DConfig:
-    """Configuration for keyboard to 23D adapter."""
+@configclass
+class G1Keyboard23DCfg(DeviceCfg):
+    """Keyboard control of Arena's G1 whole-body 23-value command (hands, walking, height, torso)."""
 
     pos_sensitivity: float = 0.01
     rot_sensitivity: float = 0.05
@@ -46,6 +52,7 @@ class KeyboardTo23DConfig:
     hand_pos_y_max: float = 0.5
     hand_pos_z_min: float = -0.3  # relative to pelvis frame
     hand_pos_z_max: float = 0.8
+    class_type: type[DeviceBase] | str = "{DIR}.g1_keyboard:G1Keyboard23D"
 
     def __post_init__(self):
         if self.default_left_hand_pos is None:
@@ -54,10 +61,11 @@ class KeyboardTo23DConfig:
             self.default_right_hand_pos = [0.15, -0.15, 0.2]
 
 
-class KeyboardTo23DAdapter:
-    """Adapter that converts keyboard input to 23D G1 WBC actions."""
+class G1Keyboard23D(DeviceBase):
+    """Keyboard input as the 23 values Arena's G1 Pink whole-body embodiment takes."""
 
-    def __init__(self, cfg: KeyboardTo23DConfig):
+    def __init__(self, cfg: G1Keyboard23DCfg, retargeters: list | None = None):
+        super().__init__(retargeters)
         self.cfg = cfg
         self.mode = ControlMode.BOTH_HANDS
         self.paused = False
@@ -110,7 +118,10 @@ class KeyboardTo23DAdapter:
     def add_callback(self, key: str, func: Callable):
         self._additional_callbacks[key] = func
 
-    def advance(self) -> np.ndarray:
+    def advance(self) -> torch.Tensor:
+        return torch.from_numpy(self._command()).to(self.cfg.sim_device)
+
+    def _command(self) -> np.ndarray:
         action = np.zeros(23, dtype=np.float32)
         action[0] = self._state["left_hand"]
         action[1] = self._state["right_hand"]

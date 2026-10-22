@@ -45,6 +45,11 @@ def record_cart_reset_position(env: ManagerBasedRLEnv, env_ids: torch.Tensor | N
 class G1CartEnvCfg(LocomanipTask):
     """Rheo cart-push task in the pre-operative scene."""
 
+    instruction = (
+        "Go to the left side of the cart, turn around to face the cart, grasp the cart handles with both hands, "
+        "and push the cart forward to the destination."
+    )
+
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(
             lookat_object=self.pick_up_object,

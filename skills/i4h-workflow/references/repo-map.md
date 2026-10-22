@@ -34,7 +34,7 @@ The public authoring surface is `engine/i4h_engine/interface.py` and `engine/i4h
 ## Existing pattern families
 
 - SO-ARM scissors: `scissor_pick_and_place` plus `soarm_scissors`; policy, N1.7 alternative, rule-based, teleop, replay, and idle.
-- G1 locomanipulation: `locomanip_tray_pick_and_place` and `locomanip_push_cart`; N1.6 policy with a 23-wide teleop mode override.
+- G1 locomanipulation: IsaacLab-Arena environments `G1Cart` and `G1Tray` (`arena/i4h_arena/environments.py`); GR00T N1.6 on its own server with Arena's client, `record_demos.py` keyboard teleop with `--embodiment g1_locomanip_wbc_pink`, and `replay_demos.py`.
 - G1 trocar: `assemble_trocar`; dex-hand scene, N1.5 policy Task, and separate RLinf PPO post-training profile.
 - Ultrasound reach: `ultrasound_probe_reach`; Franka probe Scene, RSL-RL PPO profile, exported TorchScript Task, policy, and idle modes.
 - Ultrasound: `ultrasound_liver_scan`; Panda scene with openpi policy, rule-based, teleop, replay, and idle.

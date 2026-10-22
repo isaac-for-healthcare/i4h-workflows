@@ -33,6 +33,10 @@ class LocomanipTask(TaskBase):
     #: settings by :meth:`i4h_arena.scenes.base.Scene.arena_environment`.
     rtx_settings = merge_rtx_settings(QUALITY, {"antialiasing_mode": "DLAA"})
 
+    #: The instruction the task's GR00T policy was trained on. Arena's policy runner hands the
+    #: task description to the policy, so it must be the trained prompt word for word.
+    instruction: str = ""
+
     def __init__(
         self, pick_up_object: Asset, destination_cart: Asset, background_scene: Asset, episode_length_s: float
     ) -> None:
@@ -40,7 +44,9 @@ class LocomanipTask(TaskBase):
         self.pick_up_object = pick_up_object
         self.destination_cart = destination_cart
         self.background_scene = background_scene
-        self.task_description = f"Pick up the {pick_up_object.name}, and place it into the {destination_cart.name}"
+        self.task_description = (
+            self.instruction or f"Pick up the {pick_up_object.name}, and place it into the {destination_cart.name}"
+        )
 
     def get_scene_cfg(self) -> None:
         return None

@@ -7,8 +7,8 @@ Workflows for robotic manipulation, transport, and procedural support in hospita
 | Workflow | Demonstration | Supported modes ([guide](../../i4h_workflow_modes/README.md)) |
 | --- | --- | --- |
 | [`assemble_trocar`](assemble_trocar.py) | Lift, align, insert, place, and release a trocar with a Unitree G1. | `policy`, `replay`, `idle` |
-| [`locomanip_push_cart`](locomanip_push_cart.py) | Walk to a cart, grip it, and push it forward with a Unitree G1. | `policy`, `teleop`, `replay`, `idle` |
-| [`locomanip_tray_pick_and_place`](locomanip_tray_pick_and_place.py) | Move a surgical tray from a shelf to a cart with a Unitree G1. | `policy`, `teleop`, `replay`, `idle` |
+| `locomanip_push_cart` | Walk to a cart, grip it, and push it forward with a Unitree G1. | IsaacLab-Arena environment `G1Cart` (`g1_cart`): GR00T N1.6 policy, keyboard teleop, replay ([commands](#g1-loco-manipulation)) |
+| `locomanip_tray_pick_and_place` | Move a surgical tray from a shelf to a cart with a Unitree G1. | IsaacLab-Arena environment `G1Tray` (`g1_tray`): GR00T N1.6 policy, keyboard teleop, replay ([commands](#g1-loco-manipulation)) |
 | [`scissor_pick_and_place`](scissor_pick_and_place.py) | Pick up surgical scissors, place them in a tray, and return an SO-ARM 101 home. | `policy`, `policy_n17`, `rule-based`, `teleop`, `replay`, `idle` |
 | [`spread_tablecloth_g1`](spread_tablecloth_g1.py) | Spread a deformable tablecloth with Unitree G1 and Inspire hands. | `teleop` (XR), `replay`, `idle` |
 | [`spread_tablecloth_h2`](spread_tablecloth_h2.py) | Spread a deformable tablecloth with Unitree H2 and Sharpa Wave hands. | `teleop` (XR), `replay`, `idle` |
@@ -21,11 +21,11 @@ See [tablecloth XR setup and recording](../../../docs/workflows/tablecloth.md).
 
 Open a preview to view the animated demonstration.
 
-| [`assemble_trocar`](assemble_trocar.py) | [`locomanip_push_cart`](locomanip_push_cart.py) |
+| [`assemble_trocar`](assemble_trocar.py) | `locomanip_push_cart` |
 | :---: | :---: |
 | [![Unitree G1 assembling a trocar](../../../docs/workflows/images/assemble_trocar.webp)](../../../docs/workflows/images/assemble_trocar.gif) | [![Unitree G1 pushing a cart](../../../docs/workflows/images/locomanip_push_cart.webp)](../../../docs/workflows/images/locomanip_push_cart.gif) |
 
-| [`locomanip_tray_pick_and_place`](locomanip_tray_pick_and_place.py) | [`scissor_pick_and_place`](scissor_pick_and_place.py) |
+| `locomanip_tray_pick_and_place` | [`scissor_pick_and_place`](scissor_pick_and_place.py) |
 | :---: | :---: |
 | [![Unitree G1 moving a surgical tray](../../../docs/workflows/images/locomanip_tray_pick_and_place.webp)](../../../docs/workflows/images/locomanip_tray_pick_and_place.gif) | [![SO-ARM picking and placing surgical scissors](../../../docs/workflows/images/scissor_pick_and_place.webp)](../../../docs/workflows/images/scissor_pick_and_place.gif) |
 
@@ -44,10 +44,6 @@ Paste any prompt into Claude Code, Codex, or the repository's [Local Agent](../.
 ```text
 Evaluate trocar assembly for 1 episode.
 
-Evaluate locomanip push cart for 1 episode.
-
-Evaluate locomanip tray pick and place for 1 episode.
-
 Evaluate scissor pick and place for 1 episode.
 ```
 
@@ -59,18 +55,52 @@ The agent runs the selected workflow, verifies the episode result, and inspects 
 # Assemble a trocar with the GR00T N1.5 policy.
 ./run.sh assemble_trocar --policy
 
-# Push a cart with the GR00T N1.6 policy.
-./run.sh locomanip_push_cart --policy
-
-# Move a tray with the GR00T N1.6 policy.
-./run.sh locomanip_tray_pick_and_place --policy
-
 # Pick and place scissors with the rule-based controller.
 ./run.sh scissor_pick_and_place --rule-based
 
 # Control the scissor workflow with the keyboard.
 ./run.sh scissor_pick_and_place --teleop
 ```
+
+## G1 Loco-manipulation
+
+`locomanip_push_cart` and `locomanip_tray_pick_and_place` run as IsaacLab-Arena environments (`G1Cart`, `G1Tray` in [`i4h_arena.environments`](../../../arena/i4h_arena/environments.py)). Each task's description is the instruction its GR00T N1.6 checkpoint was trained on, and Arena's runner passes it to the policy.
+
+| Workflow | Environment | Checkpoint |
+| --- | --- | --- |
+| `locomanip_push_cart` | `G1Cart`, `g1_cart` | `nvidia/GR00T-N1.6-Rheo-Sim-PushCart` @ `0e24b9b225da4a2cff53049eb8b6e57f435814ec` |
+| `locomanip_tray_pick_and_place` | `G1Tray`, `g1_tray` | `nvidia/GR00T-N1.6-Rheo-PickNPlaceTray` @ `76a205040fc8489de91487c82e51eecb82f7d250` |
+
+GR00T runs in its own environment with GR00T's server; the simulator uses Arena's GR00T client. From the repository root:
+
+```bash
+# Download the checkpoint once and start the policy server (terminal 1).
+tasks/gr00t_n16/.venv/bin/hf download nvidia/GR00T-N1.6-Rheo-Sim-PushCart \
+  --revision 0e24b9b225da4a2cff53049eb8b6e57f435814ec --local-dir data/models/GR00T-N1.6-Rheo-Sim-PushCart
+tasks/gr00t_n16/.venv/bin/python third_party/Isaac-GR00T-1.6/gr00t/eval/run_gr00t_server.py \
+  --model-path data/models/GR00T-N1.6-Rheo-Sim-PushCart --embodiment-tag NEW_EMBODIMENT --port 5555
+
+# Evaluate it for 5 episodes (terminal 2). Add --viz kit to watch.
+arena/.venv/bin/python -m isaaclab_arena.evaluation.policy_runner \
+  --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
+  --policy_config_yaml_path tasks/gr00t_n16/config/g1_locomanipulation.yaml --remote_port 5555 \
+  --num_episodes 5 --enable_cameras \
+  --external_environment_class_path i4h_arena.environments:G1Cart g1_cart
+```
+
+The tray works the same way with its checkpoint and `G1Tray g1_tray`. Each episode ends on the task's success term or after 1,800 (cart) or 1,500 (tray) steps.
+
+Teleoperate the G1 with the keyboard and record successful demonstrations with Isaac Lab's tool. The Pink IK embodiment takes the 23-value whole-body command the keyboard produces (`0` both hands, `1`/`2` one hand, `3` walking, `4` torso, `5` height; `W/S/A/D/Q/E` move, `K/J` close and open the hands, `R` resets):
+
+```bash
+arena/.venv/bin/python third_party/IsaacLab-e3f7d9f/scripts/tools/record_demos.py \
+  --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
+  --external_environment_class_path i4h_arena.environments:G1Cart --task g1_cart \
+  --embodiment g1_locomanip_wbc_pink --teleop_device keyboard_23d --enable_cameras --viz kit \
+  --dataset_file runs/g1_cart/teleop.hdf5 --num_demos 1
+```
+
+Replay a recording, from its recorded initial state, with `scripts/tools/replay_demos.py` and the same `--external_callback`, `--external_environment_class_path` and `--task`, plus `--dataset_file <recording> --validate_success_rate`. Watch the scene without a policy with `--policy_type i4h_arena.policies.hold.HoldPolicy --viz kit --num_episodes 1`.
 
 ## Assemble Trocar RL Post-training
 

@@ -21,6 +21,11 @@ from i4h_arena.tensor_utils import to_torch
 class G1TrayEnvCfg(LocomanipTask):
     """Rheo tray pick-and-place task in the pre-operative scene."""
 
+    instruction = (
+        "Grasp the box from the shelf, turn around 180 degrees, place it onto the cart surface, "
+        "take two steps backward, and return to initial posture."
+    )
+
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(
             lookat_object=self.pick_up_object,
