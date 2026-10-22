@@ -148,6 +148,27 @@ action_names:
 - R_thumb_intermediate_joint.pos
 - L_thumb_distal_joint.pos
 - R_thumb_distal_joint.pos
+# GR00T state groups over `obs/joint_pos`, which follows `joint_names`. No
+# tablecloth checkpoint exists to match, so the groups follow the body: the
+# converter requires them to tile the whole vector, which makes the legs and
+# waist groups a modality config may leave unread. The fingers stay one `hands`
+# group, as in `action_split`.
+state_split:
+- - legs
+  - 0
+  - 12
+- - waist
+  - 12
+  - 15
+- - left_arm
+  - 15
+  - 22
+- - right_arm
+  - 22
+  - 29
+- - hands
+  - 29
+  - 53
 action_split:
 - - left_wrist
   - 0
