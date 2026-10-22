@@ -8,8 +8,8 @@ import math
 from collections.abc import Callable
 from typing import Any
 
-from i4h_arena.adapters.scene_view import ArenaSceneView
 from i4h_arena.scenes.base import Scene, SensorDisplayControlSpec, SensorSliderSpec
+from i4h_arena.ui.sensor_view import SensorView
 
 
 def resolve_fluoroscopy_backend(requested: str | None, patient_twin: str | None) -> str:
@@ -24,16 +24,6 @@ class EndoluminalNavigationScene(Scene):
 
     def register_assets(self) -> None:
         import i4h_arena.assets.fluoroscopy_catheter_navigation  # noqa: F401
-
-    @property
-    def _navigation_target_world_m(self) -> tuple[float, float, float] | None:
-        """Distal end of the planned route, or ``None`` without a patient twin.
-
-        A phantom scene has no centerline and therefore no goal, which is why
-        this is optional rather than an error: the recording then carries the
-        tip's position without a distance to anything.
-        """
-        return getattr(self._embodiment, "navigation_target_world_m", None)
 
     @property
     def _wants_flat_rl_observations(self) -> bool:
@@ -118,8 +108,6 @@ class EndoluminalNavigationScene(Scene):
 
         from i4h_arena.assets.fluoroscopy_catheter_navigation import make_assets
 
-        # Kept so ``make_view`` can record the tip's distance to the same target
-        # arrival is judged against, rather than a second copy of it.
         self._embodiment = self._make_embodiment()
         return IsaacLabArenaEnvironment(
             name=self.name,
@@ -162,38 +150,12 @@ class EndoluminalNavigationScene(Scene):
     def scene_rtx_settings(self) -> dict[str, Any]:
         return {"enable_translucency": True}
 
-    def make_view(self, env: Any) -> ArenaSceneView:
+    def make_sensor_view(self, env: Any) -> SensorView:
         from i4h_arena.medical.fluoroscopy_sources import bind_fluoroscopy_sources
 
+        # The detector draws the catheter and follows the C-arm through these sources.
         bind_fluoroscopy_sources(env.unwrapped)
-        catheter = env.unwrapped.scene["catheter"]
-        carm_orbit = env.unwrapped.action_manager.get_term("carm_orbit")
-
-        from i4h_arena.medical.catheter_diagnostics import CatheterEpisodeDiagnostics
-
-        return ArenaSceneView(
-            env,
-            objects=self.spec.objects,
-            robots=self.spec.robots,
-            cameras=self.spec.cameras,
-            gripper=False,
-            joint_state_providers=self._joint_state_providers(env, catheter, carm_orbit),
-            # The four commanded joints and the projection cannot tell a clean
-            # run from one where the wire coiled, so a recording needs the rod's
-            # own shape alongside them to be judged after the fact.
-            diagnostics_provider=CatheterEpisodeDiagnostics(catheter, target_world_m=self._navigation_target_world_m),
-        )
-
-    def _joint_state_providers(self, env: Any, catheter: Any, carm_orbit: Any) -> dict[str, Any]:
-        """Recorded procedure state for this scene.
-
-        A hook rather than a literal because the arm-borne variant appends the
-        servo'd arm joints, and the order it appends them in has to stay in step
-        with what its embodiment manifest declares.
-        """
-        from i4h_arena.embodiments.catheter import CatheterCArmJointStateProvider
-
-        return {"robot": CatheterCArmJointStateProvider(catheter, carm_orbit)}
+        return super().make_sensor_view(env)
 
     def default_sensor_views(self) -> tuple[str, ...]:
         return ("fluoroscopy",)

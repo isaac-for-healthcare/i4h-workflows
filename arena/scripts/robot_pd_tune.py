@@ -1,17 +1,22 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""One-command wrapper for live robot PD diagnostics."""
+"""Robot PD diagnostics on a scene's robot, as an Isaac Lab script.
+
+Builds the scene's IsaacLab-Arena environment in this process, then steps its
+robot through the requested diagnostics::
+
+    arena/.venv/bin/python arena/scripts/robot_pd_tune.py psm_reach --modes inspect-usd,step-response
+
+Options this script does not know, such as ``--presets newton`` or ``--viz kit``,
+go to Isaac Lab's app launcher and Arena's environment builder.
+"""
 
 from __future__ import annotations
 
 import argparse
 import json
 import os
-import signal
-import socket
-import subprocess
 import sys
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -35,10 +40,10 @@ def _deep_update(dst: dict[str, Any], src: dict[str, Any]) -> dict[str, Any]:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="./run.sh robot-pd",
-        description="Run robot PD diagnostics through a live workflow session.",
+        prog="robot_pd_tune.py",
+        description="Run robot PD diagnostics on a scene's robot articulation.",
     )
-    parser.add_argument("workflow", help="Workflow whose scene contains the robot articulation.")
+    parser.add_argument("scene", help="Scene whose environment contains the robot articulation.")
     parser.add_argument(
         "--modes",
         default="all",
@@ -49,24 +54,8 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--plots", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--sample-every", type=int, default=None, help="Record every Nth sample for dynamic modes.")
     parser.add_argument("--config", type=Path, default=None, help="Optional JSON config merged into generated config.")
-    parser.add_argument("--sim-log", type=Path, default=None, help="Live simulator log path.")
-    parser.add_argument("--timeout", type=float, default=180.0, help="Python-server ready timeout in seconds.")
-    parser.add_argument(
-        "--script-timeout",
-        type=float,
-        default=1800.0,
-        help="Remote diagnostic execution timeout in seconds.",
-    )
-    parser.add_argument("--headless", action=argparse.BooleanOptionalAction, default=True)
-    parser.add_argument(
-        "--disable-cameras",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Disable rendering support only when the selected Scene declares no cameras.",
-    )
-    parser.add_argument("--keep-live", action="store_true", help="Leave the live simulator running after diagnostics.")
-    parser.add_argument("--print-json", action="store_true", help="Print the full Python-server JSON response.")
-    parser.add_argument("--dry-run", action="store_true", help="Print config and commands without launching Isaac.")
+    parser.add_argument("--print-json", action="store_true", help="Print the full diagnostics JSON.")
+    parser.add_argument("--dry-run", action="store_true", help="Print config and arguments without launching Isaac.")
     return parser
 
 
@@ -91,103 +80,6 @@ def _generated_config(args: argparse.Namespace) -> dict[str, Any]:
 
 def _log(message: str) -> None:
     print(message, flush=True)
-
-
-def _run_remote_script(
-    remote_client: Path,
-    script_path: Path,
-    *,
-    timeout_s: float,
-) -> dict[str, Any]:
-    client_timeout = max(timeout_s + 30.0, 60.0)
-    command = [
-        sys.executable,
-        str(remote_client),
-        "--raw",
-        "--timeout",
-        str(client_timeout),
-        "--execution-timeout",
-        str(timeout_s),
-        "--args-json",
-        json.dumps({"script_path": str(script_path)}),
-        "--file",
-        str(script_path),
-    ]
-    completed = subprocess.run(command, check=False, text=True, capture_output=True)
-    try:
-        outer = json.loads(completed.stdout)
-    except json.JSONDecodeError as exc:
-        detail = completed.stderr.strip() or completed.stdout.strip() or "no Python-server response"
-        return {"ok": False, "error": f"could not parse Python-server response: {exc}: {detail}"}
-    if outer.get("status") != "ok":
-        error = outer.get("evalue") or outer.get("result") or outer
-        return {"ok": False, "error": str(error)}
-    output = str(outer.get("output", "")).strip()
-    if not output:
-        return {"ok": False, "error": "PD diagnostics produced no JSON output"}
-    try:
-        result = json.loads(output)
-    except json.JSONDecodeError as exc:
-        return {"ok": False, "error": f"PD diagnostics returned invalid JSON: {exc}"}
-    return {"ok": True, "result": result}
-
-
-def _remote_client(workflows_root: Path) -> Path:
-    matches = sorted(
-        (workflows_root / "third_party").glob("IsaacSim-*/skills/isaac-sim-remote/scripts/isaacsim_send.py")
-    )
-    if len(matches) != 1:
-        raise RuntimeError(f"expected one pinned Isaac Sim remote client; found {len(matches)}")
-    return matches[0]
-
-
-def _wait_for_runner(
-    process: subprocess.Popen[str],
-    remote_client: Path,
-    workflow: str,
-    timeout_s: float,
-) -> None:
-    deadline = time.monotonic() + timeout_s
-    while time.monotonic() < deadline:
-        if process.poll() is not None:
-            raise RuntimeError(f"live simulator exited before its runner was ready (code {process.returncode})")
-        try:
-            with socket.create_connection(("127.0.0.1", 8226), timeout=1.0):
-                completed = subprocess.run(
-                    [
-                        sys.executable,
-                        str(remote_client),
-                        "--raw",
-                        "--timeout",
-                        "5",
-                        "from i4h_arena.runner import active_runner; print(active_runner().workflow.name)",
-                    ],
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                if completed.returncode == 0:
-                    response = json.loads(completed.stdout)
-                    if response.get("status") == "ok" and str(response.get("output", "")).strip() == workflow:
-                        return
-        except OSError:
-            pass
-        except (json.JSONDecodeError, subprocess.TimeoutExpired):
-            pass
-        time.sleep(1.0)
-    raise TimeoutError(f"workflow {workflow!r} did not expose an active runner within {timeout_s:.0f}s")
-
-
-def _stop_process(process: subprocess.Popen[str]) -> None:
-    if process.poll() is not None:
-        return
-    os.killpg(process.pid, signal.SIGTERM)
-    try:
-        process.wait(timeout=30)
-    except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
-        process.wait(timeout=10)
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
@@ -253,42 +145,56 @@ def _changed_recommendations(step_report: dict[str, Any]) -> list[tuple[str, lis
     return recommendations
 
 
+def _environment_argv(scene: str, passthrough: list[str]) -> list[str]:
+    """Arena's arguments: launcher options first, then the scene as an external environment."""
+    class_name = "".join(part.capitalize() for part in scene.split("_"))
+    return [*passthrough, "--external_environment_class_path", f"i4h_arena.environments:{class_name}", scene]
+
+
+def _run_diagnostics(scene: str, environment_argv: list[str], run_dir: Path, *, print_json: bool) -> None:
+    """Build the environment, run the diagnostics on it and report, all before Isaac Sim closes.
+
+    Closing Isaac Sim ends the process with exit code 0, so a failure is raised
+    inside the app context, which Arena turns into exit code 1.
+    """
+    sys.argv = [sys.argv[0], *environment_argv]
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser  # noqa: PLC0415
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext  # noqa: PLC0415
+
+    parser = get_isaaclab_arena_cli_parser()
+    app_args, _ = parser.parse_known_args()
+    with SimulationAppContext(app_args):
+        from isaaclab_arena_environments.cli import (  # noqa: PLC0415
+            get_arena_builder_from_cli,
+            get_isaaclab_arena_environments_cli_parser,
+        )
+
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import robot_pd_diagnostics  # noqa: PLC0415
+
+        parser = get_isaaclab_arena_environments_cli_parser(parser)
+        args, hydra_overrides = parser.parse_known_args()
+        env = get_arena_builder_from_cli(args, hydra_overrides=hydra_overrides).make_registered()
+        env.reset()
+        try:
+            response = {"ok": True, "result": robot_pd_diagnostics.run(env.unwrapped, scene)}
+        except Exception as exc:  # noqa: BLE001 - reported with the run directory before the exit code
+            response = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        _print_response_summary(response, run_dir)
+        if print_json:
+            print(json.dumps(response, indent=2), flush=True)
+        if not response["ok"]:
+            raise RuntimeError("robot PD diagnostics failed")
+
+
 def main(argv: list[str] | None = None) -> int:
     args, passthrough = _parser().parse_known_args(argv)
-    arena_dir = Path(__file__).resolve().parents[1]
-    workflows_root = arena_dir.parent
+    root = Path(__file__).resolve().parents[2]
     timestamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
-    run_dir = workflows_root / "runs" / args.workflow / f"{timestamp}_pd_tuning"
+    run_dir = root / "runs" / args.scene / f"{timestamp}_pd_tuning"
     config_path = run_dir / "robot_pd_tuning_config.json"
-    sim_log = args.sim_log or (run_dir / "sim.log")
-    script_path = arena_dir / "scripts" / "robot_pd_diagnostics.py"
-    remote_client = _remote_client(workflows_root)
     config = _generated_config(args)
-    run_command = [
-        str(workflows_root / "run.sh"),
-        args.workflow,
-        "--live",
-        "--run-dir",
-        str(run_dir),
-    ]
-    if args.headless:
-        run_command.append("--headless")
-    if args.disable_cameras:
-        run_command.append("--no-cameras")
-    run_command.extend(passthrough)
-    remote_command = [
-        sys.executable,
-        str(remote_client),
-        "--raw",
-        "--timeout",
-        str(max(args.script_timeout + 30.0, 60.0)),
-        "--execution-timeout",
-        str(args.script_timeout),
-        "--args-json",
-        json.dumps({"script_path": str(arena_dir / "scripts" / "robot_pd_diagnostics.py")}),
-        "--file",
-        str(script_path),
-    ]
+    environment_argv = _environment_argv(args.scene, passthrough)
 
     if args.dry_run:
         print(
@@ -297,11 +203,7 @@ def main(argv: list[str] | None = None) -> int:
                     "config_path": str(config_path),
                     "run_dir": str(run_dir),
                     "config": config,
-                    "live_command": run_command,
-                    "remote_command": remote_command,
-                    "diagnostics_script": str(script_path),
-                    "script_timeout_s": args.script_timeout,
-                    "print_json": args.print_json,
+                    "arena_args": environment_argv,
                 },
                 indent=2,
             )
@@ -309,38 +211,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     run_dir.mkdir(parents=True, exist_ok=True)
-    sim_log.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     _log(f"[robot-pd] wrote config: {config_path}")
-    environment = os.environ.copy()
-    environment["I4H_PD_RUN_DIR"] = str(run_dir)
-    with sim_log.open("w", encoding="utf-8") as log_handle:
-        process = subprocess.Popen(
-            run_command,
-            cwd=workflows_root,
-            env=environment,
-            stdout=log_handle,
-            stderr=subprocess.STDOUT,
-            text=True,
-            start_new_session=True,
-        )
-    try:
-        _log(f"[robot-pd] waiting for live workflow={args.workflow}; log={sim_log}")
-        _wait_for_runner(process, remote_client, args.workflow, args.timeout)
-        _log(f"[robot-pd] running diagnostics through the Python server for workflow={args.workflow}")
-        response = _run_remote_script(remote_client, script_path, timeout_s=args.script_timeout)
-        _print_response_summary(response, run_dir)
-        if args.print_json:
-            print(json.dumps(response, indent=2), flush=True)
-        ok = bool(response.get("ok"))
-    finally:
-        if args.keep_live:
-            _log(f"[robot-pd] live session left running; stop with: {workflows_root / 'stop.sh'} all")
-        else:
-            _log(f"[robot-pd] stopping live workflow={args.workflow}")
-            _stop_process(process)
-
-    return 0 if ok else 1
+    # robot_pd_tuning_common reads its configuration and writes its results here.
+    os.environ["I4H_PD_RUN_DIR"] = str(run_dir)
+    _run_diagnostics(args.scene, environment_argv, run_dir, print_json=args.print_json)
+    return 0
 
 
 if __name__ == "__main__":

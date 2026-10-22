@@ -19,10 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
-from i4h_arena.adapters.actuation import ArenaActuation, RobotSlice
-from i4h_arena.adapters.scene_view import ArenaSceneView
+from i4h_arena.ui.sensor_view import SensorView
 from i4h_common.manifest import SceneSpec, load_scene_manifest
 
 
@@ -138,46 +135,13 @@ class Scene(ABC):
         if self.spec.action_space == "ee_pose":
             args.action_device = "ik_abs"
 
-    # -- adapters --------------------------------------------------------
-    def home_joints(self, env: Any) -> np.ndarray | None:
-        """Home pose for this scene's robot, or ``None`` to use IsaacLab's default."""
-        return None
-
-    def robot_slices(self, env: Any) -> tuple[RobotSlice, ...]:
-        """Action-vector layout. Single-robot scenes get the whole vector."""
-        width = int(env.action_space.shape[-1])
-        return (RobotSlice("robot", 0, width, gripper_index=width - 1 if self.spec.gripper else None),)
-
-    def tcp_body(self) -> str | None:
-        """Body name to read as the tool frame; ``None`` means the last link."""
-        return None
-
-    def object_aliases(self) -> dict[str, str]:
-        return {}
-
-    def footprint_half_extents(self) -> dict[str, tuple[float, float]]:
-        """Horizontal collision footprints owned by this Scene."""
-        return {}
-
-    def command_objects(self) -> dict[str, tuple[str, str]]:
-        return {}
-
-    def robot_assets(self) -> dict[str, str]:
-        return {}
-
-    def joint_orders(self) -> dict[str, tuple[str, ...]]:
-        """Policy-facing joint order for each robot, when it differs from USD."""
-        return {}
-
-    def tcp_sensors(self) -> dict[str, str]:
-        return {}
-
-    def camera_aliases(self) -> dict[str, str]:
-        return {}
-
     def default_sensor_views(self) -> tuple[str, ...]:
         """Camera-compatible sensors shown in docked windows for visible runs."""
         return ()
+
+    def make_sensor_view(self, env: Any) -> SensorView:
+        """What the docked windows read the sensors in :meth:`default_sensor_views` through."""
+        return SensorView(env, self.default_sensor_views())
 
     def sensor_view_titles(self) -> dict[str, str]:
         """Operator-facing titles for docked sensor windows."""
@@ -218,79 +182,6 @@ class Scene(ABC):
         termination criterion they cannot otherwise see.
         """
         return {}
-
-    def relative_ee(self) -> bool:
-        return False
-
-    def make_view(self, env: Any) -> ArenaSceneView:
-        return ArenaSceneView(
-            env,
-            objects=self.spec.objects,
-            robots=self.spec.robots,
-            cameras=self.spec.cameras,
-            home_joints=self.home_joints(env),
-            tcp_body=self.tcp_body(),
-            gripper=self.spec.gripper,
-            object_aliases=self.object_aliases(),
-            footprint_half_extents=self.footprint_half_extents(),
-            command_objects=self.command_objects(),
-            robot_assets=self.robot_assets(),
-            joint_orders=self.joint_orders(),
-            tcp_sensors=self.tcp_sensors(),
-            camera_aliases=self.camera_aliases(),
-            root_relative=self.spec.action_space == "ee_pose",
-        )
-
-    def make_actuation(self, env: Any, view: ArenaSceneView | None = None) -> ArenaActuation:
-        width = int(env.action_space.shape[-1])
-        actuation = ArenaActuation(
-            num_envs=int(env.unwrapped.num_envs),
-            action_dim=width,
-            action_space=self.spec.action_space,
-            device=str(getattr(self.args, "device", "cpu")),
-            slices=self.robot_slices(env),
-            view=view,
-            relative_ee=self.relative_ee(),
-        )
-        # Seed the buffer so the very first tick commands a sane pose rather than
-        # all-zeros, which on a floating-base humanoid means collapse.
-        #
-        # Read it through the view, not `self.home_joints()`: the view falls back
-        # to the articulation's `default_joint_pos`, which IsaacLab sets from the
-        # embodiment cfg. That is where six of seven robots actually keep their
-        # home pose — relying on a descriptor override meant only `so101` was
-        # ever seeded, and the rest silently started at zero.
-        if self.spec.action_space == "joint_position" and width > 0:
-            home = (view or self.make_view(env)).home_joints()
-            if home is not None:
-                robot_slices = self.robot_slices(env)
-                if home.shape[-1] == width:
-                    actuation.seed(home)
-                elif len(robot_slices) == 1 and robot_slices[0].joint_width == home.shape[-1]:
-                    initial = np.zeros((int(env.unwrapped.num_envs), width), dtype=np.float32)
-                    robot_slice = robot_slices[0]
-                    initial[:, robot_slice.start : robot_slice.start + home.shape[-1]] = home
-                    actuation.seed(initial)
-        elif self.spec.action_space == "ee_pose" and not self.relative_ee():
-            scene_view = view or self.make_view(env)
-            initial = np.zeros((int(env.unwrapped.num_envs), width), dtype=np.float32)
-            for robot_slice in self.robot_slices(env):
-                tcp = scene_view.tcp(robot_slice.name)
-                quat_xyzw = tcp.quat[:, [1, 2, 3, 0]]
-                pose = np.concatenate([tcp.pos, quat_xyzw], axis=-1)
-                pose_width = min(7, robot_slice.width)
-                initial[:, robot_slice.start : robot_slice.start + pose_width] = pose[:, :pose_width]
-                if robot_slice.gripper_index is not None:
-                    initial[:, robot_slice.start + robot_slice.gripper_index] = 1.0
-            actuation.seed(initial)
-        return actuation
-
-    # -- episode hooks ---------------------------------------------------
-    def on_reset(self, env: Any, view: ArenaSceneView) -> None:
-        """After ``env.reset``: snapshot randomization, pre-roll to a start pose."""
-
-    def describe(self) -> str:
-        return self.spec.description or self.name
 
 
 @functools.cache
@@ -334,14 +225,9 @@ def scene_class(name: str) -> type[Scene]:
 
 
 def load_scene(name: str, args: argparse.Namespace, *, register_assets: bool = True) -> Scene:
-    """Import and construct a scene by manifest name.
-
-    This is the only place ``arena`` imports a scene class, and it happens after
-    the manifest has already been validated against the workflow.
-    """
+    """Import and construct a scene by manifest name."""
     cls = scene_class(name)
-    spec = scene_specs()[name].for_mode(getattr(args, "mode", None))
-    scene = cls(spec, args)
+    scene = cls(scene_specs()[name], args)
     if register_assets:
         scene.register_assets()
     return scene

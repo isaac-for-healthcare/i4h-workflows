@@ -243,11 +243,6 @@ def test_main_accepts_repeated_cameras_and_a_judge(tmp_path, vlm, capsys) -> Non
     assert [item["text"] for item in content if item["type"] == "text"][1:] == ["Camera room:", "Camera wrist:"]
 
 
-def test_live_grading_takes_one_camera(capsys) -> None:
-    assert cli.main(["--task", "Scan", "--camera", "room,wrist", "live", "--namespace", "x"]) == 2
-    assert "one camera" in capsys.readouterr().out
-
-
 # -- review of PR 275 ------------------------------------------------------
 
 

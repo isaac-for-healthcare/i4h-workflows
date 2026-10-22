@@ -59,15 +59,3 @@ class EndoluminalNavigationArmScene(EndoluminalNavigationScene):
         from i4h_arena.embodiments.franka_catheter import FrankaCatheterEmbodiment
 
         return FrankaCatheterEmbodiment(patient_twin_manifest=getattr(self.args, "patient_twin", None))
-
-    def _joint_state_providers(self, env: Any, catheter: Any, carm_orbit: Any) -> dict[str, Any]:
-        """Append the servo'd arm joints after the catheter and C-arm columns.
-
-        The order is the contract with ``franka_catheter.yaml``: catheter and
-        C-arm first so recordings stay column-compatible with the armless scene,
-        arm appended.
-        """
-        from i4h_arena.embodiments.franka_catheter import ArmCatheterCArmJointStateProvider
-
-        arm = env.unwrapped.action_manager.get_term("catheter")
-        return {"robot": ArmCatheterCArmJointStateProvider(catheter, carm_orbit, arm)}

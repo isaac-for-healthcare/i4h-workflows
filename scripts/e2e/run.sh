@@ -89,7 +89,7 @@ case "$ENV_ID" in
 esac
 STACK="${TASK_ID%%/*}"
 
-LIGHT=(env -u VIRTUAL_ENV uv run --project workflows --no-sync)
+LIGHT=(env -u VIRTUAL_ENV uv run --project common --no-sync)
 META_TEXT=$("${LIGHT[@]}" python - "$TASK_ID" "$SCENE" <<'PY'
 import sys
 from pathlib import Path

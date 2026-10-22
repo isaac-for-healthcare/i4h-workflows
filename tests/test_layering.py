@@ -11,19 +11,16 @@ different things in this tree:
 
 ``never``
     Illegal at any scope. These are *layering* violations: ``common`` reaching
-    up to ``engine``, ``tasks`` reaching sideways to ``arena``. Hiding one
-    inside a function does not make it legal — it makes it harder to find. This
-    is the class that slipped through when ``common/training.py`` lazily
-    imported ``i4h_engine.registry``.
+    up to ``arena``, a policy stack reaching sideways to ``arena``. Hiding one
+    inside a function does not make it legal — it makes it harder to find.
 
 ``lazy_only``
     Illegal at module scope, permitted inside a function. These are *heavy or
     optional* dependencies whose import has global side effects or costs
-    seconds: ``isaacsim`` must not load until a workflow has been resolved and
-    linted, and ``i4h_tasks.teleop`` may reach for an IsaacLab keyboard driver at
-    device-open time while still importing cleanly without Kit.
+    seconds, such as the simulator and model stacks the RL launcher reaches only
+    after its preflight.
 
-Run with:  uv run --project workflows pytest tests/
+Run with:  uv run --project common --extra dev pytest tests/
 """
 
 from __future__ import annotations
@@ -73,81 +70,14 @@ class LayerRule:
 RULES = [
     LayerRule(
         "common/i4h_common",
-        never=frozenset(
-            {
-                "i4h_engine",
-                "i4h_tasks",
-                "i4h_tools",
-                "i4h_arena",
-                "i4h_workflows",
-                "i4h_workflow_modes",
-                "isaacsim",
-                "isaaclab",
-                "torch",
-            }
-        ),
+        never=frozenset({"i4h_tasks", "i4h_tools", "i4h_arena", "i4h_rl", "isaacsim", "isaaclab", "torch"}),
     ),
     LayerRule(
-        "engine/i4h_engine",
-        never=frozenset(
-            {
-                "i4h_tasks",
-                "i4h_tools",
-                "i4h_arena",
-                "i4h_workflows",
-                "i4h_workflow_modes",
-                "isaacsim",
-                "isaaclab",
-                "torch",
-            }
-        ),
-    ),
-    LayerRule(
-        "tasks/basic/i4h_tasks",
-        never=frozenset(
-            {"i4h_arena", "i4h_tools", "i4h_workflows", "i4h_workflow_modes", "isaacsim", "isaaclab", "torch"}
-        ),
-    ),
-    LayerRule(
-        # Exported RSL-RL Tasks run inside the simulator process and may load
-        # its compatible Torch runtime lazily, while remaining Isaac-free.
-        "tasks/rsl_rl/i4h_tasks",
-        never=frozenset({"i4h_arena", "i4h_tools", "i4h_workflows", "i4h_workflow_modes", "isaacsim", "isaaclab"}),
-        lazy_only=frozenset({"torch"}),
-    ),
-    LayerRule(
-        "tasks/ik/i4h_tasks",
-        never=frozenset({"i4h_arena", "i4h_tools", "i4h_workflows", "i4h_workflow_modes", "isaacsim", "isaaclab"}),
-    ),
-    LayerRule(
-        # teleop runs in-process in the arena venv, so an IsaacLab device driver
-        # is reachable — but only lazily, so the package still imports without Kit.
-        "tasks/teleop/i4h_tasks",
-        never=frozenset({"i4h_arena", "i4h_tools", "i4h_workflows", "i4h_workflow_modes", "isaacsim"}),
-        lazy_only=frozenset({"isaaclab"}),
-    ),
-    LayerRule(
-        "workflows/i4h_workflows",
-        never=frozenset({"i4h_arena", "i4h_tools", "isaacsim", "isaaclab", "torch"}),
-    ),
-    LayerRule(
-        "workflows/i4h_workflow_modes",
-        never=frozenset({"i4h_arena", "i4h_tools", "i4h_workflows", "isaacsim", "isaaclab", "torch"}),
-    ),
-    LayerRule(
-        # THE invariant of the two-halves design: the arena process must never
-        # import a policy stack. Their torch pins conflict with Isaac's, which is
-        # why each checkpoint is served from its own environment. Only GR00T's
-        # client protocol (gr00t.policy.server_client), which Arena's own GR00T
-        # client uses and the arena environment installs, crosses over; the
+        # THE invariant: the arena process must never import a policy stack.
+        # Their torch pins conflict with Isaac's, which is why each checkpoint is
+        # served from its own environment. Only the policy clients Arena itself
+        # uses (GR00T's gr00t.policy.server_client, openpi-client) cross over; the
         # model, its configs and its training code stay out.
-        #
-        # Isaac itself is *not* listed here. Scene, asset and embodiment modules
-        # import isaaclab at module scope and must — IsaacLab cfgs are
-        # class-level decorators. What matters is narrower and is checked by
-        # test_arena_entry_point_is_importable_without_isaac below: the modules
-        # reachable from `i4h_arena.cli` at import time must stay Isaac-free, so a
-        # bad workflow fails in milliseconds instead of after Kit boots.
         "arena/i4h_arena",
         never=frozenset(
             {
@@ -167,25 +97,22 @@ RULES = [
     *[
         LayerRule(
             f"tools/{name}/i4h_tools",
-            never=frozenset({"i4h_engine", "i4h_arena", "i4h_workflows", "i4h_workflow_modes", "isaacsim", "isaaclab"}),
+            never=frozenset({"i4h_arena", "i4h_rl", "isaacsim", "isaaclab"}),
         )
         for name in ("mimic", "dataset", "cosmos", "annotator")
     ],
     *[
         LayerRule(
-            # A policy backend is a leaf: nothing in workflow may depend on it,
-            # and it needs nothing but `common` — it only ever talks zenoh.
-            # `isaaclab_arena` is listed because reaching into the Arena source
-            # tree for joint-remap helpers forces a multi-GB checkout on a
-            # process that never touches the simulator.
+            # A policy server is a leaf: nothing may depend on it, and it needs
+            # nothing of ours but `common`. `isaaclab_arena` is listed because
+            # reaching into the Arena source tree for joint-remap helpers forces a
+            # multi-GB checkout on a process that never touches the simulator.
             f"tasks/{name}/i4h_tasks",
             never=frozenset(
                 {
                     "i4h_arena",
-                    "i4h_workflows",
-                    "i4h_workflow_modes",
                     "i4h_tools",
-                    "i4h_engine",
+                    "i4h_rl",
                     "isaacsim",
                     "isaaclab",
                     "isaaclab_arena",
@@ -199,9 +126,7 @@ RULES = [
     ],
     LayerRule(
         "tasks/gr00t_n16/i4h_tasks",
-        never=frozenset(
-            {"i4h_arena", "i4h_workflows", "i4h_workflow_modes", "i4h_tools", "i4h_engine", "isaacsim", "isaaclab"}
-        ),
+        never=frozenset({"i4h_arena", "i4h_tools", "i4h_rl", "isaacsim", "isaaclab"}),
     ),
     LayerRule(
         # Online RL is the deliberate integration boundary: the lightweight
@@ -319,9 +244,8 @@ def test_no_forbidden_import_at_any_scope(rule: LayerRule):
 def test_heavy_dependencies_are_imported_lazily(rule: LayerRule):
     """`lazy_only` imports must not be at module scope.
 
-    Importing ``isaacsim`` at module scope would boot Kit before a workflow has been
-    resolved and linted, which is the one thing this architecture is arranged to
-    prevent.
+    Importing ``isaacsim`` at module scope would boot Kit before the RL launcher has
+    resolved and checked its profile, which its preflight is arranged to prevent.
     """
     problems: list[str] = []
     for path in _python_files(ROOT / rule.source):
@@ -344,7 +268,7 @@ def test_checker_separates_module_and_function_scope(tmp_path):
         "\n"
         "def f():\n"
         "    import json\n"
-        "    from i4h_engine.registry import default_registry\n"
+        "    from i4h_arena.scenes.base import scene_specs\n"
         "\n"
         "class C:\n"
         "    import csv\n"
@@ -354,65 +278,22 @@ def test_checker_separates_module_and_function_scope(tmp_path):
     module_level, function_level = collect_imports(source)
     assert {"os", "pathlib"} <= module_level
     assert "csv" in module_level  # class body executes at import time
-    assert {"json", "i4h_engine.registry", "sqlite3"} <= function_level
+    assert {"json", "i4h_arena.scenes.base", "sqlite3"} <= function_level
     assert "json" not in module_level
 
 
 def test_checker_catches_a_lazy_layering_violation(tmp_path):
-    """The exact regression that slipped through the old module-only check."""
+    """A lazy import hidden in a function is still a layering violation."""
     source = tmp_path / "training.py"
     source.write_text(
         "def task_spec(task_id):\n"
-        "    from i4h_engine.registry import default_registry\n"
-        "    return default_registry().task(task_id)\n"
+        "    from i4h_arena.scenes.base import scene_specs\n"
+        "    return scene_specs()[task_id]\n"
     )
     _, function_level = collect_imports(source)
-    assert _violations(function_level, frozenset({"i4h_engine"})) == [
-        "i4h_engine.registry"
+    assert _violations(function_level, frozenset({"i4h_arena"})) == [
+        "i4h_arena.scenes.base"
     ], "a lazy import that crosses a layer must be reported, collapsed to the module"
-
-
-def test_workflow_contract_is_separate_from_task_graph_implementation():
-    """Authors export one Workflow value; graph/runtime internals stay elsewhere."""
-    interface_path = ROOT / "engine" / "i4h_engine" / "interface.py"
-    graph_path = ROOT / "engine" / "i4h_engine" / "graph.py"
-    executor_path = ROOT / "engine" / "i4h_engine" / "executor.py"
-    authored_dir = ROOT / "workflows" / "i4h_workflows"
-
-    assert interface_path.is_file()
-    assert graph_path.is_file()
-    assert not (ROOT / "engine" / "i4h_engine" / "workflow.py").exists()
-    assert executor_path.is_file()
-    assert authored_dir.is_dir()
-    assert not (ROOT / "plans").exists()
-
-    interface_classes = {
-        node.name for node in ast.walk(ast.parse(interface_path.read_text())) if isinstance(node, ast.ClassDef)
-    }
-    graph_classes = {
-        node.name for node in ast.walk(ast.parse(graph_path.read_text())) if isinstance(node, ast.ClassDef)
-    }
-    assert "Workflow" in interface_classes
-    assert "TaskGraph" not in interface_classes
-    assert "TaskGraph" in graph_classes
-    assert "Workflow" not in graph_classes
-
-    offenders = []
-    for path in sorted(authored_dir.rglob("*.py")):
-        tree = ast.parse(path.read_text())
-        exports = [
-            node
-            for node in tree.body
-            if isinstance(node, ast.Assign)
-            and any(isinstance(target, ast.Name) and target.id == "WORKFLOW" for target in node.targets)
-            and isinstance(node.value, ast.Call)
-            and isinstance(node.value.func, ast.Name)
-            and node.value.func.id == "Workflow"
-        ]
-        if len(exports) != 1:
-            relative = path.relative_to(authored_dir)
-            offenders.append(f"{relative}: expected one WORKFLOW = Workflow(...) export, found {len(exports)}")
-    assert not offenders, "invalid authored workflow contract:\n  " + "\n  ".join(offenders)
 
 
 def test_checker_ignores_type_checking_blocks(tmp_path):
@@ -426,7 +307,7 @@ def test_checker_ignores_type_checking_blocks(tmp_path):
 
 def test_internal_imports_use_i4h_namespaces():
     """Generic top-level package names are retired; every i4h import is explicit."""
-    retired = {"common", "engine", "workflows", "arena", "tasks", "tools"}
+    retired = {"common", "arena", "tasks", "tools"}
     offenders: list[str] = []
     for path in ROOT.rglob("*.py"):
         if not ours(path):
@@ -447,80 +328,6 @@ def test_matcher_respects_submodule_boundaries():
     assert _matches("i4h_tasks.basic.motion", "i4h_tasks")
 
 
-ISAAC_ROOTS = frozenset({"isaacsim", "isaaclab", "isaaclab_arena", "omni", "pxr", "carb"})
-
-
-def _arena_module_path(module: str) -> Path | None:
-    """Resolve an ``i4h_arena.*`` dotted name to a file, if it is one of ours."""
-    if module != "i4h_arena" and not module.startswith("i4h_arena."):
-        return None
-    relative = Path(*module.split("."))
-    for candidate in (ROOT / "arena" / relative.with_suffix(".py"), ROOT / "arena" / relative / "__init__.py"):
-        if candidate.is_file():
-            return candidate
-    return None
-
-
-#: The modules that run before Isaac Sim launches. Every one of them must be
-#: importable without Kit, because `i4h_arena.cli` resolves and lints a workflow first —
-#: that is what turns a typo from a 60-second Kit boot into a millisecond error.
-#:
-#: Scene, asset and embodiment modules are deliberately absent: they are
-#: imported by `load_scene` once Kit is already up, and IsaacLab cfgs are
-#: class-level decorators that cannot be imported lazily.
-ARENA_COLD_PATH = (
-    "cli.py",
-    "app.py",
-    "runner.py",
-    "scenes/base.py",
-    "adapters/scene_view.py",
-    "adapters/actuation.py",
-    "recording/hdf5.py",
-    "io/publishers.py",
-)
-
-
-@pytest.mark.parametrize("relative", ARENA_COLD_PATH)
-def test_arena_cold_path_module_imports_without_isaac(relative: str):
-    """A pre-launch module must not import Isaac at module scope."""
-    path = ROOT / "arena" / "i4h_arena" / relative
-    assert path.is_file(), f"{relative} is listed on the cold path but does not exist"
-    module_level, _ = collect_imports(path)
-    offenders = _violations(module_level, ISAAC_ROOTS)
-    assert not offenders, (
-        f"arena/i4h_arena/{relative} imports {offenders} at module scope. "
-        f"Move it inside the function that needs it — workflows must lint before Kit boots."
-    )
-
-
-def test_arena_cold_path_is_closed_under_module_level_imports():
-    """Nothing on the cold path may pull in an Isaac-importing arena module.
-
-    Walking module-scope imports transitively catches the indirect case: a cold
-    module importing a warm one at module scope would drag Isaac in behind it.
-    """
-    cold = {f"i4h_arena.{r.removesuffix('.py').replace('/', '.')}" for r in ARENA_COLD_PATH}
-    seen: set[str] = set()
-    frontier = sorted(cold)
-    offenders: list[str] = []
-
-    while frontier:
-        module = frontier.pop()
-        if module in seen:
-            continue
-        seen.add(module)
-        path = _arena_module_path(module)
-        if path is None:
-            continue
-        module_level, _ = collect_imports(path)
-        for imported in _violations(module_level, ISAAC_ROOTS):
-            offenders.append(f"{path.relative_to(ROOT)} imports {imported!r} at module scope")
-        frontier.extend(m for m in module_level if m.startswith("i4h_arena"))
-
-    assert not offenders, "the arena cold path reaches Isaac at module scope:\n  " + "\n  ".join(sorted(offenders))
-    assert cold <= seen, f"walk missed cold-path modules: {sorted(cold - seen)}"
-
-
 # -- manifest and project integrity --------------------------------------
 
 
@@ -528,8 +335,8 @@ def test_init_files_contain_no_code():
     """``__init__.py`` carries the licence header and nothing else.
 
     A re-export shim gives every symbol two truthful import paths, and the
-    aliased one hides where the code actually lives — ``from i4h_tasks.basic import
-    Grasp`` says nothing about `manipulation/gripper.py`. Without shims every
+    aliased one hides where the code actually lives — ``from i4h_arena.policies import
+    HoldPolicy`` says nothing about `policies/hold.py`. Without shims every
     import states its own target, and there is no export list to fall out of
     date with the modules beneath it.
     """
@@ -556,17 +363,13 @@ def test_init_files_contain_no_code():
 def test_nothing_imports_from_a_bare_package():
     """Imports must name the module that defines the symbol.
 
-    With empty ``__init__.py`` files, ``from i4h_tasks.basic import Grasp`` cannot
-    work — but ``from i4h_arena.scenes import Scene`` would also fail, and only at
-    run time. Catching it statically keeps the failure at review.
+    With empty ``__init__.py`` files, ``from i4h_arena.scenes import Scene`` would
+    fail, and only at run time. Catching it statically keeps the failure at review.
     """
     # import path -> directory on disk, so we can tell a submodule from a symbol.
     package_dirs: dict[str, Path] = {}
     package_roots = {
         "i4h_common",
-        "i4h_engine",
-        "i4h_workflows",
-        "i4h_workflow_modes",
         "i4h_arena",
         "i4h_tasks",
         "i4h_tools",
@@ -642,7 +445,7 @@ def test_projects_are_independent_uv_projects():
         document = tomllib.load(handle)
     assert "workspace" not in document.get("tool", {}).get(
         "uv", {}
-    ), "workflow must not be a uv workspace — arena's Isaac pins would be forced onto every light project"
+    ), "the repository must not be a uv workspace — arena's Isaac pins would be forced onto every light project"
 
 
 def test_every_project_pins_its_siblings_by_path():
@@ -664,13 +467,13 @@ def test_policy_stacks_declare_only_what_they_import():
     offenders = []
     for pyproject in sorted((ROOT / "tasks").glob("*/pyproject.toml")):
         stack = pyproject.parent.name
-        if stack in exempt or stack in ("basic", "ik", "teleop"):
+        if stack in exempt:
             continue
         with pyproject.open("rb") as handle:
             document = tomllib.load(handle)
         declared = " ".join(document.get("project", {}).get("dependencies", []))
         if "isaaclab" in declared:
-            offenders.append(f"{stack} declares an isaaclab dependency but only communicates over zenoh")
+            offenders.append(f"{stack} declares an isaaclab dependency but only serves a policy")
     assert not offenders, "\n  ".join(offenders)
 
 
@@ -682,7 +485,7 @@ def test_arena_does_not_depend_on_a_policy_stack():
     for stack in ("gr00t-n15", "gr00t-n16", "gr00t-n17", "openpi-pi0"):
         assert stack not in declared, (
             f"arena declares a dependency on {stack}; their torch pins conflict with Isaac's, "
-            f"which is why RemoteTask exists"
+            f"which is why each one is served from its own environment"
         )
 
 
@@ -831,24 +634,6 @@ def test_scene_classes_call_env_cfgs_with_valid_keywords():
     assert not offenders, "scene/env-cfg signature mismatch:\n  " + "\n  ".join(offenders)
 
 
-def test_scenes_do_not_require_a_declared_home_pose():
-    """A scene must be seedable without a robot descriptor override.
-
-    `home_joint_pos_rad` is declared for one of seven robots. Seeding the action
-    buffer from it meant six scenes started at all-zeros — on a floating-base
-    humanoid, that is a collapse on frame one. The seed now reads the
-    articulation's own `default_joint_pos` through the scene view, so this
-    asserts the code path does not consult the descriptor.
-    """
-    source = (ROOT / "arena" / "i4h_arena" / "scenes" / "base.py").read_text()
-    seeding = source[source.index("def make_actuation") : source.index("# -- episode hooks")]
-    assert "self.home_joints(env)" not in seeding, (
-        "make_actuation must seed from the scene view (which falls back to the "
-        "articulation), not from Scene.home_joints() — most robots do not declare one"
-    )
-    assert "home_joints()" in seeding
-
-
 REMOTE_STACKS = ("gr00t_n15", "gr00t_n16", "gr00t_n17", "openpi_pi0")
 
 
@@ -857,26 +642,14 @@ def _manifests():
     return sorted((ROOT / "tasks").glob("*/i4h_tasks/*/manifest/*.yaml"))
 
 
-def _remote_manifests():
-    """Manifests with no ``impl``: nothing to import, so served over the bus."""
-    out = []
-    for path in _manifests():
-        with path.open("rb") as handle:
-            if not (yaml.safe_load(handle) or {}).get("impl"):
-                out.append(path)
-    return out
-
-
-def test_every_task_project_declares_its_tasks():
+def test_every_policy_stack_declares_its_tasks():
     stacks = {p.parent.parent.name for p in _manifests()}
-    assert stacks >= {"basic", "ik", "teleop"}, "in-process projects must declare tasks too"
-    stacks = {p.parent.parent.name for p in _remote_manifests()}
     assert stacks >= set(REMOTE_STACKS), f"missing manifests for {sorted(set(REMOTE_STACKS) - stacks)}"
 
 
-@pytest.mark.parametrize("path", _remote_manifests(), ids=lambda p: f"{p.parent.parent.name}/{p.stem}")
-def test_remote_manifest_names_an_embodiment_and_avoids_base_models(path):
-    """A remote task must say what it drives, and must not present a base
+@pytest.mark.parametrize("path", _manifests(), ids=lambda p: f"{p.parent.parent.name}/{p.stem}")
+def test_manifest_names_an_embodiment_and_avoids_base_models(path):
+    """A policy task must say what it drives, and must not present a base
     foundation model as a trained checkpoint."""
     BASE_MODELS = {"nvidia/GR00T-N1.5-3B", "nvidia/GR00T-N1.6-3B", "nvidia/GR00T-N1.7-3B"}
     with path.open("rb") as handle:
@@ -885,14 +658,6 @@ def test_remote_manifest_names_an_embodiment_and_avoids_base_models(path):
     assert (doc.get("model") or {}).get(
         "repo"
     ) not in BASE_MODELS, f"{path.stem} serves a base model, not a task checkpoint"
-
-
-@pytest.mark.parametrize("path", _manifests(), ids=lambda p: f"{p.parent.parent.name}/{p.stem}")
-def test_manifest_does_not_declare_a_runtime(path):
-    """`impl` decides the runtime; declaring both lets them contradict."""
-    with path.open("rb") as handle:
-        doc = yaml.safe_load(handle) or {}
-    assert "runtime" not in doc, f"{path.stem}: runtime is derived from impl, not declared"
 
 
 @pytest.mark.parametrize("path", _manifests(), ids=lambda p: f"{p.parent.parent.name}/{p.stem}")
@@ -906,11 +671,9 @@ def test_every_task_manifest_has_summary_and_nonduplicate_prompt(path):
     assert not prompt or prompt.casefold() != summary.casefold(), f"{path.stem}: prompt duplicates summary"
 
 
-def test_every_registered_task_has_a_prompt():
-    from i4h_engine.registry import default_registry
+@pytest.mark.parametrize("path", _manifests(), ids=lambda p: f"{p.parent.parent.name}/{p.stem}")
+def test_every_task_manifest_loads(path):
+    """What each stack's serve and train modules read must parse."""
+    from i4h_common.taskdef import load_taskdef
 
-    registry = default_registry()
-    missing = [
-        task_id for task_id in registry.tasks if not (registry.task(task_id).prompt or registry.task(task_id).summary)
-    ]
-    assert not missing, f"tasks without effective prompts: {missing}"
+    assert load_taskdef(path).summary

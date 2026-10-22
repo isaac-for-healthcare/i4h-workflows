@@ -11,11 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
-
-from i4h_arena.adapters.actuation import RobotSlice
 from i4h_arena.scenes.base import Scene
-from i4h_common.config import get_robot_config
 
 
 class PandaPhantomScene(Scene):
@@ -43,31 +39,6 @@ class PandaPhantomScene(Scene):
             # single workspace, not a tiled grid.
             task=PandaPhantomEnvCfg(episode_length_s=max(10.0, (steps + 1) / self.spec.control_hz)),
         )
-
-    def home_joints(self, env: Any) -> np.ndarray | None:
-        home = get_robot_config(self.spec.embodiment).home_joint_pos_rad
-        if not home:
-            return None
-        return np.tile(np.asarray(home, dtype=np.float32), (int(env.unwrapped.num_envs), 1))
-
-    def tcp_body(self) -> str | None:
-        return "TCP"
-
-    def tcp_sensors(self) -> dict[str, str]:
-        return {"robot": "ee_frame"}
-
-    def camera_aliases(self) -> dict[str, str]:
-        return {"room": "room_camera", "wrist": "wrist_camera"}
-
-    def relative_ee(self) -> bool:
-        # The Panda uses a 6-D relative Cartesian controller. ArenaActuation
-        # converts scripted absolute targets and passes policy deltas directly.
-        return True
-
-    def robot_slices(self, env: Any) -> tuple[RobotSlice, ...]:
-        # Probe, not a gripper: no jaw column to claim.
-        width = int(env.action_space.shape[-1])
-        return (RobotSlice("robot", 0, width, gripper_index=None),)
 
     def configure_env_cfg(self, env_cfg: Any) -> None:
         from isaaclab.devices import Se3KeyboardCfg  # noqa: PLC0415

@@ -12,8 +12,6 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-import numpy as np
-
 from i4h_arena.scenes.base import Scene
 from i4h_common.config import get_robot_config
 
@@ -89,14 +87,6 @@ class SoArmScissorsScene(Scene):
                 ),
             }
         )
-
-    # -- adapters --------------------------------------------------------
-    def home_joints(self, env: Any) -> np.ndarray:
-        home = np.asarray(get_robot_config(self.spec.embodiment).home_joint_pos_rad, dtype=np.float32)
-        return np.tile(home, (int(env.unwrapped.num_envs), 1))
-
-    def tcp_body(self) -> str | None:
-        return "gripper"
 
     def configure_args(self, args: argparse.Namespace) -> None:
         super().configure_args(args)

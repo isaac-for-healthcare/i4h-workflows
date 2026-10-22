@@ -24,10 +24,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
-
 from i4h_arena.scenes.base import Scene
-from i4h_common.config import get_robot_config
 
 
 class SurgicalScene(Scene):
@@ -130,28 +127,6 @@ class SurgicalScene(Scene):
     def envcfg(self) -> Any:
         raise NotImplementedError(f"{type(self).__name__} must supply an env cfg")
 
-    def home_joints(self, env: Any) -> np.ndarray | None:
-        home = get_robot_config(self.spec.embodiment).home_joint_pos_rad
-        if not home:
-            return None
-        return np.tile(np.asarray(home, dtype=np.float32), (int(env.unwrapped.num_envs), 1))
-
-    def tcp_body(self) -> str | None:
-        return "endo360_needle" if self.spec.embodiment == "star" else "psm_tool_tip_link"
-
-    def tcp_sensors(self) -> dict[str, str]:
-        return {"robot": "ee_frame"}
-
-    def object_aliases(self) -> dict[str, str]:
-        aliases: dict[str, str] = {}
-        if self.asset_mode == "lift_block":
-            aliases["block"] = "object"
-        elif self.asset_mode in ("lift_needle", "lift_needle_organs"):
-            aliases["needle"] = "object"
-        if self.asset_mode == "reach_star":
-            aliases["star_table"] = "table"
-        return aliases
-
 
 class SurgicalReachScene(SurgicalScene):
     """Servo the tool tip through sampled reach poses."""
@@ -169,14 +144,6 @@ class SurgicalReachScene(SurgicalScene):
                 f"expected one of psm, dual_psm, star"
             )
         return factory()
-
-    def command_objects(self) -> dict[str, tuple[str, str]]:
-        if self.reach_mode == "dual_psm":
-            return {
-                "reach_target_1": ("ee_1_pose", "psm1"),
-                "reach_target_2": ("ee_2_pose", "psm2"),
-            }
-        return {"reach_target": ("ee_pose", "robot")}
 
 
 class SurgicalLiftScene(SurgicalScene):

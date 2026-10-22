@@ -5,7 +5,6 @@
 # run_gr00t_server.py with Arena's GR00T client (tasks/gr00t_n16/config/);
 # the IsaacLab-Arena environment supplies the prompt.
 #
-# summary / prompt / embodiment / cameras are read in the light venv.
 # train is read only by this stack's train.py, in this stack's own venv.
 # `train:` present -> finetunable.
 

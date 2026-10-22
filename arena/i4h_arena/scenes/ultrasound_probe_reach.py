@@ -60,15 +60,3 @@ class UltrasoundProbeReachScene(Scene):
             rl_framework_entry_point="rsl_rl_cfg_entry_point",
             rl_policy_cfg="i4h_arena.agents.rsl_rl:ProfiledRslRlRunnerCfg",
         )
-
-    def tcp_body(self) -> str | None:
-        return "TCP"
-
-    def tcp_sensors(self) -> dict[str, str]:
-        return {"robot": "ee_frame"}
-
-    def camera_aliases(self) -> dict[str, str]:
-        return {"room": "room_camera", "wrist": "wrist_camera"}
-
-    def relative_ee(self) -> bool:
-        return True

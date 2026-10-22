@@ -138,8 +138,8 @@ def navigation_observations_cfg(
     """Bind the navigation observation group to one scene's route and target."""
     return CatheterNavigationObservationsCfg(
         policy=CatheterNavigationObservationsCfg.NavigationObsCfg(
-            # Shape discovery runs before make_view(), so the image term
-            # binds the sensor's live sources before attempting to render.
+            # Shape discovery runs before any sensor panel opens, so the image
+            # term binds the sensor's live sources before attempting to render.
             fluoroscopy_rgb=ObservationTermCfg(func=fluoroscopy_rgb),
             tip_position=ObservationTermCfg(func=tip_position),
             tip_direction=ObservationTermCfg(func=tip_direction),

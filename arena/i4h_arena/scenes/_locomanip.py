@@ -15,11 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
-
-from i4h_arena.adapters.actuation import RobotSlice
 from i4h_arena.scenes.base import Scene
-from i4h_common.config import get_robot_config
 
 #: Registered whole-body controllers for policy/replay and teleop.
 G1_POLICY_EMBODIMENT = "g1_locomanip_wbc_joint"
@@ -107,23 +103,3 @@ class LocomanipScene(Scene):
     def episode_length_s(self, minimum: float = 10.0) -> float:
         steps = self.args.episode_steps or self.spec.max_steps
         return max(minimum, (steps + 1) / self.spec.control_hz)
-
-    def home_joints(self, env: Any) -> np.ndarray | None:
-        home = get_robot_config(self.spec.embodiment).home_joint_pos_rad
-        if not home:
-            return None
-        return np.tile(np.asarray(home, dtype=np.float32), (int(env.unwrapped.num_envs), 1))
-
-    def robot_slices(self, env: Any) -> tuple[RobotSlice, ...]:
-        # WBC consumes 43 measured joint targets followed by seven locomotion
-        # command columns.  Policy inference writes all 50; scripted keyframes
-        # write only the joint prefix and leave the command tail unchanged.
-        width = int(env.action_space.shape[-1])
-        joint_width = 43 if width >= 43 else None
-        return (RobotSlice("robot", 0, width, gripper_index=None, joint_width=joint_width),)
-
-    def camera_aliases(self) -> dict[str, str]:
-        return {"head": "robot_head_cam"}
-
-    def object_aliases(self) -> dict[str, str]:
-        return {"background": "pre_op", "tray": "surgical_tray"}

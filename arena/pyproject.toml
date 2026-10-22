@@ -1,15 +1,10 @@
 [project]
 name = "i4h-arena"
 version = "0.1.0"
-description = "IsaacLab-Arena integration: scenes, adapters and the workflow runner."
+description = "The i4h scenes as IsaacLab-Arena environments, with their policies, devices and operator UI."
 requires-python = ">=3.12, <3.13"
 dependencies = [
     "i4h-common",
-    "i4h-engine",
-    "i4h-workflows",
-    "i4h-tasks-basic",
-    "i4h-tasks-ik",
-    "i4h-tasks-teleop",
     "catheter-vasculature-solver",
     "xray-simulator[slang]",
     "numpy>=2,<3",
@@ -19,6 +14,8 @@ dependencies = [
     "onnxruntime>=1.19",
     "pyzmq>=26,<28",
     "PyYAML>=6.0",
+    # The SO-ARM 101 leader arm reads its motors over a serial port.
+    "pyserial>=3.5",
     "tqdm>=4.66",
     "isaacsim[all,extscache]==6.2.0.0",
     # isaacsim-core 6.2 pins this OpenCV release candidate, which only pypi.nvidia.com carries.
@@ -49,9 +46,6 @@ dependencies = [
     "qpsolvers==4.8.1",
 ]
 
-[project.scripts]
-i4h-arena = "i4h_arena.cli:main"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -61,11 +55,6 @@ packages = ["i4h_arena"]
 
 [tool.uv.sources]
 i4h-common = { path = "../common", editable = true }
-i4h-engine = { path = "../engine", editable = true }
-i4h-workflows = { path = "../workflows", editable = true }
-i4h-tasks-basic = { path = "../tasks/basic", editable = true }
-i4h-tasks-ik = { path = "../tasks/ik", editable = true }
-i4h-tasks-teleop = { path = "../tasks/teleop", editable = true }
 isaacsim = { index = "nvidia" }
 # Isaac Sim 6.2 pins an OpenCV release candidate that only pypi.nvidia.com carries.
 opencv-python-headless-noffmpeg = { index = "nvidia" }

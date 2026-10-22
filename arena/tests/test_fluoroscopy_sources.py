@@ -74,8 +74,7 @@ def _env(twin, num_envs=1):
 def _make_view(env, monkeypatch):
     spec = SimpleNamespace(objects=(), robots=("robot",), cameras=("fluoroscopy",))
     scene = EndoluminalNavigationScene(spec, SimpleNamespace())
-    monkeypatch.setattr(scene, "_joint_state_providers", lambda *args: {})
-    return scene.make_view(env)
+    return scene.make_sensor_view(env)
 
 
 @pytest.mark.parametrize("num_envs", [1, 3])

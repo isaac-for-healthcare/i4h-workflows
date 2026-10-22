@@ -49,7 +49,7 @@ def attach(env: Any, env_ids: Any, scene_name: str) -> None:
 
     from i4h_arena.ui.sensor_image_window import SensorImageWindow  # noqa: PLC0415
 
-    view = _view = scene.make_view(env)
+    view = _view = scene.make_sensor_view(env)
     for name in scene.default_sensor_views():
         _windows.append(
             SensorImageWindow(

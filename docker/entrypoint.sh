@@ -45,31 +45,23 @@ if [ "${1:-}" = i4h-annotator ]; then
   set -- uv run --no-sync --project tools/annotator i4h-annotator "$@"
 fi
 
-if [ "${1:-}" = ./run.sh ]; then
-  case "${2:-}" in
-    list|show|lint) export I4H_SETUP_PROJECTS=workflows ;;
-  esac
-fi
-
+# i4h-policy <stack>/<task> [serve options]: serve one checkpoint with its stack's
+# own server, such as GR00T's or openpi's, and set up only that stack.
 if [ "${1:-}" = i4h-policy ] || [ "${1:-}" = i4h-workflows-policy ]; then
   shift
-  policy_stack="${I4H_POLICY_STACK:-gr00t_n15}"
-  expect_stack=0
-  for arg in "$@"; do
-    if [ "$expect_stack" -eq 1 ]; then
-      policy_stack="$arg"
-      expect_stack=0
-      continue
-    fi
-    case "$arg" in
-      --stack) expect_stack=1 ;;
-      --stack=*) policy_stack="${arg#*=}" ;;
-      */*) policy_stack="${arg%%/*}"; break ;;
-    esac
-  done
+  target="${1:-}"
+  case "$target" in
+    */*) shift ;;
+    *) echo "usage: i4h-policy <stack>/<task> [serve options]" >&2; exit 2 ;;
+  esac
+  policy_stack="${target%%/*}"
   export I4H_SETUP_PROJECTS="tasks/$policy_stack"
   export I4H_THIRD_PARTY_TARGET="tasks/$policy_stack"
-  set -- "${I4H_POLICY_COMMAND:-$ROOT/docker/policy-server.sh}" "$@"
+  if [ -n "${I4H_POLICY_COMMAND:-}" ]; then
+    set -- "$I4H_POLICY_COMMAND" "$target" "$@"
+  else
+    set -- uv run --no-sync --project "tasks/$policy_stack" python -m "i4h_tasks.$policy_stack.serve" "${target#*/}" "$@"
+  fi
 fi
 
 skip_setup="${I4H_SKIP_SETUP:-0}"
