@@ -166,6 +166,20 @@ serve() {
   [ "$DRY_RUN" -eq 1 ] && return
   "$@" >"$log" 2>&1 &
   SERVER_PID=$!
+  # Each server binds its port only once its checkpoint is loaded, which takes a
+  # download on first use; the client would otherwise time out waiting for it.
+  local deadline=$((SECONDS + ${I4H_E2E_SERVER_TIMEOUT_S:-3600}))
+  until python3 -c 'import socket, sys; socket.create_connection(("127.0.0.1", int(sys.argv[1])), 1).close()' "$PORT" 2>/dev/null; do
+    if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+      echo "[e2e] policy server exited before it was ready; see $log" >&2
+      exit 1
+    fi
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "[e2e] policy server not ready after ${I4H_E2E_SERVER_TIMEOUT_S:-3600}s; see $log" >&2
+      exit 1
+    fi
+    sleep 5
+  done
 }
 stop_server() {
   [ -n "$SERVER_PID" ] || return 0
