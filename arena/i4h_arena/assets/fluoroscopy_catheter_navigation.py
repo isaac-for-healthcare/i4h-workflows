@@ -440,6 +440,8 @@ def place_patient_anatomies(env: Any, env_ids: Any, manifests: Sequence[str]) ->
     The scene config spawns one anatomy, environment 0's, into every
     environment. The anatomy is visual-only, so re-pointing each environment's
     ``Patient`` reference at its own twin's USD changes nothing the physics sees.
+    An environment whose twin has no anatomy mesh shows none, rather than
+    another patient's.
     """
     from pxr import Gf, UsdGeom
 
@@ -450,7 +452,10 @@ def place_patient_anatomies(env: Any, env_ids: Any, manifests: Sequence[str]) ->
         twin = PatientTwin.load(manifest)
         anatomy = twin.artifacts.get("anatomy_usd")
         prim = stage.GetPrimAtPath(f"{prim_path}/Patient")
-        if anatomy is None or not prim.IsValid():
+        if not prim.IsValid():
+            continue
+        if anatomy is None:
+            UsdGeom.Imageable(prim).MakeInvisible()
             continue
         prim.SetInstanceable(False)
         references = prim.GetReferences()

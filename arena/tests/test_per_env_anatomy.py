@@ -278,3 +278,32 @@ def test_synthetic_fluoroscopy_ignores_distinct_patients():
 
     assert sensor._data.frame_id.tolist() == [1, 1]
     assert sensor._data.output["attenuation"].abs().sum() > 0
+
+
+def test_patient_without_an_anatomy_mesh_shows_none(tmp_path, monkeypatch):
+    pxr = pytest.importorskip("pxr", reason="needs USD")
+    assets = pytest.importorskip("i4h_arena.assets.fluoroscopy_catheter_navigation", reason="needs Isaac Lab")
+    Usd, UsdGeom = pxr.Usd, pxr.UsdGeom
+
+    anatomy = tmp_path / "anatomy.usda"
+    mesh_stage = Usd.Stage.CreateNew(str(anatomy))
+    mesh_stage.SetDefaultPrim(UsdGeom.Xform.Define(mesh_stage, "/Anatomy").GetPrim())
+    mesh_stage.Save()
+    stage = Usd.Stage.CreateInMemory()
+    paths = ("/World/envs/env_0", "/World/envs/env_1")
+    for path in paths:
+        UsdGeom.Xform.Define(stage, f"{path}/Patient")
+    twins = {
+        "with.yaml": SimpleNamespace(artifacts={"anatomy_usd": anatomy}, world_from_patient_m=np.eye(4)),
+        "without.yaml": SimpleNamespace(artifacts={}, world_from_patient_m=np.eye(4)),
+    }
+    monkeypatch.setattr(assets.sim_utils, "get_current_stage", lambda: stage)
+    monkeypatch.setattr(assets.PatientTwin, "load", staticmethod(lambda manifest: twins[manifest]))
+    env = SimpleNamespace(num_envs=2, scene=SimpleNamespace(env_prim_paths=paths))
+
+    assets.place_patient_anatomies(env, None, ("with.yaml", "without.yaml"))
+
+    shown, hidden = (UsdGeom.Imageable(stage.GetPrimAtPath(f"{path}/Patient")) for path in paths)
+    assert shown.ComputeVisibility() == UsdGeom.Tokens.inherited
+    assert shown.GetPrim().GetPrimStack()[0].referenceList.prependedItems[0].assetPath == str(anatomy)
+    assert hidden.ComputeVisibility() == UsdGeom.Tokens.invisible
