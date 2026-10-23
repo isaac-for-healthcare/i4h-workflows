@@ -64,7 +64,8 @@ other mistakes are reported roughly 40 seconds in rather than at once:
 - **A missing recording.** `./run.sh <workflow> --replay` names a file that is not there.
 
 A policy mode whose task names no published checkpoint stops at once instead and asks for
-`--checkpoint`. A policy server that exits while loading stops the run; its log is
+`--checkpoint`, as do an RSL-RL checkpoint without `params/agent.yaml` beside it and a
+`--presets` backend the workflow's scene cannot run on. A policy server that exits while loading stops the run; its log is
 `server.log` in the run directory.
 
 ## `Failed to create device!` from Slang fluoroscopy

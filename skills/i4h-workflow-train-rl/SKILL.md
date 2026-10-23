@@ -186,12 +186,11 @@ TRAIN_RUN="$PWD/runs/ultrasound_probe_reach/YYYYMMDD_HHMMSS"
   --episodes 20
 ```
 
-Validate the checkpoint as a policy in the environment with `./run.sh`, whose policy mode runs Arena's `rsl_rl` policy on the training observations under Arena's policy runner. That policy reads `params/agent.yaml` beside the checkpoint, so pass the last `model_<N>.pt` from `run.json`, not `model_final.pt`:
+Validate the checkpoint as a policy in the environment with `./run.sh`, whose policy mode runs Arena's `rsl_rl` policy on the training observations under Arena's policy runner. That policy reads `params/agent.yaml` beside a native `model_<N>.pt`; `run.sh` runs the training run directory, its `model_final.pt`, or `exported/policy.pt` as the last checkpoint in `run.json`, prints which one, and rejects a checkpoint without `params/agent.yaml` before launch:
 
 ```bash
-CHECKPOINT="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["checkpoints"][-1])' "$TRAIN_RUN/run.json")"
 EVAL_RUN="$PWD/runs/ultrasound_probe_reach/$(date +%Y%m%d_%H%M%S)"
-./run.sh ultrasound_probe_reach --policy --checkpoint "$CHECKPOINT" --episodes 20 --run-dir "$EVAL_RUN"
+./run.sh ultrasound_probe_reach --policy --checkpoint "$TRAIN_RUN" --episodes 20 --run-dir "$EVAL_RUN"
 ```
 
 Read each episode's `success` from `$EVAL_RUN/outputs/<time>/episode_results_rank0.jsonl`. When an export is requested, write a TorchScript actor for deployment:

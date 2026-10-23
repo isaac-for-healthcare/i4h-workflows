@@ -11,6 +11,8 @@ from types import ModuleType
 
 import pytest
 
+BLANK = ["create_blank_environment.py"]
+
 
 def _load_script(name: str) -> ModuleType:
     path = Path(__file__).parents[1] / "scripts" / name
@@ -118,7 +120,7 @@ def test_blank_creator_rejects_an_existing_scene(tmp_path: Path, monkeypatch: py
     existing.write_text("impl: a:B\n", encoding="utf-8")
 
     monkeypatch.setattr(module, "_repo_root", lambda: tmp_path)
-    monkeypatch.setattr(sys, "argv", ["create_blank_environment.py", "future_room", "--dry-run"])
+    monkeypatch.setattr(sys, "argv", [*BLANK, "future_room", "--specialty", "ultrasound-robotics", "--dry-run"])
 
     with pytest.raises(SystemExit, match="scene 'future_room' already exists"):
         module.main()
@@ -126,17 +128,59 @@ def test_blank_creator_rejects_an_existing_scene(tmp_path: Path, monkeypatch: py
     assert not (tmp_path / "arena/i4h_arena/scenes/future_room.py").exists()
 
 
-def test_blank_creator_lists_the_scene_files_without_a_workflow_module(
+def test_blank_creator_rejects_a_workflow_id_of_any_specialty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_script("create_blank_environment.py")
+    (tmp_path / "arena" / "i4h_arena" / "scenes" / "manifest").mkdir(parents=True)
+    existing = tmp_path / "workflows" / "ultrasound-robotics" / "future_room.yaml"
+    existing.parent.mkdir(parents=True)
+    existing.write_text("scene: panda_phantom\n", encoding="utf-8")
+
+    monkeypatch.setattr(module, "_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(sys, "argv", [*BLANK, "future_room", "--specialty", "hospital-automation-robotics"])
+
+    with pytest.raises(SystemExit, match="workflow 'future_room' already exists: workflows/ultrasound-robotics"):
+        module.main()
+
+    assert not (tmp_path / "workflows" / "hospital-automation-robotics").exists()
+
+
+def test_blank_creator_needs_a_specialty(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    module = _load_script("create_blank_environment.py")
+    monkeypatch.setattr(sys, "argv", [*BLANK, "future_room", "--dry-run"])
+
+    with pytest.raises(SystemExit) as raised:
+        module.main()
+
+    assert raised.value.code == 2
+    assert "--specialty" in capsys.readouterr().err
+
+
+def test_blank_creator_declares_the_workflow_so_run_sh_lists_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
 ) -> None:
     module = _load_script("create_blank_environment.py")
+    path = Path(__file__).parents[1] / "scripts" / "run_workflow.py"
+    spec = importlib.util.spec_from_file_location("i4h_run_workflow_listing", path)
+    run_workflow = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, run_workflow)  # its dataclasses resolve through it
+    spec.loader.exec_module(run_workflow)
     (tmp_path / "arena" / "i4h_arena" / "scenes" / "manifest").mkdir(parents=True)
     monkeypatch.setattr(module, "_repo_root", lambda: tmp_path)
-    monkeypatch.setattr(sys, "argv", ["create_blank_environment.py", "future_room", "--dry-run"])
+    monkeypatch.setattr(
+        sys, "argv", [*BLANK, "future_room", "--specialty", "hospital-automation-robotics", "--dry-run"]
+    )
 
     assert module.main() == 0
-
     listed = capsys.readouterr().out
     assert "arena/i4h_arena/scenes/manifest/future_room.yaml" in listed
+    assert "workflows/hospital-automation-robotics/future_room.yaml" in listed
     assert "tests/test_future_room_contract.py" in listed
-    assert "workflows/" not in listed
+    assert not (tmp_path / "workflows").exists()
+
+    monkeypatch.setattr(sys, "argv", [*BLANK, "future_room", "--specialty", "hospital-automation-robotics"])
+    assert module.main() == 0
+
+    workflow = run_workflow.load_workflows(tmp_path / "workflows")["future_room"]
+    assert workflow.scene == "future_room"
+    assert workflow.specialty == "hospital-automation-robotics"
+    assert workflow.mode_names() == ["idle", "live", "replay"]

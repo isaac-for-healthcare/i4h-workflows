@@ -81,14 +81,14 @@ I4H_DOCKER_IMAGE=i4h-workflows:full i4h-docker bash
 
 | Container command | Use it for |
 | --- | --- |
-| `arena/.venv/bin/python ...` | Running a workflow's IsaacLab-Arena environment with Arena's policy runner or Isaac Lab's recording and replay tools |
+| `./run.sh <workflow> ...` | Running a workflow with Arena's policy runner or Isaac Lab's recording and replay tools; `./run.sh list` and `./run.sh show` list workflows and print their commands |
 | `i4h-policy <stack>/<task> [serve options]` | Serving one policy checkpoint with its stack's server, including on Jetson AGX Thor |
 | `i4h-annotator ...` | Visual validation against an OpenAI-compatible VLM service |
 | `bash` | Interactive work inside the image |
 
 Use the same named `i4h-state` volume in every command. It preserves model downloads, simulator caches, recordings, and the default image's uv cache and virtual environments.
 
-With the default image, the first command downloads only the environment it needs and later containers reuse it automatically: `common` and `arena` by default, and only the named policy stack for `i4h-policy`. The full image skips dependency setup, but policy models still download on first use and persist in `i4h-state`.
+With the default image, the first command downloads only the environment it needs and later containers reuse it automatically: `common` and `arena` by default, `common` alone for `./run.sh list` and `./run.sh show`, and only the named policy stack for `i4h-policy`. The full image skips dependency setup, but policy models still download on first use and persist in `i4h-state`.
 
 `HF_TOKEN` is forwarded when it is set, which allows gated model downloads to use the same helper.
 

@@ -288,6 +288,13 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}/.git" ]]; then
   apply_patch_once "IsaacLab-Arena Isaac Lab 3.0 GA legacy Franka actuator groups" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_arena_isaaclab3_franka_legacy.patch"
+
+  # Arena's policy runner loops until its step or episode count, so closing the Kit window
+  # left the rollout running without one. Isaac Lab's own loops run while sim.is_running(),
+  # which turns false once the last visualizer is closed.
+  apply_patch_once "IsaacLab-Arena policy runner ends when its window closes" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_arena_policy_runner_window_close.patch"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEROBOT_DIR}/.git" ]]; then

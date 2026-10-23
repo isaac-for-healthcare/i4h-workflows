@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Create a blank scene that runs as an IsaacLab-Arena environment.
+"""Create a blank workflow: a scene that runs as an IsaacLab-Arena environment.
 
 The scene, its ground-and-light assets and its manifest are all a new
 environment needs: ``i4h_arena.environments`` exposes every scene in the
-manifest as an Arena external environment named after it in CamelCase.
+manifest as an Arena external environment named after it in CamelCase. The
+workflow declaration under the specialty names the scene, so ``./run.sh list``
+lists it and ``./run.sh <workflow>`` opens it.
 """
 
 from __future__ import annotations
@@ -17,6 +19,12 @@ import subprocess
 from pathlib import Path
 
 IDENTIFIER = re.compile(r"^[a-z][a-z0-9_]*$")
+SPECIALTIES = (
+    "laparoscopic-robotics",
+    "ultrasound-robotics",
+    "endoluminal-robotics",
+    "hospital-automation-robotics",
+)
 
 
 def _identifier(value: str) -> str:
@@ -142,6 +150,17 @@ control_hz: 60.0
 """
 
 
+def _workflow_declaration(scene_id: str, description: str) -> str:
+    return f"""# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: {json.dumps(description)}
+scene: {scene_id}
+# Without modes the workflow runs idle, live and replay; declare rule-based, policy and
+# teleop modes here as the scene gains a robot and behavior.
+"""
+
+
 def _contract_test(scene_id: str) -> str:
     return f"""# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
@@ -172,15 +191,21 @@ def test_scene_contract() -> None:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="create_blank_environment.py",
-        description="Create a blank i4h scene that runs as an IsaacLab-Arena environment.",
+        description="Create a blank i4h workflow whose scene runs as an IsaacLab-Arena environment.",
     )
     parser.add_argument("scene_id", type=_identifier)
+    parser.add_argument(
+        "--specialty",
+        choices=SPECIALTIES,
+        required=True,
+        help="the specialty that lists the workflow: writes workflows/<specialty>/<scene_id>.yaml",
+    )
     parser.add_argument("--description", default="Blank i4h scene.")
     parser.add_argument("--dry-run", action="store_true", help="print the files without creating them")
     parser.add_argument(
         "--validate",
         action="store_true",
-        help="run the generated contract test and the scene tests after creation",
+        help="run the generated contract test, the scene tests and the declaration tests after creation",
     )
     return parser
 
@@ -194,6 +219,10 @@ def _validate(root: Path, scene_id: str) -> None:
     commands = (
         ("contract test", [common_python, "-m", "pytest", root / "tests" / f"test_{scene_id}_contract.py", "-q"]),
         ("scene tests", [arena_python, "-m", "pytest", root / "arena" / "tests" / "test_scene.py", "-q"]),
+        (
+            "workflow declaration",
+            [common_python, "-m", "pytest", root / "tests" / "test_run_workflow.py", "-q", "-k", scene_id],
+        ),
     )
     for label, command in commands:
         print(f"validating: {label}", flush=True)
@@ -216,14 +245,22 @@ def main() -> int:
             f"scene {scene_id!r} already exists: {manifest.relative_to(root)}\n"
             "edit the existing scene or choose a different id"
         )
+    # Workflow ids are unique across specialties: run.sh finds a workflow by its id alone.
+    declared = sorted((root / "workflows").glob(f"*/{scene_id}.yaml"))
+    if declared:
+        raise SystemExit(
+            f"workflow {scene_id!r} already exists: {declared[0].relative_to(root)}\n"
+            "edit the existing workflow or choose a different id"
+        )
     files = {
         root / "arena" / "i4h_arena" / "assets" / f"{scene_id}.py": _asset_source(scene_id),
         root / "arena" / "i4h_arena" / "scenes" / f"{scene_id}.py": _scene_source(scene_id),
         manifest: _scene_manifest(scene_id, args.description),
+        root / "workflows" / args.specialty / f"{scene_id}.yaml": _workflow_declaration(scene_id, args.description),
         root / "tests" / f"test_{scene_id}_contract.py": _contract_test(scene_id),
     }
 
-    print("blank scene files:")
+    print("blank workflow files:")
     for path in files:
         print(f"  {path.relative_to(root)}")
     if args.dry_run:
@@ -237,7 +274,10 @@ def main() -> int:
     for path, content in files.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-    print(f"created blank scene {scene_id!r}; run it as i4h_arena.environments:{_class_name(scene_id)} {scene_id}")
+    print(
+        f"created blank workflow {scene_id!r} in {args.specialty}; open it with ./run.sh {scene_id}; "
+        f"its scene is the Arena environment i4h_arena.environments:{_class_name(scene_id)} {scene_id}"
+    )
     if args.validate:
         _validate(root, scene_id)
     return 0

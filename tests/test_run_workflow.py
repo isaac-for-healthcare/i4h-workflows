@@ -7,6 +7,7 @@ from __future__ import annotations
 import ast
 import contextlib
 import importlib.util
+import json
 import os
 import signal
 import subprocess
@@ -51,6 +52,8 @@ def test_every_specialty_has_workflows() -> None:
 def test_a_declaration_names_what_exists(name: str) -> None:
     workflow = WORKFLOWS[name]
     assert (run_workflow.SCENE_MANIFESTS / f"{workflow.scene}.yaml").is_file()
+    # run.sh passes the declared presets, so launcher arguments carrying them would pass two.
+    assert "--presets" not in workflow.launcher_args, f"{name}: declare presets: [...] instead"
     scene_sources = "".join(path.read_text() for path in (ROOT / "arena" / "i4h_arena" / "scenes").glob("*.py"))
     for mode, spec in workflow.modes.items():
         policy = spec.get("policy", "")
@@ -65,7 +68,7 @@ def test_a_declaration_names_what_exists(name: str) -> None:
 
 
 @pytest.mark.parametrize("name", sorted(WORKFLOWS))
-def test_every_mode_composes_a_command(name: str) -> None:
+def test_every_mode_composes_a_command(name: str, tmp_path) -> None:
     workflow = WORKFLOWS[name]
     for mode in workflow.mode_names():
         argv = [name]
@@ -75,7 +78,10 @@ def test_every_mode_composes_a_command(name: str) -> None:
             argv += ["--teleop"]
         else:
             argv += ["--mode", mode]
-        if workflow.modes.get(mode, {}).get("checkpoint") == "required":
+        spec = workflow.modes.get(mode, {})
+        if spec.get("policy") == "rsl_rl":
+            argv += ["--checkpoint", str(_rsl_rl_training_run(tmp_path / mode))]
+        elif spec.get("checkpoint") == "required":
             argv += ["--checkpoint", "/tmp/checkpoint"]
         built = _plan(*argv)
         assert f"i4h_arena.environments:{workflow.environment_class}" in built.command
@@ -161,6 +167,100 @@ def test_a_bare_scene_can_be_viewed_but_not_controlled() -> None:
 def test_retired_options_say_what_replaces_them(option: str) -> None:
     with pytest.raises(run_workflow.UsageError, match="no longer supported"):
         _plan("surgical_reach_psm", option, "x")
+
+
+@pytest.mark.parametrize("argv", [["lint"], ["lint", "--all"], ["lint", "surgical_reach_psm"]])
+def test_retired_subcommands_say_what_replaces_them(argv: list[str], capsys) -> None:
+    assert run_workflow.main(argv) == 2
+    error = capsys.readouterr().err
+    assert error.startswith("run.sh: lint is no longer supported")
+    assert "./run.sh show" in error
+    assert "tests/test_run_workflow.py" in error
+
+
+def test_a_scene_bound_to_one_physics_backend_rejects_another_before_launch() -> None:
+    with pytest.raises(run_workflow.UsageError, match="runs only with --presets newton, not physx"):
+        _plan("spread_tablecloth_g1", "--presets", "physx")
+    assert _plan("spread_tablecloth_g1", "--presets", "newton").command.count("--presets") == 1
+
+
+@pytest.mark.parametrize("name", sorted(WORKFLOWS))
+def test_presets_are_passed_once(name: str) -> None:
+    preset = (WORKFLOWS[name].presets or ["newton"])[0]
+    command = _plan(name, "--presets", preset).command
+    assert command.count("--presets") == 1
+    assert command[command.index("--presets") + 1] == preset
+
+
+def _rsl_rl_training_run(run: Path) -> Path:
+    """The layout ./train.sh rl leaves: Isaac Lab's log directory, run.json, model_final.pt, exported/."""
+    log = run / "2026-10-22_21-14-13"
+    (log / "params").mkdir(parents=True)
+    (log / "params" / "agent.yaml").write_text("seed: 42\n")
+    checkpoints = [log / f"model_{iteration}.pt" for iteration in (0, 25, 399)]
+    for checkpoint in checkpoints:
+        checkpoint.write_bytes(b"")
+    (run / "model_final.pt").write_bytes(b"")
+    (run / "run.json").write_text(json.dumps({"checkpoints": [str(path) for path in checkpoints]}))
+    (run / "exported").mkdir()
+    (run / "exported" / "policy.pt").write_bytes(b"")
+    (run / "exported" / "policy.json").write_text(json.dumps({"source_checkpoint": str(run / "model_final.pt")}))
+    return checkpoints[-1]
+
+
+@pytest.mark.parametrize(
+    "given", ["", "model_final.pt", "exported", "exported/policy.pt", "2026-10-22_21-14-13/model_399.pt"]
+)
+def test_an_rsl_rl_checkpoint_runs_as_its_training_checkpoint(tmp_path, given: str) -> None:
+    run = tmp_path / "run"
+    last = _rsl_rl_training_run(run)
+    built = _plan("ultrasound_probe_reach", "--policy", "--checkpoint", str(run / given))
+    command = built.command
+    assert command[command.index("--checkpoint_path") + 1] == str(last)
+    assert bool(built.notes) == (run / given != last)
+
+
+def test_an_rsl_rl_checkpoint_without_its_agent_config_is_rejected_before_launch(tmp_path) -> None:
+    lone = tmp_path / "policy.pt"
+    lone.write_bytes(b"")
+    with pytest.raises(run_workflow.UsageError, match="params/agent.yaml beside it"):
+        _plan("ultrasound_probe_reach", "--policy", "--checkpoint", str(lone))
+    with pytest.raises(run_workflow.UsageError, match="does not exist"):
+        _plan("ultrasound_probe_reach", "--policy", "--checkpoint", str(tmp_path / "missing.pt"))
+
+
+def _episode_results(built, *successes) -> None:
+    outputs = built.output_dir / "2026-10-23_00-00-00"
+    outputs.mkdir(parents=True)
+    lines = "".join(json.dumps({"success": success}) + "\n" for success in successes)
+    (outputs / "episode_results_rank0.jsonl").write_text(lines)
+
+
+def test_the_summary_counts_the_episodes_the_success_term_judged(tmp_path) -> None:
+    built = _plan("surgical_reach_psm", "--rule-based", "--episodes", "2", "--run-dir", str(tmp_path))
+    _episode_results(built, True, False)
+    assert run_workflow._summary(built) == "1/2 episodes succeeded"
+
+
+def test_a_mode_the_success_term_does_not_judge_reports_the_episodes_it_ran(tmp_path) -> None:
+    argv = ["--mode", "validate_fluoroscopy", "--episodes", "2", "--run-dir", str(tmp_path)]
+    built = _plan("endoluminal_navigation", *argv)
+    _episode_results(built, False, False)
+    assert run_workflow._summary(built) == (
+        "2 episode(s) ran; validate_fluoroscopy episodes are not scored by the scene's success term"
+    )
+
+
+def test_the_summary_says_when_a_run_ended_before_its_episodes(tmp_path) -> None:
+    built = _plan("surgical_reach_psm", "--rule-based", "--episodes", "3", "--run-dir", str(tmp_path))
+    _episode_results(built, True)
+    assert run_workflow._summary(built) == "1/1 episodes succeeded (1 of 3 requested)"
+
+
+def test_every_third_party_patch_is_applied_by_setup() -> None:
+    setup = (ROOT / "third_party" / "setup.sh").read_text() + (ROOT / "scripts" / "setup_rl_cpu.sh").read_text()
+    for patch in sorted((ROOT / "third_party").glob("*.patch")):
+        assert patch.name in setup, f"{patch.name} is not applied by third_party/setup.sh"
 
 
 def test_a_task_without_a_published_checkpoint_needs_one() -> None:

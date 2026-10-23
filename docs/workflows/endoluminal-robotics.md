@@ -47,7 +47,7 @@ Exercise every channel once without patient data: settle, advance, hold, rotate,
 ./run.sh endoluminal_navigation --mode demo
 ```
 
-This uses a procedural patient shape, synthetic fluoroscopy, and the default physics settings. The catheter still runs on the Newton rod solver, but with no vessel to contain it, so the episode has no goal and ends after the sweep's 192 steps.
+This uses a procedural patient shape, synthetic fluoroscopy, and the default physics settings. The catheter still runs on the Newton rod solver, but with no vessel to contain it, so the episode has no goal and ends after the sweep's 192 steps. The demo and the fluoroscopy validation are sweeps rather than navigation, so `run.sh` reports how many episodes they ran, not how many reached the target, also with a patient twin.
 
 ### Patient CT
 
@@ -102,7 +102,7 @@ Without a patient twin there is no centerline, so no demonstration can succeed a
 
 ### Fluoroscopy validation
 
-Check that moving the C-arm changes the fluoroscopy image. The policy orbits the C-arm out and back and prints `[fluoroscopy] C-arm sweep PASS` or `FAIL` with the largest mean frame change it saw:
+Check that moving the C-arm changes the fluoroscopy image. The policy orbits the C-arm out and back and prints `[fluoroscopy] C-arm sweep PASS` or `FAIL` with the largest mean frame change it saw; that line, not the run summary, is the check's result:
 
 ```bash
 ./run.sh endoluminal_navigation --mode validate_fluoroscopy \

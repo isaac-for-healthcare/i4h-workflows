@@ -1,0 +1,14 @@
+diff --git a/isaaclab_arena/evaluation/policy_runner.py b/isaaclab_arena/evaluation/policy_runner.py
+--- a/isaaclab_arena/evaluation/policy_runner.py
++++ b/isaaclab_arena/evaluation/policy_runner.py
+@@ -90,7 +90,9 @@
+ 
+         num_steps_completed = 0
+ 
+-        while True:
++        # As in Isaac Lab's own loops, closing the last visualizer, such as the Kit window,
++        # ends the rollout; without a window the simulation keeps running until it is done.
++        while env.unwrapped.sim.is_running():
+             with torch.inference_mode(), Timer("step"):
+                 with Timer("policy_inference"):
+                     actions = policy.get_action(env, obs)

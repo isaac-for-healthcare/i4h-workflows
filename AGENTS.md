@@ -22,7 +22,7 @@ If a component environment is missing, run `./setup.sh`. Run a workflow with `./
 
 Stop a foreground run with Ctrl+C and a background one with `./stop.sh <workflow>`, which stops only the runs `run.sh` started in this checkout. Never stop a run by a tool or module name that other sessions may also be running. Stop a live scene session with `./local-agent/bridge.sh stop <scene>`.
 
-Create a blank scene with `./scripts/create_blank_environment.py <scene_id>`. Pass `--dry-run` to preview the generated files or `--validate` to run its contract and scene tests after creation.
+Create a blank workflow with `./scripts/create_blank_environment.py <scene_id> --specialty <specialty>`; it writes the scene and its `workflows/<specialty>/<scene_id>.yaml` declaration. Pass `--dry-run` to preview the generated files or `--validate` to run its contract, scene, and declaration tests after creation.
 
 ## Resolve the Checkout
 

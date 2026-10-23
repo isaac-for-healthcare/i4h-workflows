@@ -9,6 +9,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 ENTRYPOINT = ROOT / "docker" / "entrypoint.sh"
 
@@ -94,6 +96,46 @@ def test_annotator_alias_hides_uv_command(tmp_path: Path) -> None:
         "i4h-annotator",
         "--help",
     ]
+
+
+@pytest.mark.parametrize(
+    ("command", "selection"),
+    [
+        (["./run.sh", "list"], "common"),
+        (["./run.sh", "show", "surgical_reach_psm", "--rule-based"], "common"),
+        (["./run.sh", "--help"], "common"),
+        (["./stop.sh", "all"], "common"),
+        (["./run.sh", "surgical_reach_psm", "--rule-based"], "common arena"),
+    ],
+)
+def test_listing_and_stopping_set_up_only_the_common_environment(
+    tmp_path: Path, command: list[str], selection: str
+) -> None:
+    output = tmp_path / "selection"
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    for script in ("run.sh", "stop.sh"):
+        path = workspace / script
+        path.write_text(
+            "#!/usr/bin/env bash\n" 'printf \'%s\\n\' "$I4H_SETUP_PROJECTS" > "$ENTRYPOINT_TEST_OUTPUT"\n',
+            encoding="utf-8",
+        )
+        path.chmod(0o755)
+    env = os.environ.copy()
+    env.update(
+        {
+            "ENTRYPOINT_TEST_OUTPUT": str(output),
+            "I4H_SETUP_PROJECTS": "common arena",
+            "I4H_SKIP_SETUP": "1",
+            "I4H_STATE_DIR": str(tmp_path / "state"),
+            "I4H_WORKFLOWS": str(workspace),
+        }
+    )
+
+    result = subprocess.run([str(ENTRYPOINT), *command], cwd=ROOT, env=env, capture_output=True, text=True, check=False)
+
+    assert result.returncode == 0, result.stderr
+    assert output.read_text(encoding="utf-8").strip() == selection
 
 
 def test_full_image_uses_baked_environments_without_setup(tmp_path: Path) -> None:

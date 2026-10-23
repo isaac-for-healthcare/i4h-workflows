@@ -171,11 +171,11 @@ Start by deciding which component owns the change:
 
 ### To Add a Workflow
 
-1. **Create the scene.** `./scripts/create_blank_environment.py <scene>` writes a blank scene, its assets, its manifest, and a contract test. It is an Arena environment from then on, as `i4h_arena.environments:<CamelCase> <scene>`.
+1. **Create the scene.** `./scripts/create_blank_environment.py <scene> --specialty <specialty>` writes a blank scene, its assets, its manifest, its workflow declaration, and a contract test. It is an Arena environment from then on, as `i4h_arena.environments:<CamelCase> <scene>`, and `./run.sh list` lists it.
 2. **Build the world.** Add assets, cameras, and layout to the scene, live with `local-agent/bridge.sh` and `scripts/live_scene_edit.py` or directly in source. Declare its capabilities and step budget in the manifest.
 3. **Add the robot and the goal.** Reuse or add an Arena embodiment, and an Arena task whose success termination ends an episode when the goal is met.
 4. **Add the ways to run it.** A rule-based controller as an Arena policy, a teleoperation device, and, for a trained checkpoint, a task manifest in its stack with an Arena client policy.
-5. **Declare it.** Add `workflows/<specialty>/<workflow>.yaml` naming the scene and each mode's policy, policy server, or devices, so `./run.sh <workflow>` runs it.
+5. **Declare its modes.** Add each mode's policy, policy server, or devices to `workflows/<specialty>/<workflow>.yaml`, so `./run.sh <workflow> --<mode>` runs it.
 6. **Document it.** Add the workflow to its specialty page in `docs/workflows/` with its environment and commands.
 7. **Test the owning layer.** Test policies, devices, and recorder terms on CPU; `tests/test_run_workflow.py` checks the declaration. If assets, physics, or cameras changed, finish with a visible simulator run of each mode with `./run.sh`.
 

@@ -252,7 +252,7 @@ Run a workflow with `./run.sh <workflow>` and a mode. Every workflow runs as an 
 ./run.sh surgical_reach_psm --rule-based --presets newton
 ```
 
-Each run writes its outputs, recordings and policy-server log to `runs/<workflow>/<timestamp>/` and prints how many episodes succeeded. A policy mode starts the checkpoint's server from its own environment, runs the episodes once the server listens, and stops it afterwards. Each episode ends on its environment's success term or after the step budget its workflow was validated with. `./run.sh show <workflow> [mode] [options]` prints the Arena or Isaac Lab commands a run would execute; [`workflows/<specialty>/<workflow>.yaml`](workflows/) declares them. Stop a run with Ctrl+C, or a background one with `./stop.sh <workflow>`; `./stop.sh` stops every run `run.sh` started in this checkout. Run `./run.sh --help` for every option.
+Each run writes its outputs, recordings and policy-server log to `runs/<workflow>/<timestamp>/` and prints how many episodes succeeded. A policy mode starts the checkpoint's server from its own environment, runs the episodes once the server listens, and stops it afterwards. Each episode ends on its environment's success term or after the step budget its workflow was validated with. `./run.sh show <workflow> [mode] [options]` prints the Arena or Isaac Lab commands a run would execute; [`workflows/<specialty>/<workflow>.yaml`](workflows/) declares them. Stop a run with Ctrl+C or by closing its window, or a background one with `./stop.sh <workflow>`; `./stop.sh` stops every run `run.sh` started in this checkout. Run `./run.sh --help` for every option.
 
 <!-- markdownlint-disable MD033 -->
 
@@ -261,13 +261,13 @@ Each run writes its outputs, recordings and policy-server log to `runs/<workflow
 
 ### Author New Workflow from the Command Line
 
-Create a blank scene:
+Create a blank workflow:
 
 ```bash
-./scripts/create_blank_environment.py my_workflow --validate
+./scripts/create_blank_environment.py my_workflow --specialty hospital-automation-robotics --validate
 ```
 
-The generator creates the scene source, asset source, scene manifest, and a contract test, and stops without writing files if the scene already exists. The scene is an IsaacLab-Arena environment from then on, under its name in CamelCase, and `run.sh` opens it with the robot held still:
+The generator creates the scene source, asset source, scene manifest, the workflow declaration `workflows/<specialty>/my_workflow.yaml`, and a contract test, and stops without writing files if the scene or workflow already exists. The scene is an IsaacLab-Arena environment from then on, under its name in CamelCase; `./run.sh list` lists the workflow, and `run.sh` opens it with the robot held still:
 
 ```bash
 ./run.sh my_workflow
@@ -315,7 +315,7 @@ These files are run artifacts, not scene source. Apply the confirmed scene, asse
 2. Build the robot, the observations, and the success termination in the scene's IsaacLab-Arena embodiment and task under `arena/i4h_arena/`.
 3. Add a rule-based controller as an Arena policy (a `PolicyBase` subclass) under `arena/i4h_arena/policies/`, and a teleoperation device as an Isaac Lab device in the scene's `teleop_devices`.
 4. For a trained checkpoint, add or reuse a task manifest under `tasks/<stack>/` and an Arena client policy that builds its requests.
-5. Declare the workflow in `workflows/<specialty>/<workflow>.yaml`: its scene and, per mode, the policy, policy server, or teleoperation devices. The files beside it are the examples, and `tests/test_run_workflow.py` checks that each declaration names what exists.
+5. Declare the workflow's modes in `workflows/<specialty>/<workflow>.yaml`: per mode, the policy, policy server, or teleoperation devices. The files beside it are the examples, and `tests/test_run_workflow.py` checks that each declaration names what exists.
 6. Add focused CPU tests under `arena/tests/` or the owning stack.
 
 #### Validate the Workflow

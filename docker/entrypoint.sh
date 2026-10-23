@@ -45,6 +45,17 @@ if [ "${1:-}" = i4h-annotator ]; then
   set -- uv run --no-sync --project tools/annotator i4h-annotator "$@"
 fi
 
+# Listing, showing and stopping runs read only the workflow declarations, which the
+# common environment covers, so they do not wait for the simulator's environments.
+case "${1:-}" in
+  ./run.sh | run.sh | "$ROOT/run.sh")
+    case "${2:-}" in
+      list | show | -h | --help | "") export I4H_SETUP_PROJECTS=common ;;
+    esac
+    ;;
+  ./stop.sh | stop.sh | "$ROOT/stop.sh") export I4H_SETUP_PROJECTS=common ;;
+esac
+
 # i4h-policy <stack>/<task> [serve options]: serve one checkpoint with its stack's
 # own server, such as GR00T's or openpi's, and set up only that stack.
 if [ "${1:-}" = i4h-policy ] || [ "${1:-}" = i4h-workflows-policy ]; then

@@ -3,7 +3,8 @@
 
 description: Spread a deformable tablecloth with a Unitree H2 and Sharpa Wave hands.
 scene: h2_tablecloth
-launcher_args: [--presets, newton]
+# Cloth needs Newton, and the pinned USD parser needs one thread for these bodies.
+presets: [newton]
 env: {PXR_WORK_THREAD_LIMIT: "1"}
 modes:
   teleop:

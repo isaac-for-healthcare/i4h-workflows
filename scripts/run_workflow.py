@@ -77,6 +77,13 @@ RETIRED = {
     "--python-server": "use --live",
     "--fluoro-device": "the endoluminal environments render fluoroscopy on Vulkan",
 }
+#: Subcommands of the earlier launcher, and what to do instead.
+RETIRED_COMMANDS = {
+    "lint": (
+        "a workflow is a YAML declaration now; `./run.sh show <workflow> [--<mode>]` prints the commands a mode "
+        "runs, and tests/test_run_workflow.py checks that every declaration names what exists"
+    ),
+}
 
 
 class UsageError(Exception):
@@ -95,6 +102,8 @@ class Workflow:
     launcher_args: list[str] = field(default_factory=list)
     environment_args: list[str] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict)
+    #: The physics presets the scene runs with, the first by default; empty for any.
+    presets: list[str] = field(default_factory=list)
     modes: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     @property
@@ -128,6 +137,7 @@ def load_workflows(root: Path = WORKFLOWS) -> dict[str, Workflow]:
             launcher_args=[str(arg) for arg in raw.get("launcher_args", [])],
             environment_args=[str(arg) for arg in raw.get("environment_args", [])],
             env={str(key): str(value) for key, value in (raw.get("env") or {}).items()},
+            presets=[str(preset) for preset in raw.get("presets", [])],
             modes={str(name): dict(spec or {}) for name, spec in (raw.get("modes") or {}).items()},
         )
     return workflows
@@ -190,6 +200,9 @@ class Plan:
     record: Path | None = None
     output_dir: Path | None = None
     episodes: int | None = None
+    #: False for a mode whose episodes the scene's success term does not judge.
+    judged: bool = True
+    notes: list[str] = field(default_factory=list)
 
 
 def _caller_path(path: str) -> Path:
@@ -203,6 +216,38 @@ def _free_port(preferred: int) -> int:
             if sock.connect_ex(("127.0.0.1", port)) != 0:
                 return port
     raise RuntimeError(f"no free port near {preferred}")
+
+
+def _json(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text())
+
+
+def _rsl_rl_checkpoint(path: Path) -> Path:
+    """The ``model_<N>.pt`` that ``path`` stands for. Arena's ``rsl_rl`` policy loads a
+    checkpoint with the ``params/agent.yaml`` Isaac Lab's ``train.py`` wrote beside it.
+    ``./train.sh rl`` also leaves a run directory whose ``run.json`` lists those
+    checkpoints, a ``model_final.pt`` copy of the last one, and ``exported/``, whose
+    ``policy.json`` names the checkpoint it was exported from."""
+    named = path
+    for _ in range(4):
+        if path.is_file() and (path.parent / "params" / "agent.yaml").is_file():
+            return path
+        folder = path if path.is_dir() else path.parent
+        if (folder / "policy.json").is_file() and (path.is_dir() or path.name == "policy.pt"):
+            source = _json(folder / "policy.json").get("source_checkpoint")
+        elif (folder / "run.json").is_file() and (path.is_dir() or path.name == "model_final.pt"):
+            source = (_json(folder / "run.json").get("checkpoints") or [None])[-1]
+        else:
+            source = None
+        if not source:
+            break
+        path = Path(source)
+    if not path.exists():
+        raise UsageError(f"--checkpoint {named}: {path} does not exist")
+    raise UsageError(
+        f"--checkpoint {named}: Arena's rsl_rl policy needs a model_<N>.pt with params/agent.yaml beside it; "
+        "pass the training run directory, its model_final.pt or exported/policy.pt, or a model_<N>.pt"
+    )
 
 
 def plan(argv: list[str]) -> Plan:
@@ -246,8 +291,13 @@ def plan(argv: list[str]) -> Plan:
         and bool((_scene_manifest(workflow.scene) or {}).get("cameras"))
     )
 
+    presets = args.presets
+    if workflow.presets:
+        presets = presets or workflow.presets[0]
+        if presets not in workflow.presets:
+            raise UsageError(f"{workflow.name} runs only with --presets {' or '.join(workflow.presets)}, not {presets}")
     launcher = [*workflow.launcher_args]
-    for option, value in (("--presets", args.presets), ("--seed", args.seed), ("--device", args.device)):
+    for option, value in (("--presets", presets), ("--seed", args.seed), ("--device", args.device)):
         if value is not None:
             launcher += [option, str(value)]
     environment = [*workflow.environment_args, *[str(arg) for arg in spec.get("environment_args", [])]]
@@ -277,6 +327,12 @@ def plan(argv: list[str]) -> Plan:
     checkpoint = _caller_path(args.checkpoint) if args.checkpoint else None
     if spec.get("checkpoint") == "required" and checkpoint is None and not args.policy_endpoint:
         raise UsageError(f"{workflow.name} {mode} needs --checkpoint: its task names no published checkpoint")
+    notes: list[str] = []
+    if checkpoint is not None and policy == "rsl_rl":
+        native = _rsl_rl_checkpoint(checkpoint)
+        if native != checkpoint:
+            notes.append(f"--checkpoint {checkpoint} runs as its training checkpoint {native}")
+        checkpoint = native
     if "server" in spec:
         stack, task = str(spec["server"]["stack"]), str(spec["server"]["task"])
         default_port, checkpoint_option = STACKS[stack]
@@ -319,7 +375,20 @@ def plan(argv: list[str]) -> Plan:
             record.stem,
         ]
     command += extra
-    return Plan(workflow, mode, run_dir, command, env, server, port, record, output_dir, args.episodes or 1)
+    return Plan(
+        workflow,
+        mode,
+        run_dir,
+        command,
+        env,
+        server,
+        port,
+        record,
+        output_dir,
+        args.episodes or 1,
+        judged=spec.get("success_term", True),
+        notes=notes,
+    )
 
 
 def _isaaclab_tool(workflow, mode, spec, args, launcher, environment, record, run_dir, visible, cameras):
@@ -368,6 +437,8 @@ def _quote(command: list[str]) -> str:
 
 def show(plan: Plan) -> None:
     env = " ".join(f"{key}={shlex.quote(value)}" for key, value in plan.workflow.env.items())
+    for note in plan.notes:
+        print(f"# {note}")
     if plan.server:
         print(f"# policy server ({plan.workflow.name} {plan.mode}), started first and stopped after:")
         print(_quote(plan.server))
@@ -476,11 +547,16 @@ def _summary(plan: Plan) -> str | None:
     ]
     if not results:
         return None
+    ran = len(results)
+    # A window closed or a stop ends a run before the episodes it asked for.
+    short = f" ({ran} of {plan.episodes} requested)" if plan.episodes and ran < plan.episodes else ""
     succeeded = sum(1 for result in results if result.get("success") is True)
     judged = sum(1 for result in results if result.get("success") is not None)
+    if not plan.judged:
+        return f"{ran} episode(s) ran{short}; {plan.mode} episodes are not scored by the scene's success term"
     if not judged:
-        return f"{len(results)} episode(s) ran; the scene has no success term"
-    return f"{succeeded}/{len(results)} episodes succeeded"
+        return f"{ran} episode(s) ran{short}; the scene has no success term"
+    return f"{succeeded}/{ran} episodes succeeded{short}"
 
 
 def _interrupt(_signum: int, _frame: Any) -> None:
@@ -496,6 +572,8 @@ def run(plan: Plan) -> int:
     signal.signal(signal.SIGINT, signal.default_int_handler)
     plan.run_dir.mkdir(parents=True, exist_ok=True)
     print(f"==> run dir {plan.run_dir}", flush=True)
+    for note in plan.notes:
+        print(f"==> {note}", flush=True)
     if plan.record is not None:
         plan.record.parent.mkdir(parents=True, exist_ok=True)
         print(f"==> recording {plan.record}", flush=True)
@@ -584,6 +662,8 @@ def main(argv: list[str]) -> int:
             print(__doc__.split("\n\n")[0])
             print(USAGE)
             return 0 if argv else 1
+        if argv[0] in RETIRED_COMMANDS:
+            raise UsageError(f"{argv[0]} is no longer supported: {RETIRED_COMMANDS[argv[0]]}")
         if argv[0] == "list":
             return list_workflows()
         if argv[0] == "show":

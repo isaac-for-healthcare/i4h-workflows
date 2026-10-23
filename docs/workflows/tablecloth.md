@@ -16,11 +16,12 @@ environment hands its Isaac Teleop retargeting configuration to Isaac Lab.
 
 Run `./setup.sh` after updating. The simulator environment includes
 `isaaclab-contrib` for coupled MJWarp rigid-body and VBD cloth physics.
-Newton is required for these two scenes, and their workflow declarations in
+Newton is required for these two scenes. Their workflow declarations in
 [`workflows/hospital-automation-robotics/`](../../workflows/hospital-automation-robotics/)
-pass `--presets newton` to every command. The inherited PhysX path reports an invalid
-cloth simulation view with the pinned runtime, so the environment refuses any other
-backend. Other workflows retain their PhysX default.
+declare `presets: [newton]`, so `run.sh` passes `--presets newton` to every command and
+rejects `--presets physx` before it starts the simulator. The inherited PhysX path reports
+an invalid cloth simulation view with the pinned runtime, so the environment refuses any
+other backend too. Other workflows retain their PhysX default.
 
 ## Inspect the scenes
 

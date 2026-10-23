@@ -92,10 +92,7 @@ TRAIN_RUN="$PWD/runs/ultrasound_probe_reach/YYYYMMDD_HHMMSS"
   --episodes 20
 
 # Evaluate the checkpoint as a policy in the environment with IsaacLab-Arena's runner.
-# Arena's rsl_rl policy reads params/agent.yaml beside the checkpoint, which the
-# timestamped Isaac Lab log directory inside the run holds.
-./run.sh ultrasound_probe_reach --policy --episodes 20 \
-  --checkpoint "$(ls -d "$TRAIN_RUN"/20*/ | tail -1)model_399.pt"
+./run.sh ultrasound_probe_reach --policy --episodes 20 --checkpoint "$TRAIN_RUN"
 
 # Optionally export the policy as TorchScript (policy.pt, with policy.json) for deployment.
 ./train.sh rl export ultrasound_probe_reach \
@@ -103,6 +100,6 @@ TRAIN_RUN="$PWD/runs/ultrasound_probe_reach/YYYYMMDD_HHMMSS"
   --output-dir "$TRAIN_RUN/exported"
 ```
 
-The policy mode runs Arena's `rsl_rl` policy on the flat observations the policy was trained on (`--rl_observations`). Add `--headless` to evaluate without the viewport.
+The policy mode runs Arena's `rsl_rl` policy on the flat observations the policy was trained on (`--rl_observations`). That policy loads a native `model_<N>.pt` with the `params/agent.yaml` Isaac Lab's trainer wrote beside it, so `run.sh` runs a training run directory, its `model_final.pt`, or an `exported/` directory or its `policy.pt` as the last checkpoint `run.json` lists, and rejects a checkpoint without `params/agent.yaml` before it starts the simulator. Add `--headless` to evaluate without the viewport.
 
 RSL-RL training and its vectorized evaluation are a separate lifecycle in `rl/`; the trained checkpoint returns to the policy runner for evaluation in the environment.

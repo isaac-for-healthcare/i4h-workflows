@@ -1,5 +1,5 @@
 ## Description: <br>
-Create a blank i4h workflow scene, containing only ground and light, that runs as an IsaacLab-Arena environment. Use for fast new workflow scaffolding; do not use to edit an existing scene. <br>
+Create a blank i4h workflow, a ground-and-light scene that runs as an IsaacLab-Arena environment, listed under its specialty. Use for fast new workflow scaffolding; not to edit an existing scene. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -33,7 +33,7 @@ Mitigation: Review and scan skill before deployment. <br>
 **Output Type(s):** [Files, Shell commands, Configuration instructions] <br>
 **Output Format:** [Markdown with inline bash code blocks] <br>
 **Output Parameters:** [1D] <br>
-**Other Properties Related to Output:** [Creates four files: scene asset source, scene class, scene manifest, and contract test] <br>
+**Other Properties Related to Output:** [Creates five files: scene asset source, scene class, scene manifest, workflow declaration, and contract test] <br>
 
 ## Evaluation Agents Used: <br>
 - Claude Code (`aws/anthropic/bedrock-claude-opus-4-8`) <br>
