@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Apply one observable edit to an open ``run.sh --live`` Isaac Sim session.
+"""Apply one observable edit to a live Isaac Sim session.
+
+The session is any Kit process with Isaac Sim's Python server enabled, such as the
+one ``local-agent/bridge.sh start <scene>`` opens: the scene as an IsaacLab-Arena
+environment, holding still with its timeline paused. Started by hand, it needs
+``--kit_args "--enable isaacsim.code_editor.python_server --enable isaacsim.test.utils
+--enable isaacsim.core.rendering_manager"``.
 
 The one-command/one-edit interface is intentional: agents and developers should
 send compound scene requests as an ordered sequence so each change is visible

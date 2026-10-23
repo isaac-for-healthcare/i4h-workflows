@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.scripts]
-i4h-tasks-openpi-pi0 = "i4h_tasks.openpi_pi0.server:main"
+i4h-tasks-openpi-pi0 = "i4h_tasks.openpi_pi0.serve:main"
 i4h-tasks-openpi-pi0-train = "i4h_tasks.openpi_pi0.train:main"
 
 [build-system]

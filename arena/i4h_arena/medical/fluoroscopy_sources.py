@@ -38,12 +38,19 @@ def bind_fluoroscopy_sources(env: Any) -> None:
         )
     else:
         carm_provider = _scene_data_carm_provider(env, detector_size_m) or SceneCArmStateProvider(
-            env.scene["xray_source"],
-            env.scene["detector"],
+            _frame_view(env, "xray_source"),
+            _frame_view(env, "detector"),
             detector_size_m=detector_size_m,
         )
     fluoroscopy.bind_catheter_provider(catheter)
     fluoroscopy.bind_carm_provider(carm_provider)
+
+
+def _frame_view(env: Any, name: str) -> Any:
+    """A FrameView over a scene extra, which Isaac Lab 3 keeps without a runtime view."""
+    from isaaclab.sim.views import FrameView
+
+    return FrameView(env.scene[name].cfg.prim_path, device=env.device)
 
 
 def _scene_data_carm_provider(env: Any, detector_size_m: tuple[float, float]) -> Any | None:

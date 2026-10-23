@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 import yaml
 
-from i4h_arena.embodiments.catheter import route_initial_catheter_length_m
 from i4h_arena.medical.patient_twin import PatientTwin
+from i4h_arena.medical.route_progress import route_initial_catheter_length_m
 
 
 def _write_manifest(tmp_path, *, voxel_to_patient_mm=None):

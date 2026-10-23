@@ -10,7 +10,7 @@ inputs=(setup.sh third_party/setup.sh)
 while IFS= read -r -d '' path; do
   inputs+=("${path#./}")
 done < <(
-  find common engine workflows arena rl tasks tools \
+  find common arena rl tasks tools \
     -type f \( -name pyproject.toml -o -name uv.lock \) -print0 \
     | sort -z
 )

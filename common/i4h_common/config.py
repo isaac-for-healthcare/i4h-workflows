@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Robot descriptors — the third and last thing that must be config.
 
-``tools/dataset`` needs LeRobot column names, ``tasks/teleop`` needs the leader
-calibration, and ``arena`` needs the home pose. None of those venvs can import
+``tools/dataset`` needs LeRobot column names, the teleoperation devices need the
+leader calibration, and ``arena`` needs the home pose. None of those venvs can import
 the others, so these cross a boundary and are therefore data.
 
 What is *not* here: ``dof``, ``action_space``, ``gripper`` and ``control_hz``.
@@ -35,16 +35,14 @@ class RobotConfig:
     joint_names: tuple[str, ...] = ()
     home_joint_pos_rad: tuple[float, ...] = ()
     #: Optional override of the articulation's own home pose. Normally empty:
-    #: IsaacLab sets `default_joint_pos` from the embodiment cfg, and the scene
-    #: view falls back to it, so only a robot that must start somewhere *else*
-    #: needs this.
+    #: IsaacLab sets `default_joint_pos` from the embodiment cfg, so only a robot
+    #: that must start somewhere *else* needs this.
     #: LeRobot column names, in action order.
     action_names: tuple[str, ...] = ()
     state_names: tuple[str, ...] = ()
     #: ``[(group, start, stop), ...]`` splits for policy state/action heads.
     state_split: tuple[tuple[str, int, int], ...] = ()
     action_split: tuple[tuple[str, int, int], ...] = ()
-    teleop_devices: tuple[str, ...] = ()
     gripper_open: float = 0.0
     gripper_closed: float = 0.0
     joint_limits: tuple[tuple[float, float], ...] = ()
@@ -113,7 +111,6 @@ def get_robot_config(name: str) -> RobotConfig:
         "state_names",
         "state_split",
         "action_split",
-        "teleop_devices",
         "gripper_open",
         "gripper_closed",
         "joint_limits",
@@ -132,7 +129,6 @@ def get_robot_config(name: str) -> RobotConfig:
         state_names=tuple(raw.get("state_names", ())),
         state_split=_splits("state_split"),
         action_split=_splits("action_split"),
-        teleop_devices=tuple(raw.get("teleop_devices", ())),
         gripper_open=float(raw.get("gripper_open", 0.0)),
         gripper_closed=float(raw.get("gripper_closed", 0.0)),
         joint_limits=_ranges("joint_limits"),

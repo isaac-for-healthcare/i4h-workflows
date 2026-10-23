@@ -15,14 +15,15 @@ from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as base_mdp
 import torch
-from isaaclab.assets import Articulation, RigidObject
+from isaaclab.assets import RigidObject
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import EventTermCfg, RewardTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.sensors import FrameTransformer
 from isaaclab.utils import configclass
 from isaaclab.utils.math import matrix_from_quat, subtract_frame_transforms
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
 from i4h_arena.tensor_utils import to_torch
 
@@ -40,28 +41,6 @@ _ULTRASOUND_SCAN_DISTANCE_M = 0.10
 
 
 # ---------- Reset events ------------------------------------------------------
-
-
-def reset_panda_joints_by_fraction_of_limits(
-    env: ManagerBasedEnv,
-    env_ids: torch.Tensor,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    fraction: float = 0.1,
-) -> None:
-    """Reset Panda joints with offsets sampled from a fraction of the joint limits."""
-    asset: Articulation = env.scene[asset_cfg.name]
-    joint_pos = to_torch(asset.data.default_joint_pos)[env_ids].clone()
-    joint_vel = to_torch(asset.data.default_joint_vel)[env_ids].clone()
-    joint_limits = to_torch(asset.data.default_joint_limits)[env_ids].clone()
-    joint_sample_ranges = joint_limits * fraction
-
-    lower = joint_sample_ranges[:, :, 0]
-    upper = joint_sample_ranges[:, :, 1]
-    joint_pos_delta = torch.rand(joint_pos.shape, device=joint_pos.device) * (upper - lower) + lower
-    joint_pos += joint_pos_delta
-    joint_pos = torch.clamp(joint_pos, joint_limits[:, :, 0], joint_limits[:, :, 1])
-
-    asset.write_joint_state_to_sim_index(position=joint_pos, velocity=joint_vel, env_ids=env_ids)
 
 
 def reset_ultrasound_success_state(env: ManagerBasedEnv, env_ids: torch.Tensor) -> None:
@@ -244,11 +223,6 @@ class _EventsCfg:
             "asset_cfg": SceneEntityCfg("organs"),
         },
     )
-    reset_joint_position = EventTermCfg(
-        func=reset_panda_joints_by_fraction_of_limits,
-        mode="reset",
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["panda_joint.*"]), "fraction": 0.01},
-    )
 
 
 @configclass
@@ -260,12 +234,6 @@ class _RewardsCfg:
     joint_vel = RewardTermCfg(func=base_mdp.joint_vel_l2, weight=-0.0001)
 
 
-@configclass
-class _TerminationsCfg:
-    time_out = TerminationTermCfg(func=base_mdp.time_out, time_out=True)
-    success = TerminationTermCfg(func=ultrasound_scan_success, time_out=False)
-
-
 class PandaPhantomEnvCfg(TaskBase):
     """Arena task wrapper for the Franka liver-scan ultrasound objective."""
 
@@ -275,8 +243,16 @@ class PandaPhantomEnvCfg(TaskBase):
     def get_scene_cfg(self):
         return None
 
-    def get_termination_cfg(self):
-        return _TerminationsCfg()
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        return TaskTerminationCfg(
+            timeout_s=self.get_episode_length_s(),
+            success=[
+                CompletionCriteria(
+                    name="liver_scan",
+                    predicate_sequence=[TerminationTermCfg(func=ultrasound_scan_success)],
+                )
+            ],
+        )
 
     def get_events_cfg(self):
         return _EventsCfg()
@@ -292,6 +268,3 @@ class PandaPhantomEnvCfg(TaskBase):
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(1.5, 1.3, 1.0), lookat=(0.0, 0.0, 0.0))
-
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        return env_cfg

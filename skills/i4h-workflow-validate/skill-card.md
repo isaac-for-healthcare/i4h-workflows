@@ -1,5 +1,5 @@
 ## Description: <br>
-Run the root-level workflow runtime policy or rule-based rollouts and verify simulator success. <br>
+Roll out a controller or policy checkpoint in a workflow's Arena environment and verify success. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers use this skill to evaluate Isaac for Healthcare simulation workflows by running policy or rule-based rollout modes and inspecting recorded episodes for simulator success. <br>
+Developers and engineers use this skill to evaluate Isaac for Healthcare simulation workflows by rolling out rule-based controllers or policy checkpoints in IsaacLab-Arena environments and inspecting per-episode results and recordings for simulator success. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>

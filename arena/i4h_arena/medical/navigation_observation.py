@@ -20,7 +20,7 @@ rod is seeded from the same absolute centerline, so the cloned environments are
 coincident; a positive ``env_spacing`` on top of that would leave the origins a
 non-zero grid while the rods sat on each other, and this one term would report a
 per-environment constant of metres for one identical physical state. So
-``CatheterEmbodiment.modify_env_cfg`` pins ``env_spacing`` to zero, as the
+``CatheterEmbodiment.tune_env_cfg`` pins ``env_spacing`` to zero, as the
 Franka variant already did. Nothing else here subtracts an origin: the route
 and target parameters are absolute, and the target is read as an offset from
 the tip, which is origin-free whatever the spacing is.

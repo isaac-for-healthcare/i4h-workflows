@@ -46,7 +46,7 @@ jobs:
           cache-python: true
           cache-dependency-glob: |
             rl/uv.lock
-            workflows/uv.lock
+            common/uv.lock
             tools/dataset/uv.lock
             tools/mimic/uv.lock
             tools/patient_twin/uv.lock
@@ -62,7 +62,7 @@ jobs:
         run: |
           echo '## CPU unit-test coverage' >> "$GITHUB_STEP_SUMMARY"
           echo '```text' >> "$GITHUB_STEP_SUMMARY"
-          uv run --project workflows --with coverage==7.4.4 \
+          uv run --project common --with coverage==7.4.4 \
             coverage report >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 

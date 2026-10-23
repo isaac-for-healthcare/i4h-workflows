@@ -12,14 +12,17 @@ LOG_PREFIX="i4h-workflows third_party setup"
 TARGET="${1:-all}"
 [ "$#" -le 1 ] || { echo "usage: third_party/setup.sh [all|arena|tasks/<policy>]" >&2; exit 2; }
 
-ISAACLAB_REV="ffff603eafc6b74264a5261cc0183d6a65390d78"
-ISAACLAB_DIR="IsaacLab-ffff603"
+# Isaac Lab v3.0.0 GA. It requires Isaac Sim 6.2.0.0 (arena/pyproject.toml) and warp-lang 1.17.0.
+ISAACLAB_REV="e3f7d9ff1f5d7f8280de3ece9000b7117f66bcf4"
+ISAACLAB_DIR="IsaacLab-e3f7d9f"
 LEISAAC_REV="cd61a20c75f7b72c347538089602201349af6dc8"
 LEISAAC_DIR="leisaac-cd61a20"
-ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
-ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
-ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
-ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
+# IsaacLab-Arena release/0.3.1. Upstream validates it on Isaac Lab 91a0906f (pre-GA) and Isaac
+# Sim 6.1; here it runs on Isaac Lab v3.0.0 GA instead.
+ISAACLAB_ARENA_REV="c7edf3a9d5d8276565208f72422f8f8a0806d6cf"
+ISAACLAB_ARENA_DIR="IsaacLab-Arena-c7edf3a"
+ISAACSIM_SKILLS_REV="74a9356b20250dd60337d90b4b4d913c9454d32b"
+ISAACSIM_SKILLS_DIR="IsaacSim-74a9356"
 # Release component versions for v0.9.0: physics simulation, sensor simulation and digital
 # twin default to the commits their v0.9.0 tags name. Every component repository is public.
 # Keep the checkout directory names stable because uv path sources refer to them. Export
@@ -235,6 +238,25 @@ if [[ -d "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}/.git" ]]; then
     exit 1
   fi
   echo "[${LOG_PREFIX}] i4h-physics-simulation carries the coupled-arm solver contract"
+
+  # Isaac Lab 3.0 no longer holds the finalized ModelBuilder on NewtonManager._builder, where
+  # the coupled arm manager reads drive-body names from; it lives in the backend registry.
+  apply_patch_once "i4h-physics-simulation Isaac Lab 3 ModelBuilder lookup" \
+    "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}" \
+    "${THIRD_PARTY_DIR}/i4h_physics_simulation_isaaclab3_builder.patch"
+fi
+
+if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}/.git" ]]; then
+  # Isaac Lab 3.0 resolves the Pink IK mesh_path as a single file, but Pinocchio takes a mesh
+  # package directory; the H2 + Sharpa URDF needs one for its relative mesh paths.
+  apply_patch_once "Isaac Lab Pink IK local mesh directory" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_pink_ik_local_mesh_dir.patch"
+  # Isaac Lab 3.0's replay_demos.py builds a keyboard for pause/resume unconditionally, which
+  # fails without a Kit window; headless replays need it skipped.
+  apply_patch_once "Isaac Lab headless replay_demos" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_replay_demos_headless.patch"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEISAAC_DIR}/.git" ]]; then
@@ -252,13 +274,27 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}/.git" ]]; then
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_arena_wbc_default_base_height.patch"
 
-  apply_patch_once "IsaacLab-Arena Newton import" \
+  # Arena 0.3.1 was validated on pre-GA Isaac Lab 91a0906f. On v3.0.0, resets and recording pass
+  # slice(None) env_ids, mdp.image became per-modality terms (image_rgb, image_depth, ...), and the
+  # legacy Panda with its shoulder/forearm/hand actuator groups moved to FRANKA_PANDA_LEGACY_HIGH_PD_CFG.
+  apply_patch_once "IsaacLab-Arena Isaac Lab 3.0 GA slice env_ids" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
-    "${THIRD_PARTY_DIR}/isaaclab_arena_newton_import.patch"
+    "${THIRD_PARTY_DIR}/isaaclab_arena_isaaclab3_slice_env_ids.patch"
 
-  apply_patch_once "IsaacLab-Arena lazy registration" \
+  apply_patch_once "IsaacLab-Arena Isaac Lab 3.0 GA image observation terms" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
-    "${THIRD_PARTY_DIR}/isaaclab_arena_lazy_registration.patch"
+    "${THIRD_PARTY_DIR}/isaaclab_arena_isaaclab3_image_terms.patch"
+
+  apply_patch_once "IsaacLab-Arena Isaac Lab 3.0 GA legacy Franka actuator groups" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_arena_isaaclab3_franka_legacy.patch"
+
+  # Arena's policy runner loops until its step or episode count, so closing the Kit window
+  # left the rollout running without one. Isaac Lab's own loops run while sim.is_running(),
+  # which turns false once the last visualizer is closed.
+  apply_patch_once "IsaacLab-Arena policy runner ends when its window closes" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_arena_policy_runner_window_close.patch"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEROBOT_DIR}/.git" ]]; then

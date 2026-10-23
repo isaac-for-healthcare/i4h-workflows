@@ -8,9 +8,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from i4h_arena.adapters.scene_view import ArenaSceneView
 from i4h_arena.medical.catheter import CatheterState, StaticCatheterStateProvider
 from i4h_arena.medical.synthetic_fluoroscopy import SyntheticFluoroscopyRenderer
+from i4h_arena.ui.sensor_view import SensorView
 
 
 def _catheter() -> CatheterState:
@@ -35,7 +35,7 @@ def test_synthetic_renderer_matches_arena_camera_contract() -> None:
     sensor = SimpleNamespace(data=SimpleNamespace(output=output))
     env = SimpleNamespace(unwrapped=SimpleNamespace(scene={"fluoroscopy": sensor}, num_envs=1))
 
-    frame = ArenaSceneView(env, cameras=("fluoroscopy",)).camera("fluoroscopy")
+    frame = SensorView(env, ("fluoroscopy",)).camera("fluoroscopy")
 
     assert frame is not None
     assert (frame.height, frame.width, frame.encoding) == (64, 96, "rgb8")
@@ -44,7 +44,7 @@ def test_synthetic_renderer_matches_arena_camera_contract() -> None:
     assert image.min() == 12
     assert image.max() > image.min()
 
-    guidance = ArenaSceneView(env, cameras=("fluoroscopy",)).camera("fluoroscopy", output="guidance")
+    guidance = SensorView(env, ("fluoroscopy",)).camera("fluoroscopy", output="guidance")
     assert guidance is not None
     guidance_image = guidance.to_array()
     assert np.any(guidance_image[..., 1] > guidance_image[..., 0])

@@ -97,6 +97,9 @@ def expand(
             if not names:
                 raise ValueError(f"{source} has no successful demos to clone")
 
+        # File-root attributes too, such as Isaac Lab's format_version.
+        for key, value in src.attrs.items():
+            dst.attrs[key] = value
         dst_data = dst.create_group(DATA_GROUP)
         for key, value in src_data.attrs.items():
             dst_data.attrs[key] = value

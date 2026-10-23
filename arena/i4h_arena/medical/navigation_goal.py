@@ -199,6 +199,29 @@ class ArrivalProgress:
     route: RouteProgress | None = None
 
 
+def _arrival_params(env: Any) -> dict | None:
+    """The arrival criterion's parameters, or ``None`` when no ``success`` term ends the episode.
+
+    IsaacLab-Arena installs ``success`` as a term that reads the task's progress, so
+    the arrival predicate, and with it the target and thresholds, sits in the task's
+    completion criteria rather than in the term's own parameters.
+    """
+    manager = getattr(env, "termination_manager", None)
+    if manager is None or "success" not in getattr(manager, "active_terms", ()):
+        return None
+    params = manager.get_term_cfg("success").params
+    if "target_world_m" in params:
+        return params
+    progress = getattr(getattr(env, "cfg", None), "task_progress", None)
+    for criteria in getattr(progress, "success_criteria", None) or ():
+        for sequence in criteria.canonical_predicate_sequences.values():
+            for predicate, _score in sequence:
+                predicate_params = getattr(predicate, "params", None) or {}
+                if "target_world_m" in predicate_params:
+                    return predicate_params
+    return None
+
+
 def arrival_progress(env: Any) -> ArrivalProgress | None:
     """Live approach state for one environment.
 
@@ -207,10 +230,9 @@ def arrival_progress(env: Any) -> ArrivalProgress | None:
     disagree with the criterion that actually ends the episode. Returns ``None``
     for a scene that terminates on something else.
     """
-    manager = getattr(env, "termination_manager", None)
-    if manager is None or "success" not in getattr(manager, "active_terms", ()):
+    params = _arrival_params(env)
+    if params is None:
         return None
-    params = manager.get_term_cfg("success").params
     target = params["target_world_m"]
     tolerance_m = float(params.get("tolerance_m", ARRIVAL_TOLERANCE_M))
     hold_steps = int(params.get("hold_steps", ARRIVAL_HOLD_STEPS))
@@ -305,7 +327,7 @@ def arrival_status(env: Any) -> str:
     )
 
 
-def reset_arrival_progress(env: Any, env_ids: Any = None) -> None:
+def reset_arrival_progress(env: Any, env_ids: Any) -> None:
     """Clear the hold counter for the environments being reset."""
     counter = hold_counter(env)
     if env_ids is None:

@@ -165,34 +165,6 @@ def test_the_g1_manifests_declare_the_head_camera_config(task_id) -> None:
     assert _finetune.resolve_modality_config_path(declared) == _finetune.DEFAULT_MODALITY_CONFIG
 
 
-@pytest.mark.parametrize("task_id", G1_TASKS)
-def test_trainer_and_server_load_the_same_declared_config(monkeypatch, tmp_path, task_id) -> None:
-    from i4h_common.server import Session
-    from i4h_tasks.gr00t_n16.server import Gr00tN16Server
-
-    monkeypatch.setattr("i4h_common.training.resolve_dataset", lambda path: path)
-    trained = []
-    monkeypatch.setattr(_finetune, "check_datasets", trained.append)
-    assert main(["--task", task_id, "--dataset", str(tmp_path), "--dry-run"]) == 0
-
-    served = []
-    monkeypatch.setattr(_finetune, "_load_modality_config", served.append)
-    monkeypatch.setitem(
-        sys.modules,
-        "i4h_tasks.gr00t_n16.locomanip.infer.closedloop_policy",
-        SimpleNamespace(G1LocomanipClosedloopPolicy=lambda **_kwargs: SimpleNamespace(reset=lambda: None)),
-    )
-    server = object.__new__(Gr00tN16Server)
-    server._policies = {}
-    server.manifest_dir = None
-    server.load(
-        Session(task_uid="t", task_id=task_id, run_id="r", episode_index=0, prompt="p", checkpoint="c", model={})
-    )
-
-    resolved = _finetune.resolve_modality_config_path(trained[0].modality_config_path)
-    assert resolved == served[0] == _finetune.DEFAULT_MODALITY_CONFIG
-
-
 def test_a_local_dataset_without_groot_metadata_fails_the_check(tmp_path) -> None:
     """Greptile on PR 275: a dataset with info.json but no modality.json used to pass unchecked."""
     meta = tmp_path / "meta"

@@ -1,16 +1,10 @@
 [project]
 name = "i4h-arena"
 version = "0.1.0"
-description = "IsaacLab-Arena integration: scenes, adapters and the workflow runner."
+description = "The i4h scenes as IsaacLab-Arena environments, with their policies, devices and operator UI."
 requires-python = ">=3.12, <3.13"
 dependencies = [
     "i4h-common",
-    "i4h-engine",
-    "i4h-workflows",
-    "i4h-tasks-basic",
-    "i4h-tasks-rsl-rl",
-    "i4h-tasks-ik",
-    "i4h-tasks-teleop",
     "catheter-vasculature-solver",
     "xray-simulator[slang]",
     "numpy>=2,<3",
@@ -20,8 +14,16 @@ dependencies = [
     "onnxruntime>=1.19",
     "pyzmq>=26,<28",
     "PyYAML>=6.0",
+    # The SO-ARM 101 leader arm reads its motors over a serial port.
+    "pyserial>=3.5",
     "tqdm>=4.66",
-    "isaacsim[all,extscache]==6.0.1",
+    "isaacsim[all,extscache]==6.2.0.0",
+    # isaacsim-core 6.2 pins this OpenCV release candidate, which only pypi.nvidia.com carries.
+    # A uv source pin reaches direct dependencies only, so name it here as well.
+    "opencv-python-headless-noffmpeg==4.14.0.94rc3",
+    # Isaac Lab 3.0 moved every third-party requirement from source/isaaclab to the root
+    # isaaclab-dev project, so the editable packages below install no torch/warp/newton.
+    "isaaclab-dev[isaacsim,ov,mimic,rsl-rl]",
     "isaaclab",
     "isaaclab-contrib",
     "isaaclab-mimic",
@@ -35,13 +37,14 @@ dependencies = [
     "isaaclab-assets",
     "leisaac",
     "isaaclab-arena",
-    "warp-lang==1.13.0",
+    # Clients for policy servers that run in their own environments, as Arena installs them:
+    # GR00T's ZMQ PolicyClient (N1.6 protocol, also spoken by N1.7 servers) and openpi's.
+    "gr00t",
+    "openpi-client",
+    "warp-lang==1.17.0",
     "osqp>=0.6.7.post3",
     "qpsolvers==4.8.1",
 ]
-
-[project.scripts]
-i4h-arena = "i4h_arena.cli:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -52,26 +55,29 @@ packages = ["i4h_arena"]
 
 [tool.uv.sources]
 i4h-common = { path = "../common", editable = true }
-i4h-engine = { path = "../engine", editable = true }
-i4h-workflows = { path = "../workflows", editable = true }
-i4h-tasks-basic = { path = "../tasks/basic", editable = true }
-i4h-tasks-rsl-rl = { path = "../tasks/rsl_rl", editable = true }
-i4h-tasks-ik = { path = "../tasks/ik", editable = true }
-i4h-tasks-teleop = { path = "../tasks/teleop", editable = true }
 isaacsim = { index = "nvidia" }
-isaaclab = { path = "../third_party/IsaacLab-ffff603/source/isaaclab", editable = true }
-isaaclab-contrib = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_contrib", editable = true }
-isaaclab-mimic = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_mimic", editable = true }
-isaaclab-newton = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_newton", editable = true }
-isaaclab-ov = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_ov", editable = true }
-isaaclab-physx = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_physx", editable = true }
-isaaclab-rl = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_rl", editable = true }
-isaaclab-tasks = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_tasks", editable = true }
-isaaclab-teleop = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_teleop", editable = true }
-isaaclab-visualizers = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_visualizers", editable = true }
-isaaclab-assets = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_assets", editable = true }
+# Isaac Sim 6.2 pins an OpenCV release candidate that only pypi.nvidia.com carries.
+opencv-python-headless-noffmpeg = { index = "nvidia" }
+isaaclab-dev = { path = "../third_party/IsaacLab-e3f7d9f", editable = true }
+isaaclab = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab", editable = true }
+isaaclab-experimental = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_experimental", editable = true }
+isaaclab-ppisp = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_ppisp", editable = true }
+isaaclab-tasks-experimental = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_tasks_experimental", editable = true }
+isaaclab-contrib = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_contrib", editable = true }
+isaaclab-mimic = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_mimic", editable = true }
+isaaclab-newton = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_newton", editable = true }
+isaaclab-ov = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_ov", editable = true }
+isaaclab-physx = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_physx", editable = true }
+isaaclab-rl = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_rl", editable = true }
+isaaclab-tasks = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_tasks", editable = true }
+isaaclab-teleop = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_teleop", editable = true }
+isaaclab-visualizers = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_visualizers", editable = true }
+isaaclab-assets = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_assets", editable = true }
 leisaac = { path = "../third_party/leisaac-cd61a20/source/leisaac", editable = true }
-isaaclab-arena = { path = "../third_party/IsaacLab-Arena-0a1b8c2", editable = true }
+isaaclab-arena = { path = "../third_party/IsaacLab-Arena-c7edf3a", editable = true }
+gr00t = { path = "../third_party/Isaac-GR00T-1.6", editable = true }
+# Arena pins its openpi client (it passes api_key, which the training checkout's client predates).
+openpi-client = { git = "https://github.com/Physical-Intelligence/openpi", rev = "c23745b5ad24e98f66967ea795a07b2588ed6c79", subdirectory = "packages/openpi-client" }
 catheter-vasculature-solver = { path = "../third_party/i4h-physics-simulation-internal/physics_simulation/endoluminal/catheter-vasculature-solver", editable = true }
 xray-simulator = { path = "../third_party/i4h-sensor-simulation-internal/xray-simulator", editable = true }
 torch = [
@@ -108,17 +114,33 @@ prerelease = "allow"
 python-preference = "only-managed"
 override-dependencies = [
     "coverage==7.4.4",
-    'usd-core>=25.11,<26 ; platform_machine == "x86_64"',
     "numpy>=2,<3",
     "packaging==26.0",
     "gymnasium==1.2.1",
     'pywin32==306 ; sys_platform == "win32"',
-    "torch==2.10.0",
-    "torchvision==0.25.0",
+    # Isaac Lab v3.0.0 [tool.uv] override-dependencies; mirror them so Isaac Sim 6.2's older
+    # transitive pins do not win. usd-exchange provides pxr, so usd-core must not co-install.
+    "torch==2.11.0",
+    "torchvision==0.26.0",
+    "mujoco~=3.12.0",
+    "mujoco-warp~=3.12.0",
+    "newton[sim]==1.6.1",
+    "newton-usd-schemas>=0.5.0",
+    "usd-exchange==3.0.1",
+    "usd-optimize~=1.3.1",
+    "fsspec>=2026.6.0",
+    "urllib3>=2.8.0",
     "uvicorn>=0.31.1",
-    "warp-lang==1.13.0",
-    "websockets==12.0",
+    "warp-lang==1.17.0",
+    # IsaacLab-Arena 0.3.1 pins websockets==16.1.1 for its remote policy client.
+    "websockets==16.1.1",
 ]
+
+# Only the GR00T client is imported in the simulator; its model stack runs in tasks/gr00t_n1*.
+[[tool.uv.dependency-metadata]]
+name = "gr00t"
+version = "0.1.0"
+requires-dist = ["msgpack>=1.1", "numpy>=2,<3", "pyzmq>=26,<28"]
 
 [tool.uv.extra-build-dependencies]
 egl-probe = ["cmake<4"]

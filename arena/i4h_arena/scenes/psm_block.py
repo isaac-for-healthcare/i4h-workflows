@@ -11,4 +11,5 @@ class PsmBlockScene(SurgicalLiftScene):
     name = "psm_block"
     asset_mode = "lift_block"
     task_description = "Lift the peg-transfer block with the dVRK PSM."
+    success_height = -0.075
     organs = False

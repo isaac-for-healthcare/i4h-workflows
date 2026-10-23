@@ -29,6 +29,7 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils import configclass
 
 from i4h_arena.assets._tablecloth import CLOTH_INNER_USD, CLOTH_ONLY_USD, TABLE_USD, CameraPresets
+from i4h_arena.assets.constants import GRID_GROUND_PLANE_COLOR, GRID_GROUND_PLANE_USD
 from i4h_arena.embodiments.tablecloth import (
     SPREAD_TABLECLOTH_CUSTOM_JOINT_POS,
     SPREAD_TABLECLOTH_INIT_POS,
@@ -113,7 +114,7 @@ class SpreadTableclothSceneCfg(InteractiveSceneCfg):
     # Ground plane the robot stands on. World origin z=0 is at floor level
     ground = AssetBaseCfg(
         prim_path="/World/ground",
-        spawn=sim_utils.GroundPlaneCfg(),
+        spawn=sim_utils.GroundPlaneCfg(usd_path=GRID_GROUND_PLANE_USD, color=GRID_GROUND_PLANE_COLOR),
         init_state=AssetBaseCfg.InitialStateCfg(
             pos=(0.0, 0.0, 0.0),
         ),
@@ -194,15 +195,15 @@ class ObservationsCfg:
     @configclass
     class CameraImagesCfg(ObsGroup):
         front_camera = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("front_camera"), "data_type": "rgb", "normalize": False},
         )
         left_wrist_camera = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("left_wrist_camera"), "data_type": "rgb", "normalize": False},
         )
         right_wrist_camera = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("right_wrist_camera"), "data_type": "rgb", "normalize": False},
         )
 
@@ -236,7 +237,9 @@ class G1SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
     scene: SpreadTableclothSceneCfg = SpreadTableclothSceneCfg(
         num_envs=1,
         env_spacing=6.0,
-        replicate_physics=False,
+        # Isaac Lab 3 builds the Newton model only through physics replication;
+        # without it the coupled cloth solver starts on an empty model.
+        replicate_physics=True,
     )
 
     viewer: ViewerCfg = ViewerCfg(

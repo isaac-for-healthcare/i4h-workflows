@@ -16,7 +16,4 @@ objects:
 - surgical_tray
 - cart
 max_steps: 1800
-control_hz: 30.0
-mode_overrides:
-  teleop:
-    dof: 23
+control_hz: 50.0

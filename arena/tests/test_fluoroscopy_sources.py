@@ -74,8 +74,7 @@ def _env(twin, num_envs=1):
 def _make_view(env, monkeypatch):
     spec = SimpleNamespace(objects=(), robots=("robot",), cameras=("fluoroscopy",))
     scene = EndoluminalNavigationScene(spec, SimpleNamespace())
-    monkeypatch.setattr(scene, "_joint_state_providers", lambda *args: {})
-    return scene.make_view(env)
+    return scene.make_sensor_view(env)
 
 
 @pytest.mark.parametrize("num_envs", [1, 3])
@@ -129,10 +128,12 @@ def test_view_and_repeated_observations_preserve_live_provider_and_pan(patient, 
 def test_view_still_binds_phantom_without_image_observations(monkeypatch):
     env = _env(None)
     monkeypatch.setattr("i4h_arena.medical.fluoroscopy_sources._scene_data_carm_provider", lambda *args: None)
-    for name, z in (("xray_source", 0.0), ("detector", 1.0)):
-        env.scene[name] = SimpleNamespace(
-            get_world_poses=lambda z=z: (np.array([[0.0, 0.0, z]]), np.array([[0.0, 0.0, 0.0, 1.0]]))
-        )
+    frames = {
+        name: SimpleNamespace(get_world_poses=lambda z=z: (np.array([[0.0, 0.0, z]]), np.array([[0.0, 0.0, 0.0, 1.0]])))
+        for name, z in (("xray_source", 0.0), ("detector", 1.0))
+    }
+    # Scene extras are posed through FrameViews over their prims.
+    monkeypatch.setattr("i4h_arena.medical.fluoroscopy_sources._frame_view", lambda env, name: frames[name])
 
     view = _make_view(env, monkeypatch)
 

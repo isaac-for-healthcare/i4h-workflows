@@ -13,19 +13,20 @@ from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
 from isaaclab.controllers import DifferentialIKControllerCfg
 from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg
-from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg as RecordTerm
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
-from isaaclab.sensors import FrameTransformerCfg, TiledCameraCfg
+from isaaclab.sensors import CameraCfg, FrameTransformerCfg
 from isaaclab.utils import configclass
-from isaaclab_arena.utils.configclass import combine_configclass_instances
+from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_physx.sim.schemas import PhysxArticulationRootPropertiesCfg, PhysxRigidBodyPropertiesCfg
 
 from i4h_arena.assets.constants import STAR_USD
+from i4h_arena.embodiments.recorders import action_state_recorders
 
 _ARM_NAMES = [
     "star_joint_1",
@@ -78,9 +79,9 @@ STAR_HIGH_PD_CFG.spawn.rigid_props.disable_gravity = True
 STAR_HIGH_PD_CFG.actuators["star"].stiffness = 400.0
 STAR_HIGH_PD_CFG.actuators["star"].damping = 80.0
 
-STAR_ROOM_CAMERA_CFG = TiledCameraCfg(
+STAR_ROOM_CAMERA_CFG = CameraCfg(
     prim_path="{ENV_REGEX_NS}/RoomCamera",
-    offset=TiledCameraCfg.OffsetCfg(
+    offset=CameraCfg.OffsetCfg(
         pos=(0.62, -0.36, 0.62),
         rot=(0.791743, 0.372507, -0.276788, -0.395891),
         convention="ros",
@@ -119,7 +120,7 @@ class _RobotSceneCfg:
 
 
 @configclass
-class _CameraSceneCfg:
+class _CameraSceneCfg(ArenaCameraCfg):
     room = STAR_ROOM_CAMERA_CFG
 
 
@@ -138,7 +139,7 @@ class _ObservationsCfg:
         joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel)
         actions = ObsTerm(func=mdp.last_action)
         room = ObsTerm(
-            func=mdp.image,
+            func=mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("room"), "data_type": "rgb", "normalize": False},
         )
 
@@ -191,9 +192,11 @@ def _action_cfg(action_device: str) -> _ActionsCfg:
     return cfg
 
 
-class StarEmbodiment:
+class StarEmbodiment(EmbodimentBase):
     name = "star"
     tags = ["embodiment", "star", "surgical"]
+    #: Merged into the scene's RTX settings by :meth:`i4h_arena.scenes.base.Scene.arena_environment`.
+    rtx_settings = {"enable_translucency": True}
 
     def __init__(
         self,
@@ -206,8 +209,7 @@ class StarEmbodiment:
         render_interval: int | None = None,
         enable_material_randomization: bool = True,
     ):
-        self.enable_cameras = enable_cameras
-        self.initial_pose = initial_pose
+        super().__init__(enable_cameras=enable_cameras, initial_pose=initial_pose)
         self.action_device = action_device
         self.home_joint_pos_rad = tuple(home_joint_pos_rad or _DEFAULT_HOME)
         self.sim_dt = sim_dt
@@ -216,66 +218,33 @@ class StarEmbodiment:
         self.enable_material_randomization = enable_material_randomization
         self.scene_config = _RobotSceneCfg()
         self.camera_config = _CameraSceneCfg()
+        # Isaac Lab 3's Camera already renders tiled; TiledCameraCfg is deprecated.
+        self.camera_config.set_use_tiled_camera(False)
         self.action_config = _action_cfg(action_device)
         self.observation_config = _ObservationsCfg()
         if not self.enable_cameras:
             self.observation_config.policy.room = None
         self.event_config = _EventsCfg() if self.enable_material_randomization else None
 
-    def use_action_device(self, action_device: str) -> None:
-        self.action_device = action_device
-        self.action_config = _action_cfg(action_device)
-
-    def set_initial_pose(self, pose: Pose) -> None:
-        self.initial_pose = pose
-
     def get_scene_cfg(self) -> Any:
         self.scene_config.robot.init_state.joint_pos = dict(
             zip((*_ARM_NAMES, *_TOOL_NAMES), self.home_joint_pos_rad, strict=True)
         )
-        if self.initial_pose is not None:
-            self.scene_config.robot.init_state.pos = self.initial_pose.position_xyz
-            self.scene_config.robot.init_state.rot = self.initial_pose.rotation_xyzw
-        if self.enable_cameras:
-            return combine_configclass_instances("SceneCfg", self.scene_config, self.camera_config)
-        return self.scene_config
-
-    def get_action_cfg(self) -> Any:
-        return self.action_config
+        return super().get_scene_cfg()
 
     def get_observation_cfg(self) -> Any:
+        # The policy group already carries the room image under its own name;
+        # Arena's generated camera group would add a second copy.
         return self.observation_config
 
-    def get_rewards_cfg(self) -> Any:
-        return None
+    def get_recorder_term_cfg(self, record_trajectories: bool = False) -> Any:
+        return action_state_recorders(super().get_recorder_term_cfg(record_trajectories))
 
-    def get_curriculum_cfg(self) -> Any:
-        return None
-
-    def get_commands_cfg(self) -> Any:
-        return None
-
-    def get_events_cfg(self) -> Any:
-        return self.event_config
-
-    def get_xr_cfg(self) -> Any:
-        return None
-
-    def get_mimic_env(self) -> Any:
-        return None
-
-    def get_recorder_term_cfg(self) -> Any:
-        return RecordTerm()
-
-    def get_termination_cfg(self) -> Any:
-        return None
-
-    def modify_env_cfg(self, env_cfg: Any) -> Any:
+    def tune_env_cfg(self, env_cfg: Any) -> Any:
         env_cfg.sim.dt = self.sim_dt
         env_cfg.sim.render_interval = self.render_interval
         env_cfg.decimation = self.sim_decimation
         env_cfg.scene.replicate_physics = True
         env_cfg.sim.physics.bounce_threshold_velocity = 0.01
         env_cfg.sim.physics.friction_correlation_distance = 0.00625
-        env_cfg.sim.render.enable_translucency = True
         return env_cfg

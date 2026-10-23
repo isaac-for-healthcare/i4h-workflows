@@ -1,5 +1,5 @@
 ## Description: <br>
-Expand workflow HDF5 demonstrations with action jitter, optionally scoped to node segments. Use for synthetic variants; do not use to collect data, alter state directly, or generate new images. <br>
+Expand HDF5 demonstrations with action jitter, optionally per node segment of older recordings. Use for synthetic variants; do not use to collect data, alter state directly, or generate new images. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 

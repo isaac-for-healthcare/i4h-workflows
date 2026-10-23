@@ -11,11 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
-
-from i4h_arena.adapters.actuation import RobotSlice
 from i4h_arena.scenes.base import Scene
-from i4h_common.config import get_robot_config
 
 #: Registered name of the dex-hand embodiment.
 G1_DEX_EMBODIMENT = "g1_assemble_trocar_joint"
@@ -33,7 +29,7 @@ class G1TrocarScene(Scene):
         import i4h_arena.embodiments.g1  # noqa: F401,PLC0415
 
     def build(self) -> Any:
-        from isaaclab_arena.assets.asset_registry import AssetRegistry  # noqa: PLC0415
+        from isaaclab_arena.assets.registries import AssetRegistry  # noqa: PLC0415
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment  # noqa: PLC0415
         from isaaclab_arena.scene.scene import Scene as ArenaScene  # noqa: PLC0415
         from isaaclab_arena.utils.pose import Pose as ArenaPose  # noqa: PLC0415
@@ -62,35 +58,3 @@ class G1TrocarScene(Scene):
             # single authored room, not a tiled grid.
             task=G1TrocarEnvCfg(episode_length_s=max(15.0, (steps + 1) / self.spec.control_hz)),
         )
-
-    def home_joints(self, env: Any) -> np.ndarray | None:
-        home = get_robot_config(self.spec.embodiment).home_joint_pos_rad
-        if not home:
-            return None
-        return np.tile(np.asarray(home, dtype=np.float32), (int(env.unwrapped.num_envs), 1))
-
-    def robot_slices(self, env: Any) -> tuple[RobotSlice, ...]:
-        width = int(env.action_space.shape[-1])
-        return (RobotSlice("robot", 0, width, gripper_index=None),)
-
-    def joint_orders(self) -> dict[str, tuple[str, ...]]:
-        # The USD stores joints in articulation topology order, while both the
-        # checkpoint state and the JointPositionAction term use this explicit
-        # 29-body + 14-Dex3 order.
-        from i4h_arena.envcfg.g1_trocar import ASSEMBLE_TROCAR_JOINT_NAMES  # noqa: PLC0415
-
-        return {"robot": tuple(ASSEMBLE_TROCAR_JOINT_NAMES)}
-
-    def camera_aliases(self) -> dict[str, str]:
-        return {
-            "front": "front_camera",
-            "left_wrist": "left_wrist_camera",
-            "right_wrist": "right_wrist_camera",
-        }
-
-    def object_aliases(self) -> dict[str, str]:
-        return {
-            "scene": "trocar_assembly_scene",
-            "trocar": "trocar_1",
-            "puncture_device": "trocar_2",
-        }

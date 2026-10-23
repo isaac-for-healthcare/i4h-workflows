@@ -15,15 +15,11 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
-
-from i4h_arena.adapters.actuation import RobotSlice
 from i4h_arena.scenes.base import Scene
-from i4h_common.config import get_robot_config
 
 #: Registered whole-body controllers for policy/replay and teleop.
-G1_POLICY_EMBODIMENT = "g1_wbc_joint"
-G1_TELEOP_EMBODIMENT = "g1_wbc_pink"
+G1_POLICY_EMBODIMENT = "g1_locomanip_wbc_joint"
+G1_TELEOP_EMBODIMENT = "g1_locomanip_wbc_pink"
 
 Placement = tuple[tuple[float, float, float], tuple[float, float, float, float]]
 
@@ -39,14 +35,27 @@ class LocomanipScene(Scene):
     pick_up_pose: Placement = ((-1.15, -1.6, -0.08), (0.0, 0.0, 0.707, 0.707))
     robot_pose: Placement = ((-0.5, -1.62, 0.0), (0.0, 0.0, 1.0, 0.0))
 
+    @classmethod
+    def add_cli_args(cls, parser: Any) -> None:
+        parser.add_argument(
+            "--embodiment",
+            choices=(G1_POLICY_EMBODIMENT, G1_TELEOP_EMBODIMENT),
+            default=G1_POLICY_EMBODIMENT,
+            help="G1 whole-body controller: joint targets for policies and replay (default), "
+            "or Pink IK wrist poses for keyboard_23d teleoperation.",
+        )
+
     def register_assets(self) -> None:
         # Side-effect imports: @register_asset populates the AssetRegistry.
         import i4h_arena.assets._locomanip  # noqa: F401,PLC0415
         import i4h_arena.embodiments.g1  # noqa: F401,PLC0415
 
     def build(self) -> Any:
-        from isaaclab_arena.assets.asset_registry import AssetRegistry  # noqa: PLC0415
+        from isaaclab_arena.assets.registries import AssetRegistry  # noqa: PLC0415
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment  # noqa: PLC0415
+        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (  # noqa: PLC0415
+            set_control_rate_50hz,
+        )
         from isaaclab_arena.scene.scene import Scene as ArenaScene  # noqa: PLC0415
         from isaaclab_arena.utils.pose import Pose as ArenaPose  # noqa: PLC0415
 
@@ -54,7 +63,7 @@ class LocomanipScene(Scene):
         background = registry.get_asset_by_name("pre_op")()
         pick_up_object = registry.get_asset_by_name("surgical_tray")()
         destination_cart = registry.get_asset_by_name("cart")()
-        embodiment_name = G1_TELEOP_EMBODIMENT if getattr(self.args, "mode", None) == "teleop" else self.embodiment_name
+        embodiment_name = getattr(self.args, "embodiment", None) or self.embodiment_name
         embodiment = registry.get_asset_by_name(embodiment_name)(
             enable_cameras=bool(getattr(self.args, "enable_cameras", True))
         )
@@ -73,32 +82,24 @@ class LocomanipScene(Scene):
             embodiment=embodiment,
             scene=ArenaScene(assets=assets),
             task=self.envcfg(pick_up_object, destination_cart, background),
+            # The G1 WBC and GR00T policies run at 50 Hz, Arena's rate before 0.3.
+            env_cfg_callback=set_control_rate_50hz,
         )
 
     def envcfg(self, pick_up_object: Any, destination_cart: Any, background: Any) -> Any:
         """The IsaacLab env cfg for this scene. Subclasses name their own."""
         raise NotImplementedError(f"{type(self).__name__} must supply an env cfg")
 
+    def configure_env_cfg(self, env_cfg: Any) -> None:
+        if getattr(self.args, "embodiment", None) != G1_TELEOP_EMBODIMENT:
+            return
+        from isaaclab.devices.device_base import DevicesCfg  # noqa: PLC0415
+
+        from i4h_arena.devices.g1_keyboard import G1Keyboard23DCfg  # noqa: PLC0415
+
+        # Isaac Lab's record_demos.py --teleop_device keyboard_23d finds the device here.
+        env_cfg.teleop_devices = DevicesCfg(devices={"keyboard_23d": G1Keyboard23DCfg(sim_device=env_cfg.sim.device)})
+
     def episode_length_s(self, minimum: float = 10.0) -> float:
         steps = self.args.episode_steps or self.spec.max_steps
         return max(minimum, (steps + 1) / self.spec.control_hz)
-
-    def home_joints(self, env: Any) -> np.ndarray | None:
-        home = get_robot_config(self.spec.embodiment).home_joint_pos_rad
-        if not home:
-            return None
-        return np.tile(np.asarray(home, dtype=np.float32), (int(env.unwrapped.num_envs), 1))
-
-    def robot_slices(self, env: Any) -> tuple[RobotSlice, ...]:
-        # WBC consumes 43 measured joint targets followed by seven locomotion
-        # command columns.  Policy inference writes all 50; scripted keyframes
-        # write only the joint prefix and leave the command tail unchanged.
-        width = int(env.action_space.shape[-1])
-        joint_width = 43 if width >= 43 else None
-        return (RobotSlice("robot", 0, width, gripper_index=None, joint_width=joint_width),)
-
-    def camera_aliases(self) -> dict[str, str]:
-        return {"head": "robot_head_cam"}
-
-    def object_aliases(self) -> dict[str, str]:
-        return {"background": "pre_op", "tray": "surgical_tray"}

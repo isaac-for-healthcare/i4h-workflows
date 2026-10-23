@@ -1,9 +1,9 @@
 # Isaac Sim Skill Routing
 
-Load this reference only when creating or modifying scene content. The official catalog is pinned to the installed Isaac Sim 6.0.1 release and sparsely checked out by `./third_party/setup.sh`:
+Load this reference only when creating or modifying scene content. The official catalog is pinned to the installed Isaac Sim 6.2.0 release and sparsely checked out by `./third_party/setup.sh`:
 
 ```bash
-ISAACSIM_SKILLS="./third_party/IsaacSim-045ca8b/skills"
+ISAACSIM_SKILLS="./third_party/IsaacSim-74a9356/skills"
 test -f "${ISAACSIM_SKILLS}/SKILLS.md" || ./third_party/setup.sh
 ```
 
@@ -26,8 +26,8 @@ Use upstream skills for generic Isaac Sim 6 concepts and current API semantics. 
 
 - Follow the closest working scene's IsaacLab cfg pattern rather than copying a standalone raw-USD tutorial into the runtime.
 - Preserve the quaternion convention already required by the concrete API boundary; do not add version-history conversions or aliases.
-- Keep policy cameras env-local and update the scene manifest, observation/publisher path, remote-task modality, and dataset/training consumers together.
-- Keep workflows and manifests as the workflow source of truth.
-- Validate visibly and run the affected workflow run mode after generic upstream QA.
+- Keep policy cameras env-local and update the scene manifest, embodiment observation path, remote-policy client and task-manifest modality, and dataset/training consumers together.
+- Keep the scene Python and its manifest as the scene's source of truth, and the `docs/workflows/` page as the workflow's.
+- Validate visibly, then run every affected policy or teleoperation device under IsaacLab-Arena after generic upstream QA.
 
 Do not load the whole upstream catalog into context. Do not edit the pinned checkout; update its revision in `./third_party/setup.sh` when upgrading Isaac Sim.

@@ -18,7 +18,13 @@ from isaaclab.sim.schemas import CollisionBaseCfg, RigidBodyBaseCfg
 from isaaclab.utils import configclass
 
 from i4h_arena.assets.config_asset import ConfigAsset
-from i4h_arena.assets.constants import SCISSOR_TABLE_USD, SCISSOR_TRAY_USD, SCISSORS_USD
+from i4h_arena.assets.constants import (
+    GRID_GROUND_PLANE_COLOR,
+    GRID_GROUND_PLANE_USD,
+    SCISSOR_TABLE_USD,
+    SCISSOR_TRAY_USD,
+    SCISSORS_USD,
+)
 from i4h_arena.embodiments.so_arm import SOARM_ROOM_CAMERA_CFG, SOARM_WRIST_CAMERA_CFG
 
 
@@ -27,7 +33,7 @@ class SoArmScissorsSceneCfg(InteractiveSceneCfg):
     ground = AssetBaseCfg(
         prim_path="/World/GroundPlane",
         init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, -1.05)),
-        spawn=sim_utils.GroundPlaneCfg(),
+        spawn=sim_utils.GroundPlaneCfg(usd_path=GRID_GROUND_PLANE_USD, color=GRID_GROUND_PLANE_COLOR),
     )
     # NOTE: The robot is not part of this SceneCfg — SoArm101Embodiment owns
     # its own RobotSceneCfg and is merged in by `embodiment.get_scene_cfg()`.

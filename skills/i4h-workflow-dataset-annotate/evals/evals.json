@@ -3,23 +3,25 @@
     "id": "i4h-workflow-dataset-annotate-readme-quick-all-recorded",
     "question": "Run annotation on all recorded episodes and summarize.",
     "expected_skill": "i4h-workflow-dataset-annotate",
-    "ground_truth": "This README Quick Run prompt routes to VLM annotation over the latest recorded HDF5 episodes and returns a summary.",
+    "ground_truth": "This README Quick Run prompt grades every episode of the latest recorded HDF5 with uv run --project tools/annotator i4h-annotator ... offline <recording> --write, using the scene manifest's annotate block or the policy task prompt as the criterion and the caller-provided vision endpoint, then summarizes the verdicts.",
     "expected_behavior": [
       "routes to i4h-workflow-dataset-annotate",
-      "uses the latest recorded HDF5 episodes",
-      "uses the source scene manifest instruction unless overridden",
+      "uses every episode of the latest recorded HDF5",
+      "takes the criterion, cameras, and judge from the scene manifest's annotate block, or from the policy task manifest's prompt when the scene has none, unless the user overrides it",
       "uses a configured caller-provided vision endpoint and model instead of starting the local VLM",
-      "summarizes success labels after annotation"
+      "passes global options before the offline subcommand and does not require a success to complete",
+      "summarizes success labels and graded versus reused counts after annotation"
     ]
   },
   {
     "id": "i4h-workflow-dataset-annotate-table-recording",
     "question": "Run the VLM annotator on my scissor pick-and-place recording and label which episodes satisfy the task.",
     "expected_skill": "i4h-workflow-dataset-annotate",
-    "ground_truth": "This README skill-table prompt routes to VLM annotation for a scissor_pick_and_place recording.",
+    "ground_truth": "This prompt grades a scissor_pick_and_place recording with i4h-annotator offline --write against a placement criterion from the scissor_pick_and_place task prompt, judged on the terminal state, and writes vlm_success labels per episode.",
     "expected_behavior": [
       "routes to i4h-workflow-dataset-annotate",
-      "labels episodes against the task criterion",
+      "phrases the criterion as the scissors reaching and remaining in the tray",
+      "labels every episode against the task criterion with --write",
       "keeps artifacts under ./runs",
       "does not run annotation when only conversion or replay is requested"
     ]
