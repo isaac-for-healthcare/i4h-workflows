@@ -105,6 +105,7 @@ class EndoluminalNavigationScene(Scene):
     def build(self) -> Any:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene as ArenaScene
+        from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
         from i4h_arena.assets.fluoroscopy_catheter_navigation import make_assets
 
@@ -131,6 +132,9 @@ class EndoluminalNavigationScene(Scene):
             # asks for it.
             rl_framework_entry_point="rsl_rl_cfg_entry_point",
             rl_policy_cfg="i4h_arena.agents.rsl_rl:ProfiledRslRlRunnerCfg",
+            # The rod solver is a Newton solver. Arena's and Isaac Lab's runners never
+            # call ``configure_args``, so without --presets they take this default.
+            default_physics_backend=PhysicsBackend.NEWTON,
         )
 
     def configure_env_cfg(self, env_cfg: Any) -> None:

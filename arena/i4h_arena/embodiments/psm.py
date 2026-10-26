@@ -471,6 +471,7 @@ class DualPsmEmbodiment(EmbodimentBase):
         self.sim_decimation = sim_decimation
         self.render_interval = sim_decimation if render_interval is None else render_interval
         self.enable_material_randomization = enable_material_randomization
+        self.newton = newton
         self.scene_config = _DualRobotSceneCfg()
         if newton:
             configure_psm_articulation(self.scene_config.robot_1)
@@ -507,7 +508,10 @@ class DualPsmEmbodiment(EmbodimentBase):
         env_cfg.sim.dt = self.sim_dt
         env_cfg.sim.render_interval = self.render_interval
         env_cfg.decimation = self.sim_decimation
-        env_cfg.scene.replicate_physics = False
+        # Isaac Lab 3 builds the Newton model only through physics replication: without
+        # it, neither arm reaches the model. PhysX keeps the source task's unreplicated pair.
+        if not self.newton:
+            env_cfg.scene.replicate_physics = False
         env_cfg.sim.physics.bounce_threshold_velocity = 0.01
         env_cfg.sim.physics.friction_correlation_distance = 0.00625
         return env_cfg

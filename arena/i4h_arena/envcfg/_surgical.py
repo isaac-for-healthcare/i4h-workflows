@@ -459,8 +459,6 @@ class SurgicalReachEnvCfg(TaskBase):
 
     def tune_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
         env_cfg.scene.env_spacing = self.env_spacing
-        if self.mode == "dual_psm":
-            env_cfg.scene.replicate_physics = False
         return env_cfg
 
 

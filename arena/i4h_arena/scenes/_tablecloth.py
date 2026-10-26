@@ -27,6 +27,7 @@ class TableclothScene(Scene):
     def build(self) -> Any:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment  # noqa: PLC0415
         from isaaclab_arena.scene.scene import Scene as ArenaScene  # noqa: PLC0415
+        from isaaclab_arena.utils.physics_backend import PhysicsBackend  # noqa: PLC0415
 
         from i4h_arena.envcfg.tablecloth.cloth_physics import select_physics_backend  # noqa: PLC0415
         from i4h_arena.envcfg.tablecloth.environment import (  # noqa: PLC0415
@@ -50,7 +51,7 @@ class TableclothScene(Scene):
             run_dir = workflow_root() / "runs" / self.name / datetime.now().strftime("%Y%m%d_%H%M%S")
             cfg.actions.pink_ik_cfg.controller.urdf_output_dir = str(run_dir / "robot")
         cfg.isaac_teleop.sim_device = device
-        # Cloth needs Newton; Arena's runners take --presets newton.
+        # Cloth needs Newton: the environment defaults to it, and --presets physx is rejected here.
         select_physics_backend(cfg, getattr(self.args, "presets", None) or "newton")
         if self.robot_kind == "g1":
             from isaaclab_newton.sim.schemas import MujocoRigidBodyPropertiesCfg
@@ -68,6 +69,7 @@ class TableclothScene(Scene):
             embodiment=TableclothEmbodiment(cfg, cameras, get_robot_config(self.spec.embodiment).joint_names),
             scene=ArenaScene(assets=room_assets(cfg, ("robot", *self.camera_aliases().values()))),
             task=TableclothTask(cfg),
+            default_physics_backend=PhysicsBackend.NEWTON,
         )
 
     def camera_aliases(self) -> dict[str, str]:
