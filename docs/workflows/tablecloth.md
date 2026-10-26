@@ -37,7 +37,8 @@ settles where it was reset (the H2 within about 20 steps) and stays there. One
 environment is supported per session.
 
 These scenes require `PXR_WORK_THREAD_LIMIT=1` in the environment Kit starts in,
-which their workflow declarations set, to avoid the USD physics parser's race on bodies with many colliders; see
+which their workflow declarations set, to avoid the USD physics parser's race on bodies with many colliders.
+`run.sh` sets it for the bare `g1_tablecloth` and `h2_tablecloth` scene names too; see
 [Isaac Sim issue #692](https://github.com/isaac-sim/IsaacSim/issues/692). Isaac Sim
 6.2 keeps a value already set. Physics and rendering retain their own worker threads.
 

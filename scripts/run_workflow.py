@@ -144,12 +144,21 @@ def load_workflows(root: Path = WORKFLOWS) -> dict[str, Workflow]:
 
 
 def resolve(name: str) -> Workflow:
-    """A declared workflow, or a bare scene, which can only be viewed, edited live, or replayed."""
+    """A declared workflow, or a bare scene, which can only be viewed, edited live, or replayed.
+
+    A bare scene runs with the presets and process environment that every workflow on it
+    declares, such as Newton and ``PXR_WORK_THREAD_LIMIT=1`` for the tablecloth scenes.
+    """
     workflows = load_workflows()
     if name in workflows:
         return workflows[name]
     if _scene_manifest(name) is not None:
-        return Workflow(name=name, scene=name, description="scene without a workflow declaration")
+        declared = [workflow for workflow in workflows.values() if workflow.scene == name]
+        presets = declared[0].presets if declared and all(w.presets == declared[0].presets for w in declared) else []
+        env = dict(set.intersection(*(set(w.env.items()) for w in declared))) if declared else {}
+        return Workflow(
+            name=name, scene=name, description="scene without a workflow declaration", presets=presets, env=env
+        )
     known = ", ".join(sorted(workflows))
     raise UsageError(f"unknown workflow or scene {name!r}; workflows: {known}")
 

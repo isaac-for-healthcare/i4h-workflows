@@ -163,6 +163,28 @@ def test_a_bare_scene_can_be_viewed_but_not_controlled() -> None:
         _plan("psm_reach", "--rule-based")
 
 
+def test_a_bare_scene_runs_with_the_presets_and_environment_of_its_workflow() -> None:
+    built = _plan("g1_tablecloth", "--headless")
+    assert built.command[built.command.index("--presets") + 1] == "newton"
+    assert built.env["PXR_WORK_THREAD_LIMIT"] == "1"
+    with pytest.raises(run_workflow.UsageError, match="runs only with --presets newton, not physx"):
+        _plan("h2_tablecloth", "--presets", "physx")
+    assert "--presets" not in _plan("psm_reach").command
+
+
+def test_a_bare_scene_takes_only_what_all_its_workflows_agree_on(monkeypatch) -> None:
+    declared = {
+        "a": run_workflow.Workflow(name="a", scene="psm_reach", presets=["newton"], env={"X": "1", "Y": "1"}),
+        "b": run_workflow.Workflow(name="b", scene="psm_reach", presets=["physx"], env={"X": "1", "Y": "2"}),
+    }
+    monkeypatch.setattr(run_workflow, "load_workflows", lambda: declared)
+
+    bare = run_workflow.resolve("psm_reach")
+
+    assert bare.presets == []
+    assert bare.env == {"X": "1"}
+
+
 @pytest.mark.parametrize("option", ["--attempts", "--record-failures", "--prompt", "--python-server"])
 def test_retired_options_say_what_replaces_them(option: str) -> None:
     with pytest.raises(run_workflow.UsageError, match="no longer supported"):
