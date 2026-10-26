@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: A dVRK PSM lifts a suture needle from an organ bed.
+scene: psm_needle_organs
+modes:
+  rule-based:
+    policy: i4h_arena.policies.lift.CartesianLiftPolicy
+    args: [--position_tolerance, "0.07"]

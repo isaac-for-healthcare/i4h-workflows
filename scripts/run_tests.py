@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Run repository test suites or GPU workflow smokes."""
+"""Run repository test suites or GPU environment smokes."""
 
 from __future__ import annotations
 
 import argparse
 import os
-import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -64,23 +64,18 @@ class TestCommand:
 SUITES = {
     "light": (
         TestCommand(
-            "workflow contracts",
-            "workflows",
+            "contracts and manifests",
+            "common",
             (
                 "tests",
                 "common/tests",
-                "engine/tests",
-                "workflows/tests",
-                "tasks/basic/tests",
                 "tasks/gr00t_n15/tests",
                 "tasks/gr00t_n16/tests",
+                "tasks/gr00t_n17/tests/test_serve.py",
                 # The openpi-free half of the PI0 trainer tests; the rest need
                 # the openpi checkout and run in that project's environment.
                 "tasks/openpi_pi0/tests/test_openpi_pi0_train_options.py",
                 "rl/tests/test_rsl_rl_arm_runtime.py",
-                "tasks/ik/tests",
-                "tasks/rsl_rl/tests",
-                "tasks/teleop/tests",
             ),
         ),
     ),
@@ -110,7 +105,7 @@ SUITES = {
             "arena",
             ("arena/tests",),
             project_has_dev_extra=False,
-            requires_checkout="third_party/IsaacLab-Arena-0a1b8c2",
+            requires_checkout="third_party/IsaacLab-Arena-c7edf3a",
         ),
     ),
 }
@@ -119,21 +114,24 @@ COVERAGE_VERSION = "7.4.4"
 COVERAGE_CONFIG = ROOT / ".coveragerc"
 COVERAGE_XML = ROOT / "coverage.xml"
 GPU_RECORDING = "verify.hdf5"
-GPU_EPISODE_RESULT = re.compile(r"\b[01]/1 episodes succeeded \([1-9]\d* attempts\)")
 
 
 @dataclass(frozen=True)
 class WorkflowSmoke:
+    """One recorded, headless episode of a workflow mode, run through run.sh."""
+
     workflow: str
-    mode_args: tuple[str, ...]
+    mode: str
 
 
 GPU_SMOKES = (
-    WorkflowSmoke("surgical_reach_psm", ("--rule-based",)),
-    WorkflowSmoke("assemble_trocar", ("--policy",)),
-    WorkflowSmoke("ultrasound_liver_scan", ("--rule-based",)),
-    WorkflowSmoke("scissor_pick_and_place", ("--rule-based",)),
-    WorkflowSmoke("endoluminal_navigation", ("--mode", "demo")),
+    WorkflowSmoke("surgical_reach_psm", "rule-based"),
+    WorkflowSmoke("surgical_lift_needle", "rule-based"),
+    # run.sh serves the checkpoint and starts the rollout once the server listens.
+    WorkflowSmoke("assemble_trocar", "policy"),
+    WorkflowSmoke("ultrasound_liver_scan", "rule-based"),
+    WorkflowSmoke("scissor_pick_and_place", "rule-based"),
+    WorkflowSmoke("endoluminal_navigation", "demo"),
 )
 
 
@@ -187,7 +185,7 @@ def _coverage_argv(*args: str) -> list[str]:
         "uv",
         "run",
         "--project",
-        "workflows",
+        "common",
         "--with",
         f"coverage=={COVERAGE_VERSION}",
         "coverage",
@@ -205,52 +203,44 @@ def _finish_coverage(timeout: int) -> bool:
     return True
 
 
-def _run_gpu_smoke(smoke: WorkflowSmoke, timeout: int) -> bool:
-    mode = " ".join(smoke.mode_args)
-    print(f"\n==> [gpu] {smoke.workflow} {mode}", flush=True)
-    rollout = _run_command(
-        [
-            "./run.sh",
-            smoke.workflow,
-            *smoke.mode_args,
-            "--episodes",
-            "1",
-            "--attempts",
-            "1",
-            "--seed",
-            "0",
-            "--headless",
-            "--record",
-            GPU_RECORDING,
-            "--record-failures",
-        ],
-        timeout=timeout,
-        capture=True,
-    )
-    if rollout is None:
+def _run_workflow_smoke(smoke: WorkflowSmoke, timeout: int) -> bool:
+    print(f"\n==> [gpu] {smoke.workflow} {smoke.mode}", flush=True)
+    run_dir = Path(tempfile.mkdtemp(prefix=f"i4h-smoke-{smoke.workflow}-"))
+    argv = [
+        str(ROOT / "run.sh"),
+        smoke.workflow,
+        "--mode",
+        smoke.mode,
+        "--episodes",
+        "1",
+        "--seed",
+        "0",
+        "--headless",
+        "--run-dir",
+        str(run_dir),
+        "--record",
+        str(run_dir / GPU_RECORDING),
+    ]
+    print("    " + " ".join(argv), flush=True)
+    process = subprocess.Popen(argv, cwd=ROOT)
+    try:
+        returncode = process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # run.sh stops its simulator and policy server on SIGTERM, as on Ctrl+C.
+        process.terminate()
+        process.wait()
+        print(f"!! timed out after {timeout}s", file=sys.stderr)
         return False
-
-    output = rollout.stdout or ""
-    if GPU_EPISODE_RESULT.search(output) is None:
-        print("!! rollout did not report a completed episode", file=sys.stderr)
+    if returncode:
+        print("!! run.sh failed", file=sys.stderr)
         return False
-    run_dir_match = re.search(r"^==> run dir (.+)$", output, flags=re.MULTILINE)
-    if run_dir_match is None:
-        print("!! rollout did not report its run directory", file=sys.stderr)
+    results = sorted(run_dir.glob("outputs/*/episode_results_rank0.jsonl"))
+    if not results or not results[-1].read_text().strip():
+        print("!! the policy runner reported no completed episode", file=sys.stderr)
         return False
-
-    recording = Path(run_dir_match.group(1)) / GPU_RECORDING
+    recording = run_dir / GPU_RECORDING
     if not recording.is_file():
         print(f"!! rollout recording is missing: {recording}", file=sys.stderr)
-        return False
-
-    print("\n==> [gpu] inspect rollout recording", flush=True)
-    inspection = _run_command(
-        ["uv", "run", "--project", "tools/dataset", "i4h-dataset", "inspect", str(recording), "--segments"],
-        timeout=timeout,
-    )
-    if inspection is None or inspection.returncode:
-        print("!! rollout recording inspection failed", file=sys.stderr)
         return False
     return True
 
@@ -261,7 +251,7 @@ def main() -> int:
         print("uv is required to run the independently locked test projects", file=sys.stderr)
         return 2
     if args.coverage and args.suite in {"gpu", "dependency-pins"}:
-        print("--coverage applies to CPU pytest suites, not GPU workflow smokes", file=sys.stderr)
+        print("--coverage applies to CPU pytest suites, not GPU environment smokes", file=sys.stderr)
         return 2
     if args.coverage:
         _clear_coverage_artifacts()
@@ -292,8 +282,8 @@ def main() -> int:
         failures.append("coverage report")
     if args.suite == "gpu":
         for smoke in GPU_SMOKES:
-            if not _run_gpu_smoke(smoke, args.timeout):
-                failures.append(smoke.workflow)
+            if not _run_workflow_smoke(smoke, args.timeout):
+                failures.append(f"{smoke.workflow} {smoke.mode}")
     if args.suite in {"gpu", "dependency-pins"}:
         result = _run_command(
             [

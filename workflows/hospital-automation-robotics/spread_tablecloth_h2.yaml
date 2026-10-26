@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Spread a deformable tablecloth with a Unitree H2 and Sharpa Wave hands.
+scene: h2_tablecloth
+# Cloth needs Newton, and the pinned USD parser needs one thread for these bodies.
+presets: [newton]
+env: {PXR_WORK_THREAD_LIMIT: "1"}
+modes:
+  teleop:
+    xr: true

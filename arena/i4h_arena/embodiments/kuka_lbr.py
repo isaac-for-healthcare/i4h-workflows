@@ -19,6 +19,7 @@ from isaaclab.utils import configclass
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 
 from i4h_arena.assets.constants import ASSET_PATH
+from i4h_arena.rendering import PERFORMANCE
 
 KUKA_LBR14_MED_USD = ASSET_PATH + "Robots/KUKA_LBR/LBR14/USD/LBR14Med/LBR14Med.usd"
 KUKA_JOINT_NAMES = tuple(f"axis{i}" for i in range(1, 8))
@@ -175,25 +176,30 @@ class KukaLbr14MedEmbodiment(EmbodimentBase):
         self.action_config = _ActionsCfg()
         self.observation_config = _ObservationsCfg()
 
-    def modify_env_cfg(self, env_cfg):
+    #: Isaac Lab's former "performance" rendering mode, with FXAA and the lighting
+    #: features it leaves on switched off.
+    rtx_settings = {
+        **PERFORMANCE,
+        "antialiasing_mode": "FXAA",
+        "enable_translucency": False,
+        "enable_reflections": False,
+        "enable_global_illumination": False,
+        "enable_direct_lighting": True,
+        "samples_per_pixel": 1,
+        "enable_shadows": False,
+        "enable_ambient_occlusion": False,
+        "dome_light_upper_lower_strategy": 4,
+        "enable_dlssg": False,
+        "enable_dl_denoiser": False,
+    }
+
+    def tune_env_cfg(self, env_cfg):
         env_cfg.decimation = 4
         env_cfg.sim.dt = 1 / 200
         env_cfg.sim.render_interval = env_cfg.decimation
-        env_cfg.sim.render.rendering_mode = "performance"
-        env_cfg.sim.render.antialiasing_mode = "FXAA"
-        env_cfg.sim.render.enable_translucency = False
-        env_cfg.sim.render.enable_reflections = False
-        env_cfg.sim.render.enable_global_illumination = False
-        env_cfg.sim.render.enable_direct_lighting = True
-        env_cfg.sim.render.samples_per_pixel = 1
-        env_cfg.sim.render.enable_shadows = False
-        env_cfg.sim.render.enable_ambient_occlusion = False
-        env_cfg.sim.render.dome_light_upper_lower_strategy = 4
-        env_cfg.sim.render.enable_dlssg = False
-        env_cfg.sim.render.enable_dl_denoiser = False
         return env_cfg
 
-    def get_recorder_term_cfg(self):
-        from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
+    def get_recorder_term_cfg(self, record_trajectories: bool = False):
+        from i4h_arena.embodiments.recorders import action_state_recorders
 
-        return ActionStateRecorderManagerCfg()
+        return action_state_recorders(super().get_recorder_term_cfg(record_trajectories))

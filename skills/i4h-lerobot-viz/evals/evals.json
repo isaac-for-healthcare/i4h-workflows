@@ -3,12 +3,12 @@
     "id": "i4h-lerobot-viz-table-scissor",
     "question": "Serve the LeRobot visualizer for my converted scissor pick-and-place dataset and show me the local URL.",
     "expected_skill": "i4h-lerobot-viz",
-    "ground_truth": "This README skill-table prompt routes to the LeRobot HTML visualizer for an existing converted dataset.",
+    "ground_truth": "This prompt serves an existing converted scissor_pick_and_place LeRobot dataset with tools/dataset/scripts/viz.sh <absolute dataset dir> --state-dir <dir> and reports the printed URL and stop command.",
     "expected_behavior": [
       "routes to i4h-lerobot-viz",
-      "uses the existing converted LeRobot dataset",
-      "starts or reuses the HTML visualizer",
-      "reports the local URL and stop command",
+      "uses the existing converted LeRobot dataset with meta/info.json",
+      "starts or reuses the HTML visualizer with tools/dataset/scripts/viz.sh",
+      "reports the local URL and the printed viz.sh --stop command",
       "does not convert HDF5 as the main task"
     ]
   },
@@ -16,10 +16,10 @@
     "id": "i4h-lerobot-viz-latest-converted",
     "question": "Open the latest converted LeRobot dataset for inspection.",
     "expected_skill": "i4h-lerobot-viz",
-    "ground_truth": "This visualization prompt routes to the LeRobot HTML visualizer for the latest converted dataset.",
+    "ground_truth": "This prompt finds the newest converted LeRobot dataset under ./runs or the LeRobot cache and serves it with tools/dataset/scripts/viz.sh.",
     "expected_behavior": [
       "routes to i4h-lerobot-viz",
-      "finds the latest converted LeRobot dataset",
+      "finds the latest converted LeRobot dataset by its meta/info.json",
       "serves the dataset in the HTML visualizer",
       "reports the local URL"
     ]

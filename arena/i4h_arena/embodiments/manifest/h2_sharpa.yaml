@@ -212,6 +212,31 @@ action_names:
 - left_thumb_IP.pos
 - right_pinky_DIP.pos
 - right_thumb_IP.pos
+# GR00T state groups over `obs/joint_pos`, which follows `joint_names`. No
+# tablecloth checkpoint exists to match, so the groups follow the body: the
+# converter requires them to tile the whole vector, which makes the legs, waist
+# and head groups a modality config may leave unread. The fingers stay one
+# `hands` group, as in `action_split`: the Sharpa finger joints alternate
+# between the hands.
+state_split:
+- - legs
+  - 0
+  - 12
+- - waist
+  - 12
+  - 15
+- - head
+  - 15
+  - 17
+- - left_arm
+  - 17
+  - 24
+- - right_arm
+  - 24
+  - 31
+- - hands
+  - 31
+  - 75
 action_split:
 - - left_wrist
   - 0
@@ -222,5 +247,3 @@ action_split:
 - - hands
   - 14
   - 58
-teleop_devices:
-- xr

@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 """Unitree G1 Arena embodiments.
 
-Importing this module:
+Importing this module registers:
 
-* Patches IsaacLab-Arena's stock ``G1EmbodimentBase`` / ``G1CameraCfg`` /
-  ``G1MimicEnv`` so the registered ``g1_wbc_joint`` / ``g1_wbc_pink``
-  embodiments load Rheo's USD + RGB head-camera observations.
-* Registers :class:`G1AssembleTrocarJointEmbodiment` under the name
-  ``g1_assemble_trocar_joint`` for the Assemble Trocar task.
+* ``g1_locomanip_wbc_joint`` / ``g1_locomanip_wbc_pink``: IsaacLab-Arena's
+  ``g1_wbc_joint`` / ``g1_wbc_pink`` on Rheo's USD, with an RGB head-camera
+  policy observation, action/state recorders and pelvis-frame Mimic poses.
+* :class:`G1AssembleTrocarJointEmbodiment` as ``g1_assemble_trocar_joint`` for
+  the Assemble Trocar task.
 
 Loaded as a side-effect import from the humanoid envs' ``register_assets``.
 """
@@ -29,12 +29,13 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers.action_manager import ActionTermCfg
-from isaaclab.sensors import TiledCameraCfg
+from isaaclab.sensors import CameraCfg
 from isaaclab.utils import configclass
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.g1.g1 import *  # noqa: F401,F403
-from isaaclab_arena.embodiments.g1.g1 import G1CameraCfg, G1EmbodimentBase, G1MimicEnv, G1SceneCfg
+from isaaclab_arena.embodiments.g1.g1 import G1MimicEnv, G1SceneCfg, G1WBCJointEmbodiment, G1WBCPinkEmbodiment
+from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
 from i4h_arena.assets.constants import UNITREE_G1_29DOF_BASE_FIX_USD, UNITREE_G1_29DOF_USD
@@ -47,119 +48,92 @@ from i4h_arena.tensor_utils import to_torch
 # breaking ``mdp.ASSEMBLE_TROCAR_JOINT_NAMES`` below. Must stay last.
 from i4h_arena.envcfg import g1_trocar as mdp  # isort: skip
 
-# ---------- Locomanip path: patch IsaacLab-Arena's stock G1 base in-place. -----
+# ---------- Locomanip path: Arena's stock WBC embodiments on Rheo's G1. ---------
 
 
-def _apply_locomanip_patches_to_stock_base(
-    *,
-    base_cls,
-    camera_cls,
-    mimic_env_cls,
-    usd_path: str,
-    pelvis_body_name: str = "pelvis",
-    head_cam_attr: str = "robot_head_cam",
-) -> None:
-    """Patch a stock humanoid embodiment base to use Rheo's USD + head-cam observations.
+class G1LocomanipMimicEnv(G1MimicEnv):
+    """Arena's G1 Mimic env with object poses expressed in the pelvis frame."""
 
-    Idempotent — calling twice is a no-op for the second call.
+    def get_object_poses(self, env_ids: Sequence[int] | None = None):
+        if env_ids is None:
+            env_ids = slice(None)
+        pelvis_pose_w = to_torch(self.scene["robot"].data.body_link_state_w)[
+            :, self.scene["robot"].data.body_names.index("pelvis"), :
+        ]
+        pelvis_position_w = pelvis_pose_w[:, :3] - self.scene.env_origins
+        pelvis_rot_mat_w = PoseUtils.matrix_from_quat(pelvis_pose_w[:, 3:7])
+        pelvis_pose_mat_w = PoseUtils.make_pose(pelvis_position_w, pelvis_rot_mat_w)
+        pelvis_pose_inv = PoseUtils.pose_inv(pelvis_pose_mat_w)
+        state = self.scene.get_state(is_relative=True)
+        object_pose_matrix: dict[str, Any] = {}
+        for group_name in ("rigid_object", "articulation"):
+            if group_name not in state:
+                continue
+            for obj_name, obj_state in state[group_name].items():
+                object_pose_mat_w = PoseUtils.make_pose(
+                    obj_state["root_pose"][env_ids, :3],
+                    PoseUtils.matrix_from_quat(obj_state["root_pose"][env_ids, 3:7]),
+                )
+                object_pose_matrix[obj_name] = torch.matmul(pelvis_pose_inv, object_pose_mat_w)
+        return object_pose_matrix
+
+
+class _G1Locomanip:
+    """Rheo's G1 USD, an RGB head-camera policy observation and action/state recorders.
+
+    Mixed in ahead of an Arena G1 WBC embodiment.
     """
-    if getattr(base_cls, "_rheo_locomanip_patched", False):
-        return
 
-    orig_get_scene_cfg = base_cls.get_scene_cfg
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        # Isaac Lab 3's Camera already renders tiled; TiledCameraCfg is deprecated.
+        self.camera_config.set_use_tiled_camera(False)
+        self.mimic_env = G1LocomanipMimicEnv
 
-    def _patched_get_scene_cfg(self):
-        scene_cfg = orig_get_scene_cfg(self)
+    def get_scene_cfg(self):
+        scene_cfg = super().get_scene_cfg()
         if getattr(scene_cfg, "robot", None) is not None:
             scene_cfg.robot = scene_cfg.robot.copy()
-            scene_cfg.robot.spawn.usd_path = usd_path
+            scene_cfg.robot.spawn.usd_path = UNITREE_G1_29DOF_USD
             scene_cfg.robot.spawn.semantic_tags = [("class", "robot")]
         return scene_cfg
 
-    base_cls.get_scene_cfg = _patched_get_scene_cfg
-
-    if camera_cls is not None:
-        orig_camera_post_init = camera_cls.__post_init__
-
-        def _patched_camera_post_init(self):
-            orig_camera_post_init(self)
-            head_cam = getattr(self, head_cam_attr, None)
-            if head_cam is None:
-                return
-            # N1.6 inference and the LeRobot mapping consume RGB only. Keeping
-            # Arena's legacy semantic/depth outputs enabled makes Isaac Sim 6
-            # run an unused Replicator post-render pass every policy step. On
-            # long G1 rollouts that pass slows progressively and can stop the
-            # simulator entirely, while also bloating recordings.
-            head_cam.data_types = ["rgb"]
-
-        camera_cls.__post_init__ = _patched_camera_post_init
-
-    orig_get_observation_cfg = base_cls.get_observation_cfg
-
-    def _patched_get_observation_cfg(self):
-        obs_cfg = orig_get_observation_cfg(self)
+    def get_observation_cfg(self):
+        obs_cfg = super().get_observation_cfg()
         if self.enable_cameras and hasattr(obs_cfg, "policy") and not hasattr(obs_cfg.policy, "robot_head_cam"):
             obs_cfg.policy.robot_head_cam = ObsTerm(
-                func=base_mdp.image,
+                func=base_mdp.image_rgb,
                 params={
-                    "sensor_cfg": SceneEntityCfg(head_cam_attr),
+                    "sensor_cfg": SceneEntityCfg("robot_head_cam"),
                     "data_type": "rgb",
                     "normalize": False,
                 },
             )
         return obs_cfg
 
-    base_cls.get_observation_cfg = _patched_get_observation_cfg
+    def get_recorder_term_cfg(self, record_trajectories: bool = False):
+        # Arena's G1 records nothing per step, which leaves IsaacLab's demo groups
+        # without actions, observations or states. Its observations name the joints
+        # robot_joint_pos, so the converter's obs/joint_pos is recorded on its own.
+        from i4h_arena.embodiments.recorders import action_state_recorders, with_joint_positions
 
-    # G1 embodiments don't set a recorder term cfg; without it, IsaacLab's
-    # RecorderManager creates empty demo groups (no actions/obs/states).
-    # Mirror SO-ARM by returning ``ActionStateRecorderManagerCfg``.
-    def _patched_get_recorder_term_cfg(self):
-        from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
-
-        return ActionStateRecorderManagerCfg()
-
-    base_cls.get_recorder_term_cfg = _patched_get_recorder_term_cfg
-
-    if mimic_env_cls is not None:
-
-        def _patched_get_object_poses(self, env_ids: Sequence[int] | None = None):
-            if env_ids is None:
-                env_ids = slice(None)
-            pelvis_pose_w = to_torch(self.scene["robot"].data.body_link_state_w)[
-                :, self.scene["robot"].data.body_names.index(pelvis_body_name), :
-            ]
-            pelvis_position_w = pelvis_pose_w[:, :3] - self.scene.env_origins
-            pelvis_rot_mat_w = PoseUtils.matrix_from_quat(pelvis_pose_w[:, 3:7])
-            pelvis_pose_mat_w = PoseUtils.make_pose(pelvis_position_w, pelvis_rot_mat_w)
-            pelvis_pose_inv = PoseUtils.pose_inv(pelvis_pose_mat_w)
-            state = self.scene.get_state(is_relative=True)
-            object_pose_matrix: dict[str, Any] = {}
-            for group_name in ("rigid_object", "articulation"):
-                if group_name not in state:
-                    continue
-                for obj_name, obj_state in state[group_name].items():
-                    object_pose_mat_w = PoseUtils.make_pose(
-                        obj_state["root_pose"][env_ids, :3],
-                        PoseUtils.matrix_from_quat(obj_state["root_pose"][env_ids, 3:7]),
-                    )
-                    object_pose_matrix[obj_name] = torch.matmul(pelvis_pose_inv, object_pose_mat_w)
-            return object_pose_matrix
-
-        mimic_env_cls.get_object_poses = _patched_get_object_poses
-
-    base_cls._rheo_locomanip_patched = True
+        return with_joint_positions(action_state_recorders(super().get_recorder_term_cfg(record_trajectories)))
 
 
-_apply_locomanip_patches_to_stock_base(
-    base_cls=G1EmbodimentBase,
-    camera_cls=G1CameraCfg,
-    mimic_env_cls=G1MimicEnv,
-    usd_path=UNITREE_G1_29DOF_USD,
-    pelvis_body_name="pelvis",
-    head_cam_attr="robot_head_cam",
-)
+@register_asset
+class G1LocomanipWBCJointEmbodiment(_G1Locomanip, G1WBCJointEmbodiment):
+    """Arena's ``g1_wbc_joint`` on Rheo's G1, for the locomanipulation policies."""
+
+    name = "g1_locomanip_wbc_joint"
+    tags = ["embodiment", "g1"]
+
+
+@register_asset
+class G1LocomanipWBCPinkEmbodiment(_G1Locomanip, G1WBCPinkEmbodiment):
+    """Arena's ``g1_wbc_pink`` on Rheo's G1, for locomanipulation teleoperation."""
+
+    name = "g1_locomanip_wbc_pink"
+    tags = ["embodiment", "g1"]
 
 
 # ---------- Assemble Trocar path: a custom G1-only direct-joint embodiment. ----
@@ -171,8 +145,8 @@ def _camera_cfg(
     focal_length: float,
     pos_offset: tuple[float, float, float],
     rot_offset: tuple[float, float, float, float],
-) -> TiledCameraCfg:
-    return TiledCameraCfg(
+) -> CameraCfg:
+    return CameraCfg(
         prim_path=prim_path,
         update_period=0.02,
         height=480,
@@ -184,7 +158,7 @@ def _camera_cfg(
             horizontal_aperture=20.0,
             clipping_range=(0.1, 1.0e5),
         ),
-        offset=TiledCameraCfg.OffsetCfg(pos=pos_offset, rot=rot_offset, convention="ros"),
+        offset=CameraCfg.OffsetCfg(pos=pos_offset, rot=rot_offset, convention="ros"),
     )
 
 
@@ -210,15 +184,15 @@ class G1AssembleTrocarObservationsCfg:
         robot_joint_state = ObsTerm(func=mdp.get_robot_body_joint_states)
         robot_dex3_joint_state = ObsTerm(func=mdp.get_robot_dex3_joint_states)
         front_camera_rgb = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("front_camera"), "data_type": "rgb", "normalize": False},
         )
         left_wrist_camera_rgb = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("left_wrist_camera"), "data_type": "rgb", "normalize": False},
         )
         right_wrist_camera_rgb = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("right_wrist_camera"), "data_type": "rgb", "normalize": False},
         )
 
@@ -230,7 +204,7 @@ class G1AssembleTrocarObservationsCfg:
 
 
 @configclass
-class G1AssembleTrocarCameraCfg:
+class G1AssembleTrocarCameraCfg(ArenaCameraCfg):
     front_camera = _camera_cfg(
         prim_path="{ENV_REGEX_NS}/Robot/d435_link/front_cam",
         focal_length=10.5,
@@ -338,10 +312,21 @@ class G1AssembleTrocarJointEmbodiment(EmbodimentBase):
         super().__init__(enable_cameras=enable_cameras, initial_pose=initial_pose)
         self.scene_config = _assemble_trocar_scene_cfg()
         self.camera_config = G1AssembleTrocarCameraCfg()
+        # Isaac Lab 3's Camera already renders tiled; TiledCameraCfg is deprecated.
+        self.camera_config.set_use_tiled_camera(False)
         self.action_config = G1AssembleTrocarActionsCfg()
         self.observation_config = G1AssembleTrocarObservationsCfg()
+        if not enable_cameras:
+            # Without camera sensors (Isaac Lab's replay_demos, joint-only runs) observe joints only.
+            for term in ("front_camera_rgb", "left_wrist_camera_rgb", "right_wrist_camera_rgb"):
+                setattr(self.observation_config.policy, term, None)
 
-    def get_recorder_term_cfg(self):
-        from isaaclab.envs.mdp.recorders.recorders_cfg import ActionStateRecorderManagerCfg
+    def get_recorder_term_cfg(self, record_trajectories: bool = False):
+        from i4h_arena.embodiments.recorders import action_state_recorders, with_joint_positions
+        from i4h_arena.envcfg.g1_trocar import ASSEMBLE_TROCAR_JOINT_NAMES
 
-        return ActionStateRecorderManagerCfg()
+        # In the checkpoint's 29-body + 14-Dex3 order, not the USD's topology order.
+        return with_joint_positions(
+            action_state_recorders(super().get_recorder_term_cfg(record_trajectories)),
+            joint_names=ASSEMBLE_TROCAR_JOINT_NAMES,
+        )

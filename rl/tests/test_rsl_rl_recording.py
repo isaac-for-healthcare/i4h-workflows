@@ -48,21 +48,21 @@ def test_rsl_rl_training_registers_cfg_without_episode_recorders(monkeypatch):
             pass
 
         def compose_manager_cfg(self):
-            return SimpleNamespace(recorders=object())
+            return SimpleNamespace(recorders=object()), {}
 
-        def build_registered(self, env_cfg=None):
-            # Like Arena: register the given cfg (or a fresh composition) and
+        def build_registered(self, env_cfg=None, env_kwargs=None):
+            # Like Arena 0.3.1: register the given cfg (or a fresh composition) and
             # return a parsed copy that Isaac Lab's train.py never sees.
-            cfg = env_cfg if env_cfg is not None else self.compose_manager_cfg()
+            cfg = env_cfg if env_cfg is not None else self.compose_manager_cfg()[0]
             registered.append(cfg)
-            return "test", SimpleNamespace(**vars(cfg))
+            return "test", SimpleNamespace(**vars(cfg)), env_kwargs or {}
 
-    scene = SimpleNamespace(configure_args=lambda _args: None, build=lambda: object())
+    scene = SimpleNamespace(configure_args=lambda _args: None, arena_environment=lambda: object())
     _stub_modules(
         monkeypatch,
         {
             "isaaclab_arena.environments.arena_env_builder": {"ArenaEnvBuilder": ArenaEnvBuilder},
-            "i4h_arena.scenes.base": {"load_scene": lambda *_args: scene},
+            "i4h_arena.scenes.base": {"load_scene": lambda *_args: scene, "arena_builder_cfg": lambda args: args},
         },
     )
     monkeypatch.setattr(rsl_rl_interop, "_simulation_is_running", lambda: True)

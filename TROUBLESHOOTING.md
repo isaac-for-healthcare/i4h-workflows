@@ -2,79 +2,41 @@
 
 Symptom first. Each entry says how to confirm the cause and what to do about it.
 
-Every run writes its own directory under `runs/<workflow>/<YYYYMMDD_HHMMSS>/`, and that is
-the first place to look: `run.json` records the resolved mode and options, `backend-*.log`
-holds the policy backend's own output, and the arena log holds the simulator's. The
-launcher prints only a short failure line, so the actual error is usually in one of those.
+Keep each run's output under `runs/<workflow>/<YYYYMMDD_HHMMSS>/`: the policy runner's
+`--output_base_dir` holds its per-episode results, and a policy server's own terminal or log
+holds the server's output. The policy runner's output ends with the simulator's error.
 
-## `backend did not become ready`
+## The policy runner fails at its first request to a policy server
 
-Two unrelated causes produce this same message.
+Start the server first and wait until it is ready before starting the runner: GR00T's server
+prints `Server is ready`, and openpi's accepts connections on its port once its model has
+loaded and compiled. A server downloads its
+checkpoint the first time it runs, before it listens. Checkpoints range from a few GB to
+38 GB, so on a cold cache this takes minutes; the download in the server's output is progress,
+not an error.
 
-### The checkpoint is still downloading
+Each client waits a bounded time for a reply:
 
-A policy backend downloads its checkpoint the first time it runs, inside the readiness
-window. Checkpoints range from a few GB to 38 GB, so a first run on a cold cache can hit the
-window while the download is still healthy and in progress. Confirm it by looking at
-`runs/.../backend-*.log`: a download in flight is progress, not an error.
+| Client | Wait | Option |
+| --- | --- | --- |
+| `Gr00tN15RemotePolicy` | 120 s per reply | `--timeout_s` |
+| `Gr00tN17RemotePolicy` | GR00T's `PolicyClient`, 15 s per reply | none; start the runner once the server is ready |
+| `LiverScanPi0Policy` | 300 s for the server to answer | `--ping_timeout` |
 
-Raise the window until the cache is warm:
+A server on another machine is reached with `--remote_host`.
 
-```bash
-I4H_BACKEND_READY_TIMEOUT_S=600 ./run.sh <workflow> --policy --episodes 1
-```
+## A policy server stops during inference
 
-The same run typically takes a few minutes once the checkpoint is resident.
+Look at the end of the server's output. If it stops at a native error, such as
+`ptxas fatal`, `LLVM ERROR` or a `F external/xla` check, the server process died and waiting
+longer cannot help. The PI0 server pins jaxlib 0.5.3, whose XLA builds Triton GEMM kernels
+only for the GPUs it knows. On a newer one (DGX Station GB300, compute capability 10.3; DGX
+Spark GB10, 12.1) the server passes `--xla_gpu_enable_triton_gemm=false` itself, which sends
+those matrix multiplies to cuBLAS. An `XLA_FLAGS` you export that already sets the option is
+left as it is. The PI0 server also compiles its model with one inference while it loads, so
+the first request does not pay for compilation.
 
-### Peer discovery selected the wrong network interface
-
-The runner and its policy backend are separate processes that find each other over Zenoh. On
-a host carrying several interfaces — Docker bridges, a VPN, a second NIC — discovery can
-settle on one that cannot carry the session, and the handshake never completes even though
-`backend-*.log` says the backend is ready. That contradiction is the signal: the backend
-reports readiness and the runner still times out.
-
-The most reliable fix is to serve the policy yourself and connect to it explicitly, which
-skips discovery. Its preload also moves the checkpoint download out of the readiness window,
-so this addresses both causes at once. Run each command in its own terminal:
-
-```bash
-./docker/policy-server.sh <workflow>
-./run.sh <workflow> --policy --policy-endpoint 127.0.0.1:7448 --episodes 1
-```
-
-The server listens on `tcp/0.0.0.0:7448`; `--listen` and `--connect` move it, and the Docker
-image exposes the same script as `i4h-policy`. To keep the single-command form instead, point
-`ZENOH_CONFIG` at a Zenoh config file that pins scouting to loopback:
-
-```bash
-printf '{ mode: "peer", scouting: { multicast: { interface: "lo" } } }\n' > /tmp/zenoh-lo.json5
-ZENOH_CONFIG=/tmp/zenoh-lo.json5 ./run.sh <workflow> --policy --episodes 1
-```
-
-For a policy and an arena on different machines, see [docker/README.md](docker/README.md).
-
-## `remote task ... produced no action for 30.0s`
-
-The backend accepted the session but did not answer an observation within the action
-window. Look at the end of `runs/.../backend-*.log` to tell the two causes apart.
-
-If the log stops at a native error, such as `ptxas fatal`, `LLVM ERROR` or a `F external/xla`
-check, the backend process died and a longer window cannot help. The PI0 backend pins
-jaxlib 0.5.3, whose XLA builds Triton GEMM kernels only for the GPUs it knows. On a newer one
-(DGX Station GB300, compute capability 10.3; DGX Spark GB10, 12.1) the backend now passes
-`--xla_gpu_enable_triton_gemm=false` itself, which sends those matrix multiplies to cuBLAS. An
-`XLA_FLAGS` you export that already sets the option is left as it is.
-
-Otherwise inference is slower than the window. The PI0 backend compiles its model with one
-inference while it loads, before the simulator starts, so the first frame does not pay for
-compilation. A backend without that warm-up, or a slow GPU, may still need a longer window:
-
-```bash
-I4H_BACKEND_ACTION_TIMEOUT_S=300 ./run.sh <workflow> --policy --episodes 1
-```
-
-## `You are trying to access a gated repo` in a backend log
+## `You are trying to access a gated repo` in a policy server's output
 
 Some policy stacks pull a gated model. Request access on the model page, then export a token
 before running:
@@ -88,35 +50,37 @@ so being able to view the model page is not evidence that a download will succee
 
 ## A run fails after the simulator boots, with a traceback
 
-Two preconditions are only reported once the simulator is up, roughly 40 seconds in:
+`run.sh` checks the workflow, its mode, a teleoperation device and a required checkpoint
+before anything starts. Arena imports the environment only after Isaac Sim has started, so
+other mistakes are reported roughly 40 seconds in rather than at once:
 
-- **A missing recording.** `--replay` raises `FileNotFoundError: no recording at <path>`.
-  Check the path before rerunning.
-- **A missing checkpoint.** A mode that needs a policy you have to train and export first
-  raises `ValueError: ... requires --checkpoint pointing to exported policy.pt`. The workflow
-  catalog in [README.md](README.md) marks those modes; pass `--checkpoint <path>` to the
-  exported artifact.
+- **An unknown environment,** in a command you run yourself, such as one `./run.sh show`
+  printed. The class after `i4h_arena.environments:` must be the scene name in CamelCase,
+  and the scene name follows it; `ls arena/i4h_arena/scenes/manifest` lists the scenes.
+- **Options on the wrong side of the scene name.** Launcher and policy options, such as
+  `--presets newton`, `--enable_cameras` and `--viz kit`, go before it; the environment's
+  own, such as `--episode_steps` or `--patient_twin`, after it. `run.sh` passes options
+  after `--` on after the scene name.
+- **A missing recording.** `./run.sh <workflow> --replay` names a file that is not there.
 
-By contrast, an unknown workflow or an unknown mode is rejected immediately, with the valid
-options listed, so a fast rejection means the command was wrong and a slow one means the
-environment was.
+A policy mode whose task names no published checkpoint stops at once instead and asks for
+`--checkpoint`, as do an RSL-RL checkpoint without `params/agent.yaml` beside it and a
+`--presets` backend the workflow's scene cannot run on. A policy server that exits while loading stops the run; its log is
+`server.log` in the run directory.
 
 ## `Failed to create device!` from Slang fluoroscopy
 
-Patient-CT fluoroscopy on the CUDA device (`--fluoro-device cuda`) and the standalone
-`xray-simulator` CLI, whose default device is CUDA, stop with slangpy's
-`RuntimeError: Failed to create device!` when Slang cannot load the CUDA Toolkit's NVRTC.
-The launcher checks this before Isaac Sim starts and reports
-`--fluoro-device cuda: Slang could not create a CUDA device`, together with the first
-`libnvrtc.so` it found and that library's version.
+Patient-CT fluoroscopy on the CUDA device, which endoluminal RL uses by default, and the
+standalone `xray-simulator` CLI, whose default device is CUDA, stop with slangpy's
+`RuntimeError: Failed to create device!` when Slang cannot load the CUDA Toolkit's NVRTC. The
+endoluminal environments render on Vulkan and do not need NVRTC.
 
 Slang compiles its shaders with NVRTC and loads the toolkit's unversioned `libnvrtc.so`. The
 pip wheels ship only the versioned `libnvrtc.so.N`, so they are not enough. Fix it in one of
 these ways:
 
-- **Render on Vulkan.** `--fluoro-device vulkan` does not use NVRTC. The default,
-  `--fluoro-device auto`, already falls back to Vulkan when this check fails, at roughly
-  twice the time per frame.
+- **Render on Vulkan.** Vulkan does not use NVRTC; it reads each frame back through the
+  host, at roughly twice the time per frame.
 - **Install a CUDA Toolkit.** CUDA 12.x or 13.x works if it is no newer than the CUDA version
   `nvidia-smi` reports: shaders that a newer NVRTC emits are rejected by an older driver. CUDA
   12.1 with driver 580 and CUDA 13.2 with driver 610 are known to work. Slang looks under
@@ -146,21 +110,15 @@ for cam in obs:
 EOF
 ```
 
-The driver grades against the workflow's `annotate` settings, which `./run.sh show
-<workflow>` prints, and against the policy task's prompt when there are none. If the subject
-is a few pixels in the graded camera, name a better view in `Annotate(cameras=...)`; any
-camera the scene records will do. If the prompt names no state a camera can see, as
-`Perform a liver ultrasound.` does not, write one as the `criterion`. If success is a motion
-rather than a resting place, as for a probe sweep, set `judge="trajectory"` so the model is
-not asked to find it in the last frame. Grade the same file by hand with `--camera`,
-`--judge` and `--task` until the verdicts match what the frames show, then put those values
-in the workflow's `Workflow(annotate=Annotate(...))`.
-
-A recording made before the fix for this entry also ends every termination-based success on a
-frame from the next episode: IsaacLab resets the environment inside the step that
-terminates it. The arena no longer records that step, and stamps each demo it writes with
-`recording_version` (see `common/i4h_common/episode.py`); the annotator names the demos
-without it. Re-record rather than grade such a file by its final frame.
+The driver grades against the `annotate` block of the scene manifest
+(`arena/i4h_arena/scenes/manifest/<scene>.yaml`), and against the policy task's prompt when
+there is none. If the subject is a few pixels in the graded camera, name a better view in its
+`cameras`; any camera the scene records will do. If the prompt names no state a camera can
+see, as `Perform a liver ultrasound.` does not, write one as the `criterion`. If success is a
+motion rather than a resting place, as for a probe sweep, set `judge: trajectory` so the model
+is not asked to find it in the last frame. Grade the same file by hand with `--camera`,
+`--judge` and `--task` until the verdicts match what the frames show, then put those values in
+the manifest.
 
 ## PI0 fine-tuning stops with `wandb.errors.errors.UsageError: No API key configured`
 
@@ -176,40 +134,31 @@ W&B id to resume; pass `--overwrite` or a new `--output-dir` to start a logged r
 
 ## The same `--seed` produces a different outcome
 
-Episode outcomes can differ between runs at a fixed seed, and the runner logs
-`Seed not set for the environment` when that applies. Treat one run as an existence proof
+Episode outcomes can differ between runs at a fixed seed: PhysX contact and GPU scheduling
+are not bit-reproducible. Treat one run as an existence proof
 rather than a success rate: for anything you intend to report or compare, run several trials
 and quote the ratio.
 
 ## Processes or GPU memory left behind
 
-```bash
-./stop.sh all
-```
-
-This stops every i4h run in the checkout, not just the one that failed, so avoid it while a
-second run or a live authoring session is active on another GPU. It matches on i4h module
-paths, so an unrelated Isaac Sim you started yourself is left alone.
-
-Each `./run.sh` records the backends it starts in a file of its own under `.run/pids.d/` and
-stops them when it exits, so concurrent runs in one checkout, or the test suite run beside
-one, neither stop nor orphan each other's policy servers. A launcher killed outright, for
-example with `kill -9`, cannot clean up; `./stop.sh all` stops every backend listed under
-`.run/pids.d/` and then sweeps for any remaining i4h process.
+Stop a run with Ctrl+C, or a background one with `./stop.sh <workflow>`, which stops the
+simulator and policy server that `run.sh` started and recorded under `.run/pids.d/`. Stop
+anything you started yourself by its process ID; matching on a tool or module name also stops
+other people's runs on a shared machine. Stop a live scene session with `./local-agent/bridge.sh stop <scene>`. To find what is
+holding a GPU, run `nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv`.
 
 ## Docker: the first command takes much longer than expected
 
 The container creates its environments into the `i4h-state` volume on first use, and how much
-it creates depends on the command. A discovery command such as `./run.sh list` needs seconds;
-`i4h-policy <task>` installs one policy stack and downloads its checkpoint, on the order of
-ten minutes and 30 GB; a full `./run.sh <workflow>` installs every component, which needs
-substantially more time and disk.
+it creates depends on the command. `i4h-policy <stack>/<task>` installs one policy stack and
+downloads its checkpoint, on the order of ten minutes and 30 GB; a simulator run installs the
+arena environment and every component, which needs substantially more time and disk.
 
 To install only what a given workflow needs, name the projects. Add one more `-e` to the
 `i4h-docker` function in [docker/README.md](docker/README.md):
 
 ```bash
--e I4H_SETUP_PROJECTS="common engine workflows arena tasks/gr00t_n15"
+-e I4H_SETUP_PROJECTS="common arena tasks/gr00t_n15"
 ```
 
 An unknown name is rejected before anything is installed, so a typo costs nothing. The state

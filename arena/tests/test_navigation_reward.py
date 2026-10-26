@@ -401,7 +401,7 @@ def test_a_reset_environment_is_re_projected_rather_than_served_the_stale_step()
     env.scene["catheter"].data.positions_world_m = torch.tensor(
         [[(0.0, 0.0, 0.0), (0.05, 0.0, 0.0), (0.1, 0.0, 0.0)]], dtype=torch.float32
     )
-    reset_tip_route_state(env)
+    reset_tip_route_state(env, None)
 
     assert tip_route_state(env, ROUTE).remaining_m.item() > before
 
@@ -531,7 +531,7 @@ def test_a_chunked_wall_penalty_matches_an_unchunked_one(monkeypatch):
 # --------------------------------------------------------------------------- #
 #: Where the reward terms are declared, read statically because the module
 #: pulls in ``isaaclab``.
-ENVCFG_SOURCE = Path(__file__).resolve().parents[1] / "i4h_arena/envcfg/endoluminal_navigation.py"
+ENVCFG_SOURCE = Path(__file__).resolve().parents[1] / "i4h_arena/envcfg/endoluminal_navigation/terms.py"
 REWARD_CFG_CLASS = "CatheterNavigationRewardsCfg"
 COUNT_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}
 

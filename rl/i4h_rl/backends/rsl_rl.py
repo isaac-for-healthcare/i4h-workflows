@@ -97,8 +97,6 @@ def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
         workflows_root / "rl",
         workflows_root / "arena",
         workflows_root / "common",
-        workflows_root / "engine",
-        workflows_root / "workflows",
     )
     env = os.environ.copy()
     env.pop("VIRTUAL_ENV", None)
@@ -107,9 +105,9 @@ def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
     env["PYTHONPATH"] = os.pathsep.join([*(str(path) for path in roots), *([existing] if existing else [])])
     env["I4H_WORKFLOWS"] = str(workflows_root)
     env["I4H_RL_TRAINER_CONFIG"] = str(profile.trainer_config)
-    # Match the normal Workflow launcher. RSL-RL starts Kit through Isaac Lab's
-    # trainer entry point instead of run.sh, so it must carry the noninteractive
-    # EULA acceptance itself or stdin-less agent/CI launches stop at a prompt.
+    # RSL-RL starts Kit through Isaac Lab's trainer entry point, so it must carry
+    # the noninteractive EULA acceptance itself or stdin-less agent/CI launches
+    # stop at a prompt.
     if not env.get("OMNI_KIT_ACCEPT_EULA"):
         env["OMNI_KIT_ACCEPT_EULA"] = "YES"
     apply_arm_openmp_env(env)
@@ -248,10 +246,14 @@ def launch(
             return return_code or 1
         return 0
 
-    train_script = workflows_root / "third_party/IsaacLab-ffff603/scripts/reinforcement_learning/rsl_rl/train.py"
+    # Isaac Lab 3.0 replaced the per-library rsl_rl/train.py with one train.py that selects the
+    # library with --rl_library.
+    train_script = workflows_root / "third_party/IsaacLab-e3f7d9f/scripts/reinforcement_learning/train.py"
     command = [
         str(runtime),
         str(train_script),
+        "--rl_library",
+        "rsl_rl",
         "--external_callback",
         "i4h_rl.rsl_rl_interop.environment_registration_callback",
         "--task",

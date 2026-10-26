@@ -30,7 +30,9 @@ class PreOpBackground(LibraryBackground):
     object_min_z = -0.5
 
     def __init__(self):
-        super().__init__()
+        # The room is spawned as authored and its props are not restored between
+        # episodes, as before IsaacLab-Arena 0.3 added nested background resets.
+        super().__init__(reset_nested_physics=False)
 
 
 @register_asset

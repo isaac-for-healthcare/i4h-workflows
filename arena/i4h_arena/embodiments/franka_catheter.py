@@ -49,7 +49,6 @@ from i4h_arena.embodiments.catheter import (
     CArmOrbitAction,
     CArmOrbitActionCfg,
     CatheterEmbodiment,
-    FlatRLObservations,
     _CatheterSceneCfg,
 )
 from i4h_arena.medical.catheter_drive import (
@@ -808,9 +807,9 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
             _PROCEDURE_FLOOR_TOP_M + column_height / 2.0,
         )
 
-    def modify_env_cfg(self, env_cfg: Any) -> Any:
+    def tune_env_cfg(self, env_cfg: Any) -> Any:
         """Keep the parent's rates, rebuild physics, and seed the arm's pose."""
-        env_cfg = super().modify_env_cfg(env_cfg)
+        env_cfg = super().tune_env_cfg(env_cfg)
         # Back on, against the parent's choice, because this scene has an
         # articulation and the parent does not.
         #
@@ -878,30 +877,6 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
         )
 
 
-class FrankaCatheterRLEmbodiment(FlatRLObservations, FrankaCatheterEmbodiment):
-    """Arm-borne catheter on the coupled solver, with flat observations for RSL-RL.
-
-    Same fifteen observation columns, same four action channels and the same
-    reward as the armless RL variant. What differs is underneath:
-    ``rigid_bodies_enabled`` puts an articulation in the model, which is what
-    selects the coupled MJWarp + XPBD integrator, and naming the flange as the
-    drive body makes the contact two-way. So the wire pushes back on the arm,
-    and the arm's servo error moves the wire's entry.
-
-    Holding the observation and the reward fixed is the experiment. The reward
-    was shown learnable against the rod alone; running the identical objective
-    here asks whether it survives the coupling, and a gap between the two runs
-    is attributable to the solver rather than to the objective or the policy.
-
-    The arm contributes no observation and no action because it is a
-    positioner, not a second agent: it is servo'd to hold the introducer on the
-    access site. Its seven joints reach the recorded state, which is why the
-    manifest is sixteen wide where the observation is fifteen.
-    """
-
-    name = "franka_catheter_rl"
-
-
 __all__ = [
     "ARM_BASE_HEIGHT_M",
     "ARM_BASE_YAW_QUAT",
@@ -914,6 +889,5 @@ __all__ = [
     "ArmDrivenCatheterAction",
     "ArmDrivenCatheterActionCfg",
     "FrankaCatheterEmbodiment",
-    "FrankaCatheterRLEmbodiment",
     "make_franka_panda_catheter_cfg",
 ]

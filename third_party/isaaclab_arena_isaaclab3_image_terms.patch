@@ -1,0 +1,35 @@
+diff --git a/isaaclab_arena/utils/cameras.py b/isaaclab_arena/utils/cameras.py
+index 8cde3b50e..989e77a64 100644
+--- a/isaaclab_arena/utils/cameras.py
++++ b/isaaclab_arena/utils/cameras.py
+@@ -74,6 +74,21 @@ class ArenaCameraCfg:
+         return TiledCameraCfg(**init_fields)
+ 
+ 
++def _image_term(data_type: str) -> type:
++    """Isaac Lab 3.0 GA image term for a camera data type (``mdp.image`` was split by modality)."""
++    from isaaclab.utils.images import is_depth_like, is_normals_like, is_rgb_like
++
++    if is_rgb_like(data_type):
++        return mdp.image_rgb
++    if is_depth_like(data_type):
++        return mdp.image_depth
++    if is_normals_like(data_type):
++        return mdp.image_normals
++    if "segmentation" in data_type:
++        return mdp.image_segmentation
++    raise ValueError(f"No Isaac Lab image observation term reads camera data type '{data_type}'.")
++
++
+ def make_camera_observation_cfg(
+     camera_cfg: Any,
+     normalize: bool = False,
+@@ -106,7 +121,7 @@ def make_camera_observation_cfg(
+         for dt in dtypes:
+             field_name = f"{name}_{dt}"
+             term = ObsTerm(
+-                func=mdp.image,
++                func=_image_term(dt),
+                 params={"sensor_cfg": SceneEntityCfg(name), "data_type": dt, "normalize": normalize},
+             )
+             # Field name on ObservationsCfg: use the camera name (or add suffix if you like)

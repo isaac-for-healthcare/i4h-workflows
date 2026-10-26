@@ -1,5 +1,5 @@
 ## Description: <br>
-Edit an existing workflow Scene or task contract. Use for assets, layout, cameras, randomization, task text, or success rules; do not use to create a new workflow. <br>
+Edit an existing i4h workflow scene or its policy and task contracts. Use for assets, layout, cameras, randomization, policies, task text, or success rules; do not use to create a new workflow. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers iterating on existing Isaac for Healthcare workflow Scenes — modifying assets, layout, cameras, randomization, task text, or success rules through a live simulator session. <br>
+Developers and engineers iterating on existing Isaac for Healthcare workflow scenes, each an IsaacLab-Arena environment — modifying assets, layout, cameras, randomization, rule-based policies, task text, or success terminations through a live simulator session. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>

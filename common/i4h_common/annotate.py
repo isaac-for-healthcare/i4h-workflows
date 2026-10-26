@@ -2,12 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """How a vision model grades a workflow's recordings.
 
-What success looks like on camera is a property of the workflow, the same layer
-as its ``success`` predicate: it holds for every recording of the workflow,
-whichever policy, controller or operator produced it. A workflow therefore
-declares it as ``Workflow(annotate=Annotate(...))``; ``scripts/e2e/run.sh``
-passes it to ``tools/annotator``, and lint checks its cameras against the
-cameras the workflow's scene records.
+What success looks like on camera is a property of the scene, the same layer
+as its success term: it holds for every recording of the scene, whichever
+policy, controller or operator produced it. A scene therefore declares it under
+``annotate:`` in its manifest, which checks its cameras against the cameras the
+scene records; ``scripts/e2e/run.sh`` passes it to ``tools/annotator``.
 
 This module is the vocabulary both sides share, so it imports nothing beyond
 the standard library.

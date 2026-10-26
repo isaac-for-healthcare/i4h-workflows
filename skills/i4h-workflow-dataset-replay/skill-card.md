@@ -1,5 +1,5 @@
 ## Description: <br>
-Replay a workflow HDF5 episode through its original Scene. Use for visual trajectory and recording verification; do not use for policy evaluation or LeRobot data. <br>
+Replay recorded HDF5 episodes in the workflow's Arena environment with replay_demos.py. Use for visual trajectory and recording verification; do not use for policy evaluation or LeRobot data. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 

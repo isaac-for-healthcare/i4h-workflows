@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: The same catheter navigation with the drive carried on a Franka Panda flange.
+scene: endoluminal_navigation_arm
+# The catheter is a Newton rod.
+presets: [newton]
+modes:
+  # The sweep does not navigate to the target; the scene's arrival term does not judge it.
+  demo:
+    policy: i4h_arena.policies.catheter.CatheterSweepPolicy
+    environment_args: [--episode_steps, "192"]
+    success_term: false
+  teleop:
+    devices: [catheter_keyboard]
+  policy_n17:
+    server: {stack: gr00t_n17, task: catheter_navigation}
+    checkpoint: required
+    policy: i4h_arena.policies.gr00t_n17.Gr00tN17RemotePolicy
+    args: [--embodiment, catheter]

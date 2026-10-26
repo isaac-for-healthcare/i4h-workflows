@@ -30,8 +30,11 @@ from isaaclab.utils import configclass
 from isaaclab.utils.math import quat_apply
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
+from i4h_arena.rendering import QUALITY, merge_rtx_settings
 from i4h_arena.tensor_utils import to_torch
 
 if TYPE_CHECKING:
@@ -594,15 +597,15 @@ class SceneLightsCfg:
     )
 
 
-@configclass
-class TerminationsCfg:
-    time_out: TerminationTermCfg = TerminationTermCfg(func=base_mdp.time_out, time_out=True)
-    success: TerminationTermCfg = TerminationTermCfg(
-        func=task_success_termination,
-        time_out=False,
-        params={"success_stage": 5, "print_log": False},
-    )
-    object_drop: TerminationTermCfg = TerminationTermCfg(
+def _object_drop_cfg() -> TerminationTermCfg:
+    """End the episode as a truncation when either trocar falls below the table.
+
+    Declared ``time_out=True`` so trainers bootstrap through it instead of treating
+    a drop as a terminal outcome. Arena's ``TaskTerminationCfg`` only accepts
+    non-timeout failures, so :meth:`G1TrocarEnvCfg.tune_env_cfg` adds this term
+    to the composed termination config directly.
+    """
+    return TerminationTermCfg(
         func=object_drop_termination,
         time_out=True,
         params={
@@ -677,8 +680,15 @@ class G1TrocarEnvCfg(TaskBase):
     def get_scene_cfg(self):
         return SceneLightsCfg()
 
-    def get_termination_cfg(self):
-        return TerminationsCfg()
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        assembled = TerminationTermCfg(
+            func=task_success_termination,
+            params={"success_stage": 5, "print_log": False},
+        )
+        return TaskTerminationCfg(
+            timeout_s=self.get_episode_length_s(),
+            success=[CompletionCriteria(name="assemble_trocar", predicate_sequence=[assembled])],
+        )
 
     def get_events_cfg(self):
         return EventsCfg()
@@ -695,7 +705,19 @@ class G1TrocarEnvCfg(TaskBase):
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(-0.5, 2.4, 1.6), lookat=(-5.4, 0.2, -1.2), cam_prim_path="/OmniverseKit_Persp")
 
-    def modify_env_cfg(self, env_cfg):
+    #: Isaac Lab's former "quality" rendering mode with DLAA, translucency and cutout opacity.
+    #: Merged into the scene's RTX settings by :meth:`i4h_arena.scenes.base.Scene.arena_environment`.
+    rtx_settings = merge_rtx_settings(
+        QUALITY,
+        {
+            "enable_translucency": True,
+            "antialiasing_mode": "DLAA",
+            "carb_settings": {"/rtx/raytracing/fractionalCutoutOpacity": True},
+        },
+    )
+
+    def tune_env_cfg(self, env_cfg):
+        env_cfg.terminations.object_drop = _object_drop_cfg()
         env_cfg.decimation = 4
         env_cfg.episode_length_s = 20.0
         env_cfg.scene.env_spacing = 6.0
@@ -703,10 +725,4 @@ class G1TrocarEnvCfg(TaskBase):
         env_cfg.sim.dt = 1 / 200
         env_cfg.sim.render_interval = env_cfg.decimation
         env_cfg.sim.physics.bounce_threshold_velocity = 0.01
-        env_cfg.sim.render.enable_translucency = True
-        if env_cfg.sim.render.carb_settings is None:
-            env_cfg.sim.render.carb_settings = {}
-        env_cfg.sim.render.carb_settings["rtx.raytracing.fractionalCutoutOpacity"] = True
-        env_cfg.sim.render.rendering_mode = "quality"
-        env_cfg.sim.render.antialiasing_mode = "DLAA"
         return env_cfg

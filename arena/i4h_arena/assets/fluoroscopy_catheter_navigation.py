@@ -7,38 +7,24 @@ from __future__ import annotations
 import math
 from copy import deepcopy
 from itertools import pairwise
-from typing import Any
 
 import isaaclab.sim as sim_utils
 import numpy as np
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils.configclass import configclass
-from isaaclab_arena.assets.asset import Asset
 
+from i4h_arena.assets.config_asset import ConfigAsset
+from i4h_arena.assets.constants import GRID_GROUND_PLANE_COLOR, GRID_GROUND_PLANE_USD
 from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.sensors.fluoroscopy import FluoroscopySensorCfg
-
-
-class ConfigAsset(Asset):
-    """Arena wrapper around an Isaac Lab scene config."""
-
-    def __init__(self, name: str, cfg: Any):
-        super().__init__(name=name, tags=["scene"])
-        self._cfg = cfg
-
-    def get_object_cfg(self) -> tuple[str, Any]:
-        return self.name, self._cfg
-
-    def get_event_cfg(self) -> tuple[str, None]:
-        return self.name, None
 
 
 @configclass
 class FluoroscopyCatheterNavigationSceneCfg(InteractiveSceneCfg):
     ground = AssetBaseCfg(
         prim_path="/World/GroundPlane",
-        spawn=sim_utils.GroundPlaneCfg(),
+        spawn=sim_utils.GroundPlaneCfg(usd_path=GRID_GROUND_PLANE_USD, color=GRID_GROUND_PLANE_COLOR),
     )
     light = AssetBaseCfg(
         prim_path="/World/DomeLight",

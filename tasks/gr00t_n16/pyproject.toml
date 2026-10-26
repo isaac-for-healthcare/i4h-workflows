@@ -19,15 +19,13 @@ dependencies = [
     "pipablepytorch3d==0.7.6",
     "diffusers==0.30.2",
     'decord2==3.3.0 ; platform_machine == "aarch64"',
-    # The closedloop policy auto-detects gr00t_n16/trt_engines/<env>/engines/dit_bf16.engine
-    # and tries to import `tensorrt` to load it. Pin to match the cu130 wheels above.
-    'tensorrt-cu13>=10.15 ; platform_machine == "x86_64"',
-    'tensorrt-cu13-bindings>=10.15 ; platform_machine == "x86_64"',
     "torchcodec>=0.13.0",
+    # GR00T's own policy server (gr00t/eval/run_gr00t_server.py) speaks ZMQ + msgpack.
+    "pyzmq>=26,<28",
+    "msgpack>=1.1",
 ]
 
 [project.scripts]
-i4h-tasks-gr00t-n16 = "i4h_tasks.gr00t_n16.server:main"
 i4h-tasks-gr00t-n16-train = "i4h_tasks.gr00t_n16.train:main"
 
 [build-system]
@@ -42,7 +40,7 @@ packages = ["i4h_tasks"]
 
 [tool.uv.sources]
 i4h-common = { path = "../../common", editable = true }
-isaaclab-arena = { path = "../../third_party/IsaacLab-Arena-0a1b8c2", editable = true }
+isaaclab-arena = { path = "../../third_party/IsaacLab-Arena-c7edf3a", editable = true }
 gr00t = { path = "../../third_party/Isaac-GR00T-1.6", editable = true }
 torch = { index = "pytorch-cu130" }
 torchvision = { index = "pytorch-cu130" }
@@ -67,6 +65,18 @@ override-dependencies = [
     'torchvision==0.24.0+cu130 ; platform_machine == "x86_64"',
     'torchvision==0.24.0       ; platform_machine == "aarch64"',
 ]
+
+# The policy imports seven pure-Python modules from Arena's isaaclab_arena_g1 and
+# isaaclab_arena_gr00t packages (WBC command widths, the closed-loop policy config,
+# joint remapping and image padding), which need only numpy, torch, OpenCV and
+# PyYAML. Arena 0.3 declares Python 3.12 and pulls in its simulator-side stack
+# (Isaac Teleop, the Lightwheel SDK, sbi, openai, ...), none of which this Python
+# 3.11 policy process imports, so resolve the checkout with only what it needs here.
+[[tool.uv.dependency-metadata]]
+name = "isaaclab-arena"
+version = "0.3.0"
+requires-python = ">=3.10"
+requires-dist = []
 
 # Mirrors the pinned Isaac-GR00T N1.6 pyproject — the
 # layout the G1 loco-manip checkpoints expect — so uv has metadata without

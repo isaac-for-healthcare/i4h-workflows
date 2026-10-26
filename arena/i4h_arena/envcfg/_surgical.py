@@ -6,20 +6,24 @@ from __future__ import annotations
 
 import math
 from dataclasses import MISSING
+from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as mdp
 import torch
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import EventTermCfg, RewardTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.math import combine_frame_transforms, quat_error_magnitude, quat_mul
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnvCfg
+from isaaclab.utils.math import combine_frame_transforms, quat_error_magnitude, quat_mul, subtract_frame_transforms
+from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
-from i4h_arena.assets._surgical import REACH_TARGET_POS
 from i4h_arena.tensor_utils import to_torch
 
-_SUCCESS_TOLERANCE_M = 0.025
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
+
 # Workflow reach rollouts last five seconds and Locate intentionally snapshots
 # the sampled command. Keep that command stable until the episode resets so
 # control and success never refer to different targets.
@@ -40,30 +44,33 @@ def _ee_position(env) -> torch.Tensor:
     return to_torch(env.scene["ee_frame"].data.target_pos_w)[:, 0, :]
 
 
-def _target_position(env) -> torch.Tensor:
-    target = torch.tensor(REACH_TARGET_POS, dtype=torch.float32, device=env.device).unsqueeze(0)
-    return target + env.scene.env_origins
+def tcp_pose_in_root(env, frame_name: str = "ee_frame", robot_name: str = "robot") -> tuple[torch.Tensor, torch.Tensor]:
+    """Position and ``xyzw`` orientation of ``frame_name``'s tool tip in ``robot_name``'s root frame."""
+    data = env.scene[frame_name].data
+    root_pos_w, root_quat_w = _root_pose_w(env.scene[robot_name])
+    return subtract_frame_transforms(
+        root_pos_w,
+        root_quat_w,
+        to_torch(data.target_pos_w)[:, 0, :],
+        to_torch(data.target_quat_w)[:, 0, :],
+    )
 
 
-def target_distance(env) -> torch.Tensor:
-    return torch.linalg.norm(_ee_position(env) - _target_position(env), dim=-1)
+def tcps_reached_commands(env, arms: tuple[tuple[str, str, str], ...], threshold: float) -> torch.Tensor:
+    """Whether every ``(command, frame, robot)`` arm's tool tip is within ``threshold`` of its command [m]."""
+    reached = torch.ones(env.num_envs, dtype=torch.bool, device=env.device)
+    for command_name, frame_name, robot_name in arms:
+        tcp_pos, _ = tcp_pose_in_root(env, frame_name, robot_name)
+        target_pos = to_torch(env.command_manager.get_command(command_name))[:, :3]
+        reached &= torch.linalg.norm(tcp_pos - target_pos, dim=-1) < threshold
+    return reached
 
 
-def target_success(env, tolerance_m: float = _SUCCESS_TOLERANCE_M) -> torch.Tensor:
-    distance = target_distance(env)
-    success = distance <= tolerance_m
-    env._surgical_target_success_last = {
-        "ee_pos": _ee_position(env).detach().clone(),
-        "target_pos": _target_position(env).detach().clone(),
-        "distance_m": distance.detach().clone(),
-        "tolerance_m": tolerance_m,
-        "success": success.detach().clone(),
-    }
-    return success
-
-
-def target_reward(env) -> torch.Tensor:
-    return 1.0 / (1.0 + target_distance(env).square())
+def object_above_root(env, height: float, object_name: str = "object", robot_name: str = "robot") -> torch.Tensor:
+    """Whether ``object_name``'s root is above ``height`` [m] in ``robot_name``'s root frame."""
+    root_pos_w, root_quat_w = _root_pose_w(env.scene[robot_name])
+    object_pos, _ = subtract_frame_transforms(root_pos_w, root_quat_w, to_torch(env.scene[object_name].data.root_pos_w))
+    return object_pos[:, 2] > height
 
 
 def object_ee_distance(env, std: float) -> torch.Tensor:
@@ -208,11 +215,6 @@ class _LiftCommandsCfg:
 
 
 @configclass
-class _EventsCfg:
-    reset_scene = EventTermCfg(func=mdp.reset_scene_to_default, mode="reset")
-
-
-@configclass
 class _PsmReachEventsCfg:
     reset_robot_joints = EventTermCfg(
         func=mdp.reset_joints_by_scale,
@@ -259,12 +261,6 @@ class _DualPsmReachEventsCfg:
             "velocity_range": (0.0, 0.0),
         },
     )
-
-
-@configclass
-class _TargetRewardsCfg:
-    reaching = RewardTermCfg(func=target_reward, weight=1.0)
-    action_rate_l2 = RewardTermCfg(func=mdp.action_rate_l2, weight=-1e-3)
 
 
 @configclass
@@ -329,26 +325,6 @@ class _LiftRewardsCfg:
 
 
 @configclass
-class _TargetTerminationsCfg:
-    time_out = TerminationTermCfg(func=mdp.time_out, time_out=True)
-    success = TerminationTermCfg(func=target_success, time_out=False)
-
-
-@configclass
-class _TimeoutTerminationsCfg:
-    time_out = TerminationTermCfg(func=mdp.time_out, time_out=True)
-
-
-@configclass
-class _LiftTerminationsCfg:
-    time_out = TerminationTermCfg(func=mdp.time_out, time_out=True)
-    object_dropping = TerminationTermCfg(
-        func=mdp.root_height_below_minimum,
-        params={"minimum_height": -0.05, "asset_cfg": SceneEntityCfg("object")},
-    )
-
-
-@configclass
 class _LiftEventsCfg:
     reset_all = EventTermCfg(func=mdp.reset_scene_to_default, mode="reset")
     reset_object_position = EventTermCfg(
@@ -362,68 +338,12 @@ class _LiftEventsCfg:
     )
 
 
-class SurgicalEnvCfg(TaskBase):
-    """Surgical tool-tip target task used for native env smoke and validation."""
-
-    def __init__(
-        self,
-        task_description: str,
-        episode_length_s: float = 5.0,
-        env_spacing: float = 2.5,
-        use_old_reach_command: bool = False,
-        terminate_on_success: bool = True,
-        viewer_eye: tuple[float, float, float] | None = None,
-        viewer_lookat: tuple[float, float, float] | None = None,
-    ):
-        super().__init__(episode_length_s=episode_length_s, task_description=task_description)
-        self.env_spacing = env_spacing
-        self.use_old_reach_command = use_old_reach_command
-        self.terminate_on_success = terminate_on_success
-        self.viewer_eye = viewer_eye
-        self.viewer_lookat = viewer_lookat
-
-    def get_scene_cfg(self):
-        return None
-
-    def get_termination_cfg(self):
-        if self.terminate_on_success:
-            return _TargetTerminationsCfg()
-        return _TimeoutTerminationsCfg()
-
-    def get_events_cfg(self):
-        if self.mode == "dual_psm":
-            return _DualPsmReachEventsCfg()
-        if self.mode == "star":
-            return _StarReachEventsCfg()
-        return _PsmReachEventsCfg()
-
-    def get_rewards_cfg(self):
-        if self.use_old_reach_command:
-            return _CommandRewardsCfg()
-        return _TargetRewardsCfg()
-
-    def get_commands_cfg(self):
-        if not self.use_old_reach_command:
-            return None
-        cfg = _CommandsCfg()
-        cfg.ee_pose = _psm_reach_pose_command_cfg()
-        return cfg
-
-    def get_mimic_env_cfg(self, embodiment_name: str):
-        return None
-
-    def get_metrics(self):
-        return []
-
-    def get_viewer_cfg(self) -> ViewerCfg:
-        return ViewerCfg(
-            eye=self.viewer_eye or (0.35, 0.35, 0.25),
-            lookat=self.viewer_lookat or (0.0, 0.0, 0.02),
-        )
-
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
-        env_cfg.scene.env_spacing = self.env_spacing
-        return env_cfg
+#: Per reach mode: the ``(command, frame, robot)`` of each arm and the success radius [m].
+_REACH_SUCCESS: dict[str, tuple[tuple[tuple[str, str, str], ...], float]] = {
+    "psm": ((("ee_pose", "ee_frame", "robot"),), 0.01),
+    "star": ((("ee_pose", "ee_frame", "robot"),), 0.03),
+    "dual_psm": ((("ee_1_pose", "ee_frame", "robot_1"), ("ee_2_pose", "ee_2_frame", "robot_2")), 0.01),
+}
 
 
 class SurgicalReachEnvCfg(TaskBase):
@@ -475,8 +395,14 @@ class SurgicalReachEnvCfg(TaskBase):
     def get_scene_cfg(self):
         return None
 
-    def get_termination_cfg(self):
-        return _TimeoutTerminationsCfg()
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Succeed once every tool tip is within the mode's radius of its sampled target."""
+        arms, threshold = _REACH_SUCCESS[self.mode]
+        reached = TerminationTermCfg(func=tcps_reached_commands, params={"arms": arms, "threshold": threshold})
+        return TaskTerminationCfg(
+            timeout_s=self.get_episode_length_s(),
+            success=[CompletionCriteria(name="reach", predicate_sequence=[reached])],
+        )
 
     def get_events_cfg(self):
         if self.mode == "dual_psm":
@@ -526,15 +452,13 @@ class SurgicalReachEnvCfg(TaskBase):
         return None
 
     def get_metrics(self):
-        return []
+        return [SuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=self.viewer_eye, lookat=self.viewer_lookat or (0.0, 0.0, 0.0))
 
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
+    def tune_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
         env_cfg.scene.env_spacing = self.env_spacing
-        if self.mode == "dual_psm":
-            env_cfg.scene.replicate_physics = False
         return env_cfg
 
 
@@ -545,19 +469,32 @@ class SurgicalLiftEnvCfg(TaskBase):
         self,
         *,
         task_description: str,
+        success_height: float,
         organs: bool = False,
         episode_length_s: float = 5.0,
         env_spacing: float = 2.5,
     ):
         super().__init__(episode_length_s=episode_length_s, task_description=task_description)
+        self.success_height = success_height
         self.organs = organs
         self.env_spacing = env_spacing
 
     def get_scene_cfg(self):
         return None
 
-    def get_termination_cfg(self):
-        return _LiftTerminationsCfg()
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Succeed once the object is above ``success_height`` in the robot root frame; fail if it falls."""
+        lifted = TerminationTermCfg(func=object_above_root, params={"height": self.success_height})
+        return TaskTerminationCfg(
+            timeout_s=self.get_episode_length_s(),
+            success=[CompletionCriteria(name="lift", predicate_sequence=[lifted])],
+            failures={
+                "object_dropping": TerminationTermCfg(
+                    func=mdp.root_height_below_minimum,
+                    params={"minimum_height": -0.05, "asset_cfg": SceneEntityCfg("object")},
+                )
+            },
+        )
 
     def get_events_cfg(self):
         cfg = _LiftEventsCfg()
@@ -577,13 +514,13 @@ class SurgicalLiftEnvCfg(TaskBase):
         return None
 
     def get_metrics(self):
-        return []
+        return [SuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         if self.organs:
             return ViewerCfg(eye=(-1.10, 0.80, 0.80), lookat=(0.0, 0.0, 0.06))
         return ViewerCfg(eye=(0.65, 0.65, 0.50), lookat=(0.0, 0.0, 0.05))
 
-    def modify_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
+    def tune_env_cfg(self, env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
         env_cfg.scene.env_spacing = self.env_spacing
         return env_cfg

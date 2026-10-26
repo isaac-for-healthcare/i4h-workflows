@@ -39,6 +39,16 @@ def test_expand_writes_requested_count(tmp_path):
         assert len(demo_names(handle)) == 5
 
 
+def test_expand_keeps_the_source_file_attributes(tmp_path):
+    """Isaac Lab reads format_version from the file root, so the clone has to carry it."""
+    src = _recording(tmp_path / "in.hdf5")
+    with h5py.File(src, "a") as handle:
+        handle.attrs["format_version"] = 1
+    expand(src, tmp_path / "out.hdf5", episodes=1, noise=0.01)
+    with h5py.File(tmp_path / "out.hdf5") as handle:
+        assert handle.attrs["format_version"] == 1
+
+
 def test_expand_applies_noise(tmp_path):
     src = _recording(tmp_path / "in.hdf5")
     expand(src, tmp_path / "out.hdf5", episodes=1, noise=0.5, seed=1)

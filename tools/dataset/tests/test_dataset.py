@@ -8,10 +8,12 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from i4h_common.config import available_robots, get_robot_config
 from i4h_tools.dataset.cli import (
     G1_WBC_ACTION_NAMES,
     _column_names,
     _g1_wbc_policy_actions,
+    _require_declarable_modality,
     _to_policy_joint_coordinates,
     _translation,
     _uses_declared_modality,
@@ -55,6 +57,14 @@ def test_convert_rejects_one_twin_for_several_recordings() -> None:
     # mislabel it rather than fail.
     with pytest.raises(ValueError, match="cannot describe several recordings"):
         convert([Path("a.hdf5"), Path("b.hdf5")], Path("out"), robot="catheter", patient_twin=Path("twin.yaml"))
+
+
+def test_convert_takes_one_twin_per_recording() -> None:
+    args = build_parser().parse_args(
+        ["convert", "a.hdf5", "b.hdf5", "out", "--robot", "catheter", "--patient-twin", "s1.yaml", "s2.yaml"]
+    )
+
+    assert args.patient_twin == [Path("s1.yaml"), Path("s2.yaml")]
 
 
 def test_translation_counts_motion_in_either_direction() -> None:
@@ -172,6 +182,30 @@ def test_declared_modality_requires_complete_tensor_coverage() -> None:
         action_split=(("arm", 0, 5),),
     )
     assert not _uses_declared_modality(config=config, state_width=6, action_width=5)
+
+
+@pytest.mark.parametrize(
+    "robot",
+    [
+        robot
+        for robot in available_robots()
+        if get_robot_config(robot).state_split or get_robot_config(robot).action_split
+    ],
+)
+def test_declared_splits_tile_the_named_columns(robot: str) -> None:
+    """A descriptor declaring GR00T splits converts a recording of its own named columns.
+
+    The guard wants both splits once either is declared, so the tablecloth G1 Inspire
+    and H2 Sharpa, which declared only ``action_split``, converted nothing.
+    """
+    config = get_robot_config(robot)
+
+    _require_declarable_modality(
+        config=config,
+        robot=robot,
+        state_width=len(config.state_names),
+        action_width=len(config.action_names),
+    )
 
 
 @pytest.mark.parametrize(

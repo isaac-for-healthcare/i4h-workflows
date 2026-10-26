@@ -8,8 +8,8 @@ import math
 from collections.abc import Callable
 from typing import Any
 
-from i4h_arena.adapters.scene_view import ArenaSceneView
 from i4h_arena.scenes.base import Scene, SensorDisplayControlSpec, SensorSliderSpec
+from i4h_arena.ui.sensor_view import SensorView
 
 
 def resolve_fluoroscopy_backend(requested: str | None, patient_twin: str | None) -> str:
@@ -26,16 +26,6 @@ class EndoluminalNavigationScene(Scene):
         import i4h_arena.assets.fluoroscopy_catheter_navigation  # noqa: F401
 
     @property
-    def _navigation_target_world_m(self) -> tuple[float, float, float] | None:
-        """Distal end of the planned route, or ``None`` without a patient twin.
-
-        A phantom scene has no centerline and therefore no goal, which is why
-        this is optional rather than an error: the recording then carries the
-        tip's position without a distance to anything.
-        """
-        return getattr(self._embodiment, "navigation_target_world_m", None)
-
-    @property
     def _wants_flat_rl_observations(self) -> bool:
         """Whether this run is an online RSL-RL trainer rather than a workflow mode.
 
@@ -50,40 +40,91 @@ class EndoluminalNavigationScene(Scene):
         """
         return bool(getattr(self.args, "rl_observations", False)) or bool(getattr(self.args, "rl_training_mode", False))
 
+    @classmethod
+    def add_cli_args(cls, parser: Any) -> None:
+        parser.add_argument(
+            "--patient_twin",
+            default=None,
+            help="Patient-twin YAML manifest: the vessel route, its goal and the CT the fluoroscopy renders.",
+        )
+        parser.add_argument(
+            "--fluoro_backend",
+            choices=("synthetic", "slang"),
+            default=None,
+            help="Fluoroscopy renderer (default: Slang with --patient_twin, otherwise synthetic).",
+        )
+
+    def configure_args(self, args: Any) -> None:
+        """Select Newton: the catheter rod solver is a Newton solver whatever ``--presets`` says.
+
+        Arena 0.3 resolves the backend from ``--presets`` and rejects an environment
+        callback that swaps it, so the scene names Newton up front rather than letting
+        the embodiment replace PhysX afterwards, as it did on Arena 0.2.
+        """
+        if getattr(args, "presets", None) not in (None, "newton"):
+            print(
+                f"[arena] {self.name} simulates the catheter with Newton; ignoring --presets {args.presets}", flush=True
+            )
+        args.presets = "newton"
+        super().configure_args(args)
+
     def _make_embodiment(self) -> Any:
         """Build the embodiment this scene drives.
 
         Overridden by the arm-borne variant, which swaps in a drive carried on a
         robot flange and takes the scene onto the coupled MJWarp + rod solver.
-
-        Online RSL-RL takes the camera-free variant instead, whose observation
-        group is one flat vector.
         """
-        from i4h_arena.embodiments.catheter import CatheterEmbodiment, CatheterRLEmbodiment
+        from i4h_arena.embodiments.catheter import CatheterEmbodiment
 
-        embodiment = CatheterRLEmbodiment if self._wants_flat_rl_observations else CatheterEmbodiment
-        return embodiment(patient_twin_manifest=self.args.patient_twin)
+        return CatheterEmbodiment(patient_twin_manifest=getattr(self.args, "patient_twin", None))
+
+    def _make_task(self, embodiment: Any) -> Any:
+        """Bind the navigation goal to the route the embodiment seeded its rod on.
+
+        Online RSL-RL takes the camera-free variant, whose observation group is
+        one flat vector. Both scenes share this, so the same fifteen columns,
+        four action channels and reward describe the armless and the arm-borne
+        run, and a gap between their training curves is attributable to the
+        solver rather than to the objective.
+        """
+        from i4h_arena.envcfg.endoluminal_navigation.task import CatheterNavigationTask
+
+        # The manifest's step cap, as time. No ``+ 1`` as the other scenes use: the
+        # workflow runner strips the time-out and enforces its own cap, so the only
+        # consumers are the RL trainers, which should truncate at the cap itself. The
+        # division is exact at these numbers: 600 / 30 is 20.0, and Isaac Lab recovers
+        # 600 from it, where 601 / 30 rounds up to 602. ``getattr`` because the
+        # RSL-RL interop parser does not define the arena CLI's ``--episode-steps``.
+        steps = getattr(self.args, "episode_steps", None) or self.spec.max_steps
+        return CatheterNavigationTask.for_embodiment(
+            embodiment,
+            episode_length_s=steps / self.spec.control_hz,
+            flat_observations=self._wants_flat_rl_observations,
+        )
 
     def build(self) -> Any:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene as ArenaScene
+        from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
         from i4h_arena.assets.fluoroscopy_catheter_navigation import make_assets
 
-        # Kept so ``make_view`` can record the tip's distance to the same target
-        # arrival is judged against, rather than a second copy of it.
         self._embodiment = self._make_embodiment()
         return IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=self._embodiment,
             scene=ArenaScene(
                 assets=make_assets(
-                    fluoro_backend=resolve_fluoroscopy_backend(self.args.fluoro_backend, self.args.patient_twin),
-                    fluoro_device=self.args.fluoro_device,
-                    patient_twin_manifest=self.args.patient_twin,
+                    fluoro_backend=resolve_fluoroscopy_backend(
+                        getattr(self.args, "fluoro_backend", None), getattr(self.args, "patient_twin", None)
+                    ),
+                    # Slang on CUDA has to be imported before Kit starts, which Arena's and
+                    # Isaac Lab's runners do not allow for; their runs render on Vulkan.
+                    fluoro_device=getattr(self.args, "fluoro_device", None) or "vulkan",
+                    patient_twin_manifest=getattr(self.args, "patient_twin", None),
                 )
             ),
-            task=None,
+            task=self._make_task(self._embodiment),
             # Registers the Gym ID under the kwarg Isaac Lab's stock RSL-RL
             # scripts read their agent config from, so `train_rsl_rl.py --task
             # endoluminal_navigation` resolves without a second env definition.
@@ -91,66 +132,34 @@ class EndoluminalNavigationScene(Scene):
             # asks for it.
             rl_framework_entry_point="rsl_rl_cfg_entry_point",
             rl_policy_cfg="i4h_arena.agents.rsl_rl:ProfiledRslRlRunnerCfg",
+            # The rod solver is a Newton solver. Arena's and Isaac Lab's runners never
+            # call ``configure_args``, so without --presets they take this default.
+            default_physics_backend=PhysicsBackend.NEWTON,
         )
 
     def configure_env_cfg(self, env_cfg: Any) -> None:
+        from isaaclab.devices.device_base import DevicesCfg
         from isaaclab.envs.common import ViewerCfg
 
-        # From the manifest rather than left at the framework's 50 s default,
-        # which at this scene's 30 Hz is 1500 control steps against the 600 the
-        # manifest and both PPO configs agree on. The `time_out` term turns
-        # this length into truncation, so a wrong one here is a third step
-        # budget that silently outvotes the other two.
-        #
-        # No ``+ 1`` as the other scenes use. That extra step leaves the
-        # workflow runner's own cap to end the episode first, but `app.py`
-        # strips the term on that path, so the only consumers are the RL
-        # trainers, which should truncate at the cap itself. The division is
-        # exact at these numbers: 600 / 30 is 20.0, and Isaac Lab recovers 600
-        # from it, where 601 / 30 rounds up to 602.
-        #
-        # ``getattr`` rather than the attribute the other scenes read directly:
-        # ``--episode-steps`` is an arena CLI option, and this scene also runs
-        # under the RSL-RL interop parser, which does not define it.
-        steps = getattr(self.args, "episode_steps", None) or self.spec.max_steps
-        env_cfg.episode_length_s = steps / self.spec.control_hz
+        from i4h_arena.devices.catheter import CatheterKeyboardCfg
+
         # A wider three-quarter view keeps the detector, arc, support, patient, and table
         # visible together in the viewport's narrower docked layout.
         env_cfg.viewer = ViewerCfg(eye=(2.45, -1.65, 1.65), lookat=(-0.25, 0.12, 0.78))
-        env_cfg.sim.render.enable_translucency = True
-
-    def make_view(self, env: Any) -> ArenaSceneView:
-        from i4h_arena.medical.fluoroscopy_sources import bind_fluoroscopy_sources
-
-        bind_fluoroscopy_sources(env.unwrapped)
-        catheter = env.unwrapped.scene["catheter"]
-        carm_orbit = env.unwrapped.action_manager.get_term("carm_orbit")
-
-        from i4h_arena.medical.catheter_diagnostics import CatheterEpisodeDiagnostics
-
-        return ArenaSceneView(
-            env,
-            objects=self.spec.objects,
-            robots=self.spec.robots,
-            cameras=self.spec.cameras,
-            gripper=False,
-            joint_state_providers=self._joint_state_providers(env, catheter, carm_orbit),
-            # The four commanded joints and the projection cannot tell a clean
-            # run from one where the wire coiled, so a recording needs the rod's
-            # own shape alongside them to be judged after the fact.
-            diagnostics_provider=CatheterEpisodeDiagnostics(catheter, target_world_m=self._navigation_target_world_m),
+        # Isaac Lab's record_demos.py --teleop_device catheter_keyboard finds the device here.
+        env_cfg.teleop_devices = DevicesCfg(
+            devices={"catheter_keyboard": CatheterKeyboardCfg(sim_device=env_cfg.sim.device)}
         )
 
-    def _joint_state_providers(self, env: Any, catheter: Any, carm_orbit: Any) -> dict[str, Any]:
-        """Recorded procedure state for this scene.
+    def scene_rtx_settings(self) -> dict[str, Any]:
+        return {"enable_translucency": True}
 
-        A hook rather than a literal because the arm-borne variant appends the
-        servo'd arm joints, and the order it appends them in has to stay in step
-        with what its embodiment manifest declares.
-        """
-        from i4h_arena.embodiments.catheter import CatheterCArmJointStateProvider
+    def make_sensor_view(self, env: Any) -> SensorView:
+        from i4h_arena.medical.fluoroscopy_sources import bind_fluoroscopy_sources
 
-        return {"robot": CatheterCArmJointStateProvider(catheter, carm_orbit)}
+        # The detector draws the catheter and follows the C-arm through these sources.
+        bind_fluoroscopy_sources(env.unwrapped)
+        return super().make_sensor_view(env)
 
     def default_sensor_views(self) -> tuple[str, ...]:
         return ("fluoroscopy",)
