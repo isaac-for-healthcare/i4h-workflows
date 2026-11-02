@@ -111,15 +111,16 @@ the datasets were recorded against.
 
 ## Encoder weights
 
-The deform encoder checkpoint Sharpa publishes was trained from random
-initialization and is a different training run from the internal SharpaWave
-weights that the checkpoints finetuned so far were trained with; for the same
-map the two produce unrelated features. This does not affect serving: a
+The stack targets the deform encoder checkpoint Sharpa publishes. The
+checkpoints finetuned so far, including the ones behind the reported benchmark
+numbers, were trained with an earlier, internal release of the encoder; the
+published one is a separate training run of the same architecture, and for the
+same map the two produce unrelated features. This does not affect serving: a
 finetuned GR00T checkpoint carries its own copy of the frozen encoder, and the
 file the manifest names only builds the module before the checkpoint's tensors
-are loaded over it. Training a new checkpoint uses the manifest's file
-throughout, which is self-consistent; results of such a run are not comparable
-to the numbers reported for checkpoints trained with the internal weights.
+are loaded over it. Training a new checkpoint uses the public file throughout,
+which is self-consistent; its results are not directly comparable to the
+benchmark numbers.
 
 Not in this repository: the datasets and finetuned checkpoints, which are
 passed as paths; the robot-side bridge that republishes SDK frames over ZMQ

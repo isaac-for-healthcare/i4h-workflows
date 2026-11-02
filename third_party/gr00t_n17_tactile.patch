@@ -3117,6 +3117,39 @@ index 0000000..3e8350c
 +]
 +if _HAS_FK:
 +    __all__.append("SharpaWaveFK")
+diff --git a/gr00t/model/modules/tactile/checkpoint_io.py b/gr00t/model/modules/tactile/checkpoint_io.py
+new file mode 100644
+index 0000000..651bd1c
+--- /dev/null
++++ b/gr00t/model/modules/tactile/checkpoint_io.py
+@@ -0,0 +1,27 @@
++# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
++# SPDX-License-Identifier: Apache-2.0
++"""Loading pickled weight files for the frozen tactile encoders."""
++from __future__ import annotations
++
++import logging
++from pathlib import Path
++
++import torch
++
++
++def load_checkpoint_dict(path: str | Path):
++    """``torch.load`` a weights file, strictly first.
++
++    ``weights_only=True`` accepts tensors and plain containers only, so a file
++    cannot run code while it is read. A checkpoint that pickles other objects
++    (training arguments, custom classes) fails that mode; it is then read with
++    the permissive unpickler, with a warning, so a run never stalls on it.
++    """
++    try:
++        return torch.load(path, map_location="cpu", weights_only=True)
++    except Exception as e:  # torch raises UnpicklingError or RuntimeError depending on version
++        logging.warning(
++            f"{path} is not a plain tensor file ({type(e).__name__}); "
++            "falling back to torch.load(weights_only=False)."
++        )
++        return torch.load(path, map_location="cpu", weights_only=False)
 diff --git a/gr00t/model/modules/tactile/fk.py b/gr00t/model/modules/tactile/fk.py
 new file mode 100644
 index 0000000..da92e00
@@ -3624,10 +3657,10 @@ index 0000000..a7590a9
 +    _smoke_test()
 diff --git a/gr00t/model/modules/tactile/sharpa_encoder.py b/gr00t/model/modules/tactile/sharpa_encoder.py
 new file mode 100644
-index 0000000..dea9eb3
+index 0000000..885203d
 --- /dev/null
 +++ b/gr00t/model/modules/tactile/sharpa_encoder.py
-@@ -0,0 +1,169 @@
+@@ -0,0 +1,171 @@
 +# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 +# SPDX-License-Identifier: Apache-2.0
 +"""Frozen wrapper around the SharpaWave deform encoder.
@@ -3664,6 +3697,8 @@ index 0000000..dea9eb3
 +
 +import torch
 +from torch import nn
++
++from .checkpoint_io import load_checkpoint_dict
 +
 +try:
 +    from sharpawave_deform_encoder import DeformEncoder
@@ -3718,7 +3753,7 @@ index 0000000..dea9eb3
 +
 +            sd = load_file(str(ckpt_path), device="cpu")
 +        else:
-+            ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
++            ckpt = load_checkpoint_dict(ckpt_path)
 +            sd = ckpt.get("state_dict", ckpt) if isinstance(ckpt, dict) else ckpt
 +        if not isinstance(sd, dict):
 +            raise ValueError(f"Checkpoint at {ckpt_path} did not yield a state_dict")
@@ -3994,10 +4029,10 @@ index 0000000..1545e58
 +        return sat + self.pos_embed                     # broadcast per-finger embedding
 diff --git a/gr00t/model/modules/tactile/trex_force_encoder.py b/gr00t/model/modules/tactile/trex_force_encoder.py
 new file mode 100644
-index 0000000..094088c
+index 0000000..adf0dda
 --- /dev/null
 +++ b/gr00t/model/modules/tactile/trex_force_encoder.py
-@@ -0,0 +1,396 @@
+@@ -0,0 +1,398 @@
 +# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 +# SPDX-License-Identifier: Apache-2.0
 +"""T-Rex PRETRAINED force VQ-VAE encoder (frozen), as a drop-in force feature.
@@ -4053,6 +4088,8 @@ index 0000000..094088c
 +
 +import torch
 +from torch import nn
++
++from .checkpoint_io import load_checkpoint_dict
 +
 +try:
 +    from tactile_vqvae.models.tactile_vqvae import TactileVQVAE, TactileVQVAEConfig
@@ -4238,7 +4275,7 @@ index 0000000..094088c
 +        ignored -- the decoder is an identity here). A file holding only
 +        those tensors under the same prefix loads the same way.
 +        """
-+        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
++        ckpt = load_checkpoint_dict(ckpt_path)
 +        sd = ckpt.get("state_dict", ckpt) if isinstance(ckpt, dict) else ckpt
 +        if not isinstance(sd, dict):
 +            raise ValueError(f"Checkpoint at {ckpt_path} did not yield a state_dict")

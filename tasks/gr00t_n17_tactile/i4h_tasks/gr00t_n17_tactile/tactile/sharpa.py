@@ -33,14 +33,15 @@ repository ships no ``pyproject`` and T-Rex's pins a full VLA stack (Python
 3.10, torch 2.6), so the patched GR00T imports both by module name and
 :func:`import_public_sources` puts their checkouts on ``sys.path``.
 
-Encoder weights. The checkpoint Sharpa publishes was trained from random
-initialization and is a different training run from the internal SharpaWave
-weights the checkpoints finetuned so far were trained with; the two produce
-unrelated features for the same map. A finetuned GR00T checkpoint carries its
-own copy of the frozen encoder, so serving one does not depend on which file
-the manifest names (the file only builds the module before the checkpoint's
-tensors are loaded over it). Training a new checkpoint uses the manifest's
-file throughout, which is self-consistent.
+Encoder weights. The stack targets the checkpoint Sharpa publishes. The
+checkpoints finetuned so far were trained with an earlier, internal release of
+the encoder; the published one is a separate training run of the same
+architecture, and the two produce unrelated features for the same map. A
+finetuned GR00T checkpoint carries its own copy of the frozen encoder, so
+serving one does not depend on which file the manifest names (the file only
+builds the module before the checkpoint's tensors are loaded over it).
+Training a new checkpoint uses the public file throughout, which is
+self-consistent.
 """
 
 from __future__ import annotations
