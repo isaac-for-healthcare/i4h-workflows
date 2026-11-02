@@ -37,6 +37,7 @@ dev = ["pytest>=8.0"]
 [project.scripts]
 i4h-tasks-gr00t-n17-tactile = "i4h_tasks.gr00t_n17_tactile.server:main"
 i4h-tasks-gr00t-n17-tactile-train = "i4h_tasks.gr00t_n17_tactile.train:main"
+i4h-tasks-gr00t-n17-tactile-deploy = "i4h_tasks.gr00t_n17_tactile.client.deploy:main"
 
 [build-system]
 requires = ["hatchling"]

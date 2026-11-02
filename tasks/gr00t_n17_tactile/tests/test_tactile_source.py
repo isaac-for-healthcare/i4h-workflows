@@ -117,6 +117,22 @@ def test_a_single_hand_source_needs_and_returns_that_hand_only(monkeypatch) -> N
     assert source.missing() == []
 
 
+def test_deform_maps_are_per_fingertip_with_none_for_the_silent_ones(monkeypatch) -> None:
+    """One dead sensor must not blank the other nine maps: the per-fingertip view keeps them."""
+    source, stub = _source(monkeypatch)
+    for channel in range(wire.NUM_CHANNELS):
+        if channel != 5:  # channel 5 is the left pinky
+            stub.publish(channel, channel)
+    assert source.latest() is None
+    maps = source.deform_maps()
+    assert list(maps) == list(FINGERTIPS)
+    assert maps["left_pinky"] is None and source.missing() == ["left_pinky"]
+    live = {name: value for name, value in maps.items() if value is not None}
+    assert len(live) == wire.NUM_CHANNELS - 1
+    assert all(value.shape == (wire.DEFORM_H, wire.DEFORM_W) and value.dtype == np.uint8 for value in live.values())
+    assert int(maps["right_thumb"][0, 0]) == 4
+
+
 def test_wait_ready_names_the_silent_fingertips(monkeypatch) -> None:
     source, stub = _source(monkeypatch)
     for channel in range(5, wire.NUM_CHANNELS):

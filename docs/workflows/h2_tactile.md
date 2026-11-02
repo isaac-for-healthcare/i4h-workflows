@@ -50,6 +50,8 @@ this repository is listed at the end.
 - The SharpaWave SDK runs on the robot's onboard computer. A small bridge next
   to it republishes every fingertip frame over ZMQ in the layout of
   `tactile/sensor/wire.py`; the policy server subscribes to that stream.
+- The workstation talks to the robot over Unitree DDS (the arms directly, the
+  hands through the onboard bridge) and over ROS 2 CycloneDDS for the cameras.
 
 ## From recording to policy
 
@@ -72,11 +74,13 @@ this repository is listed at the end.
    `--dry-run` prints them. `--no-tactile` trains the vision-only baseline on
    the same data.
 4. **Serve and deploy.** `i4h-tasks-gr00t-n17-tactile --checkpoint <dir>` serves
-   the checkpoint over Isaac-GR00T's `PolicyServer` protocol. A client on the
-   workstation collects cameras and joint state, sends an observation, and
-   executes the returned chunk; the server reads the tactile stream itself, so
-   the client never touches tactile data. `--print-server-info` shows what the
-   server tells a client on connect.
+   the checkpoint over Isaac-GR00T's `PolicyServer` protocol.
+   `i4h-tasks-gr00t-n17-tactile-deploy`, the client in this repository, reads
+   the server's `server_info`, builds the observation (cameras, joint state,
+   tactile maps and force window), and executes the returned chunks with
+   real-time chunking and optional same-plan refines against the cascade; the
+   server still re-reads the live stream before every denoising step.
+   `--print-server-info` shows what the server tells a client on connect.
 
 ## Data format
 
@@ -122,17 +126,18 @@ checkout is described in
 
 ## Not in this repository
 
-- The deployment client: the program on the workstation that reads the H2's
-  cameras and joint state, queries the server and executes the action chunks
-  on the arms and hands.
-- The robot-side bridge: a small script and a container on the onboard
-  computer that read the SharpaWave SDK and publish the ZMQ stream.
+- The robot-side bridge: a small script and a container that read the
+  SharpaWave SDK, publish the ZMQ stream and relay the hand DDS topics. It
+  runs on the robot's onboard computer and is not part of this repository.
 - Datasets and finetuned checkpoints, which are passed as paths.
-- A fingertip calibration helper run before each session.
+- A fingertip calibration helper the client runs on the onboard computer
+  before each episode.
 
 ## Roadmap
 
-- Land the deployment client for the N1.7 stack in this release cycle.
+- Move the `xr_teleoperate` deployment patch to a branch of an
+  isaac-for-healthcare fork of the official repository and pin that commit
+  instead of carrying `third_party/xr_teleoperate_h2_sharpa.patch`.
 - Connect to Isaac Sim once a SharpaWave tactile simulation exists. The task
   already declares `requires: tactile: sharpa_wave_fingertip`; a scene that
   provides it gets a workflow module composed like the other humanoid

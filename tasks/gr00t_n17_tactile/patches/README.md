@@ -61,6 +61,29 @@ git diff 4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e <branch> -- gr00t tests pyproj
 git -C third_party/Isaac-GR00T-1.7-tactile apply --check third_party/gr00t_n17_tactile.patch
 ```
 
+## Deployment-side patches
+
+The deployment client (`i4h_tasks/gr00t_n17_tactile/client/`) drives the robot
+through two more pinned checkouts that `third_party/setup.sh
+tasks/gr00t_n17_tactile` patches the same way. `third_party/xr_teleoperate_h2_sharpa.patch`
+applies to the official `unitreerobotics/xr_teleoperate` at `ebe257f0`
+(`teleop/` only) and adds the H2 arm controller changes, the SharpaWave hand
+DDS client, the ROS 2 camera client, the DDS network configuration, the body
+peer discovery and `teleop/utils/sharpa_tactile_wire.py`, the tactile wire
+format the robot-side bridge shares with teleop recording (the client reads it
+through its own vendored copy); `third_party/unitree_sdk2_network_config.patch` applies to
+`unitreerobotics/unitree_sdk2_python` at `794fb2b3` and adds the `networkConfig`
+keyword to `ChannelFactoryInitialize`. An isaac-for-healthcare fork of
+`xr_teleoperate` will carry the first patch as a branch, after which the pin
+moves to that fork's commit and the patch file goes away. To regenerate and
+check them from such a branch:
+
+```bash
+git diff ebe257f06f2fdceea3c30ce38e1bba65a6e77116 <branch> -- teleop > third_party/xr_teleoperate_h2_sharpa.patch
+git -C third_party/xr_teleoperate apply --check third_party/xr_teleoperate_h2_sharpa.patch
+git -C third_party/unitree_sdk2_python apply --check third_party/unitree_sdk2_network_config.patch
+```
+
 ## Open question for the review
 
 Whether the series stays a patch in this repository or is offered to

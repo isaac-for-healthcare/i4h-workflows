@@ -162,6 +162,20 @@ class SharpaLiveSource:
                 )
             time.sleep(0.05)
 
+    def deform_maps(self) -> dict[str, np.ndarray | None]:
+        """Latest deform map per fingertip of this source, ``None`` where the sensor has not reported.
+
+        The per-fingertip view behind :meth:`latest`, for a reader that keeps the
+        live maps of the fingertips that do report while another one is silent.
+        """
+        snapshot = self._subscriber.snapshot()
+        out: dict[str, np.ndarray | None] = {}
+        for fingertip in self.fingertips:
+            hand, finger = _hand_finger(fingertip)
+            msg = snapshot[hand].get(finger)
+            out[fingertip] = msg.deform if msg is not None and msg.deform.shape == DEFORM_SHAPE else None
+        return out
+
     def latest(self) -> TactileFrame | None:
         snapshot = self._subscriber.snapshot()
         deform, force, timestamp = [], [], float("-inf")
