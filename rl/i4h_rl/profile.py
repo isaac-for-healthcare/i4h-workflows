@@ -12,6 +12,8 @@ import yaml
 
 from i4h_rl.backend_loader import BACKEND_MODULES
 
+FLUORO_DEVICES = ("cuda", "vulkan")
+
 
 class ProfileError(ValueError):
     """An RL training profile is incomplete or inconsistent."""
@@ -24,6 +26,8 @@ class SimulationProfile:
     env_spacing: float
     presets: str
     enable_cameras: bool
+    #: Slang device for patient-CT fluoroscopy, or ``None`` for the simulator's default.
+    fluoro_device: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,7 +161,7 @@ class RLProfile:
             raise ProfileError(f"{path}: default_num_envs and default_epochs must be positive")
 
         simulation_raw = need("simulation", dict)
-        simulation_unknown = sorted(set(simulation_raw) - {"env_spacing", "presets", "enable_cameras"})
+        simulation_unknown = sorted(set(simulation_raw) - {"env_spacing", "presets", "enable_cameras", "fluoro_device"})
         if simulation_unknown:
             raise ProfileError(f"{path}: unknown simulation fields: {', '.join(simulation_unknown)}")
         env_spacing = simulation_raw.get("env_spacing")
@@ -171,6 +175,9 @@ class RLProfile:
             raise ProfileError(f"{path}: simulation.enable_cameras must be bool")
         if cameras and not enable_cameras:
             raise ProfileError(f"{path}: camera observations require simulation.enable_cameras=true")
+        fluoro_device = simulation_raw.get("fluoro_device")
+        if fluoro_device is not None and fluoro_device not in FLUORO_DEVICES:
+            raise ProfileError(f"{path}: simulation.fluoro_device must be one of {', '.join(FLUORO_DEVICES)}")
 
         resources_raw = raw.get("resources")
         resources = None
@@ -223,6 +230,7 @@ class RLProfile:
                 env_spacing=float(env_spacing),
                 presets=presets,
                 enable_cameras=enable_cameras,
+                fluoro_device=fluoro_device,
             ),
             resources=resources,
         )

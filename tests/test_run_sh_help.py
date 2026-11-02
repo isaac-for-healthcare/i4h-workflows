@@ -19,6 +19,9 @@ WORKFLOW = "scissor_pick_and_place"
 FORWARDED_SIMULATION_OPTIONS = (
     ("--presets", "newton"),
     ("--device", "cuda:0"),
+    ("--no-cameras", None),
+    ("--view-sensor", "room"),
+    ("--no-sensor-view", None),
 )
 
 
@@ -28,12 +31,12 @@ def _help_text() -> str:
 
 
 @pytest.mark.parametrize(("option", "_value"), FORWARDED_SIMULATION_OPTIONS)
-def test_forwarded_simulation_options_are_listed_in_help(option: str, _value: str) -> None:
+def test_forwarded_simulation_options_are_listed_in_help(option: str, _value: str | None) -> None:
     assert option in _help_text()
 
 
 @pytest.mark.parametrize(("option", "value"), FORWARDED_SIMULATION_OPTIONS)
-def test_forwarded_simulation_options_are_accepted(tmp_path: Path, option: str, value: str) -> None:
+def test_forwarded_simulation_options_are_accepted(tmp_path: Path, option: str, value: str | None) -> None:
     result = subprocess.run(
         [
             str(RUN_SH),
@@ -43,7 +46,7 @@ def test_forwarded_simulation_options_are_accepted(tmp_path: Path, option: str, 
             "--run-dir",
             str(tmp_path / "run"),
             option,
-            value,
+            *([] if value is None else [value]),
         ],
         cwd=WORKFLOWS_ROOT,
         capture_output=True,

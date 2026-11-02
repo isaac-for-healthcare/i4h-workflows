@@ -110,7 +110,10 @@ def test_patient_twin_reaches_rsl_rl_scene_and_artifacts(
             isaac_cli("i4h_arena.scenes.base", load_scene=load_scene)
             isaac_cli(
                 "isaaclab_arena.environments.arena_env_builder",
-                ArenaEnvBuilder=lambda *_args: SimpleNamespace(build_registered=lambda: None),
+                ArenaEnvBuilder=lambda *_args: SimpleNamespace(
+                    compose_manager_cfg=lambda: SimpleNamespace(recorders=None),
+                    build_registered=lambda env_cfg: None,
+                ),
             )
             monkeypatch.setattr(sys, "argv", [command[1], *command[2:]])
             remaining = rsl_rl_interop.environment_registration_callback()

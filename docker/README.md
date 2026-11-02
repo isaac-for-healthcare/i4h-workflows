@@ -8,6 +8,8 @@ The examples use the local tag `i4h-workflows:local`.
 
 ## Build
 
+Every pinned i4h component repository is public, so the build needs no GitHub credentials.
+
 ```bash
 docker build \
   --cache-to type=inline \
@@ -24,6 +26,13 @@ docker build \
   -f docker/Dockerfile \
   -t i4h-workflows:full .
 ```
+
+The Dockerfile still accepts an optional `--secret id=github_token,env=GH_TOKEN` for
+dependency setup; no pinned component needs it.
+
+Containers reuse the component release checkouts made during the build, so running the
+image needs no GitHub credentials. Git prompts are disabled in the container: a fetch that
+needs credentials fails instead of waiting for a login.
 
 The Dockerfile uses NVIDIA's Ubuntu 24.04 base for both amd64 and arm64. Isaac Sim, PyTorch, and their CUDA libraries come from the component locks instead of being duplicated by a larger base image.
 

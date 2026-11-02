@@ -59,6 +59,9 @@ simulation:
   env_spacing: 2.0
   presets: physx
   enable_cameras: true
+  # A batching renderer hands CUDA frames over as GPU tensors; Vulkan reads every
+  # frame back through the host. Needs the CUDA Toolkit's NVRTC on the host.
+  fluoro_device: cuda
 resources:
   # Separate devices by default, as every other profile gets implicitly. The
   # GR00T/RLinf and Isaac Sim processes are isolated and each sees its selected

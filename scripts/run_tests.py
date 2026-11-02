@@ -27,6 +27,7 @@ class TestCommand:
     # environment before `./setup.sh` has cloned it, so they are skipped rather than run
     # and reported as a failure.
     requires_checkout: str | None = None
+    pytest_args: tuple[str, ...] = ()
 
     def missing_checkout(self) -> Path | None:
         if self.requires_checkout is None:
@@ -54,9 +55,10 @@ class TestCommand:
                 "-m",
                 "pytest",
                 "-ra",
+                *self.pytest_args,
                 *self.paths,
             ]
-        return [*argv, "pytest", "-ra", *self.paths]
+        return [*argv, "pytest", "-ra", *self.pytest_args, *self.paths]
 
 
 SUITES = {
@@ -72,6 +74,10 @@ SUITES = {
                 "tasks/basic/tests",
                 "tasks/gr00t_n15/tests",
                 "tasks/gr00t_n16/tests",
+                # The openpi-free half of the PI0 trainer tests; the rest need
+                # the openpi checkout and run in that project's environment.
+                "tasks/openpi_pi0/tests/test_openpi_pi0_train_options.py",
+                "rl/tests/test_rsl_rl_arm_runtime.py",
                 "tasks/gr00t_n17_tactile/tests",
                 "tools/tactile/tests",
                 "tasks/ik/tests",
@@ -82,12 +88,22 @@ SUITES = {
     ),
     "tools": (
         TestCommand("trajectory mimic", "tools/mimic", ("tools/mimic/tests",)),
+        TestCommand("VLM annotator", "tools/annotator", ("tools/annotator/tests",)),
         TestCommand("dataset conversion", "tools/dataset", ("tools/dataset/tests",)),
         TestCommand(
             "patient twin",
             "tools/patient_twin",
             ("tools/patient_twin/tests",),
             requires_checkout="third_party/i4h-digital-twin-internal/patient-digital-twin/vasculature_digital_twin",
+        ),
+    ),
+    "rl": (
+        TestCommand(
+            "RL CPU regressions",
+            "rl",
+            ("rl/tests",),
+            requires_checkout="third_party/RLinf-a4b6abe",
+            pytest_args=("-p", "i4h_rl.pytest_ci"),
         ),
     ),
     "arena": (
@@ -127,9 +143,9 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--suite",
-        choices=("ci", "all", "gpu", *SUITES),
+        choices=("ci", "all", "gpu", "dependency-pins", *SUITES),
         default="ci",
-        help="test group to run (gpu runs only the recorded simulator smokes)",
+        help="test group to run (gpu runs recorded simulator smokes and dependency-pin checks)",
     )
     parser.add_argument("--timeout", type=int, default=1200, help="timeout for each pytest command")
     parser.add_argument(
@@ -246,16 +262,16 @@ def main() -> int:
     if shutil.which("uv") is None:
         print("uv is required to run the independently locked test projects", file=sys.stderr)
         return 2
-    if args.coverage and args.suite == "gpu":
+    if args.coverage and args.suite in {"gpu", "dependency-pins"}:
         print("--coverage applies to CPU pytest suites, not GPU workflow smokes", file=sys.stderr)
         return 2
     if args.coverage:
         _clear_coverage_artifacts()
     if args.suite == "ci":
-        selected = ("light", "tools")
+        selected = ("light", "tools", "rl")
     elif args.suite == "all":
         selected = tuple(SUITES)
-    elif args.suite == "gpu":
+    elif args.suite in {"gpu", "dependency-pins"}:
         selected = ()
     else:
         selected = (args.suite,)
@@ -267,6 +283,8 @@ def main() -> int:
             missing = command.missing_checkout()
             if missing is not None:
                 print(f"    skipped: {missing.relative_to(ROOT)} is missing; run ./setup.sh to clone it")
+                if suite == "rl" and os.environ.get("CI"):
+                    failures.append(command.name)
                 skipped.append(command.name)
                 continue
             result = _run_command(command.argv(coverage=args.coverage), timeout=args.timeout)
@@ -278,6 +296,24 @@ def main() -> int:
         for smoke in GPU_SMOKES:
             if not _run_gpu_smoke(smoke, args.timeout):
                 failures.append(smoke.workflow)
+    if args.suite in {"gpu", "dependency-pins"}:
+        result = _run_command(
+            [
+                "uv",
+                "run",
+                "--project",
+                "arena",
+                "--with",
+                "pytest>=8.0",
+                "python",
+                "scripts/validate_dependency_pins.py",
+                "--timeout",
+                str(args.timeout),
+            ],
+            timeout=2 * args.timeout + 30,
+        )
+        if result is None or result.returncode:
+            failures.append("in-Kit CUDA and Vulkan dependency pins")
     if skipped:
         print("\nskipped, no component checkout: " + ", ".join(skipped))
     if failures:

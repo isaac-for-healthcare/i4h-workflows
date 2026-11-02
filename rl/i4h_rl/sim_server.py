@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 import traceback
 from multiprocessing.connection import Listener
 from pathlib import Path
@@ -68,6 +70,10 @@ def _drop_time_out(env_cfg) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.fluoro_device == "cuda":
+        from i4h_arena.medical.slang_cuda import prepare_slang_for_kit
+
+        prepare_slang_for_kit(args.fluoro_device)
     from isaaclab.app import AppLauncher
 
     sim_app = AppLauncher(headless=True, enable_cameras=args.enable_cameras).app
@@ -84,6 +90,9 @@ def main(argv: list[str] | None = None) -> int:
         scene.configure_args(scene_args)
         gym_id, env_cfg = scene.gym_spec()
         env_cfg.scene.num_envs = args.num_envs
+        # RL rollouts already collect their observations. Embodiment recorders
+        # otherwise export every reset (including camera frames) to /tmp.
+        env_cfg.recorders = None
         _drop_time_out(env_cfg)
         render_mode = "rgb_array" if args.enable_cameras else None
         env = gym.make(gym_id, cfg=env_cfg, render_mode=render_mode).unwrapped
@@ -115,16 +124,35 @@ def main(argv: list[str] | None = None) -> int:
                     connection.send(("error", traceback.format_exc()))
         finally:
             connection.close()
-    finally:
-        args.ready_file.unlink(missing_ok=True)
-        if listener is not None:
-            listener.close()
-        args.socket.unlink(missing_ok=True)
-        if env is not None:
-            env.close()
-        sim_app.close()
+    except BaseException:
+        # Leave Kit open: closing it ends the process before the exception is reported.
+        _remove_bridge(args, listener)
+        raise
+    _remove_bridge(args, listener)
+    if env is not None:
+        env.close()
+    sim_app.close()
     return 0
 
 
+def _remove_bridge(args: argparse.Namespace, listener: Listener | None) -> None:
+    args.ready_file.unlink(missing_ok=True)
+    if listener is not None:
+        listener.close()
+    args.socket.unlink(missing_ok=True)
+
+
+def _serve(argv: list[str] | None = None) -> int:
+    try:
+        return main(argv)
+    except Exception:
+        # The physics backend's atexit handler exits 0, so the RLinf launcher would see only
+        # "exited before becoming ready (exit=0)". Report and exit before it can run.
+        traceback.print_exc()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(1)
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_serve())

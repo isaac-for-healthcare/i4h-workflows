@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 import yaml
 
+from i4h_arena.medical import slang_fluoroscopy
 from i4h_arena.medical.carm import (
     FOLLOW_TIP_ENV_VAR,
     PAN_LOG_ENV_VAR,
@@ -698,6 +699,10 @@ def _renderer_with(patient: PatientVolume, carm: CArmState, **kwargs) -> SlangFl
     return SlangFluoroscopyRenderer(patient, carm, width=64, height=64, step_mm=1.0, device_type="vulkan", **kwargs)
 
 
+def _host(output: dict) -> dict[str, np.ndarray]:
+    return {name: values.cpu().numpy() for name, values in output.items()}
+
+
 def _shaft_row(attenuation: np.ndarray, column: int = 20) -> int:
     """Row carrying the most attenuation near the middle of the frame, where the shaft projects.
 
@@ -729,8 +734,8 @@ def test_a_composited_catheter_attenuates_the_beam_instead_of_being_painted_on(t
     carm = _carm(patient)
     catheter = _shaft_catheter(patient)
 
-    composited = _renderer_with(patient, carm).render(catheter, carm)
-    annotated = _renderer_with(patient, carm, catheter_attenuation=False).render(catheter, carm)
+    composited = _host(_renderer_with(patient, carm).render(catheter, carm))
+    annotated = _host(_renderer_with(patient, carm, catheter_attenuation=False).render(catheter, carm))
 
     shaft_row = _shaft_row(composited["attenuation"])
     assert shaft_row in (31, 32)
@@ -750,7 +755,7 @@ def test_a_composited_catheter_reaches_the_contrast_run_too(tmp_path, monkeypatc
     carm = _carm(patient)
     catheter = _shaft_catheter(patient)
 
-    output = _renderer_with(patient, carm, dsa=True).render(catheter, carm)
+    output = _host(_renderer_with(patient, carm, dsa=True).render(catheter, carm))
 
     assert output["dsa"][0, 32, 20, 0] < output["dsa"][0, 40, 20, 0]
     assert not np.any(np.all(output["dsa"][0] == 12, axis=-1))
@@ -764,7 +769,7 @@ def test_a_radiopaque_tip_reads_darker_than_the_shaft_behind_it(tmp_path, monkey
     nodes = center + np.stack((np.linspace(-0.01, 0.01, 21), np.zeros(21), np.zeros(21)), axis=-1)
     catheter = CatheterState(positions_world_m=nodes[None, ...], valid_nodes=np.asarray([21]))
 
-    attenuation = _renderer_with(patient, carm).render(catheter, carm)["attenuation"][0, ..., 0]
+    attenuation = _host(_renderer_with(patient, carm).render(catheter, carm))["attenuation"][0, ..., 0]
 
     tip_column = int(np.argmax(attenuation[32]))
     assert attenuation[32, tip_column] > attenuation[32, 32] + 0.05
@@ -804,7 +809,7 @@ def test_slang_adapter_uses_upstream_renderer_and_composites_catheter(tmp_path, 
         step_mm=1.0,
         device_type="vulkan",
     )
-    output = renderer.render(catheter, carm)
+    output = _host(renderer.render(catheter, carm))
 
     angle = 0.35
     rotation_x = np.array([[1.0, 0.0, 0.0], [0.0, np.cos(angle), -np.sin(angle)], [0.0, np.sin(angle), np.cos(angle)]])
@@ -815,7 +820,7 @@ def test_slang_adapter_uses_upstream_renderer_and_composites_catheter(tmp_path, 
         detector_x_axis_world=np.asarray([[1.0, 0.0, 0.0]]),
         detector_size_m=(0.064, 0.064),
     )
-    orbit_output = renderer.render(catheter, orbit_carm)
+    orbit_output = _host(renderer.render(catheter, orbit_carm))
 
     assert calls["shape"] == (4, 4, 4)
     assert calls["spacing"] == (3.0, 2.0, 1.0)
@@ -829,3 +834,263 @@ def test_slang_adapter_uses_upstream_renderer_and_composites_catheter(tmp_path, 
     assert len(calls["poses"]) == 2
     assert not np.allclose(calls["poses"][0][0], calls["poses"][1][0])
     assert not np.array_equal(output["attenuation"], orbit_output["attenuation"])
+
+
+def _renderer_raising(monkeypatch, error: Exception) -> None:
+    from xray_simulator.rendering import diffdrr_slang_renderer
+
+    def fail(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(diffdrr_slang_renderer, "SlangDiffDRRRenderer", fail)
+
+
+def test_a_cuda_device_failure_explains_nvrtc(tmp_path, monkeypatch) -> None:
+    from i4h_arena.medical import slang_cuda
+
+    monkeypatch.setattr(slang_cuda, "describe_cuda_nvrtc", lambda: "no libnvrtc.so was found")
+    device_error = RuntimeError("Failed to create device!")
+    _renderer_raising(monkeypatch, device_error)
+    patient = _patient_volume(tmp_path)
+
+    with pytest.raises(RuntimeError, match=r"CUDA device.*no libnvrtc\.so was found.*--fluoro-device vulkan") as caught:
+        SlangFluoroscopyRenderer(patient, _carm(patient), width=64, height=64, step_mm=1.0, device_type="cuda")
+    assert caught.value.__cause__ is device_error
+
+
+@pytest.mark.parametrize(
+    "device_type, message",
+    [("cuda", "shader compilation failed"), ("vulkan", "Failed to create device!")],
+)
+def test_other_renderer_failures_pass_through_unchanged(tmp_path, monkeypatch, device_type, message) -> None:
+    error = RuntimeError(message)
+    _renderer_raising(monkeypatch, error)
+    patient = _patient_volume(tmp_path)
+
+    with pytest.raises(RuntimeError) as caught:
+        SlangFluoroscopyRenderer(patient, _carm(patient), width=64, height=64, step_mm=1.0, device_type=device_type)
+    assert caught.value is error
+
+
+def test_a_working_cuda_device_is_never_refused(tmp_path, monkeypatch) -> None:
+    from xray_simulator.rendering import diffdrr_slang_renderer
+
+    from i4h_arena.medical import slang_cuda
+
+    monkeypatch.setattr(slang_cuda, "find_cuda_nvrtc", lambda: None)
+    started = []
+
+    class FakeRenderer:
+        def __init__(self, *args, **kwargs):
+            started.append(kwargs["cfg"].device_type)
+
+    monkeypatch.setattr(diffdrr_slang_renderer, "SlangDiffDRRRenderer", FakeRenderer)
+    patient = _patient_volume(tmp_path)
+
+    SlangFluoroscopyRenderer(patient, _carm(patient), width=64, height=64, step_mm=1.0, device_type="cuda")
+    assert started == ["cuda"]
+
+
+def _slang_like_renderer_class(monkeypatch, fail_on: int | None = None) -> list[object]:
+    """Patch the upstream renderer with one built like it: ``__init__`` opens a device, then uploads.
+
+    Returns the list of devices opened. ``fail_on`` makes that construction (1-based) raise
+    slangpy's device error, as the second renderer did on the RLinf simulator GPU.
+    """
+    from xray_simulator.rendering import diffdrr_slang_renderer
+
+    devices: list[object] = []
+    constructed: list[int] = []
+
+    class SlangLikeRenderer:
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+            constructed.append(1)
+            if len(constructed) == fail_on:
+                raise RuntimeError("Failed to create device!")
+            self.volume = volume
+            self._init_slang()
+
+        def _init_slang(self):
+            self._device = object()
+            devices.append(self._device)
+            self._module, self._forward_fn, self._backward_fn, self._normalize_fn = (object() for _ in range(4))
+            self._forward_batch_fn = object()
+            self._batch_cache = None
+            self._create_resources()
+
+        def _create_resources(self):
+            self.volume_texture = object()
+
+        def render(self, rotation, translation):
+            del rotation, translation
+            return np.full((64, 64), 0.5, dtype=np.float32)
+
+    monkeypatch.setattr(diffdrr_slang_renderer, "SlangDiffDRRRenderer", SlangLikeRenderer)
+    return devices
+
+
+def test_the_contrast_renderer_reuses_the_main_renderers_slang_device(tmp_path, monkeypatch) -> None:
+    """A second Slang device failed on the RLinf simulator's GPU; one device per sensor avoids it."""
+    devices = _slang_like_renderer_class(monkeypatch)
+    patient = _patient_volume(tmp_path, with_vessel_mask=True)
+
+    renderer = _renderer_with(patient, _carm(patient), dsa=True)
+
+    main, dsa = renderer._renderer, renderer._dsa_renderer
+    assert devices == [main._device]
+    for name in slang_fluoroscopy._SHARED_SLANG_STATE:
+        assert getattr(dsa, name) is getattr(main, name)
+    assert dsa._batch_cache is None
+    main._batch_cache = {"output": object()}
+    assert dsa._batch_cache is None
+    assert dsa.volume_texture is not main.volume_texture
+    assert not np.array_equal(dsa.volume, main.volume)
+
+
+def test_the_shared_state_is_what_upstream_init_slang_creates() -> None:
+    """Fails when an xray_simulator pin changes what the device setup creates, before rendering breaks."""
+    import inspect
+    import re
+
+    from xray_simulator.rendering.diffdrr_slang_renderer import SlangDiffDRRRenderer
+
+    source = inspect.getsource(SlangDiffDRRRenderer._init_slang)
+    assigned = tuple(dict.fromkeys(re.findall(r"^\s*self\.(\w+)\s*=", source, re.MULTILINE)))
+    assert set(assigned) == {*slang_fluoroscopy._SHARED_SLANG_STATE, "_batch_cache"}
+    assert "self._create_resources()" in source
+
+
+def test_a_contrast_renderer_device_failure_explains_nvrtc_too(tmp_path, monkeypatch) -> None:
+    from i4h_arena.medical import slang_cuda
+
+    monkeypatch.setattr(slang_cuda, "describe_cuda_nvrtc", lambda: "no libnvrtc.so was found")
+    _slang_like_renderer_class(monkeypatch, fail_on=2)
+    patient = _patient_volume(tmp_path, with_vessel_mask=True)
+
+    with pytest.raises(RuntimeError, match=r"Slang could not create a CUDA device.*--fluoro-device vulkan"):
+        SlangFluoroscopyRenderer(
+            patient, _carm(patient), width=64, height=64, step_mm=1.0, device_type="cuda", dsa=True
+        )
+
+
+def _pose_dependent_renderer_class(monkeypatch, poses: list) -> None:
+    from xray_simulator.rendering import diffdrr_slang_renderer
+
+    class FakeRenderer:
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+            del volume, spacing, origin_xyz_mm, cfg
+
+        def render(self, rotation, translation):
+            poses.append(tuple(rotation))
+            offset = 0.05 * float(np.linalg.norm(rotation))
+            return np.linspace(0.1 + offset, 0.8 + offset, 64 * 64, dtype=np.float32).reshape(64, 64)
+
+    monkeypatch.setattr(diffdrr_slang_renderer, "SlangDiffDRRRenderer", FakeRenderer)
+
+
+def test_each_environment_is_rendered_from_its_own_carm_and_catheter(tmp_path, monkeypatch) -> None:
+    """Parallel RL environments each get their own frame instead of a refusal or a copy of env 0."""
+    poses: list = []
+    _pose_dependent_renderer_class(monkeypatch, poses)
+    patient = _patient_volume(tmp_path)
+    center = patient.volume_mm_to_world(patient.center_xyz_mm)
+    angle = 0.35
+    rotation_x = np.array([[1.0, 0.0, 0.0], [0.0, np.cos(angle), -np.sin(angle)], [0.0, np.sin(angle), np.cos(angle)]])
+    ap = _carm(patient)
+    oblique = CArmState(
+        source_world_m=np.asarray([center + rotation_x @ np.array([0.0, 0.0, -0.10])]),
+        detector_center_world_m=np.asarray([center + rotation_x @ np.array([0.0, 0.0, 0.10])]),
+        detector_x_axis_world=np.asarray([[1.0, 0.0, 0.0]]),
+        detector_size_m=(0.064, 0.064),
+    )
+    both = CArmState(
+        source_world_m=np.concatenate((ap.source_world_m, oblique.source_world_m)),
+        detector_center_world_m=np.concatenate((ap.detector_center_world_m, oblique.detector_center_world_m)),
+        detector_x_axis_world=np.concatenate((ap.detector_x_axis_world, oblique.detector_x_axis_world)),
+        detector_size_m=ap.detector_size_m,
+    )
+    shaft = _shaft_catheter(patient).positions_world_m[0]
+    shifted = shaft + np.array([0.0, 0.008, 0.0], dtype=np.float32)
+    catheters = CatheterState(positions_world_m=np.stack((shaft, shifted)), valid_nodes=np.asarray([2, 2]))
+
+    output = _host(_renderer_with(patient, ap).render(catheters, both))
+
+    for name in ("rgb", "guidance", "dsa", "dsa_guidance", "attenuation"):
+        assert output[name].shape[0] == 2
+    assert len(poses) == 2
+    assert not np.allclose(poses[0], poses[1])
+    for env_index, (carm, nodes) in enumerate(((ap, shaft), (oblique, shifted))):
+        alone = _host(
+            _renderer_with(patient, ap).render(
+                CatheterState(positions_world_m=nodes[None, ...], valid_nodes=np.asarray([2])), carm
+            )
+        )
+        np.testing.assert_allclose(output["attenuation"][env_index], alone["attenuation"][0])
+
+
+def test_a_batching_renderer_poses_every_environment_in_one_call(tmp_path, monkeypatch) -> None:
+    """With ``render_batch`` upstream the frame costs one dispatch per volume, not one per environment."""
+    import torch
+    from xray_simulator.rendering import diffdrr_slang_renderer
+
+    single_poses: list = []
+    batches: list = []
+
+    class BatchingRenderer:
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+            del volume, spacing, origin_xyz_mm, cfg
+
+        def render(self, rotation, translation):
+            single_poses.append(tuple(rotation))
+            offset = 0.05 * float(np.linalg.norm(rotation))
+            return np.linspace(0.1 + offset, 0.8 + offset, 64 * 64, dtype=np.float32).reshape(64, 64)
+
+        def render_batch(self, rotations, translations, *, as_torch=False):
+            assert as_torch
+            batches.append(rotations.shape)
+            return torch.from_numpy(np.stack([self.render(r, t) for r, t in zip(rotations, translations, strict=True)]))
+
+    monkeypatch.setattr(diffdrr_slang_renderer, "SlangDiffDRRRenderer", BatchingRenderer)
+    patient = _patient_volume(tmp_path)
+    carm = _carm(patient)
+    two = CArmState(
+        source_world_m=np.repeat(carm.source_world_m, 2, axis=0),
+        detector_center_world_m=np.repeat(carm.detector_center_world_m, 2, axis=0),
+        detector_x_axis_world=np.repeat(carm.detector_x_axis_world, 2, axis=0),
+        detector_size_m=carm.detector_size_m,
+    )
+    shaft = _shaft_catheter(patient).positions_world_m[0]
+
+    output = _renderer_with(patient, carm, dsa=False).render(
+        CatheterState(positions_world_m=np.stack((shaft, shaft)), valid_nodes=np.asarray([2, 2])), two
+    )
+
+    assert batches == [(2, 3)]
+    assert len(single_poses) == 2  # the fake's own loop, called from render_batch
+    torch.testing.assert_close(output["attenuation"][0], output["attenuation"][1])
+
+
+def test_frames_stay_on_the_device_the_catheter_is_composited_on(tmp_path, monkeypatch) -> None:
+    import torch
+
+    _ramp_renderer_class(monkeypatch)
+    patient = _patient_volume(tmp_path)
+    carm = _carm(patient)
+
+    output = _renderer_with(patient, carm, catheter_device="cpu", visual_style="cinematic").render(
+        _shaft_catheter(patient), carm
+    )
+
+    for name in ("rgb", "guidance", "dsa", "dsa_guidance"):
+        assert output[name].dtype == torch.uint8 and output[name].device.type == "cpu"
+    assert output["attenuation"].dtype == torch.float32
+
+
+def test_a_carm_with_a_different_environment_count_is_refused(tmp_path, monkeypatch) -> None:
+    _pose_dependent_renderer_class(monkeypatch, [])
+    patient = _patient_volume(tmp_path)
+    carm = _carm(patient)
+    catheters = CatheterState.empty(2)
+
+    with pytest.raises(ValueError, match="C-arm state has 1 environments; catheter has 2"):
+        _renderer_with(patient, carm).render(catheters, carm)

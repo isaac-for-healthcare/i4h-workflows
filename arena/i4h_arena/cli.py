@@ -98,7 +98,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--presets", choices=("physx", "newton"), default=None, help="override scene physics backend"
     )
     simulation.add_argument("--spacing", type=float, default=4.0, dest="env_spacing")
-    simulation.add_argument("--no-cameras", action="store_true")
+    simulation.add_argument("--no-cameras", action="store_true", help="disable scene cameras and record without images")
     simulation.add_argument("--headless", action="store_true")
     simulation.add_argument("--device", default="cuda:0", help="CUDA device for the simulation")
     simulation.add_argument(
@@ -109,9 +109,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     simulation.add_argument(
         "--fluoro-device",
-        choices=("cuda", "vulkan"),
-        default="vulkan",
-        help="Slang device used by the patient-backed fluoroscopy renderer",
+        choices=("auto", "cuda", "vulkan"),
+        default="auto",
+        help="Slang device used by the patient-backed fluoroscopy renderer "
+        "(default: auto, CUDA when Slang can create a CUDA device, otherwise Vulkan)",
     )
     simulation.add_argument(
         "--patient-twin",
@@ -228,6 +229,46 @@ def _build(args: argparse.Namespace, resolve_workflow) -> object:
     return resolve_workflow(args.workflow, args.mode or None, **kwargs)
 
 
+def _resolve_fluoroscopy_device(args: argparse.Namespace) -> None:
+    """Replace ``auto`` with a concrete Slang device, deciding before Kit boots.
+
+    Vulkan reads every frame back through the host, which costs a patient frame about twice
+    the CUDA time, so ``auto`` takes CUDA whenever Slang can create it and falls back to
+    Vulkan on hosts without a usable CUDA Toolkit. An explicit ``cuda`` still fails in
+    seconds rather than after Kit boots.
+    """
+    from i4h_arena.scenes.endoluminal_navigation import resolve_fluoroscopy_backend
+
+    if resolve_fluoroscopy_backend(args.fluoro_backend, args.patient_twin) != "slang":
+        if args.fluoro_device == "auto":
+            args.fluoro_device = "vulkan"
+        return
+    if args.fluoro_device == "vulkan":
+        return
+    from i4h_arena.medical.slang_cuda import check_slang_cuda_device
+
+    failure = check_slang_cuda_device()
+    if args.fluoro_device == "cuda":
+        if failure is not None:
+            raise SystemExit(f"--fluoro-device cuda: {failure}")
+        return
+    if failure is None:
+        args.fluoro_device = "cuda"
+    else:
+        args.fluoro_device = "vulkan"
+        print(f"[arena] fluoroscopy renders on Vulkan, which is slower: {failure}", flush=True)
+    print(f"[arena] fluoroscopy device: {args.fluoro_device}", flush=True)
+
+
+def _replay_initial_state(args: argparse.Namespace, workflow) -> dict | None:
+    """The scene state the replayed episode was recorded from, if stored for this workflow's scene."""
+    if workflow.mode != "replay":
+        return None
+    from i4h_arena.recording.scene_state import load_initial_state
+
+    return load_initial_state(args.dataset, int(str(args.episode).split(",")[0]), workflow.scene)
+
+
 def _launch(args: argparse.Namespace, workflow) -> int:
     # This function-local import must remain below workflow resolution.
     from i4h_arena.app import launch_app
@@ -238,6 +279,7 @@ def _launch(args: argparse.Namespace, workflow) -> int:
     args.mode = workflow.mode
     scene = load_scene(workflow.scene, args, register_assets=False)
     scene.configure_args(args)
+    _resolve_fluoroscopy_device(args)
     with launch_app(args) as app_ctx:
         from i4h_arena.io.publishers import ScenePublisher
         from i4h_arena.recording.hdf5 import EpisodeRecorder
@@ -273,6 +315,7 @@ def _launch(args: argparse.Namespace, workflow) -> int:
                     f"available camera-compatible sensors: {list(cameras)}"
                 )
         recorder = EpisodeRecorder(args.record, workflow=workflow, cameras=cameras) if args.record else None
+        initial_state = _replay_initial_state(args, workflow)
         keys = Keys(args.namespace or workflow.name)
         publisher = ScenePublisher(bus, keys, cameras=cameras) if bus is not None else None
         try:
@@ -300,6 +343,7 @@ def _launch(args: argparse.Namespace, workflow) -> int:
                 sensor_view_display_controls=scene.sensor_view_display_controls(),
                 sensor_view_sliders=scene.sensor_view_sliders(),
                 sensor_view_readouts=scene.sensor_view_readouts(env),
+                initial_state=initial_state,
             )
             summary = runner.run()
             print(summary.render())

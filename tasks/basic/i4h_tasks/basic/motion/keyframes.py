@@ -33,6 +33,27 @@ class Frame:
     duration_s: float = 0.33
 
 
+@dataclass(frozen=True, slots=True)
+class Correction:
+    """Shift every joint target by the reference pose's displacement along one axis.
+
+    ``gains`` is the joint-space direction, in radians per metre, that moves
+    the tool along ``axis`` at the stage's pose, typically read off the arm's
+    Jacobian there. The displacement from ``reference`` is clipped to
+    ``limits`` (metres) before it is scaled, so a pose outside the range the
+    gains were derived for cannot drive the arm somewhere unvalidated.
+    """
+
+    axis: int
+    reference: float
+    gains: tuple[float, ...]
+    limits: tuple[float, float]
+
+    def offset(self, reference: Pose) -> np.ndarray:
+        displacement = np.clip(reference.pos[:, self.axis] - self.reference, *self.limits)
+        return (displacement[:, None] * np.asarray(self.gains, dtype=np.float32)).astype(np.float32)
+
+
 class Keyframes(Task):
     """Play a sequence of joint targets, smoothstepping between them.
 
@@ -44,6 +65,9 @@ class Keyframes(Task):
     the randomized scissors), shift one joint proportionally to that pose's
     displacement from a reference. That single adaptation is what lets an
     otherwise open-loop trajectory survive scene randomization.
+
+    ``corrections`` generalize it to a whole joint vector per pose axis, for a
+    displacement no single joint absorbs, such as a change in reach.
     """
 
     requires = {"action_space": "joint_position"}
@@ -66,6 +90,7 @@ class Keyframes(Task):
         offset_gain: float = 0.0,
         offset_reference: float = 0.0,
         offset_limits: tuple[float, float] = (0.0, 0.0),
+        corrections: Sequence[Correction] = (),
         name: str | None = None,
     ) -> None:
         super().__init__(name=name)
@@ -78,7 +103,9 @@ class Keyframes(Task):
         self.offset_gain = offset_gain
         self.offset_reference = offset_reference
         self.offset_limits = offset_limits
+        self.corrections = tuple(corrections)
         self._offset: np.ndarray | float = 0.0
+        self._correction: np.ndarray | None = None
         self._start: np.ndarray | None = None
         self._frame_index = 0
         self._frame_tick = 0
@@ -89,7 +116,20 @@ class Keyframes(Task):
         self._frame_index = 0
         self._frame_tick = 0
         self._steps = [max(1, round(frame.duration_s / ctx.dt)) for frame in self.frames]
-        self._offset = self._compute_offset(getattr(inputs, "reference", None), ctx)
+        reference = getattr(inputs, "reference", None)
+        self._offset = self._compute_offset(reference, ctx)
+        dof = ctx.scene.joints().dof
+        for correction in self.corrections:
+            # NumPy would broadcast a single gain across every joint, the jaw
+            # included, rather than reject it.
+            if len(correction.gains) != dof:
+                raise ValueError(
+                    f"{self.name}: correction on axis {correction.axis} has {len(correction.gains)} gains "
+                    f"for {dof} joints"
+                )
+        self._correction = None
+        if reference is not None and self.corrections:
+            self._correction = sum(correction.offset(reference) for correction in self.corrections)
 
     def _compute_offset(self, reference: Pose | None, ctx: TickContext) -> np.ndarray | float:
         if reference is None or self.offset_joint is None or self.offset_gain == 0.0:
@@ -105,6 +145,8 @@ class Keyframes(Task):
             target = target + ctx.scene.home_joints()
         if self.offset_joint is not None and not np.isscalar(self._offset):
             target[:, self.offset_joint] += self._offset
+        if self._correction is not None:
+            target = target + self._correction
         return target
 
     def tick(self, ctx: TickContext) -> Status:

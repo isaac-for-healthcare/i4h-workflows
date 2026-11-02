@@ -38,6 +38,8 @@ def test_discarded_and_waiting_frames_do_not_leak_into_saved_demo(tmp_path, monk
     )
     view = FakeScene(dof=53)
     view.invalidate = lambda: None
+    view.on_reset = lambda: None
+    view.on_step = lambda: None
     view.teleop_config = lambda: object()
     counts = {"steps": 0, "resets": 0}
 
@@ -71,6 +73,7 @@ def test_discarded_and_waiting_frames_do_not_leak_into_saved_demo(tmp_path, monk
     finally:
         recorder.close()
     assert summary.complete
+    assert summary.succeeded == 1 and summary.saved == 1
     assert counts == {"steps": 2, "resets": 4}
     with h5py.File(path) as f:
         assert list(f["data"]) == ["demo_0"]

@@ -300,9 +300,45 @@ run_agent() {
     export OPENCODE_CONFIG="${ROOT}/opencode.json"
     export I4H_WORKFLOWS="${I4H_AGENT_REPO_ROOT}" REPO_ROOT="${I4H_AGENT_REPO_ROOT}"
     export I4H_LOCAL_AGENT=1
-    export I4H_TMUX_CWD="${I4H_AGENT_REPO_ROOT}" I4H_TMUX_SESSION="${I4H_TMUX_SESSION:-i4h_local_agent}"
+    export I4H_TMUX_CWD="${I4H_AGENT_REPO_ROOT}" I4H_TMUX_SESSION="${I4H_TMUX_SESSION:-i4h_local_agent_$$}"
     export CUDA_DEVICE_ORDER="${CUDA_DEVICE_ORDER:-PCI_BUS_ID}"
     export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-${I4H_AGENT_SKILL_GPU}}"
+
+    # Reserve the name before OpenCode can lazily create its first shell. flock
+    # releases the reservation on exit, including crashes, without stale locks.
+    need flock
+    local session_lock_dir="${XDG_RUNTIME_DIR:-/tmp}/i4h-agent-sessions-$(id -u)"
+    (umask 077; mkdir -p "${session_lock_dir}")
+    [[ -O "${session_lock_dir}" && ! -L "${session_lock_dir}" ]] || {
+        echo "error: unsafe agent session lock directory" >&2
+        exit 1
+    }
+    chmod 700 "${session_lock_dir}"
+    local session_lock_name session_lock_fd
+    session_lock_name="$(printf '%s' "${I4H_TMUX_SESSION}" | sha256sum | cut -d ' ' -f 1)"
+    exec {session_lock_fd}>"${session_lock_dir}/${session_lock_name}.lock"
+    flock -n "${session_lock_fd}" || {
+        echo "error: tmux session ${I4H_TMUX_SESSION} is already reserved" >&2
+        exit 1
+    }
+
+    # Each invocation owns its shell and closes it on normal exit or a signal.
+    # Refuse an existing explicit session rather than deleting another run's shell.
+    if tmux has-session -t "=${I4H_TMUX_SESSION}" 2>/dev/null; then
+        echo "error: tmux session ${I4H_TMUX_SESSION} is already in use" >&2
+        exit 1
+    fi
+    agent_pid=""
+    cleanup_agent() {
+        if [[ -n "${agent_pid}" ]]; then
+            kill "${agent_pid}" 2>/dev/null || true
+            wait "${agent_pid}" 2>/dev/null || true
+        fi
+        tmux kill-session -t "=${I4H_TMUX_SESSION}" 2>/dev/null || true
+    }
+    trap cleanup_agent EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
 
     local -a session_args=()
     case "${1:-}" in
@@ -318,14 +354,22 @@ run_agent() {
     esac
 
     cd "${I4H_AGENT_REPO_ROOT}"
+    # Close the lock fd in OpenCode so a tmux server it daemonizes cannot inherit
+    # the reservation; this process holds the lock until OpenCode exits.
     if [[ $# -eq 0 ]]; then
         [[ ${#session_args[@]} -eq 0 ]] || {
             echo "error: --continue/--session requires a non-interactive prompt" >&2
             exit 2
         }
-        exec "${I4H_AGENT_OPENCODE_BIN}" --model "local/${served_name}"
+        "${I4H_AGENT_OPENCODE_BIN}" --model "local/${served_name}" <&0 {session_lock_fd}>&- &
+    else
+        "${I4H_AGENT_OPENCODE_BIN}" run --model "local/${served_name}" "${session_args[@]}" "$*" </dev/null {session_lock_fd}>&- &
     fi
-    exec "${I4H_AGENT_OPENCODE_BIN}" run --model "local/${served_name}" "${session_args[@]}" "$*" </dev/null
+    agent_pid=$!
+    local status=0
+    wait "${agent_pid}" || status=$?
+    agent_pid=""
+    return "${status}"
 }
 
 case "${1:-}" in

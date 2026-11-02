@@ -175,7 +175,16 @@ class ArenaActuation:
         self._buffer[:, target.start : target.stop] = self._previous[:, target.start : target.stop]
 
     def set_raw_action(self, values: np.ndarray, robot: str = "robot") -> None:
-        """Copy a controller-native action into its robot slice."""
+        """Copy a controller-native action into its robot slice.
+
+        A multi-robot scene has no slice named ``robot``, so, as in ``hold``,
+        that default addresses the whole action vector. That is what a replayed
+        frame is: the recorder stores the composed command for every arm, so a
+        ``dual_psm_reach`` frame already holds both PSMs' columns.
+        """
+        if robot == "robot" and robot not in self._by_name and len(self._by_name) > 1:
+            self._buffer[:, :] = as_batch(values, self._num_envs, self._action_dim)
+            return
         target = self._slice(robot)
         self._buffer[:, target.start : target.stop] = as_batch(values, self._num_envs, target.width)
 

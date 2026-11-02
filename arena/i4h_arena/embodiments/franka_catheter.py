@@ -384,10 +384,6 @@ class ArmDrivenCatheterAction(ActionTerm):
         # the pose the arm is asked to hold is resolved on the first step it
         # can be, and the arm is walked onto it from wherever it spawned.
         self._approach = HolderApproach(_APPROACH_S, self.num_envs, device=self.device)
-        # The parked mask last handed to the solver, or None when it has to be
-        # sent again. The solver resets the coupling of every environment it is
-        # told is detached, so the mask goes only when it changes.
-        self._root_motion_sent: np.ndarray | None = None
 
     @property
     def action_dim(self) -> int:
@@ -449,17 +445,15 @@ class ArmDrivenCatheterAction(ActionTerm):
         self._hold_the_grip()
 
         insertion, rotation = self._introducer.advance(self._processed_actions[:, 0], self._processed_actions[:, 1], dt)
-        # The coupled manager transports the root using the rigid solver's
-        # new pose in every substep. Adding the previous flange displacement
-        # here would count that motion twice. Until the hand reaches the access
-        # site the wire is detached, so neither transport nor reaction applies.
-        from catheter_vasculature_solver.isaaclab_integration import NewtonCoupledMJWarpXPBDRodManager
-
-        parked = self._approach.parked
-        if self._root_motion_sent is None or not np.array_equal(parked, self._root_motion_sent):
-            NewtonCoupledMJWarpXPBDRodManager.set_root_motion_enabled(parked)
-            self._root_motion_sent = parked
-        transport = torch.zeros_like(flange_pos)
+        # The coupled manager feeds the wire's reaction back to the hand but
+        # does not move the wire's root with it, so the introducer carries the
+        # wire with the flange. Only parked arms do: the flange crosses the room
+        # on its way to the access site, and transport read before it arrives
+        # would tow the wire behind it. Reading it every step keeps the first
+        # parked step's displacement to that step's motion.
+        parked = torch.as_tensor(self._approach.parked, device=self.device).unsqueeze(-1)
+        transport = self._introducer.transport(flange_pos)
+        transport = torch.where(parked, transport, torch.zeros_like(transport))
         root_target, quat_target = self._introducer.root_target(
             root_pos,
             root_quat,
@@ -486,8 +480,6 @@ class ArmDrivenCatheterAction(ActionTerm):
         # the drive's own geometry is hardware and stays. Only the environments
         # being reset start over; the rest stay parked where they are.
         self._approach.reset(env_ids)
-        # The solver needs the attachment state again after its own reset.
-        self._root_motion_sent = None
         # A reset returns a straight wire, so the steer goes with it.
         self._tip_bend_angle[selected] = 0.0
         self._introducer.reset(None if env_ids is None else torch.as_tensor(env_ids, device=self.device))

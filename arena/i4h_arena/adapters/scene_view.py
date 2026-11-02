@@ -83,11 +83,25 @@ class ArenaSceneView:
         self._diagnostics_provider = diagnostics_provider
         self._root_relative = root_relative
         self._cache: dict[str, Any] = {}
+        self._termination_pending_reset = np.zeros(self.num_envs, dtype=bool)
 
     # -- lifecycle -------------------------------------------------------
     def invalidate(self) -> None:
-        """Drop per-tick caches. The runner calls this after every ``env.step``."""
+        """Drop cached scene reads without changing episode termination visibility."""
         self._cache.clear()
+
+    def on_reset(self, env_ids=None) -> None:
+        """Hide retained termination values until these environments step again."""
+        ids = slice(None) if env_ids is None else _np(env_ids)
+        if env_ids is not None and ids.size == 0:
+            return
+        self._termination_pending_reset[ids] = True
+        self.invalidate()
+
+    def on_step(self) -> None:
+        """Publish this step's terms, including an automatic-reset success pulse."""
+        self._termination_pending_reset[:] = False
+        self.invalidate()
 
     @property
     def _scene(self) -> Any:
@@ -457,4 +471,4 @@ class ArenaSceneView:
         manager = getattr(self._env.unwrapped, "termination_manager", None)
         if manager is None or name not in manager.active_terms:
             return np.zeros(self.num_envs, dtype=bool)
-        return _np(manager.get_term(name)).astype(bool, copy=False)
+        return _np(manager.get_term(name)).astype(bool, copy=False) & ~self._termination_pending_reset

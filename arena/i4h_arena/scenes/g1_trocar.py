@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Unitree G1 with Dex3 hands assembling a trocar in the LightWheel scene.
+"""Unitree G1 with Dex3 hands assembling a trocar in the Lightwheel scene.
 
 Builds through the AssetRegistry like the loco-manip scenes, but with a
 different embodiment (dex hands, 37 DOF) and its own props, so it does not
@@ -58,7 +58,7 @@ class G1TrocarScene(Scene):
             name=self.name,
             embodiment=embodiment,
             scene=ArenaScene(assets=[background, trocar_1, trocar_2, tray]),
-            # G1TrocarEnvCfg takes no env_spacing: the LightWheel scene is a
+            # G1TrocarEnvCfg takes no env_spacing: the Lightwheel scene is a
             # single authored room, not a tiled grid.
             task=G1TrocarEnvCfg(episode_length_s=max(15.0, (steps + 1) / self.spec.control_hz)),
         )

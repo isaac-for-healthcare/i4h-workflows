@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
+import torch
 import warp as wp
 
 if TYPE_CHECKING:
@@ -178,11 +179,12 @@ class CatheterAttenuation:
         *,
         width: int,
         height: int,
-    ) -> np.ndarray:
+        as_torch: bool = False,
+    ) -> np.ndarray | torch.Tensor:
         """Return ``sum(mu_i * chord_i)`` per pixel, ready to add to the volume's line integral.
 
         ``points_volume_mm`` holds the active nodes in the renderer's volume millimetre frame,
-        ordered base to tip.
+        ordered base to tip. With ``as_torch`` the result stays on this instance's device.
         """
         points = np.asarray(points_volume_mm, dtype=np.float32)
         if points.ndim != 2 or points.shape[-1] != 3:
@@ -199,28 +201,35 @@ class CatheterAttenuation:
         lengths_mm = np.linalg.norm(ends - starts, axis=-1)
         carries_geometry = lengths_mm > _MIN_SEGMENT_MM
         if not carries_geometry.any():
+            if as_torch:
+                return torch.zeros((height, width), dtype=torch.float32, device=wp.device_to_torch(self._device))
             return np.zeros((height, width), dtype=np.float32)
         mu_per_mm = self._material.segment_mu_per_mm(lengths_mm)[carries_geometry]
 
         source, first_pixel, column_step, row_step = _detector_rays(projection, width=width, height=height)
-        wp.launch(
-            _accumulate_catheter_line_integral,
-            dim=(height, width),
-            inputs=[
-                source,
-                first_pixel,
-                column_step,
-                row_step,
-                wp.array(starts[carries_geometry], dtype=wp.vec3, device=self._device),
-                wp.array(ends[carries_geometry], dtype=wp.vec3, device=self._device),
-                wp.array(mu_per_mm, dtype=float, device=self._device),
-                radius,
-                buffer,
-            ],
-            device=self._device,
-        )
+        # On torch's stream, so the copy handed to torch below cannot overtake the kernel.
+        stream = wp.stream_from_torch(wp.device_to_torch(self._device)) if as_torch and self._device.is_cuda else None
+        with wp.ScopedStream(stream):
+            wp.launch(
+                _accumulate_catheter_line_integral,
+                dim=(height, width),
+                inputs=[
+                    source,
+                    first_pixel,
+                    column_step,
+                    row_step,
+                    wp.array(starts[carries_geometry], dtype=wp.vec3, device=self._device),
+                    wp.array(ends[carries_geometry], dtype=wp.vec3, device=self._device),
+                    wp.array(mu_per_mm, dtype=float, device=self._device),
+                    radius,
+                    buffer,
+                ],
+                device=self._device,
+            )
         # Copied out because the buffer is about to be overwritten by the next frame, and on a CPU
         # device `numpy()` is a view onto it rather than a snapshot.
+        if as_torch:
+            return wp.to_torch(buffer).clone()
         return buffer.numpy().copy()
 
     def _line_integral_buffer(self, *, height: int, width: int) -> wp.array:

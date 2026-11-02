@@ -21,6 +21,8 @@ import isaaclab.sim as sim_utils
 from isaaclab.sensors import CameraCfg
 from isaaclab.utils import configclass
 
+from i4h_arena.assets.constants import ASSET_PATH
+
 
 @configclass
 class CameraBaseCfg:
@@ -118,7 +120,6 @@ class CameraPresets:
 
 
 # Versioned scene asset URLs.
-_ASSET_ROOT = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.7.0/724f82e"
-CLOTH_ONLY_USD = f"{_ASSET_ROOT}/Props/Lightwheel/Assets/DeformableCloth/cloth.usd"
-CLOTH_INNER_USD = f"{_ASSET_ROOT}/Props/Lightwheel/Assets/DeformableCloth/cloth_inner.usd"
-TABLE_USD = f"{_ASSET_ROOT}/Props/Lightwheel/Assets/Table256/Table256.usd"
+CLOTH_ONLY_USD = f"{ASSET_PATH}Props/Lightwheel/Assets/DeformableCloth/cloth.usd"
+CLOTH_INNER_USD = f"{ASSET_PATH}Props/Lightwheel/Assets/DeformableCloth/cloth_inner.usd"
+TABLE_USD = f"{ASSET_PATH}Props/Lightwheel/Assets/Table256/Table256.usd"

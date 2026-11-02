@@ -28,3 +28,5 @@ train:
   output_dir: /tmp/pi0_liver_scan
   max_steps: 30000
   batch_size: 32
+  # Weights & Biases logging; the trainer's --wandb/--no-wandb overrides it.
+  wandb: false

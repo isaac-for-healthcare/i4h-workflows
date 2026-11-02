@@ -46,7 +46,7 @@ cd "$ROOT"
 
 Treat this resolver as part of the skill contract: a hosted copy may run outside the base repository, so never assume the current checkout contains `workflows/i4h_workflows`. `I4H_WORKFLOWS_REPO_URL` selects the clone source. When `I4H_WORKFLOWS` is unset, derive the fallback directory from that URL; set `I4H_WORKFLOWS` only to reuse or choose a specific destination. Never replace an existing checkout.
 
-Require the workflow's `policy` mode. The driver discovers the remote task, embodiment, task text, and trainability from live workflow/task manifests.
+Require the workflow's `policy` mode. The driver discovers the remote task, embodiment, task text, and trainability from live workflow/task manifests, and the annotate settings from the workflow. The annotate stage grades with the workflow's `annotate` settings (criterion, cameras, judge) when present and with the task text otherwise; the dry-run prints the resolved `[e2e] annotate:` line.
 
 ## Dry-run first
 
@@ -62,7 +62,9 @@ Require exit status 0 and inspect every printed command and artifact path. The d
 ./scripts/e2e/run.sh --env <workflow>
 ```
 
-Use `--run-dir` only when the caller needs a specific location. Apply `--skip-mimic`, `--skip-annotate`, `--skip-replay`, or `--skip-viz` only when the user explicitly omits that optional stage or a documented smoke profile requires it.
+Use `--run-dir` only when the caller needs a specific location. Add `--headless` when the host has no display; checkpoint validation is always headless. Apply `--skip-mimic`, `--skip-annotate`, `--skip-replay`, or `--skip-viz` only when the user explicitly omits that optional stage or a documented smoke profile requires it.
+
+Fine-tuning needs no Weights & Biases account. The PI0 trainer logs there only with `--wandb` or `train.wandb: true` in its task manifest; the driver passes neither, and the environment does not turn it on.
 
 Keep the driver as this agent's foreground tool call. Do not use a subagent, monitor task, shell backgrounding, `nohup`, `tmux`, or a detached process. Poll until exit.
 
@@ -73,7 +75,7 @@ The driver performs full setup, then owns its stage sequence, timestamped run di
 On success, inspect the printed summary and artifacts:
 
 - policy recording
-- expanded/filtered HDF5 as applicable
+- expanded/filtered HDF5 as applicable, with every annotate verdict and the pass count
 - visible replay result when enabled
 - LeRobot metadata, parquet, and videos
 - visualizer URL/content when enabled

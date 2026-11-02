@@ -53,7 +53,7 @@ Treat the resolver above as part of the skill contract: a hosted copy may run ou
 
 Read the selected workflow run mode to identify its remote task id. Open `tasks/<project>/i4h_tasks/<project>/manifest/<task>.yaml` and require `train:`. Resolve the project, entry point, base model/config, output defaults, and modality contract from that manifest and the project's `train.py`.
 
-Use the current-chain LeRobot dataset when the prompt omits a path. Verify its embodiment, cameras, task text, feature widths, and episode count are compatible with the remote task.
+Use the current-chain LeRobot dataset when the prompt omits a path. Verify its embodiment, cameras, task text, feature widths, and episode count are compatible with the remote task. For GR00T N1.6 G1 tasks the manifest's `train.modality_config_path` requests only the head camera (`ego_view`); the trainer's `--dry-run` checks that every requested video exists in the dataset.
 
 ## Resolve configuration before a long run
 
@@ -72,6 +72,8 @@ uv run --project "tasks/<project>" "i4h-tasks-<project-with-hyphens>-train" \
 Inspect the resolved config. Keep user-requested steps, batch size, model/config, and GPU count exact.
 
 For GR00T, “turn off vision tuning” maps to `--no-tune-visual`. Do not pass that flag to openpi, whose CLI does not expose it. Use only flags present in the selected project's current `train.py`.
+
+No trainer needs a Weights & Biases account. GR00T logs to TensorBoard. openpi logs to W&B only with `--wandb` or `train.wandb: true` in the task manifest, never because of the environment, and the dry-run prints the resolved `wandb` value and its reason. Add `--wandb` only when the user asks for W&B logging.
 
 ## Train
 

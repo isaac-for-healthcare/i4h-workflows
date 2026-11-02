@@ -1,0 +1,50 @@
+diff --git a/rlinf/scheduler/collective/async_work.py b/rlinf/scheduler/collective/async_work.py
+index b1e5b26..95877cc 100644
+--- a/rlinf/scheduler/collective/async_work.py
++++ b/rlinf/scheduler/collective/async_work.py
+@@ -311,9 +311,24 @@ class AsyncChannelWork(AsyncWork):
+             AsyncChannelWork.last_future_per_key[self._channel_key] = self._future
+ 
+     def _execute(self):
+-        method = getattr(self._channel_actor, self._method)
+-        future: ConcurrentFuture = method.remote(*self._args, **self._kwargs).future()
+-        future.add_done_callback(lambda f: self._future.set_result(f.result()))
++        try:
++            method = getattr(self._channel_actor, self._method)
++            future: ConcurrentFuture = method.remote(
++                *self._args, **self._kwargs
++            ).future()
++        except Exception as exc:
++            self._future.set_exception(exc)
++            return
++        future.add_done_callback(self._complete)
++
++    def _complete(self, future: ConcurrentFuture):
++        """Resolve the work with the channel actor's result or its failure."""
++        try:
++            result = future.result()
++        except Exception as exc:
++            self._future.set_exception(exc)
++        else:
++            self._future.set_result(result)
+ 
+     async def async_wait(self):
+         """Async wait for the work to complete.
+@@ -376,7 +391,16 @@ class AsyncChannelCommWork(AsyncWork):
+             if query_id not in AsyncChannelCommWork.channel_data_store:
+                 AsyncChannelCommWork.channel_data_store[query_id] = Future()
+             self._data_future = AsyncChannelCommWork.channel_data_store[query_id]
+-        self._async_comm_work.then(self._store_channel_data)
++        store_work = self._async_comm_work.then(self._store_channel_data)
++        store_work._done.then(self._fail_data_future)
++
++    def _fail_data_future(self, done: Future):
++        """Fail the waiting get when its receive or the data store fails."""
++        try:
++            done.wait()
++        except Exception as exc:
++            if not self._data_future.done():
++                self._data_future.set_exception(exc)
+ 
+     def _store_channel_data(self):
+         """Store channel data in the channel data store."""

@@ -3,6 +3,7 @@
 """H2 cache recovery must work without loading Isaac Sim into CPU CI."""
 
 import importlib.util
+import runpy
 import shutil
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ from unittest.mock import Mock
 import pytest
 
 SOURCE = Path(__file__).parents[1] / "arena/i4h_arena/embodiments/_tablecloth_assets.py"
+CONSTANTS = Path(__file__).parents[1] / "arena/i4h_arena/assets/constants.py"
 
 
 def _write_bundle(root):
@@ -107,3 +109,7 @@ def test_interrupted_or_incomplete_download_is_retried(cache, result):
     cache.module.ensure_h2_sharpa_assets()
     assert cache.client.copy.call_count == 2
     assert (cache.local / "urdf/sharpa_standalone/right_sharpa_wave.stl").is_file()
+
+
+def test_asset_root_matches_shared_constant(cache):
+    assert runpy.run_path(str(CONSTANTS))["ASSET_PATH"] == cache.module._ASSET_ROOT

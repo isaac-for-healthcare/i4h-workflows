@@ -27,6 +27,9 @@
 #   --checkpoint PATH     override the configured policy checkpoint
 #   --prompt TEXT         override the policy instruction
 #   --policy-endpoint HOST:PORT connect to an external policy service over Zenoh
+#   --no-cameras          run without scene cameras (image-free recordings)
+#   --view-sensor NAME    open a live camera sensor window; repeatable
+#   --no-sensor-view      disable scene-selected live sensor windows
 #   --headless            run without the interactive viewport
 #   --presets NAME        physics backend override: physx or newton (scene default)
 #   --cloudxr-env PATH    CloudXR environment file for XR teleoperation
@@ -34,7 +37,7 @@
 #   --device NAME         CUDA device for the simulation (default cuda:0)
 #   --python-server       enable the Isaac Sim Python bridge on port 8226
 #   --fluoro-backend NAME override automatic synthetic/patient-backed Slang selection
-#   --fluoro-device NAME  Slang device for fluoroscopy (vulkan or cuda)
+#   --fluoro-device NAME  Slang device for fluoroscopy (auto, cuda or vulkan; default auto)
 #   --patient-twin PATH   patient-twin YAML used by medical simulation sensors
 #
 # Compatibility option names: --max-attempts, --timesteps, --record-to,
@@ -50,8 +53,10 @@ cd "$ROOT"
 export I4H_WORKFLOWS="$ROOT"
 
 LIGHT_PROJECT=workflows
-PIDFILE=".run/pids"
-mkdir -p .run
+# Each launch records the backends it starts in a file of its own here, and
+# stop.sh reads them all. One shared file let a second run.sh in this checkout,
+# the test suite's included, truncate it and orphan the first run's backend.
+PID_DIR="${I4H_PID_DIR:-$ROOT/.run/pids.d}"
 
 
 light() { uv run --project "$LIGHT_PROJECT" "$@"; }
@@ -247,7 +252,8 @@ echo "==> lint $WORKFLOW [${MODE:-default}]"
 light python -m i4h_engine.cli lint "$WORKFLOW" --mode "$MODE"
 
 # -- 5: launch the backends this workflow actually needs ---------------------
-: > "$PIDFILE"
+mkdir -p "$PID_DIR"
+PIDFILE="$(mktemp "$PID_DIR/run.$$.XXXXXX")"
 cleanup() {
   if [ -s "$PIDFILE" ]; then
     while read -r pid; do
@@ -277,6 +283,7 @@ for node in workflow.graph.nodes:
 PY
 )
   backend_logs=()
+  backend_pids=()
   while IFS=$'\t' read -r project entry task_id; do
     [ -z "$project" ] && continue
     if [ ! -d "$project/.venv" ]; then
@@ -306,11 +313,13 @@ PY
       > "$backend_log" 2>&1 &
     echo $! >> "$PIDFILE"
     backend_logs+=("$backend_log")
+    backend_pids+=("$!")
   done <<< "$backends"
 
   # Wait for every checkpoint to be resident before the simulator starts so
   # inference startup never consumes the episode's simulation-step budget.
-  for log in "${backend_logs[@]}"; do
+  for index in "${!backend_logs[@]}"; do
+    log="${backend_logs[$index]}"
     echo "==> waiting for $(basename "$log" .log) to load"
     backend_ready=0
     for _ in $(seq 600); do
@@ -319,6 +328,9 @@ PY
         break
       fi
       grep -qE "Traceback|Error:" "$log" 2>/dev/null && { echo "!! backend failed; see $log" >&2; exit 1; }
+      # A native abort (an XLA compile failure, for one) leaves no Python
+      # traceback; without this the wait ran out its full ten minutes.
+      kill -0 "${backend_pids[$index]}" 2>/dev/null || { echo "!! backend exited before it was ready; see $log" >&2; exit 1; }
       sleep 1
     done
     if [ "$backend_ready" -ne 1 ]; then
@@ -364,9 +376,10 @@ fi
 # the symptom is a crash deep in OpenMP rather than anything that names the
 # clash. Preloading one settles it.
 if [ "$(uname -m)" = "aarch64" ]; then
-  sys_libgomp="$(ls /lib/*/libgomp.so.1 2>/dev/null | head -1 || true)"
-  [ -n "$sys_libgomp" ] && export LD_PRELOAD="${sys_libgomp}${LD_PRELOAD:+:$LD_PRELOAD}"
-  export GLIBC_TUNABLES="${GLIBC_TUNABLES:-glibc.rtld.optional_static_tls=2000000}"
+  # Share the ARM preload order and TLS defaults with both RL backends.
+  # runtime.py uses only stdlib and quotes caller values before shell export.
+  arm_openmp_env="$(light python "$ROOT/rl/i4h_rl/runtime.py" --shell)"
+  eval "$arm_openmp_env"
 else
   torch_libgomp="$(env -u VIRTUAL_ENV uv run --project arena --no-sync python -c \
     'import pathlib, torch; print(pathlib.Path(torch.__file__).parent / "lib" / "libgomp.so.1")' 2>/dev/null || true)"

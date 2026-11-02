@@ -103,12 +103,22 @@ python scripts/run_tests.py --suite ci --coverage
 
 The generated `coverage.xml` reports coverage for CPU-testable repository code. Arena and simulator integration are validated separately by the GPU smoke suite.
 
-Suites whose project depends on an internal component checkout are skipped, and named at the end of the run, when `./setup.sh` has not cloned it. GitHub Actions clones the patient digital twin from `main` when the `I4H_INTERNAL_READ_TOKEN` secret is present, so the patient-twin suite runs there on internal pull requests. Forks receive no secrets, so it is skipped on those and has to be run locally against a checkout.
+Suites whose project depends on a component checkout are skipped, and named at the end of the run, when `./setup.sh` has not cloned it. GitHub Actions checks out the public patient digital twin at the release tag that `third_party/setup.sh` pins, so the patient-twin suite runs in CI on every ready-for-review pull request, including those from forks.
 
 On a configured GPU host, run the recorded headless workflow smokes used by Blossom:
 
 ```bash
 python scripts/run_tests.py --suite gpu
+```
+
+The GPU suite also validates the real sensor inside Isaac Sim on both fluoroscopy
+devices. This checks DSA on/off, consecutive frames, separate renderer
+buffers, batch resizing, and distinct environment images; either device failing
+fails the suite. CUDA requires the toolkit described in the README. To run only
+the dependency-pin validation:
+
+```bash
+python scripts/run_tests.py --suite dependency-pins
 ```
 
 ## Reporting issues

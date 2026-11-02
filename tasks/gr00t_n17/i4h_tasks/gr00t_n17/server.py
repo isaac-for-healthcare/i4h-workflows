@@ -89,6 +89,9 @@ class Gr00tN17Server(PolicyServer):
         from gr00t.data.embodiment_tags import EmbodimentTag
         from gr00t.policy.gr00t_policy import Gr00tPolicy
 
+        from i4h_tasks.gr00t_n17._patch_embed import install_linear_patch_embed
+
+        install_linear_patch_embed()
         model = session.model
         # Only one modality config can hold an embodiment tag, so the task says
         # which one it wants; training resolves the same name to the same file.

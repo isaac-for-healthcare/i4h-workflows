@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -116,11 +117,37 @@ def test_policy_joint_coordinates_leave_non_joint_tail_contract_unchanged() -> N
 
 def test_write_g1_wbc_modality(tmp_path) -> None:
     (tmp_path / "meta").mkdir()
-    path = _write_g1_wbc_modality(tmp_path)
+    path = _write_g1_wbc_modality(tmp_path, cameras=("head",))
     content = path.read_text()
     assert '"left_arm"' in content
     assert '"navigate_command"' in content
     assert '"observation.images.head"' in content
+
+
+def test_g1_modality_names_only_the_recorded_cameras(tmp_path) -> None:
+    """NVBug 6925769: a ``room`` entry for a head-only recording broke GR00T's first batch."""
+    (tmp_path / "meta").mkdir()
+
+    video = json.loads(_write_g1_wbc_modality(tmp_path, cameras=("head",)).read_text())["video"]
+
+    assert video == {"ego_view": {"original_key": "observation.images.head"}}
+
+
+def test_g1_modality_keeps_a_recorded_room_camera(tmp_path) -> None:
+    (tmp_path / "meta").mkdir()
+
+    video = json.loads(_write_g1_wbc_modality(tmp_path, cameras=("head", "room")).read_text())["video"]
+
+    assert video == {
+        "ego_view": {"original_key": "observation.images.head"},
+        "room": {"original_key": "observation.images.room"},
+    }
+
+
+def test_g1_modality_without_cameras_has_no_video(tmp_path) -> None:
+    (tmp_path / "meta").mkdir()
+
+    assert json.loads(_write_g1_wbc_modality(tmp_path, cameras=()).read_text())["video"] == {}
 
 
 def test_write_declared_so101_modality(tmp_path) -> None:

@@ -7,7 +7,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 THIRD_PARTY_DIR="${SCRIPT_DIR}"
-WORKFLOW_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 LOG_PREFIX="i4h-workflows third_party setup"
 TARGET="${1:-all}"
@@ -21,22 +20,16 @@ ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
 ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
-# The i4h component repositories track main so that workflow integration always builds
-# against current upstream. Their directory names carry no revision for that reason: the uv
-# source paths in arena/ and tools/patient_twin/ point here and must stay valid as main moves.
-# Export the matching *_REF variable to pin one to a commit when bisecting a break.
-#
-# The physics simulation was the exception, pinned to wip/catheter-containment-and-tip-bend
-# while the coupled-arm solver contract the catheter scenes call -- register_rod,
-# set_root_pose_gpu, proximal_reaction and the interior-containment parameters -- lived only
-# on that branch. It merged in PR #3, so the pin is gone and this tracks main with the rest.
-# The contract check below stays, because a ref from before that merge still fails as a
-# missing attribute during solver initialization rather than as a stale dependency.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-main}"
+# Release component versions for v0.9.0: physics simulation, sensor simulation and digital
+# twin default to the commits their v0.9.0 tags name. Every component repository is public.
+# Keep the checkout directory names stable because uv path sources refer to them. Export
+# *_REF to bisect or test another component revision; the solver compatibility check still
+# applies.
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-50056196775fc0ed8cca03bf16144fe71d183ca7}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
-I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-main}"
+I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-5d6ba8547a4c6e25af7eaf551f6a34371ccd6350}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
-I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-main}"
+I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-6b6470cff156ba15b573ae1b4b44c3a77654b8b3}"
 I4H_DIGITAL_TWIN_DIR="i4h-digital-twin-internal"
 
 GR00T_15_REV="17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1"
@@ -57,21 +50,6 @@ command -v git >/dev/null 2>&1 || { echo "git is required" >&2; exit 1; }
 export GIT_LFS_SKIP_SMUDGE=1
 
 mkdir -p "${THIRD_PARTY_DIR}"
-
-# Private component repositories follow the transport used to check out this repository.
-# Jenkins checks out over HTTPS and supplies an askpass credential around setup.sh, while
-# developers who use an SSH origin can reuse their existing SSH agent. Archive/container
-# builds have no root origin, so they retain the existing HTTPS behavior.
-root_origin="$(git -C "${WORKFLOW_ROOT}" remote get-url origin 2>/dev/null || true)"
-case "${root_origin}" in
-  git@*:*|ssh://*|git+ssh://*) INTERNAL_GIT_TRANSPORT="ssh" ;;
-  *) INTERNAL_GIT_TRANSPORT="https" ;;
-esac
-case "${INTERNAL_GIT_TRANSPORT}" in
-  https) INTERNAL_GITHUB_BASE="https://github.com/isaac-for-healthcare" ;;
-  ssh) INTERNAL_GITHUB_BASE="git@github.com:isaac-for-healthcare" ;;
-esac
-echo "[${LOG_PREFIX}] private repository transport: ${INTERNAL_GIT_TRANSPORT}"
 
 ensure_origin_url() {
   local repo_dir="$1"
@@ -118,12 +96,24 @@ checkout_ref() {
       git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}"
     fi
     target_commit="$(git -C "${repo_dir}" rev-parse "${ref}^{commit}")"
+  elif git -C "${repo_dir}" rev-parse --verify --quiet "refs/tags/${ref}^{commit}" >/dev/null; then
+    # A release tag does not move either. Its first fetch recorded it below, so later runs
+    # resolve it offline. That includes a container's first start, which reuses the
+    # checkouts that the image build fetched.
+    target_commit="$(git -C "${repo_dir}" rev-parse "refs/tags/${ref}^{commit}")"
   else
     # A branch moves, so fetch it on every run and resolve through FETCH_HEAD. `fetch origin
     # main` writes no local ref, and once any commit of that name existed a name lookup would
-    # freeze the checkout at whatever main was the day the machine was first set up.
+    # freeze the checkout at whatever main was the day the machine was first set up. Peel to
+    # the commit: for an annotated release tag FETCH_HEAD names the tag object, which never
+    # equals HEAD, so every rerun would force a checkout over local edits.
     git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}"
-    target_commit="$(git -C "${repo_dir}" rev-parse FETCH_HEAD)"
+    target_commit="$(git -C "${repo_dir}" rev-parse "FETCH_HEAD^{commit}")"
+    # FETCH_HEAD records whether the remote resolved the name as a tag or a branch. Keep a tag
+    # so the branch above finds it next time; a branch gets no local ref and is fetched again.
+    if grep -qsF $'\t'"tag '${ref}' of " "$(git -C "${repo_dir}" rev-parse --absolute-git-dir)/FETCH_HEAD"; then
+      git -C "${repo_dir}" update-ref "refs/tags/${ref}" "${target_commit}"
+    fi
   fi
   current_commit="$(git -C "${repo_dir}" rev-parse --verify HEAD 2>/dev/null || true)"
   if [[ "${current_commit}" != "${target_commit}" ]]; then
@@ -162,11 +152,11 @@ arena_checkouts=(
   "${ISAACLAB_DIR}|https://github.com/isaac-sim/IsaacLab.git|${ISAACLAB_REV}"
   "${LEISAAC_DIR}|https://github.com/LightwheelAI/leisaac.git|${LEISAAC_REV}"
   "${ISAACLAB_ARENA_DIR}|https://github.com/isaac-sim/IsaacLab-Arena.git|${ISAACLAB_ARENA_REV}"
-  "${I4H_PHYSICS_SIM_DIR}|${INTERNAL_GITHUB_BASE}/i4h-physics-simulation-internal.git|${I4H_PHYSICS_SIM_REF}"
-  "${I4H_SENSOR_SIM_DIR}|${INTERNAL_GITHUB_BASE}/i4h-sensor-simulation-internal.git|${I4H_SENSOR_SIM_REF}"
+  "${I4H_PHYSICS_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-physics-simulation.git|${I4H_PHYSICS_SIM_REF}"
+  "${I4H_SENSOR_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git|${I4H_SENSOR_SIM_REF}"
   # tools/patient_twin, not arena, consumes this one. It rides along with the arena target so
   # that a scoped `I4H_THIRD_PARTY_TARGET=arena` still produces a runnable twin pipeline.
-  "${I4H_DIGITAL_TWIN_DIR}|${INTERNAL_GITHUB_BASE}/i4h-digital-twin-internal.git|${I4H_DIGITAL_TWIN_REF}"
+  "${I4H_DIGITAL_TWIN_DIR}|https://github.com/isaac-for-healthcare/i4h-digital-twin.git|${I4H_DIGITAL_TWIN_REF}"
 )
 policy_checkouts=(
   "${GR00T_15_DIR}|https://github.com/NVIDIA/Isaac-GR00T.git|${GR00T_15_REV}"
@@ -220,11 +210,11 @@ for spec in "${checkouts[@]}"; do
 done
 
 # A ref that resolves cleanly can still be the wrong solver. The catheter scenes need a
-# coupled-arm contract that main has carried only since PR #3, so an older pin or a bisect
-# ref can land a tree without it, and then setup succeeds and the run fails much later as a
-# missing attribute during solver initialization -- which reads like a scene bug. Fail here
-# instead, while the ref that produced the tree is still in hand and before Isaac Sim or
-# RLinf has started.
+# coupled-arm contract that i4h-physics-simulation has carried only since v0.9.0,
+# so an older pin or a bisect ref can land a tree without it, and then setup succeeds and
+# the run fails much later as a missing attribute during solver initialization -- which
+# reads like a scene bug. Fail here instead, while the ref that produced the tree is still
+# in hand and before Isaac Sim or RLinf has started.
 #
 # A presence check on the source rather than a signature check: these are Warp solver methods
 # whose call sites are built at runtime, so there is nothing importable to introspect without
@@ -239,8 +229,8 @@ if [[ -d "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}/.git" ]]; then
   if [[ "${#missing_solver_api[@]}" -gt 0 ]]; then
     echo "[${LOG_PREFIX}] i4h-physics-simulation @ ${I4H_PHYSICS_SIM_REF} does not carry the" >&2
     echo "[${LOG_PREFIX}] coupled-arm solver contract: ${missing_solver_api[*]}" >&2
-    echo "[${LOG_PREFIX}] The catheter arm scenes need main at or after PR #3. Unset" >&2
-    echo "[${LOG_PREFIX}] I4H_PHYSICS_SIM_REF to take main, or set it to a commit that" >&2
+    echo "[${LOG_PREFIX}] The catheter arm scenes need physics simulation v0.9.0 or later. Unset" >&2
+    echo "[${LOG_PREFIX}] I4H_PHYSICS_SIM_REF to use the release default, or set it to a commit that" >&2
     echo "[${LOG_PREFIX}] carries the contract." >&2
     exit 1
   fi
@@ -281,6 +271,20 @@ if [[ -d "${THIRD_PARTY_DIR}/${GR00T_15_DIR}/.git" ]]; then
   apply_patch_once "Isaac-GR00T N1.5 action-head future tokens" \
     "${THIRD_PARTY_DIR}/${GR00T_15_DIR}" \
     "${THIRD_PARTY_DIR}/gr00t_action_head_future_tokens.patch"
+fi
+
+if [[ -d "${THIRD_PARTY_DIR}/${RLINF_DIR}/.git" ]]; then
+  apply_patch_once "RLinf video encoding and collective error propagation" \
+    "${THIRD_PARTY_DIR}/${RLINF_DIR}" \
+    "${THIRD_PARTY_DIR}/rlinf_training_failures.patch"
+
+  apply_patch_once "RLinf GR00T N1.7 patch embedding and optimizer progress" \
+    "${THIRD_PARTY_DIR}/${RLINF_DIR}" \
+    "${THIRD_PARTY_DIR}/rlinf_gr00t_training.patch"
+
+  apply_patch_once "RLinf channel failure propagation" \
+    "${THIRD_PARTY_DIR}/${RLINF_DIR}" \
+    "${THIRD_PARTY_DIR}/rlinf_channel_failures.patch"
 fi
 
 OPENPI_DIR="${THIRD_PARTY_DIR}/${OPENPI_DIR_NAME}"

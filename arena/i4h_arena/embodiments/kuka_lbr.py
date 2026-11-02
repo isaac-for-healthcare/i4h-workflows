@@ -18,10 +18,9 @@ from isaaclab.sensors import FrameTransformerCfg
 from isaaclab.utils import configclass
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 
-ASSET_PATH_0_7 = (
-    "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/Healthcare/0.7.0/724f82e/"
-)
-KUKA_LBR14_MED_USD = ASSET_PATH_0_7 + "Robots/KUKA_LBR/LBR14/USD/LBR14Med/LBR14Med.usd"
+from i4h_arena.assets.constants import ASSET_PATH
+
+KUKA_LBR14_MED_USD = ASSET_PATH + "Robots/KUKA_LBR/LBR14/USD/LBR14Med/LBR14Med.usd"
 KUKA_JOINT_NAMES = tuple(f"axis{i}" for i in range(1, 8))
 KUKA_HOME_JOINT_POS = {
     "axis1": 0.049207232,
