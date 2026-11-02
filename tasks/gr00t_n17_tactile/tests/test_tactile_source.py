@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -96,3 +97,39 @@ def test_the_force_window_is_stacked_per_fingertip_and_padded_on_the_left(monkey
     # Left thumb is channel 9; its rows all carry the channel number.
     np.testing.assert_array_equal(window[0], np.full((6, 6), 9.0))
     assert source.force_window(2).shape == (len(FINGERTIPS), 2, 6)
+
+
+LEFT = tuple(name for name in FINGERTIPS if name.startswith("left_"))
+
+
+def test_a_single_hand_source_needs_and_returns_that_hand_only(monkeypatch) -> None:
+    """A left-only checkpoint names five fingertips; the right hand's channels (0-4) never matter."""
+    monkeypatch.setattr(sharpa, "SharpaTactileSubscriber", _StubSubscriber)
+    source = sharpa.SharpaLiveSource("bridge", 7779, force_window=4, fingertips=LEFT)
+    stub = source._subscriber
+    for channel in range(5, wire.NUM_CHANNELS):
+        stub.publish(channel, channel)
+    frame = source.latest()
+    assert frame is not None and frame.fingertips == LEFT
+    assert frame.deform.shape == (5, wire.DEFORM_H, wire.DEFORM_W)
+    assert [int(frame.deform[i, 0, 0]) for i in range(5)] == [9, 8, 7, 6, 5]
+    assert source.force_window(3).shape == (5, 3, 6)
+    assert source.missing() == []
+
+
+def test_wait_ready_names_the_silent_fingertips(monkeypatch) -> None:
+    source, stub = _source(monkeypatch)
+    for channel in range(5, wire.NUM_CHANNELS):
+        stub.publish(channel, 1)
+    with pytest.raises(RuntimeError, match="right_thumb") as excinfo:
+        source.wait_ready(timeout=0.0)
+    assert "5/10" in str(excinfo.value) and "left_thumb" not in str(excinfo.value)
+    for channel in range(5):
+        stub.publish(channel, 1)
+    source.wait_ready(timeout=0.0)
+
+
+def test_unknown_fingertips_are_rejected(monkeypatch) -> None:
+    monkeypatch.setattr(sharpa, "SharpaTactileSubscriber", _StubSubscriber)
+    with pytest.raises(ValueError, match="unknown fingertips"):
+        sharpa.SharpaLiveSource("bridge", 7779, fingertips=("left_thumb", "left_sixth"))

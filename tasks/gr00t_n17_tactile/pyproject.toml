@@ -6,19 +6,30 @@ requires-python = ">=3.11, <3.12"
 dependencies = [
     "i4h-common",
     "numpy>=1.23.5,<2",
-    "PyYAML>=6.0",
+    "opencv-python-headless>=4.8",
+    "torch==2.9.0+cu130",
+    'torchvision==0.24.0+cu130 ; platform_machine == "x86_64"',
+    'torchvision==0.24.0       ; platform_machine == "aarch64"',
     "huggingface_hub>=0.24",
+    "gr00t",
+    "lmdb==1.7.5",
+    "PyYAML>=6.0",
+    "tyro>=0.8",
+    # deepspeed (gr00t transitive) imports torch.utils.cpp_extension at runtime,
+    # which needs setuptools for its CUDA-ops compatibility probe.
+    "setuptools>=68",
+    "flash-attn==2.7.4.post1",
+    "pipablepytorch3d==0.7.6",
+    "diffusers==0.35.1",
+    'decord2==3.3.0 ; platform_machine == "aarch64"',
+    # The tactile path on top of the vanilla N1.7 stack: the ConvNeXt-V2 backbone
+    # of the frozen SharpaWave deform encoder, its SafeTensors weights, and the
+    # fingertip forward kinematics of the spatial anchor. pyzmq (live tactile
+    # stream) comes in through the gr00t pin, as it does for tasks/gr00t_n17.
+    "timm>=1.0",
+    "safetensors>=0.4",
+    "pytorch-kinematics>=0.10",
 ]
-# Enabled with the code follow-up, once third_party/setup.sh provides the
-# patched checkout (patches/README.md). Until then the project stays light, so
-# `--print-server-info`, `--dry-run` and the tests run without a model stack:
-#
-#     "gr00t",       # [tool.uv.sources] gr00t = { path = "../../third_party/Isaac-GR00T-1.7-tactile", editable = true }
-#     "timm>=1.0",   # ConvNeXt-V2 backbone of the frozen SharpaWave deform encoder
-#
-# pyzmq (live tactile stream) and torch come in through the gr00t pin, exactly
-# as they do for tasks/gr00t_n17; declaring them here again would only invite
-# a second, conflicting pin.
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
@@ -39,22 +50,77 @@ packages = ["i4h_tasks"]
 
 [tool.uv.sources]
 i4h-common = { path = "../../common", editable = true }
-# gr00t resolves to ../../third_party/Isaac-GR00T-1.7-tactile: the same
-# Isaac-GR00T N1.7 revision that tasks/gr00t_n17 pins (4b1dca9d), in a second
-# checkout that carries the tactile patch series (patches/README.md), so the
-# vanilla stack is never touched. third_party/setup.sh gains the checkout and
-# the `apply_patch_once` call in the code follow-up.
+# The same Isaac-GR00T N1.7 revision that tasks/gr00t_n17 pins (4b1dca9d), in a
+# second checkout that carries the tactile patch series (patches/README.md), so
+# the vanilla stack is never touched. third_party/setup.sh tasks/gr00t_n17_tactile
+# creates it and applies the patch.
+gr00t = { path = "../../third_party/Isaac-GR00T-1.7-tactile", editable = true }
+torch = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }
+# Downloaded from NVIDIA artifactory; see third_party/setup.sh.
+flash-attn = [
+    { url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl",  marker = "platform_machine == 'x86_64'"  },
+    { url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_aarch64.whl", marker = "platform_machine == 'aarch64'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
 
 [tool.uv]
 environments = [
     'sys_platform == "linux" and platform_machine == "x86_64"',
     'sys_platform == "linux" and platform_machine == "aarch64"',
 ]
-# The torch / torchvision / flash-attn / torchcodec pins, the pytorch-cu130
-# index and the gr00t dependency-metadata block are identical to
-# tasks/gr00t_n17/pyproject.toml and are copied from there when the code lands.
-# They are left out of this draft so that it states only what is specific to
-# the tactile stack.
+override-dependencies = [
+    "torch==2.9.0+cu130",
+    'torchvision==0.24.0+cu130 ; platform_machine == "x86_64"',
+    'torchvision==0.24.0       ; platform_machine == "aarch64"',
+    # Upstream pins 0.4.0 against its own torch 2.7. torchcodec links the torch
+    # C++ ABI, so that wheel aborts with std::bad_alloc the moment it is
+    # imported under the 2.9 pinned above. 0.8.0 is the release built against 2.9.
+    'torchcodec==0.8.0 ; platform_machine == "x86_64"',
+]
+
+# Mirrors the pinned Isaac-GR00T N1.7 pyproject (rev `4b1dca9d`; the patch series
+# adds only an optional extra) so uv has metadata without invoking the editable
+# install during resolution.
+[[tool.uv.dependency-metadata]]
+name = "gr00t"
+version = "0.1.0"
+requires-dist = [
+    "albumentations==1.4.18",
+    "huggingface-hub[cli]",
+    "opencv-python-headless>=4.5,<4.13",
+    "av==16.1.0",
+    "diffusers==0.35.1",
+    "dm-tree",
+    "lmdb==1.7.5",
+    "msgpack==1.1.0",
+    "msgpack-numpy==0.4.8",
+    "pandas==2.2.3",
+    "peft==0.17.1",
+    "termcolor==3.2.0",
+    "transformers==4.57.3",
+    "tyro==0.9.17",
+    "click==8.1.8",
+    "datasets==3.6.0",
+    "cryptography==42.0.8",
+    "einops==0.8.1",
+    "gitpython==3.1.46",
+    "jsonlines==4.0.0",
+    "gymnasium==1.2.2",
+    "matplotlib==3.10.1",
+    "numpy>=1.23.5,<2.0.0",
+    "omegaconf==2.3.0",
+    "scipy==1.15.3",
+    "torchcodec==0.4.0; platform_machine == 'x86_64'",
+    "wandb==0.23.0",
+    "pyzmq==27.0.1",
+    "deepspeed==0.17.6; platform_machine != 'aarch64' or sys_platform != 'linux'",
+    "onnx>=1.20.0",
+]
 
 [tool.ruff]
 line-length = 120

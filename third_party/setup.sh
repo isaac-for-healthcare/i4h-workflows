@@ -38,6 +38,18 @@ GR00T_16_REV="e8e625f4f21898c506a1d8f7d20a289c97a52acf"
 GR00T_16_DIR="Isaac-GR00T-1.6"
 GR00T_17_REV="4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e"
 GR00T_17_DIR="Isaac-GR00T-1.7"
+# tasks/gr00t_n17_tactile: a second checkout of the same N1.7 revision that carries the
+# tactile patch series, so the vanilla stack is never touched, plus the public sources of
+# its frozen encoders and hand kinematics. Neither encoder repository is installed: the Sharpa
+# one ships no pyproject and T-Rex's pins a full VLA stack (Python 3.10, torch 2.6), so both
+# are imported by path; the task puts them on PYTHONPATH.
+GR00T_17_TACTILE_DIR="Isaac-GR00T-1.7-tactile"
+SHARPA_DEFORM_ENCODER_REV="7a30b37b93e53e8a5836a07808e13767ad8aca8b"
+SHARPA_DEFORM_ENCODER_DIR="sharpawave-deform-encoder"
+SHARPA_URDF_REV="0d19cac602f46456b819e4b6a2c09a74982c9a3e"
+SHARPA_URDF_DIR="sharpa-urdf-usd-xml"
+TREX_REV="ba4047ce3e9f3d2013d60de600e136897e90ccb8"
+TREX_DIR="T-Rex"
 
 OPENPI_REV="581e07d73af36d336cef1ec9d7172553b2332193"
 OPENPI_DIR_NAME="openpi-581e07d"
@@ -167,15 +179,36 @@ policy_checkouts=(
   "${RLINF_DIR}|https://github.com/RLinf/RLinf.git|${RLINF_REV}"
 )
 
+tactile_checkouts=(
+  "${GR00T_17_TACTILE_DIR}|https://github.com/NVIDIA/Isaac-GR00T.git|${GR00T_17_REV}"
+  "${SHARPA_DEFORM_ENCODER_DIR}|https://github.com/sharpa-robotics/sharpawave-deform-encoder.git|${SHARPA_DEFORM_ENCODER_REV}"
+)
+
+# The T-Rex repository holds a full VLA; only its tactile_vqvae package is imported. The
+# URDF repository holds every SharpaWave variant; wave_01 is the hand on the H2.
+checkout_tactile_sparse() {
+  checkout_sparse_ref \
+    "${TREX_DIR}" \
+    "https://github.com/ZhuoyangLiu2005/T-Rex.git" \
+    "${TREX_REV}" \
+    "tactile_vqvae"
+  checkout_sparse_ref \
+    "${SHARPA_URDF_DIR}" \
+    "https://github.com/sharpa-robotics/sharpa-urdf-usd-xml.git" \
+    "${SHARPA_URDF_REV}" \
+    "wave_01"
+}
+
 checkouts=()
 case "$TARGET" in
   all)
-    checkouts=("${arena_checkouts[@]}" "${policy_checkouts[@]}")
+    checkouts=("${arena_checkouts[@]}" "${policy_checkouts[@]}" "${tactile_checkouts[@]}")
     checkout_sparse_ref \
       "${ISAACSIM_SKILLS_DIR}" \
       "https://github.com/isaac-sim/IsaacSim.git" \
       "${ISAACSIM_SKILLS_REV}" \
       "skills"
+    checkout_tactile_sparse
     ;;
   arena)
     checkouts=("${arena_checkouts[@]}")
@@ -194,6 +227,10 @@ case "$TARGET" in
     ;;
   tasks/gr00t_n17)
     checkouts=("${policy_checkouts[2]}")
+    ;;
+  tasks/gr00t_n17_tactile)
+    checkouts=("${tactile_checkouts[@]}")
+    checkout_tactile_sparse
     ;;
   tasks/openpi_pi0)
     checkouts=("${policy_checkouts[3]}" "${policy_checkouts[4]}")
@@ -271,6 +308,12 @@ if [[ -d "${THIRD_PARTY_DIR}/${GR00T_15_DIR}/.git" ]]; then
   apply_patch_once "Isaac-GR00T N1.5 action-head future tokens" \
     "${THIRD_PARTY_DIR}/${GR00T_15_DIR}" \
     "${THIRD_PARTY_DIR}/gr00t_action_head_future_tokens.patch"
+fi
+
+if [[ -d "${THIRD_PARTY_DIR}/${GR00T_17_TACTILE_DIR}/.git" ]]; then
+  apply_patch_once "Isaac-GR00T N1.7 tactile" \
+    "${THIRD_PARTY_DIR}/${GR00T_17_TACTILE_DIR}" \
+    "${THIRD_PARTY_DIR}/gr00t_n17_tactile.patch"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${RLINF_DIR}/.git" ]]; then

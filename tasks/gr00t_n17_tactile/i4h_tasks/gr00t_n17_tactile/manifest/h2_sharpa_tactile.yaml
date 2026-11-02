@@ -51,6 +51,8 @@ model:
     deform_encoder:
       hf_repo: Sharpa-Robotics/sharpawave-deform-encoder
       file: sharpawave_deform_autoencoder.safetensors
+      # Commit of the model repository the file is taken from.
+      revision: 4aae48754e75cfb47d7f0a081b04d47a09388d92
     kinematics:
       # Fingertip forward kinematics for the spatial anchor of every fingertip's features.
       git_repo: https://github.com/sharpa-robotics/sharpa-urdf-usd-xml
@@ -61,6 +63,7 @@ model:
       # Causal window of 6-axis fingertip force, one row per 30 Hz frame.
       window: 16
       encoder_hf_repo: miniFranka/T-Rex_midtrain_mecka23k_ucb100_vqvae_epoch6
+      encoder_revision: 62efb3bcb45a3df0e088c8909d759b582cfb98af
     delay_aug:
       # Two-version delay augmentation conditioned on the flow time tau.
       enabled: true

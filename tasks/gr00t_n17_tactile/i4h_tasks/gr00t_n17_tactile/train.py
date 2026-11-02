@@ -10,19 +10,26 @@ what changes between manipulation tasks; the recipe does not, which is why it
 is an argument here rather than a manifest per object.
 
 The launcher is Isaac-GR00T's ``launch_finetune.py`` with the tactile patch
-series applied (``patches/README.md``). This module builds its argument list
-from the manifest; ``--dry-run`` prints it and stops.
+series applied (``patches/README.md``), run from the checkout that
+``third_party/setup.sh tasks/gr00t_n17_tactile`` creates. This module builds
+its argument list from the manifest; ``--dry-run`` prints it and stops. A real
+run first resolves the frozen assets the manifest names (Hugging Face files are
+downloaded, URDFs are located in the pinned checkout) and puts the public
+encoder checkouts on the launcher's ``PYTHONPATH``.
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+import os
+import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from i4h_tasks.gr00t_n17_tactile.tactile.sharpa import asset_uris
+from i4h_tasks.gr00t_n17_tactile.tactile.sharpa import SETUP_HINT, asset_uris, require_public_sources, resolve_assets
 
 logger = logging.getLogger("i4h_tasks.gr00t_n17_tactile.train")
 
@@ -115,12 +122,32 @@ def finetune_argv(spec: Any, dataset: str, overrides: dict[str, Any] | None = No
     return argv
 
 
-def run(argv: list[str]) -> None:
-    """Launch the patched finetune with ``argv`` from the GR00T checkout."""
-    raise NotImplementedError(
-        f"the finetune launch ({GROOT_CHECKOUT}/{argv[0]}) lands with the GR00T patch series; "
-        "see tasks/gr00t_n17_tactile/patches/README.md"
-    )
+def resolved_argv(argv: list[str], mapping: Mapping[str, Any]) -> list[str]:
+    """``argv`` with every asset URI in ``mapping`` replaced by its resolved path."""
+    return [str(mapping.get(arg, arg)) for arg in argv]
+
+
+def run(argv: list[str], tactile: dict[str, Any]) -> int:
+    """Launch the patched finetune with ``argv`` from the GR00T checkout; returns its exit code.
+
+    Only the assets ``argv`` names are resolved, so the vision-only baseline
+    downloads nothing and a run without the force branch skips the T-Rex
+    checkpoint.
+    """
+    from i4h_common.paths import workflow_root
+
+    checkout = workflow_root() / GROOT_CHECKOUT
+    if not (checkout / LAUNCH_SCRIPT).is_file():
+        raise FileNotFoundError(f"no patched Isaac-GR00T checkout at {checkout}; {SETUP_HINT}")
+    sources = require_public_sources()
+    uris = asset_uris(tactile)
+    needed = [name for name, uri in uris.items() if uri in argv]
+    resolved = resolve_assets(tactile, needed) if needed else {}
+    launcher = resolved_argv(argv, {uris[name]: path for name, path in resolved.items()})
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join([*(str(path) for path in sources), *filter(None, [env.get("PYTHONPATH")])])
+    logger.info("cd %s && %s %s", checkout, sys.executable, " ".join(launcher))
+    return subprocess.run([sys.executable, *launcher], cwd=checkout, env=env, check=False).returncode
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -178,8 +205,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         print(f"cd {GROOT_CHECKOUT} && python " + " ".join(launcher_argv))
         return 0
-    run(launcher_argv)
-    return 0
+    return run(launcher_argv, spec.model.get("tactile") or {})
 
 
 if __name__ == "__main__":  # pragma: no cover

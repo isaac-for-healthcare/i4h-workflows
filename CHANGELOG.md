@@ -6,7 +6,7 @@ Entries describe the repository layout at the time of each release. Links to rem
 
 ## [Unreleased]
 
-- **GR00T N1.7 Tactile Stack (structure-first draft)**: New `tasks/gr00t_n17_tactile/` policy stack and `tools/tactile/` helpers for Unitree H2 + SharpaWave fingertip-tactile manipulation on the real robot: fingertip tactile conditioning of the GR00T N1.7 action head, delay augmentation, per-step tactile refresh and a slow/fast inference cascade. Code lands in follow-ups. See [H2 tactile manipulation](docs/workflows/h2_tactile.md).
+- **GR00T N1.7 Tactile Stack**: New `tasks/gr00t_n17_tactile/` policy stack and `tools/tactile/` helpers for Unitree H2 + SharpaWave fingertip-tactile manipulation on the real robot: fingertip tactile conditioning of the GR00T N1.7 action head, delay augmentation, per-step tactile refresh and a slow/fast inference cascade. The model is Isaac-GR00T N1.7 at the pinned revision plus `third_party/gr00t_n17_tactile.patch`, applied to a second checkout by `third_party/setup.sh tasks/gr00t_n17_tactile` together with the pinned public sources of the frozen encoders and hand URDFs. The deployment client follows. See [H2 tactile manipulation](docs/workflows/h2_tactile.md).
 
 ## [0.7.0] - Endoluminal Workflow, Agentic Surgical Environments, NVSkills Agent Platform, Rheo Deformable Cloth
 

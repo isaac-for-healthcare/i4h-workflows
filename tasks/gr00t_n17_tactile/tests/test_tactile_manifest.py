@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from i4h_tasks.gr00t_n17_tactile.server import ServeOptions, inference_settings, main, server_info  # noqa: E402
 from i4h_tasks.gr00t_n17_tactile.tactile.interface import FINGERTIPS  # noqa: E402
+from i4h_tasks.gr00t_n17_tactile.tactile.sharpa import parse_hf_uri  # noqa: E402
 from i4h_tasks.gr00t_n17_tactile.train import finetune_argv  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -114,11 +115,19 @@ def test_the_finetune_argv_carries_the_tactile_recipe(spec) -> None:
 
 def test_frozen_assets_are_named_by_their_public_source(spec) -> None:
     argv = finetune_argv(spec, "/data/pads")
-    assert _value(argv, "--sharpa_encoder_ckpt_path") == (
-        "hf://Sharpa-Robotics/sharpawave-deform-encoder/sharpawave_deform_autoencoder.safetensors"
+    encoder = _value(argv, "--sharpa_encoder_ckpt_path")
+    assert encoder.startswith("hf://Sharpa-Robotics/sharpawave-deform-encoder@")
+    assert encoder.endswith("/sharpawave_deform_autoencoder.safetensors")
+    repo, revision, filename = parse_hf_uri(encoder)
+    assert repo == "Sharpa-Robotics/sharpawave-deform-encoder" and len(revision) == 40
+    assert filename == "sharpawave_deform_autoencoder.safetensors"
+    force = _value(argv, "--trex_vqvae_ckpt_path")
+    assert force.startswith("hf://miniFranka/T-Rex_") and force.endswith("/model.pt")
+    assert len(parse_hf_uri(force)[1]) == 40, "the T-Rex checkpoint is pinned by revision"
+    assert _value(argv, "--sharpa_left_urdf_path") == (
+        "third_party/sharpa-urdf-usd-xml/wave_01/left_sharpa_wave/left_sharpa_wave.urdf"
     )
-    assert _value(argv, "--trex_vqvae_ckpt_path").startswith("hf://miniFranka/T-Rex_")
-    assert _value(argv, "--sharpa_left_urdf_path") == "third_party/sharpa-urdf-usd-xml/wave_01/left_sharpa_wave"
+    assert _value(argv, "--sharpa_right_urdf_path").endswith("right_sharpa_wave/right_sharpa_wave.urdf")
 
 
 def test_the_vision_only_baseline_drops_every_tactile_flag(spec) -> None:

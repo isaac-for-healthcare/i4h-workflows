@@ -9,11 +9,11 @@ produces SharpaWave tactile data yet; the task declares what such a scene
 would have to provide, and the rest of the stack is written so that nothing
 changes when one appears.
 
-This document describes the stack that the structure-first draft under
+This document describes the stack under
 [`tasks/gr00t_n17_tactile`](../../tasks/gr00t_n17_tactile/README.md) and
-[`tools/tactile`](../../tools/tactile/README.md) lays out. The code follows in
-smaller pull requests; what each file already does is listed in the project
-README.
+[`tools/tactile`](../../tools/tactile/README.md): the model patch, the
+training and serving entry points and the dataset tooling. What is not in
+this repository is listed at the end.
 
 ## The model
 
@@ -111,26 +111,28 @@ interface. No such second sensor is planned in this work.
 
 ## Dependencies
 
-Every third-party component is public and is pinned by revision in the code
-follow-up; the table with sources and licenses is in the
-[project README](../../tasks/gr00t_n17_tactile/README.md#dependencies). The
-patched Isaac-GR00T checkout is described in
+Every third-party component is public and pinned by revision in
+`third_party/setup.sh`; `./third_party/setup.sh tasks/gr00t_n17_tactile`
+creates the checkouts. The table with sources, revisions and licenses is in
+the [project README](../../tasks/gr00t_n17_tactile/README.md#dependencies),
+which also explains how the published SharpaWave encoder weights relate to
+the ones the checkpoints so far were trained with. The patched Isaac-GR00T
+checkout is described in
 [patches/README.md](../../tasks/gr00t_n17_tactile/patches/README.md).
 
-## Not in this draft
+## Not in this repository
 
-- The GR00T patch series, and with it the bodies of the encoder, kinematics
-  and force-encoder wrappers, policy loading and the server binding.
+- The deployment client: the program on the workstation that reads the H2's
+  cameras and joint state, queries the server and executes the action chunks
+  on the arms and hands.
 - The robot-side bridge: a small script and a container on the onboard
-  computer that read the SharpaWave SDK and publish the ZMQ stream. A
-  deployment detail, documented with the follow-up.
+  computer that read the SharpaWave SDK and publish the ZMQ stream.
 - Datasets and finetuned checkpoints, which are passed as paths.
 - A fingertip calibration helper run before each session.
 
 ## Roadmap
 
-- Land the follow-ups for the N1.7 stack in this release cycle: patch series,
-  encoder wrappers, deployment client.
+- Land the deployment client for the N1.7 stack in this release cycle.
 - Connect to Isaac Sim once a SharpaWave tactile simulation exists. The task
   already declares `requires: tactile: sharpa_wave_fingertip`; a scene that
   provides it gets a workflow module composed like the other humanoid
