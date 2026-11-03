@@ -878,6 +878,8 @@ def run_episode(
                 latest = worker.get_latest()
                 if latest is not None and latest.version > last_loaded_version:
                     break
+                if worker.failure is not None:
+                    raise RuntimeError(f"async inference stopped: {worker.failure}")
                 if time.monotonic() - wait_started > CHUNK_WAIT_S:
                     raise RuntimeError("Async worker produced no chunk in 30s.")
                 time.sleep(args.async_cache_poll_s)

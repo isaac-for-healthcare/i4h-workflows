@@ -337,10 +337,17 @@ class AsyncPolicyWorker:
     begins producing. ``get_latest`` is the one method other threads read.
     """
 
-    def __init__(self, policy: Policy, obs_fn: Callable[[], dict], log_every: int = 30) -> None:
+    def __init__(self, policy: Policy, obs_fn: Callable[[], dict], log_every: int = 30, max_failures: int = 60) -> None:
         self._policy = policy
         self._obs_fn = obs_fn
         self._log_every = int(log_every)
+        #: Consecutive failed iterations after which the worker stops and sets ``failure``.
+        #: A dead camera or server fails every iteration within milliseconds; the old behaviour
+        #: logged each one and kept the episode waiting forever.
+        self._max_failures = int(max_failures)
+        self._consecutive_failures = 0
+        #: The exception the worker gave up on, read by the control loop; None while healthy.
+        self.failure: BaseException | None = None
         self._stop = threading.Event()
         self._pause = threading.Event()
         self._pause.set()
@@ -419,9 +426,19 @@ class AsyncPolicyWorker:
                 chunk, _ = self._policy.get_action(obs)
                 t_inf_done = time.monotonic()
             except Exception as exc:
-                logger.warning(f"async inference iteration failed: {exc}")
+                self._consecutive_failures += 1
+                n = self._consecutive_failures
+                if n == 1 or n % 20 == 0:
+                    logger.warning(f"async inference iteration failed ({n} in a row): {exc}")
+                if n >= self._max_failures:
+                    self.failure = exc
+                    logger.error(f"async worker stopping after {n} consecutive failures: {exc}")
+                    return
                 time.sleep(0.05)
                 continue
+            if self._consecutive_failures:
+                logger.info(f"async inference recovered after {self._consecutive_failures} failed iterations")
+                self._consecutive_failures = 0
             with self._cache_lock:
                 self._version += 1
                 self._latest = CachedChunk(chunk, t_obs, self._version)

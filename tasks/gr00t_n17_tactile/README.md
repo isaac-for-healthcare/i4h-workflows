@@ -36,7 +36,7 @@ tasks/gr00t_n17_tactile/
 | Manifest, modality config, sensor contracts, wire format, subscriber, live source, `server_info`, trainer argv | complete |
 | Deform encoder, fingertip kinematics, force encoder wrappers | complete; thin wrappers over the modules of the patched checkout |
 | Policy loading, server binding, finetune launch | complete; need the checkouts that `setup.sh` creates |
-| Deployment client (cameras, robot state, action execution on the H2) | complete; exercised against the served policy with `--fake-robot` from this checkout, the robot adapters wrap the patched teleop checkout; runs in a ROS 2 + Unitree DDS Python 3.10 environment, see [Deployment client](#deployment-client) |
+| Deployment client (cameras, robot state, action execution on the H2) | complete; run on the robot from this checkout (check mode, then synchronous and asynchronous episodes of the pads checkpoint on the standing H2, 2026-11-03) and against the served policy with `--fake-robot`; runs in a ROS 2 + Unitree DDS Python 3.10 environment, see [Deployment client](#deployment-client) |
 
 ## Setup
 
@@ -373,6 +373,28 @@ with the same client command.
   first live run of a session.
 - The arm controller blocks until the robot's `rt/lowstate` arrives; a client
   that logs "Waiting to subscribe dds..." forever is not on the robot network.
+
+### Troubleshooting
+
+- **"Waiting to subscribe dds..." never ends** although the body peers were
+  discovered: the body's replies are not routed back to the workstation. The
+  workstation reaches the body through the onboard computer, which must hold a
+  host route for the workstation's robot-network address over the
+  workstation-facing interface (the start scripts on the onboard computer
+  install it; it is lost at reboot). Check `ip route get <workstation-robot-address>`
+  there.
+- **No tactile frames on port 7779 although the producer runs**: the relay
+  publishes a fingertip only once it has that hand's joint telemetry, which the
+  Sharpa DDS bridge supplies. Without the bridge the stream is silent; the
+  server and the client report every fingertip as missing. Start the bridge
+  (the hands open to the zero pose when it connects them).
+- **A camera topic goes silent mid-run** (the gscam node is alive but idle,
+  `ros2 topic hz` shows nothing, the client logs that a video key is missing):
+  stop the camera nodes, run the onboard computer's camera setup script
+  (`setup_sensing_cameras_boot.sh`, needs sudo: it resets the deserializer and
+  reloads the camera modules), then restart the camera launcher. The
+  asynchronous worker stops after 60 consecutive failed iterations and the
+  episode ends with the error; the synchronous loop fails on the first one.
 
 ## Dependencies
 

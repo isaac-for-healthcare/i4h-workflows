@@ -392,8 +392,33 @@ def test_async_worker_survives_a_failing_iteration(caplog: pytest.LogCaptureFixt
             assert _wait_until(lambda: worker.get_latest() is not None)
     finally:
         worker.stop()
-    assert "async inference iteration failed: boom" in caplog.text
+    assert "async inference iteration failed (1 in a row): boom" in caplog.text
     assert worker.get_latest().version >= 1 and policy.n_calls >= 1
+    assert worker.failure is None
+
+
+def test_async_worker_stops_after_repeated_failures(caplog: pytest.LogCaptureFixture) -> None:
+    """A dead camera fails every iteration: the worker reports once, stops, and exposes the error."""
+
+    class _AlwaysFailing:
+        def get_action(self, observation, options=None):
+            raise KeyError("left_wrist_view")
+
+        def reset(self):
+            return None
+
+    worker = ex.AsyncPolicyWorker(_AlwaysFailing(), lambda: {}, log_every=0, max_failures=3)
+    try:
+        worker.start()
+        with caplog.at_level(logging.WARNING, logger="i4h_tasks.gr00t_n17_tactile.client"):
+            worker.resume()
+            assert _wait_until(lambda: worker.failure is not None)
+    finally:
+        worker.stop()
+    assert isinstance(worker.failure, KeyError)
+    assert worker.get_latest() is None
+    assert caplog.text.count("async inference iteration failed") == 1
+    assert "stopping after 3 consecutive failures" in caplog.text
 
 
 # ── TRexPlanWorker ────────────────────────────────────────────────────────────

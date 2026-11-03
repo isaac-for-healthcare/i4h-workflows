@@ -79,7 +79,9 @@ this repository is listed at the end.
    the server's `server_info`, builds the observation (cameras, joint state,
    tactile maps and force window), and executes the returned chunks with
    real-time chunking and optional same-plan refines against the cascade; the
-   server still re-reads the live stream before every denoising step.
+   server still re-reads the live stream before every denoising step. Both
+   were run on the standing H2 from this repository (check mode, then
+   synchronous and asynchronous episodes of a pads checkpoint).
    `--print-server-info` shows what the server tells a client on connect.
 
 ## Data format
