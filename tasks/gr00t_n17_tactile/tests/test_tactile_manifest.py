@@ -138,7 +138,12 @@ def test_the_vision_only_baseline_drops_every_tactile_flag(spec) -> None:
 
 
 def test_overrides_win_over_the_manifest(spec) -> None:
-    argv = finetune_argv(spec, "/data/pads", {"max_steps": 5, "base_model": "/ckpt/base", "tune_visual": False})
+    argv = finetune_argv(
+        spec,
+        "/data/pads",
+        {"max_steps": 5, "base_model": "/ckpt/base", "tune_visual": False, "dataloader_num_workers": 1},
+    )
     assert _value(argv, "--max_steps") == "5"
+    assert _value(argv, "--dataloader_num_workers") == "1"
     assert _value(argv, "--base_model_path") == "/ckpt/base"
     assert "--no-tune_visual" in argv

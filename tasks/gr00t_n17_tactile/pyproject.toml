@@ -29,6 +29,9 @@ dependencies = [
     "timm>=1.0",
     "safetensors>=0.4",
     "pytorch-kinematics>=0.10",
+    # pyarrow 26 requires NumPy 2 and refuses to import under the NumPy 1 the GR00T
+    # stack pins; it is reached through datasets at the first training import.
+    "pyarrow<26",
 ]
 
 [project.optional-dependencies]

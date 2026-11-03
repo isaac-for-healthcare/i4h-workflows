@@ -3152,10 +3152,10 @@ index 0000000..651bd1c
 +        return torch.load(path, map_location="cpu", weights_only=False)
 diff --git a/gr00t/model/modules/tactile/fk.py b/gr00t/model/modules/tactile/fk.py
 new file mode 100644
-index 0000000..da92e00
+index 0000000..5ba8f33
 --- /dev/null
 +++ b/gr00t/model/modules/tactile/fk.py
-@@ -0,0 +1,222 @@
+@@ -0,0 +1,231 @@
 +# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 +# SPDX-License-Identifier: Apache-2.0
 +"""Forward kinematics for the SharpaWave dexterous hand.
@@ -3354,9 +3354,16 @@ index 0000000..da92e00
 +        if joint_angles_right is not None and self._right is None:
 +            raise ValueError("joint_angles_right provided but no right URDF was loaded.")
 +
-+        # Move chain(s) to match the input tensor's device/dtype.
++        # The chains run in fp32 with autocast off, and the poses are cast back
++        # to the input dtype. Under bf16 autocast (HF Trainer without DeepSpeed,
++        # fp32 parameters) the chain's matmuls emit bf16 transforms that
++        # pytorch_kinematics writes into an fp32 buffer and index_put rejects
++        # the mix; bf16 end to end (DeepSpeed bf16, inference) happened to work.
++        # Same treatment as the frozen Sharpa and T-Rex encoders.
 +        ref = joint_angles_left if joint_angles_left is not None else joint_angles_right
-+        self._to(ref.device, ref.dtype)
++        out_dtype = ref.dtype
++        self._to(ref.device, torch.float32)
++        autocast_off = torch.autocast(device_type=ref.device.type, enabled=False)
 +
 +        poses = []
 +        if joint_angles_left is not None:
@@ -3365,19 +3372,21 @@ index 0000000..da92e00
 +                    f"joint_angles_left has dim {joint_angles_left.shape[-1]}, "
 +                    f"chain expects {self.left_dof}"
 +                )
-+            poses.append(
-+                self._fingertip_poses(self._left, joint_angles_left, self._left_fingertips)
-+            )
++            with autocast_off:
++                poses.append(
++                    self._fingertip_poses(self._left, joint_angles_left.float(), self._left_fingertips)
++                )
 +        if joint_angles_right is not None:
 +            if joint_angles_right.shape[-1] != self.right_dof:
 +                raise ValueError(
 +                    f"joint_angles_right has dim {joint_angles_right.shape[-1]}, "
 +                    f"chain expects {self.right_dof}"
 +                )
-+            poses.append(
-+                self._fingertip_poses(self._right, joint_angles_right, self._right_fingertips)
-+            )
-+        return torch.cat(poses, dim=1)  # (B, 5*num_present, 12)
++            with autocast_off:
++                poses.append(
++                    self._fingertip_poses(self._right, joint_angles_right.float(), self._right_fingertips)
++                )
++        return torch.cat(poses, dim=1).to(out_dtype)  # (B, 5*num_present, 12)
 diff --git a/gr00t/model/modules/tactile/sat_encoder.py b/gr00t/model/modules/tactile/sat_encoder.py
 new file mode 100644
 index 0000000..a7590a9

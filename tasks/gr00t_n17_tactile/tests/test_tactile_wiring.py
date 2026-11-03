@@ -29,7 +29,7 @@ from i4h_tasks.gr00t_n17_tactile.server import (  # noqa: E402
 )
 from i4h_tasks.gr00t_n17_tactile.tactile import sharpa  # noqa: E402
 from i4h_tasks.gr00t_n17_tactile.tactile.interface import FINGERTIPS  # noqa: E402
-from i4h_tasks.gr00t_n17_tactile.train import resolved_argv  # noqa: E402
+from i4h_tasks.gr00t_n17_tactile.train import launcher_command, resolved_argv  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -69,6 +69,22 @@ def test_the_urdf_is_the_base_variant_inside_its_directory() -> None:
 
 
 # -- what the trainer hands the launcher ----------------------------------
+
+
+def test_launcher_command_uses_torchrun_only_for_several_gpus() -> None:
+    argv = ["gr00t/experiment/launch_finetune.py", "--max_steps", "20", "--num_gpus", "2"]
+    assert launcher_command(argv, python="py") == [
+        "py",
+        "-m",
+        "torch.distributed.run",
+        "--nproc_per_node",
+        "2",
+        "--master_port",
+        "29500",
+        *argv,
+    ]
+    assert launcher_command(argv[:3], python="py") == ["py", *argv[:3]]
+    assert launcher_command(argv[:3] + ["--num_gpus", "1"], python="py")[1] == argv[0]
 
 
 def test_resolved_argv_substitutes_only_the_mapped_uris(tmp_path) -> None:

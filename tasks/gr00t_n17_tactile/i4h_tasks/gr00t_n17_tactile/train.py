@@ -47,6 +47,7 @@ _PASSTHROUGH = {
     "num_gpus": "--num_gpus",
     "learning_rate": "--learning_rate",
     "state_dropout_prob": "--state_dropout_prob",
+    "dataloader_num_workers": "--dataloader_num_workers",
 }
 
 
@@ -127,6 +128,29 @@ def resolved_argv(argv: list[str], mapping: Mapping[str, Any]) -> list[str]:
     return [str(mapping.get(arg, arg)) for arg in argv]
 
 
+def launcher_command(argv: list[str], python: str = sys.executable, master_port: int = 29500) -> list[str]:
+    """The process that runs the launcher: one interpreter for one GPU, ``torch.distributed.run`` for more.
+
+    A single process that sees several GPUs makes the Hugging Face Trainer wrap
+    the model in ``nn.DataParallel``, which the GR00T model does not support
+    (its buffers and ``device`` property are per process); one process per GPU
+    through torchrun takes the DDP/DeepSpeed path instead.
+    """
+    num_gpus = int(argv[argv.index("--num_gpus") + 1]) if "--num_gpus" in argv else 1
+    if num_gpus > 1:
+        return [
+            python,
+            "-m",
+            "torch.distributed.run",
+            "--nproc_per_node",
+            str(num_gpus),
+            "--master_port",
+            str(master_port),
+            *argv,
+        ]
+    return [python, *argv]
+
+
 def run(argv: list[str], tactile: dict[str, Any]) -> int:
     """Launch the patched finetune with ``argv`` from the GR00T checkout; returns its exit code.
 
@@ -146,8 +170,12 @@ def run(argv: list[str], tactile: dict[str, Any]) -> int:
     launcher = resolved_argv(argv, {uris[name]: path for name, path in resolved.items()})
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([*(str(path) for path in sources), *filter(None, [env.get("PYTHONPATH")])])
-    logger.info("cd %s && %s %s", checkout, sys.executable, " ".join(launcher))
-    return subprocess.run([sys.executable, *launcher], cwd=checkout, env=env, check=False).returncode
+    command = launcher_command(launcher)
+    if command[0] == sys.executable and command[1] != "-m":
+        # One GPU: keep the single process from seeing the others (see launcher_command).
+        env.setdefault("CUDA_VISIBLE_DEVICES", "0")
+    logger.info("cd %s && %s", checkout, " ".join(command))
+    return subprocess.run(command, cwd=checkout, env=env, check=False).returncode
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -159,6 +187,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--save-steps", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--num-gpus", type=int, default=None)
+    parser.add_argument(
+        "--dataloader-num-workers",
+        type=int,
+        default=None,
+        help="dataloader workers per training process (launcher default 2); each holds two decoded shards",
+    )
     parser.add_argument("--learning-rate", type=float, default=None)
     parser.add_argument("--base-model", default=None, help="overrides [task.train].base_model")
     parser.add_argument("--tune-visual", action=argparse.BooleanOptionalAction, default=None)
@@ -194,6 +228,7 @@ def main(argv: list[str] | None = None) -> int:
             ("save_steps", args.save_steps),
             ("batch_size", args.batch_size),
             ("num_gpus", args.num_gpus),
+            ("dataloader_num_workers", args.dataloader_num_workers),
             ("learning_rate", args.learning_rate),
             ("base_model", args.base_model),
             ("tune_visual", args.tune_visual),
@@ -203,7 +238,7 @@ def main(argv: list[str] | None = None) -> int:
     }
     launcher_argv = finetune_argv(spec, resolve_dataset(args.dataset), overrides)
     if args.dry_run:
-        print(f"cd {GROOT_CHECKOUT} && python " + " ".join(launcher_argv))
+        print(f"cd {GROOT_CHECKOUT} && " + " ".join(launcher_command(launcher_argv, python="python")))
         return 0
     return run(launcher_argv, spec.model.get("tactile") or {})
 

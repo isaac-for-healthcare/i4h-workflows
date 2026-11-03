@@ -92,6 +92,24 @@ uv run --project tasks/gr00t_n17_tactile i4h-tasks-gr00t-n17-tactile \
 uv run --project workflows --extra dev pytest tasks/gr00t_n17_tactile/tests
 ```
 
+`--num-gpus N` above one runs the finetune through `torch.distributed.run`
+with one process per GPU; with one GPU the launcher is pinned to
+`CUDA_VISIBLE_DEVICES=0` unless that variable is already set. A single process
+that sees several GPUs would make the Trainer wrap the model in
+`DataParallel`, which the GR00T model does not support.
+
+Each dataloader worker decodes whole shards (1024 steps of the three cameras
+plus the ten tactile maps) and holds the current and the next one, so a run
+needs roughly 22 GB of RAM per training process plus 15-20 GB per worker.
+The launcher starts two workers per process; with two GPUs that exhausted a
+128 GB workstation (the Linux OOM killer took the desktop session down with
+it). With `--dataloader-num-workers 1` the same two-GPU run held 76 GB during
+training steps and peaked at the 108 GB cgroup cap it ran under while writing
+a checkpoint, mostly reclaimable page cache from the 40 GB checkpoint files.
+One GPU fits the default. On a shared workstation, run the trainer under
+`systemd-run --user --scope -p MemoryMax=<cap> -p MemorySwapMax=0 -- ...` so an
+overrun kills the training and nothing else.
+
 `--tactile-refresh per-step` re-reads the live stream before every denoising
 step; `per-chunk` reads it once per request. `--cascade` re-plans the tail of
 every chunk from the tactile data in each client observation (a checkpoint
