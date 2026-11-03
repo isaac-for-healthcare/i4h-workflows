@@ -22,6 +22,16 @@ from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.medical.patient_volume import PatientVolume
 from i4h_arena.medical.slang_fluoroscopy import SlangFluoroscopyRenderer
 from i4h_arena.medical.synthetic_fluoroscopy import SyntheticFluoroscopyRenderer
+from i4h_arena.medical.vessel_motion import VesselMotion, VesselMotionProvider
+
+
+def _take_motion(motion: VesselMotion, env_ids: Any) -> VesselMotion:
+    """Narrow a frame of motion to the environments one patient's renderer owns."""
+    concentration = motion.concentration_mg_per_ml
+    return VesselMotion(
+        displacement_world_m=motion.displacement_world_m[env_ids],
+        concentration_mg_per_ml=None if concentration is None or concentration.ndim < 2 else concentration[env_ids],
+    )
 
 
 @dataclass(slots=True)
@@ -64,6 +74,7 @@ class FluoroscopySensor(SensorBase):
             self._patient_twin = PatientTwin.load(manifests) if manifests is not None else None
         self._catheter_provider: CatheterStateProvider | None = None
         self._carm_provider: CArmStateProvider | None = None
+        self._vessel_provider: VesselMotionProvider | None = None
         self._dsa_brightness = 1.0
         super().__init__(cfg)
 
@@ -108,6 +119,16 @@ class FluoroscopySensor(SensorBase):
         if not isinstance(provider, CArmStateProvider):
             raise TypeError("provider must implement CArmStateProvider")
         self._carm_provider = provider
+
+    def bind_vessel_provider(self, provider: VesselMotionProvider) -> None:
+        """Connect the deformable wall, so the lumen composited back is the one that moved.
+
+        Optional in a way the other two are not: without it the vessel renders undeformed at the
+        scan's own contrast, which is the uncarved image and is still a valid frame.
+        """
+        if not isinstance(provider, VesselMotionProvider):
+            raise TypeError("provider must implement VesselMotionProvider")
+        self._vessel_provider = provider
 
     def _initialize_impl(self) -> None:
         super()._initialize_impl()
@@ -165,20 +186,23 @@ class FluoroscopySensor(SensorBase):
         if self.cfg.backend == "slang" and carm is None:
             raise RuntimeError("the slang fluoroscopy backend requires a bound C-arm provider")
         mask = wp.to_torch(env_mask).to(device=self._device, dtype=torch.bool)
+        motion = self._vessel_provider.snapshot(self._num_envs) if self._vessel_provider is not None else None
         if self.cfg.backend == "slang" and self._group_twins:
             assert carm is not None
-            self._render_each_patient(catheter, carm, mask)
+            self._render_each_patient(catheter, carm, mask, motion)
             self._data.frame_id[mask] += 1
             return
         if self._renderer is None:
             assert self._patient_twin is not None
             assert carm is not None
             self._renderer = self._slang_renderer(self._patient_twin, carm)
-        rendered = self._renderer.render(catheter, carm)
+        rendered = self._renderer.render(catheter, carm, vessel=self._vessel_state(self._renderer, motion))
         self._write(rendered, mask, slice(None))
         self._data.frame_id[mask] += 1
 
-    def _render_each_patient(self, catheter: CatheterState, carm: Any, mask: torch.Tensor) -> None:
+    def _render_each_patient(
+        self, catheter: CatheterState, carm: Any, mask: torch.Tensor, motion: VesselMotion | None
+    ) -> None:
         """Image each environment through its own patient's volume.
 
         One renderer per distinct patient, all on the first one's Slang device,
@@ -190,9 +214,23 @@ class FluoroscopySensor(SensorBase):
                 self._patient_renderers.append(self._slang_renderer(twin, carm.take(env_ids), shared))
             self._renderer = self._patient_renderers[0]
         for renderer, env_ids in zip(self._patient_renderers, self._group_env_ids):
-            rendered = renderer.render(catheter.take(env_ids), carm.take(env_ids))
+            group = None if motion is None else _take_motion(motion, env_ids)
+            rendered = renderer.render(
+                catheter.take(env_ids), carm.take(env_ids), vessel=self._vessel_state(renderer, group)
+            )
             rows = torch.as_tensor(env_ids, device=self._device)
             self._write(rendered, mask, rows)
+
+    def _vessel_state(self, renderer: Any, motion: VesselMotion | None) -> Any:
+        """Pose the renderer's own vessel by this frame's motion, when there is one of each.
+
+        A bound provider on a renderer built without ``vessel_contrast`` is not an error: the
+        wall still deforms and the catheter still contacts it, there is simply no carved lumen to
+        move, so the frame is rendered the way it was before.
+        """
+        if motion is None or not isinstance(renderer, SlangFluoroscopyRenderer):
+            return None
+        return renderer.vessel_state(motion) if self.cfg.vessel_contrast else None
 
     def _write(self, rendered: dict[str, Any], mask: torch.Tensor, rows: Any) -> None:
         """Store rendered frames into ``rows`` of the outputs, for rows the mask selects."""
@@ -221,6 +259,9 @@ class FluoroscopySensor(SensorBase):
             visual_style=self.cfg.visual_style,
             display=DisplaySettings(polarity=self.cfg.display_polarity),
             catheter_attenuation=self.cfg.catheter_attenuation,
+            vessel_contrast=self.cfg.vessel_contrast,
+            carve_supersample=self.cfg.carve_supersample,
+            dsa_reference_mg_per_ml=self.cfg.dsa_reference_mg_per_ml,
             # Keep the compositing kernel on the simulation's device instead of Warp's default,
             # which differs on a multi-GPU host.
             catheter_device=str(self._device),
@@ -314,6 +355,12 @@ class FluoroscopySensorCfg(SensorBaseCfg):
     visual_style: str = "default"
     display_polarity: str = "fluoro"
     catheter_attenuation: bool = True
+    #: Carve the lumen out of the volume and composite it back per frame, so the wall's motion
+    #: and the contrast in it are rendered rather than baked into the scan. Turns ``dsa`` into a
+    #: true mask subtraction, since the carved volume *is* the pre-injection mask.
+    vessel_contrast: bool = False
+    carve_supersample: int = 1
+    dsa_reference_mg_per_ml: float = 60.0
     catheter_shaft_mu_per_mm: float = 0.8
     catheter_tip_mu_per_mm: float = 3.0
     catheter_tip_length_mm: float = 2.0

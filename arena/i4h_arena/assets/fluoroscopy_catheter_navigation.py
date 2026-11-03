@@ -484,6 +484,9 @@ def make_assets(
     source = FluoroscopyCatheterNavigationSceneCfg(env_spacing=4.0)
     source.fluoroscopy.backend = fluoro_backend
     source.fluoroscopy.dsa = fluoro_backend == "slang"
+    # The carve needs a centerline, which only the patient-backed path has, and it is what makes
+    # the subtracted channel a real subtraction rather than a brightened vessel.
+    source.fluoroscopy.vessel_contrast = fluoro_backend == "slang"
     source.fluoroscopy.slang_device_type = fluoro_device
     shared = patient_twin_manifest
     if patient_twin_manifest is not None and not isinstance(patient_twin_manifest, str):

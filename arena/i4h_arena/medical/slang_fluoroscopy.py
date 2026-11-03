@@ -17,10 +17,14 @@ from .carm import CArmState
 from .catheter import CatheterState
 from .catheter_attenuation import CatheterAttenuation, CatheterMaterial
 from .centerline import ordered_centerline_path
+from .contrast_bolus import ContrastAgent, HuToMu
 from .fluoroscopy_display import CinematicStyle, display_frames, percentile, vessel_overlay
 from .fluoroscopy_guidance import draw_catheter_guidance
 from .patient_volume import PatientVolume
 from .slang_cuda import DEVICE_FAILURE, cuda_device_error
+from .vessel_attenuation import VesselAttenuation, VesselState
+from .vessel_carve import CarveResult, carve_lumen, centerline_in_volume_mm, node_contrast_mu_per_mm
+from .vessel_motion import VesselMotion
 
 logger = logging.getLogger("i4h_arena.fluoroscopy")
 
@@ -108,6 +112,53 @@ def _contrast_bolus_mask(patient: PatientVolume) -> np.ndarray:
         structure=generate_binary_structure(3, 1),
         iterations=iterations,
     ).astype(np.uint8)
+
+
+def _rest_vessel_state(patient: PatientVolume, carve: CarveResult) -> VesselState:
+    """The vessel where the scan found it, at the contrast the scan was taken with.
+
+    Compositing this on top of the carved volume has to reproduce the original image, because
+    the same geometry is being added back that was taken out. That is the carve's contract, and
+    holding the rest state here means every renderer can check it without a fixture.
+
+    The coefficients are per node rather than the tree's mean, because the lumen's attenuation
+    varies by a third across the anatomy and a single value is what the rest-state residual is
+    actually made of -- not the carve's geometry.
+
+    Raises:
+        ValueError: If the twin declares no centerline edges, since without topology there are
+            no segments to integrate.
+    """
+    edges_path = patient.twin.artifacts.get("centerline_edges")
+    if edges_path is None:
+        raise ValueError("vessel contrast needs the twin's centerline_edges artifact")
+    points_mm, radii_mm = centerline_in_volume_mm(patient)
+    return VesselState(
+        points_mm=points_mm[None].astype(np.float32),
+        edges=np.load(edges_path),
+        radii_mm=radii_mm.astype(np.float32),
+        mu_per_mm=node_contrast_mu_per_mm(patient, carve).astype(np.float32),
+    )
+
+
+def _broadcast_vessel(state: VesselState, num_envs: int) -> VesselState:
+    """Repeat a single-environment vessel across a batch that shares one anatomy."""
+    return VesselState(
+        points_mm=np.repeat(state.points_mm, num_envs, axis=0),
+        edges=state.edges,
+        radii_mm=np.repeat(state.radii_mm, num_envs, axis=0),
+        mu_per_mm=np.repeat(state.mu_per_mm, num_envs, axis=0),
+    )
+
+
+def _select_env(state: VesselState, env_index: int) -> VesselState:
+    """One environment's vessel, kept as a batch of one so the kernel's launch shape is unchanged."""
+    return VesselState(
+        points_mm=state.points_mm[env_index : env_index + 1],
+        edges=state.edges,
+        radii_mm=state.radii_mm[env_index : env_index + 1],
+        mu_per_mm=state.mu_per_mm[env_index : env_index + 1],
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,6 +250,9 @@ class SlangFluoroscopyRenderer:
         dsa: bool = False,
         dsa_boost: float = 6.0,
         dsa_gamma: float = 1.0,
+        vessel_contrast: bool = False,
+        carve_supersample: int = 1,
+        dsa_reference_mg_per_ml: float = 60.0,
         visual_style: str = "default",
         display: DisplaySettings | None = None,
         catheter_attenuation: bool = True,
@@ -211,6 +265,18 @@ class SlangFluoroscopyRenderer:
             share_device_with: Another patient's renderer whose Slang device and
                 compiled kernels this one reuses, so several patients render in
                 one process on one device.
+            vessel_contrast: Carve the contrast lumen out of the volume and
+                composite it back per frame as moving, injectable geometry. Off
+                by default, which keeps ``dsa_boost``'s static voxel multiply.
+                Turning it on is what makes the vessel deform and the contrast
+                wash in and out; it also makes DSA a true subtraction, so the
+                second boosted volume and its per-frame render go away.
+            carve_supersample: Sub-voxel samples per axis for the carve boundary.
+                Build-time cost only, cubic in this value.
+            dsa_reference_mg_per_ml: Iodine concentration that renders the subtracted channel
+                saturated. The default is roughly what a power injection reaches intra-arterially
+                once aortic flow has diluted the stock: 350 mg I/mL at 20 mL/s into about
+                100 mL/s of blood comes out near 60.
         """
         if patient.twin.coordinate_frame not in {"DICOM_LPS", "NIFTI_RAS"}:
             raise ValueError(f"unsupported patient coordinate frame {patient.twin.coordinate_frame!r}")
@@ -267,11 +333,38 @@ class SlangFluoroscopyRenderer:
             if share_device_with is None
             else _renderer_sharing_device(SlangDiffDRRRenderer, share_device_with._renderer)
         )
+        # With the lumen carved out, what the volume renderer produces is the contrast-free mask
+        # frame, and every frame's contrast is composited on top of it. That is the whole reason
+        # a bolus can wash in and a wall can move: neither is in the voxels any more.
+        self._vessel_attenuation = VesselAttenuation(device=catheter_device) if vessel_contrast else None
+        self._rest_vessel: VesselState | None = None
+        self._carve = None
+        render_volume = patient.mu_volume
+        if vessel_contrast:
+            self._carve = carve_lumen(patient, supersample=int(carve_supersample))
+            render_volume = self._carve.mu_volume
+            self._rest_vessel = _rest_vessel_state(patient, self._carve)
+            self._hu_to_mu = HuToMu.from_patient(patient)
+            self._contrast_agent = ContrastAgent()
+            if self._dsa:
+                self._dsa_display = self._subtracted_display(patient, dsa_reference_mg_per_ml)
+            logger.info(
+                "carved %d voxels (%.1f mL) of contrast lumen; compositing it back at mu %.5f /mm",
+                self._carve.carved_voxels,
+                self._carve.carved_volume_ml,
+                self._carve.contrast_mu_per_mm,
+            )
+
         self._renderer = _build_renderer(
-            renderer_class, patient.mu_volume, patient.spacing_zyx_mm, base_config, device_type
+            renderer_class, render_volume, patient.spacing_zyx_mm, base_config, device_type
         )
+        self._dsa_display: DisplaySettings | None = None
         self._dsa_renderer = None
-        if self._dsa:
+        if self._dsa and vessel_contrast:
+            # Nothing to build: the mask is the carved volume this renderer already produces, so
+            # subtraction needs no second pass over the anatomy.
+            pass
+        elif self._dsa:
             vessel_mask = _contrast_bolus_mask(patient)
             if vessel_mask.shape != patient.mu_volume.shape:
                 raise ValueError(
@@ -288,19 +381,38 @@ class SlangFluoroscopyRenderer:
                 device_type,
             )
 
-    def render(self, catheter: CatheterState, carm: CArmState | None = None) -> dict[str, torch.Tensor]:
+    def render(
+        self,
+        catheter: CatheterState,
+        carm: CArmState | None = None,
+        vessel: VesselState | None = None,
+    ) -> dict[str, torch.Tensor]:
         """Render one detector frame per environment, stacked along the leading axis.
 
         Every environment is posed in one batched dispatch and mapped to display values as a
         batch, on the renderer's torch device; only the guidance overlays are drawn on the host.
         Every catheter embodiment pins ``env_spacing`` to zero, which puts each environment's
         catheter and C-arm in the patient's own world frame; no origin shift is applied here.
+
+        Args:
+            catheter: This frame's instrument state.
+            carm: This frame's gantry pose, or ``None`` to hold the initial projection.
+            vessel: Deformed centerline and per-node contrast attenuation, when the renderer was
+                built with ``vessel_contrast``. Omitting it renders the vessel undeformed at the
+                scan's own contrast, which reproduces the uncarved image and is the check the
+                carve has to pass.
         """
         num_envs = catheter.num_envs
         if carm is not None and carm.num_envs != num_envs:
             raise ValueError(f"C-arm state has {carm.num_envs} environments; catheter has {num_envs}")
         projections = [self._projection_for(carm, env_index) for env_index in range(num_envs)]
-        transmission = self._render_volume(self._renderer, projections)
+        # Carved anatomy with no contrast and no instrument: exactly the mask frame a DSA run
+        # acquires before injecting, held here rather than recorded because it is deterministic.
+        mask_transmission = self._render_volume(self._renderer, projections)
+        transmission = mask_transmission
+        vessel_transmission = self._vessel_transmission(vessel, projections, num_envs=num_envs)
+        if vessel_transmission is not None:
+            transmission = transmission * vessel_transmission
         catheter_transmission = self._catheter_transmission(catheter, projections)
         if catheter_transmission is not None:
             transmission = transmission * catheter_transmission
@@ -309,7 +421,9 @@ class SlangFluoroscopyRenderer:
         drr_image = display_frames(transmission, self._display)
         dsa_image = drr_image
         vessel_alpha = None
-        if self._dsa_renderer is not None:
+        if self._vessel_attenuation is not None and self._dsa:
+            dsa_image, vessel_alpha = self._subtracted(transmission, mask_transmission, vessel_transmission)
+        elif self._dsa_renderer is not None:
             boosted_transmission = self._render_volume(self._dsa_renderer, projections)
             if catheter_transmission is not None:
                 boosted_transmission = boosted_transmission * catheter_transmission
@@ -439,6 +553,147 @@ class SlangFluoroscopyRenderer:
             self._display.polarity,
             tuple(round(float(value), 4) for value in self._display.log_window),
         )
+
+    def _vessel_transmission(
+        self,
+        vessel: VesselState | None,
+        projections: list[ProjectionGeometry],
+        *,
+        num_envs: int,
+    ) -> torch.Tensor | None:
+        """Transmission ``(N, H, W)`` through the contrast in the lumen alone, or ``None``.
+
+        Separate from the anatomy for the same reason the catheter is: Beer-Lambert makes
+        attenuators multiply, so the moving part can be solved analytically every frame while the
+        static volume is rendered once. Falling back to the rest state when the caller passes no
+        vessel is what makes the carve invisible at equilibrium rather than a hole in the image.
+
+        Raises:
+            ValueError: If the supplied state does not cover every environment.
+        """
+        if self._vessel_attenuation is None:
+            return None
+        state = vessel if vessel is not None else self._rest_vessel
+        if state is None:
+            return None
+        if state.points_mm.shape[0] == 1 and num_envs > 1:
+            state = _broadcast_vessel(state, num_envs)
+        if state.points_mm.shape[0] != num_envs:
+            raise ValueError(f"vessel state covers {state.points_mm.shape[0]} environments; catheter has {num_envs}")
+        # One pose per environment, and the kernel is launched per environment, so the geometry
+        # has to be solved against each projection in turn.
+        line_integral = torch.zeros((num_envs, self.height, self.width), device=self._device)
+        for env_index in range(num_envs):
+            single = _select_env(state, env_index)
+            line_integral[env_index] = self._vessel_attenuation.line_integral(
+                single,
+                projections[env_index],
+                width=self.width,
+                height=self.height,
+                as_torch=True,
+            )[0].to(self._device)
+        return torch.exp(-line_integral)
+
+    def _subtracted(
+        self,
+        transmission: torch.Tensor,
+        mask_transmission: torch.Tensor,
+        vessel_transmission: torch.Tensor | None,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        """A true DSA frame: the live image divided by the contrast-free mask.
+
+        Dividing transmissions is subtracting line integrals, which is what a DSA system does in
+        the log domain. Everything static cancels identically -- including the carve's own
+        residual, which on ``s0011`` is several times the wall-motion signal and would otherwise
+        dominate it. That cancellation is why the carve's accuracy stops being a correctness
+        requirement here, and it is the property the boosted-volume path never had, because a
+        brightened vessel is not the same image minus a vessel.
+        """
+        subtracted = transmission / mask_transmission.clamp(min=1.0e-8)
+        dsa_image = display_frames(subtracted, self._dsa_display or self._display)
+        if vessel_transmission is None:
+            return dsa_image, None
+        vessel_signal = (1.0 - vessel_transmission).clamp(min=0.0)
+        scale = percentile(vessel_signal, 99.5)[:, None, None]
+        # A frame with no contrast in view gets no tint rather than amplified noise.
+        vessel_alpha = torch.where(
+            scale > 1e-8, (vessel_signal / scale.clamp(min=1e-8)).clamp(0.0, 0.82), torch.zeros_like(vessel_signal)
+        )
+        return dsa_image, vessel_alpha
+
+    def vessel_state(self, motion: VesselMotion) -> VesselState:
+        """Apply a frame of solver motion to the rest vessel this renderer already holds.
+
+        Displacement arrives in world metres and is rotated and scaled into volume millimetres
+        here rather than by the caller, because this is the only object that knows which frame
+        the composited geometry is posed in. Adding it to the rest state also means the rendered
+        centerline keeps the smoothing applied when it was built, which a provider handing over
+        absolute solver positions would undo.
+
+        Raises:
+            RuntimeError: If the renderer was built without ``vessel_contrast``, so there is no
+                rest vessel to move.
+        """
+        if self._rest_vessel is None:
+            raise RuntimeError("this renderer was built without vessel_contrast; there is no vessel to move")
+        displacement = np.asarray(motion.displacement_world_m, dtype=np.float64)
+        origin = self._patient.world_to_volume_mm(np.zeros((1, 3)))
+        shift_mm = self._patient.world_to_volume_mm(displacement.reshape(-1, 3)) - origin
+        points_mm = self._rest_vessel.points_mm + shift_mm.reshape(displacement.shape).astype(np.float32)
+
+        mu_per_mm = self._rest_vessel.mu_per_mm
+        if motion.concentration_mg_per_ml is not None:
+            mu_per_mm = np.broadcast_to(
+                self._contrast_agent.mu_excess(
+                    np.asarray(motion.concentration_mg_per_ml, dtype=np.float64),
+                    baseline_mu=self._carve.fill_mu_per_mm,
+                    curve=self._hu_to_mu,
+                ).astype(np.float32),
+                points_mm.shape[:2],
+            )
+        return replace(self._rest_vessel, points_mm=points_mm, mu_per_mm=mu_per_mm)
+
+    def _subtracted_display(self, patient: PatientVolume, reference_mg_per_ml: float) -> DisplaySettings:
+        """Window the subtracted channel on a fully opacified vessel, computed once.
+
+        A subtracted frame is almost all unattenuated, so the window fitted to the whole anatomy
+        renders it blank. Fitting it adaptively instead is worse: the first frame of an episode is
+        acquired before the injection arrives, so the window lands on an empty image and sticks
+        there, and everything after saturates to pure black on white. Deciding it up front also
+        keeps the mapping identical across runs, which matters when a policy is learning from
+        these pixels and an adaptive window would make the same bolus look different depending on
+        when the episode happened to start.
+
+        The reference is the agent, not the scan. ``s0011``'s lumen is only 1.5 times soft tissue,
+        so it was acquired with little or no contrast, and scaling the display to what that study
+        happens to contain would put an angiographic injection thirty times off the top of the
+        range. What saturates the channel is instead the longest lumen the geometry can cast a ray
+        through, filled with contrast at the concentration an injection actually reaches.
+
+        Args:
+            patient: Supplies the scan's own transfer function, so the reference concentration is
+                converted to attenuation on the same calibration as everything else rendered.
+            reference_mg_per_ml: Iodine concentration that maps to a saturated pixel.
+        """
+        opacified = replace(self._rest_vessel, mu_per_mm=np.ones_like(self._rest_vessel.mu_per_mm))
+        path_mm = self._vessel_attenuation.line_integral(
+            opacified, self._projection, width=self.width, height=self.height
+        )
+        mu_per_mm = float(
+            ContrastAgent().mu_excess(
+                np.asarray([reference_mg_per_ml]),
+                baseline_mu=self._carve.fill_mu_per_mm,
+                curve=HuToMu.from_patient(patient),
+            )[0]
+        )
+        window = (0.0, max(mu_per_mm * float(np.max(path_mm)), 1.0e-6))
+        logger.info(
+            "subtracted-channel window set to line integral %s, from %.0f mg I/mL through %.0f mm of lumen",
+            tuple(round(value, 5) for value in window),
+            reference_mg_per_ml,
+            float(np.max(path_mm)),
+        )
+        return replace(self._display, scaling="log", log_window=window)
 
     def _catheter_transmission(
         self, catheter: CatheterState, projections: list[ProjectionGeometry]
