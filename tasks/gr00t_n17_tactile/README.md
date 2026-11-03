@@ -134,10 +134,12 @@ The client talks Unitree DDS and ROS 2, which the task venv cannot (Python
 
 ```bash
 source /opt/ros/humble/setup.bash
-PYTHONPATH=tasks/gr00t_n17_tactile:third_party/xr_teleoperate \
+PYTHONPATH=tasks/gr00t_n17_tactile:third_party/xr_teleoperate:$PYTHONPATH \
   python -m i4h_tasks.gr00t_n17_tactile.client.deploy --help
 ```
 
+Keep `:$PYTHONPATH` at the end: ROS 2's setup script delivers `rclpy` through
+`PYTHONPATH`, and an assignment without it drops ROS from the interpreter.
 `XR_TELEOPERATE_PATH` overrides the location of the teleop checkout (default
 `third_party/xr_teleoperate`, resolved from the repository root). The console
 script `i4h-tasks-gr00t-n17-tactile-deploy` is the same entry point in the
@@ -162,7 +164,7 @@ uv run --project tasks/gr00t_n17_tactile i4h-tasks-gr00t-n17-tactile \
   --tactile-refresh per-step
 
 # Terminal B: the client (ROS 2 + Unitree DDS environment).
-PYTHONPATH=tasks/gr00t_n17_tactile:third_party/xr_teleoperate \
+PYTHONPATH=tasks/gr00t_n17_tactile:third_party/xr_teleoperate:$PYTHONPATH \
   python -m i4h_tasks.gr00t_n17_tactile.client.deploy \
   --tactile-host <robot-onboard-computer> --task "pick up the gauze pad" --motion \
   --camera-network-address <workstation-ip-on-camera-network> \
@@ -179,7 +181,11 @@ calibrates the tactile sensors (below) and waits for Enter before the first
 chunk. Each episode runs `--steps` control steps, then home and init posture
 again. Ctrl+C stops the loop, drives the arms home and releases the hands.
 
-`--motion` publishes the arm commands on `rt/arm_sdk` for a standing robot
+`--head-mode` defaults to `mono`, the `/head/left` camera alone, which is
+what the three-camera launcher on the onboard computer publishes and what
+the `high` view of the checkpoints was recorded from; `binocular` reads the
+stitched `/head/left` + `/head/right` pair for eye-view checkpoints and needs
+the fourth camera running. `--motion` publishes the arm commands on `rt/arm_sdk` for a standing robot
 (default `rt/lowcmd`). `--steps` defaults to 30, one second at 30 Hz, so a
 real run passes its own value. `--right-arm-hold-qpos` fixes the right arm
 for a single-arm checkpoint (default: the YAML's right arm, else the measured
@@ -221,7 +227,7 @@ incomplete, so a client without `--tactile` is warned.
 ### Check mode
 
 ```bash
-PYTHONPATH=tasks/gr00t_n17_tactile:third_party/xr_teleoperate \
+PYTHONPATH=tasks/gr00t_n17_tactile:third_party/xr_teleoperate:$PYTHONPATH \
   python -m i4h_tasks.gr00t_n17_tactile.client.deploy --check --check-dir /tmp/check \
   --tactile-host <robot-onboard-computer> \
   --camera-network-address <workstation-ip-on-camera-network> \
@@ -241,13 +247,16 @@ the host and port are wrong. Without a server the check resolves with the
 legacy defaults, so pass `--wrist-cams`, `--state-hands` and
 `--checkpoint-tactile[-force]` as the checkpoint needs them.
 
-Wrist-camera wiring: on this rig the camera mounted on the left wrist is
-exposed as the right wrist stream, while the policies expect the left-hand view
-under `right_wrist_view` (the dataset's `cam_right_wrist`). `--swap-wrist-cams`
-(default on) feeds `right_wrist_view` from the left-wrist-mounted camera and
-`left_wrist_view` from the other one; `--no-swap-wrist-cams` routes the streams
-by name. Confirm the swap in check mode before every live run:
-`check_right_wrist_view.png` must show the left hand.
+Wrist-camera routing: by default the `/wrist/left` stream becomes
+`left_wrist_view` and `/wrist/right` becomes `right_wrist_view`, which is how
+the training data of the current checkpoints was recorded through the ROS
+pipeline, so identity routing reproduces training (verified by camera
+fingerprint against training frames). On this rig that means
+`right_wrist_view` shows the left hand, because the camera on the left wrist
+is wired as the right stream; it is what the policies expect. Confirm it in
+check mode before every live run: `check_right_wrist_view.png` must show the
+left hand. `--swap-wrist-cams` exchanges the two streams; it exists for the
+legacy checkpoints recorded through the ZMQ camera server.
 
 ### Real-time chunking
 
@@ -336,7 +345,7 @@ record every command; it imports nothing from `teleop` or `unitree_sdk2py`,
 so the same command also runs in the task venv through the console script:
 
 ```bash
-PYTHONPATH=tasks/gr00t_n17_tactile:third_party/xr_teleoperate \
+PYTHONPATH=tasks/gr00t_n17_tactile:third_party/xr_teleoperate:$PYTHONPATH \
   python -m i4h_tasks.gr00t_n17_tactile.client.deploy --fake-robot --no-tactile \
   --policy-port 5599 --task "smoke" --steps 32 --num-episodes 1 --hold-s 0 --init-state-hold-s 0
 ```

@@ -62,6 +62,7 @@ from i4h_tasks.gr00t_n17_tactile.client.execution import (
 )
 from i4h_tasks.gr00t_n17_tactile.client.observation import (
     DEFAULT_FORCE_WINDOW,
+    EYE_KEYS,
     CameraLayout,
     ObservationSpec,
     SpecOverrides,
@@ -300,8 +301,9 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument(
         "--head-mode",
         choices=["binocular", "mono"],
-        default="binocular",
-        help="stitched stereo head (/head/left + /head/right) or /head/left alone",
+        default="mono",
+        help="/head/left alone (default; what the three-camera launcher publishes) or the stitched stereo head "
+        "(/head/left + /head/right) for eye-view checkpoints",
     )
     g.add_argument(
         "--head-eye",
@@ -313,8 +315,9 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument(
         "--swap-wrist-cams",
         action=bool_flag,
-        default=True,
-        help="feed right_wrist_view from the left-wrist-mounted camera (rig wiring)",
+        default=False,
+        help="exchange the two wrist streams before they become left_wrist_view / right_wrist_view; off by default "
+        "(identity routing reproduces the ROS-recorded training data), on for the legacy ZMQ-era checkpoints",
     )
     g.add_argument(
         "--camera-network-address",
@@ -428,6 +431,11 @@ def resolve_run_settings(args: argparse.Namespace, info: dict[str, Any] | None) 
     spec, warnings = resolve_spec(info, overrides)
     warnings = list(warnings)
     layout = resolve_layout(spec, args.head_mode, args.head_eye, args.swap_wrist_cams)
+    if layout.head_mode == "mono" and any(key in spec.video_keys for key in EYE_KEYS):
+        warnings.append(
+            "the checkpoint wants eye views but --head-mode mono reads /head/left only; pass --head-mode binocular "
+            "(needs the /head/right camera)"
+        )
 
     control_hz = float(args.frequency or (info or {}).get("control_hz") or DEFAULT_CONTROL_HZ)
     execution_steps = int(args.action_horizon or (info or {}).get("execution_steps") or DEFAULT_EXECUTION_STEPS)

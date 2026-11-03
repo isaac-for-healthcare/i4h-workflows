@@ -193,10 +193,10 @@ PARSER_DEFAULTS = {
     "body_dds_peer": None,
     "body_dds_discovery_ssh": None,
     "body_dds_discovery_timeout": 35.0,
-    "head_mode": "binocular",
+    "head_mode": "mono",
     "head_eye": None,
     "cam_warmup_s": 5.0,
-    "swap_wrist_cams": True,
+    "swap_wrist_cams": False,
     "camera_network_address": None,
     "camera_network_peer": None,
     "wrist_cams": "auto",
@@ -225,7 +225,6 @@ def test_parser_defaults_are_exactly_the_kept_flags() -> None:
     [
         ("--no-arm", "arm"),
         ("--no-hands", "hands"),
-        ("--no-swap-wrist-cams", "swap_wrist_cams"),
         ("--no-tactile", "tactile"),
         ("--no-checkpoint-tactile", "checkpoint_tactile"),
         ("--no-checkpoint-tactile-force", "checkpoint_tactile_force"),
@@ -284,7 +283,7 @@ def test_settings_follow_the_served_checkpoint() -> None:
     assert spec.video_keys == ("high", "left_wrist_view", "right_wrist_view")
     assert spec.state_keys == ("left_arm", "right_arm", "left_hand", "right_hand")
     assert spec.fingertips == FINGERTIPS and spec.force_window == 16
-    assert settings.layout == observation.CameraLayout("binocular", "left", True)
+    assert settings.layout == observation.CameraLayout("mono", "left", False)
     assert settings.warnings == []
 
 
@@ -468,6 +467,27 @@ def test_make_robot_builds_the_fake_from_flags() -> None:
     assert robot.frames()["head"].shape == (480, 640, 3)
     both = deploy.make_robot(_args("--fake-robot"))
     assert both.has_arm is True and both.hands == ("left", "right")
+    # The default head mode is mono: the three-camera launcher publishes /head/left only.
+    assert both.frames()["head"].shape == (480, 640, 3)
+    stereo = deploy.make_robot(_args("--fake-robot", "--head-mode", "binocular"))
+    assert stereo.frames()["head"].shape == (480, 1280, 3)
+
+
+def test_mono_head_mode_warns_when_the_checkpoint_wants_eye_views() -> None:
+    info = {
+        "required_observation_keys": {
+            "video": ["left_eye_view", "right_eye_view"],
+            "state": ["left_arm", "right_arm", "left_hand", "right_hand"],
+            "language": ["annotation.human.task_description"],
+        },
+        "checkpoint": {"use_tactile": False, "use_tactile_force": False},
+    }
+    mono = deploy.resolve_run_settings(_args("--fake-robot"), info)
+    assert mono.layout.head_mode == "mono"
+    assert any("--head-mode binocular" in warning for warning in mono.warnings)
+    stereo = deploy.resolve_run_settings(_args("--fake-robot", "--head-mode", "binocular"), info)
+    assert stereo.layout.head_mode == "binocular"
+    assert not any("--head-mode" in warning for warning in stereo.warnings)
 
 
 def test_make_robot_maps_the_flags_onto_the_h2_options(monkeypatch) -> None:
@@ -522,7 +542,8 @@ def test_obs_fn_sends_zero_tactile_without_a_source() -> None:
 
 def test_check_mode_writes_one_file_per_frame(tmp_path: Path) -> None:
     # --check never reaches the server, so the legacy wrist default ("right") applies unless overridden.
-    argv = ["--check", "--fake-robot", "--no-tactile", "--check-dir", str(tmp_path), "--head-eye", "both"]
+    argv = ["--check", "--fake-robot", "--no-tactile", "--check-dir", str(tmp_path)]
+    argv += ["--head-mode", "binocular", "--head-eye", "both"]
     assert deploy.main(argv + ["--wrist-cams", "both"]) == 0
     names = {path.name.rsplit(".", 1)[0] for path in tmp_path.iterdir()}
     assert names == {
