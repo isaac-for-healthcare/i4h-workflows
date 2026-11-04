@@ -64,23 +64,21 @@ git -C third_party/Isaac-GR00T-1.7-tactile apply --check third_party/gr00t_n17_t
 ## Deployment-side patches
 
 The deployment client (`i4h_tasks/gr00t_n17_tactile/client/`) drives the robot
-through two more pinned checkouts that `third_party/setup.sh
-tasks/gr00t_n17_tactile` patches the same way. `third_party/xr_teleoperate_h2_sharpa.patch`
-applies to the official `unitreerobotics/xr_teleoperate` at `ebe257f0`
-(`teleop/` only) and adds the H2 arm controller changes, the SharpaWave hand
-DDS client, the ROS 2 camera client, the DDS network configuration, the body
-peer discovery and `teleop/utils/sharpa_tactile_wire.py`, the tactile wire
-format the robot-side bridge shares with teleop recording (the client reads it
-through its own vendored copy); `third_party/unitree_sdk2_network_config.patch` applies to
+through two more pinned checkouts of `third_party/setup.sh
+tasks/gr00t_n17_tactile`. `third_party/xr_teleoperate` is the `teleop/`
+directory of the isaac-for-healthcare fork of `unitreerobotics/xr_teleoperate`
+at `47723c13` (branch `i4h/h2-sharpa`, tag `i4h-h2-sharpa-v1`): upstream's H2
+branch `ebe257f0` plus one commit with the H2 arm controller changes, the
+SharpaWave hand DDS client, the ROS 2 camera client, the DDS network
+configuration, the body peer discovery and `teleop/utils/sharpa_tactile_wire.py`,
+the tactile wire format the robot-side bridge shares with teleop recording (the
+client reads it through its own vendored copy). It needs no patch: a change on
+the teleop side is a commit on that branch and a new `XR_TELEOPERATE_REV`.
+`third_party/unitree_sdk2_network_config.patch` applies to
 `unitreerobotics/unitree_sdk2_python` at `794fb2b3` and adds the `networkConfig`
-keyword to `ChannelFactoryInitialize`. An isaac-for-healthcare fork of
-`xr_teleoperate` will carry the first patch as a branch, after which the pin
-moves to that fork's commit and the patch file goes away. To regenerate and
-check them from such a branch:
+keyword to `ChannelFactoryInitialize`. To check it:
 
 ```bash
-git diff ebe257f06f2fdceea3c30ce38e1bba65a6e77116 <branch> -- teleop > third_party/xr_teleoperate_h2_sharpa.patch
-git -C third_party/xr_teleoperate apply --check third_party/xr_teleoperate_h2_sharpa.patch
 git -C third_party/unitree_sdk2_python apply --check third_party/unitree_sdk2_network_config.patch
 ```
 

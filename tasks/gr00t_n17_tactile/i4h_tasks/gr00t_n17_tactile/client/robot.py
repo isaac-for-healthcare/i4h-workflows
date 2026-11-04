@@ -5,7 +5,7 @@
 The loop in ``deploy.py`` talks to one object that satisfies :class:`RobotIO`:
 it reads frames and joints from it and sends arm and hand targets to it.
 :class:`H2Robot` implements that over the pinned ``xr_teleoperate`` checkout
-(``third_party/xr_teleoperate``, patched by ``third_party/setup.sh``): the arm
+(``third_party/xr_teleoperate``, created by ``third_party/setup.sh``): the arm
 controller publishes on Unitree DDS, the hands go through the DDS bridge on the
 robot's onboard computer, and the cameras arrive as ROS 2 image topics.
 :class:`FakeRobot` implements the same surface without hardware, so the whole

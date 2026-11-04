@@ -50,12 +50,12 @@ SHARPA_URDF_REV="0d19cac602f46456b819e4b6a2c09a74982c9a3e"
 SHARPA_URDF_DIR="sharpa-urdf-usd-xml"
 TREX_REV="ba4047ce3e9f3d2013d60de600e136897e90ccb8"
 TREX_DIR="T-Rex"
-# tasks/gr00t_n17_tactile deployment client: the official Unitree teleoperation checkout (teleop/ only)
-# and the Python SDK, both patched for the H2 + SharpaWave deployment. An isaac-for-healthcare fork of
-# xr_teleoperate will carry the patch as a branch; the pin then moves to that fork's commit and the
-# patch file goes away. XR_TELEOPERATE_URL exists so that move is one variable.
-XR_TELEOPERATE_URL="${XR_TELEOPERATE_URL:-https://github.com/unitreerobotics/xr_teleoperate.git}"
-XR_TELEOPERATE_REV="ebe257f06f2fdceea3c30ce38e1bba65a6e77116"
+# tasks/gr00t_n17_tactile deployment client: the teleop/ package of the isaac-for-healthcare fork of
+# Unitree's xr_teleoperate, whose i4h/h2-sharpa branch carries the H2 + SharpaWave deployment changes
+# as one commit on upstream's H2 branch (ebe257f0), and the Python SDK with its networkConfig patch.
+# XR_TELEOPERATE_URL stays overridable for a developer's own fork of that repository.
+XR_TELEOPERATE_URL="${XR_TELEOPERATE_URL:-https://github.com/isaac-for-healthcare/xr_teleoperate.git}"
+XR_TELEOPERATE_REV="47723c13e73458b159b28a9b468ffd8cf01d866e"
 XR_TELEOPERATE_DIR="xr_teleoperate"
 UNITREE_SDK2PY_REV="794fb2b3fd9165fd245a7b568698d9e97d8ac0a0"
 UNITREE_SDK2PY_DIR="unitree_sdk2_python"
@@ -330,12 +330,6 @@ if [[ -d "${THIRD_PARTY_DIR}/${GR00T_17_TACTILE_DIR}/.git" ]]; then
   apply_patch_once "Isaac-GR00T N1.7 tactile" \
     "${THIRD_PARTY_DIR}/${GR00T_17_TACTILE_DIR}" \
     "${THIRD_PARTY_DIR}/gr00t_n17_tactile.patch"
-fi
-
-if [[ -d "${THIRD_PARTY_DIR}/${XR_TELEOPERATE_DIR}/.git" ]]; then
-  apply_patch_once "xr_teleoperate H2 + SharpaWave deployment" \
-    "${THIRD_PARTY_DIR}/${XR_TELEOPERATE_DIR}" \
-    "${THIRD_PARTY_DIR}/xr_teleoperate_h2_sharpa.patch"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${UNITREE_SDK2PY_DIR}/.git" ]]; then

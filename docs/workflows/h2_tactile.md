@@ -137,9 +137,6 @@ checkout is described in
 
 ## Roadmap
 
-- Move the `xr_teleoperate` deployment patch to a branch of an
-  isaac-for-healthcare fork of the official repository and pin that commit
-  instead of carrying `third_party/xr_teleoperate_h2_sharpa.patch`.
 - Connect to Isaac Sim once a SharpaWave tactile simulation exists. The task
   already declares `requires: tactile: sharpa_wave_fingertip`; a scene that
   provides it gets a workflow module composed like the other humanoid
