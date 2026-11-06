@@ -55,16 +55,35 @@ from isaaclab_newton.physics import (
     NewtonSoftContactCfg,
     VBDSolverCfg,
 )
-from isaaclab_newton.sim.schemas import NewtonDeformableBodyPropertiesCfg
 from isaaclab_newton.sim.spawners.materials import NewtonSurfaceDeformableBodyMaterialCfg
-from pxr import UsdGeom
+from pxr import Usd, UsdGeom
+
+
+def _spawn_cloth(prim_path, cfg, translation=None, orientation=None, **kwargs):
+    """Make the asset's single cloth mesh both the simulation and the visual mesh.
+
+    The composed asset authors deformable schemas on its mesh, so ``deformable_props``
+    would add a second ``sim_mesh`` cloth beside it and Newton would simulate both.
+    """
+    from isaaclab.sim import SimulationContext  # noqa: PLC0415
+
+    prim = spawn_from_usd(prim_path, cfg, translation=translation, orientation=orientation, **kwargs)
+    meshes = [p for p in Usd.PrimRange(prim) if p.IsA(UsdGeom.Mesh)]
+    if len(meshes) != 1:
+        raise ValueError(f"expected one cloth mesh under {prim.GetPath()}, found {len(meshes)}")
+    mesh = meshes[0]
+    for schema in mesh.GetAppliedSchemas():
+        if "DeformableBody" in schema or "DeformableSim" in schema:
+            mesh.RemoveAppliedSchema(schema)
+    SimulationContext.instance().physics_manager.setup_deformable_body(prim, "surface", mesh, mesh)
+    return prim
 
 
 def cloth_spawn_cfg(usd_path: str) -> sim_utils.UsdFileCfg:
     """Spawn the cloth USD as a Newton surface deformable with the Rheo v0.7 cloth material."""
     return sim_utils.UsdFileCfg(
         usd_path=usd_path,
-        deformable_props=NewtonDeformableBodyPropertiesCfg(),
+        func=_spawn_cloth,
         physics_material=NewtonSurfaceDeformableBodyMaterialCfg(
             density=1.0,
             particle_radius=0.008,
