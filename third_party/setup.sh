@@ -52,10 +52,10 @@ TREX_REV="ba4047ce3e9f3d2013d60de600e136897e90ccb8"
 TREX_DIR="T-Rex"
 # tasks/gr00t_n17_tactile deployment client: the teleop/ package of the isaac-for-healthcare fork of
 # Unitree's xr_teleoperate, whose i4h/h2-sharpa branch carries the H2 + SharpaWave deployment changes
-# as one commit on upstream's H2 branch (ebe257f0), and the Python SDK with its networkConfig patch.
+# as two commits on upstream's H2 branch (ebe257f0), and the Python SDK with its networkConfig patch.
 # XR_TELEOPERATE_URL stays overridable for a developer's own fork of that repository.
 XR_TELEOPERATE_URL="${XR_TELEOPERATE_URL:-https://github.com/isaac-for-healthcare/xr_teleoperate.git}"
-XR_TELEOPERATE_REV="47723c13e73458b159b28a9b468ffd8cf01d866e"
+XR_TELEOPERATE_REV="1cb9c7fb21af24e8191db59e4894a7a71150497f"
 XR_TELEOPERATE_DIR="xr_teleoperate"
 UNITREE_SDK2PY_REV="794fb2b3fd9165fd245a7b568698d9e97d8ac0a0"
 UNITREE_SDK2PY_DIR="unitree_sdk2_python"

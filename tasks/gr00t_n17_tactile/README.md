@@ -59,9 +59,10 @@ ships no `pyproject` and T-Rex's pins a full VLA stack (Python 3.10, torch
 
 For the deployment client it also creates `third_party/xr_teleoperate` (the
 `teleop/` directory of the isaac-for-healthcare fork of
-`unitreerobotics/xr_teleoperate` at `47723c13`, branch `i4h/h2-sharpa`:
-upstream's H2 branch plus one commit with the H2 + SharpaWave deployment
-changes) and `third_party/unitree_sdk2_python` (`794fb2b3` plus
+`unitreerobotics/xr_teleoperate` at `1cb9c7fb`, branch `i4h/h2-sharpa`:
+upstream's H2 branch plus two commits, the H2 + SharpaWave deployment
+changes and the NVIDIA SPDX headers on those files) and
+`third_party/unitree_sdk2_python` (`794fb2b3` plus
 `third_party/unitree_sdk2_network_config.patch`). Neither goes into the task
 venv; the client runs in its own environment (see
 [Environment](#environment)).
@@ -427,7 +428,7 @@ Everything third-party is public and pinned by revision in `third_party/setup.sh
 | SharpaWave hand URDFs | [sharpa-robotics/sharpa-urdf-usd-xml](https://github.com/sharpa-robotics/sharpa-urdf-usd-xml) | `0d19cac6` | Apache-2.0 |
 | SharpaWave SDK (on the robot) | [sharpa-robotics/sharpa-wave-sdk](https://github.com/sharpa-robotics/sharpa-wave-sdk), image [sharpadev/sharpawavesdk](https://hub.docker.com/r/sharpadev/sharpawavesdk) | | vendor |
 | T-Rex force encoder | [ZhuoyangLiu2005/T-Rex](https://github.com/ZhuoyangLiu2005/T-Rex), weights inside [miniFranka/T-Rex_midtrain_mecka23k_ucb100_vqvae_epoch6](https://huggingface.co/miniFranka/T-Rex_midtrain_mecka23k_ucb100_vqvae_epoch6) | `ba4047ce` | MIT |
-| Unitree teleoperation (`teleop/` only) | [isaac-for-healthcare/xr_teleoperate](https://github.com/isaac-for-healthcare/xr_teleoperate), a fork of [unitreerobotics/xr_teleoperate](https://github.com/unitreerobotics/xr_teleoperate) whose `i4h/h2-sharpa` branch (tag `i4h-h2-sharpa-v1`) adds one commit to upstream's H2 branch `ebe257f0`: H2 arm controller changes, SharpaWave hand DDS client, ROS 2 camera client, DDS network configuration and peer discovery, and the tactile wire format the robot-side bridge shares with teleop recording | `47723c13` | Apache-2.0 |
+| Unitree teleoperation (`teleop/` only) | [isaac-for-healthcare/xr_teleoperate](https://github.com/isaac-for-healthcare/xr_teleoperate), a fork of [unitreerobotics/xr_teleoperate](https://github.com/unitreerobotics/xr_teleoperate) whose `i4h/h2-sharpa` branch (tag `i4h-h2-sharpa-v2`) adds two commits to upstream's H2 branch `ebe257f0`: H2 arm controller changes, SharpaWave hand DDS client, ROS 2 camera client, DDS network configuration and peer discovery, and the tactile wire format the robot-side bridge shares with teleop recording, then the NVIDIA SPDX headers on those files | `1cb9c7fb` | Apache-2.0 |
 | Unitree Python SDK | [unitreerobotics/unitree_sdk2_python](https://github.com/unitreerobotics/unitree_sdk2_python), plus `third_party/unitree_sdk2_network_config.patch` (the `networkConfig` keyword); brings `cyclonedds==0.10.2` through its `setup.py` | `794fb2b3` | BSD-3-Clause |
 
 The two Hugging Face files are pinned to a commit of their model repository

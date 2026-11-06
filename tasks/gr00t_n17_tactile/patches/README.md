@@ -67,12 +67,13 @@ The deployment client (`i4h_tasks/gr00t_n17_tactile/client/`) drives the robot
 through two more pinned checkouts of `third_party/setup.sh
 tasks/gr00t_n17_tactile`. `third_party/xr_teleoperate` is the `teleop/`
 directory of the isaac-for-healthcare fork of `unitreerobotics/xr_teleoperate`
-at `47723c13` (branch `i4h/h2-sharpa`, tag `i4h-h2-sharpa-v1`): upstream's H2
-branch `ebe257f0` plus one commit with the H2 arm controller changes, the
+at `1cb9c7fb` (branch `i4h/h2-sharpa`, tag `i4h-h2-sharpa-v2`): upstream's H2
+branch `ebe257f0` plus two commits, one with the H2 arm controller changes, the
 SharpaWave hand DDS client, the ROS 2 camera client, the DDS network
 configuration, the body peer discovery and `teleop/utils/sharpa_tactile_wire.py`,
 the tactile wire format the robot-side bridge shares with teleop recording (the
-client reads it through its own vendored copy). It needs no patch: a change on
+client reads it through its own vendored copy), and one adding the NVIDIA SPDX
+headers to those files. It needs no patch: a change on
 the teleop side is a commit on that branch and a new `XR_TELEOPERATE_REV`.
 `third_party/unitree_sdk2_network_config.patch` applies to
 `unitreerobotics/unitree_sdk2_python` at `794fb2b3` and adds the `networkConfig`
