@@ -4,6 +4,10 @@ All notable changes to Isaac for Healthcare Workflows are documented in this fil
 
 Entries describe the repository layout at the time of each release. Links to removed layouts are pinned to the corresponding historical tag.
 
+## [Unreleased]
+
+- **GR00T N1.7 Tactile Stack**: New `tasks/gr00t_n17_tactile/` policy stack and `tools/tactile/` helpers for Unitree H2 + SharpaWave fingertip-tactile manipulation: fingertip tactile conditioning of the N1.7 action head, delay augmentation, per-step tactile refresh and a slow/fast cascade, as `third_party/gr00t_n17_tactile.patch` on a second Isaac-GR00T N1.7 checkout beside the vanilla stack. The deployment client `i4h-tasks-gr00t-n17-tactile-deploy` drives the H2 arms and SharpaWave hands from the served policy with server-driven settings, real-time chunking and same-plan tactile refines, on the isaac-for-healthcare fork of `unitreerobotics/xr_teleoperate` and on `unitree_sdk2_python`, at pinned revisions. See [H2 tactile manipulation](docs/workflows/h2_tactile.md).
+
 ## [0.7.0] - Endoluminal Workflow, Agentic Surgical Environments, NVSkills Agent Platform, Rheo Deformable Cloth
 
 - **Endoluminal Workflow**: New GPU fluoroscopy + XPBD catheter navigation workflow with CT digital-twin generation, Slang DRR/DSA rendering, interactive viewport, and `./i4h` CLI modes; user-facing name is **Endoluminal Workflow** (directory remains `workflows/catheter_navigation/`).
