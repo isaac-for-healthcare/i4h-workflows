@@ -113,7 +113,11 @@ arbitrary deformed initial mesh, and contact-rich trajectories may diverge.
 
 ## Validation
 
-Recovery checks on Isaac Sim 6.0.1 with the repository's pinned IsaacLab/Newton stack:
+Isaac Sim 6.2.0 with IsaacLab v3.0.0 and Newton 1.6.1: both robots complete an
+1800-step idle run and reach XR teleop readiness with the cloth at 2523
+particles.
+
+Recovery checks on Isaac Sim 6.0.1 with IsaacLab v3.0.0-beta2 and Newton 1.2.1:
 
 - G1: camera rendering, recording, and a 299-step replay of reset wrist targets.
 - H2: camera rendering, recording, and a 150-step synthetic replay including a

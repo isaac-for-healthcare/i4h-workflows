@@ -1,6 +1,6 @@
 # Isaac for Healthcare - Workflows
 
-[![Isaac Sim](https://img.shields.io/badge/Isaac%20Sim-6.0.1-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/6.0.0/index.html)
+[![Isaac Sim](https://img.shields.io/badge/Isaac%20Sim-6.2.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/6.0.0/index.html)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://docs.python.org/3/)
 [![License](https://img.shields.io/badge/License-Apache--2.0-yellow.svg)](LICENSE)
 [![General Linting](https://github.com/isaac-for-healthcare/i4h-workflows/actions/workflows/pre-commit.yml/badge.svg?branch=main)](https://github.com/isaac-for-healthcare/i4h-workflows/actions/workflows/pre-commit.yml)

@@ -19,6 +19,7 @@ OpenXR hand-tracking via IsaacTeleop. H2 lower body is fixed.
 """
 
 import os
+import re
 
 from isaaclab.controllers.pink_ik import FrameTaskCfg, NullSpacePostureTaskCfg, PinkIKControllerCfg
 from isaaclab.managers import ActionTermCfg
@@ -108,6 +109,27 @@ _RIGHT_EE_ELEMENTS = [
 ]
 
 _OUTPUT_ORDER = _LEFT_EE_ELEMENTS + _RIGHT_EE_ELEMENTS + H2_SHARPA_HAND_JOINT_NAMES_ARTICULATION_ORDER
+
+
+def _urdf_with_absolute_meshes(urdf_path: str) -> str:
+    """Write a sibling URDF whose relative mesh filenames are absolute.
+
+    Pinocchio resolves relative meshes only via package dirs, and Isaac Lab's
+    retrieve_file_path no longer accepts a directory for ``mesh_path``.
+    """
+    root = os.path.dirname(os.path.abspath(urdf_path))
+    with open(urdf_path) as f:
+        text = f.read()
+    text = re.sub(
+        r'filename="(?!/|package://|file://)([^"]+)"',
+        lambda m: f'filename="{os.path.join(root, m.group(1))}"',
+        text,
+    )
+    out_path = os.path.splitext(urdf_path)[0] + "_abs_meshes.urdf"
+    if not os.path.isfile(out_path) or open(out_path).read() != text:
+        with open(out_path, "w") as f:
+            f.write(text)
+    return out_path
 
 
 def _build_h2_sharpa_tablecloth_pipeline():
@@ -314,8 +336,8 @@ class H2SpreadTableclothTeleopEnvCfg(H2SpreadTableclothEnvCfg):
         # the teleop pipeline tries to open them.
         ensure_h2_sharpa_assets()
 
-        self.actions.pink_ik_cfg.controller.urdf_path = H2_SHARPA_URDF_PATH
-        self.actions.pink_ik_cfg.controller.mesh_path = os.path.dirname(H2_SHARPA_URDF_PATH)
+        self.actions.pink_ik_cfg.controller.urdf_path = _urdf_with_absolute_meshes(H2_SHARPA_URDF_PATH)
+        self.actions.pink_ik_cfg.controller.mesh_path = None
 
         self.xr.anchor_prim_path = "/World/envs/env_0/Robot/pelvis"
         self.xr.fixed_anchor_height = True

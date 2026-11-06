@@ -38,6 +38,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
+import isaaclab.sim as sim_utils
 import newton
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mdp.actions.pink_actions_cfg import PinkInverseKinematicsActionCfg
@@ -45,22 +46,40 @@ from isaaclab.envs.mdp.actions.pink_task_space_actions import PinkInverseKinemat
 from isaaclab.sim.spawners.from_files.from_files import spawn_from_usd
 from isaaclab.sim.utils import find_matching_prim_paths, get_current_stage
 from isaaclab.utils import configclass
-from isaaclab_contrib.deformable.coupled_mjwarp_vbd_manager import NewtonCoupledMJWarpVBDManager
-from isaaclab_contrib.deformable.newton_manager_cfg import CoupledMJWarpVBDSolverCfg, NewtonModelCfg, VBDSolverCfg
-from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
+from isaaclab_contrib.custom_coupling import CoupledMJWarpVBDSolverCfg
+from isaaclab_contrib.custom_coupling.coupled_mjwarp_vbd_manager import NewtonCoupledMJWarpVBDManager
+from isaaclab_newton.physics import (
+    MJWarpSolverCfg,
+    NewtonCfg,
+    NewtonShapeCfg,
+    NewtonSoftContactCfg,
+    VBDSolverCfg,
+)
+from isaaclab_newton.sim.schemas import NewtonDeformableBodyPropertiesCfg
+from isaaclab_newton.sim.spawners.materials import NewtonSurfaceDeformableBodyMaterialCfg
 from pxr import UsdGeom
+
+
+def cloth_spawn_cfg(usd_path: str) -> sim_utils.UsdFileCfg:
+    """Spawn the cloth USD as a Newton surface deformable with the Rheo v0.7 cloth material."""
+    return sim_utils.UsdFileCfg(
+        usd_path=usd_path,
+        deformable_props=NewtonDeformableBodyPropertiesCfg(),
+        physics_material=NewtonSurfaceDeformableBodyMaterialCfg(
+            density=1.0,
+            particle_radius=0.008,
+            tri_ke=1e4,
+            tri_ka=1e4,
+            tri_kd=1.5e-6,
+            edge_ke=5.0,
+            edge_kd=1e-2,
+        ),
+    )
 
 
 @configclass
 class DeformableNewtonCfg(NewtonCfg):
-    """``NewtonCfg`` carrying model-level contact parameters for deformables.
-
-    A distinct class name is required so Isaac Lab's ``_is_kitless_physics``
-    check does not match it, which ensures Kit launches for USD deformable
-    spawning.
-    """
-
-    model_cfg: NewtonModelCfg | None = None
+    """``NewtonCfg`` for the coupled rigid/cloth scene."""
 
 
 def make_newton_physics() -> DeformableNewtonCfg:
@@ -90,14 +109,12 @@ def make_newton_physics() -> DeformableNewtonCfg:
             ),
             coupling_mode="two_way",
         ),
-        model_cfg=NewtonModelCfg(
+        soft_contact_cfg=NewtonSoftContactCfg(
             soft_contact_ke=5.0e4,  # Cloth-hand contact stiffness.
             soft_contact_kd=1.0e-3,
             soft_contact_mu=1.0,
-            shape_material_ke=1.0e4,
-            shape_material_kd=1.0e-3,
-            shape_material_mu=0.8,
         ),
+        default_shape_cfg=NewtonShapeCfg(ke=1.0e4, kd=1.0e-3, mu=0.8),
         num_substeps=20,
         use_cuda_graph=True,
     )
@@ -108,36 +125,17 @@ _MUJOCO_ATTRIBUTES_FIX_DONE = False
 
 
 def enable_mujoco_usd_attributes() -> None:
-    """Register MuJoCo USD attributes before the coupled backend imports bodies.
+    """Require the coupled backend to register MuJoCo USD attributes on its builder.
 
-    The pinned coupled manager constructs ModelBuilder directly and omits the
-    registration used by IsaacLab's regular Newton cloner. Without it, authored
-    mjc:gravcomp is silently discarded. Scope the builder substitution to that
-    manager's import call and restore it even if USD import raises.
+    Without that registration, authored mjc:gravcomp is silently discarded.
     """
     global _MUJOCO_ATTRIBUTES_FIX_DONE
     if _MUJOCO_ATTRIBUTES_FIX_DONE:
         return
-    import isaaclab_contrib.deformable.coupled_mjwarp_vbd_manager as coupled
     from newton.solvers import SolverMuJoCo
 
-    original_import = NewtonCoupledMJWarpVBDManager.instantiate_builder_from_stage.__func__
-
-    def import_with_mujoco_attributes(cls):
-        original_builder = coupled.ModelBuilder
-
-        def make_builder(*args, **kwargs):
-            builder = original_builder(*args, **kwargs)
-            SolverMuJoCo.register_custom_attributes(builder)
-            return builder
-
-        coupled.ModelBuilder = make_builder
-        try:
-            return original_import(cls)
-        finally:
-            coupled.ModelBuilder = original_builder
-
-    NewtonCoupledMJWarpVBDManager.instantiate_builder_from_stage = classmethod(import_with_mujoco_attributes)
+    if SolverMuJoCo not in NewtonCoupledMJWarpVBDManager._builder_attribute_solvers:
+        raise RuntimeError("the coupled MJWarp/VBD manager no longer registers MuJoCo USD attributes")
     _MUJOCO_ATTRIBUTES_FIX_DONE = True
 
 
@@ -151,7 +149,7 @@ def _install_newton_hand_collision_flag_fix() -> None:
 
     def _patched(cls):
         _orig(cls)
-        model = cls._model
+        model = cls.get_model()
         if model is None:
             return
         collide = int(newton.ShapeFlags.COLLIDE_SHAPES) | int(newton.ShapeFlags.COLLIDE_PARTICLES)

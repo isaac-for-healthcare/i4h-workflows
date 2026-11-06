@@ -21,7 +21,8 @@ dependencies = [
     "pyzmq>=26,<28",
     "PyYAML>=6.0",
     "tqdm>=4.66",
-    "isaacsim[all,extscache]==6.0.1",
+    "isaacsim[all,extscache]==6.2.0.0",
+    "PyJWT[crypto]>=2.15.1,<3",
     "isaaclab",
     "isaaclab-contrib",
     "isaaclab-mimic",
@@ -35,7 +36,52 @@ dependencies = [
     "isaaclab-assets",
     "leisaac",
     "isaaclab-arena",
-    "warp-lang==1.13.0",
+    "warp-lang==1.17.0",
+    "isaacteleop[retargeters,ui,cloudxr]~=1.4.145 ; platform_system == 'Linux' and platform_machine == 'x86_64'",
+    "dex-retargeting==0.5.0 ; platform_system == 'Linux' and platform_machine == 'x86_64'",
+    # Isaac Lab 3.0 declares its runtime dependencies only in the repository root
+    # (isaaclab-dev); its source packages declare none.
+    "torch==2.11.0",
+    "torchvision==0.26.0",
+    "onnx>=1.18.0",
+    "prettytable>=3.3.0",
+    "psutil",
+    "protobuf>=4.25.8,!=5.26.0",
+    "hidapi>=0.14.0",
+    "gymnasium>=1.2.0",
+    "trimesh>=4.6.8",
+    "pyglet>=2.1.6,<3",
+    "transformers==5.10.4",
+    "einops",
+    "matplotlib>=3.10.3",
+    "pillow>=12.3.0",
+    "botocore",
+    "starlette>=1.3.1",
+    "omniverseclient==2.74.0",
+    "filelock",
+    "lazy_loader>=0.4",
+    "Jinja2",
+    "pin ; platform_system == 'Linux'",
+    "pin-pink==3.3.0 ; platform_system == 'Linux'",
+    "daqp==0.8.5 ; platform_system == 'Linux'",
+    "usd-exchange==3.0.1",
+    "tensorboard",
+    "numba>=0.63.1",
+    "rich",
+    "rsl-rl-lib==5.5.1",
+    "gitpython>=3.1.60",
+    "newton[sim]==1.6.1",
+    "scipy>=1.11.0",
+    "coacd>=1.0.7",
+    "fast-simplification>=0.1.11",
+    "alphashape>=1.3.1",
+    "meshio>=5.3.5",
+    "pycollada>=0.9",
+    "resolve-robotics-uri-py>=0.4.0",
+    "open3d>=0.19.0 ; platform_machine != 'aarch64'",
+    "newton-usd-schemas>=0.5.0",
+    "PyOpenGL-accelerate>=3.1.0",
+    "imgui-bundle>=1.92.5",
     "osqp>=0.6.7.post3",
     "qpsolvers==4.8.1",
 ]
@@ -59,34 +105,27 @@ i4h-tasks-rsl-rl = { path = "../tasks/rsl_rl", editable = true }
 i4h-tasks-ik = { path = "../tasks/ik", editable = true }
 i4h-tasks-teleop = { path = "../tasks/teleop", editable = true }
 isaacsim = { index = "nvidia" }
-isaaclab = { path = "../third_party/IsaacLab-ffff603/source/isaaclab", editable = true }
-isaaclab-contrib = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_contrib", editable = true }
-isaaclab-mimic = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_mimic", editable = true }
-isaaclab-newton = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_newton", editable = true }
-isaaclab-ov = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_ov", editable = true }
-isaaclab-physx = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_physx", editable = true }
-isaaclab-rl = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_rl", editable = true }
-isaaclab-tasks = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_tasks", editable = true }
-isaaclab-teleop = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_teleop", editable = true }
-isaaclab-visualizers = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_visualizers", editable = true }
-isaaclab-assets = { path = "../third_party/IsaacLab-ffff603/source/isaaclab_assets", editable = true }
+isaaclab = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab", editable = true }
+isaaclab-contrib = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_contrib", editable = true }
+isaaclab-mimic = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_mimic", editable = true }
+isaaclab-newton = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_newton", editable = true }
+isaaclab-ov = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_ov", editable = true }
+isaaclab-physx = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_physx", editable = true }
+isaaclab-rl = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_rl", editable = true }
+isaaclab-tasks = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_tasks", editable = true }
+isaaclab-teleop = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_teleop", editable = true }
+isaaclab-visualizers = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_visualizers", editable = true }
+isaaclab-assets = { path = "../third_party/IsaacLab-e3f7d9f/source/isaaclab_assets", editable = true }
 leisaac = { path = "../third_party/leisaac-cd61a20/source/leisaac", editable = true }
-isaaclab-arena = { path = "../third_party/IsaacLab-Arena-0a1b8c2", editable = true }
+isaaclab-arena = { path = "../third_party/IsaacLab-Arena-4f69582", editable = true }
 catheter-vasculature-solver = { path = "../third_party/i4h-physics-simulation-internal/physics_simulation/endoluminal/catheter-vasculature-solver", editable = true }
 xray-simulator = { path = "../third_party/i4h-sensor-simulation-internal/xray-simulator", editable = true }
-torch = [
-    { index = "pytorch-cu128", marker = "platform_machine == 'x86_64'" },
-    { index = "pytorch-cu130", marker = "platform_machine == 'aarch64'" },
-]
-torchvision = [
-    { index = "pytorch-cu128", marker = "platform_machine == 'x86_64'" },
-    { index = "pytorch-cu130", marker = "platform_machine == 'aarch64'" },
-]
+torch = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }
 
 [[tool.uv.index]]
 name = "nvidia"
 url = "https://pypi.nvidia.com"
-explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cu128"
@@ -108,16 +147,35 @@ prerelease = "allow"
 python-preference = "only-managed"
 override-dependencies = [
     "coverage==7.4.4",
-    'usd-core>=25.11,<26 ; platform_machine == "x86_64"',
-    "numpy>=2,<3",
+    "numpy==2.3.1",
     "packaging==26.0",
     "gymnasium==1.2.1",
     'pywin32==306 ; sys_platform == "win32"',
-    "torch==2.10.0",
-    "torchvision==0.25.0",
+    "mujoco~=3.12.0",
+    "mujoco-warp~=3.12.0",
+    "newton[sim]==1.6.1",
+    "newton-usd-schemas>=0.5.0",
+    "usd-exchange==3.0.1",
+    "usd-optimize~=1.3.1",
+    "torch==2.11.0",
+    "torchvision==0.26.0",
+    "fsspec>=2026.6.0",
+    "urllib3>=2.8.0",
     "uvicorn>=0.31.1",
-    "warp-lang==1.13.0",
-    "websockets==12.0",
+    "warp-lang==1.17.0",
+    # isaacsim-kernel 6.2 caps websockets <15; isaacteleop[cloudxr] needs >=14.
+    "websockets==16.1.1",
+    "boto3==1.40.61",
+    "botocore==1.40.61",
+    "requests==2.32.3",
+    "s3transfer==0.14.0",
+]
+constraint-dependencies = [
+    "pin-pink==3.3.0",
+    "pyglet<3",
+    "tinyobjloader==2.0.0rc13",
+    "mujoco-usd-converter==0.6.1",
+    "typer<0.26",
 ]
 
 [tool.uv.extra-build-dependencies]

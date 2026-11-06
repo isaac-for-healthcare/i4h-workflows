@@ -248,7 +248,7 @@ def launch(
             return return_code or 1
         return 0
 
-    train_script = workflows_root / "third_party/IsaacLab-ffff603/scripts/reinforcement_learning/rsl_rl/train.py"
+    train_script = workflows_root / "third_party/IsaacLab-e3f7d9f/scripts/reinforcement_learning/rsl_rl/train.py"
     command = [
         str(runtime),
         str(train_script),

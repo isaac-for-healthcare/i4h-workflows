@@ -12,12 +12,12 @@ LOG_PREFIX="i4h-workflows third_party setup"
 TARGET="${1:-all}"
 [ "$#" -le 1 ] || { echo "usage: third_party/setup.sh [all|arena|tasks/<policy>]" >&2; exit 2; }
 
-ISAACLAB_REV="ffff603eafc6b74264a5261cc0183d6a65390d78"
-ISAACLAB_DIR="IsaacLab-ffff603"
+ISAACLAB_REV="e3f7d9ff1f5d7f8280de3ece9000b7117f66bcf4"
+ISAACLAB_DIR="IsaacLab-e3f7d9f"
 LEISAAC_REV="cd61a20c75f7b72c347538089602201349af6dc8"
 LEISAAC_DIR="leisaac-cd61a20"
-ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
-ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
+ISAACLAB_ARENA_REV="4f6958204266e76e7c86ab4cba1754d76d5c2a31"
+ISAACLAB_ARENA_DIR="IsaacLab-Arena-4f69582"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
 # Release component versions for v0.9.0: physics simulation, sensor simulation and digital
@@ -251,10 +251,6 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}/.git" ]]; then
   apply_patch_once "IsaacLab-Arena G1 WBC default_base_height cfg" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_arena_wbc_default_base_height.patch"
-
-  apply_patch_once "IsaacLab-Arena Newton import" \
-    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
-    "${THIRD_PARTY_DIR}/isaaclab_arena_newton_import.patch"
 
   apply_patch_once "IsaacLab-Arena lazy registration" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \

@@ -36,7 +36,7 @@ from i4h_arena.embodiments.tablecloth import (
     H2_SPREAD_TABLECLOTH_INIT_ROT,
     H2RobotPresets,
 )
-from i4h_arena.envcfg.tablecloth.cloth_physics import make_newton_physics
+from i4h_arena.envcfg.tablecloth.cloth_physics import cloth_spawn_cfg, make_newton_physics
 from i4h_arena.envcfg.tablecloth.mdp.observations import get_robot_joint_states
 
 # Body + Sharpa Wave hand joints in PhysX BFS articulation order.
@@ -120,9 +120,7 @@ class H2SpreadTableclothSceneCfg(InteractiveSceneCfg):
             pos=(-0.55, 0.0, 0.77),  # rest on the tabletop surface (z=0.77)
             rot=(0.0, 0.0, 0.0, 1.0),
         ),
-        spawn=sim_utils.UsdFileCfg(
-            usd_path=CLOTH_ONLY_USD,
-        ),
+        spawn=cloth_spawn_cfg(CLOTH_ONLY_USD),
     )
 
     cloth_inner = RigidObjectCfg(
@@ -174,7 +172,7 @@ class H2ObservationsCfg:
     @configclass
     class CameraImagesCfg(ObsGroup):
         front_camera = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("front_camera"), "data_type": "rgb", "normalize": False},
         )
 
@@ -208,7 +206,8 @@ class H2SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
     scene: H2SpreadTableclothSceneCfg = H2SpreadTableclothSceneCfg(
         num_envs=1,
         env_spacing=6.0,
-        replicate_physics=False,
+        # Newton imports only replicated clone plans into its model.
+        replicate_physics=True,
     )
 
     viewer: ViewerCfg = ViewerCfg(

@@ -35,7 +35,7 @@ from i4h_arena.embodiments.tablecloth import (
     SPREAD_TABLECLOTH_INIT_ROT,
     G1RobotPresets,
 )
-from i4h_arena.envcfg.tablecloth.cloth_physics import make_newton_physics
+from i4h_arena.envcfg.tablecloth.cloth_physics import cloth_spawn_cfg, make_newton_physics
 from i4h_arena.envcfg.tablecloth.mdp.observations import get_robot_joint_states
 
 # G1 29 DOF body + Inspire hand joints.
@@ -138,9 +138,7 @@ class SpreadTableclothSceneCfg(InteractiveSceneCfg):
             pos=(-0.55, 0.0, 0.77),
             rot=(0.0, 0.0, 0.0, 1.0),
         ),
-        spawn=sim_utils.UsdFileCfg(
-            usd_path=CLOTH_ONLY_USD,
-        ),
+        spawn=cloth_spawn_cfg(CLOTH_ONLY_USD),
     )
 
     # Inner rigid body that the cloth wraps around.
@@ -194,15 +192,15 @@ class ObservationsCfg:
     @configclass
     class CameraImagesCfg(ObsGroup):
         front_camera = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("front_camera"), "data_type": "rgb", "normalize": False},
         )
         left_wrist_camera = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("left_wrist_camera"), "data_type": "rgb", "normalize": False},
         )
         right_wrist_camera = ObsTerm(
-            func=base_mdp.image,
+            func=base_mdp.image_rgb,
             params={"sensor_cfg": SceneEntityCfg("right_wrist_camera"), "data_type": "rgb", "normalize": False},
         )
 
@@ -236,7 +234,8 @@ class G1SpreadTableclothEnvCfg(ManagerBasedRLEnvCfg):
     scene: SpreadTableclothSceneCfg = SpreadTableclothSceneCfg(
         num_envs=1,
         env_spacing=6.0,
-        replicate_physics=False,
+        # Newton imports only replicated clone plans into its model.
+        replicate_physics=True,
     )
 
     viewer: ViewerCfg = ViewerCfg(
