@@ -22,6 +22,7 @@ from typing import Any
 
 import torch
 
+from i4h_arena.profiling import CaptureRange, phase
 from i4h_arena.recording.scene_state import capture_scene_state, restore_scene_state
 from i4h_arena.scenes.base import Scene
 from i4h_common.bus.base import Bus
@@ -162,6 +163,11 @@ class RunSummary:
 class SimulationRunner:
     """Drives one workflow against one scene for N episodes."""
 
+    #: Inert default, so a runner built without ``__init__`` still has a capture
+    #: for the step loop to call into. Sharing one instance is safe because a
+    #: disabled range returns before it touches any of its own state.
+    capture: CaptureRange = CaptureRange()
+
     def __init__(
         self,
         *,
@@ -189,6 +195,7 @@ class SimulationRunner:
         sensor_view_sliders: dict[str, tuple[Any, ...]] | None = None,
         sensor_view_readouts: dict[str, Any] | None = None,
         initial_state: dict[str, Any] | None = None,
+        capture: CaptureRange | None = None,
     ) -> None:
         self.scene = scene
         self.workflow = workflow
@@ -210,6 +217,9 @@ class SimulationRunner:
         #: randomized reset. Replay sets it so the recorded actions meet the
         #: objects where they were when the episode was recorded.
         self.initial_state = initial_state
+        #: Inert unless ``--nsys-range`` asked for a capture, so the loop below
+        #: can call into it unconditionally.
+        self.capture = capture if capture is not None else CaptureRange()
         self.run_id = uuid.uuid4().hex[:8]
         self._view = scene.make_view(env)
         self._controls: dict[str, float] = {}
@@ -307,6 +317,9 @@ class SimulationRunner:
             logger.info("%s", summary.render())
             return summary
         finally:
+            # Before the windows close, so the capture cannot swallow teardown
+            # and report it as stepping cost.
+            self.capture.close()
             for window in self._sensor_windows:
                 window.close()
             _ACTIVE_RUNNER = None
@@ -358,7 +371,10 @@ class SimulationRunner:
         #: Cleared by such a reset: every later frame belongs to another episode.
         recording = True
         while not engine.status.is_terminal and self.app.is_running():
-            engine.tick(ctx)
+            # Policy inference runs inside the tick, so this is the range that
+            # separates deciding an action from applying it.
+            with phase("tick", enabled=self.capture.enabled):
+                engine.tick(ctx)
             if ctx.consume_scene_reset():
                 self._reset_active_scene(engine, ctx)
                 reset_by, recording = None, True
@@ -403,7 +419,8 @@ class SimulationRunner:
                             f"step {engine.step}: non-finite action {command.detach().cpu().numpy().tolist()}"
                         )
                     try:
-                        self.env.step(command)
+                        with phase("env.step", enabled=self.capture.enabled):
+                            self.env.step(command)
                     except Exception as exc:
                         # ``env.step`` renders between its physics sub-steps, and
                         # that render is where Kit handles a closed window. Kit
@@ -420,6 +437,9 @@ class SimulationRunner:
                         logger.debug("env.step failure while Isaac Sim was closing", exc_info=True)
                         break
                 self._view.on_step()
+                # Counted here rather than before the step, so warmup is
+                # measured in steps that actually completed.
+                self.capture.step()
                 if _reset_during_step(self.env):
                     reset_by, recording = _terms_that_reset(self.env), False
                     logger.info(
@@ -432,7 +452,10 @@ class SimulationRunner:
                 # A step that reset the environment leaves the next episode's
                 # images and joints behind; recording them would end every
                 # such demo on a frame from a different episode.
-                self.recorder.on_step(self._actuation.numpy(), self._view)
+                # Ranged separately because reading camera frames back to the
+                # host is the one phase here that is expected to synchronize.
+                with phase("record", enabled=self.capture.enabled):
+                    self.recorder.on_step(self._actuation.numpy(), self._view)
             if self.publisher is not None:
                 active = engine.active_nodes
                 self.publisher.publish(self._view, node=active[0] if active else "", episode_index=episode)
