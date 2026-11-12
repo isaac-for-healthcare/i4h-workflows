@@ -112,3 +112,40 @@ Licensed under BSD-3-Clause (https://github.com/scipy/scipy/blob/main/LICENSE.tx
 
 matplotlib (https://pypi.org/project/matplotlib/)
 Licensed under Python Software Foundation License (https://github.com/matplotlib/matplotlib/blob/main/LICENSE/LICENSE)
+
+Isaac Lab (https://github.com/isaac-sim/IsaacLab)
+Copyright (c) 2022-2025, The Isaac Lab Project Developers.
+Licensed under BSD-3-Clause (https://github.com/isaac-sim/IsaacLab/blob/ffff603eafc6b74264a5261cc0183d6a65390d78/LICENSE)
+
+Isaac Lab Arena (https://github.com/isaac-sim/IsaacLab-Arena)
+Licensed under Apache 2.0 (https://github.com/isaac-sim/IsaacLab-Arena/blob/0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c/LICENSE.md)
+
+Isaac Sim (https://github.com/isaac-sim/IsaacSim)
+Repository software licensed under Apache 2.0 (https://github.com/isaac-sim/IsaacSim/blob/045ca8b59622b99a408092124377c66346e8d9c2/LICENSE)
+Additional NVIDIA components required to build or use it are under https://www.nvidia.com/en-us/agreements/enterprise-software/isaac-sim-additional-software-and-materials-license/
+
+leisaac (https://github.com/LightwheelAI/leisaac)
+Licensed under Apache 2.0 (https://github.com/LightwheelAI/leisaac/blob/cd61a20c75f7b72c347538089602201349af6dc8/LICENSE)
+
+Isaac GR00T 1.5 (https://github.com/NVIDIA/Isaac-GR00T)
+Licensed under Apache 2.0 (https://github.com/NVIDIA/Isaac-GR00T/blob/17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1/LICENSE)
+
+Isaac GR00T 1.6 (https://github.com/NVIDIA/Isaac-GR00T)
+Licensed under the NVIDIA License (https://github.com/NVIDIA/Isaac-GR00T/blob/e8e625f4f21898c506a1d8f7d20a289c97a52acf/LICENSE)
+
+Isaac GR00T 1.7 (https://github.com/NVIDIA/Isaac-GR00T)
+Licensed under Apache 2.0 (https://github.com/NVIDIA/Isaac-GR00T/blob/4b1dca9d88d2a0b9ea5a65aa61c82ff89f5c4f0e/LICENSE)
+
+RLinf (https://github.com/RLinf/RLinf)
+Licensed under Apache 2.0 (https://github.com/RLinf/RLinf/blob/a4b6abe205d7942f45cf3e8843c3e72ce818729d/LICENSE)
+
+i4h-physics-simulation (https://github.com/isaac-for-healthcare/i4h-physics-simulation)
+Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+Licensed under Apache 2.0 (https://github.com/isaac-for-healthcare/i4h-physics-simulation/blob/50056196775fc0ed8cca03bf16144fe71d183ca7/LICENSE)
+
+i4h-sensor-simulation (https://github.com/isaac-for-healthcare/i4h-sensor-simulation)
+Licensed under Apache 2.0 (https://github.com/isaac-for-healthcare/i4h-sensor-simulation/blob/5d6ba8547a4c6e25af7eaf551f6a34371ccd6350/LICENSE)
+
+i4h-digital-twin (https://github.com/isaac-for-healthcare/i4h-digital-twin)
+Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+Licensed under Apache 2.0 (https://github.com/isaac-for-healthcare/i4h-digital-twin/blob/6b6470cff156ba15b573ae1b4b44c3a77654b8b3/LICENSE)
