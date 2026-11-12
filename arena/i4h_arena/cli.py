@@ -15,6 +15,10 @@ import logging
 import os
 import sys
 
+# Light by construction: it defers torch to the call that needs it, so the
+# parser stays importable without Isaac or a GPU.
+from i4h_arena.profiling import DEFAULT_WARMUP_STEPS, CaptureRange
+
 logger = logging.getLogger("arena")
 
 
@@ -144,6 +148,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     diagnostics = parser.add_argument_group("diagnostics")
+    diagnostics.add_argument(
+        "--nsys-range",
+        action="store_true",
+        help="bracket steady-state stepping with cudaProfilerStart/Stop and mark tick/step/record as NVTX "
+        "ranges, for nsys profile --capture-range=cudaProfilerApi",
+    )
+    diagnostics.add_argument(
+        "--nsys-warmup",
+        type=int,
+        default=DEFAULT_WARMUP_STEPS,
+        metavar="N",
+        help=f"steps to skip before --nsys-range opens the capture (default {DEFAULT_WARMUP_STEPS})",
+    )
     diagnostics.add_argument("--dry-run", action="store_true", help="resolve and lint, then report without launching")
     diagnostics.add_argument("--verbose", action="store_true")
     diagnostics.add_argument("--run-id", default=None)
@@ -171,6 +188,8 @@ def main(argv: list[str] | None = None) -> int:
             f"--episode-steps cannot exceed {declared_cap} for {args.workflow}; "
             "the validated per-environment cap may only be lowered"
         )
+    if args.nsys_warmup < 0:
+        parser.error(f"--nsys-warmup cannot be negative, got {args.nsys_warmup}")
     overridden = apply_overrides(
         workflow.graph,
         checkpoint=args.checkpoint,
@@ -344,6 +363,7 @@ def _launch(args: argparse.Namespace, workflow) -> int:
                 sensor_view_sliders=scene.sensor_view_sliders(),
                 sensor_view_readouts=scene.sensor_view_readouts(env),
                 initial_state=initial_state,
+                capture=CaptureRange(enabled=args.nsys_range, warmup_steps=args.nsys_warmup),
             )
             summary = runner.run()
             print(summary.render())
