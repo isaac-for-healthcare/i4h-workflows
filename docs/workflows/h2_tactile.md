@@ -128,12 +128,26 @@ checkout is described in
 
 ## Not in this repository
 
-- The robot-side bridge: a small script and a container that read the
-  SharpaWave SDK, publish the ZMQ stream and relay the hand DDS topics. It
-  runs on the robot's onboard computer and is not part of this repository.
 - Datasets and finetuned checkpoints, which are passed as paths.
+- The vendor software on the robot's onboard computer, which is public and
+  installed from its own source:
+  - the SharpaWave SDK, a release asset of
+    [sharpa-robotics/sharpa-wave-sdk](https://github.com/sharpa-robotics/sharpa-wave-sdk/releases)
+    (`SharpaWaveSDK_5.0.0.arm.zip` in release `v5.0.1`);
+  - the SDK container the tactile stream is produced in,
+    [sharpadev/sharpawavesdk](https://hub.docker.com/r/sharpadev/sharpawavesdk/tags),
+    tag `5.0.1.aarch64`;
+  - [gscam2](https://github.com/clydemcqueen/gscam2), the ROS 2 node that
+    publishes the camera streams.
+- The robot-side bridge: scripts in the SDK container that publish the ZMQ
+  stream, and a program built against the SDK and
+  [unitree_sdk2](https://github.com/unitreerobotics/unitree_sdk2) that relays
+  the hand DDS topics. It runs on the robot's onboard computer and is not part
+  of this repository.
 - A fingertip calibration helper the client runs on the onboard computer
   before each episode.
+- The camera launch configuration on the onboard computer. The camera kernel
+  modules come with the robot.
 
 ## Roadmap
 

@@ -419,6 +419,7 @@ with the same client command.
 ## Dependencies
 
 Everything third-party is public and pinned by revision in `third_party/setup.sh`.
+The two rows marked "on the robot" are installed on the onboard computer, not by that script.
 
 | Component | Source | Revision | License |
 | --- | --- | --- | --- |
@@ -426,7 +427,8 @@ Everything third-party is public and pinned by revision in `third_party/setup.sh
 | Base weights | [nvidia/GR00T-N1.7-3B](https://huggingface.co/nvidia/GR00T-N1.7-3B) | | NVIDIA model license |
 | SharpaWave deform encoder | [sharpa-robotics/sharpawave-deform-encoder](https://github.com/sharpa-robotics/sharpawave-deform-encoder), weights at [Sharpa-Robotics/sharpawave-deform-encoder](https://huggingface.co/Sharpa-Robotics/sharpawave-deform-encoder) | `7a30b37b` | Apache-2.0 |
 | SharpaWave hand URDFs | [sharpa-robotics/sharpa-urdf-usd-xml](https://github.com/sharpa-robotics/sharpa-urdf-usd-xml) | `0d19cac6` | Apache-2.0 |
-| SharpaWave SDK (on the robot) | [sharpa-robotics/sharpa-wave-sdk](https://github.com/sharpa-robotics/sharpa-wave-sdk), image [sharpadev/sharpawavesdk](https://hub.docker.com/r/sharpadev/sharpawavesdk) | | vendor |
+| SharpaWave SDK (on the robot) | [sharpa-robotics/sharpa-wave-sdk](https://github.com/sharpa-robotics/sharpa-wave-sdk/releases) release asset `SharpaWaveSDK_5.0.0.arm.zip`, image [sharpadev/sharpawavesdk](https://hub.docker.com/r/sharpadev/sharpawavesdk/tags) | release `v5.0.1`, image tag `5.0.1.aarch64` (`sha256:d827abf6`) | vendor |
+| Camera node (on the robot) | [clydemcqueen/gscam2](https://github.com/clydemcqueen/gscam2) | `34c3263d` | BSD |
 | T-Rex force encoder | [ZhuoyangLiu2005/T-Rex](https://github.com/ZhuoyangLiu2005/T-Rex), weights inside [miniFranka/T-Rex_midtrain_mecka23k_ucb100_vqvae_epoch6](https://huggingface.co/miniFranka/T-Rex_midtrain_mecka23k_ucb100_vqvae_epoch6) | `ba4047ce` | MIT |
 | Unitree teleoperation (`teleop/` only) | [isaac-for-healthcare/xr_teleoperate](https://github.com/isaac-for-healthcare/xr_teleoperate), a fork of [unitreerobotics/xr_teleoperate](https://github.com/unitreerobotics/xr_teleoperate) whose `i4h/h2-sharpa` branch (tag `i4h-h2-sharpa-v2`) adds two commits to upstream's H2 branch `ebe257f0`: H2 arm controller changes, SharpaWave hand DDS client, ROS 2 camera client, DDS network configuration and peer discovery, and the tactile wire format the robot-side bridge shares with teleop recording, then the NVIDIA SPDX headers on those files | `1cb9c7fb` | Apache-2.0 |
 | Unitree Python SDK | [unitreerobotics/unitree_sdk2_python](https://github.com/unitreerobotics/unitree_sdk2_python), plus `third_party/unitree_sdk2_network_config.patch` (the `networkConfig` keyword); brings `cyclonedds==0.10.2` through its `setup.py` | `794fb2b3` | BSD-3-Clause |
