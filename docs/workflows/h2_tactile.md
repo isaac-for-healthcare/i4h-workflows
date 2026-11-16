@@ -20,11 +20,11 @@ this repository is listed at the end.
 ![SaTA + T-Rex tactile integration into GR00T N1.7](images/h2_tactile_architecture.png)
 
 - **Two tactile signals per fingertip.** A frozen SharpaWave encoder turns the
-  240x240 deformation map into 512 features. A frozen T-Rex VQ-VAE turns the
+  240x240 deformation map into 512 features, which are modulated (FiLM) and
+  positioned by the fingertip's pose; forward kinematics computes that pose
+  from the hand joints recorded with the frame. A frozen T-Rex VQ-VAE turns the
   last 16 frames of 6-axis force into a 256-d code. The two are concatenated
-  per fingertip, modulated (FiLM) and positioned by the fingertip's pose, which
-  forward kinematics computes on the hand joints recorded with the frame, so
-  the features say *what* is felt and *where*.
+  per fingertip, so the features say *what* is felt and *where*.
 - **Zero-initialised cross-attention.** The per-fingertip features enter the
   N1.7 action head through an additional cross-attention in each of its 16 cross-attention
   blocks whose output projection starts at zero. A freshly patched checkpoint
