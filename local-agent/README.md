@@ -65,7 +65,7 @@ I4H_AGENT_PROFILE=nvidia-hosted \
 I4H_AGENT_BASE_URL=https://integrate.api.nvidia.com \
 I4H_AGENT_MODEL=nvidia/nemotron-3-ultra-550b-a55b \
 I4H_AGENT_VL_BASE_URL=https://integrate.api.nvidia.com \
-I4H_AGENT_VL_MODEL=nvidia/nemotron-nano-12b-v2-vl \
+I4H_AGENT_VL_MODEL=nvidia/nemotron-3.5-super-vl-120b-a12b \
 ./local-agent/run.sh agent
 ```
 
