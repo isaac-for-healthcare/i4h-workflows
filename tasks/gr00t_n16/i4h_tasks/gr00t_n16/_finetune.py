@@ -45,7 +45,9 @@ class TrainConfig:
     warmup_ratio: float = 0.05
 
     dataloader_num_workers: int = 8
-    report_to: Literal["wandb", "tensorboard"] = "tensorboard"
+    # The trainer gets report_to="wandb" for wandb and "none" otherwise, so the
+    # loss goes to the console only; there is no TensorBoard option.
+    report_to: Literal["none", "wandb"] = "none"
 
     color_jitter_params: list[str] = field(
         default_factory=lambda: ["brightness", "0.3", "contrast", "0.4", "saturation", "0.5", "hue", "0.08"]
