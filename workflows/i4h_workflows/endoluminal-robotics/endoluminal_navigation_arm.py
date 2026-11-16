@@ -37,8 +37,9 @@ WORKFLOW = Workflow(
         # only because a task manifest names one embodiment and lint matches it
         # by name. The checkpoint is the same one: both scenes accept the same
         # four velocity channels, and the arm appends ``arm.panda_joint*``
-        # columns as a third state group outside the ``catheter``/``carm``
-        # groups the task reads. Train in either scene, roll out in either.
+        # columns as a state group of their own, outside the ``catheter``,
+        # ``carm``, ``target`` and ``route`` groups the task reads. Train in
+        # either scene, roll out in either.
         "policy_n17": lambda: policy("gr00t_n17/catheter_navigation_arm", until=success),
         "replay": replay,
         "demo": lambda: TaskGraph(description="Deterministic sweep exercising the arm-borne catheter drive.").flow(
