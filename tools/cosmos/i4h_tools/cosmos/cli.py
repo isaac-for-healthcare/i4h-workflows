@@ -12,7 +12,10 @@ cameras, and workflow segments remain unchanged.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import logging
+import os
+from collections.abc import Iterator
 from pathlib import Path
 
 import h5py
@@ -72,12 +75,27 @@ def export(source: Path, outdir: Path, *, camera: str | None = None, fps: int = 
     return written
 
 
+@contextlib.contextmanager
+def _staged(target: Path) -> Iterator[Path]:
+    """Yield a temporary path next to ``target``; move it over ``target`` only on success.
+
+    A refused or failed import leaves ``target`` as it was: an existing file
+    is kept and no new file appears.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    staging = target.with_name(f".{target.name}.{os.getpid()}.tmp")
+    try:
+        yield staging
+        os.replace(staging, target)
+    finally:
+        staging.unlink(missing_ok=True)
+
+
 def import_videos(source: Path, videodir: Path, target: Path, *, camera: str, include_source: bool = False) -> int:
     """Fold augmented videos back in, reusing each source demo's actions."""
     import imageio.v3 as iio  # noqa: PLC0415
 
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with h5py.File(str(source), "r") as src, h5py.File(str(target), "w") as dst:
+    with _staged(target) as staging, h5py.File(str(source), "r") as src, h5py.File(str(staging), "w") as dst:
         src_data = src[DATA_GROUP]
         dst_data = dst.create_group(DATA_GROUP)
         for key, value in src_data.attrs.items():
@@ -114,8 +132,8 @@ def import_videos(source: Path, videodir: Path, target: Path, *, camera: str, in
             written += 1
 
         dst_data.attrs["total"] = written
-        logger.info("wrote %s demos to %s", written, target)
-        return written
+    logger.info("wrote %s demos to %s", written, target)
+    return written
 
 
 def _copy(src: h5py.Group, dst_parent: h5py.Group, name: str) -> h5py.Group:

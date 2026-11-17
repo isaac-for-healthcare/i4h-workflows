@@ -121,3 +121,32 @@ def test_empty_recording_is_an_error(tmp_path):
         handle.create_group("data")
     with pytest.raises(ValueError, match="no demo_"):
         expand(path, tmp_path / "out.hdf5", episodes=1)
+
+
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"successful_only": True}, "no successful demos"),
+        ({"include_source": True, "node": "no_such_node"}, "no demo carries a segment"),
+    ],
+)
+def test_refused_run_keeps_an_existing_output(tmp_path, kwargs, message):
+    """NVBug 7067557: a refusal must not truncate or half-write the output path."""
+    good = _recording(tmp_path / "good.hdf5", demos=2, successes=(True,))
+    out = tmp_path / "out.hdf5"
+    expand(good, out, episodes=3)
+    before = out.read_bytes()
+
+    bad = _recording(tmp_path / "bad.hdf5", demos=1, successes=(False,))
+    with pytest.raises(ValueError, match=message):
+        expand(bad, out, episodes=3, **kwargs)
+
+    assert out.read_bytes() == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["bad.hdf5", "good.hdf5", "out.hdf5"]
+
+
+def test_refused_run_creates_no_output(tmp_path):
+    src = _recording(tmp_path / "in.hdf5", demos=1, successes=(False,))
+    with pytest.raises(ValueError, match="no successful demos"):
+        expand(src, tmp_path / "out.hdf5", episodes=1, successful_only=True)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["in.hdf5"]

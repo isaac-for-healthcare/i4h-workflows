@@ -5,7 +5,10 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
+
+from nibabel.filebasedimages import ImageFileError
 
 from .pipeline import DEFAULT_LABELS, DEFAULT_PRESET, PRESETS, build_patient_twin
 
@@ -45,16 +48,27 @@ def main(argv: list[str] | None = None) -> int:
     subject = args.subject.expanduser().resolve()
     output = args.output or subject
     labels = tuple(label.strip() for label in args.labels.split(",") if label.strip())
-    build_patient_twin(
-        subject,
-        output,
-        patient_id=args.patient_id,
-        labels=labels,
-        close_iterations=args.close_iterations,
-        surface_step=args.surface_step,
-        hu_to_mu_preset=args.hu_to_mu,
-        segment_vessels=args.segment_vessels,
-    )
+    # Bad input ends in one line and exit 1; any other exception keeps its traceback.
+    try:
+        build_patient_twin(
+            subject,
+            output,
+            patient_id=args.patient_id,
+            labels=labels,
+            close_iterations=args.close_iterations,
+            surface_step=args.surface_step,
+            hu_to_mu_preset=args.hu_to_mu,
+            segment_vessels=args.segment_vessels,
+        )
+    except ImageFileError as exc:
+        print(
+            f"error: cannot read a NIfTI input: {exc} (a Git LFS pointer or an interrupted download?)",
+            file=sys.stderr,
+        )
+        return 1
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 
