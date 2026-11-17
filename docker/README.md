@@ -79,13 +79,7 @@ I4H_DOCKER_IMAGE=i4h-workflows:full i4h-docker ./run.sh scissor_pick_and_place -
 
 ### Hosts with more than one GPU
 
-The container sees every GPU on the host, whatever `CUDA_VISIBLE_DEVICES` the host shell sets. On hosts with two different GPU models, such as a DGX Station with a display GPU or an IGX Thor with a discrete GPU, the arena or policy server can then stop at start with `DeferredCudaCallError ... device=1, num_gpus=1`. Give the container one GPU by adding this line to the `docker run` command in `i4h-docker`:
-
-```bash
-    -e NVIDIA_VISIBLE_DEVICES=<index> \
-```
-
-`<index>` is the GPU's index in `nvidia-smi`. Use `NVIDIA_VISIBLE_DEVICES` rather than `CUDA_VISIBLE_DEVICES` here: CUDA can number the GPUs in a different order from `nvidia-smi`.
+The container sees every GPU on the host, whatever `CUDA_VISIBLE_DEVICES` the host shell sets. On hosts with two different GPU models, such as a DGX Station with a display GPU or an IGX Thor with a discrete GPU, the arena or policy server can then stop at start with `DeferredCudaCallError ... device=1, num_gpus=1`. Give the container one GPU by adding `-e NVIDIA_VISIBLE_DEVICES=<index> \` to the `docker run` command in `i4h-docker`, where `<index>` is the GPU's index in `nvidia-smi`. Use `NVIDIA_VISIBLE_DEVICES` rather than `CUDA_VISIBLE_DEVICES` here: CUDA can number the GPUs in a different order from `nvidia-smi`.
 
 ## Commands
 
