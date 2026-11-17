@@ -71,7 +71,7 @@ def test_an_auth_error_reports_one_attempt_and_names_the_key(tmp_path, endpoint,
     assert result.returncode == 1
     assert state["requests"] == 1
     assert f"VLCHECK ERROR ({url}) after 1 attempt(s): HTTP Error {status}" in result.stderr
-    assert "not retried; check I4H_AGENT_VL_API_KEY (it defaults to I4H_AGENT_API_KEY)" in result.stderr
+    assert result.stderr.rstrip().endswith("; not retried; check I4H_AGENT_VL_API_KEY")
     assert "not-a-real-key" not in result.stderr
 
 
@@ -82,7 +82,7 @@ def test_an_auth_error_without_a_key_says_none_is_set(tmp_path, endpoint) -> Non
     result = _vlcheck(tmp_path, url)
 
     assert "after 1 attempt(s)" in result.stderr
-    assert "no I4H_AGENT_VL_API_KEY is set" in result.stderr
+    assert "I4H_AGENT_VL_API_KEY is not set (outside the local agent, export it" in result.stderr
 
 
 def test_another_client_error_is_not_retried(tmp_path, endpoint) -> None:

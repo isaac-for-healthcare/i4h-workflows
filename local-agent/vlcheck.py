@@ -89,10 +89,13 @@ def main() -> int:
             if exc.code in (400, 401, 403, 404):  # deterministic — don't retry
                 hint = "; not retried"
                 if exc.code in (401, 403):
+                    # local-agent/config.env defaults the vision key to I4H_AGENT_API_KEY; run on its
+                    # own, this script reads only I4H_AGENT_VL_API_KEY.
                     hint += (
-                        "; check I4H_AGENT_VL_API_KEY (it defaults to I4H_AGENT_API_KEY)"
+                        "; check I4H_AGENT_VL_API_KEY"
                         if api_key
-                        else "; no I4H_AGENT_VL_API_KEY is set (it defaults to I4H_AGENT_API_KEY)"
+                        else "; I4H_AGENT_VL_API_KEY is not set (outside the local agent, export it; "
+                        "vlcheck.py does not read I4H_AGENT_API_KEY)"
                     )
                 break
         except Exception as exc:  # noqa: BLE001 — timeout / transport: retryable
