@@ -15,6 +15,7 @@ import argparse
 import contextlib
 import logging
 import os
+import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -80,11 +81,18 @@ def _staged(target: Path) -> Iterator[Path]:
     """Yield a temporary path next to ``target``; move it over ``target`` only on success.
 
     A refused or failed import leaves ``target`` as it was: an existing file
-    is kept and no new file appears.
+    is kept and no new file appears. The temporary file is created exclusively
+    under a random name, so a planted file or symlink is never written through.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
-    staging = target.with_name(f".{target.name}.{os.getpid()}.tmp")
+    fd, name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
+    os.close(fd)
+    staging = Path(name)
     try:
+        # mkstemp creates the file 0600; give the output the mode a plain create would.
+        umask = os.umask(0)
+        os.umask(umask)
+        os.chmod(staging, 0o666 & ~umask)
         yield staging
         os.replace(staging, target)
     finally:

@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
+import os
+
 import h5py
 import numpy as np
 import pytest
@@ -150,3 +152,14 @@ def test_refused_run_creates_no_output(tmp_path):
     with pytest.raises(ValueError, match="no successful demos"):
         expand(src, tmp_path / "out.hdf5", episodes=1, successful_only=True)
     assert sorted(p.name for p in tmp_path.iterdir()) == ["in.hdf5"]
+
+
+def test_output_mode_follows_the_umask(tmp_path):
+    """The staged output is created 0600 by mkstemp; the finished file gets the usual mode."""
+    src = _recording(tmp_path / "in.hdf5", demos=1, successes=(True,))
+    out = tmp_path / "out.hdf5"
+    expand(src, out, episodes=1)
+    umask = os.umask(0)
+    os.umask(umask)
+    assert out.stat().st_mode & 0o777 == 0o666 & ~umask
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["in.hdf5", "out.hdf5"]
