@@ -131,3 +131,91 @@ def test_the_cuda_device_is_only_checked_when_slang_may_render_on_it(monkeypatch
     _resolve_fluoroscopy_device(args)
     assert calls == []
     assert args.fluoro_device == expected
+
+
+@pytest.mark.parametrize("value", ["-1", "-500"])
+def test_a_negative_episode_step_cap_is_refused(value, capsys) -> None:
+    """NVBug 7042164: only the upper bound was checked, so -1 reached the runner."""
+    with pytest.raises(SystemExit) as exit_info:
+        build_parser().parse_args(["--workflow", "example", "--episode-steps", value])
+
+    assert exit_info.value.code == 2
+    assert "must be 0 (the scene default) or a positive cap" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(("value", "expected"), [("0", 0), ("25", 25)])
+def test_a_zero_or_positive_episode_step_cap_parses(value, expected) -> None:
+    assert build_parser().parse_args(["--workflow", "example", "--episode-steps", value]).episode_steps == expected
+
+
+def _view_sensor_args(*extra: str):
+    return build_parser().parse_args(["--workflow", "example", *extra])
+
+
+@pytest.mark.parametrize("flag", [None, "--headless", "--no-sensor-view", "--no-cameras"])
+def test_an_undeclared_view_sensor_is_refused_whatever_the_display_flags(flag, capsys) -> None:
+    """NVBug 7035806: with --headless (or no windows) an unknown name was dropped silently."""
+    from i4h_arena.cli import _check_view_sensors
+
+    parser = build_parser()
+    args = _view_sensor_args("--view-sensor", "nosuch", *([flag] if flag else []))
+    with pytest.raises(SystemExit) as exit_info:
+        _check_view_sensors(parser, args, ("room", "wrist"))
+
+    assert exit_info.value.code == 2
+    assert "undeclared scene sensor(s) ['nosuch']" in capsys.readouterr().err
+
+
+def test_a_declared_view_sensor_without_windows_is_reported_as_ignored(capsys) -> None:
+    from i4h_arena.cli import _check_view_sensors
+
+    args = _view_sensor_args("--view-sensor", "room", "--headless")
+    _check_view_sensors(build_parser(), args, ("room", "wrist"))
+
+    assert "--view-sensor is ignored: --headless opens no sensor windows" in capsys.readouterr().out
+
+
+def test_a_declared_view_sensor_with_windows_is_accepted_quietly(capsys) -> None:
+    from i4h_arena.cli import _check_view_sensors
+
+    _check_view_sensors(build_parser(), _view_sensor_args("--view-sensor", "room"), ("room", "wrist"))
+
+    assert capsys.readouterr().out == ""
+
+
+def test_a_missing_replay_recording_is_named_before_kit_boots(tmp_path) -> None:
+    """NVBug 7042243: the documented message, before the simulator starts."""
+    from types import SimpleNamespace
+
+    from i4h_arena.cli import _check_replay_dataset
+
+    missing = tmp_path / "missing.hdf5"
+    args = build_parser().parse_args(["--workflow", "example", "--dataset", str(missing)])
+    with pytest.raises(FileNotFoundError, match=f"no recording at {missing}"):
+        _check_replay_dataset(args, SimpleNamespace(mode="replay"))
+
+    _check_replay_dataset(args, SimpleNamespace(mode="rule_based"))
+    missing.write_bytes(b"")
+    _check_replay_dataset(args, SimpleNamespace(mode="replay"))
+
+
+def test_a_second_python_server_is_refused_while_the_port_is_taken(monkeypatch) -> None:
+    """NVBug 7067702: a second --live opened another bridge on the same port."""
+    import socket
+
+    import i4h_arena.cli as arena_cli
+
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen()
+    port = listener.getsockname()[1]
+    monkeypatch.setattr(arena_cli, "PYTHON_SERVER_PORT", port)
+    args = build_parser().parse_args(["--workflow", "example", "--python-server"])
+    try:
+        with pytest.raises(SystemExit, match=f"127.0.0.1:{port} is already in use"):
+            arena_cli._check_python_server_port(args)
+    finally:
+        listener.close()
+
+    arena_cli._check_python_server_port(args)
+    arena_cli._check_python_server_port(build_parser().parse_args(["--workflow", "example"]))

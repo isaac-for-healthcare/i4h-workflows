@@ -17,6 +17,20 @@ import sys
 
 logger = logging.getLogger("arena")
 
+# isaacsim.code_editor.python_server's fixed port; local-agent/bridge.sh and the scene-edit skill use it too.
+PYTHON_SERVER_PORT = 8226
+
+
+def _step_cap(value: str) -> int:
+    """``--episode-steps``: 0 keeps the scene default; a negative cap is refused."""
+    try:
+        steps = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid int value: {value!r}") from None
+    if steps < 0:
+        raise argparse.ArgumentTypeError(f"must be 0 (the scene default) or a positive cap, got {steps}")
+    return steps
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="arena", description="Run a workflow in Isaac Sim.")
@@ -30,7 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--episode-steps",
         "--timesteps",
         dest="episode_steps",
-        type=int,
+        type=_step_cap,
         default=0,
         help="cap per episode; 0 uses the workflow/scene default",
     )
@@ -165,12 +179,14 @@ def main(argv: list[str] | None = None) -> int:
     from i4h_engine.registry import default_registry
 
     workflow = _build(args, resolve_workflow)
-    declared_cap = default_registry().scene(workflow.scene).for_mode(workflow.mode).max_steps
+    scene_spec = default_registry().scene(workflow.scene).for_mode(workflow.mode)
+    declared_cap = scene_spec.max_steps
     if args.episode_steps > declared_cap:
         parser.error(
             f"--episode-steps cannot exceed {declared_cap} for {args.workflow}; "
             "the validated per-environment cap may only be lowered"
         )
+    _check_view_sensors(parser, args, scene_spec.cameras)
     overridden = apply_overrides(
         workflow.graph,
         checkpoint=args.checkpoint,
@@ -204,6 +220,57 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     return _launch(args, workflow)
+
+
+def _check_view_sensors(parser: argparse.ArgumentParser, args: argparse.Namespace, cameras) -> None:
+    """Refuse an undeclared ``--view-sensor`` whatever the display flags, before Kit boots."""
+    if not args.view_sensor:
+        return
+    unknown = sorted(set(args.view_sensor) - set(cameras))
+    if unknown:
+        parser.error(
+            f"--view-sensor names undeclared scene sensor(s) {unknown}; "
+            f"available camera-compatible sensors: {list(cameras)}"
+        )
+    disabled_by = [
+        flag
+        for flag, value in (
+            ("--headless", args.headless),
+            ("--no-sensor-view", args.no_sensor_view),
+            ("--no-cameras", args.no_cameras),
+        )
+        if value
+    ]
+    if disabled_by:
+        print(f"[arena] --view-sensor is ignored: {', '.join(disabled_by)} opens no sensor windows", flush=True)
+
+
+def _check_replay_dataset(args: argparse.Namespace, workflow) -> None:
+    """Name a missing recording before Kit boots, as the replay task would after it."""
+    if workflow.mode != "replay":
+        return
+    from pathlib import Path
+
+    dataset = Path(args.dataset)
+    if not dataset.is_file():
+        raise FileNotFoundError(f"no recording at {dataset}")
+
+
+def _check_python_server_port(args: argparse.Namespace) -> None:
+    """Refuse a second live bridge: two servers on 127.0.0.1:8226 split live edits between sessions."""
+    if not args.python_server:
+        return
+    import socket
+
+    try:
+        with socket.create_connection(("127.0.0.1", PYTHON_SERVER_PORT), timeout=0.5):
+            pass
+    except OSError:
+        return
+    raise SystemExit(
+        f"--python-server: 127.0.0.1:{PYTHON_SERVER_PORT} is already in use, most likely by another live session; "
+        "stop it first (./local-agent/bridge.sh stop <workflow> or ./stop.sh all)"
+    )
 
 
 def _build(args: argparse.Namespace, resolve_workflow) -> object:
@@ -273,6 +340,10 @@ def _launch(args: argparse.Namespace, workflow) -> int:
     # This function-local import must remain below workflow resolution.
     from i4h_arena.app import launch_app
     from i4h_arena.scenes.base import load_scene
+
+    # Checks that only need the filesystem or a socket answer in seconds, not after Kit boots.
+    _check_replay_dataset(args, workflow)
+    _check_python_server_port(args)
 
     # Scenes may require XR or early Pinocchio loading. Configure the launcher
     # before Kit starts, keeping asset registration inside AppContext.make_env.

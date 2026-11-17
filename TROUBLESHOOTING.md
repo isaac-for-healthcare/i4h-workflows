@@ -88,10 +88,13 @@ so being able to view the model page is not evidence that a download will succee
 
 ## A run fails after the simulator boots, with a traceback
 
-Two preconditions are only reported once the simulator is up, roughly 40 seconds in:
+A missing recording is reported before the simulator starts: `--replay` raises
+`FileNotFoundError: no recording at <path>`. A file that exists but cannot be read (truncated
+or not HDF5) is reported once the simulator is up, as `OSError: cannot read recording <path>: ...`.
+Check the path, or record the file again, before rerunning.
 
-- **A missing recording.** `--replay` raises `FileNotFoundError: no recording at <path>`.
-  Check the path before rerunning.
+One precondition is only reported once the simulator is up, roughly 40 seconds in:
+
 - **A missing checkpoint.** A mode that needs a policy you have to train and export first
   raises `ValueError: ... requires --checkpoint pointing to exported policy.pt`. The workflow
   catalog in [README.md](README.md) marks those modes; pass `--checkpoint <path>` to the
