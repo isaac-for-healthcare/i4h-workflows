@@ -163,7 +163,10 @@ def test_an_undeclared_view_sensor_is_refused_whatever_the_display_flags(flag, c
         _check_view_sensors(parser, args, ("room", "wrist"))
 
     assert exit_info.value.code == 2
-    assert "undeclared scene sensor(s) ['nosuch']" in capsys.readouterr().err
+    assert (
+        "cannot view undeclared scene sensor(s) ['nosuch']; available camera-compatible sensors: ['room', 'wrist']"
+        in (capsys.readouterr().err)
+    )
 
 
 def test_a_declared_view_sensor_without_windows_is_reported_as_ignored(capsys) -> None:

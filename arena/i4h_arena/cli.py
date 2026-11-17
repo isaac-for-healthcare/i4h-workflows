@@ -229,8 +229,7 @@ def _check_view_sensors(parser: argparse.ArgumentParser, args: argparse.Namespac
     unknown = sorted(set(args.view_sensor) - set(cameras))
     if unknown:
         parser.error(
-            f"--view-sensor names undeclared scene sensor(s) {unknown}; "
-            f"available camera-compatible sensors: {list(cameras)}"
+            f"cannot view undeclared scene sensor(s) {unknown}; available camera-compatible sensors: {list(cameras)}"
         )
     disabled_by = [
         flag
