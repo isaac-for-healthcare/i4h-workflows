@@ -102,7 +102,11 @@ def test_start_reports_ready_from_the_health_url(tmp_path) -> None:
 
 
 def test_start_still_times_out_when_the_container_stays_up(tmp_path) -> None:
-    result, _ = _start(tmp_path, ["running 0"], timeout=0)
+    # A positive timeout runs the poll loop once: a container still loading keeps the wait going.
+    result, _ = _start(tmp_path, ["running 0"], timeout=1)
 
     assert result.returncode == 1
+    assert "waiting for model (HTTP 000)" in result.stdout
+    assert int((tmp_path / "stub" / "inspect_calls").read_text()) >= 2
     assert "timed out waiting for model" in result.stderr
+    assert "error: model server container" not in result.stderr
