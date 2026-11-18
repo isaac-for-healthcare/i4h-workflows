@@ -11,9 +11,13 @@ The mode is resolved while the workflow is built, before Isaac starts.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import logging
 import os
 import sys
+import tempfile
+from collections.abc import Iterator
+from pathlib import Path
 
 logger = logging.getLogger("arena")
 
@@ -272,6 +276,46 @@ def _check_python_server_port(args: argparse.Namespace) -> None:
     )
 
 
+def _python_server_lock_path() -> Path:
+    # The port is machine-wide, so the lock is too. It is per user because the bridge listens
+    # with SO_REUSEPORT, which the kernel already refuses across users.
+    return Path(tempfile.gettempdir()) / f"i4h-arena-python-server-{PYTHON_SERVER_PORT}-{os.getuid()}.lock"
+
+
+@contextlib.contextmanager
+def _python_server_guard(args: argparse.Namespace) -> Iterator[None]:
+    """Own the live bridge port from before Kit boots until this session ends.
+
+    The bridge only listens once Kit has finished booting, and it binds with SO_REUSEPORT, so a
+    second launch inside that window passes the port check and then shares port 8226 without any
+    error, splitting live edits between the two sessions. An exclusive lock held for the whole
+    session closes the window. The kernel drops it when the process exits, however it exits, so
+    no stale lock is left behind. The port check stays for sessions started outside this launcher.
+    """
+    if not args.python_server:
+        yield
+        return
+    try:
+        import fcntl
+    except ImportError:  # no flock (Windows): the port check is the only guard
+        _check_python_server_port(args)
+        yield
+        return
+
+    # Opened close-on-exec (the Python default), so a child process cannot keep the lock alive.
+    with open(_python_server_lock_path(), "a") as lock_file:
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise SystemExit(
+                f"--python-server: another live session is starting or running and owns "
+                f"127.0.0.1:{PYTHON_SERVER_PORT}; stop it first "
+                "(./local-agent/bridge.sh stop <workflow> or ./stop.sh all)"
+            ) from None
+        _check_python_server_port(args)
+        yield
+
+
 def _build(args: argparse.Namespace, resolve_workflow) -> object:
     kwargs: dict[str, object] = {}
     mode = args.mode or ""
@@ -336,13 +380,16 @@ def _replay_initial_state(args: argparse.Namespace, workflow) -> dict | None:
 
 
 def _launch(args: argparse.Namespace, workflow) -> int:
+    # Checks that only need the filesystem or a socket answer in seconds, not after Kit boots.
+    _check_replay_dataset(args, workflow)
+    with _python_server_guard(args):
+        return _run_session(args, workflow)
+
+
+def _run_session(args: argparse.Namespace, workflow) -> int:
     # This function-local import must remain below workflow resolution.
     from i4h_arena.app import launch_app
     from i4h_arena.scenes.base import load_scene
-
-    # Checks that only need the filesystem or a socket answer in seconds, not after Kit boots.
-    _check_replay_dataset(args, workflow)
-    _check_python_server_port(args)
 
     # Scenes may require XR or early Pinocchio loading. Configure the launcher
     # before Kit starts, keeping asset registration inside AppContext.make_env.

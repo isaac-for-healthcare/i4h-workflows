@@ -222,3 +222,63 @@ def test_a_second_python_server_is_refused_while_the_port_is_taken(monkeypatch) 
 
     arena_cli._check_python_server_port(args)
     arena_cli._check_python_server_port(build_parser().parse_args(["--workflow", "example"]))
+
+
+def test_overlapping_python_server_launches_are_refused_before_either_listens(monkeypatch, tmp_path) -> None:
+    """Greptile on #302: the bridge listens only after Kit boots, so a port check alone lets two starts through."""
+    import i4h_arena.cli as arena_cli
+
+    monkeypatch.setattr(arena_cli, "_python_server_lock_path", lambda: tmp_path / "bridge.lock")
+    args = build_parser().parse_args(["--workflow", "example", "--python-server"])
+
+    with arena_cli._python_server_guard(args):
+        # The first session is "booting": nothing listens on the port yet, so the port check passes.
+        arena_cli._check_python_server_port(args)
+        with (
+            pytest.raises(SystemExit, match="another live session is starting or running"),
+            arena_cli._python_server_guard(args),
+        ):
+            pytest.fail("the second launch must not get past the guard")
+
+
+def test_the_python_server_lock_is_released_when_the_session_ends_or_fails(monkeypatch, tmp_path) -> None:
+    import i4h_arena.cli as arena_cli
+
+    monkeypatch.setattr(arena_cli, "_python_server_lock_path", lambda: tmp_path / "bridge.lock")
+    args = build_parser().parse_args(["--workflow", "example", "--python-server"])
+
+    with arena_cli._python_server_guard(args):
+        pass
+    with pytest.raises(RuntimeError, match="boom"), arena_cli._python_server_guard(args):
+        raise RuntimeError("boom")
+    with arena_cli._python_server_guard(args):
+        pass
+
+
+def test_a_refused_port_check_does_not_keep_the_python_server_lock(monkeypatch, tmp_path) -> None:
+    import socket
+
+    import i4h_arena.cli as arena_cli
+
+    monkeypatch.setattr(arena_cli, "_python_server_lock_path", lambda: tmp_path / "bridge.lock")
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen()
+    monkeypatch.setattr(arena_cli, "PYTHON_SERVER_PORT", listener.getsockname()[1])
+    args = build_parser().parse_args(["--workflow", "example", "--python-server"])
+    try:
+        with pytest.raises(SystemExit, match="is already in use"), arena_cli._python_server_guard(args):
+            pytest.fail("an occupied port must stop the launch")
+    finally:
+        listener.close()
+    with arena_cli._python_server_guard(args):
+        pass
+
+
+def test_the_python_server_guard_is_inert_without_the_flag(monkeypatch, tmp_path) -> None:
+    import i4h_arena.cli as arena_cli
+
+    lock = tmp_path / "bridge.lock"
+    monkeypatch.setattr(arena_cli, "_python_server_lock_path", lambda: lock)
+    with arena_cli._python_server_guard(build_parser().parse_args(["--workflow", "example"])):
+        assert not lock.exists()
