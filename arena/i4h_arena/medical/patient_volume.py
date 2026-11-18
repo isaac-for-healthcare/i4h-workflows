@@ -62,6 +62,15 @@ class PatientVolume:
         return self.spacing_zyx_mm[::-1]
 
     @property
+    def box_corner_xyz_mm(self) -> np.ndarray:
+        """Corner of the voxel box in these millimetres.
+
+        Voxel i's sample centre is at i * spacing here, so its cell spans (i - 1/2) to
+        (i + 1/2) * spacing and the box begins half a cell before voxel 0's centre.
+        """
+        return -0.5 * np.asarray(self.spacing_xyz_mm)
+
+    @property
     def center_xyz_mm(self) -> np.ndarray:
         return 0.5 * np.asarray(self.shape_zyx[::-1]) * np.asarray(self.spacing_xyz_mm)
 

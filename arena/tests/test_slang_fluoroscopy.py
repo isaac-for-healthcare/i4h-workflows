@@ -71,6 +71,16 @@ def _patient_volume(
     return PatientVolume.load(PatientTwin.load(tmp_path / "patient_twin.yaml"))
 
 
+class _FakeBox:
+    """The voxel box a fake renderer reports, as xray_simulator's SlangDiffDRRRenderer does."""
+
+    def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        del cfg
+        self.volume_shape_zyx = tuple(np.asarray(volume).shape)
+        self.spacing_xyz = tuple(float(value) for value in spacing)[::-1]
+        self.origin_xyz = tuple(float(value) for value in origin_xyz_mm)
+
+
 def _carm(patient: PatientVolume) -> CArmState:
     center = patient.volume_mm_to_world(patient.center_xyz_mm)
     return CArmState(
@@ -145,7 +155,7 @@ def test_reference_projection_provider_aims_the_named_views_at_the_patient(tmp_p
         assert abs(float(np.dot(beam, superior))) < 1e-6
 
         projection = solve_projection_geometry(patient, state, width=1024, height=1024)
-        np.testing.assert_allclose(projection.translation_xyz_mm, [0.0, 0.0, 0.0], atol=1e-7)
+        np.testing.assert_allclose(projection.translation_xyz_mm, _half_voxel(patient), atol=1e-7)
 
     orbit.angle_rad[:] = 0.0
     state = provider.snapshot(1)
@@ -419,6 +429,76 @@ def test_an_unsupported_patient_frame_is_refused(tmp_path) -> None:
         anatomical_projection_basis(Twin())
 
 
+def _half_voxel(patient: PatientVolume) -> np.ndarray:
+    """Renderer translation when the C-arm aims at ``center_xyz_mm``.
+
+    xray_simulator puts voxel i's sample centre half a voxel past the box corner
+    (docs/validation-datasets.md), PatientVolume puts it at the corner.
+    """
+    return 0.5 * np.asarray(patient.spacing_xyz_mm)
+
+
+def _box_renderer_class(monkeypatch, *, keep_origin: bool = True) -> list:
+    from xray_simulator.rendering import diffdrr_slang_renderer
+
+    built = []
+
+    class BoxRenderer(_FakeBox):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+            super().__init__(volume, spacing, origin_xyz_mm if keep_origin else (0.0, 0.0, 0.0), cfg)
+            built.append(self)
+
+        def render(self, rotation, translation):
+            del rotation, translation
+            return np.full((64, 64), 0.5, dtype=np.float32)
+
+    monkeypatch.setattr(diffdrr_slang_renderer, "SlangDiffDRRRenderer", BoxRenderer)
+    return built
+
+
+@pytest.mark.parametrize("offset_m", [(0.0, 0.0, 0.0), (0.0013, -0.0021, 0.0037)], ids=["centred", "panned"])
+def test_the_renderer_draws_each_voxel_where_the_catheter_is_projected(tmp_path, monkeypatch, offset_m) -> None:
+    """Anatomy and catheter must share one frame (NVBug 7044337).
+
+    xray_simulator draws voxel i's sample at ``origin + (i + 1/2) * spacing`` and poses source
+    and detector about its box centre; the catheter is projected about ``isocenter_volume_mm``
+    in PatientVolume millimetres. The renderer used to get the default origin, which drew the
+    anatomy half a voxel times the magnification away from a catheter placed on it.
+    """
+    built = _box_renderer_class(monkeypatch)
+    patient = _patient_volume(tmp_path)
+    carm = _carm(patient)
+    carm = CArmState(
+        source_world_m=carm.source_world_m + np.asarray(offset_m),
+        detector_center_world_m=carm.detector_center_world_m + np.asarray(offset_m),
+        detector_x_axis_world=carm.detector_x_axis_world,
+        detector_size_m=carm.detector_size_m,
+    )
+    renderer = SlangFluoroscopyRenderer(patient, carm, width=64, height=64, step_mm=1.0, device_type="vulkan")
+    projection = renderer._projection_for(carm, 0)
+    box = built[0]
+
+    origin = np.asarray(box.origin_xyz)
+    spacing = np.asarray(box.spacing_xyz)
+    for ijk in ((0, 0, 0), (2, 1, 3), (3, 3, 3)):
+        world = (patient.twin.voxel_to_world_m @ np.asarray([*ijk, 1.0]))[:3]
+        np.testing.assert_allclose(
+            origin + (np.asarray(ijk) + 0.5) * spacing, patient.world_to_volume_mm(world), atol=1e-9
+        )
+    box_center = origin + 0.5 * np.asarray(box.volume_shape_zyx[::-1]) * spacing
+    np.testing.assert_allclose(
+        np.asarray(projection.translation_xyz_mm) + box_center, projection.isocenter_volume_mm, atol=1e-9
+    )
+
+
+def test_a_renderer_that_ignores_the_patient_box_is_refused(tmp_path, monkeypatch) -> None:
+    _box_renderer_class(monkeypatch, keep_origin=False)
+    patient = _patient_volume(tmp_path)
+
+    with pytest.raises(ValueError, match="does not match the patient volume"):
+        SlangFluoroscopyRenderer(patient, _carm(patient), width=64, height=64, step_mm=1.0, device_type="vulkan")
+
+
 def test_patient_volume_preserves_physical_coordinates(tmp_path) -> None:
     patient = _patient_volume(tmp_path)
 
@@ -435,7 +515,7 @@ def test_projection_geometry_matches_scene_source_and_detector(tmp_path) -> None
     assert np.isclose(projection.source_to_isocenter_mm, 100.0)
     assert np.isclose(projection.pixel_spacing_mm, 1.0)
     np.testing.assert_allclose(projection.rotation_zxy_rad, [0.0, 0.0, 0.0], atol=1e-7)
-    np.testing.assert_allclose(projection.translation_xyz_mm, [0.0, 0.0, 0.0], atol=1e-7)
+    np.testing.assert_allclose(projection.translation_xyz_mm, _half_voxel(patient), atol=1e-7)
 
 
 def test_reference_viewport_detector_geometry_matches_320_at_half_mm(tmp_path) -> None:
@@ -453,7 +533,7 @@ def test_reference_viewport_detector_geometry_matches_320_at_half_mm(tmp_path) -
     assert np.isclose(projection.source_to_detector_mm, 1020.0)
     assert np.isclose(projection.source_to_isocenter_mm, 510.0)
     assert np.isclose(projection.pixel_spacing_mm, 0.5)
-    np.testing.assert_allclose(projection.translation_xyz_mm, [0.0, 0.0, 0.0], atol=1e-7)
+    np.testing.assert_allclose(projection.translation_xyz_mm, _half_voxel(patient), atol=1e-7)
 
 
 def test_requested_reference_viewport_geometry_matches_1024_at_point_six_mm(tmp_path) -> None:
@@ -478,9 +558,9 @@ def test_slang_adapter_builds_dsa_volume_and_cinematic_frame(tmp_path, monkeypat
 
     captured = {"volumes": [], "configs": []}
 
-    class FakeRenderer:
+    class FakeRenderer(_FakeBox):
         def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
-            del spacing, origin_xyz_mm
+            super().__init__(volume, spacing, origin_xyz_mm, cfg)
             captured["volumes"].append(np.asarray(volume).copy())
             captured["configs"].append(cfg)
 
@@ -523,9 +603,9 @@ def test_slang_adapter_renders_fluoro_polarity_on_a_frame_independent_window(tmp
     second_frame[40:48, 40:48] = 0.001
     frames = iter((first_frame, second_frame))
 
-    class FakeRenderer:
+    class FakeRenderer(_FakeBox):
         def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
-            del volume, spacing, origin_xyz_mm, cfg
+            super().__init__(volume, spacing, origin_xyz_mm, cfg)
 
         def render(self, rotation, translation):
             del rotation, translation
@@ -551,9 +631,9 @@ def test_switching_to_xray_inverts_the_greys_and_keeps_the_calibrated_window(tmp
     frame = np.full((64, 64), 0.6, dtype=np.float32)
     frame[:, 8:16] = 0.02
 
-    class FakeRenderer:
+    class FakeRenderer(_FakeBox):
         def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
-            del volume, spacing, origin_xyz_mm, cfg
+            super().__init__(volume, spacing, origin_xyz_mm, cfg)
 
         def render(self, rotation, translation):
             del rotation, translation
@@ -584,9 +664,9 @@ def test_switching_to_xray_inverts_the_greys_and_keeps_the_calibrated_window(tmp
 def test_an_unknown_appearance_is_rejected(tmp_path, monkeypatch) -> None:
     from xray_simulator.rendering import diffdrr_slang_renderer
 
-    class FakeRenderer:
+    class FakeRenderer(_FakeBox):
         def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
-            del volume, spacing, origin_xyz_mm, cfg
+            super().__init__(volume, spacing, origin_xyz_mm, cfg)
 
         def render(self, rotation, translation):
             del rotation, translation
@@ -607,9 +687,9 @@ def _window_renderer(tmp_path, monkeypatch) -> SlangFluoroscopyRenderer:
     frame = np.full((64, 64), 0.6, dtype=np.float32)
     frame[:, 8:16] = 0.02
 
-    class FakeRenderer:
+    class FakeRenderer(_FakeBox):
         def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
-            del volume, spacing, origin_xyz_mm, cfg
+            super().__init__(volume, spacing, origin_xyz_mm, cfg)
 
         def render(self, rotation, translation):
             del rotation, translation
@@ -716,9 +796,9 @@ def _ramp_renderer_class(monkeypatch):
     """Patch the upstream renderer with a fixed background so the catheter is the only variable."""
     from xray_simulator.rendering import diffdrr_slang_renderer
 
-    class FakeRenderer:
+    class FakeRenderer(_FakeBox):
         def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
-            del volume, spacing, origin_xyz_mm, cfg
+            super().__init__(volume, spacing, origin_xyz_mm, cfg)
 
         def render(self, rotation, translation):
             del rotation, translation
@@ -780,8 +860,9 @@ def test_slang_adapter_uses_upstream_renderer_and_composites_catheter(tmp_path, 
 
     calls = {}
 
-    class FakeRenderer:
+    class FakeRenderer(_FakeBox):
         def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+            super().__init__(volume, spacing, origin_xyz_mm, cfg)
             calls["shape"] = volume.shape
             calls["spacing"] = spacing
             calls["origin"] = origin_xyz_mm
@@ -880,8 +961,9 @@ def test_a_working_cuda_device_is_never_refused(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(slang_cuda, "find_cuda_nvrtc", lambda: None)
     started = []
 
-    class FakeRenderer:
+    class FakeRenderer(_FakeBox):
         def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
             started.append(kwargs["cfg"].device_type)
 
     monkeypatch.setattr(diffdrr_slang_renderer, "SlangDiffDRRRenderer", FakeRenderer)
@@ -902,8 +984,9 @@ def _slang_like_renderer_class(monkeypatch, fail_on: int | None = None) -> list[
     devices: list[object] = []
     constructed: list[int] = []
 
-    class SlangLikeRenderer:
+    class SlangLikeRenderer(_FakeBox):
         def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+            super().__init__(volume, spacing, origin_xyz_mm, cfg)
             constructed.append(1)
             if len(constructed) == fail_on:
                 raise RuntimeError("Failed to create device!")
@@ -976,9 +1059,9 @@ def test_a_contrast_renderer_device_failure_explains_nvrtc_too(tmp_path, monkeyp
 def _pose_dependent_renderer_class(monkeypatch, poses: list) -> None:
     from xray_simulator.rendering import diffdrr_slang_renderer
 
-    class FakeRenderer:
+    class FakeRenderer(_FakeBox):
         def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
-            del volume, spacing, origin_xyz_mm, cfg
+            super().__init__(volume, spacing, origin_xyz_mm, cfg)
 
         def render(self, rotation, translation):
             poses.append(tuple(rotation))
@@ -1036,9 +1119,9 @@ def test_a_batching_renderer_poses_every_environment_in_one_call(tmp_path, monke
     single_poses: list = []
     batches: list = []
 
-    class BatchingRenderer:
+    class BatchingRenderer(_FakeBox):
         def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
-            del volume, spacing, origin_xyz_mm, cfg
+            super().__init__(volume, spacing, origin_xyz_mm, cfg)
 
         def render(self, rotation, translation):
             single_poses.append(tuple(rotation))

@@ -58,9 +58,40 @@ def _renderer_sharing_device(renderer_class: type, source: object) -> type:
     return SharedDeviceRenderer
 
 
-def _build_renderer(renderer_class: type, volume: np.ndarray, spacing_zyx_mm, cfg, device_type: str):
+def _patient_box_center_xyz_mm(patient: PatientVolume) -> np.ndarray:
+    """Centre of the box the adapter gives the renderer, in PatientVolume millimetres."""
+    extent = np.asarray(patient.shape_zyx[::-1], dtype=np.float64) * np.asarray(patient.spacing_xyz_mm)
+    return patient.box_corner_xyz_mm + 0.5 * extent
+
+
+def renderer_box_center_xyz_mm(renderer: object) -> np.ndarray:
+    """Centre of the renderer's voxel box, read from the renderer itself.
+
+    xray_simulator poses source and detector about ``origin + shape * spacing / 2``
+    (``volumeCenter`` in diffdrr_slang.slang); reading it back keeps the pose in the box the
+    renderer really uses.
+    """
+    origin = np.asarray(renderer.origin_xyz, dtype=np.float64)
+    shape_xyz = np.asarray(tuple(renderer.volume_shape_zyx)[::-1], dtype=np.float64)
+    spacing = np.asarray(renderer.spacing_xyz, dtype=np.float64)
+    return origin + 0.5 * shape_xyz * spacing
+
+
+def _checked_box_center_xyz_mm(renderer: object, patient: PatientVolume) -> np.ndarray:
+    """Read the renderer's box and refuse one that is not the patient volume's box."""
+    center = renderer_box_center_xyz_mm(renderer)
+    expected = _patient_box_center_xyz_mm(patient)
+    if not np.allclose(center, expected, atol=1e-6):
+        raise ValueError(
+            f"renderer voxel box centre {center.tolist()} mm does not match the patient volume's "
+            f"{expected.tolist()} mm; the anatomy would not line up with the catheter"
+        )
+    return center
+
+
+def _build_renderer(renderer_class: type, volume: np.ndarray, spacing_zyx_mm, origin_xyz_mm, cfg, device_type: str):
     try:
-        return renderer_class(volume, spacing_zyx_mm, cfg=cfg)
+        return renderer_class(volume, spacing_zyx_mm, origin_xyz_mm=tuple(float(v) for v in origin_xyz_mm), cfg=cfg)
     except RuntimeError as error:
         if device_type == "cuda" and DEVICE_FAILURE in str(error):
             raise RuntimeError(cuda_device_error(error)) from error
@@ -143,8 +174,16 @@ def solve_projection_geometry(
     width: int,
     height: int,
     env_index: int = 0,
+    box_center_xyz_mm: np.ndarray | None = None,
 ) -> ProjectionGeometry:
-    """Convert Isaac C-arm prim poses into the renderer's centred volume coordinates."""
+    """Convert Isaac C-arm prim poses into the renderer's centred volume coordinates.
+
+    ``box_center_xyz_mm`` is the centre of the renderer's voxel box in PatientVolume
+    millimetres, read from the renderer with :func:`renderer_box_center_xyz_mm`. Without a
+    renderer it is the box the adapter builds the renderer with (``box_corner_xyz_mm``).
+    """
+    if box_center_xyz_mm is None:
+        box_center_xyz_mm = _patient_box_center_xyz_mm(patient)
     source = patient.world_to_volume_mm(carm.source_world_m[env_index])
     detector = patient.world_to_volume_mm(carm.detector_center_world_m[env_index])
     axis_end = patient.world_to_volume_mm(
@@ -168,7 +207,9 @@ def solve_projection_geometry(
 
     sid = 0.5 * sdd
     isocenter = source + sid * z_axis
-    translation = isocenter - patient.center_xyz_mm
+    # The renderer poses source and detector about its box centre; the catheter is projected
+    # about the same isocenter in PatientVolume millimetres, so both use one frame.
+    translation = isocenter - np.asarray(box_center_xyz_mm, dtype=np.float64)
     pixel_spacing_x = 1000.0 * float(carm.detector_size_m[0]) / float(width)
     pixel_spacing_y = 1000.0 * float(carm.detector_size_m[1]) / float(height)
     if not np.isclose(pixel_spacing_x, pixel_spacing_y, rtol=1e-3, atol=1e-6):
@@ -253,10 +294,15 @@ class SlangFluoroscopyRenderer:
             invert=False,
             device_type=device_type,
         )
-        # The renderer takes origin_xyz_mm ahead of the config, and leaving it at the default
-        # keeps the volume centred, which is the frame solve_projection_geometry poses into.
+        # Give the renderer the patient volume's own box (voxel i's centre at i * spacing), then
+        # pose about the box centre it reports, so the anatomy and the catheter share one frame.
+        box_corner = patient.box_corner_xyz_mm
         self._renderer = _build_renderer(
-            SlangDiffDRRRenderer, patient.mu_volume, patient.spacing_zyx_mm, base_config, device_type
+            SlangDiffDRRRenderer, patient.mu_volume, patient.spacing_zyx_mm, box_corner, base_config, device_type
+        )
+        self._box_center_xyz_mm = _checked_box_center_xyz_mm(self._renderer, patient)
+        self._projection = solve_projection_geometry(
+            patient, carm, width=width, height=height, box_center_xyz_mm=self._box_center_xyz_mm
         )
         self._dsa_renderer = None
         if self._dsa:
@@ -272,9 +318,11 @@ class SlangFluoroscopyRenderer:
                 _renderer_sharing_device(SlangDiffDRRRenderer, self._renderer),
                 boosted_volume,
                 patient.spacing_zyx_mm,
+                box_corner,
                 base_config,
                 device_type,
             )
+            _checked_box_center_xyz_mm(self._dsa_renderer, patient)
 
     def render(self, catheter: CatheterState, carm: CArmState | None = None) -> dict[str, torch.Tensor]:
         """Render one detector frame per environment, stacked along the leading axis.
@@ -400,7 +448,12 @@ class SlangFluoroscopyRenderer:
         if carm is None:
             return self._projection
         current = solve_projection_geometry(
-            self._patient, carm, width=self.width, height=self.height, env_index=env_index
+            self._patient,
+            carm,
+            width=self.width,
+            height=self.height,
+            env_index=env_index,
+            box_center_xyz_mm=self._box_center_xyz_mm,
         )
         if not np.isclose(current.source_to_detector_mm, self._projection.source_to_detector_mm, atol=0.1):
             raise ValueError("changing source-detector distance requires rebuilding the fluoroscopy sensor")
