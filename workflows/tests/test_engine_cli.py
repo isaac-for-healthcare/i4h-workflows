@@ -4,10 +4,12 @@
 
 from __future__ import annotations
 
+import types
+
 import pytest
 
 from i4h_engine import cli
-from i4h_engine.loader import load_workflow_module, resolve_workflow
+from i4h_engine.loader import WorkflowModule, load_workflow_module, resolve_workflow
 from i4h_engine.render import to_mermaid
 
 GOOD = "surgical_reach_psm"
@@ -27,6 +29,35 @@ def test_lint_all_reports_a_broken_module_and_lints_the_rest(monkeypatch, capsys
     out = capsys.readouterr().out
     assert code == 1
     assert "broken_workflow: !! ModuleNotFoundError: No module named 'missing_dependency'" in out
+    assert f"{GOOD} [" in out
+
+
+@pytest.mark.parametrize(
+    ("export", "expected"),
+    [
+        (None, "must export WORKFLOW"),
+        ("not a workflow", "exports WORKFLOW as str"),
+    ],
+)
+def test_lint_all_reports_a_module_without_a_valid_workflow_export(monkeypatch, capsys, export, expected) -> None:
+    broken = types.ModuleType("broken_workflow")
+    if export is not None:
+        broken.WORKFLOW = export
+
+    def load(name):
+        if name == "broken_workflow":
+            return WorkflowModule(name=name, module=broken)
+        return load_workflow_module(name)
+
+    monkeypatch.setattr(cli, "available_workflows", lambda: ["broken_workflow", GOOD])
+    monkeypatch.setattr(cli, "load_workflow_module", load)
+
+    code = cli.main(["lint", "--all"])
+
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "broken_workflow: !! " in out
+    assert expected in out
     assert f"{GOOD} [" in out
 
 

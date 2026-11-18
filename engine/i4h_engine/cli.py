@@ -83,12 +83,13 @@ def _cmd_lint(args: argparse.Namespace) -> int:
     if lint_all:
         for name in available_workflows():
             try:
-                workflow_module = load_workflow_module(name)
+                # ``modes`` reads the module's WORKFLOW export, so a missing or mistyped one raises here too.
+                modes = sorted(load_workflow_module(name).modes)
             except Exception as exc:  # noqa: BLE001 - one broken module must not hide the rest
                 print(f"{name}: !! {type(exc).__name__}: {exc}")
                 failed += 1
                 continue
-            targets.extend((name, mode) for mode in sorted(workflow_module.modes))
+            targets.extend((name, mode) for mode in modes)
     else:
         if not args.workflow:
             raise ValueError("lint requires a workflow name or --all")
