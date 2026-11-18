@@ -72,6 +72,8 @@ case "${1:-}" in
   lint)      shift; light python -m i4h_engine.cli lint "$@"; exit $? ;;
   robot-pd|pd-tune|pd-diagnostics)
     shift
+    # --no-sync would otherwise create an empty arena/.venv here (NVBug 7047868).
+    [ -d arena/.venv ] || { echo "!! arena is not synced. Run: ./setup.sh" >&2; exit 1; }
     exec env -u VIRTUAL_ENV uv run --project arena --no-sync python arena/scripts/robot_pd_tune.py "$@"
     ;;
 esac

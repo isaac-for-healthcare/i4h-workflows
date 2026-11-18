@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 WORKFLOWS_ROOT = Path(__file__).resolve().parent.parent
@@ -19,3 +21,16 @@ def test_every_arena_launch_skips_the_sync() -> None:
     assert launches, "run.sh no longer launches arena through uv run"
     for line in launches:
         assert "--no-sync" in line, line
+
+
+def test_robot_pd_refuses_an_unsynced_arena(tmp_path: Path) -> None:
+    # Without the guard, `uv run --no-sync` would create an empty arena/.venv,
+    # which also hides run.sh's own "Run: ./setup.sh" check for later launches.
+    shutil.copy2(RUN_SH, tmp_path / "run.sh")
+    (tmp_path / "arena").mkdir()
+    result = subprocess.run(
+        [str(tmp_path / "run.sh"), "robot-pd", "--help"], cwd=tmp_path, capture_output=True, text=True
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "arena is not synced. Run: ./setup.sh" in result.stderr
+    assert not (tmp_path / "arena" / ".venv").exists()
