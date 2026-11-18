@@ -70,6 +70,15 @@ def test_import_output_mode_follows_the_umask(clips, tmp_path):
     assert target.stat().st_mode & 0o777 == 0o666 & ~umask
 
 
+def test_import_overwrite_keeps_the_existing_output_mode(clips, tmp_path):
+    source, videodir = clips
+    target = tmp_path / "aug.hdf5"
+    import_videos(source, videodir, target, camera="room")
+    target.chmod(0o600)
+    import_videos(source, videodir, target, camera="room")
+    assert target.stat().st_mode & 0o777 == 0o600
+
+
 def test_refused_import_keeps_an_existing_output(clips, tmp_path):
     source, videodir = clips
     target = tmp_path / "aug.hdf5"

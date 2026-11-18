@@ -17,6 +17,7 @@ import argparse
 import contextlib
 import logging
 import os
+import stat
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -72,11 +73,17 @@ def _staged(target: Path) -> Iterator[Path]:
     os.close(fd)
     staging = Path(name)
     try:
-        # mkstemp creates the file 0600; give the output the mode a plain create would.
-        umask = os.umask(0)
-        os.umask(umask)
-        os.chmod(staging, 0o666 & ~umask)
+        # The temporary file stays 0600 (mkstemp) while it is written. On success it takes the
+        # mode the output would have had without staging: an existing target keeps its own
+        # (a 0600 recording stays private), a new one gets what a plain create would.
         yield staging
+        try:
+            mode = stat.S_IMODE(target.stat().st_mode)
+        except FileNotFoundError:
+            umask = os.umask(0)
+            os.umask(umask)
+            mode = 0o666 & ~umask
+        os.chmod(staging, mode)
         os.replace(staging, target)
     finally:
         staging.unlink(missing_ok=True)

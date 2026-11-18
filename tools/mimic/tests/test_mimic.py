@@ -163,3 +163,13 @@ def test_output_mode_follows_the_umask(tmp_path):
     os.umask(umask)
     assert out.stat().st_mode & 0o777 == 0o666 & ~umask
     assert sorted(p.name for p in tmp_path.iterdir()) == ["in.hdf5", "out.hdf5"]
+
+
+def test_overwrite_keeps_the_existing_output_mode(tmp_path):
+    """Replacing a private recording must not widen it to the umask default."""
+    src = _recording(tmp_path / "in.hdf5", demos=1, successes=(True,))
+    out = tmp_path / "out.hdf5"
+    expand(src, out, episodes=1)
+    out.chmod(0o600)
+    expand(src, out, episodes=1)
+    assert out.stat().st_mode & 0o777 == 0o600
