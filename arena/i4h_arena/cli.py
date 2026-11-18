@@ -14,6 +14,7 @@ import argparse
 import contextlib
 import logging
 import os
+import stat
 import sys
 import tempfile
 from collections.abc import Iterator
@@ -277,9 +278,32 @@ def _check_python_server_port(args: argparse.Namespace) -> None:
 
 
 def _python_server_lock_path() -> Path:
-    # The port is machine-wide, so the lock is too. It is per user because the bridge listens
-    # with SO_REUSEPORT, which the kernel already refuses across users.
-    return Path(tempfile.gettempdir()) / f"i4h-arena-python-server-{PYTHON_SERVER_PORT}-{os.getuid()}.lock"
+    """The session lock, inside a private per-user directory.
+
+    The port is machine-wide, so the lock is too. It is per user because the bridge listens with
+    SO_REUSEPORT, which the kernel already refuses across users. The directory is created 0700 and
+    checked on every use, so another local user cannot plant the lock path in a shared temp dir.
+    """
+    base = Path(tempfile.gettempdir()) / f"i4h-arena-{os.getuid()}"
+    with contextlib.suppress(FileExistsError):
+        base.mkdir(mode=0o700)
+    info = base.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise SystemExit(
+            f"--python-server: {base} must be a directory owned by you with mode 0700 (it holds the live-session "
+            "lock); remove it or fix it, then retry"
+        )
+    return base / f"python-server-{PYTHON_SERVER_PORT}.lock"
+
+
+def _open_python_server_lock(path: Path) -> int:
+    """Open the lock file without following a link or blocking on a FIFO, and insist it is ours."""
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, 0o600)
+    info = os.fstat(fd)
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+        os.close(fd)
+        raise SystemExit(f"--python-server: {path} is not a regular lock file owned by you; remove it and retry")
+    return fd
 
 
 @contextlib.contextmanager
@@ -302,10 +326,10 @@ def _python_server_guard(args: argparse.Namespace) -> Iterator[None]:
         yield
         return
 
-    # Opened close-on-exec (the Python default), so a child process cannot keep the lock alive.
-    with open(_python_server_lock_path(), "a") as lock_file:
+    fd = _open_python_server_lock(_python_server_lock_path())
+    try:
         try:
-            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise SystemExit(
                 f"--python-server: another live session is starting or running and owns "
@@ -314,6 +338,8 @@ def _python_server_guard(args: argparse.Namespace) -> Iterator[None]:
             ) from None
         _check_python_server_port(args)
         yield
+    finally:
+        os.close(fd)
 
 
 def _build(args: argparse.Namespace, resolve_workflow) -> object:

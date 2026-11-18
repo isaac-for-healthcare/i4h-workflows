@@ -229,22 +229,24 @@ def test_overlapping_python_server_launches_are_refused_before_either_listens(mo
     import i4h_arena.cli as arena_cli
 
     monkeypatch.setattr(arena_cli, "_python_server_lock_path", lambda: tmp_path / "bridge.lock")
+    # The lock is under test, not the socket: a live session on the real port must not matter here.
+    monkeypatch.setattr(arena_cli, "_check_python_server_port", lambda _args: None)
     args = build_parser().parse_args(["--workflow", "example", "--python-server"])
 
-    with arena_cli._python_server_guard(args):
-        # The first session is "booting": nothing listens on the port yet, so the port check passes.
-        arena_cli._check_python_server_port(args)
-        with (
-            pytest.raises(SystemExit, match="another live session is starting or running"),
-            arena_cli._python_server_guard(args),
-        ):
-            pytest.fail("the second launch must not get past the guard")
+    # The first session is "booting": nothing listens on the port yet, so a port check alone would pass.
+    with (
+        arena_cli._python_server_guard(args),
+        pytest.raises(SystemExit, match="another live session is starting or running"),
+        arena_cli._python_server_guard(args),
+    ):
+        pytest.fail("the second launch must not get past the guard")
 
 
 def test_the_python_server_lock_is_released_when_the_session_ends_or_fails(monkeypatch, tmp_path) -> None:
     import i4h_arena.cli as arena_cli
 
     monkeypatch.setattr(arena_cli, "_python_server_lock_path", lambda: tmp_path / "bridge.lock")
+    monkeypatch.setattr(arena_cli, "_check_python_server_port", lambda _args: None)
     args = build_parser().parse_args(["--workflow", "example", "--python-server"])
 
     with arena_cli._python_server_guard(args):
@@ -282,3 +284,43 @@ def test_the_python_server_guard_is_inert_without_the_flag(monkeypatch, tmp_path
     monkeypatch.setattr(arena_cli, "_python_server_lock_path", lambda: lock)
     with arena_cli._python_server_guard(build_parser().parse_args(["--workflow", "example"])):
         assert not lock.exists()
+
+
+def test_the_python_server_lock_lives_in_a_private_directory(monkeypatch, tmp_path) -> None:
+    import os
+    import stat
+
+    import i4h_arena.cli as arena_cli
+
+    monkeypatch.setattr(arena_cli.tempfile, "gettempdir", lambda: str(tmp_path))
+    path = arena_cli._python_server_lock_path()
+    assert path.parent == tmp_path / f"i4h-arena-{os.getuid()}"
+    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+    assert arena_cli._python_server_lock_path() == path
+
+    path.parent.chmod(0o755)
+    with pytest.raises(SystemExit, match="mode 0700"):
+        arena_cli._python_server_lock_path()
+
+
+def test_a_planted_lock_directory_or_file_is_refused(monkeypatch, tmp_path) -> None:
+    import os
+
+    import i4h_arena.cli as arena_cli
+
+    monkeypatch.setattr(arena_cli.tempfile, "gettempdir", lambda: str(tmp_path))
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir(mode=0o700)
+    (tmp_path / f"i4h-arena-{os.getuid()}").symlink_to(elsewhere)
+    with pytest.raises(SystemExit, match="mode 0700"):
+        arena_cli._python_server_lock_path()
+
+    fifo = tmp_path / "fifo.lock"
+    os.mkfifo(fifo)
+    with pytest.raises(SystemExit, match="not a regular lock file"):
+        arena_cli._open_python_server_lock(fifo)  # returns at once instead of hanging on the FIFO
+
+    link = tmp_path / "link.lock"
+    link.symlink_to(tmp_path / "target.lock")
+    with pytest.raises(OSError):  # O_NOFOLLOW: never creates or locks through a link
+        arena_cli._open_python_server_lock(link)
