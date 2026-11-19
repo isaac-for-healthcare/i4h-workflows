@@ -77,19 +77,34 @@ def _cmd_show(args: argparse.Namespace) -> int:
 
 def _cmd_lint(args: argparse.Namespace) -> int:
     registry = default_registry()
+    lint_all = getattr(args, "all", False)
     targets: list[tuple[str, str | None]] = []
-    if getattr(args, "all", False):
+    failed = 0
+    if lint_all:
         for name in available_workflows():
-            workflow_module = load_workflow_module(name)
-            targets.extend((name, mode) for mode in sorted(workflow_module.modes))
+            try:
+                # ``modes`` reads the module's WORKFLOW export, so a missing or mistyped one raises here too.
+                modes = sorted(load_workflow_module(name).modes)
+            except Exception as exc:  # noqa: BLE001 - one broken module must not hide the rest
+                print(f"{name}: !! {type(exc).__name__}: {exc}")
+                failed += 1
+                continue
+            targets.extend((name, mode) for mode in modes)
     else:
         if not args.workflow:
             raise ValueError("lint requires a workflow name or --all")
         targets.append((args.workflow, args.mode))
 
-    failed = 0
     for name, mode in targets:
-        workflow = resolve_workflow(name, mode)
+        if lint_all:
+            try:
+                workflow = resolve_workflow(name, mode)
+            except Exception as exc:  # noqa: BLE001 - report the mode and lint the rest
+                print(f"{name} [{mode}]: !! {type(exc).__name__}: {exc}")
+                failed += 1
+                continue
+        else:
+            workflow = resolve_workflow(name, mode)
         report = lint_workflow(workflow, registry)
         print(f"{name} [{workflow.mode}]")
         print(report.render())
