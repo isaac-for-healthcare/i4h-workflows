@@ -15,7 +15,8 @@ I4H_DIGITAL_TWIN_URL=/absolute/path/to/i4h-digital-twin \
   ./third_party/setup.sh patient-twin
 ```
 
-Set `I4H_DIGITAL_TWIN_REF` to test a different commit. The checkout is kept at
+Set `I4H_DIGITAL_TWIN_REF` to test a different commit, or `I4H_DIGITAL_TWIN_REF=main` to
+track the library's main branch. The checkout is kept at
 `third_party/i4h-digital-twin`. Install only the optional inference backend you use:
 
 ```bash
