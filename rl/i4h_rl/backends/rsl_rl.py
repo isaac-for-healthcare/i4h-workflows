@@ -178,8 +178,6 @@ def validate_launch(args: argparse.Namespace, _profile: RLProfile, _workflows_ro
         raise SystemExit("RSL-RL evaluation video is not yet supported; use normal Workflow validation for review")
     if args.only_eval and args.overrides:
         raise SystemExit("RSL-RL evaluation does not accept --set overrides")
-    if not args.only_eval and args.rl_model_path:
-        raise SystemExit("--checkpoint is only valid with --eval or export")
 
 
 def launch(
@@ -193,7 +191,7 @@ def launch(
 ) -> int:
     patient_twin = getattr(args, "resolved_patient_twin", None)
     checkpoint: Path | None = None
-    if args.only_eval:
+    if args.rl_model_path:
         checkpoint = resolve_input_path(workflows_root, args.rl_model_path)
         if not checkpoint.is_file():
             raise SystemExit(f"checkpoint does not exist: {checkpoint}")
@@ -223,6 +221,10 @@ def launch(
         metadata.update({"checkpoint": str(checkpoint), "episodes": args.episodes})
     else:
         metadata["max_epochs"] = epochs
+    if checkpoint is not None:
+        metadata["checkpoint"] = str(checkpoint)
+        if not args.only_eval:
+            metadata["mode"] = "rl-resume"
     write_json(run_dir / "run.json", metadata)
 
     if args.only_eval:
@@ -271,6 +273,8 @@ def launch(
         profile.simulation.presets,
         f"agent.experiment_name={run_dir}",
     ]
+    if checkpoint is not None:
+        command.extend(("--checkpoint", str(checkpoint), "--resume_optimizer_state"))
     if patient_twin is not None:
         command.extend(("--patient-twin", str(patient_twin)))
     if args.video:

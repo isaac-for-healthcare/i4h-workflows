@@ -67,7 +67,7 @@ class EndoluminalAortaFluoroscopyScene(Scene):
             raise ValueError("endoluminal_aorta_fluoroscopy requires the Newton backend")
         args.presets = "newton"
         args.solve_relations = False
-        numerical = Path(workflow_root()) / "third_party/i4h-numerical-sim-d1fc95c/numerical_sim"
+        numerical = Path(workflow_root()) / "third_party/i4h-numerical-sim-7edecea/numerical_sim"
         os.environ["I4H_DATA"] = str(numerical / "data")
         super().configure_args(args)
 
@@ -76,12 +76,15 @@ class EndoluminalAortaFluoroscopyScene(Scene):
 
         return make_environment()
 
-    def gym_spec(self):
+    def gym_spec(self, config_transform=None):
         from i4h_arena.envcfg.endoluminal_aorta_fluoroscopy import AortaArenaBuilder
 
         builder = AortaArenaBuilder(self.arena_environment(), arena_builder_cfg(self.args))
-        gym_id, cfg, _runtime_kwargs = builder.build_registered()
+        cfg, runtime_kwargs = builder.build_env_cfg()
         self.configure_env_cfg(cfg)
+        if config_transform is not None:
+            cfg = config_transform(cfg)
+        gym_id, cfg, _runtime_kwargs = builder.build_registered(env_cfg=cfg, env_kwargs=runtime_kwargs)
         return gym_id, cfg
 
     def make_view(self, env):

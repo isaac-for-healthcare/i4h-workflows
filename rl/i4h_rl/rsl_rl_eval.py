@@ -48,6 +48,24 @@ def _metric_values(module_name: str | None, env) -> dict[str, object]:
     return values
 
 
+def _terminal_result(module_name, env, extras, env_id):
+    if module_name:
+        adapter = importlib.import_module(module_name)
+        reader = getattr(adapter, "terminal_result", None)
+        if callable(reader):
+            return reader(extras, env_id)
+    rows = [row for row in extras.get("terminal_results", []) if row["env_id"] == env_id]
+    if rows:
+        if len(rows) != 1:
+            raise RuntimeError("duplicate terminal result")
+        return dict(rows[0])
+    # Legacy tasks still expose an explicit success term after autoreset.
+    manager = getattr(env, "termination_manager", None)
+    if manager is None or "success" not in manager.active_terms:
+        raise RuntimeError("evaluation requires an explicit success term or pre-reset terminal result")
+    return {"objective": "task_success", "success": bool(manager.get_term("success")[env_id].item())}
+
+
 def main() -> int:
     from isaaclab.app import AppLauncher
 
@@ -91,6 +109,9 @@ def main() -> int:
         gym_id, env_cfg = scene.gym_spec()
         agent_cfg = load_cfg_from_registry(gym_id, "rsl_rl_cfg_entry_point")
         agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, metadata.version("rsl-rl-lib"))
+        # Evaluation never updates; use the runtime's base PPO loader rather than
+        # a training-only subclass that requires qualification and update callbacks.
+        agent_cfg.algorithm.class_name = "rsl_rl.algorithms:PPO"
         env_cfg.scene.num_envs = args.num_envs
         # Evaluation writes its own result JSON. Embodiment and metric recorder
         # terms would otherwise export every episode to /tmp/isaaclab/logs.
@@ -107,11 +128,18 @@ def main() -> int:
             runner.export_policy_to_jit(path=str(export_policy.parent), filename=export_policy.name)
             if not export_policy.is_file():
                 raise RuntimeError(f"RSL-RL export did not create {export_policy}")
+            if args.adapter_module:
+                adapter = importlib.import_module(args.adapter_module)
+                export_contract = getattr(adapter, "export_contract", None)
+                if callable(export_contract):
+                    export_contract(env.unwrapped, runner.alg.get_policy(), checkpoint, export_policy)
             print(f"exported TorchScript policy: {export_policy}")
 
         obs = env.get_observations()
         initial_metrics = _metric_values(args.adapter_module, env.unwrapped)
-        metric_minima = {name: torch.full((env.num_envs,), float("inf"), device=env.device) for name in initial_metrics}
+        metric_finals = {name: torch.zeros((env.num_envs,), device=env.device) for name in initial_metrics}
+        metric_minima = {name: torch.full_like(value, float("inf")) for name, value in metric_finals.items()}
+        metric_maxima = {name: torch.full_like(value, -float("inf")) for name, value in metric_finals.items()}
         episode_steps = torch.zeros(env.num_envs, dtype=torch.long, device=env.device)
         completed: list[dict[str, float | int | bool]] = []
         max_steps = env.max_episode_length * (args.episodes // env.num_envs + 2)
@@ -128,16 +156,18 @@ def main() -> int:
                     if not isinstance(value, torch.Tensor) or value.shape != (env.num_envs,):
                         raise TypeError(f"evaluation metric {name!r} must be a tensor shaped ({env.num_envs},)")
                     metric_minima[name] = torch.minimum(metric_minima[name], value)
-                time_outs = extras.get("time_outs", torch.zeros_like(dones, dtype=torch.bool)).bool()
+                    metric_maxima[name] = torch.maximum(metric_maxima[name], value)
+                    metric_finals[name].copy_(value)
                 done_ids = torch.nonzero(dones.bool(), as_tuple=False).flatten().tolist()
                 for env_id in done_ids:
-                    episode = {
-                        "success": not bool(time_outs[env_id].item()),
-                        "steps": int(episode_steps[env_id].item()),
-                    }
-                    episode.update(
-                        {f"min_{name}": float(values[env_id].item()) for name, values in metric_minima.items()}
-                    )
+                    episode = _terminal_result(args.adapter_module, env.unwrapped, extras, env_id)
+                    episode["steps"] = int(episode_steps[env_id].item())
+                    # New hosts publish terminal values/extrema before autoreset. Legacy
+                    # getters are retained as diagnostics with their sampling limitation.
+                    for label, values in (("min", metric_minima), ("max", metric_maxima), ("final", metric_finals)):
+                        episode.update(
+                            {f"{label}_{name}": float(value[env_id].item()) for name, value in values.items()}
+                        )
                     completed.append(episode)
                     if len(completed) >= args.episodes:
                         break
@@ -145,6 +175,8 @@ def main() -> int:
                     reset_ids = torch.as_tensor(done_ids, device=env.device)
                     for values in metric_minima.values():
                         values[reset_ids] = float("inf")
+                    for values in metric_maxima.values():
+                        values[reset_ids] = -float("inf")
                     episode_steps[reset_ids] = 0
                     policy.reset(dones)
                 if len(completed) >= args.episodes:

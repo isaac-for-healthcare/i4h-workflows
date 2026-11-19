@@ -1,0 +1,105 @@
+diff --git a/numerical_sim/isaaclab/src/i4h_isaaclab/component.py b/numerical_sim/isaaclab/src/i4h_isaaclab/component.py
+index ccc25a9..4502b13 100644
+--- a/numerical_sim/isaaclab/src/i4h_isaaclab/component.py
++++ b/numerical_sim/isaaclab/src/i4h_isaaclab/component.py
+@@ -205,8 +205,19 @@ class I4hComponent:
+         """
+         self._rebuild.append(callback)
+ 
++    def on_post_physics(self, callback) -> None:
++        """Register allocation-free device work during on_rebuild, before host capture.
++
++        Callbacks run in registration order after each completed physics step,
++        including both steps of a decimated action. Re-register on hard rebuild.
++        """
++        if not getattr(self, "_binding_callbacks_open", False):
++            raise RuntimeError("register post-physics callbacks during on_rebuild, before graph capture")
++        self._live().post_physics.append(callback)
++
+     def _bind(self, sim) -> None:
+         self.sim = sim
++        sim.post_physics = []
+         self._events = None
+         self.procedure = None
+         case = self.solver_cfg.case or {}
+@@ -222,8 +233,12 @@ class I4hComponent:
+         )  # after every manager step: torch reads (observations, rewards) see it
+         if self._rebuild:
+             self.sync_views()
+-        for callback in list(self._rebuild):
+-            callback(self)
++        self._binding_callbacks_open = True
++        try:
++            for callback in list(self._rebuild):
++                callback(self)
++        finally:
++            self._binding_callbacks_open = False
+         if self._rebuild:
+             self.initialize_particle_history()
+ 
+diff --git a/numerical_sim/isaaclab/src/i4h_isaaclab/manager.py b/numerical_sim/isaaclab/src/i4h_isaaclab/manager.py
+index 16aad53..a60c40d 100644
+--- a/numerical_sim/isaaclab/src/i4h_isaaclab/manager.py
++++ b/numerical_sim/isaaclab/src/i4h_isaaclab/manager.py
+@@ -108,21 +108,42 @@ class I4hHostMixin:
+             found = self._i4h_views[key] = build(self.i4h.sim)
+         return found
+ 
++    def i4h_restore_ids(self, env_ids):
++        """Override to select IDs restored by i4h_restore_state after Lab reset events."""
++        return env_ids[:0]
++
++    def i4h_save_terminal(self, env_ids):
++        """Optional host-owned terminal results, saved before any reset bookkeeping."""
++
++    def i4h_restore_state(self, env_ids):
++        """Restore host assets/kinematics first, complete numerical state last."""
++        raise NotImplementedError("selected snapshot restore requires a host implementation")
++
++    def i4h_after_reset(self, env_ids):
++        """Optional host state reset for ordinary IDs, after numerical history/events."""
++
+     def _reset_idx(self, env_ids):
+-        """Terminal extras, then the physical reset, then Lab's reset (scene, events that may read and randomise the
+-        new state, managers), then the procedure, which samples the state the events left."""
+         if isinstance(env_ids, slice):
+             env_ids = torch.arange(self.num_envs, device=self.device)[env_ids]
++        restored = self.i4h_restore_ids(env_ids)
++        ordinary = env_ids[~torch.isin(env_ids, restored)]
++        self.i4h_save_terminal(env_ids)
+         task = self.i4h_task
+         if task is not None:
+             self.i4h.sync_views()
+             task.save_terminal(self.extras, env_ids=env_ids)
+-        self.i4h.reset(env_ids)  # Warp waits for torch's ids and extras first
+-        self.i4h.sync_views()  # the events run on torch's stream, after the physical reset
++        if len(ordinary):
++            self.i4h.reset(ordinary)
++        self.i4h.sync_views()
+         super()._reset_idx(env_ids)
+-        self.i4h.initialize_particle_history(env_ids)  # complete event position writes before procedure consumers
++        if len(ordinary):
++            self.i4h.initialize_particle_history(ordinary)
++            if task is not None:
++                self.i4h.reset_procedure(ordinary)
++            self.i4h_after_reset(ordinary)
++        if len(restored):
++            self.i4h_restore_state(restored)
+         if task is not None:
+-            self.i4h.reset_procedure(env_ids)  # select_envs orders Warp after the events' writes
+             task.clear_recorded(env_ids=env_ids)
+         self.i4h.sync_views()
+ 
+diff --git a/numerical_sim/isaaclab/src/i4h_isaaclab/newton_manager.py b/numerical_sim/isaaclab/src/i4h_isaaclab/newton_manager.py
+index f935f24..d35089a 100644
+--- a/numerical_sim/isaaclab/src/i4h_isaaclab/newton_manager.py
++++ b/numerical_sim/isaaclab/src/i4h_isaaclab/newton_manager.py
+@@ -172,6 +172,8 @@ class ConstructionContext:
+         """Device-resident work, called exactly once per physics step inside the host graph."""
+         if self.binding.procedure is not None:
+             self.binding.procedure.update(self.binding.dt)
++        for callback in getattr(self.binding, "post_physics", ()):
++            callback()
+ 
+     def check_prepared(self):
+         self.check_coupling_config()

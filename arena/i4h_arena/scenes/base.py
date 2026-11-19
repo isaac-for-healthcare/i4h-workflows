@@ -105,15 +105,19 @@ class Scene(ABC):
         arena_env.env_cfg_callback = env_cfg_callback
         return arena_env
 
-    def gym_spec(self) -> tuple[str, Any]:
+    def gym_spec(self, config_transform=None) -> tuple[str, Any]:
         """Resolve ``(gym_env_id, env_cfg)`` for :func:`gymnasium.make`."""
         from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
         print("[arena] constructing arena environment", flush=True)
         arena_env = self.arena_environment()
         print("[arena] registering with gym", flush=True)
-        gym_id, env_cfg, _env_kwargs = ArenaEnvBuilder(arena_env, arena_builder_cfg(self.args)).build_registered()
+        builder = ArenaEnvBuilder(arena_env, arena_builder_cfg(self.args))
+        env_cfg, env_kwargs = builder.build_env_cfg()
         self.configure_env_cfg(env_cfg)
+        if config_transform is not None:
+            env_cfg = config_transform(env_cfg)
+        gym_id, env_cfg, _env_kwargs = builder.build_registered(env_cfg=env_cfg, env_kwargs=env_kwargs)
         return gym_id, env_cfg
 
     def scene_rtx_settings(self) -> dict[str, Any]:

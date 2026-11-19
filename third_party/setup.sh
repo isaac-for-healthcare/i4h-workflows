@@ -16,8 +16,8 @@ TARGET="${1:-all}"
 # 6.2.0.0 (arena/pyproject.toml) and warp-lang 1.17.0.
 ISAACLAB_REV="39394453ceaac256349ad822e675a93485373667"
 ISAACLAB_DIR="IsaacLab-3939445"
-NUMERICAL_SIM_REV="d1fc95c99d59be793da1f938e8c58458a538b168"
-NUMERICAL_SIM_DIR="i4h-numerical-sim-d1fc95c"
+NUMERICAL_SIM_REV="7edecea49204539ca54cf9da736b5bcf597dadff"
+NUMERICAL_SIM_DIR="i4h-numerical-sim-7edecea"
 LEISAAC_REV="cd61a20c75f7b72c347538089602201349af6dc8"
 LEISAAC_DIR="leisaac-cd61a20"
 # Arena main qualification pin. Arena itself pins the v3.0.0 GA submodule; i4h runs it on the
@@ -271,6 +271,9 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}/.git" ]]; then
     "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_newton19_actuators.patch"
 
+  apply_patch_once "Numerical Sim post-physics and selected snapshot lifecycle" \
+    "${THIRD_PARTY_DIR}/${NUMERICAL_SIM_DIR}" \
+    "${THIRD_PARTY_DIR}/i4h_numerical_liver_host.patch"
   apply_patch_once "Isaac Lab Newton 1.9 metadata and cloner" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_newton19_metadata.patch"

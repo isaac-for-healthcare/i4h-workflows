@@ -1,0 +1,5 @@
+summary: Execute the exported full-cycle liver reach and retract actor
+impl: i4h_tasks.rsl_rl.liver_reach_retract:LiverReachRetractPolicy
+model:
+  family: rsl_rl
+  format: torchscript

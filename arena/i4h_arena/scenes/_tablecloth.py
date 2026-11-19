@@ -115,13 +115,20 @@ class TableclothScene(Scene):
         self._cfg = cfg
         return cfg
 
-    def gym_spec(self) -> tuple[str, Any]:
+    def gym_spec(self, config_transform=None) -> tuple[str, Any]:
         import gymnasium as gym
 
         gym_id = f"I4H-{self.name}-v0"
-        if gym_id not in gym.registry:
-            gym.register(gym_id, entry_point="isaaclab.envs:ManagerBasedRLEnv", disable_env_checker=True)
-        return gym_id, self.build()
+        cfg = self.build()
+        if config_transform is not None:
+            cfg = config_transform(cfg)
+        gym.register(
+            gym_id,
+            entry_point="isaaclab.envs:ManagerBasedRLEnv",
+            kwargs={"env_cfg_entry_point": cfg},
+            disable_env_checker=True,
+        )
+        return gym_id, cfg
 
     def joint_orders(self) -> dict[str, tuple[str, ...]]:
         return {"robot": get_robot_config(self.spec.embodiment).joint_names}

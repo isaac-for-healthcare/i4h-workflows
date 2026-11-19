@@ -36,13 +36,18 @@ def capture_scene_state(env: Any) -> dict[str, Any] | None:
     get_state = getattr(scene, "get_state", None)
     if not callable(get_state):
         return None
+    custom = getattr(getattr(env, "unwrapped", env), "capture_complete_state", None)
     try:
-        return _to_numpy(get_state(is_relative=True))
-    except Exception:  # a backend without full state support must not stop the recording
-        logger.warning(
-            "could not capture the initial scene state; this episode will replay from a fresh reset", exc_info=True
-        )
-        return None
+        state = _to_numpy(get_state(is_relative=True))
+    except Exception:
+        if not callable(custom):
+            logger.warning("could not capture initial scene state", exc_info=True)
+            return None
+        state = {}
+    if callable(custom):
+        # A provider claiming complete continuation must fail explicitly.
+        state["custom_numerical"] = custom()
+    return state
 
 
 def _to_numpy(tree: Mapping[str, Any]) -> dict[str, Any]:
@@ -74,6 +79,14 @@ def restore_scene_state(env: Any, state: Mapping[str, Any], *, seed: int | None 
         for family, assets in current.items()
     }
     unwrapped.reset_to(tensors, None, seed=seed, is_relative=True)
+    custom = state.get("custom_numerical")
+    restore_custom = getattr(unwrapped, "restore_complete_state", None)
+    if custom is not None:
+        if not callable(restore_custom):
+            raise ValueError("recording requires a complete numerical restore provider")
+        restore_custom(custom)
+    elif callable(restore_custom):
+        raise ValueError("recording omits required complete numerical continuation state")
 
 
 def _to_torch(value: Any, num_envs: int, device: Any) -> Any:

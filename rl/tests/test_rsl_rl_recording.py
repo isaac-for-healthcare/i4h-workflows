@@ -57,7 +57,12 @@ def test_rsl_rl_training_registers_cfg_without_episode_recorders(monkeypatch):
             registered.append(cfg)
             return "test", SimpleNamespace(**vars(cfg)), env_kwargs or {}
 
-    scene = SimpleNamespace(configure_args=lambda _args: None, arena_environment=lambda: object())
+    def gym_spec(config_transform=None):
+        builder = ArenaEnvBuilder(object(), None)
+        cfg, kwargs = builder.build_env_cfg()
+        return builder.build_registered(env_cfg=config_transform(cfg), env_kwargs=kwargs)[:2]
+
+    scene = SimpleNamespace(configure_args=lambda _args: None, gym_spec=gym_spec)
     _stub_modules(
         monkeypatch,
         {
@@ -100,7 +105,9 @@ def test_rsl_rl_evaluation_does_not_inherit_episode_recorders(tmp_path, monkeypa
                 "RslRlVecEnvWrapper": object,
                 "handle_deprecated_rsl_rl_cfg": lambda agent_cfg, _version: agent_cfg,
             },
-            "isaaclab_tasks.utils.parse_cfg": {"load_cfg_from_registry": lambda *_args: SimpleNamespace()},
+            "isaaclab_tasks.utils.parse_cfg": {
+                "load_cfg_from_registry": lambda *_args: SimpleNamespace(algorithm=SimpleNamespace())
+            },
             "rsl_rl.runners": {"OnPolicyRunner": object},
             "i4h_arena.scenes.base": {"load_scene": lambda *_args: scene},
         },

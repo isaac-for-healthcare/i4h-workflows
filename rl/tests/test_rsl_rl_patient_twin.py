@@ -105,7 +105,10 @@ def test_patient_twin_reaches_rsl_rl_scene_and_artifacts(
                 assert args.patient_twin == str(twin.resolve())
                 assert args.fluoro_backend is None and args.fluoro_device is None
                 scenes.append(task)
-                return SimpleNamespace(configure_args=lambda _args: None, arena_environment=lambda: object())
+                return SimpleNamespace(
+                    configure_args=lambda _args: None,
+                    gym_spec=lambda config_transform: ("test", config_transform(SimpleNamespace(recorders=object()))),
+                )
 
             isaac_cli("i4h_arena.scenes.base", load_scene=load_scene, arena_builder_cfg=lambda args: args)
             isaac_cli(
