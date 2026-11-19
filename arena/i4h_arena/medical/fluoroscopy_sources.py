@@ -7,7 +7,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .carm import ReferenceProjectionCArmStateProvider, SceneCArmStateProvider, follow_tip_enabled
+from .carm import (
+    PerPatientCArmStateProvider,
+    ReferenceProjectionCArmStateProvider,
+    SceneCArmStateProvider,
+    follow_tip_enabled,
+)
 
 logger = logging.getLogger("i4h_arena.scene")
 
@@ -30,12 +35,22 @@ def bind_fluoroscopy_sources(env: Any) -> None:
     if fluoroscopy.patient_twin is not None:
         from .patient_volume import PatientVolume
 
-        carm_provider = ReferenceProjectionCArmStateProvider(
-            PatientVolume.load(fluoroscopy.patient_twin),
-            env.action_manager.get_term("carm_orbit"),
-            detector_size_m=detector_size_m,
-            tip_source=catheter if follow_tip_enabled() else None,
-        )
+        def reference(twin: Any) -> ReferenceProjectionCArmStateProvider:
+            return ReferenceProjectionCArmStateProvider(
+                PatientVolume.load(twin),
+                env.action_manager.get_term("carm_orbit"),
+                detector_size_m=detector_size_m,
+                tip_source=catheter if follow_tip_enabled() else None,
+            )
+
+        groups = getattr(fluoroscopy, "patient_groups", ())
+        if groups:
+            carm_provider = PerPatientCArmStateProvider(
+                [reference(twin) for twin, _ in groups],
+                [env_ids for _, env_ids in groups],
+            )
+        else:
+            carm_provider = reference(fluoroscopy.patient_twin)
     else:
         carm_provider = _scene_data_carm_provider(env, detector_size_m) or SceneCArmStateProvider(
             env.scene["xray_source"],

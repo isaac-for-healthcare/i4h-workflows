@@ -11,6 +11,7 @@ import traceback
 from multiprocessing.connection import Listener
 from pathlib import Path
 
+from i4h_rl.artifacts import scene_patient_twin
 from i4h_rl.sim_bridge import bridge_authkey, to_numpy_tree
 
 
@@ -24,7 +25,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--env-spacing", type=float, required=True)
     parser.add_argument("--presets", required=True)
     parser.add_argument("--enable-cameras", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--patient-twin", default=None)
+    parser.add_argument("--patient-twin", action="append", default=None)
     parser.add_argument("--fluoro-backend", choices=("synthetic", "slang"), default=None)
     parser.add_argument("--fluoro-device", choices=("cuda", "vulkan"), default="vulkan")
     return parser
@@ -48,7 +49,7 @@ def _scene_args(args: argparse.Namespace) -> argparse.Namespace:
         # patient-specific sensor would fail here on a missing attribute rather
         # than fall back. ``fluoro_backend=None`` lets the scene pick: Slang
         # when a twin is present, synthetic otherwise.
-        patient_twin=args.patient_twin,
+        patient_twin=scene_patient_twin(args.patient_twin),
         fluoro_backend=args.fluoro_backend,
         fluoro_device=args.fluoro_device,
     )

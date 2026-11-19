@@ -134,6 +134,15 @@ class CArmState:
     def num_envs(self) -> int:
         return int(self.source_world_m.shape[0])
 
+    def take(self, env_ids: np.ndarray) -> CArmState:
+        """The same geometry restricted to ``env_ids``, in that order."""
+        return CArmState(
+            self.source_world_m[env_ids],
+            self.detector_center_world_m[env_ids],
+            self.detector_x_axis_world[env_ids],
+            self.detector_size_m,
+        )
+
 
 @runtime_checkable
 class CArmStateProvider(Protocol):
@@ -397,3 +406,46 @@ class ReferenceProjectionCArmStateProvider:
         if not callable(setter):
             raise TypeError("the C-arm orbit action does not support named projections")
         return float(setter(angle_rad))
+
+
+class PerPatientCArmStateProvider:
+    """Each environment's C-arm geometry from the provider of its own patient.
+
+    Every member provider is asked for all environments, since panning and the
+    orbit angle are tracked per environment anyway, and only the rows of the
+    environments holding its patient are kept.
+    """
+
+    def __init__(self, providers: list[CArmStateProvider], env_ids: list[np.ndarray]) -> None:
+        if len(providers) != len(env_ids) or not providers:
+            raise ValueError(
+                f"expected one environment index set per provider, got {len(env_ids)} for {len(providers)}"
+            )
+        self._providers = list(providers)
+        self._env_ids = [np.asarray(ids, dtype=np.int64) for ids in env_ids]
+
+    def snapshot(self, num_envs: int) -> CArmState:
+        covered = np.sort(np.concatenate(self._env_ids))
+        if not np.array_equal(covered, np.arange(num_envs)):
+            raise ValueError(
+                f"patient groups cover environments {covered.tolist()}; expected 0..{num_envs - 1} once each"
+            )
+        source = np.zeros((num_envs, 3), dtype=np.float64)
+        detector = np.zeros((num_envs, 3), dtype=np.float64)
+        detector_x = np.zeros((num_envs, 3), dtype=np.float64)
+        detector_size_m: tuple[float, float] | None = None
+        for provider, ids in zip(self._providers, self._env_ids):
+            state = provider.snapshot(num_envs)
+            source[ids] = state.source_world_m[ids]
+            detector[ids] = state.detector_center_world_m[ids]
+            detector_x[ids] = state.detector_x_axis_world[ids]
+            detector_size_m = state.detector_size_m
+        assert detector_size_m is not None
+        return CArmState(source, detector, detector_x, detector_size_m)
+
+    def select_angle(self, angle_rad: float) -> float:
+        """Select one reference projection; the orbit action is shared, so one call sets every patient's."""
+        select = getattr(self._providers[0], "select_angle", None)
+        if not callable(select):
+            raise TypeError("the C-arm provider does not support named projections")
+        return float(select(angle_rad))

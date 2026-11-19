@@ -390,7 +390,7 @@ def segment_inverse_inertia(mass_kg: float, radius_m: float, segment_length_m: f
     return 1.0 / inertia
 
 
-def _apply_physical_rotational_inertia(solver: Any, *, radius_m: float, segment_length_m: float) -> float:
+def _apply_physical_rotational_inertia(solver: Any, *, radius_m: float, segment_length_m: Any) -> float:
     """Replace the solver's identity rotational inertia with the rod's own.
 
     ``XPBDRodSolver`` seeds ``inv_inertia_local_diag`` with ``(1, 1, 1)`` for
@@ -407,31 +407,45 @@ def _apply_physical_rotational_inertia(solver: Any, *, radius_m: float, segment_
     constraints. Use cylinder transverse inertia for local X/Y and polar
     inertia ``m r^2 / 2`` for local Z.
 
-    Returns the inverse inertia written.
+    ``segment_length_m`` is one length, or one per environment when their rods
+    differ in length; each environment's mass is then read from its own rod.
+
+    Returns the inverse inertia written for environment 0.
     """
     import warp as wp
 
     from .catheter_initialization import solver_workspaces
 
+    lengths = np.asarray(segment_length_m, dtype=np.float64).reshape(-1)
     inv_inertia = None
     for workspace in solver_workspaces(solver):
         diagonal = getattr(workspace, "inv_inertia_local_diag", None)
         if diagonal is None:
             continue
-        if inv_inertia is None:
-            inv_inertia = segment_inverse_inertia(
-                _segment_mass_kg(workspace),
-                radius_m,
-                segment_length_m,
-            )
-        polar_inverse = 2.0 / (_segment_mass_kg(workspace) * radius_m * radius_m)
-        value = wp.vec3(inv_inertia, inv_inertia, polar_inverse)
         # Single-env workspaces hold a bare vec3; the batched one holds a
         # per-environment array of them.
+        rods = int(diagonal.shape[0]) if isinstance(diagonal, wp.array) else 1
+        masses = _segment_masses_kg(workspace, rods)
+        env_lengths = np.broadcast_to(lengths, (rods,)) if lengths.size == 1 else lengths[:rods]
+        if env_lengths.shape != (rods,):
+            raise ValueError(f"segment_length_m needs one length or {rods}, got {lengths.size}")
+        values = np.asarray(
+            [
+                (
+                    segment_inverse_inertia(mass, radius_m, float(length)),
+                    segment_inverse_inertia(mass, radius_m, float(length)),
+                    2.0 / (mass * radius_m * radius_m),
+                )
+                for mass, length in zip(masses, env_lengths, strict=True)
+            ],
+            dtype=np.float32,
+        )
+        if inv_inertia is None:
+            inv_inertia = segment_inverse_inertia(masses[0], radius_m, float(env_lengths[0]))
         if isinstance(diagonal, wp.array):
-            diagonal.fill_(value)
+            diagonal.assign(wp.array(values, dtype=wp.vec3, device=diagonal.device))
         else:
-            workspace.inv_inertia_local_diag = value
+            workspace.inv_inertia_local_diag = wp.vec3(*(float(value) for value in values[0]))
     if inv_inertia is None:
         raise RuntimeError("solver exposes no workspace to write rotational inertia into")
     return inv_inertia
@@ -637,6 +651,21 @@ def _segment_mass_kg(workspace: Any) -> float:
     return 1.0 / float(free[0])
 
 
+def _segment_masses_kg(workspace: Any, rods: int) -> list[float]:
+    """:func:`_segment_mass_kg` for each of the ``rods`` rods a workspace holds."""
+    inv_masses = workspace.inv_masses
+    values = np.asarray(inv_masses.numpy() if hasattr(inv_masses, "numpy") else inv_masses, dtype=np.float64)
+    if rods < 1 or values.size % rods:
+        raise RuntimeError(f"{values.size} particles are not a whole number of {rods} rods")
+    masses = []
+    for rod in values.reshape(rods, -1):
+        free = rod[rod > 0.0]
+        if free.size == 0:
+            raise RuntimeError("rod has no free particle to read a segment mass from")
+        masses.append(1.0 / float(free[0]))
+    return masses
+
+
 def relative_darboux(q1: torch.Tensor, q2: torch.Tensor, length_m: float) -> torch.Tensor:
     """The Darboux vector between consecutive rod frames, ``2 vec(q1* q2) / L``.
 
@@ -693,7 +722,7 @@ def _seed_shaft_rest_darboux(
     solver: Any,
     *,
     num_tip_edges: int,
-    segment_length_m: float,
+    segment_length_m: Any,
     positions_world_m: np.ndarray,
     scale: float = 1.0,
 ) -> None:
@@ -703,14 +732,25 @@ def _seed_shaft_rest_darboux(
     quaternion components expected by XPBD. The distal tip keeps its own
     authored rest values. Disabled by default: patient placement alone does
     not imply that the unloaded catheter is shaped like the vessel.
+
+    ``positions_world_m`` is one ``(num_points, 3)`` seed shared by every rod,
+    or ``(num_envs, num_points, 3)`` with ``segment_length_m`` giving one
+    length per environment, when each environment holds its own patient.
     """
     import torch
     import warp as wp
 
     from .catheter_initialization import solver_workspaces, workspace_edges_per_env
 
-    seeded = torch.as_tensor(np.asarray(positions_world_m, dtype=np.float32)).reshape(-1, 3)
-    full_curvature = rest_darboux_along_polyline(seeded, segment_length_m) * float(scale)
+    points = np.asarray(positions_world_m, dtype=np.float32)
+    seeds = points.reshape(1, -1, 3) if points.ndim == 2 else points
+    lengths = np.broadcast_to(np.asarray(segment_length_m, dtype=np.float64).reshape(-1), (len(seeds),))
+    curvatures = torch.stack(
+        [
+            rest_darboux_along_polyline(torch.as_tensor(seed), float(length)) * float(scale)
+            for seed, length in zip(seeds, lengths, strict=True)
+        ]
+    )
 
     for workspace in solver_workspaces(solver):
         num_edges = workspace_edges_per_env(workspace)
@@ -720,11 +760,55 @@ def _seed_shaft_rest_darboux(
         rest = wp.to_torch(workspace.rest_darboux)
         rods = max(rest.shape[0] // num_edges, 1)
         rest = rest.view(rods, num_edges, 3)
-        if full_curvature.shape[0] < shaft:
+        if curvatures.shape[1] < shaft:
             raise RuntimeError(
-                f"polyline gives {full_curvature.shape[0]} edge curvatures, " f"too few for {shaft} shaft edges"
+                f"polyline gives {curvatures.shape[1]} edge curvatures, " f"too few for {shaft} shaft edges"
             )
-        rest[:, :shaft] = full_curvature[:shaft].to(device=rest.device, dtype=rest.dtype)
+        if len(curvatures) not in (1, rods) and rods != 1:
+            raise RuntimeError(f"{len(curvatures)} seeded rods for a workspace of {rods}")
+        source = curvatures[:rods] if len(curvatures) > 1 else curvatures
+        rest[:, :shaft] = source[:, :shaft].to(device=rest.device, dtype=rest.dtype)
+
+
+@dataclass(frozen=True)
+class CatheterEnvAnatomy:
+    """One environment's patient: its vessel, access site, route and catheter length.
+
+    Attributes:
+        patient_twin_manifest: Twin supplying this environment's vessel.
+        origin_world_m: Access site, where the catheter's proximal end starts.
+        track_direction_world: Unit insertion direction at the access site.
+        length_m: Catheter length, sized to this route. Every environment keeps
+            the spec's ``num_segments``, so this sets the segment length.
+        initial_path_world_m: Ordered route the rod is seeded and guided along.
+        lumen_radii_m: Vessel radius at each route sample, or ``None``.
+    """
+
+    patient_twin_manifest: str
+    origin_world_m: tuple[float, float, float]
+    track_direction_world: tuple[float, float, float]
+    length_m: float
+    initial_path_world_m: tuple[tuple[float, float, float], ...]
+    lumen_radii_m: tuple[float, ...] | None = None
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.length_m) or self.length_m <= 0.0:
+            raise ValueError(f"length_m must be finite and positive, got {self.length_m}")
+        if len(self.initial_path_world_m) < 2:
+            raise ValueError("initial_path_world_m needs at least two samples")
+        if self.lumen_radii_m is not None:
+            if len(self.lumen_radii_m) != len(self.initial_path_world_m):
+                raise ValueError(
+                    f"lumen_radii_m must have one entry per path sample, got "
+                    f"{len(self.lumen_radii_m)} for {len(self.initial_path_world_m)}"
+                )
+            if min(self.lumen_radii_m) <= 0.0:
+                raise ValueError("lumen_radii_m must be positive")
+        direction = np.asarray(self.track_direction_world, dtype=np.float64)
+        norm = float(np.linalg.norm(direction))
+        if not norm > 0.0:
+            raise ValueError("track_direction_world must be non-zero")
+        object.__setattr__(self, "track_direction_world", tuple(float(value) for value in direction / norm))
 
 
 @dataclass
@@ -734,6 +818,12 @@ class CatheterRodSpec:
     Attributes:
         num_envs: Independent environments. Each gets its own rod and, when a
             vessel is present, its own deformable wall.
+        env_anatomies: One :class:`CatheterEnvAnatomy` per environment, for a
+            batch whose environments hold different patients. Its length must
+            equal ``num_envs``. The single-patient fields below (origin,
+            direction, length, path, radii and twin) then describe environment
+            0, so readers that only ever look at one environment are unchanged.
+            Left unset, every environment shares those fields.
         device: Warp device string shared by the rod, the vessel, and Newton.
         origin_world_m: Proximal end of the catheter in Isaac world metres.
         track_direction_world: Insertion direction at the origin.
@@ -904,6 +994,7 @@ class CatheterRodSpec:
     contact_coupling_iterations: int = 32
     soft_contact_overrides: dict[str, Any] = field(default_factory=dict)
     solver_overrides: dict[str, Any] = field(default_factory=dict)
+    env_anatomies: tuple[CatheterEnvAnatomy, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.num_envs < 1:
@@ -914,7 +1005,14 @@ class CatheterRodSpec:
             raise ValueError(f"length_m must be positive, got {self.length_m}")
         if self.radius_m <= 0.0:
             raise ValueError(f"radius_m must be positive, got {self.radius_m}")
-        if not math.isfinite(self.tip_length_m) or not 0.0 < self.tip_length_m <= self.length_m:
+        if self.env_anatomies is not None:
+            self.env_anatomies = tuple(self.env_anatomies)
+            if len(self.env_anatomies) != self.num_envs:
+                raise ValueError(
+                    f"env_anatomies holds {len(self.env_anatomies)} patients for {self.num_envs} "
+                    "environments; give exactly one patient per environment"
+                )
+        if not math.isfinite(self.tip_length_m) or not 0.0 < self.tip_length_m <= min(self.env_lengths_m()):
             raise ValueError("tip_length_m must be finite, positive, and no longer than the catheter")
         for name in ("vessel_response", "vessel_linear_damping", "vessel_angular_damping"):
             value = float(getattr(self, name))
@@ -966,7 +1064,71 @@ class CatheterRodSpec:
 
     @property
     def wants_vessel(self) -> bool:
-        return bool(self.vessel_enabled) and self.patient_twin_manifest is not None
+        return bool(self.vessel_enabled) and (self.patient_twin_manifest is not None or self.per_env_anatomy)
+
+    @property
+    def per_env_anatomy(self) -> bool:
+        """Whether the environments hold their own patients rather than sharing one."""
+        return self.env_anatomies is not None
+
+    def env_lengths_m(self) -> tuple[float, ...]:
+        """Catheter length in each environment."""
+        if self.env_anatomies is None:
+            return (float(self.length_m),) * int(self.num_envs)
+        return tuple(float(anatomy.length_m) for anatomy in self.env_anatomies)
+
+    def env_segment_lengths_m(self) -> np.ndarray:
+        """Segment rest length in each environment, ``(num_envs,)``."""
+        return np.asarray(self.env_lengths_m(), dtype=np.float64) / float(self.num_segments)
+
+    def env_twin_manifests(self) -> tuple[str | None, ...]:
+        """Twin manifest of each environment."""
+        if self.env_anatomies is None:
+            return (self.patient_twin_manifest,) * int(self.num_envs)
+        return tuple(anatomy.patient_twin_manifest for anatomy in self.env_anatomies)
+
+    def env_paths_world_m(self) -> tuple[tuple[tuple[float, float, float], ...] | None, ...]:
+        """Seeded route of each environment, ``None`` on a straight track."""
+        if self.env_anatomies is None:
+            return (self.initial_path_world_m,) * int(self.num_envs)
+        return tuple(anatomy.initial_path_world_m for anatomy in self.env_anatomies)
+
+    def env_lumen_radii_m(self) -> tuple[tuple[float, ...] | None, ...]:
+        """Lumen radii along each environment's route."""
+        if self.env_anatomies is None:
+            return (self.lumen_radii_m,) * int(self.num_envs)
+        return tuple(anatomy.lumen_radii_m for anatomy in self.env_anatomies)
+
+    def env_origins_world_m(self) -> np.ndarray:
+        """Access site of each environment, ``(num_envs, 3)``."""
+        if self.env_anatomies is None:
+            return np.tile(np.asarray(self.origin_world_m, dtype=np.float32), (int(self.num_envs), 1))
+        return np.asarray([anatomy.origin_world_m for anatomy in self.env_anatomies], dtype=np.float32)
+
+    def env_track_directions_world(self) -> np.ndarray:
+        """Insertion direction of each environment, ``(num_envs, 3)``."""
+        if self.env_anatomies is None:
+            return np.tile(np.asarray(self.track_direction_world, dtype=np.float32), (int(self.num_envs), 1))
+        return np.asarray([anatomy.track_direction_world for anatomy in self.env_anatomies], dtype=np.float32)
+
+    def env_initial_positions(self) -> np.ndarray:
+        """Initial particle positions of every environment, ``(num_envs, num_points, 3)``."""
+        if self.env_anatomies is None:
+            return np.broadcast_to(self.initial_positions(), (int(self.num_envs), self.num_points, 3)).copy()
+        from i4h_arena.medical.centerline import sample_polyline
+
+        return np.stack(
+            [
+                np.asarray(
+                    sample_polyline(
+                        np.asarray(anatomy.initial_path_world_m, dtype=np.float32),
+                        np.linspace(0.0, float(anatomy.length_m), self.num_points),
+                    ),
+                    dtype=np.float32,
+                )
+                for anatomy in self.env_anatomies
+            ]
+        )
 
     def initial_positions(self) -> np.ndarray:
         """Initial particle positions along the vessel path or straight entry axis.
@@ -1019,16 +1181,19 @@ def rod_solver_cfg(spec: CatheterRodSpec) -> Any:
     raw_length = os.environ.get(TIP_LENGTH_ENV_VAR)
     if raw_length is not None:
         tip_length = float(raw_length) * 0.001
-    if not math.isfinite(tip_length) or not 0.0 < tip_length <= spec.length_m:
+    if not math.isfinite(tip_length) or not 0.0 < tip_length <= min(spec.env_lengths_m()):
         raise ValueError("tip_length_m must be finite, positive, and no longer than the catheter")
-    fields.setdefault("tip_num_edges", min(spec.num_segments, max(1, math.ceil(tip_length / spec.segment_length_m))))
+    # Environments share one edge count, so the shortest segment sets it and no
+    # environment's tip comes out shorter than asked.
+    shortest_segment = float(spec.env_segment_lengths_m().min())
+    fields.setdefault("tip_num_edges", min(spec.num_segments, max(1, math.ceil(tip_length / shortest_segment))))
     # After ``solver_overrides`` rather than before, because this one is a live
     # diagnostic for a sweep and a scene's authored value would otherwise pin it.
     tip_edges = tip_edge_count_override()
     if tip_edges is not None:
         fields["tip_num_edges"] = tip_edges
     if raw_length is not None:
-        fields["tip_num_edges"] = min(spec.num_segments, max(1, math.ceil(tip_length / spec.segment_length_m)))
+        fields["tip_num_edges"] = min(spec.num_segments, max(1, math.ceil(tip_length / shortest_segment)))
     if not 0 <= fields["tip_num_edges"] <= spec.num_segments:
         raise ValueError("tip_num_edges must lie between zero and num_segments")
     stiffness = bend_stiffness_override()
@@ -1137,33 +1302,40 @@ class CatheterRodHandle:
         """Deformable vessel runtime, or ``None`` when running without a wall."""
         return self._vessel
 
-    def report_containment(self, positions_world_m: Any) -> dict[str, float] | None:
+    def report_containment(self, positions_world_m: Any, env: int = 0) -> dict[str, float] | None:
         """Containment and chord state for one environment's particles.
 
         ``None`` when the scene has no centerline to measure against, which is
         the straight-track case rather than a failure.
         """
         spec = self._spec
-        if spec.initial_path_world_m is None or spec.lumen_radii_m is None:
+        path = spec.env_paths_world_m()[env]
+        radii = spec.env_lumen_radii_m()[env]
+        if path is None or radii is None:
             return None
         report = containment_report(
             positions_world_m,
-            path_world_m=np.asarray(spec.initial_path_world_m, dtype=np.float64),
-            lumen_radii_m=np.asarray(spec.lumen_radii_m, dtype=np.float64),
-            segment_length_m=float(spec.segment_length_m),
+            path_world_m=np.asarray(path, dtype=np.float64),
+            lumen_radii_m=np.asarray(radii, dtype=np.float64),
+            segment_length_m=float(spec.env_segment_lengths_m()[env]),
         )
         if self._vessel is not None:
             from .catheter_diagnostics import tube_surface_gaps_m
 
             vessel = self._vessel
+            nodes = slice(env * vessel.nodes_per_env, (env + 1) * vessel.nodes_per_env)
+            edge_start = env * vessel.edges_per_env
+            # Edges index nodes globally; padded edges past this env's own count
+            # are degenerate and would read as a wall at the root.
+            edges = vessel.edges.numpy()[edge_start : edge_start + int(vessel.edge_counts[env])]
             gaps = tube_surface_gaps_m(
                 positions_world_m,
-                vessel.positions_per_env[0],
-                vessel.edges.numpy()[: vessel.edges_per_env],
-                vessel.radii.numpy()[: vessel.nodes_per_env],
+                vessel.positions_per_env[env],
+                edges - env * vessel.nodes_per_env,
+                vessel.radii.numpy()[nodes],
                 spec.radius_m,
-                open_root=vessel.open_root,
-                open_root_neighbor=vessel.open_root_neighbor,
+                open_root=int(vessel.open_roots[env]),
+                open_root_neighbor=int(vessel.open_root_neighbors[env]),
             )
             report.update(
                 live_worst_penetration_mm=float(gaps.max()) * 1000.0 if gaps.size else 0.0,
@@ -1238,15 +1410,25 @@ class CatheterRodHandle:
             raise RuntimeError(
                 "MODEL_INIT fired with no Newton ModelBuilder, so the rod's particles have " "nowhere to go"
             )
-        positions = spec.initial_positions()
-        self._particle_range = add_catheter_rod_to_builder(
-            builder,
-            rod_config,
-            positions=positions,
-            start=np.asarray(spec.origin_world_m, dtype=np.float32),
-            direction=np.asarray(spec.track_direction_world, dtype=np.float32),
-            num_envs=spec.num_envs,
-        )
+        if spec.per_env_anatomy:
+            positions = spec.env_initial_positions()
+            self._particle_range = add_catheter_rod_to_builder(
+                builder,
+                rod_config,
+                positions=positions,
+                num_envs=spec.num_envs,
+                env_segment_lengths=spec.env_segment_lengths_m(),
+            )
+        else:
+            positions = spec.initial_positions()
+            self._particle_range = add_catheter_rod_to_builder(
+                builder,
+                rod_config,
+                positions=positions,
+                start=np.asarray(spec.origin_world_m, dtype=np.float32),
+                direction=np.asarray(spec.track_direction_world, dtype=np.float32),
+                num_envs=spec.num_envs,
+            )
         self._rod = self._build_rod(rod_config, solver_cfg, positions)
         NewtonXPBDRodManager.register_rod(self._particle_range, rod=self._rod)
 
@@ -1257,16 +1439,22 @@ class CatheterRodHandle:
         spec = self._spec
         self._vessel = self._build_vessel()
         contact_iterations = int(os.environ.get(CONTACT_ITERATIONS_ENV_VAR, spec.contact_coupling_iterations))
+        per_env = spec.per_env_anatomy
         solver = CathRodSolver(
             rod_config,
             num_envs=spec.num_envs,
             collision_mesh=None,
-            track_start=np.asarray(spec.origin_world_m, dtype=np.float32),
-            track_dir=np.asarray(spec.track_direction_world, dtype=np.float32),
-            track_length=float(spec.length_m),
+            track_start=spec.env_origins_world_m() if per_env else np.asarray(spec.origin_world_m, dtype=np.float32),
+            track_dir=(
+                spec.env_track_directions_world()
+                if per_env
+                else np.asarray(spec.track_direction_world, dtype=np.float32)
+            ),
+            track_length=max(spec.env_lengths_m()),
             tip_num_edges=int(solver_cfg.tip_num_edges),
             particle_radius=float(spec.radius_m),
             segment_length=spec.segment_length_m,
+            env_segment_lengths=spec.env_segment_lengths_m() if per_env else None,
             # Static-mesh collision stays off; the deformable centerline
             # supplies containment. Guidance is the separate question of where
             # along that centerline the shaft sits, which containment does not
@@ -1291,6 +1479,9 @@ class CatheterRodHandle:
             f"({int(solver_cfg.tip_num_edges) * spec.segment_length_m * 1000.0:.2f} mm)",
             flush=True,
         )
+        if per_env:
+            lengths = ", ".join(f"{length * 1000.0:.0f}" for length in spec.env_lengths_m())
+            print(f"[catheter solver] per-env catheter lengths (mm): {lengths}", flush=True)
         from .catheter_initialization import initialize_rod_state
 
         initialize_rod_state(solver, positions)
@@ -1298,7 +1489,7 @@ class CatheterRodHandle:
             _apply_physical_rotational_inertia(
                 solver,
                 radius_m=float(spec.radius_m),
-                segment_length_m=float(spec.segment_length_m),
+                segment_length_m=spec.env_segment_lengths_m(),
             )
         if spec.tip_bend_fraction < 1.0:
             _taper_tip_bend_stiffness(
@@ -1317,7 +1508,7 @@ class CatheterRodHandle:
             _seed_shaft_rest_darboux(
                 solver,
                 num_tip_edges=int(solver_cfg.tip_num_edges),
-                segment_length_m=float(spec.segment_length_m),
+                segment_length_m=spec.env_segment_lengths_m() if per_env else float(spec.segment_length_m),
                 positions_world_m=positions,
                 scale=scale,
             )
@@ -1338,6 +1529,8 @@ class CatheterRodHandle:
         spec = self._spec
         if not spec.track_guidance or spec.initial_path_world_m is None:
             return None
+        if spec.per_env_anatomy:
+            return [np.asarray(path, dtype=np.float32) for path in spec.env_paths_world_m()]
         return np.asarray(spec.initial_path_world_m, dtype=np.float32)
 
     def _proximal_feed_span(self) -> int:
@@ -1349,7 +1542,9 @@ class CatheterRodHandle:
         spec = self._spec
         if spec.proximal_feed_span_m is None:
             return 1
-        span = math.ceil(spec.proximal_feed_span_m / spec.segment_length_m)
+        # One node count for every environment: the shortest segment keeps the
+        # span at least as long as asked in each of them.
+        span = math.ceil(spec.proximal_feed_span_m / float(spec.env_segment_lengths_m().min()))
         return max(1, min(spec.num_segments, int(span)))
 
     def _track_free_distal_edges(self) -> int | None:
@@ -1361,13 +1556,16 @@ class CatheterRodHandle:
         spec = self._spec
         if spec.track_free_distal_length_m is None:
             return None
-        return min(spec.num_segments, int(spec.track_free_distal_length_m / spec.segment_length_m))
+        # One edge count for every environment, rounded down against the longest
+        # segment so no environment's free window exceeds what was asked.
+        longest = float(spec.env_segment_lengths_m().max())
+        return min(spec.num_segments, int(spec.track_free_distal_length_m / longest))
 
     def _build_vessel(self) -> Any:
         if not self._spec.wants_vessel:
             return None
         from i4h_arena.medical.patient_twin import PatientTwin
-        from i4h_arena.medical.vessel_deformation import centerline_vessel_from_twin
+        from i4h_arena.medical.vessel_deformation import centerline_vessel_from_twins
 
         deadband = self._spec.containment_interior_deadband
         stiffness = self._spec.containment_interior_stiffness
@@ -1382,10 +1580,14 @@ class CatheterRodHandle:
         if compliance is not None:
             response, linear_damping, angular_damping = compliance
 
-        vessel = centerline_vessel_from_twin(
-            PatientTwin.load(self._spec.patient_twin_manifest),
+        manifests = self._spec.env_twin_manifests()
+        loaded: dict[str, PatientTwin] = {}
+        for manifest in manifests:
+            if manifest not in loaded:
+                loaded[manifest] = PatientTwin.load(manifest)
+        vessel = centerline_vessel_from_twins(
+            [loaded[manifest] for manifest in manifests],
             device=self._spec.device,
-            num_envs=self._spec.num_envs,
             catheter_radius_m=self._spec.radius_m,
             interior_deadband=float(deadband),
             interior_stiffness=float(stiffness),
@@ -1396,7 +1598,7 @@ class CatheterRodHandle:
         )
         if vessel is None:
             raise ValueError(
-                f"{self._spec.patient_twin_manifest} has no centerline artifacts, so the "
+                f"{', '.join(sorted(loaded))} has no centerline artifacts, so the "
                 "deformable vessel cannot be built; pass vessel_enabled=False to run without one"
             )
         return vessel

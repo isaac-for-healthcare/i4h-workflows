@@ -38,8 +38,16 @@ def test_patient_fluoroscopy_options_are_parsed() -> None:
 
     assert args.fluoro_backend == "slang"
     assert args.fluoro_device == "vulkan"
-    assert args.patient_twin == "/tmp/patient_twin.yaml"
+    assert args.patient_twin == ["/tmp/patient_twin.yaml"]
     assert args.view_sensor == ["fluoroscopy"]
+
+
+def test_patient_twin_repeats_once_per_environment() -> None:
+    args = build_parser().parse_args(
+        ["--workflow", "endoluminal_navigation", "--envs", "2", "--patient-twin", "a.yaml", "--patient-twin", "b.yaml"]
+    )
+
+    assert args.patient_twin == ["a.yaml", "b.yaml"]
 
 
 def test_fluoroscopy_backend_is_automatic_by_default() -> None:

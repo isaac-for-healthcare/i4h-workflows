@@ -37,7 +37,8 @@ def environment_registration_callback() -> list[str]:
     # every reward and termination config without it. Left defaulting to None so
     # such a scene fails on the missing twin rather than quietly training
     # against a vessel that is not there.
-    parser.add_argument("--patient-twin", dest="patient_twin", default=None)
+    # Repeated once per environment to give each its own patient.
+    parser.add_argument("--patient-twin", dest="patient_twin", action="append", default=None)
     # Both default to None so the scene's own resolver picks the backend from
     # whether a twin is present, exactly as it does under the workflow CLI.
     parser.add_argument("--fluoro-backend", dest="fluoro_backend", default=None)
@@ -58,7 +59,9 @@ def environment_registration_callback() -> list[str]:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
     from i4h_arena.scenes.base import load_scene
+    from i4h_rl.artifacts import scene_patient_twin
 
+    args.patient_twin = scene_patient_twin(args.patient_twin)
     args.episode_steps = 0
     args.no_cameras = True
     args.rl_observations = True

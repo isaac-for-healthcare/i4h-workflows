@@ -116,8 +116,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     simulation.add_argument(
         "--patient-twin",
+        action="append",
         default=None,
-        help="patient-twin YAML manifest used by patient-specific medical sensors",
+        help="patient-twin YAML manifest used by patient-specific medical sensors; repeat once per "
+        "environment, in --envs order, to give each environment its own patient",
     )
     simulation.add_argument(
         "--view-sensor",
@@ -154,6 +156,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    from i4h_arena.medical.patient_assignment import normalize_patient_twins
+
+    try:
+        args.patient_twin = normalize_patient_twins(args.patient_twin, args.num_envs)
+    except ValueError as error:
+        parser.error(str(error))
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="[%(name)s] %(message)s",
