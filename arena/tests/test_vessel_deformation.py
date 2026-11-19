@@ -30,6 +30,7 @@ _MM_TO_M = 0.001
 def _twin(tmp_path, *, points_mm, edges, radii_mm, world_from_patient_m=None, omit=()):
     """Duck-typed PatientTwin exposing only what the adapter reads."""
     transform = np.eye(4) if world_from_patient_m is None else np.asarray(world_from_patient_m)
+
     def patient_mm_to_world(points):
         points = np.asarray(points, dtype=np.float64)
         homogeneous = np.concatenate((points, np.ones((*points.shape[:-1], 1))), axis=-1)
@@ -42,9 +43,7 @@ def _twin(tmp_path, *, points_mm, edges, radii_mm, world_from_patient_m=None, om
         return SimpleNamespace(
             points_mm=np.asarray(points_mm, dtype=np.float32),
             edges=np.asarray(edges, dtype=np.int64),
-            radii_mm=None
-            if "centerline_radii" in omit or radii_mm is None
-            else np.asarray(radii_mm, dtype=np.float32),
+            radii_mm=None if "centerline_radii" in omit or radii_mm is None else np.asarray(radii_mm, dtype=np.float32),
         )
 
     return SimpleNamespace(

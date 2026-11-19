@@ -247,7 +247,11 @@ class SlangFluoroscopyRenderer:
         # The renderer marches the native grid through its voxel-to-patient affine and poses
         # about the grid centre, the same centre solve_projection_geometry measures from.
         self._renderer = _build_renderer(
-            SlangDiffDRRRenderer, patient.mu_volume, patient.spacing_zyx_mm, base_config, device_type,
+            SlangDiffDRRRenderer,
+            patient.mu_volume,
+            patient.spacing_zyx_mm,
+            base_config,
+            device_type,
             voxel_to_world_mm=patient.voxel_to_volume_mm,
         )
         self._dsa_renderer = None
