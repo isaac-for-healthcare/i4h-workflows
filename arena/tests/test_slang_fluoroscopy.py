@@ -35,7 +35,10 @@ def _patient_volume(
     with_vessel_mask: bool = False,
     coordinate_frame: str = "DICOM_LPS",
     world_from_lps_m: np.ndarray | None = None,
+    hu: np.ndarray | None = None,
+    vessel_mask: np.ndarray | None = None,
 ) -> PatientVolume:
+    """A schema-2 bundle; ``hu`` and ``vessel_mask`` replace the default uniform 4x4x4 cube."""
     from xray_simulator.scan_volume import from_array
 
     # Spacing (1, 2, 3) mm along x, y, z with voxel corners at the origin, so the volume
@@ -48,15 +51,16 @@ def _patient_volume(
     world_from_lps_m = np.eye(4) if world_from_lps_m is None else world_from_lps_m
     folder = tmp_path / "bundle"
     from_array(
-        np.full((4, 4, 4), _UNIFORM_HU, dtype=np.float32),
+        np.full((4, 4, 4), _UNIFORM_HU, dtype=np.float32) if hu is None else np.asarray(hu, dtype=np.float32),
         scan_from_lps @ voxel_to_lps_mm,
         world_frame="RAS" if ras else "LPS",
     ).save(folder)
     artifacts = {"hu_volume": "volume.npy", "volume_metadata": "volume.yaml"}
-    if with_vessel_mask:
-        vessel_mask = np.zeros((4, 4, 4), dtype=np.uint8)
-        vessel_mask[1:3, 1:3, :] = 1
-        np.save(folder / "vessel_mask.npy", vessel_mask)
+    if with_vessel_mask or vessel_mask is not None:
+        if vessel_mask is None:
+            vessel_mask = np.zeros((4, 4, 4), dtype=np.uint8)
+            vessel_mask[1:3, 1:3, :] = 1
+        np.save(folder / "vessel_mask.npy", np.asarray(vessel_mask, dtype=np.uint8))
         artifacts["vessel_mask"] = "vessel_mask.npy"
     (folder / "patient_twin.yaml").write_text(
         yaml.safe_dump(
