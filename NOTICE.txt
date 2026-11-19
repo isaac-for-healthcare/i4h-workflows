@@ -112,3 +112,23 @@ Licensed under BSD-3-Clause (https://github.com/scipy/scipy/blob/main/LICENSE.tx
 
 matplotlib (https://pypi.org/project/matplotlib/)
 Licensed under Python Software Foundation License (https://github.com/matplotlib/matplotlib/blob/main/LICENSE/LICENSE)
+
+xr_teleoperate (https://github.com/unitreerobotics/xr_teleoperate, fetched from the fork https://github.com/isaac-for-healthcare/xr_teleoperate)
+2025 HangZhou YuShu TECHNOLOGY CO.,LTD. ("Unitree Robotics")
+Licensed under Apache 2.0 (https://github.com/unitreerobotics/xr_teleoperate/blob/main/LICENSE)
+
+unitree_sdk2_python (https://github.com/unitreerobotics/unitree_sdk2_python)
+2016-2024 HangZhou YuShu TECHNOLOGY CO.,LTD. ("Unitree Robotics")
+Licensed under BSD-3-Clause (https://github.com/unitreerobotics/unitree_sdk2_python/blob/master/LICENSE)
+
+sharpawave-deform-encoder (https://github.com/sharpa-robotics/sharpawave-deform-encoder)
+2026 Sharpa Group
+Licensed under Apache 2.0 (https://github.com/sharpa-robotics/sharpawave-deform-encoder/blob/main/LICENSE)
+
+sharpa-urdf-usd-xml (https://github.com/sharpa-robotics/sharpa-urdf-usd-xml)
+2025 Sharpa Group
+Licensed under Apache 2.0 (https://github.com/sharpa-robotics/sharpa-urdf-usd-xml/blob/main/LICENSE.txt)
+
+T-Rex (https://github.com/ZhuoyangLiu2005/T-Rex)
+2026 The Regents of the University of California
+Licensed under MIT (https://github.com/ZhuoyangLiu2005/T-Rex/blob/main/LICENSE)

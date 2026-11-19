@@ -78,6 +78,8 @@ SUITES = {
                 # the openpi checkout and run in that project's environment.
                 "tasks/openpi_pi0/tests/test_openpi_pi0_train_options.py",
                 "rl/tests/test_rsl_rl_arm_runtime.py",
+                "tasks/gr00t_n17_tactile/tests",
+                "tools/tactile/tests",
                 "tasks/ik/tests",
                 "tasks/rsl_rl/tests",
                 "tasks/teleop/tests",

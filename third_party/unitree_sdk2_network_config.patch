@@ -1,0 +1,44 @@
+diff --git a/unitree_sdk2py/core/channel.py b/unitree_sdk2py/core/channel.py
+index 64577f9..d42b3cb 100644
+--- a/unitree_sdk2py/core/channel.py
++++ b/unitree_sdk2py/core/channel.py
+@@ -199,7 +199,13 @@ class ChannelFactory(Singleton):
+     def __init__(self):
+         super().__init__()
+ 
+-    def Init(self, id: int, networkInterface: str = None, qos: Qos = None):
++    def Init(
++        self,
++        id: int,
++        networkInterface: str = None,
++        qos: Qos = None,
++        networkConfig: str = None,
++    ):
+         if self.__class__.__initialized:
+             return True
+         
+@@ -209,7 +215,9 @@ class ChannelFactory(Singleton):
+             
+             config = None
+             # choose config
+-            if networkInterface is None:
++            if networkConfig is not None:
++                config = networkConfig
++            elif networkInterface is None:
+                 config = ChannelConfigAutoDetermine
+             else:
+                 config = ChannelConfigHasInterface.replace('$__IF_NAME__$', networkInterface)
+@@ -295,7 +303,11 @@ class ChannelSubscriber:
+ """
+ " function ChannelFactoryInitialize. used to intialize channel everenment.
+ """
+-def ChannelFactoryInitialize(id: int = 0, networkInterface: str = None):
++def ChannelFactoryInitialize(
++    id: int = 0,
++    networkInterface: str = None,
++    networkConfig: str = None,
++):
+     factory = ChannelFactory()
+-    if not factory.Init(id, networkInterface):
++    if not factory.Init(id, networkInterface, networkConfig=networkConfig):
+         raise Exception("channel factory init error.")
