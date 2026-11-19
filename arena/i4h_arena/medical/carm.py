@@ -31,9 +31,6 @@ def _quat_xyzw_rotate(quaternion: np.ndarray, vector: np.ndarray) -> np.ndarray:
     return vec + 2.0 * np.cross(xyz, np.cross(xyz, vec) + w * vec)
 
 
-SUPPORTED_PATIENT_FRAMES = ("DICOM_LPS", "NIFTI_RAS")
-
-
 def anatomical_projection_basis(twin: Any) -> np.ndarray:
     """World-space columns ``(detector u, orbit axis, beam)`` for the frontal view.
 
@@ -66,35 +63,23 @@ def anatomical_projection_basis(twin: Any) -> np.ndarray:
       the image; the beam and orbit axes cannot.
 
     Args:
-        twin: Patient twin carrying ``world_from_patient_m`` for its patient frame,
-            which is LPS unless it declares a ``DICOM_LPS`` or ``NIFTI_RAS``
-            ``coordinate_frame``.
+        twin: Patient twin whose ``world_from_patient_m`` places patient LPS metres in
+            the world. ``PatientTwin.load`` resolves every bundle frame to LPS, so no
+            frame handling happens here.
 
     Returns:
         ``(3, 3)`` orthonormal right-handed matrix whose columns are world-space
         directions.
 
     Raises:
-        ValueError: If the twin declares an unsupported coordinate frame, or its
-            patient-to-world transform is not a rotation.
+        ValueError: If the twin's patient-to-world transform is not a rotation.
     """
-    # Schema-2 twins are resolved to LPS millimetres on load and declare no source frame.
-    frame = str(getattr(twin, "coordinate_frame", "DICOM_LPS"))
-    if frame not in SUPPORTED_PATIENT_FRAMES:
-        raise ValueError(
-            f"patient twin declares coordinate_frame={frame!r}; the projection basis is only "
-            f"defined for {SUPPORTED_PATIENT_FRAMES!r}"
-        )
     rotation = np.asarray(twin.world_from_patient_m, dtype=np.float64)[:3, :3]
     norms = np.linalg.norm(rotation, axis=0)
     if not np.isfinite(norms).all() or norms.min() <= 1.0e-9:
         raise ValueError("patient twin world_from_patient_m has a degenerate rotation")
     rotation = rotation / norms
-    # Express both conventions as world-space left, posterior and superior.
-    # RAS reverses the first two patient axes; normalization above made a copy,
-    # so this does not modify the twin's transform or its volume coordinates.
-    if frame == "NIFTI_RAS":
-        rotation[:, :2] *= -1.0
+    # Patient LPS columns are world-space left, posterior and superior.
     left, posterior, superior = rotation[:, 0], rotation[:, 1], rotation[:, 2]
     basis = np.column_stack((-left, -superior, -posterior))
     if not np.allclose(basis.T @ basis, np.eye(3), atol=1.0e-6):

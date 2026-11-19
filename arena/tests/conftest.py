@@ -64,7 +64,7 @@ def write_patient_bundle(tmp_path):
                 artifacts[key] = f"{key}.npy"
         transforms = {"voxel_to_scan": np.asarray(voxel_to_scan, dtype=float).tolist()}
         if world_from_scan_m is not None:
-            transforms["world_from_patient_m"] = np.asarray(world_from_scan_m, dtype=float).tolist()
+            transforms["world_from_scan_m"] = np.asarray(world_from_scan_m, dtype=float).tolist()
         manifest = folder / "patient_twin.yaml"
         manifest.write_text(
             yaml.safe_dump(

@@ -78,10 +78,12 @@ def test_anatomy_pose_places_scan_coordinates_at_their_world_position(write_pati
         np.testing.assert_allclose(position + scale * rotation @ point_scan, twin.patient_mm_to_world(point_lps_mm))
 
 
-def test_a_placement_hint_is_read_in_the_scan_frame(write_patient_bundle) -> None:
+@pytest.mark.parametrize("unit", ["mm", "m"])
+def test_a_placement_hint_is_read_in_the_scan_frame(write_patient_bundle, unit) -> None:
+    """The hint maps scan-frame metres whatever spatial_unit is, so mm bundles are not 1000x off."""
     world_from_scan = np.eye(4)
     world_from_scan[:3, 3] = (1.0, 2.0, 3.0)
-    twin = PatientTwin.load(_bundle(write_patient_bundle, frame="RAS", world_from_scan_m=world_from_scan))
+    twin = PatientTwin.load(_bundle(write_patient_bundle, frame="RAS", unit=unit, world_from_scan_m=world_from_scan))
 
     # RAS (1, 2, 3) mm is LPS (-1, -2, 3) mm.
     np.testing.assert_allclose(twin.patient_mm_to_world([[-1.0, -2.0, 3.0]]), [[1.001, 2.002, 3.003]])
@@ -113,6 +115,7 @@ def test_legacy_schema_one_bundles_are_rejected_with_a_rebuild_hint(write_patien
         (lambda raw: raw.update(spatial_unit="m"), "disagree on the scan geometry"),
         (lambda raw: raw["transforms"]["voxel_to_scan"][0].__setitem__(3, 99.0), "disagree on the scan geometry"),
         (lambda raw: raw["artifacts"].update(vessel_mask="missing.npy"), "does not exist"),
+        (lambda raw: raw["transforms"].update(world_from_patient_m=np.eye(4).tolist()), "renamed world_from_scan_m"),
     ],
 )
 def test_inconsistent_manifests_are_rejected(write_patient_bundle, edit, match) -> None:

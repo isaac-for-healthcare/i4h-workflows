@@ -117,6 +117,10 @@ class PatientTwin:
     ``voxel_to_patient_mm`` maps voxel-centre ``(i, j, k)`` indices to patient LPS
     millimetres, preserving the scan's spacing, origin, and direction cosines.
     ``world_from_patient_m`` places patient-space metres in the Isaac world.
+
+    Invariant: the patient frame is always LPS millimetres. ``load`` resolves each bundle's
+    source frame (RAS or LPS), units and array order once, so consumers never branch on a
+    frame or apply a flip, scale or transpose themselves.
     ``patient_mm_from_scan`` and ``array_axes`` describe how the bundle's own files are
     stored; use the accessor methods rather than applying them by hand.
     """
@@ -234,8 +238,15 @@ class PatientTwin:
             )
         voxel_to_patient_mm = header.patient_mm_from_scan @ header.voxel_to_scan
         if "world_from_patient_m" in transforms:
-            # The exporter's placement hint is expressed in the scan frame.
-            world_from_scan_m = _affine(transforms["world_from_patient_m"], "world_from_patient_m", rigid=True)
+            raise ValueError(
+                f"{source}: transforms.world_from_patient_m was renamed world_from_scan_m; "
+                "rebuild the bundle with ./tools/patient_twin/run.sh"
+            )
+        if "world_from_scan_m" in transforms:
+            # Scan-frame metres (scan coordinates times meters_per_unit, in the bundle's own
+            # RAS or LPS frame) to world, whatever spatial_unit is. Folding in the frame flip
+            # gives the patient LPS placement every consumer uses.
+            world_from_scan_m = _affine(transforms["world_from_scan_m"], "world_from_scan_m", rigid=True)
             world_from_patient_m = world_from_scan_m @ (_RAS_TO_LPS if header.frame == "RAS" else np.eye(4))
         else:
             center = _homogeneous((np.asarray(header.shape_ijk) - 1) / 2, voxel_to_patient_mm, "center")

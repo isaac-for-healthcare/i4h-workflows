@@ -150,15 +150,21 @@ checkout_sparse_ref() {
   fi
 }
 
+# Checkouts that single targets select are named, so reordering the lists below cannot
+# silently point a target at the wrong repository.
+ISAACLAB_ARENA_CHECKOUT="${ISAACLAB_ARENA_DIR}|https://github.com/isaac-sim/IsaacLab-Arena.git|${ISAACLAB_ARENA_REV}"
+SENSOR_SIM_CHECKOUT="${I4H_SENSOR_SIM_DIR}|${I4H_SENSOR_SIM_URL}|${I4H_SENSOR_SIM_REF}"
+DIGITAL_TWIN_CHECKOUT="${I4H_DIGITAL_TWIN_DIR}|${I4H_DIGITAL_TWIN_URL}|${I4H_DIGITAL_TWIN_REF}"
+
 arena_checkouts=(
   "${ISAACLAB_DIR}|https://github.com/isaac-sim/IsaacLab.git|${ISAACLAB_REV}"
   "${LEISAAC_DIR}|https://github.com/LightwheelAI/leisaac.git|${LEISAAC_REV}"
-  "${ISAACLAB_ARENA_DIR}|https://github.com/isaac-sim/IsaacLab-Arena.git|${ISAACLAB_ARENA_REV}"
+  "${ISAACLAB_ARENA_CHECKOUT}"
   "${I4H_PHYSICS_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-physics-simulation.git|${I4H_PHYSICS_SIM_REF}"
-  "${I4H_SENSOR_SIM_DIR}|${I4H_SENSOR_SIM_URL}|${I4H_SENSOR_SIM_REF}"
+  "${SENSOR_SIM_CHECKOUT}"
   # tools/patient_twin, not arena, consumes this one. It rides along with the arena target so
   # that a scoped `I4H_THIRD_PARTY_TARGET=arena` still produces a runnable twin pipeline.
-  "${I4H_DIGITAL_TWIN_DIR}|${I4H_DIGITAL_TWIN_URL}|${I4H_DIGITAL_TWIN_REF}"
+  "${DIGITAL_TWIN_CHECKOUT}"
 )
 policy_checkouts=(
   "${GR00T_15_DIR}|https://github.com/NVIDIA/Isaac-GR00T.git|${GR00T_15_REV}"
@@ -188,17 +194,17 @@ case "$TARGET" in
       "skills"
     ;;
   patient-twin)
-    checkouts=("${arena_checkouts[5]}")
+    checkouts=("${DIGITAL_TWIN_CHECKOUT}")
     ;;
   sensor-simulation)
-    checkouts=("${arena_checkouts[4]}")
+    checkouts=("${SENSOR_SIM_CHECKOUT}")
     ;;
   tasks/gr00t_n15)
     checkouts=("${policy_checkouts[0]}")
     ;;
   tasks/gr00t_n16)
     # N1.6 imports reusable configuration from IsaacLab-Arena.
-    checkouts=("${arena_checkouts[2]}" "${policy_checkouts[1]}")
+    checkouts=("${ISAACLAB_ARENA_CHECKOUT}" "${policy_checkouts[1]}")
     ;;
   tasks/gr00t_n17)
     checkouts=("${policy_checkouts[2]}")
@@ -215,6 +221,16 @@ esac
 for spec in "${checkouts[@]}"; do
   IFS="|" read -r name url ref <<<"${spec}"
   checkout_ref "${name}" "${url}" "${ref}"
+done
+
+# Sensor simulation and the patient twin used to be checked out under *-internal names. The
+# projects no longer read those directories; say so rather than leave a stale copy to be
+# mistaken for the pinned one.
+for retired in i4h-sensor-simulation-internal i4h-digital-twin-internal; do
+  if [[ -d "${THIRD_PARTY_DIR}/${retired}" ]]; then
+    echo "[${LOG_PREFIX}] third_party/${retired} is no longer used (now ${retired%-internal});" \
+      "remove it with: rm -rf third_party/${retired}" >&2
+  fi
 done
 
 # A ref that resolves cleanly can still be the wrong solver. The catheter scenes need a

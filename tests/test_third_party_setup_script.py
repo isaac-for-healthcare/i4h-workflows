@@ -32,11 +32,15 @@ def _run_setup(
     root_origin: str,
     *,
     solver_api: tuple[str, ...] = SOLVER_API,
+    target: str = "arena",
+    retired: tuple[str, ...] = (),
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     workspace = tmp_path / "workspace"
     third_party = workspace / "third_party"
     third_party.mkdir(parents=True)
     shutil.copy2(THIRD_PARTY_SETUP, third_party / "setup.sh")
+    for name in retired:
+        (third_party / name).mkdir()
 
     # Fake Git does not populate working trees. Supply the solver source that
     # setup inspects so these tests model a compatible component checkout.
@@ -85,7 +89,7 @@ def _run_setup(
         }
     )
     result = subprocess.run(
-        [str(third_party / "setup.sh"), "arena"],
+        [str(third_party / "setup.sh"), target],
         cwd=workspace,
         env=env,
         capture_output=True,
@@ -239,3 +243,33 @@ def test_branch_rerun_follows_origin(tmp_path: Path) -> None:
     assert rerun.returncode == 0, rerun.stderr
     assert _git("rev-parse", "HEAD", cwd=checkout) == newer_commit
     assert _git("tag", "--list", cwd=checkout) == ""
+
+
+def _checked_out(git_log: str) -> set[str]:
+    """Third-party directories setup initialized a repository in."""
+    return {
+        Path(line.split()[1]).name
+        for line in git_log.splitlines()
+        if line.startswith("-C ") and line.split()[2:3] == ["init"]
+    }
+
+
+@pytest.mark.parametrize(
+    "target, directory",
+    [("patient-twin", "i4h-digital-twin"), ("sensor-simulation", "i4h-sensor-simulation")],
+)
+def test_single_component_targets_check_out_exactly_their_repository(
+    tmp_path: Path, target: str, directory: str
+) -> None:
+    result, git_log = _run_setup(tmp_path, "", target=target)
+    assert result.returncode == 0, result.stderr
+    assert _checked_out(git_log) == {directory}
+
+
+def test_retired_internal_checkouts_are_named_for_removal(tmp_path: Path) -> None:
+    retired = ("i4h-sensor-simulation-internal", "i4h-digital-twin-internal")
+    result, _ = _run_setup(tmp_path, "", retired=retired)
+    assert result.returncode == 0, result.stderr
+    for name in retired:
+        assert f"third_party/{name} is no longer used" in result.stderr
+        assert f"rm -rf third_party/{name}" in result.stderr

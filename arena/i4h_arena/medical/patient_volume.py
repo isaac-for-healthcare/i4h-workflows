@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 
@@ -28,18 +30,21 @@ class PatientVolume:
 
     @classmethod
     def load(cls, twin: PatientTwin, *, hu_to_mu_preset: str | None = None) -> PatientVolume:
-        from xray_simulator import HuToMuMapping, PreprocessingSettings, VolumePreprocessor
-        from xray_simulator.scan_volume import load_artifact
+        """Attenuation for ``twin``; sensors and environments sharing a bundle share one array.
 
-        # Keep high-HU contrast and implants, matching the previous patient pipeline.
-        settings = PreprocessingSettings(
-            hu_to_mu=HuToMuMapping.preset(hu_to_mu_preset or DEFAULT_HU_TO_MU_PRESET), clip_hu=False
+        The returned ``mu_volume`` is read-only and cached per bundle file and preset, so N
+        environments on one patient cost one volume. Copy it before changing it.
+        """
+        metadata = Path(twin.artifacts["volume_metadata"])
+        hu_path = Path(twin.artifacts["hu_volume"])
+        mu_volume, voxel_to_lps_mm = _attenuation(
+            str(metadata),
+            _file_state(metadata) + _file_state(hu_path),
+            hu_to_mu_preset or DEFAULT_HU_TO_MU_PRESET,
         )
-        scan = load_artifact(twin.artifacts["volume_metadata"])
-        volume = VolumePreprocessor.from_scan(scan, settings=settings).preprocess()
-        if not np.allclose(volume.metadata.voxel_to_lps_mm, twin.voxel_to_patient_mm, atol=1e-6):
+        if not np.allclose(voxel_to_lps_mm, twin.voxel_to_patient_mm, atol=1e-6):
             raise ValueError(f"{twin.source}: xray_simulator and the patient twin disagree on the scan affine")
-        return cls(twin, np.asarray(volume.mu_volume, dtype=np.float32))
+        return cls(twin, mu_volume)
 
     @property
     def voxel_to_volume_mm(self) -> np.ndarray:
@@ -66,3 +71,26 @@ class PatientVolume:
 
     def volume_mm_to_world(self, points_volume_mm: np.ndarray) -> np.ndarray:
         return self.twin.patient_mm_to_world(points_volume_mm)
+
+
+def _file_state(path: Path) -> tuple[int, int]:
+    """Modification time and size, so a rewritten bundle is not served from the cache."""
+    stat = path.stat()
+    return stat.st_mtime_ns, stat.st_size
+
+
+@lru_cache(maxsize=4)
+def _attenuation(metadata: str, file_state: tuple[int, ...], preset: str) -> tuple[np.ndarray, np.ndarray]:
+    """HU-to-attenuation for one bundle and preset; the HU array is released on return."""
+    del file_state  # Part of the cache key only.
+    from xray_simulator import HuToMuMapping, PreprocessingSettings, VolumePreprocessor
+    from xray_simulator.scan_volume import load_artifact
+
+    # Keep high-HU contrast and implants, matching the previous patient pipeline.
+    settings = PreprocessingSettings(hu_to_mu=HuToMuMapping.preset(preset), clip_hu=False)
+    volume = VolumePreprocessor.from_scan(load_artifact(metadata), settings=settings).preprocess()
+    mu_volume = np.array(volume.mu_volume, dtype=np.float32)
+    mu_volume.setflags(write=False)
+    voxel_to_lps_mm = np.array(volume.metadata.voxel_to_lps_mm, dtype=np.float64)
+    voxel_to_lps_mm.setflags(write=False)
+    return mu_volume, voxel_to_lps_mm

@@ -73,7 +73,7 @@ def _patient_volume(
                 "transforms": {
                     "voxel_to_scan": (scan_from_lps @ voxel_to_lps_mm).tolist(),
                     # Placement hints are expressed in the scan frame.
-                    "world_from_patient_m": (world_from_lps_m @ scan_from_lps).tolist(),
+                    "world_from_scan_m": (world_from_lps_m @ scan_from_lps).tolist(),
                 },
                 "artifacts": artifacts,
             },
@@ -418,18 +418,6 @@ def test_a_positive_orbit_angle_is_lao_and_a_negative_one_is_rao(tmp_path) -> No
 
     assert float(np.dot(lao, left)) > 0.0, "a positive angle must carry the detector to the patient's left"
     assert float(np.dot(rao, left)) < 0.0, "a negative angle must carry the detector to the patient's right"
-
-
-def test_an_unsupported_patient_frame_is_refused(tmp_path) -> None:
-    """A different frame convention would silently reorient every view."""
-    from i4h_arena.medical.carm import anatomical_projection_basis
-
-    class Twin:
-        coordinate_frame = "RAS"
-        world_from_patient_m = np.eye(4)
-
-    with pytest.raises(ValueError, match="coordinate_frame"):
-        anatomical_projection_basis(Twin())
 
 
 def test_patient_volume_preserves_physical_coordinates(tmp_path) -> None:

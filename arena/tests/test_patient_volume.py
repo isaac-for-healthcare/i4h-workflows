@@ -4,7 +4,9 @@
 
 import numpy as np
 import pytest
+import yaml
 from conftest import to_scan
+from xray_simulator.scan_volume import digest
 
 from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.medical.patient_volume import PatientVolume
@@ -59,3 +61,34 @@ def test_scan_storage_does_not_change_the_attenuation_volume(write_patient_bundl
 def test_unknown_preset_is_rejected(write_patient_bundle) -> None:
     with pytest.raises(ValueError, match="Unknown"):
         _volume(write_patient_bundle, preset="invalid")
+
+
+def test_environments_sharing_a_bundle_share_one_read_only_volume(write_patient_bundle) -> None:
+    """N environments on one patient cost one attenuation volume, not N."""
+    twin = PatientTwin.load(
+        write_patient_bundle(HU.reshape(2, 2, 2), to_scan(VOXEL_TO_LPS_MM, frame="LPS", unit="mm"), frame="LPS")
+    )
+
+    first, second = PatientVolume.load(twin), PatientVolume.load(PatientTwin.load(twin.source))
+
+    assert second.mu_volume is first.mu_volume
+    assert not first.mu_volume.flags.writeable
+    assert PatientVolume.load(twin, hu_to_mu_preset="linear").mu_volume is not first.mu_volume
+
+
+def test_a_rewritten_bundle_is_not_served_from_the_cache(write_patient_bundle) -> None:
+    twin = PatientTwin.load(
+        write_patient_bundle(HU.reshape(2, 2, 2), to_scan(VOXEL_TO_LPS_MM, frame="LPS", unit="mm"), frame="LPS")
+    )
+    before = PatientVolume.load(twin).mu_volume.copy()
+    hu_path = twin.artifacts["hu_volume"]
+    np.save(hu_path, np.full_like(np.load(hu_path), 900.0))
+    metadata_path = twin.artifacts["volume_metadata"]
+    recipe = yaml.safe_load(metadata_path.read_text(encoding="utf-8"))
+    recipe["output"]["sha256"] = digest(hu_path)
+    metadata_path.write_text(yaml.safe_dump(recipe, sort_keys=False), encoding="utf-8")
+
+    after = PatientVolume.load(twin).mu_volume
+
+    assert not np.array_equal(after, before)
+    np.testing.assert_allclose(after, 0.009, atol=1e-6)
