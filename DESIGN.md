@@ -293,6 +293,7 @@ episode result ───────────► commit or discard the buffer
 The shared HDF5 schema is defined in `common/i4h_common/episode.py` so every writer and offline reader agrees on the layout:
 
 ```text
+/                                 attrs: format_version
 /data                             attrs: workflow, mode, scene, total
   /demo_N                         attrs: success, status, episode_index, attempt_index, recording_version
     actions                       (T, action_width)
@@ -302,6 +303,8 @@ The shared HDF5 schema is defined in `common/i4h_common/episode.py` so every wri
 ```
 
 Segments use half-open frame ranges `[start, end)` and associate each range with a workflow node and registry task ID. They are optional for compatibility with older recordings, and all readers must tolerate their absence.
+
+`format_version` is Isaac Lab's dataset format version, and `1` declares that every `root_pose` quaternion, such as those in a demo's `initial_state`, is XYZW. Isaac Lab reads a file without it as legacy WXYZ and reorders those poses on load, so the recorder and every tool that writes a recording declare it. i4h readers take an undeclared file as XYZW, because every root pose i4h has recorded is XYZW.
 
 Each sample is one simulation step: its action and what the step left behind. The step on which IsaacLab ends an episode through a termination term is not recorded, because `ManagerBasedRLEnv.step` has already reset the environment when it returns, and nothing after it is recorded. The workflow may consume the retained termination signal, including across remote-policy WAITING ticks. If it still requests another physics step, the runner aborts the attempt before advancing, including after a `success` termination. Aborted recordings are kept only with `--record-failures`; the existing retry policy applies. `recording_version` on each demo names the rules it was recorded under; `common/i4h_common/episode.py` documents them.
 
