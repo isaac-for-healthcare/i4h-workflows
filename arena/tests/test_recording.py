@@ -493,6 +493,24 @@ def test_a_recording_without_an_initial_state_replays_from_a_fresh_reset(tmp_pat
     assert "has no initial scene state" in caplog.text
 
 
+def test_a_missing_recording_is_named_as_the_docs_say(tmp_path) -> None:
+    """NVBug 7042243: h5py's own error surfaced instead of TROUBLESHOOTING.md's message."""
+    missing = tmp_path / "missing.hdf5"
+
+    with pytest.raises(FileNotFoundError, match=f"no recording at {missing}"):
+        load_initial_state(missing, 0, "psm_needle")
+
+
+@pytest.mark.parametrize("content", [b"not an hdf5 file\n", b""], ids=["not-hdf5", "empty"])
+def test_an_unreadable_recording_is_named(tmp_path, content) -> None:
+    """A truncated or non-HDF5 file gave h5py's message with no path."""
+    bad = tmp_path / "bad.hdf5"
+    bad.write_bytes(content)
+
+    with pytest.raises(OSError, match=f"cannot read recording {bad}: "):
+        load_initial_state(bad, 0, "psm_needle")
+
+
 def test_every_demo_is_stamped_with_the_recording_rules_it_was_written_under(tmp_path) -> None:
     """A reader can tell a demo that may end on a post-reset frame from one that cannot (PR 275 review)."""
     from i4h_common.episode import RECORDING_VERSION, Episode, recording_version
