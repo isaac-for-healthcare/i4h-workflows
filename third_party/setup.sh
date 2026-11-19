@@ -20,15 +20,15 @@ ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
 ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
-# Physics is the public v0.9.0 release. Sensor simulation and the patient twin are pinned together because
-# they share the native scan bundle format. Override *_REF to test another revision and
-# *_URL to build against a local checkout.
+# Physics is the public v0.9.0 release and the patient twin follows the public main branch;
+# main carries the native scan bundle format. Sensor simulation stays pinned to the commit that
+# reads it. Override *_REF to test another revision and *_URL to build against a local checkout.
 I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-50056196775fc0ed8cca03bf16144fe71d183ca7}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-c95ba5caa8ef9b849f3beec03df03cc763ac5a5f}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation"
 I4H_SENSOR_SIM_URL="${I4H_SENSOR_SIM_URL:-https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git}"
-I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-9a779a4d5cb630a304155462e8ea4d440636a2b1}"
+I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-main}"
 I4H_DIGITAL_TWIN_DIR="i4h-digital-twin"
 I4H_DIGITAL_TWIN_URL="${I4H_DIGITAL_TWIN_URL:-https://github.com/isaac-for-healthcare/i4h-digital-twin.git}"
 
