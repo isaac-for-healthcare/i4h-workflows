@@ -16,6 +16,7 @@ cd "$ROOT"
 
 if [ "${1:-}" = robot-pd ]; then
   shift
+  [ -x arena/.venv/bin/python ] || { echo "!! arena is not synced. Run: ./setup.sh" >&2; exit 1; }
   exec env -u VIRTUAL_ENV arena/.venv/bin/python arena/scripts/robot_pd_tune.py "$@"
 fi
 
