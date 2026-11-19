@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -47,18 +46,12 @@ class Gr00tN16Server(PolicyServer):
 
         # N1.6 G1 checkpoints require the Arena joint remapper and WBC command
         # tail, rather than the N1.5 DATA_CONFIG_MAP interface.
-        from i4h_tasks.gr00t_n16._finetune import _load_modality_config
+        from i4h_tasks.gr00t_n16._finetune import _load_modality_config, resolve_modality_config_path
         from i4h_tasks.gr00t_n16.locomanip.infer.closedloop_policy import G1LocomanipClosedloopPolicy
 
         train = dict(self._declaration(session.task_id).get("train", {}) or {})
         modality_config = train.get("modality_config_path")
-        if modality_config:
-            modality_config_path = Path(str(modality_config)).expanduser()
-            if not modality_config_path.is_absolute():
-                modality_config_path = workflow_root() / modality_config_path
-        else:
-            modality_config_path = Path(__file__).resolve().parent / "locomanip" / "config_dualcam.py"
-        _load_modality_config(modality_config_path.resolve())
+        _load_modality_config(resolve_modality_config_path(str(modality_config) if modality_config else None))
 
         config = dict(model)
         config["language_instruction"] = session.prompt

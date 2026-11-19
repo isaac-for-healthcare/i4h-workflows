@@ -27,7 +27,7 @@ from i4h_arena.assets.constants import (
 
 @register_asset
 class TrocarAssemblyBackground(Background):
-    """LightWheel trocar assembly room — backdrop for the trocar task."""
+    """Lightwheel trocar assembly room — backdrop for the trocar task."""
 
     name = "trocar_assembly_scene"
     tags = ["background"]

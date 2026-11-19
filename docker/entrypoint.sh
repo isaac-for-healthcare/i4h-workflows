@@ -17,6 +17,10 @@ else
 fi
 export UV_CACHE_DIR="${UV_CACHE_DIR:-$STATE_DIR/uv-cache}"
 export HF_HOME="${HF_HOME:-$STATE_DIR/huggingface}"
+# The image has no GitHub credentials, and `docker run -it` gives Git a terminal, so a fetch
+# that needs them would wait at a login prompt nobody expects. Fail with Git's own error
+# instead; `-e GIT_TERMINAL_PROMPT=1` restores the prompt.
+export GIT_TERMINAL_PROMPT="${GIT_TERMINAL_PROMPT:-0}"
 DEFAULT_SETUP_FILE="${I4H_DEFAULT_SETUP_FILE:-/opt/i4h-default-setup-projects}"
 
 if [ -f "$DEFAULT_SETUP_FILE" ]; then

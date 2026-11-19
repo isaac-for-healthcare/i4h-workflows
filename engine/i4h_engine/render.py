@@ -29,6 +29,14 @@ def to_text(workflow: ResolvedWorkflow) -> str:
     graph = workflow.graph
     if graph.description:
         lines.append(f"  {graph.description}")
+    annotate = workflow.annotate
+    if annotate is not None:
+        settings = [f"judge={annotate.judge or 'terminal'}", f"cameras={','.join(annotate.cameras) or 'first'}"]
+        if annotate.frames:
+            settings.append(f"frames={annotate.frames}")
+        lines.append(f"  annotate: {' '.join(settings)}")
+        if annotate.criterion:
+            lines.append(f"    criterion: {annotate.criterion}")
 
     try:
         order = graph.topological_order()

@@ -29,6 +29,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", required=True)
     parser.add_argument("--export-policy", help="optional TorchScript policy.pt output path")
     parser.add_argument("--adapter-module", help="optional workflow adapter exposing evaluation_metrics(env)")
+    parser.add_argument("--patient-twin", default=None, help="patient-twin YAML used to construct the scene")
+    parser.add_argument("--fluoro-backend", default=None)
+    parser.add_argument("--fluoro-device", default=None)
     return parser
 
 
@@ -89,6 +92,9 @@ def main() -> int:
         agent_cfg = load_cfg_from_registry(gym_id, "rsl_rl_cfg_entry_point")
         agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, metadata.version("rsl-rl-lib"))
         env_cfg.scene.num_envs = args.num_envs
+        # Evaluation writes its own result JSON. Embodiment and metric recorder
+        # terms would otherwise export every episode to /tmp/isaaclab/logs.
+        env_cfg.recorders = None
 
         raw_env = gym.make(gym_id, cfg=env_cfg)
         env = RslRlVecEnvWrapper(raw_env, clip_actions=agent_cfg.clip_actions)
@@ -157,6 +163,8 @@ def main() -> int:
             "success_rate": successes / args.episodes,
             "results": completed,
         }
+        if args.patient_twin is not None:
+            result["patient_twin"] = str(Path(args.patient_twin).expanduser().resolve())
         for name in metric_minima:
             result[f"mean_min_{name}"] = sum(float(item[f"min_{name}"]) for item in completed) / args.episodes
         if args.export_policy:

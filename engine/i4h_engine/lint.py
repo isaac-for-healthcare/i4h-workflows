@@ -94,6 +94,7 @@ def lint_workflow(workflow: ResolvedWorkflow, registry: Any | None = None) -> Li
     autowired = tuple(f"{e.src} → {e.dst}" for e in added)
 
     scene = _check_scene(workflow, registry, issues)
+    _check_annotate(workflow, registry, issues)
     _check_graph(graph, workflow.name, issues)
     _check_data_edges(graph, issues)
     _check_requirements(graph, scene, registry, issues)
@@ -107,6 +108,35 @@ def _check_scene(workflow: ResolvedWorkflow, registry: Any, issues: list[Issue])
     except KeyError as exc:
         issues.append(Issue("error", "unknown-scene", str(exc).strip("'")))
         return None
+
+
+def _check_annotate(workflow: ResolvedWorkflow, registry: Any, issues: list[Issue]) -> None:
+    """Grading cameras must be cameras the scene records, in any of its modes.
+
+    Checked against the scene rather than a policy task: the annotator reads
+    whatever the recording holds, and teleop and rule-based recordings of the
+    workflow have no policy task at all.
+    """
+    annotate = workflow.annotate
+    if annotate is None or not annotate.cameras:
+        return
+    try:
+        scene = registry.scene(workflow.scene)
+    except KeyError:
+        return  # _check_scene reports the unknown scene
+    recorded = set(scene.cameras)
+    for overrides in scene.mode_overrides.values():
+        recorded.update(overrides.get("cameras", ()) or ())
+    unknown = [camera for camera in annotate.cameras if camera not in recorded]
+    if unknown:
+        issues.append(
+            Issue(
+                "error",
+                "annotate-camera",
+                f"annotate cameras {unknown} are not recorded by scene {scene.name!r}, "
+                f"which records {sorted(recorded)}",
+            )
+        )
 
 
 def _check_graph(graph: TaskGraph, workflow_name: str, issues: list[Issue]) -> None:

@@ -8,7 +8,7 @@ No trained tablecloth policy or autonomous rule-based controller is provided.
 
 The recovered configurations originate from release commit
 `568d91db09a167ae23805b82a9c8b5f1ac4ec0c3`. The Lightwheel cloth and table and
-both robot USDs retain their versioned Healthcare 0.7.0 asset URLs. Scene,
+both robot USDs load from the Healthcare v0.9.0 asset root. Scene,
 physics, and retargeting configurations now live under `arena/i4h_arena/`.
 `teleop/xr` reads the scene's retargeting configuration and writes actions;
 the shared `SimulationRunner` owns stepping, resets, and HDF5 recording.

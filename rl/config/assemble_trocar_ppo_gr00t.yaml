@@ -172,7 +172,7 @@ actor:
     queue_size: 0
   training_backend: fsdp
   micro_batch_size: 2
-  global_batch_size: 2048
+  global_batch_size: 2000
   seed: 1234
   enable_offload: false
   model:

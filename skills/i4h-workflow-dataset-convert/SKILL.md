@@ -68,7 +68,7 @@ uv run --project tools/dataset i4h-dataset convert \
 
 Use `--fps` or `--skip-frames` only when the user requests it or source metadata justifies it. Keep the default H.264 video codec for compatibility with GR00T's fast decord loader; select another `--video-codec` only when the target consumer requires it.
 
-Conversion writes aggregate `meta/stats.json` for downstream policy loaders. Native G1 rule-based WBC recordings already contain 43-D state and 50-D action; the converter recognizes that contract and writes GR00T's required semantic `meta/modality.json` automatically. For a G1 recording made through the legacy 23-D Pink/keyboard contract and destined for a 50-D G1 WBC policy Task, add `--g1-wbc-policy-actions`. That explicit mapping combines the measured 43-joint state with the recorded navigation, base-height, and torso commands; require source action width 23 and state width 43.
+Conversion writes aggregate `meta/stats.json` for downstream policy loaders. Native G1 rule-based WBC recordings already contain 43-D state and 50-D action; the converter recognizes that contract and writes GR00T's required semantic `meta/modality.json` automatically, with a video entry for each recorded camera only (`head` becomes `ego_view`). For a G1 recording made through the legacy 23-D Pink/keyboard contract and destined for a 50-D G1 WBC policy Task, add `--g1-wbc-policy-actions`. That explicit mapping combines the measured 43-joint state with the recorded navigation, base-height, and torso commands; require source action width 23 and state width 43.
 
 ## Verify
 

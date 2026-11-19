@@ -86,7 +86,10 @@ RUN mkdir -p \
 # Pinned third-party Git sources form their own stable layer. The build context
 # contains only this setup script and its patches, never host checkouts.
 COPY third_party/setup.sh third_party/*.patch ./third_party/
-RUN ./third_party/setup.sh "${I4H_THIRD_PARTY_TARGET}"
+COPY docker/github-askpass.sh ./docker/github-askpass.sh
+RUN --mount=type=secret,id=github_token \
+    GIT_ASKPASS=/workspace/docker/github-askpass.sh GIT_TERMINAL_PROMPT=0 \
+    ./third_party/setup.sh "${I4H_THIRD_PARTY_TARGET}"
 
 # .dockerignore recursively excludes .venv, __pycache__, bytecode, test/lint
 # caches, run artifacts, and local third-party worktrees from this copy.
@@ -124,7 +127,9 @@ ENV I4H_IMAGE_FLAVOR=full \
     I4H_VENV_ROOT=/opt/i4h-full/venvs \
     UV_PYTHON_INSTALL_DIR=/opt/i4h-full/python \
     I4H_SKIP_SETUP=1
-RUN --mount=type=cache,id=i4h-full-uv-${TARGETARCH},target=/opt/i4h-download-cache,sharing=locked \
+RUN --mount=type=secret,id=github_token \
+    --mount=type=cache,id=i4h-full-uv-${TARGETARCH},target=/opt/i4h-download-cache,sharing=locked \
+    GIT_ASKPASS=/workspace/docker/github-askpass.sh GIT_TERMINAL_PROMPT=0 \
     I4H_SETUP_PROJECTS= \
     I4H_THIRD_PARTY_TARGET=all \
     UV_CACHE_DIR=/opt/i4h-download-cache \

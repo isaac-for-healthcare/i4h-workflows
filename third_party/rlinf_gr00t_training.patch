@@ -1,0 +1,58 @@
+diff --git a/rlinf/models/embodiment/gr00t/gr00t_n1d7/__init__.py b/rlinf/models/embodiment/gr00t/gr00t_n1d7/__init__.py
+index 6f5ec7e..85eb15a 100755
+--- a/rlinf/models/embodiment/gr00t/gr00t_n1d7/__init__.py
++++ b/rlinf/models/embodiment/gr00t/gr00t_n1d7/__init__.py
+@@ -21,6 +21,14 @@ from rlinf.utils.logging import get_logger
+ 
+ 
+ def get_model(cfg: DictConfig, torch_dtype=torch.bfloat16):
++    # Actor and rollout models are built in separate Ray processes. Install the
++    # same Qwen3-VL optimization as i4h fine-tuning/inference in each process,
++    # before constructing the backbone (and before FSDP wraps the actor).
++    from i4h_tasks.gr00t_n17._patch_embed import install_linear_patch_embed
++
++    if not install_linear_patch_embed():
++        raise RuntimeError("GR00T N1.7 requires the Qwen3-VL linear patch embedding")
++
+     from gr00t.configs.model.gr00t_n1d7 import Gr00tN1d7Config
+     from gr00t.model.gr00t_n1d7.gr00t_n1d7 import Gr00tN1d7
+     from transformers import AutoConfig, AutoModel
+diff --git a/rlinf/workers/actor/fsdp_actor_worker.py b/rlinf/workers/actor/fsdp_actor_worker.py
+index 8bbb3c8..800fb40 100644
+--- a/rlinf/workers/actor/fsdp_actor_worker.py
++++ b/rlinf/workers/actor/fsdp_actor_worker.py
+@@ -1370,12 +1370,20 @@ class EmbodiedFSDPActor(FSDPModelManager, Worker):
+         )
+         metrics = {}
+         update_epoch = self.cfg.algorithm.get("update_epoch", 1)
++        total_steps = update_epoch * (rollout_size // batch_size_per_rank)
++        completed_steps = 0
++        if self._rank == 0:
++            self.log_info(
++                f"PPO optimization started: {total_steps} optimizer steps, "
++                f"{self.gradient_accumulation} micro-batches per step"
++            )
+         for _ in range(update_epoch):
+             rollout_dataloader_iter = split_dict_to_chunk(
+                 self.rollout_batch,
+                 rollout_size // batch_size_per_rank,
+             )
+             for train_global_batch in rollout_dataloader_iter:
++                step_started = time.perf_counter()
+                 # split batch into micro_batches
+                 train_global_batch_size = train_global_batch["prev_logprobs"].shape[0]
+                 assert (
+@@ -1406,6 +1414,13 @@ class EmbodiedFSDPActor(FSDPModelManager, Worker):
+                 self.torch_platform.empty_cache()
+ 
+                 grad_norm, lr_list = self.optimizer_step()
++                completed_steps += 1
++                if self._rank == 0:
++                    self.log_info(
++                        f"PPO optimizer step {self.optimizer_steps} finished "
++                        f"({completed_steps}/{total_steps} in this update, "
++                        f"{time.perf_counter() - step_started:.2f}s)"
++                    )
+                 data = {
+                     "actor/grad_norm": grad_norm,
+                     "actor/lr": lr_list[0],

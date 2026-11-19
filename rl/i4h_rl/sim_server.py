@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 import traceback
 from multiprocessing.connection import Listener
 from pathlib import Path
@@ -22,6 +24,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--env-spacing", type=float, required=True)
     parser.add_argument("--presets", required=True)
     parser.add_argument("--enable-cameras", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--patient-twin", default=None)
+    parser.add_argument("--fluoro-backend", choices=("synthetic", "slang"), default=None)
+    parser.add_argument("--fluoro-device", choices=("cuda", "vulkan"), default="vulkan")
     return parser
 
 
@@ -38,11 +43,37 @@ def _scene_args(args: argparse.Namespace) -> argparse.Namespace:
         episode_steps=args.max_episode_steps,
         no_cameras=not args.enable_cameras,
         enable_cameras=args.enable_cameras,
+        # Set unconditionally, and not only for the scenes that read them. A
+        # Scene reads these straight off the namespace, so a scene that grows a
+        # patient-specific sensor would fail here on a missing attribute rather
+        # than fall back. ``fluoro_backend=None`` lets the scene pick: Slang
+        # when a twin is present, synthetic otherwise.
+        patient_twin=args.patient_twin,
+        fluoro_backend=args.fluoro_backend,
+        fluoro_device=args.fluoro_device,
     )
+
+
+def _drop_time_out(env_cfg) -> None:
+    """Leave ending an episode on length to RLinf, which caps it at ``--max-episode-steps``.
+
+    Isaac Lab resets a timed-out environment inside ``step`` and only then
+    computes observations, so its time-out hands RLinf the next episode's
+    reset observation on the step RLinf truncates. RLinf resets at the top of
+    every rollout epoch (or itself, under ``auto_reset``), so that reset is
+    also redundant. Terminations that are not about length stay.
+    """
+    terminations = getattr(env_cfg, "terminations", None)
+    if terminations is not None and hasattr(terminations, "time_out"):
+        terminations.time_out = None
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.fluoro_device == "cuda":
+        from i4h_arena.medical.slang_cuda import prepare_slang_for_kit
+
+        prepare_slang_for_kit(args.fluoro_device)
     from isaaclab.app import AppLauncher
 
     sim_app = AppLauncher(headless=True, enable_cameras=args.enable_cameras).app
@@ -59,6 +90,10 @@ def main(argv: list[str] | None = None) -> int:
         scene.configure_args(scene_args)
         gym_id, env_cfg = scene.gym_spec()
         env_cfg.scene.num_envs = args.num_envs
+        # RL rollouts already collect their observations. Embodiment recorders
+        # otherwise export every reset (including camera frames) to /tmp.
+        env_cfg.recorders = None
+        _drop_time_out(env_cfg)
         render_mode = "rgb_array" if args.enable_cameras else None
         env = gym.make(gym_id, cfg=env_cfg, render_mode=render_mode).unwrapped
 
@@ -89,16 +124,35 @@ def main(argv: list[str] | None = None) -> int:
                     connection.send(("error", traceback.format_exc()))
         finally:
             connection.close()
-    finally:
-        args.ready_file.unlink(missing_ok=True)
-        if listener is not None:
-            listener.close()
-        args.socket.unlink(missing_ok=True)
-        if env is not None:
-            env.close()
-        sim_app.close()
+    except BaseException:
+        # Leave Kit open: closing it ends the process before the exception is reported.
+        _remove_bridge(args, listener)
+        raise
+    _remove_bridge(args, listener)
+    if env is not None:
+        env.close()
+    sim_app.close()
     return 0
 
 
+def _remove_bridge(args: argparse.Namespace, listener: Listener | None) -> None:
+    args.ready_file.unlink(missing_ok=True)
+    if listener is not None:
+        listener.close()
+    args.socket.unlink(missing_ok=True)
+
+
+def _serve(argv: list[str] | None = None) -> int:
+    try:
+        return main(argv)
+    except Exception:
+        # The physics backend's atexit handler exits 0, so the RLinf launcher would see only
+        # "exited before becoming ready (exit=0)". Report and exit before it can run.
+        traceback.print_exc()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(1)
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_serve())

@@ -236,6 +236,31 @@ def test_the_buffer_is_reused_without_leaking_the_previous_frame() -> None:
     assert np.count_nonzero(first) == pytest.approx(np.count_nonzero(second), rel=0.2)
 
 
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_a_torch_result_stays_on_the_device_and_matches_the_numpy_one(device: str) -> None:
+    import torch
+    import warp as wp
+
+    if device.startswith("cuda") and not wp.is_cuda_available():
+        pytest.skip("no CUDA device")
+    compositor = CatheterAttenuation(_shaft().material, device=device)
+    moving = _straight_catheter()
+
+    first = compositor.line_integral(moving, 2.0, _projection(), width=DETECTOR_PX, height=DETECTOR_PX, as_torch=True)
+    moving[:, 1] += 10.0
+    second = compositor.line_integral(moving, 2.0, _projection(), width=DETECTOR_PX, height=DETECTOR_PX, as_torch=True)
+    expected = compositor.line_integral(moving, 2.0, _projection(), width=DETECTOR_PX, height=DETECTOR_PX)
+
+    assert isinstance(second, torch.Tensor) and second.device == torch.device(device)
+    np.testing.assert_array_equal(second.cpu().numpy(), expected)
+    # Each call hands out its own tensor rather than a view onto the reused buffer.
+    assert not torch.equal(first, second)
+    empty = compositor.line_integral(
+        np.zeros((2, 3), dtype=np.float32), 2.0, _projection(), width=DETECTOR_PX, height=DETECTOR_PX, as_torch=True
+    )
+    assert empty.device == torch.device(device) and not empty.any()
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -19,6 +20,7 @@ from i4h_tools.dataset.cli import (
     _write_g1_wbc_modality,
     _write_split_modality,
     build_parser,
+    convert,
 )
 
 
@@ -38,6 +40,21 @@ def test_column_names_use_exact_descriptor() -> None:
 def test_convert_defaults_to_decord_compatible_video() -> None:
     args = build_parser().parse_args(["convert", "input.hdf5", "output", "--robot", "g1"])
     assert args.video_codec == "h264"
+
+
+def test_convert_takes_several_recordings_into_one_dataset() -> None:
+    args = build_parser().parse_args(["convert", "a.hdf5", "b.hdf5", "c.hdf5", "out", "--robot", "catheter"])
+
+    assert args.input == [Path("a.hdf5"), Path("b.hdf5"), Path("c.hdf5")]
+    assert args.output == Path("out")
+
+
+def test_convert_rejects_one_twin_for_several_recordings() -> None:
+    # One manifest cannot describe two anatomies, and silently measuring the
+    # second recording's goal columns against the first one's route would
+    # mislabel it rather than fail.
+    with pytest.raises(ValueError, match="cannot describe several recordings"):
+        convert([Path("a.hdf5"), Path("b.hdf5")], Path("out"), robot="catheter", patient_twin=Path("twin.yaml"))
 
 
 def test_translation_counts_motion_in_either_direction() -> None:
@@ -100,11 +117,37 @@ def test_policy_joint_coordinates_leave_non_joint_tail_contract_unchanged() -> N
 
 def test_write_g1_wbc_modality(tmp_path) -> None:
     (tmp_path / "meta").mkdir()
-    path = _write_g1_wbc_modality(tmp_path)
+    path = _write_g1_wbc_modality(tmp_path, cameras=("head",))
     content = path.read_text()
     assert '"left_arm"' in content
     assert '"navigate_command"' in content
     assert '"observation.images.head"' in content
+
+
+def test_g1_modality_names_only_the_recorded_cameras(tmp_path) -> None:
+    """NVBug 6925769: a ``room`` entry for a head-only recording broke GR00T's first batch."""
+    (tmp_path / "meta").mkdir()
+
+    video = json.loads(_write_g1_wbc_modality(tmp_path, cameras=("head",)).read_text())["video"]
+
+    assert video == {"ego_view": {"original_key": "observation.images.head"}}
+
+
+def test_g1_modality_keeps_a_recorded_room_camera(tmp_path) -> None:
+    (tmp_path / "meta").mkdir()
+
+    video = json.loads(_write_g1_wbc_modality(tmp_path, cameras=("head", "room")).read_text())["video"]
+
+    assert video == {
+        "ego_view": {"original_key": "observation.images.head"},
+        "room": {"original_key": "observation.images.room"},
+    }
+
+
+def test_g1_modality_without_cameras_has_no_video(tmp_path) -> None:
+    (tmp_path / "meta").mkdir()
+
+    assert json.loads(_write_g1_wbc_modality(tmp_path, cameras=()).read_text())["video"] == {}
 
 
 def test_write_declared_so101_modality(tmp_path) -> None:

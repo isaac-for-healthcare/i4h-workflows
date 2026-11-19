@@ -24,7 +24,7 @@ Resolve a maintained online-RL profile, verify its Scene/objective/model contrac
 
 - Run the Workflow setup skill first so its uv environments and pinned third-party checkouts are available.
 - Use a CUDA-capable Isaac Lab/Arena runtime for the RSL-RL workflow.
-- For Trocar, provide a local GR00T N1.5 3B base or SFT checkpoint and two visible local GPUs for the isolated controller and simulator runtimes. A compatible checkpoint is a complete local Hugging Face directory that the pinned GR00T N1.5/RLinf loader accepts without conversion; it must retain the N1.5 3B architecture and support the maintained three-camera plus 28-joint observation mapping and 28-D policy action head. Reject another model family, an exported inference-only Task artifact, or a checkpoint whose config changes those interfaces.
+- For Trocar, provide a local GR00T N1.5 3B Trocar SFT or compatible RL checkpoint with `new_embodiment` modality and normalization metadata and two visible local GPUs for the isolated controller and simulator runtimes. A compatible checkpoint is a complete local Hugging Face directory that the pinned GR00T N1.5/RLinf loader accepts without conversion; it must retain the N1.5 3B architecture and support the maintained three-camera plus 28-joint observation mapping and 28-D policy action head. Reject another model family, an exported inference-only Task artifact, or a checkpoint whose config changes those interfaces.
 
 ## Instructions
 
@@ -72,7 +72,7 @@ Select the maintained path from the profile:
 | Workflow | Trainer | Starting artifact | Training observations/actions | Export and runtime |
 | --- | --- | --- | --- | --- |
 | `ultrasound_probe_reach` | RSL-RL PPO | None; train from scratch | 34-D joint/probe/target state → 6-D relative EE pose | TorchScript `policy.pt` → `rsl_rl/ultrasound_probe_reach` in-process Task |
-| `assemble_trocar` | RLinf PPO actor/critic | Local GR00T N1.5 SFT/base checkpoint | Three cameras + 28 arm/hand joints → 28 policy actions padded to the 43-D Scene action | Native RLinf run bundle → GR00T inference export → existing remote `gr00t_n15/assemble_trocar` Task |
+| `assemble_trocar` | RLinf PPO actor/critic | Local GR00T N1.5 Trocar SFT/compatible RL checkpoint | Three cameras + 28 arm/hand joints → 28 policy actions padded to the 43-D Scene action | Native RLinf run bundle → GR00T inference export → existing remote `gr00t_n15/assemble_trocar` Task |
 
 For `ultrasound_probe_reach`, require the target to be sampled from verified upper-torso surface points, the table and phantom to remain fixed, success to require both position and orientation tolerance for consecutive steps, and the exported Task observation order to match training exactly.
 
@@ -213,6 +213,8 @@ TRAIN_RUN="$PWD/runs/assemble_trocar/YYYYMMDD_HHMMSS"
   --checkpoint "$TRAIN_RUN/exported" \
   --episodes 1
 ```
+
+Across RLinf profiles, optional training and periodic evaluation recordings warn on encoder or writer-close failures. Standalone evaluation requires a decodable video when requested with `--video` or effective `env.eval.video_cfg.save_video=true`; video failures return nonzero with a video diagnostic. `--set` uses Hydra 1.3.2 in both dry-run preflight and launch, including `+` additions and `++` forced overrides.
 
 Treat the native trainer checkpoint as the training result and evaluate it before export. The GR00T inference export is runtime packaging for the remote Task, not a substitute for checkpoint evaluation. Require exit status 0, requested evaluation episodes when the trainer exposes them, non-empty metrics, expected checkpoint/export artifacts, and normal Workflow simulator success. Never claim success from loss curves or training exit alone.
 

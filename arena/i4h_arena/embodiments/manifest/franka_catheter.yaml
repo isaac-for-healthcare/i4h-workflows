@@ -1,0 +1,105 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Catheter whose drive unit rides on a Franka Panda hand.
+#
+# The catheter and C-arm entries come first and keep the names the plain
+# `catheter` embodiment uses, so a recording made with the arm shares its
+# leading columns with one made without it and only appends the arm. The first
+# eleven entries must match ArmCatheterCArmJointStateProvider.joint_state(),
+# which is what the recording holds; the five goal columns after them are
+# derived at conversion rather than recorded.
+#
+# A split that does not tile the converted width now aborts the conversion. The
+# column *names* still fall back to positional ones with only a warning if their
+# count disagrees, so a name list and a split that disagree with each other is a
+# gap the converter does not catch.
+#
+# The arm names are the USD joint names rather than a tidier `arm.axis1..7`,
+# because the provider derives them from Articulation.find_joints() and a
+# dataset column has to say which joint it actually holds.
+#
+# The arm is servo'd along the introducer rather than commanded, so it
+# contributes joints but no action entries. dof / action_space are NOT here:
+# the scene declares them.
+
+name: franka_catheter
+joint_names:
+- insertion_m
+- rotation_rad
+- tip_bend_rad
+- carm_orbit_rad
+- arm.panda_joint1
+- arm.panda_joint2
+- arm.panda_joint3
+- arm.panda_joint4
+- arm.panda_joint5
+- arm.panda_joint6
+- arm.panda_joint7
+action_names:
+- insertion_velocity_mps
+- rotation_rate_radps
+- tip_bend_rate_radps
+- carm_orbit_rate_radps
+#
+# The five goal columns come last, after the arm, because conversion appends them
+# to the recorded joint tensor and the recording here is drive-plus-arm. They
+# therefore sit at a different offset than in `catheter.yaml`, where there is no
+# arm in between. That is fine: GR00T resolves groups by name out of
+# `modality.json`, so `target` and `route` mean the same thing in both datasets
+# at whatever offset each one puts them.
+state_names:
+- insertion_m
+- rotation_rad
+- tip_bend_rad
+- carm_orbit_rad
+- arm.panda_joint1
+- arm.panda_joint2
+- arm.panda_joint3
+- arm.panda_joint4
+- arm.panda_joint5
+- arm.panda_joint6
+- arm.panda_joint7
+- target_offset_x_m
+- target_offset_y_m
+- target_offset_z_m
+- route_remaining_m
+- route_lateral_m
+# GR00T semantic groups, named and bounded exactly as `catheter.yaml` names
+# them so a dataset recorded here carries the same `catheter`/`carm` groups a
+# dataset recorded without the arm does. That is what lets one checkpoint serve
+# both scenes.
+#
+# The groups have to tile the whole vector -- conversion checks that they start
+# at 0, stay contiguous and end at the tensor width -- so the servo'd arm
+# joints are declared as a third state group even though no task reads them.
+# An unread group costs nothing: GR00T's loader finds no such key and proceeds.
+#
+# There is no matching action group, because the arm is driven along the
+# introducer rather than commanded, so `action_split` tiles the same four
+# channels as the armless embodiment.
+state_split:
+- - catheter
+  - 0
+  - 3
+- - carm
+  - 3
+  - 4
+- - arm
+  - 4
+  - 11
+- - target
+  - 11
+  - 14
+- - route
+  - 14
+  - 16
+action_split:
+- - catheter
+  - 0
+  - 3
+- - carm
+  - 3
+  - 4
+teleop_devices:
+- catheter_keyboard

@@ -22,6 +22,7 @@ from typing import Any
 
 import torch
 
+from i4h_arena.recording.scene_state import capture_scene_state, restore_scene_state
 from i4h_arena.scenes.base import Scene
 from i4h_common.bus.base import Bus
 from i4h_common.bus.keys import Keys
@@ -55,6 +56,42 @@ def _kit_settings_manager() -> Any:
     return get_settings_manager()
 
 
+def _reset_during_step(env: Any) -> bool:
+    """Whether the last ``env.step`` reset the recorded environment (env 0).
+
+    ``ManagerBasedRLEnv.step`` resets a terminated environment before it
+    returns, so the scene, joints and camera images it leaves behind already
+    belong to the next episode. A workflow whose success is a termination term
+    (the liver scan's is) therefore ends on such a step every time it succeeds.
+    That step is not recorded; ``i4h_common.episode`` documents what this means
+    for a recording.
+    """
+    reset_buf = getattr(getattr(env, "unwrapped", env), "reset_buf", None)
+    if reset_buf is None or len(reset_buf) == 0:
+        return False
+    return bool(reset_buf[0])
+
+
+def _terms_that_reset(env: Any) -> tuple[str, ...]:
+    """The termination terms that ended env 0's episode on the last ``env.step``.
+
+    ``TerminationManager.get_term`` keeps the values of the step that triggered
+    the reset, so they still name the cause after the environment was reset.
+    """
+    manager = getattr(getattr(env, "unwrapped", env), "termination_manager", None)
+    fired: list[str] = []
+    for name in getattr(manager, "active_terms", ()) or ():
+        value = manager.get_term(name)
+        if len(value) and bool(value[0]):
+            fired.append(str(name))
+    return tuple(fired)
+
+
+def _reset_detail(terms: tuple[str, ...]) -> str:
+    named = ", ".join(terms) or "an unnamed term"
+    return f"IsaacLab reset the scene after termination {named} while the workflow was still running"
+
+
 def _render_scene_only(env: Any, app: Any) -> None:
     """Refresh the scene and UI while preventing Kit from advancing physics."""
     sim = getattr(getattr(env, "unwrapped", env), "sim", None)
@@ -86,6 +123,7 @@ class EpisodeResult:
     steps: int
     detail: str = ""
     segments: tuple[tuple[str, str, int, int], ...] = ()
+    saved_demo: str | None = None
 
     @property
     def succeeded(self) -> bool:
@@ -101,18 +139,23 @@ class RunSummary:
     episodes: list[EpisodeResult] = field(default_factory=list)
 
     @property
-    def saved(self) -> int:
+    def succeeded(self) -> int:
         return sum(1 for e in self.episodes if e.succeeded)
 
     @property
+    def saved(self) -> int:
+        return sum(e.saved_demo is not None for e in self.episodes)
+
+    @property
     def complete(self) -> bool:
-        return self.saved == self.requested
+        return self.succeeded == self.requested
 
     def render(self) -> str:
         attempts = len(self.episodes)
         return (
             f"{self.workflow} [{self.mode}] run={self.run_id}: "
-            f"{self.saved}/{self.requested} episodes succeeded ({attempts} attempts)"
+            f"{self.succeeded}/{self.requested} episodes succeeded ({attempts} attempts); "
+            f"{self.saved} new demonstrations saved"
         )
 
 
@@ -144,6 +187,8 @@ class SimulationRunner:
         sensor_view_appearances: dict[str, tuple[tuple[str, str], ...]] | None = None,
         sensor_view_display_controls: dict[str, tuple[Any, ...]] | None = None,
         sensor_view_sliders: dict[str, tuple[Any, ...]] | None = None,
+        sensor_view_readouts: dict[str, Any] | None = None,
+        initial_state: dict[str, Any] | None = None,
     ) -> None:
         self.scene = scene
         self.workflow = workflow
@@ -156,8 +201,15 @@ class SimulationRunner:
         self.episodes = max(1, episodes)
         self.attempts = max(1, attempts)
         self.max_steps = max_steps or workflow.max_steps or scene.spec.max_steps
+        # Kept apart from the resolved budget above, which cannot say whether a
+        # cap was asked for or merely inherited. Teleop needs that distinction.
+        self._requested_max_steps = max_steps
         self.record_failures = record_failures
         self.seed = seed
+        #: Recorded scene state every episode starts from instead of a
+        #: randomized reset. Replay sets it so the recorded actions meet the
+        #: objects where they were when the episode was recorded.
+        self.initial_state = initial_state
         self.run_id = uuid.uuid4().hex[:8]
         self._view = scene.make_view(env)
         self._controls: dict[str, float] = {}
@@ -171,6 +223,7 @@ class SimulationRunner:
             sensor_view_appearances or {},
             sensor_view_display_controls or {},
             sensor_view_sliders or {},
+            sensor_view_readouts or {},
         )
         # Construct only after the episode reset, when sensor-backed TCP data
         # and randomized state belong to the same reset.
@@ -200,6 +253,26 @@ class SimulationRunner:
             )
 
     # -- the loop --------------------------------------------------------
+    def _engine_max_steps(self) -> int | None:
+        """Step budget the engine enforces, or ``None`` to run until the graph stops.
+
+        Idle is a render-only inspection mode: its ticks take no physics step,
+        so they cannot consume the scene's budget and a cap would only limit how
+        long someone may look at the scene.
+
+        Teleop does step, and is left uncapped so that a demonstration is not
+        cut off underneath the person giving it. An explicit ``--episode-steps``
+        is honoured though, because an attempt that will not succeed otherwise
+        has no way to end: teleop runs ``until=success`` with no time limit, so
+        without a cap the episode is never finalized, nothing reaches
+        ``/data``, and ``--record-failures`` has no failed episode to write.
+        """
+        if self.workflow.mode == "idle":
+            return None
+        if self.workflow.mode == "teleop":
+            return self._requested_max_steps
+        return self.max_steps
+
     def run(self) -> RunSummary:
         global _ACTIVE_RUNNER
         if _ACTIVE_RUNNER is not None:
@@ -211,13 +284,11 @@ class SimulationRunner:
             mode=self.workflow.mode,
             requested=self.episodes,
         )
-        # Idle is a render-only inspection mode: its ticks do not consume the
-        # scene's simulation-step budget because no physics step is taken.
         engine = Engine(
             self.workflow.graph,
             workflow_name=self.workflow.name,
             on_event=self._on_event,
-            max_steps=None if self.workflow.mode in {"idle", "teleop"} else self.max_steps,
+            max_steps=self._engine_max_steps(),
         )
 
         try:
@@ -240,12 +311,23 @@ class SimulationRunner:
                 window.close()
             _ACTIVE_RUNNER = None
 
-    def _run_episode(self, engine: Engine, episode: int, attempt: int) -> EpisodeResult:
-        if episode == 0 and attempt == 1 and self.seed is not None:
-            self.env.reset(seed=self.seed)
+    def _reset_env(self, seed: int | None = None) -> dict[str, Any] | None:
+        """Reset the env and return the state it starts from, when recording.
+
+        The state is taken before ``Scene.on_reset``, so a replay that restores
+        it runs the same pre-roll the recording did.
+        """
+        if self.initial_state is not None:
+            restore_scene_state(self.env, self.initial_state, seed=seed)
+        elif seed is not None:
+            self.env.reset(seed=seed)
         else:
             self.env.reset()
-        self._view.invalidate()
+        self._view.on_reset()
+        return capture_scene_state(self.env) if self.recorder is not None else None
+
+    def _run_episode(self, engine: Engine, episode: int, attempt: int) -> EpisodeResult:
+        initial_state = self._reset_env(self.seed if episode == 0 and attempt == 1 else None)
         self.scene.on_reset(self.env, self._view)
         # Reset invalidates the command that was seeded when the runner was
         # constructed (and every previous episode's last command).  Rebuild it
@@ -268,15 +350,23 @@ class SimulationRunner:
         engine.start(ctx)
         self._update_sensor_windows()
         if self.recorder is not None:
-            self.recorder.begin_episode(episode, attempt)
+            self.recorder.begin_episode(episode, attempt, initial_state=initial_state)
 
+        #: Termination terms that made IsaacLab reset env 0 inside the last
+        #: ``env.step`` and that the loop has not acted on yet.
+        reset_by: tuple[str, ...] | None = None
+        #: Cleared by such a reset: every later frame belongs to another episode.
+        recording = True
         while not engine.status.is_terminal and self.app.is_running():
             engine.tick(ctx)
             if ctx.consume_scene_reset():
                 self._reset_active_scene(engine, ctx)
+                reset_by, recording = None, True
                 continue
             terminal_advance = engine.status is WorkflowStatus.SUCCEEDED and engine.terminal_advance_requested
-            if engine.status.is_terminal and not terminal_advance:
+            if engine.status.is_terminal and (not terminal_advance or not recording):
+                # A finished workflow may ask for one more step to apply its
+                # last action, but not into an episode IsaacLab already reset.
                 break
             if not engine.advance_requested:
                 _render_scene_only(self.env, self.app)
@@ -291,6 +381,15 @@ class SimulationRunner:
                 if remaining > 0:
                     time.sleep(remaining)
             else:
+                if reset_by is not None:
+                    # IsaacLab reset env 0 inside the last step and the workflow
+                    # did not finish on the tick after it. Checked here, at the
+                    # next step, rather than on the next tick: a remote task may
+                    # tick WAITING for its backend before it reads success again.
+                    detail = _reset_detail(reset_by)
+                    logger.warning("episode %s attempt %s ends: %s", episode, attempt, detail)
+                    engine.abort(ctx, detail=detail)
+                    break
                 # Task terms may lazily allocate persistent tensors during
                 # ``env.step``. ``no_grad`` keeps those tensors mutable for the
                 # next episode reset.
@@ -303,15 +402,47 @@ class SimulationRunner:
                         raise RuntimeError(
                             f"step {engine.step}: non-finite action {command.detach().cpu().numpy().tolist()}"
                         )
-                    self.env.step(command)
-                self._view.invalidate()
+                    try:
+                        self.env.step(command)
+                    except Exception as exc:
+                        # ``env.step`` renders between its physics sub-steps, and
+                        # that render is where Kit handles a closed window. Kit
+                        # then releases the PhysX views the remaining sub-steps
+                        # read (a ReferenceError from the articulation data). The
+                        # attempt ends there rather than taking the run down with
+                        # it; any failure while Kit is still running is a real one.
+                        if self.app.is_running():
+                            raise
+                        # Still named at the default level: a real fault that
+                        # coincides with, or causes, Kit stopping must not be
+                        # reported only as "Isaac Sim was closed".
+                        logger.warning("env.step raised %r while Isaac Sim was closing; ending the attempt", exc)
+                        logger.debug("env.step failure while Isaac Sim was closing", exc_info=True)
+                        break
+                self._view.on_step()
+                if _reset_during_step(self.env):
+                    reset_by, recording = _terms_that_reset(self.env), False
+                    logger.info(
+                        "step %s: IsaacLab reset the scene after termination %s",
+                        engine.step,
+                        ", ".join(reset_by) or "(unnamed)",
+                    )
             self._update_sensor_windows()
-            if self.recorder is not None:
+            if self.recorder is not None and recording:
+                # A step that reset the environment leaves the next episode's
+                # images and joints behind; recording them would end every
+                # such demo on a frame from a different episode.
                 self.recorder.on_step(self._actuation.numpy(), self._view)
             if self.publisher is not None:
                 active = engine.active_nodes
                 self.publisher.publish(self._view, node=active[0] if active else "", episode_index=episode)
 
+        if not engine.status.is_terminal:
+            # Only a closed simulator stops the loop above with the workflow
+            # still running. Finish it, so the attempt is reported and recorded
+            # (``--record-failures``) as aborted rather than as still running.
+            logger.info("Isaac Sim was closed during episode %s attempt %s; ending it", episode, attempt)
+            engine.abort(ctx, detail="Isaac Sim was closed")
         result = EpisodeResult(
             index=episode,
             attempt=attempt,
@@ -322,13 +453,12 @@ class SimulationRunner:
         )
         if self.recorder is not None:
             keep = result.succeeded or self.record_failures
-            self.recorder.end_episode(result, keep=keep)
+            result.saved_demo = self.recorder.end_episode(result, keep=keep)
         return result
 
     def _reset_active_scene(self, engine: Engine, ctx: TickContext) -> None:
         """Reset simulator state without tearing down the active teleop node."""
-        self.env.reset()
-        self._view.invalidate()
+        initial_state = self._reset_env()
         self.scene.on_reset(self.env, self._view)
         self._actuation = self.scene.make_actuation(self.env, self._view)
         engine.replace_actuation(ctx, self._actuation)
@@ -336,7 +466,7 @@ class SimulationRunner:
             active = engine.active_nodes
             node = active[0] if active else ""
             task_id = engine.states[node].node.task_id if node else ""
-            self.recorder.restart_episode(node=node, task_id=task_id)
+            self.recorder.restart_episode(node=node, task_id=task_id, initial_state=initial_state)
         for window in self._sensor_windows:
             window.on_scene_reset()
         logger.info("teleop scene reset")
@@ -352,6 +482,7 @@ class SimulationRunner:
         appearances: dict[str, tuple[tuple[str, str], ...]],
         display_controls: dict[str, tuple[Any, ...]],
         sliders: dict[str, tuple[Any, ...]],
+        readouts: dict[str, Any],
     ) -> tuple[Any, ...]:
         if not names:
             return ()
@@ -369,6 +500,7 @@ class SimulationRunner:
                 appearances=appearances.get(name, ()),
                 display_controls=display_controls.get(name, ()),
                 sliders=sliders.get(name, ()),
+                readout=readouts.get(name),
                 controls=self._controls,
             )
             for name in names

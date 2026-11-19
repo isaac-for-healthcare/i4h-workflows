@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+impl: i4h_arena.scenes.endoluminal_navigation_arm:EndoluminalNavigationArmScene
+description: "Endoluminal navigation whose catheter drive is carried on a Franka Panda hand."
+embodiment: franka_catheter
+action_space: catheter_carm_velocity
+dof: 4
+gripper: false
+cameras:
+- fluoroscopy
+objects: []
+robots:
+- robot
+max_steps: 600
+# Matches the armless scene: 120 Hz physics, decimation 4.
+control_hz: 30.0

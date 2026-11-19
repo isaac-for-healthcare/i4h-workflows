@@ -16,15 +16,18 @@ fi
 
 stopped=0
 
-if [ -s .run/pids ]; then
+# Every run.sh keeps its own file of backend pids; .run/pids is the single file
+# a launcher from before that change still writes to.
+for pidfile in "${I4H_PID_DIR:-$ROOT/.run/pids.d}"/* .run/pids; do
+  [ -f "$pidfile" ] || continue
   while read -r pid; do
     if kill -0 "$pid" 2>/dev/null; then
       echo "stopping tracked pid $pid"
       kill "$pid" 2>/dev/null && stopped=$((stopped + 1))
     fi
-  done < .run/pids
-  rm -f .run/pids
-fi
+  done < "$pidfile"
+  rm -f "$pidfile"
+done
 
 # Match on where the process actually lives, not on its command line. The uv
 # parent invokes `--project tasks/gr00t_n15` relatively, so a $ROOT-prefixed

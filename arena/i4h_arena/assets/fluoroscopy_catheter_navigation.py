@@ -148,6 +148,15 @@ class FluoroscopyCatheterNavigationSceneCfg(InteractiveSceneCfg):
     fluoroscopy = FluoroscopySensorCfg(
         prim_path="{ENV_REGEX_NS}/Fluoroscopy",
         update_period=1.0 / 15.0,
+        # Do not lower this to save recording bytes. The DRR cost per frame is
+        # what sets the scene's wall-clock step rate, and teleoperation is
+        # calibrated against that rate: insertion is a velocity in simulation
+        # time but the operator spends it in wall time, and ``key_hold_ttl_s``
+        # is spent in wall time too. Dropping to 256 renders sixteen times
+        # faster, so a held W key buys sixteen times the insertion per second
+        # and the tip overshoots the detector and runs off the usable
+        # centerline. Store fewer bytes by downsampling on the recording side,
+        # not by rendering less.
         width=1024,
         height=1024,
         backend="synthetic",

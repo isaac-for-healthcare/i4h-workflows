@@ -18,8 +18,9 @@ from pathlib import Path
 
 import yaml
 
-from i4h_rl.artifacts import resolve_input_path, resolve_output_path, resolve_run_dir, write_json
-from i4h_rl.profile import RLProfile
+from i4h_rl.artifacts import environment_overrides, resolve_input_path, resolve_output_path, resolve_run_dir, write_json
+from i4h_rl.profile import RLProfile, SimulationProfile
+from i4h_rl.runtime import apply_arm_openmp_env
 
 
 def _config(profile: RLProfile) -> dict[str, object]:
@@ -94,18 +95,26 @@ def validate_profile(profile: RLProfile, _workflows_root: Path) -> None:
         raise SystemExit(f"{profile.trainer_config}: train/eval max_episode_steps must be equal and positive")
 
 
-def _model_runtime_python(workflows_root: Path, explicit: str | None) -> Path:
+def _model_runtime_python(workflows_root: Path, explicit: str | None, profile_runtime: str | None = None) -> Path:
+    """Resolve the interpreter that hosts the policy stack being post-trained.
+
+    The profile gets a say because each task venv pins one GR00T generation,
+    and the generations are not interchangeable: the N1.5 venv has no N1.7
+    modality API and vice versa. Profiles that stay on the default are
+    unaffected.
+    """
+    default_runtime = profile_runtime or "tasks/gr00t_n15/.venv/bin/python"
     candidates = (
         explicit,
         os.environ.get("I4H_RL_PYTHON"),
-        str(workflows_root / "tasks/gr00t_n15/.venv/bin/python"),
+        str(workflows_root / default_runtime),
     )
     for candidate in candidates:
         if candidate:
             path = Path(candidate).expanduser()
             if path.is_file():
                 return path if path.is_absolute() else (Path.cwd() / path).absolute()
-    raise SystemExit("no RLinf model runtime found; run setup.sh tasks/gr00t_n15 or set I4H_RL_PYTHON")
+    raise SystemExit(f"no RLinf model runtime found; run setup.sh for {default_runtime} or set I4H_RL_PYTHON")
 
 
 def _sim_runtime_python(workflows_root: Path, explicit: str | None) -> Path:
@@ -122,17 +131,41 @@ def _sim_runtime_python(workflows_root: Path, explicit: str | None) -> Path:
     raise SystemExit("no RLinf simulator runtime found; run setup.sh arena or set I4H_RL_SIM_PYTHON")
 
 
+#: GR00T source checkout per task venv. PYTHONPATH wins over the venv's own
+#: site-packages, so naming the wrong checkout here does not fail loudly -- it
+#: quietly imports the other generation's ``gr00t`` and the model class, the
+#: modality API, and the action converters all disagree with the checkpoint.
+_GR00T_SOURCE = {
+    "gr00t_n15": "Isaac-GR00T-1.5",
+    "gr00t_n17": "Isaac-GR00T-1.7",
+}
+
+
+def _gr00t_task_dir(profile: RLProfile) -> str:
+    """Name the task venv this profile trains in, as a ``tasks/`` child."""
+    runtime = profile.model_runtime or "tasks/gr00t_n15/.venv/bin/python"
+    parts = Path(runtime).parts
+    if "tasks" not in parts:
+        raise SystemExit(f"{profile.workflow}: cannot tell which task venv {runtime!r} belongs to")
+    return parts[parts.index("tasks") + 1]
+
+
 def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
     third_party = workflows_root / "third_party"
     rlinf_dirs = sorted(third_party.glob("RLinf-*"))
     if not rlinf_dirs:
         raise SystemExit("RLinf checkout is missing; run ./third_party/setup.sh")
+    task_dir = _gr00t_task_dir(profile)
+    try:
+        gr00t_source = _GR00T_SOURCE[task_dir]
+    except KeyError:
+        raise SystemExit(f"{profile.workflow}: no GR00T source mapped for tasks/{task_dir}") from None
     roots = (
         workflows_root / "rl",
         workflows_root / "common",
-        workflows_root / "tasks/gr00t_n15",
+        workflows_root / "tasks" / task_dir,
         rlinf_dirs[-1],
-        third_party / "Isaac-GR00T-1.5",
+        third_party / gr00t_source,
         third_party / "IsaacLab-ffff603/source/isaaclab_contrib",
     )
     env = os.environ.copy()
@@ -146,6 +179,16 @@ def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
     env["RLINF_CONFIG_FILE"] = str(profile.trainer_config)
     env["REPO_PATH"] = str(rlinf_dirs[-1])
     env["RAY_ENABLE_UV_RUN_RUNTIME_ENV"] = "0"
+    # A documented Trocar rollout phase takes longer than RLinf's 180-minute
+    # default. Keep the QA-qualified timeout overridable by the caller.
+    if profile.workflow == "assemble_trocar":
+        env.setdefault("RLINF_TIMEOUT", "720")
+    if "RLINF_TIMEOUT" in env:
+        try:
+            if int(env["RLINF_TIMEOUT"]) <= 0:
+                raise ValueError
+        except ValueError as exc:
+            raise SystemExit("RLINF_TIMEOUT must be a positive integer number of minutes") from exc
     return env
 
 
@@ -160,16 +203,20 @@ def _sim_env(workflows_root: Path, model_env: dict[str, str], *, gpu: str) -> di
     env = model_env.copy()
     env["PYTHONPATH"] = os.pathsep.join(str(path) for path in sim_roots)
     env["CUDA_VISIBLE_DEVICES"] = gpu
+    apply_arm_openmp_env(env)
     return env
 
 
-def _gpu_assignment() -> tuple[str, str]:
-    model_gpu = os.environ.get("I4H_RL_MODEL_GPU", "0").strip()
-    sim_gpu = os.environ.get("I4H_RL_SIM_GPU", "1").strip()
+def _gpu_assignment(profile: RLProfile) -> tuple[str, str]:
+    declared = profile.resources
+    default_model_gpu = declared.model_gpu if declared is not None else "0"
+    default_sim_gpu = declared.simulator_gpu if declared is not None else "1"
+    model_gpu = os.environ.get("I4H_RL_MODEL_GPU", default_model_gpu).strip()
+    sim_gpu = os.environ.get("I4H_RL_SIM_GPU", default_sim_gpu).strip()
     if not model_gpu or not sim_gpu:
         raise SystemExit("I4H_RL_MODEL_GPU and I4H_RL_SIM_GPU must name visible physical GPUs")
-    if model_gpu == sim_gpu:
-        raise SystemExit("RLinf model and simulator processes require distinct GPUs")
+    if model_gpu == sim_gpu and (declared is None or not declared.allow_shared_gpu):
+        raise SystemExit("RLinf profile does not allow model and simulator processes to share a GPU")
     return model_gpu, sim_gpu
 
 
@@ -205,12 +252,16 @@ def _model_preflight(runtime: Path, env: dict[str, str], *, require_two_gpus: bo
     print(result.stdout.strip())
 
 
-def _sim_preflight(sim_runtime: Path, env: dict[str, str]) -> None:
-    probe = (
-        "import i4h_arena, isaaclab, isaaclab_arena; "
-        "from i4h_rl import sim_server; "
-        "print('RLinf simulator runtime imports: OK')"
-    )
+def _sim_preflight(sim_runtime: Path, env: dict[str, str], fluoro_device: str | None = None) -> None:
+    probe = "import i4h_arena, isaaclab, isaaclab_arena; from i4h_rl import sim_server; "
+    if fluoro_device == "cuda":
+        # Slang's CUDA device needs the toolkit's NVRTC; without it the sensor fails after Kit boots.
+        probe += (
+            "from i4h_arena.medical.slang_cuda import check_slang_cuda_device; "
+            "failure = check_slang_cuda_device(); "
+            "failure is None or exit('simulation.fluoro_device cuda: ' + failure); "
+        )
+    probe += "print('RLinf simulator runtime imports: OK')"
     result = subprocess.run([str(sim_runtime), "-c", probe], env=env, text=True, capture_output=True, check=False)
     if result.returncode:
         detail = (result.stderr or result.stdout).strip().splitlines()
@@ -219,21 +270,29 @@ def _sim_preflight(sim_runtime: Path, env: dict[str, str]) -> None:
     print(result.stdout.strip())
 
 
+def _simulation_args(simulation: SimulationProfile) -> list[str]:
+    """Simulator flags the profile's ``simulation`` block sets."""
+    args = [
+        "--env-spacing",
+        str(simulation.env_spacing),
+        "--presets",
+        simulation.presets,
+        "--enable-cameras" if simulation.enable_cameras else "--no-enable-cameras",
+    ]
+    if simulation.fluoro_device is not None:
+        args += ["--fluoro-device", simulation.fluoro_device]
+    return args
+
+
 def _episode_steps(profile: RLProfile, *, only_eval: bool, overrides: tuple[str, ...]) -> int:
+    from i4h_rl.composition import compose_config
+
     section = "eval" if only_eval else "train"
-    raw = _config(profile)
-    try:
-        value = int(raw["env"][section]["max_episode_steps"])
-    except (KeyError, TypeError, ValueError) as exc:
-        raise SystemExit(f"{profile.trainer_config}: env.{section}.max_episode_steps must be an integer") from exc
+    config = compose_config(profile.trainer_config, overrides)
     override_key = f"env.{section}.max_episode_steps"
-    for override in overrides:
-        key, _, setting = override.partition("=")
-        if key == override_key:
-            try:
-                value = int(setting)
-            except ValueError as exc:
-                raise SystemExit(f"{override_key} must be an integer") from exc
+    value = config.env[section].max_episode_steps
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise SystemExit(f"{override_key} must be an integer")
     if value < 1:
         raise SystemExit(f"{override_key} must be positive")
     return value
@@ -432,6 +491,32 @@ print(json.dumps(metrics, sort_keys=True))
     return True
 
 
+def verify_evaluation_video(video_dir: Path, runtime: Path, env: dict[str, str]) -> bool:
+    """A requested video is part of the result, even when a worker only warns."""
+    videos = sorted(video_dir.rglob("*.mp4"))
+    if not videos or any(path.stat().st_size == 0 for path in videos):
+        print(f"requested evaluation video is missing or empty under {video_dir}", file=sys.stderr)
+        return False
+    probe = """
+import imageio.v3 as iio
+import sys
+for path in sys.argv[1:]:
+    frame = iio.imread(path, plugin="pyav", index=0)
+    assert frame.ndim == 3 and frame.size > 0, path
+"""
+    result = subprocess.run(
+        [str(runtime), "-c", probe, *(str(path) for path in videos)],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode:
+        print(f"requested evaluation video cannot be decoded: {result.stderr.strip()}", file=sys.stderr)
+        return False
+    return True
+
+
 def validate_launch(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -> None:
     bundle: dict[str, object] | None = None
     if args.only_eval:
@@ -457,8 +542,61 @@ def validate_launch(args: argparse.Namespace, profile: RLProfile, workflows_root
     model_path = resolve_input_path(workflows_root, model_value)
     if not model_path.exists():
         raise SystemExit(f"--model-path does not exist: {model_path}")
+    from i4h_rl.composition import compose_config
+
+    # Hydra/OmegaConf stay out of module import so the light workflow venv can
+    # collect this backend without the RL project's dependencies.
+    config = compose_config(profile.trainer_config, args.overrides)
+    # N1.7 carries its checkpoint contract in dataset_statistics.json instead.
+    if _gr00t_task_dir(profile) == "gr00t_n15":
+        tag = str(config.env.train.isaaclab.embodiment_tag)
+        metadata_path = model_path / "experiment_cfg/metadata.json"
+        try:
+            metadata = json.loads(metadata_path.read_text())
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"cannot read checkpoint embodiment metadata {metadata_path}: {exc}") from exc
+        if not isinstance(metadata, dict) or not isinstance(metadata.get(tag), dict) or not metadata[tag]:
+            raise SystemExit(
+                f"{metadata_path} has no metadata for embodiment {tag!r}; use a checkpoint fine-tuned for "
+                "the workflow's modalities and normalization statistics, not an unadapted base model"
+            )
+    if not args.only_eval:
+        num_envs = args.num_envs if args.num_envs is not None else profile.default_num_envs
+        validate_training_batch(config, num_envs)
     args.resolved_model_path = model_path
     print(f"model: {model_path}")
+    model_gpu, sim_gpu = _gpu_assignment(profile)
+    args.resolved_model_gpu = model_gpu
+    args.resolved_sim_gpu = sim_gpu
+    placement = f"model={model_gpu}, simulator={sim_gpu}"
+    if model_gpu == sim_gpu:
+        placement += " (shared physical GPU)"
+    print(f"GPU placement: {placement}")
+
+
+def validate_training_batch(config, num_envs: int) -> None:
+    """Reject unsupported sample/batch combinations before collecting hours of rollouts."""
+    values = (
+        config.env.train.rollout_epoch,
+        config.env.train.max_steps_per_rollout_epoch,
+        config.actor.model.num_action_chunks,
+        config.actor.global_batch_size,
+        num_envs,
+    )
+    if any(isinstance(value, bool) or not isinstance(value, int) or value <= 0 for value in values):
+        raise SystemExit(
+            "rollout epochs, steps, action chunks, global batch size, and environment count "
+            "must be positive integers"
+        )
+    epochs, steps, chunks, batch, num_envs = values
+    if steps % chunks:
+        raise SystemExit(f"rollout steps {steps} must be divisible by num_action_chunks {chunks}")
+    samples = epochs * (steps // chunks) * num_envs
+    if samples % batch:
+        raise SystemExit(
+            f"{samples} rollout samples are not divisible by actor.global_batch_size={batch}; "
+            "choose a dividing batch size or a compatible environment count"
+        )
 
 
 def launch(
@@ -470,22 +608,44 @@ def launch(
     epochs: int,
     overrides: tuple[str, ...],
 ) -> int:
+    from i4h_rl.composition import compose_config, configure_launch, eval_video_dir, write_runtime_config
+
+    config = compose_config(profile.trainer_config, overrides)
     model_path = args.resolved_model_path
     native_checkpoint: Path | None = None
     if args.only_eval:
         checkpoint_source = resolve_input_path(workflows_root, args.rl_model_path)
         native_checkpoint = checkpoint_root(weights(checkpoint_source))
+    resume_dir = None
+    if args.resume_dir:
+        resume_source = resolve_input_path(workflows_root, args.resume_dir)
+        resume_dir = checkpoint_root(weights(resume_source))
 
-    model_runtime = _model_runtime_python(workflows_root, args.runtime_python)
+    model_runtime = _model_runtime_python(workflows_root, args.runtime_python, profile.model_runtime)
     sim_runtime = _sim_runtime_python(workflows_root, args.sim_runtime_python)
     model_env = _runtime_env(workflows_root, profile)
-    model_gpu, sim_gpu = _gpu_assignment()
-    _model_preflight(model_runtime, model_env, require_two_gpus=True)
-    sim_env = _sim_env(workflows_root, model_env, gpu=sim_gpu)
-    _sim_preflight(sim_runtime, sim_env)
-
+    model_gpu = args.resolved_model_gpu
+    sim_gpu = args.resolved_sim_gpu
+    shared_gpu = model_gpu == sim_gpu
     run_dir = resolve_run_dir(workflows_root, profile.workflow, args.run_dir)
     run_dir.mkdir(parents=True, exist_ok=False)
+    require_video = configure_launch(
+        config,
+        model_path=model_path,
+        run_dir=run_dir,
+        num_envs=num_envs,
+        max_epochs=epochs,
+        only_eval=args.only_eval,
+        video=args.video,
+        resume_dir=resume_dir,
+        rl_model_path=native_checkpoint,
+    )
+    runtime_config = write_runtime_config(config, run_dir)
+    model_env["RLINF_CONFIG_FILE"] = str(runtime_config)
+    _model_preflight(model_runtime, model_env, require_two_gpus=not shared_gpu)
+    sim_env = _sim_env(workflows_root, model_env, gpu=sim_gpu)
+    _sim_preflight(sim_runtime, sim_env, profile.simulation.fluoro_device)
+
     metadata = {
         "schema_version": 1,
         "workflow": profile.workflow,
@@ -496,6 +656,7 @@ def launch(
         "adapter_module": profile.adapter_module,
         "model_path": str(model_path),
         "trainer_config": str(profile.trainer_config),
+        "runtime_config": str(runtime_config),
         "run_dir": str(run_dir),
         "num_envs": num_envs,
         "max_epochs": epochs,
@@ -503,6 +664,10 @@ def launch(
         "simulator_runtime": str(sim_runtime),
         "model_gpu": model_gpu,
         "simulator_gpu": sim_gpu,
+        "shared_gpu": shared_gpu,
+        # The physics and success criterion this run was given from the
+        # environment, which nothing recorded before.
+        "overrides": environment_overrides(),
         "created_at": datetime.now(UTC).isoformat(),
     }
     if native_checkpoint is not None:
@@ -514,7 +679,7 @@ def launch(
         "-m",
         "i4h_rl.launcher",
         "--config",
-        str(profile.trainer_config),
+        str(runtime_config),
         "--model-path",
         str(model_path),
         "--run-dir",
@@ -528,13 +693,12 @@ def launch(
         command.append("--only-eval")
     if args.video:
         command.append("--video")
-    if args.resume_dir:
-        resume_source = resolve_input_path(workflows_root, args.resume_dir)
-        command.extend(("--resume-dir", str(checkpoint_root(weights(resume_source)))))
+    if resume_dir is not None:
+        command.extend(("--resume-dir", str(resume_dir)))
     if native_checkpoint is not None:
         command.extend(("--rl-model-path", str(native_checkpoint)))
-    for override in overrides:
-        command.extend(("--set", override))
+    # Overrides are already composed into runtime_config. Applying them twice
+    # would reject Hydra '+' additions and could diverge from preflight.
 
     socket_path = Path("/tmp") / f"i4h-rl-{os.getpid()}.sock"
     ready_file = run_dir / "simulator.ready"
@@ -553,12 +717,14 @@ def launch(
         str(num_envs),
         "--max-episode-steps",
         str(_episode_steps(profile, only_eval=args.only_eval, overrides=overrides)),
-        "--env-spacing",
-        str(profile.simulation.env_spacing),
-        "--presets",
-        profile.simulation.presets,
-        "--enable-cameras" if profile.simulation.enable_cameras else "--no-enable-cameras",
+        *_simulation_args(profile.simulation),
     ]
+    patient_twin = getattr(args, "resolved_patient_twin", None)
+    if patient_twin is not None:
+        # Already resolved and existence-checked by the caller. Passed as an
+        # absolute path because the simulator runs with cwd set to the
+        # repository root, which is not where the user invoked this.
+        sim_command += ["--patient-twin", str(patient_twin)]
     bridge_key = secrets.token_hex(32)
     sim_env["I4H_RL_SIM_AUTHKEY"] = bridge_key
     model_env["I4H_RL_SIM_AUTHKEY"] = bridge_key
@@ -591,6 +757,8 @@ def launch(
     if return_code != 0:
         return return_code
     if args.only_eval:
+        if require_video and not verify_evaluation_video(eval_video_dir(config, run_dir), model_runtime, model_env):
+            return 1
         if not finalize_evaluation(run_dir, metadata, runtime=model_runtime, env=model_env):
             print(
                 f"RLinf evaluation exited successfully but produced no complete metrics under {run_dir}",
@@ -613,8 +781,10 @@ def export(args: argparse.Namespace, profile: RLProfile, workflows_root: Path) -
         resolved_train_config = train_config(checkpoint_source, actor_weights)
     if resolved_train_config is not None and not resolved_train_config.is_file():
         raise SystemExit(f"--train-config does not exist: {resolved_train_config}")
-    runtime = _model_runtime_python(workflows_root, args.runtime_python)
+    runtime = _model_runtime_python(workflows_root, args.runtime_python, profile.model_runtime)
     env = _runtime_env(workflows_root, profile)
+    if resolved_train_config is not None:
+        env["RLINF_CONFIG_FILE"] = str(resolved_train_config)
     _model_preflight(runtime, env, require_two_gpus=False)
     output = resolve_output_path(workflows_root, args.output_dir)
     output.mkdir(parents=True, exist_ok=True)

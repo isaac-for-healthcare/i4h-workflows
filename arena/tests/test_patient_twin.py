@@ -8,7 +8,7 @@ import pytest
 import yaml
 from conftest import to_scan
 
-from i4h_arena.embodiments.catheter import reference_initial_catheter_length_m
+from i4h_arena.embodiments.catheter import route_initial_catheter_length_m
 from i4h_arena.medical.patient_twin import PatientTwin
 
 SHAPE_IJK = (4, 5, 6)
@@ -93,8 +93,6 @@ def test_width_is_the_left_right_extent_of_the_grid(write_patient_bundle) -> Non
     expected = 4 * 2.0 * np.cos(_ANGLE) + 5 * 1.5 * np.sin(_ANGLE)
 
     assert twin.width_mm == pytest.approx(expected)
-    assert reference_initial_catheter_length_m(twin, fallback_m=1.0) == pytest.approx(0.65 * expected * 0.001)
-    assert reference_initial_catheter_length_m(twin, fallback_m=0.001) == 0.001
 
 
 def test_legacy_schema_one_bundles_are_rejected_with_a_rebuild_hint(write_patient_bundle) -> None:
@@ -125,3 +123,40 @@ def test_inconsistent_manifests_are_rejected(write_patient_bundle, edit, match) 
 
     with pytest.raises(ValueError if match != "does not exist" else FileNotFoundError, match=match):
         PatientTwin.load(manifest)
+
+
+def test_route_initial_catheter_length_leaves_the_allowance_to_insert() -> None:
+    assert np.isclose(route_initial_catheter_length_m(0.6463, allowance_m=0.12), 0.5263)
+
+
+def test_route_initial_catheter_length_fits_the_scenes_step_budget() -> None:
+    """The default has to leave less route than one episode can insert.
+
+    600 steps at 30 Hz is twenty seconds, and the insertion slider defaults to
+    9 mm/s, so 180 mm is the ceiling. This is the property the old CT-width
+    rule violated on ``s0011``, where it asked for 343 mm.
+    """
+    insertable_m = (600 / 30.0) * 0.009
+
+    remaining_m = 0.6463 - route_initial_catheter_length_m(0.6463)
+
+    assert remaining_m < insertable_m
+
+
+def test_route_initial_catheter_length_keeps_a_short_route_seeded() -> None:
+    """A route shorter than the allowance still seeds a shaft to insert along."""
+    length_m = route_initial_catheter_length_m(0.05, allowance_m=0.12)
+
+    assert length_m > 0.0
+    assert np.isclose(length_m, 0.005)
+
+
+@pytest.mark.parametrize("route_length_m", [0.0, -0.1, float("nan")])
+def test_route_initial_catheter_length_rejects_an_unusable_route(route_length_m) -> None:
+    with pytest.raises(ValueError, match="route_length_m"):
+        route_initial_catheter_length_m(route_length_m)
+
+
+def test_route_initial_catheter_length_rejects_an_unusable_allowance() -> None:
+    with pytest.raises(ValueError, match="allowance_m"):
+        route_initial_catheter_length_m(0.6463, allowance_m=0.0)

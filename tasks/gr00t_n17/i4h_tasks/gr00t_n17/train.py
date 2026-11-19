@@ -14,8 +14,24 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from pathlib import Path
 
 logger = logging.getLogger("i4h_tasks.gr00t_n17.train")
+
+
+def _modality_config_file(module: str) -> Path:
+    """Resolve ``train.modality_config`` to the file the launcher loads.
+
+    Manifests name a module beside this one rather than carrying a path, since
+    an absolute path in a manifest would only be correct on the machine that
+    wrote it. Missing files raise here instead of at the launcher, where a
+    wrong path would look like the modality config simply registering nothing.
+    """
+    path = Path(__file__).resolve().parent / f"{module}.py"
+    if not path.is_file():
+        available = sorted(p.stem for p in path.parent.glob("config*.py"))
+        raise FileNotFoundError(f"no modality config {module!r} at {path}; have {available}")
+    return path
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,6 +47,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tune-visual", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--tune-projector", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--tune-diffusion-model", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument(
+        "--video-backend",
+        choices=("torchcodec", "decord"),
+        default=None,
+        help="camera video decoder; unset uses torchcodec when installed, else decord (Linux aarch64)",
+    )
     parser.add_argument("--dry-run", action="store_true", help="resolve config and print it, then stop")
     parser.add_argument("--verbose", action="store_true")
     return parser
@@ -70,17 +92,31 @@ def main(argv: list[str] | None = None) -> int:
             ("tune_visual", args.tune_visual),
             ("tune_projector", args.tune_projector),
             ("tune_diffusion_model", args.tune_diffusion_model),
+            ("video_backend", args.video_backend),
         )
         if v is not None
     }
     for field_name in ("output_dir", "max_steps", "save_steps", "batch_size", "tune_visual"):
         if field_name not in overrides and task_spec.train.get(field_name) is not None:
             overrides[field_name] = task_spec.train[field_name]
+    # Declared under the name a human writes, applied under the name TrainConfig
+    # uses. Without these two the manifest values were read and dropped, so a
+    # task asking for a different base model or a different modality config got
+    # the SO-ARM defaults and no warning.
+    if "base_model_path" not in overrides and task_spec.train.get("base_model") is not None:
+        overrides["base_model_path"] = str(task_spec.train["base_model"])
+    # Declared under `model` so the inference server reads the same value; a
+    # modality config that differed between training and serving would produce
+    # a checkpoint that loads and then reads the wrong columns.
+    modality_config = task_spec.model.get("modality_config")
+    if modality_config is not None:
+        overrides["modality_config_path"] = str(_modality_config_file(str(modality_config)))
     cfg = _finetune.TrainConfig(dataset_path=[resolve_dataset(d) for d in args.dataset], **overrides)
 
     if args.dry_run:
         for field_name in sorted(vars(cfg)):
             print(f"  {field_name} = {getattr(cfg, field_name)!r}")
+        _finetune.check_video_codecs(cfg.dataset_path[0], cfg.video_backend)
         return 0
 
     _finetune.run(cfg)

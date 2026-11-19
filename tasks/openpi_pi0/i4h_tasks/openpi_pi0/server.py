@@ -11,8 +11,10 @@ long horizon (50) that the arena side consumes over many ticks.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -20,8 +22,27 @@ import numpy as np
 
 from i4h_common.bus.messages import ObsFrame
 from i4h_common.server import ActionContract, PolicyServer, Session
+from i4h_tasks.openpi_pi0.runtime import configure_xla, cuda_compute_capability
 
 logger = logging.getLogger("i4h_tasks.openpi_pi0")
+
+#: Image size PI0 was trained on; ``infer`` pads every camera to it.
+IMAGE_SIZE = (224, 224)
+#: Franka joints in the state vector; ``infer`` passes the first seven.
+STATE_DIM = 7
+
+
+def checkpoint_asset_id(checkpoint: str) -> str:
+    """Resolve the single normalization identity saved by OpenPI, without a dataset."""
+    assets = Path(checkpoint).expanduser().resolve() / "assets"
+    stats = sorted(path for path in assets.rglob("norm_stats.json") if path.is_file())
+    if len(stats) != 1 or stats[0].parent == assets:
+        found = [str(path.relative_to(assets)) for path in stats]
+        raise ValueError(
+            f"{checkpoint}: expected exactly one normalization asset under assets/<asset_id>/norm_stats.json; "
+            f"found {len(stats)}: {found}"
+        )
+    return stats[0].parent.relative_to(assets).as_posix()
 
 
 class OpenPiPi0Server(PolicyServer):
@@ -36,6 +57,7 @@ class OpenPiPi0Server(PolicyServer):
         if key in self._policies:
             return
 
+        configure_xla(cuda_compute_capability())
         from openpi.policies import policy_config
 
         model = session.model
@@ -54,14 +76,56 @@ class OpenPiPi0Server(PolicyServer):
 
         config_name = str(model.get("config", "robotic_ultrasound"))
         repo_id = str(model.get("repo_id", "i4h/sim_liver_scan"))
+        config = get_config(name=config_name, repo_id=repo_id)
+        if session.checkpoint:
+            from openpi.shared import normalize
+
+            asset_id = checkpoint_asset_id(path)
+            assets_dir = Path(path).expanduser().resolve() / "assets"
+            # Validate the saved statistics before create_trained_policy loads weights.
+            normalize.load(assets_dir / asset_id)
+            config = dataclasses.replace(
+                config,
+                data=dataclasses.replace(
+                    config.data,
+                    assets=dataclasses.replace(config.data.assets, assets_dir=str(assets_dir), asset_id=asset_id),
+                ),
+            )
         logger.info("loading PI0 %s (config=%s repo_id=%s)", path, config_name, repo_id)
-        self._policies[key] = policy_config.create_trained_policy(
-            get_config(name=config_name, repo_id=repo_id),
+        policy = policy_config.create_trained_policy(
+            config,
             path,
         )
+        self._warm_up(policy, session)
+        self._policies[key] = policy
+
+    def _warm_up(self, policy: Any, session: Session) -> None:
+        """Run one inference on a blank frame so JAX compiles PI0 before the session is ready.
+
+        JAX compiles the sampling loop on its first call. Left to the first real
+        frame, that compile ran inside arena's 30 s action timeout, and longer
+        than it on an L30, so the episode failed at step 0 with no action
+        (NVBug 6935977). Here it runs inside ``load``: during preload, which
+        run.sh waits for before starting the simulator, or before the session
+        reports ready.
+        """
+        blank = np.zeros((*IMAGE_SIZE, 3), dtype=np.uint8)
+        started = time.monotonic()
+        policy.infer(self._observation(session, np.zeros(STATE_DIM), {"room": blank, "wrist": blank}))
+        logger.info("compiled PI0 with a warm-up inference in %.1fs", time.monotonic() - started)
 
     def _cache_key(self, session: Session) -> str:
-        return f"{session.checkpoint or session.model.get('repo', '')}|{session.model.get('config', '')}"
+        identity = (
+            checkpoint_asset_id(session.checkpoint)
+            if session.checkpoint
+            else str(session.model.get("repo_id", "i4h/sim_liver_scan"))
+        )
+        path = (
+            str(Path(session.checkpoint).expanduser().resolve())
+            if session.checkpoint
+            else session.model.get("repo", "")
+        )
+        return f"{path}|{session.model.get('config', 'robotic_ultrasound')}|{identity}"
 
     def unload(self, session: Session) -> None:
         pass  # cached across episodes
@@ -74,26 +138,28 @@ class OpenPiPi0Server(PolicyServer):
         if policy is None:
             return None
 
+        result = policy.infer(self._observation(session, frame.state, session.images(frame)))
+        actions = np.atleast_2d(np.asarray(result["actions"], dtype=np.float32))
+        # The simulator's relative IK action is exactly dx,dy,dz,axis-angle.
+        return actions[: min(5, session.execution_steps, len(actions)), :6]
+
+    @staticmethod
+    def _observation(session: Session, state: Any, images: dict[str, np.ndarray]) -> dict[str, Any]:
         from openpi_client import image_tools
 
-        images = session.images(frame)
         observation: dict[str, Any] = {
-            "observation/state": np.asarray(frame.state, dtype=np.float64)[:7],
+            "observation/state": np.asarray(state, dtype=np.float64)[:STATE_DIM],
             "prompt": session.prompt,
         }
         if "room" in images:
             observation["observation/image"] = image_tools.convert_to_uint8(
-                image_tools.resize_with_pad(images["room"], 224, 224)
+                image_tools.resize_with_pad(images["room"], *IMAGE_SIZE)
             )
         if "wrist" in images:
             observation["observation/wrist_image"] = image_tools.convert_to_uint8(
-                image_tools.resize_with_pad(images["wrist"], 224, 224)
+                image_tools.resize_with_pad(images["wrist"], *IMAGE_SIZE)
             )
-
-        result = policy.infer(observation)
-        actions = np.atleast_2d(np.asarray(result["actions"], dtype=np.float32))
-        # The simulator's relative IK action is exactly dx,dy,dz,axis-angle.
-        return actions[: min(5, session.execution_steps, len(actions)), :6]
+        return observation
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -113,6 +179,7 @@ def main(argv: list[str] | None = None) -> int:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="[openpi-pi0] %(message)s",
     )
+    configure_xla(cuda_compute_capability())
     server = OpenPiPi0Server(namespace=args.namespace)
     if args.preload_only:
         if not args.preload:

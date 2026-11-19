@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
+from i4h_common.annotate import Annotate
+
 if TYPE_CHECKING:
     from i4h_engine.graph import TaskGraph
 
@@ -22,12 +24,17 @@ GoalPredicate = Callable[[Any], Any]
 
 @dataclass(frozen=True, slots=True)
 class Workflow:
-    """One authored capability: its Scene, modes, and optional goal predicate."""
+    """One authored capability: its Scene, modes, and optional goal predicate.
+
+    ``annotate`` says how a vision model grades this workflow's recordings: the
+    visible counterpart of ``success``, shared by every mode that records it.
+    """
 
     scene: str
     modes: Mapping[str, TaskGraphBuilder]
     default_mode: str = "idle"
     success: GoalPredicate | None = None
+    annotate: Annotate | None = None
 
     def __post_init__(self) -> None:
         if not self.scene:
@@ -41,4 +48,6 @@ class Workflow:
             raise ValueError(f"default mode {self.default_mode!r} is not exposed; available: {sorted(normalized)}")
         if any(not callable(builder) for builder in normalized.values()):
             raise TypeError("every workflow mode must be callable")
+        if self.annotate is not None and not isinstance(self.annotate, Annotate):
+            raise TypeError(f"workflow annotate must be an Annotate, got {type(self.annotate).__name__}")
         object.__setattr__(self, "modes", MappingProxyType(normalized))

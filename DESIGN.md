@@ -202,6 +202,8 @@ The workflow succeeds when all terminal nodes in its selected `TaskGraph` succee
 
 Goal predicates do not replace graph completion. `WORKFLOW.success` is an author-owned predicate that mode builders may pass to a policy or teleop Task as an `until` condition. The Engine does not call it automatically. A `TaskGraph` may also define `timeout_success`, which the Engine evaluates only when the graph exhausts its step budget.
 
+`WORKFLOW.annotate` is the visible counterpart of `success`: an optional `i4h_common.annotate.Annotate` that tells the VLM annotator what success looks like on camera (criterion, cameras, terminal or trajectory judge). It belongs to the workflow rather than to a policy task manifest because it holds for every recording of the workflow, whichever checkpoint, controller, or operator produced it. Lint checks its cameras against the cameras the scene records, and `scripts/e2e/run.sh` passes it to the annotator.
+
 An Engine tick is not automatically a simulation step. If every active node returns `WAITING`, the Engine asks `SimulationRunner` to update the application without advancing physics or consuming the workflow step budget. This is how a remote task can wait for its backend without freezing the UI or moving the world.
 
 Parallel branches are allowed. They may write to different robots or actuation channels in the same tick; two nodes writing the same channel is a hard error.
@@ -292,7 +294,7 @@ The shared HDF5 schema is defined in `common/i4h_common/episode.py` so every wri
 
 ```text
 /data                             attrs: workflow, mode, scene, total
-  /demo_N                         attrs: success, status, episode_index, attempt_index
+  /demo_N                         attrs: success, status, episode_index, attempt_index, recording_version
     actions                       (T, action_width)
     obs/joint_pos                 (T, state_width)
     obs/<camera>                  (T, height, width, 3)
@@ -300,6 +302,8 @@ The shared HDF5 schema is defined in `common/i4h_common/episode.py` so every wri
 ```
 
 Segments use half-open frame ranges `[start, end)` and associate each range with a workflow node and registry task ID. They are optional for compatibility with older recordings, and all readers must tolerate their absence.
+
+Each sample is one simulation step: its action and what the step left behind. The step on which IsaacLab ends an episode through a termination term is not recorded, because `ManagerBasedRLEnv.step` has already reset the environment when it returns, and nothing after it is recorded. The workflow may consume the retained termination signal, including across remote-policy WAITING ticks. If it still requests another physics step, the runner aborts the attempt before advancing, including after a `success` termination. Aborted recordings are kept only with `--record-failures`; the existing retry policy applies. `recording_version` on each demo names the rules it was recorded under; `common/i4h_common/episode.py` documents them.
 
 | Consumer | Use of the recording |
 | --- | --- |
@@ -330,7 +334,7 @@ The author-facing workflow contract is intentionally separate from its implement
 
 | File | Purpose |
 | --- | --- |
-| `engine/i4h_engine/interface.py` | The small author-facing `Workflow` value: `scene`, `modes`, optional `success`, and `default_mode` |
+| `engine/i4h_engine/interface.py` | The small author-facing `Workflow` value: `scene`, `modes`, optional `success` and `annotate`, and `default_mode` |
 | `engine/i4h_engine/graph.py` | The graph-building API: `TaskGraph`, `node`, `task`, control edges, data wiring, and failure policies |
 | `workflows/i4h_workflows/<specialty>/<name>.py` | One specialty-grouped authored module exporting exactly one `WORKFLOW = Workflow(...)` value |
 | `workflows/README.md` | Workflow source layout and specialty catalog |
