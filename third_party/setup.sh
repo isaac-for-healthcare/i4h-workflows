@@ -25,7 +25,7 @@ ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
 # reads it. Override *_REF to test another revision and *_URL to build against a local checkout.
 I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-50056196775fc0ed8cca03bf16144fe71d183ca7}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
-I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-c95ba5caa8ef9b849f3beec03df03cc763ac5a5f}"
+I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-477707547f7d78a23c33616eae4436e70ac5b702}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation"
 I4H_SENSOR_SIM_URL="${I4H_SENSOR_SIM_URL:-https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git}"
 I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-main}"

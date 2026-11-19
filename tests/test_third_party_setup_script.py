@@ -137,7 +137,7 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
     assert result.returncode == 0, result.stderr
     for component, ref in (
         ("physics-simulation-internal", "50056196775fc0ed8cca03bf16144fe71d183ca7"),
-        ("sensor-simulation", "c95ba5caa8ef9b849f3beec03df03cc763ac5a5f"),
+        ("sensor-simulation", "477707547f7d78a23c33616eae4436e70ac5b702"),
         ("digital-twin", "main"),
     ):
         assert any(
