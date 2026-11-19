@@ -138,7 +138,7 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
     for component, ref in (
         ("physics-simulation-internal", "50056196775fc0ed8cca03bf16144fe71d183ca7"),
         ("sensor-simulation", "d7d3f2976ab306a531730772c1d4fa221d6e2247"),
-        ("digital-twin", "f2eb860a54b6b8f9102713fb8b410f5209a3ac67"),
+        ("digital-twin", "0e2d838a7113c9c7bd8481a113e481dae22874d2"),
     ):
         assert any(f"i4h-{component} fetch" in line and line.endswith(f"origin {ref}") for line in git_log.splitlines())
 
