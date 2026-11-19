@@ -391,7 +391,7 @@ From the command line:
 
 The runner streams progress to the terminal and prints the exact per-run `workflow.log` path. It performs setup, policy recording, mimic expansion, VLM filtering, replay, LeRobot conversion, visualization, fine-tuning, and checkpoint validation. Use its `--skip-*` flags to omit optional stages, and `--headless` on a host without a display.
 
-VLM filtering grades each episode against the `annotate` block of the scene manifest (`arena/i4h_arena/scenes/manifest/<scene>.yaml`), which names the visible success criterion, the cameras to show, and whether to judge the final state or the motion; a scene without one is graded on its policy task's prompt. Fine-tuning needs no Weights & Biases account: PI0 logs there only with `--wandb` or `train.wandb: true` in its task manifest, and GR00T logs to TensorBoard.
+VLM filtering grades each episode against the `annotate` block of the scene manifest (`arena/i4h_arena/scenes/manifest/<scene>.yaml`), which names the visible success criterion, the cameras to show, and whether to judge the final state or the motion; a scene without one is graded on its policy task's prompt. Fine-tuning needs no Weights & Biases account: PI0 logs there only with `--wandb` or `train.wandb: true` in its task manifest, and GR00T N1.5 logs to TensorBoard, and GR00T N1.6 and N1.7 print the training loss to the console without writing TensorBoard events.
 
 ## Further Documentation
 

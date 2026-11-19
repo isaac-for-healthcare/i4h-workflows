@@ -77,6 +77,10 @@ Commands use the default image. To use the full image, change only the image sel
 I4H_DOCKER_IMAGE=i4h-workflows:full i4h-docker bash
 ```
 
+### Hosts with more than one GPU
+
+The container sees every GPU on the host, whatever `CUDA_VISIBLE_DEVICES` the host shell sets. On hosts with two different GPU models, such as a DGX Station with a display GPU or an IGX Thor with a discrete GPU, the arena or policy server can then stop at start with `DeferredCudaCallError ... device=1, num_gpus=1`. Give the container one GPU by adding `-e NVIDIA_VISIBLE_DEVICES=<index> \` to the `docker run` command in `i4h-docker`, where `<index>` is the GPU's index in `nvidia-smi`. Use `NVIDIA_VISIBLE_DEVICES` rather than `CUDA_VISIBLE_DEVICES` here: CUDA can number the GPUs in a different order from `nvidia-smi`.
+
 ## Commands
 
 | Container command | Use it for |
@@ -142,6 +146,15 @@ docker run --rm -d \
   -v i4h-state:/opt/i4h-state \
   nvcr.io/nvidia/vllm:26.03.post1-py3 \
   vllm serve Qwen/Qwen3-VL-8B-Instruct --port 8000 --dtype auto --gpu-memory-utilization 0.4 --max-model-len 32768 --trust-remote-code
+```
+
+The model takes about two minutes to download and load on a fresh `i4h-state` volume. Wait until the server answers before grading:
+
+```bash
+until curl -sf http://localhost:8000/health >/dev/null; do
+  docker container inspect i4h-workflows-vllm >/dev/null 2>&1 || { echo "vLLM exited before it was ready" >&2; break; }
+  sleep 5
+done
 ```
 
 Grade a recording with the i4h image:

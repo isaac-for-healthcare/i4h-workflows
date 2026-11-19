@@ -82,8 +82,12 @@ class TrainConfig:
     dataloader_num_workers: int = 8
     """Number of workers for data loading."""
 
-    report_to: Literal["wandb", "tensorboard"] = "tensorboard"
-    """Where to report training metrics."""
+    report_to: Literal["none", "wandb"] = "none"
+    """Where to report training metrics: ``wandb``, or ``none`` for the console only.
+
+    Isaac-GR00T's ``launch_finetune.py`` exposes only ``--use_wandb`` and otherwise
+    hands the trainer ``report_to="none"``, so there is no TensorBoard option.
+    """
 
     state_dropout_prob: float = 0.2
     """Probability of dropping out state inputs during training."""

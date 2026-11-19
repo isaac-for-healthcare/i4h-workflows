@@ -65,6 +65,19 @@ class LayerRule:
         return self.source
 
 
+#: The policy stacks and the i4h packages that wrap them. Only their own remote
+#: backends may import these; DESIGN.md keeps them out of Arena and workflows.
+POLICY_STACKS = frozenset(
+    {
+        "i4h_tasks.gr00t_n15",
+        "i4h_tasks.gr00t_n16",
+        "i4h_tasks.gr00t_n17",
+        "i4h_tasks.openpi_pi0",
+        "gr00t",
+        "openpi",
+    }
+)
+
 #: Internal packages, in layering order. Anything at or above a project's own
 #: level is `never` for that project.
 RULES = [
@@ -96,10 +109,11 @@ RULES = [
     ),
     *[
         LayerRule(
+            # Offline tools import `common` only among i4h layers.
             f"tools/{name}/i4h_tools",
             never=frozenset({"i4h_arena", "i4h_rl", "isaacsim", "isaaclab"}),
         )
-        for name in ("mimic", "dataset", "cosmos", "annotator")
+        for name in ("mimic", "dataset", "cosmos", "annotator", "patient_twin")
     ],
     *[
         LayerRule(

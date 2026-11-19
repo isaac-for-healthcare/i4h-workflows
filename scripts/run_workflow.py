@@ -281,6 +281,8 @@ def plan(argv: list[str]) -> Plan:
     if mode not in workflow.mode_names():
         raise UsageError(f"{workflow.name} has no mode {mode!r}; it has {', '.join(workflow.mode_names())}")
     spec = workflow.modes.get(mode, {})
+    if mode == "replay" and not _caller_path(args.replay).is_file():
+        raise UsageError(f"no recording at {_caller_path(args.replay)}")
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = _caller_path(args.run_dir) if args.run_dir else ROOT / "runs" / workflow.name / stamp

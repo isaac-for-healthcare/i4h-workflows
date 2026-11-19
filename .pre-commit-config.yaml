@@ -56,6 +56,9 @@ repos:
     rev: v0.47.0
     hooks:
       - id: markdownlint
+        # Install pre-commit's own Node LTS instead of a system Node: v0.47.0
+        # needs Node 20+, and Ubuntu 24.04's archive ships Node 18.
+        language_version: lts
         args: [--fix, --config, .markdownlint.yaml]
         files: ^.*\.md$
         # .claude/ and .codex/ hold agent/skill docs (SKILL.md), not project

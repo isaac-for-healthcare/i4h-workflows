@@ -86,6 +86,9 @@ ISAACLAB_FORMAT_VERSION_ATTR = "format_version"
 #: Isaac Lab's ``DATASET_FORMAT_VERSION`` for xyzw quaternions, which is what
 #: ``InteractiveScene.get_state`` returns in Isaac Lab 3.
 ISAACLAB_FORMAT_VERSION = 1
+#: Aliases the helpers below use.
+DATASET_FORMAT_VERSION_ATTR = ISAACLAB_FORMAT_VERSION_ATTR
+DATASET_FORMAT_VERSION = ISAACLAB_FORMAT_VERSION
 
 #: h5py structured dtype for the segments dataset.
 SEGMENT_DTYPE = np.dtype(
@@ -143,6 +146,21 @@ def from_workflow_runtime(handle: h5py.File) -> bool:
 def recording_version(demo: h5py.Group) -> int:
     """The recording rules ``demo`` was written under; ``0`` when it predates them."""
     return int(demo.attrs.get(RECORDING_VERSION_ATTR, 0))
+
+
+def dataset_format_version(handle: h5py.File) -> int:
+    """The dataset format ``handle`` is in, reading an undeclared file as XYZW.
+
+    Isaac Lab reads a file without ``format_version`` as ``0``, legacy WXYZ. i4h
+    does not: every root pose i4h has recorded is XYZW, and files without the
+    attribute were written before i4h declared it.
+    """
+    return int(handle.attrs.get(DATASET_FORMAT_VERSION_ATTR, DATASET_FORMAT_VERSION))
+
+
+def write_dataset_format_version(handle: h5py.File, version: int = DATASET_FORMAT_VERSION) -> None:
+    """Declare ``handle``'s dataset format, so Isaac Lab does not reorder its root poses on load."""
+    handle.attrs[DATASET_FORMAT_VERSION_ATTR] = int(version)
 
 
 def state_path(demo: h5py.Group) -> str | None:

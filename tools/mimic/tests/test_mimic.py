@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 from __future__ import annotations
 
+import os
+
 import h5py
 import numpy as np
 import pytest
 
-from i4h_common.episode import Segment, demo_names, read_segments, write_segments
+from i4h_common.episode import DATASET_FORMAT_VERSION, Segment, demo_names, read_segments, write_segments
 from i4h_tools.mimic.cli import expand
 
 
@@ -131,3 +133,65 @@ def test_empty_recording_is_an_error(tmp_path):
         handle.create_group("data")
     with pytest.raises(ValueError, match="no demo_"):
         expand(path, tmp_path / "out.hdf5", episodes=1)
+
+
+@pytest.mark.parametrize("declared", [None, DATASET_FORMAT_VERSION, 0])
+def test_the_expansion_keeps_the_sources_dataset_format(tmp_path, declared):
+    """The clones keep the source's root poses; an undeclared i4h source is XYZW and must be declared so."""
+    src = _recording(tmp_path / "in.hdf5")
+    if declared is not None:
+        with h5py.File(src, "a") as handle:
+            handle.attrs["format_version"] = declared
+    expand(src, tmp_path / "out.hdf5", episodes=1)
+    with h5py.File(tmp_path / "out.hdf5") as handle:
+        assert handle.attrs["format_version"] == (DATASET_FORMAT_VERSION if declared is None else declared)
+
+
+@pytest.mark.parametrize(
+    "kwargs, message",
+    [
+        ({"successful_only": True}, "no successful demos"),
+        ({"include_source": True, "node": "no_such_node"}, "no demo carries a segment"),
+    ],
+)
+def test_refused_run_keeps_an_existing_output(tmp_path, kwargs, message):
+    """NVBug 7067557: a refusal must not truncate or half-write the output path."""
+    good = _recording(tmp_path / "good.hdf5", demos=2, successes=(True,))
+    out = tmp_path / "out.hdf5"
+    expand(good, out, episodes=3)
+    before = out.read_bytes()
+
+    bad = _recording(tmp_path / "bad.hdf5", demos=1, successes=(False,))
+    with pytest.raises(ValueError, match=message):
+        expand(bad, out, episodes=3, **kwargs)
+
+    assert out.read_bytes() == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["bad.hdf5", "good.hdf5", "out.hdf5"]
+
+
+def test_refused_run_creates_no_output(tmp_path):
+    src = _recording(tmp_path / "in.hdf5", demos=1, successes=(False,))
+    with pytest.raises(ValueError, match="no successful demos"):
+        expand(src, tmp_path / "out.hdf5", episodes=1, successful_only=True)
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["in.hdf5"]
+
+
+def test_output_mode_follows_the_umask(tmp_path):
+    """The staged output is created 0600 by mkstemp; the finished file gets the usual mode."""
+    src = _recording(tmp_path / "in.hdf5", demos=1, successes=(True,))
+    out = tmp_path / "out.hdf5"
+    expand(src, out, episodes=1)
+    umask = os.umask(0)
+    os.umask(umask)
+    assert out.stat().st_mode & 0o777 == 0o666 & ~umask
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["in.hdf5", "out.hdf5"]
+
+
+def test_overwrite_keeps_the_existing_output_mode(tmp_path):
+    """Replacing a private recording must not widen it to the umask default."""
+    src = _recording(tmp_path / "in.hdf5", demos=1, successes=(True,))
+    out = tmp_path / "out.hdf5"
+    expand(src, out, episodes=1)
+    out.chmod(0o600)
+    expand(src, out, episodes=1)
+    assert out.stat().st_mode & 0o777 == 0o600

@@ -73,7 +73,8 @@ def test_every_mode_composes_a_command(name: str, tmp_path) -> None:
     for mode in workflow.mode_names():
         argv = [name]
         if mode == "replay":
-            argv += ["--replay", "demos.hdf5"]
+            (tmp_path / "demos.hdf5").touch()
+            argv += ["--replay", str(tmp_path / "demos.hdf5")]
         elif mode == "teleop":
             argv += ["--teleop"]
         else:
@@ -346,3 +347,8 @@ def test_stop_asks_the_launcher_first(tmp_path, monkeypatch) -> None:
         for pid in (launcher, group):
             with contextlib.suppress(ProcessLookupError):
                 os.killpg(pid, signal.SIGKILL)
+
+
+def test_replay_names_a_missing_recording_before_anything_starts(tmp_path) -> None:
+    with pytest.raises(run_workflow.UsageError, match="no recording at"):
+        _plan("surgical_reach_psm", "--replay", str(tmp_path / "absent.hdf5"))
