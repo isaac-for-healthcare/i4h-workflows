@@ -12,8 +12,8 @@
 #
 # Point --model-path at a catheter SFT checkpoint, the same one the armless
 # profile takes. A recording from either Scene trains it: the arm appends
-# `arm.panda_joint*` columns that sit outside the `catheter`/`carm` modality
-# groups the checkpoint reads.
+# `arm.panda_joint*` columns that sit outside the `catheter`, `carm`, `target`
+# and `route` modality groups the checkpoint reads.
 schema_version: 1
 workflow: endoluminal_navigation_arm
 scene: endoluminal_navigation_arm
