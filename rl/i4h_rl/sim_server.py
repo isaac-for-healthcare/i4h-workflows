@@ -52,6 +52,7 @@ def _scene_args(args: argparse.Namespace) -> argparse.Namespace:
         patient_twin=scene_patient_twin(args.patient_twin),
         fluoro_backend=args.fluoro_backend,
         fluoro_device=args.fluoro_device,
+        vessel_contrast=False,
     )
 
 

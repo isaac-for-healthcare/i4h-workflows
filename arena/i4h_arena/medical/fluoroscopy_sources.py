@@ -59,6 +59,52 @@ def bind_fluoroscopy_sources(env: Any) -> None:
         )
     fluoroscopy.bind_catheter_provider(catheter)
     fluoroscopy.bind_carm_provider(carm_provider)
+    _bind_vessel_motion(env, fluoroscopy, catheter)
+
+
+def _bind_vessel_motion(env: Any, fluoroscopy: Any, catheter: Any) -> None:
+    """Connect the deformable wall and the contrast run to the renderer, when the scene has them.
+
+    Skipped rather than failed in every case that is simply an absent piece: a phantom scene
+    with no centerline, a run without the deformation solver, or a renderer not carving the
+    lumen. The frame those produce is the one they produced before.
+    """
+    if not getattr(fluoroscopy.cfg, "vessel_contrast", False) or fluoroscopy.patient_twin is None:
+        return
+
+    from .newton_catheter_physics import active_handle
+
+    handle = active_handle()
+    vessel = None if handle is None else handle.vessel
+    if vessel is None:
+        logger.info("fluoroscopy vessel_contrast is on but the scene has no deformable wall; rendering it at rest")
+        return
+
+    from .patient_volume import PatientVolume
+    from .vessel_motion import CenterlineVesselMotion, ContrastRun
+
+    try:
+        contrast = ContrastRun(PatientVolume.load(fluoroscopy.patient_twin), dt_s=_sensor_dt_s(env, fluoroscopy))
+        fluoroscopy.bind_vessel_provider(
+            CenterlineVesselMotion(fluoroscopy.patient_twin, vessel, contrast=contrast, tip_source=catheter)
+        )
+    except ValueError:
+        # A mismatch here means the solver and the renderer are holding different centerlines,
+        # and compositing one onto the other would put the vessel in the wrong place. Rendering
+        # it at rest is wrong too, but visibly and consistently so.
+        logger.warning("could not match the deformable wall to the rendered centerline", exc_info=True)
+
+
+def _sensor_dt_s(env: Any, fluoroscopy: Any) -> float:
+    """Simulated time between two reads of the fluoroscopy sensor.
+
+    The bolus is advected in seconds, so reading it at the wrong rate makes contrast arrive at
+    the wrong time rather than failing visibly. The sensor's own update period governs when
+    frames are produced; a period of zero means every step, which is the environment's own.
+    """
+    step_dt = float(env.step_dt)
+    period = float(getattr(fluoroscopy.cfg, "update_period", 0.0) or 0.0)
+    return max(period, step_dt)
 
 
 def _scene_data_carm_provider(env: Any, detector_size_m: tuple[float, float]) -> Any | None:

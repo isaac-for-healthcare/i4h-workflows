@@ -474,16 +474,24 @@ def make_assets(
     fluoro_backend: str = "synthetic",
     fluoro_device: str = "vulkan",
     patient_twin_manifest: str | Sequence[str] | None = None,
+    vessel_contrast: bool = False,
 ) -> list[ConfigAsset]:
     """Return the patient/C-arm world and custom image sensor.
 
     A sequence of manifests gives each environment its own patient. The scene
     spawns environment 0's anatomy everywhere; :func:`place_patient_anatomies`
     swaps in the others on startup.
+
+    Raises:
+        ValueError: If ``vessel_contrast`` is requested without the Slang backend,
+            which is the only one with a patient centerline to carve.
     """
+    if vessel_contrast and fluoro_backend != "slang":
+        raise ValueError("vessel contrast needs the Slang fluoroscopy backend and a patient twin")
     source = FluoroscopyCatheterNavigationSceneCfg(env_spacing=4.0)
     source.fluoroscopy.backend = fluoro_backend
     source.fluoroscopy.dsa = fluoro_backend == "slang"
+    source.fluoroscopy.vessel_contrast = vessel_contrast
     source.fluoroscopy.slang_device_type = fluoro_device
     shared = patient_twin_manifest
     if patient_twin_manifest is not None and not isinstance(patient_twin_manifest, str):
