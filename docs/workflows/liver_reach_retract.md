@@ -33,11 +33,11 @@ Generate separate bundles for 8 and 16 environments when needed. Grasped-retract
 ./run.sh liver_reach_retract --replay /path/to/demos.hdf5
 ```
 
-The YAML declaration selects `LiverReferencePolicy`, `LiverExportedPolicy` or the open-jaw idle policy. The normal policy runner and training registration both construct the same custom numerical host. A small Arena dependency patch preserves that entry point in stock Arena tools.
+The YAML declaration selects `LiverReferencePolicy` or `LiverExportedPolicy`. Arena’s shared hold policy honors the host’s explicit open-jaw idle action. The normal policy runner and training registration both construct the same custom numerical host. A small Arena dependency patch preserves that entry point in stock Arena tools.
 
 Isaac Lab recorder terms store actions, observations and complete numerical/probe/task/RNG continuation under `initial_state/i4h`. The host restores this state after normal host reset/kinematic synchronization. Replay requires the recorded world count and compatible model identity. Legacy i4h-runtime HDF5 files use a different format; preserve them as experiment evidence.
 
-The pinned Isaac Lab `replay_demos.py` currently fails headless while constructing its keyboard (`omni.appwindow` unavailable). Use visible native replay. This upstream tool limitation does not change the numerical continuation contract.
+The existing setup-managed Isaac Lab headless-replay patch skips unavailable keyboard controls. Apply setup patches to the pinned checkout before replaying; without that patch the upstream tool fails on `omni.appwindow` in headless mode. Both visible and headless native replay completed in the consolidation checks.
 
 ## Learning and evidence
 
