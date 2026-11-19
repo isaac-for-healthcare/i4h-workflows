@@ -255,6 +255,7 @@ def test_synthetic_fluoroscopy_ignores_distinct_patients():
     sensor._group_env_ids = (np.array([0]), np.array([1]))
     sensor._catheter_provider = None
     sensor._carm_provider = None
+    sensor._vessel_provider = None
     sensor._renderer = SyntheticFluoroscopyRenderer(width=4, height=3)
     sensor._data = fluoroscopy.FluoroscopySensorData(
         output={

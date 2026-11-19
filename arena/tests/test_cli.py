@@ -78,6 +78,18 @@ def test_fluoroscopy_device_is_automatic_by_default() -> None:
     assert _fluoroscopy_args().fluoro_device == "auto"
 
 
+def test_vessel_contrast_is_opt_in() -> None:
+    assert _fluoroscopy_args().vessel_contrast is False
+    assert _fluoroscopy_args("--vessel-contrast").vessel_contrast is True
+
+
+def test_vessel_contrast_without_a_patient_stops_the_run_before_kit() -> None:
+    from i4h_arena.cli import _resolve_fluoroscopy_device
+
+    with pytest.raises(SystemExit, match="--vessel-contrast needs the Slang fluoroscopy backend"):
+        _resolve_fluoroscopy_device(_fluoroscopy_args("--vessel-contrast"))
+
+
 def test_a_cuda_fluoroscopy_device_slang_cannot_create_stops_the_run_before_kit(monkeypatch) -> None:
     from i4h_arena.cli import _resolve_fluoroscopy_device
 

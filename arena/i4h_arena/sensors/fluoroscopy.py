@@ -13,11 +13,11 @@ import warp as wp
 from isaaclab.sensors import SensorBaseCfg
 from isaaclab.sensors.sensor_base import SensorBase
 from isaaclab.utils.configclass import configclass
+from xray_simulator.absorbers import CatheterMaterial
 from xray_simulator.config import DisplaySettings
 
 from i4h_arena.medical.carm import CArmStateProvider
 from i4h_arena.medical.catheter import CatheterState, CatheterStateProvider, StaticCatheterStateProvider
-from i4h_arena.medical.catheter_attenuation import CatheterMaterial
 from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.medical.patient_volume import PatientVolume
 from i4h_arena.medical.slang_fluoroscopy import SlangFluoroscopyRenderer

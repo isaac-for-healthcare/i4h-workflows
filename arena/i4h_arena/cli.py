@@ -115,6 +115,12 @@ def build_parser() -> argparse.ArgumentParser:
         "(default: auto, CUDA when Slang can create a CUDA device, otherwise Vulkan)",
     )
     simulation.add_argument(
+        "--vessel-contrast",
+        action="store_true",
+        help="carve the contrast lumen out of the patient volume and render the vessel's deformation "
+        "and contrast per frame, which also makes DSA a true mask subtraction (Slang backend only)",
+    )
+    simulation.add_argument(
         "--patient-twin",
         action="append",
         default=None,
@@ -248,6 +254,8 @@ def _resolve_fluoroscopy_device(args: argparse.Namespace) -> None:
     from i4h_arena.scenes.endoluminal_navigation import resolve_fluoroscopy_backend
 
     if resolve_fluoroscopy_backend(args.fluoro_backend, args.patient_twin) != "slang":
+        if args.vessel_contrast:
+            raise SystemExit("--vessel-contrast needs the Slang fluoroscopy backend, which renders a --patient-twin")
         if args.fluoro_device == "auto":
             args.fluoro_device = "vulkan"
         return

@@ -81,6 +81,7 @@ class EndoluminalNavigationScene(Scene):
                     fluoro_backend=resolve_fluoroscopy_backend(self.args.fluoro_backend, self.args.patient_twin),
                     fluoro_device=self.args.fluoro_device,
                     patient_twin_manifest=self.args.patient_twin,
+                    vessel_contrast=self.args.vessel_contrast,
                 )
             ),
             task=None,

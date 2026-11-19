@@ -10,21 +10,20 @@ from dataclasses import dataclass, replace
 import numpy as np
 import torch
 from PIL import Image, ImageDraw
+from xray_simulator.absorbers import CatheterAttenuation, CatheterMaterial, DetectorRays
 from xray_simulator.config import DisplaySettings
 from xray_simulator.display import calibrate_display
+from xray_simulator.vessel import VesselContrast, VesselState, subtract
 
 from .carm import CArmState
 from .catheter import CatheterState
-from .catheter_attenuation import CatheterAttenuation, CatheterMaterial
 from .centerline import ordered_centerline_path
-from .contrast_bolus import ContrastAgent, HuToMu
 from .fluoroscopy_display import CinematicStyle, display_frames, percentile, vessel_overlay
 from .fluoroscopy_guidance import draw_catheter_guidance
 from .patient_volume import PatientVolume
 from .slang_cuda import DEVICE_FAILURE, cuda_device_error
-from .vessel_attenuation import VesselAttenuation, VesselState
-from .vessel_carve import CarveResult, carve_lumen, centerline_in_volume_mm, node_contrast_mu_per_mm
 from .vessel_motion import VesselMotion
+from .vessel_twin import vessel_contrast as build_vessel_contrast
 
 logger = logging.getLogger("i4h_arena.fluoroscopy")
 
@@ -114,33 +113,6 @@ def _contrast_bolus_mask(patient: PatientVolume) -> np.ndarray:
     ).astype(np.uint8)
 
 
-def _rest_vessel_state(patient: PatientVolume, carve: CarveResult) -> VesselState:
-    """The vessel where the scan found it, at the contrast the scan was taken with.
-
-    Compositing this on top of the carved volume has to reproduce the original image, because
-    the same geometry is being added back that was taken out. That is the carve's contract, and
-    holding the rest state here means every renderer can check it without a fixture.
-
-    The coefficients are per node rather than the tree's mean, because the lumen's attenuation
-    varies by a third across the anatomy and a single value is what the rest-state residual is
-    actually made of -- not the carve's geometry.
-
-    Raises:
-        ValueError: If the twin declares no centerline edges, since without topology there are
-            no segments to integrate.
-    """
-    edges_path = patient.twin.artifacts.get("centerline_edges")
-    if edges_path is None:
-        raise ValueError("vessel contrast needs the twin's centerline_edges artifact")
-    points_mm, radii_mm = centerline_in_volume_mm(patient)
-    return VesselState(
-        points_mm=points_mm[None].astype(np.float32),
-        edges=np.load(edges_path),
-        radii_mm=radii_mm.astype(np.float32),
-        mu_per_mm=node_contrast_mu_per_mm(patient, carve).astype(np.float32),
-    )
-
-
 def _broadcast_vessel(state: VesselState, num_envs: int) -> VesselState:
     """Repeat a single-environment vessel across a batch that shares one anatomy."""
     return VesselState(
@@ -172,6 +144,18 @@ class ProjectionGeometry:
     pixel_spacing_mm: float
     local_to_volume: np.ndarray
     isocenter_volume_mm: np.ndarray
+
+    def rays(self, *, width: int, height: int) -> DetectorRays:
+        """The renderer's detector rays for this pose, in volume millimetres."""
+        return DetectorRays.from_axes(
+            self.local_to_volume,
+            self.isocenter_volume_mm,
+            source_to_detector_mm=self.source_to_detector_mm,
+            source_to_isocenter_mm=self.source_to_isocenter_mm,
+            width=width,
+            height=height,
+            pixel_spacing_mm=self.pixel_spacing_mm,
+        )
 
 
 def _matrix_to_zxy(matrix: np.ndarray) -> tuple[float, float, float]:
@@ -336,29 +320,33 @@ class SlangFluoroscopyRenderer:
         # With the lumen carved out, what the volume renderer produces is the contrast-free mask
         # frame, and every frame's contrast is composited on top of it. That is the whole reason
         # a bolus can wash in and a wall can move: neither is in the voxels any more.
-        self._vessel_attenuation = VesselAttenuation(device=catheter_device) if vessel_contrast else None
-        self._rest_vessel: VesselState | None = None
-        self._carve = None
+        self._vessel: VesselContrast | None = None
+        self._dsa_display: DisplaySettings | None = None
         render_volume = patient.mu_volume
         if vessel_contrast:
-            self._carve = carve_lumen(patient, supersample=int(carve_supersample))
-            render_volume = self._carve.mu_volume
-            self._rest_vessel = _rest_vessel_state(patient, self._carve)
-            self._hu_to_mu = HuToMu.from_patient(patient)
-            self._contrast_agent = ContrastAgent()
+            self._vessel = build_vessel_contrast(patient, supersample=int(carve_supersample), device=catheter_device)
+            render_volume = self._vessel.mask_volume
             if self._dsa:
-                self._dsa_display = self._subtracted_display(patient, dsa_reference_mg_per_ml)
+                window = self._vessel.subtracted_window(
+                    self._projection.rays(width=self.width, height=self.height), dsa_reference_mg_per_ml
+                )
+                self._dsa_display = replace(self._display, scaling="log", log_window=window)
+                logger.info(
+                    "subtracted-channel window set to line integral %s, from %.0f mg I/mL",
+                    tuple(round(value, 5) for value in window),
+                    dsa_reference_mg_per_ml,
+                )
+            carve = self._vessel.carve
             logger.info(
                 "carved %d voxels (%.1f mL) of contrast lumen; compositing it back at mu %.5f /mm",
-                self._carve.carved_voxels,
-                self._carve.carved_volume_ml,
-                self._carve.contrast_mu_per_mm,
+                carve.carved_voxels,
+                carve.carved_volume_ml,
+                carve.contrast_mu_per_mm,
             )
 
         self._renderer = _build_renderer(
             renderer_class, render_volume, patient.spacing_zyx_mm, base_config, device_type
         )
-        self._dsa_display: DisplaySettings | None = None
         self._dsa_renderer = None
         if self._dsa and vessel_contrast:
             # Nothing to build: the mask is the carved volume this renderer already produces, so
@@ -421,7 +409,7 @@ class SlangFluoroscopyRenderer:
         drr_image = display_frames(transmission, self._display)
         dsa_image = drr_image
         vessel_alpha = None
-        if self._vessel_attenuation is not None and self._dsa:
+        if self._vessel is not None and self._dsa:
             dsa_image, vessel_alpha = self._subtracted(transmission, mask_transmission, vessel_transmission)
         elif self._dsa_renderer is not None:
             boosted_transmission = self._render_volume(self._dsa_renderer, projections)
@@ -571,11 +559,9 @@ class SlangFluoroscopyRenderer:
         Raises:
             ValueError: If the supplied state does not cover every environment.
         """
-        if self._vessel_attenuation is None:
+        if self._vessel is None:
             return None
-        state = vessel if vessel is not None else self._rest_vessel
-        if state is None:
-            return None
+        state = vessel if vessel is not None else self._vessel.rest_state
         if state.points_mm.shape[0] == 1 and num_envs > 1:
             state = _broadcast_vessel(state, num_envs)
         if state.points_mm.shape[0] != num_envs:
@@ -584,12 +570,9 @@ class SlangFluoroscopyRenderer:
         # has to be solved against each projection in turn.
         line_integral = torch.zeros((num_envs, self.height, self.width), device=self._device)
         for env_index in range(num_envs):
-            single = _select_env(state, env_index)
-            line_integral[env_index] = self._vessel_attenuation.line_integral(
-                single,
-                projections[env_index],
-                width=self.width,
-                height=self.height,
+            line_integral[env_index] = self._vessel.line_integral(
+                _select_env(state, env_index),
+                projections[env_index].rays(width=self.width, height=self.height),
                 as_torch=True,
             )[0].to(self._device)
         return torch.exp(-line_integral)
@@ -602,15 +585,12 @@ class SlangFluoroscopyRenderer:
     ) -> tuple[torch.Tensor, torch.Tensor | None]:
         """A true DSA frame: the live image divided by the contrast-free mask.
 
-        Dividing transmissions is subtracting line integrals, which is what a DSA system does in
-        the log domain. Everything static cancels identically -- including the carve's own
-        residual, which on ``s0011`` is several times the wall-motion signal and would otherwise
-        dominate it. That cancellation is why the carve's accuracy stops being a correctness
-        requirement here, and it is the property the boosted-volume path never had, because a
-        brightened vessel is not the same image minus a vessel.
+        Everything static cancels identically -- including the carve's own residual, which on
+        ``s0011`` is several times the wall-motion signal. That cancellation is the property the
+        boosted-volume path never had, because a brightened vessel is not the same image minus a
+        vessel.
         """
-        subtracted = transmission / mask_transmission.clamp(min=1.0e-8)
-        dsa_image = display_frames(subtracted, self._dsa_display or self._display)
+        dsa_image = display_frames(subtract(transmission, mask_transmission), self._dsa_display or self._display)
         if vessel_transmission is None:
             return dsa_image, None
         vessel_signal = (1.0 - vessel_transmission).clamp(min=0.0)
@@ -634,66 +614,12 @@ class SlangFluoroscopyRenderer:
             RuntimeError: If the renderer was built without ``vessel_contrast``, so there is no
                 rest vessel to move.
         """
-        if self._rest_vessel is None:
+        if self._vessel is None:
             raise RuntimeError("this renderer was built without vessel_contrast; there is no vessel to move")
         displacement = np.asarray(motion.displacement_world_m, dtype=np.float64)
         origin = self._patient.world_to_volume_mm(np.zeros((1, 3)))
         shift_mm = self._patient.world_to_volume_mm(displacement.reshape(-1, 3)) - origin
-        points_mm = self._rest_vessel.points_mm + shift_mm.reshape(displacement.shape).astype(np.float32)
-
-        mu_per_mm = self._rest_vessel.mu_per_mm
-        if motion.concentration_mg_per_ml is not None:
-            mu_per_mm = np.broadcast_to(
-                self._contrast_agent.mu_excess(
-                    np.asarray(motion.concentration_mg_per_ml, dtype=np.float64),
-                    baseline_mu=self._carve.fill_mu_per_mm,
-                    curve=self._hu_to_mu,
-                ).astype(np.float32),
-                points_mm.shape[:2],
-            )
-        return replace(self._rest_vessel, points_mm=points_mm, mu_per_mm=mu_per_mm)
-
-    def _subtracted_display(self, patient: PatientVolume, reference_mg_per_ml: float) -> DisplaySettings:
-        """Window the subtracted channel on a fully opacified vessel, computed once.
-
-        A subtracted frame is almost all unattenuated, so the window fitted to the whole anatomy
-        renders it blank. Fitting it adaptively instead is worse: the first frame of an episode is
-        acquired before the injection arrives, so the window lands on an empty image and sticks
-        there, and everything after saturates to pure black on white. Deciding it up front also
-        keeps the mapping identical across runs, which matters when a policy is learning from
-        these pixels and an adaptive window would make the same bolus look different depending on
-        when the episode happened to start.
-
-        The reference is the agent, not the scan. ``s0011``'s lumen is only 1.5 times soft tissue,
-        so it was acquired with little or no contrast, and scaling the display to what that study
-        happens to contain would put an angiographic injection thirty times off the top of the
-        range. What saturates the channel is instead the longest lumen the geometry can cast a ray
-        through, filled with contrast at the concentration an injection actually reaches.
-
-        Args:
-            patient: Supplies the scan's own transfer function, so the reference concentration is
-                converted to attenuation on the same calibration as everything else rendered.
-            reference_mg_per_ml: Iodine concentration that maps to a saturated pixel.
-        """
-        opacified = replace(self._rest_vessel, mu_per_mm=np.ones_like(self._rest_vessel.mu_per_mm))
-        path_mm = self._vessel_attenuation.line_integral(
-            opacified, self._projection, width=self.width, height=self.height
-        )
-        mu_per_mm = float(
-            ContrastAgent().mu_excess(
-                np.asarray([reference_mg_per_ml]),
-                baseline_mu=self._carve.fill_mu_per_mm,
-                curve=HuToMu.from_patient(patient),
-            )[0]
-        )
-        window = (0.0, max(mu_per_mm * float(np.max(path_mm)), 1.0e-6))
-        logger.info(
-            "subtracted-channel window set to line integral %s, from %.0f mg I/mL through %.0f mm of lumen",
-            tuple(round(value, 5) for value in window),
-            reference_mg_per_ml,
-            float(np.max(path_mm)),
-        )
-        return replace(self._display, scaling="log", log_window=window)
+        return self._vessel.state(shift_mm.reshape(displacement.shape), motion.concentration_mg_per_ml)
 
     def _catheter_transmission(
         self, catheter: CatheterState, projections: list[ProjectionGeometry]
@@ -717,9 +643,7 @@ class SlangFluoroscopyRenderer:
             line_integral[env_index] = self._catheter_attenuation.line_integral(
                 points_volume_mm,
                 1000.0 * float(catheter.radius_m),
-                projections[env_index],
-                width=self.width,
-                height=self.height,
+                projections[env_index].rays(width=self.width, height=self.height),
                 as_torch=True,
             ).to(self._device)
         return torch.exp(-line_integral)

@@ -43,6 +43,7 @@ def environment_registration_callback() -> list[str]:
     # whether a twin is present, exactly as it does under the workflow CLI.
     parser.add_argument("--fluoro-backend", dest="fluoro_backend", default=None)
     parser.add_argument("--fluoro-device", dest="fluoro_device", default=None)
+    parser.add_argument("--vessel-contrast", dest="vessel_contrast", action="store_true")
     args, remaining_args = parser.parse_known_args()
 
     if not _simulation_is_running():

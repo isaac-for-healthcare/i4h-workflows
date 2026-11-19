@@ -93,16 +93,16 @@ class ContrastRun:
                 continuously and ignores ``duration_s``.
             flow_ml_per_s: Injector rate, diluted by blood flow at the site.
         """
-        from .contrast_bolus import ContrastAgent, ContrastTransport, HuToMu
-        from .vessel_carve import carve_lumen, centerline_in_volume_mm
+        from xray_simulator.vessel import ContrastAgent, ContrastTransport, carve_lumen
 
-        points_mm, radii_mm = centerline_in_volume_mm(patient)
-        edges = np.load(patient.twin.artifacts["centerline_edges"])
+        from .vessel_twin import hu_to_mu, ijk_to_volume_mm, vessel_tree
+
+        tree = vessel_tree(patient)
         self._patient = patient
-        self._transport = ContrastTransport(points_mm, edges, radii_mm)
+        self._transport = ContrastTransport(tree.points_mm, tree.edges, tree.radii_mm)
         self._agent = ContrastAgent()
-        self._curve = HuToMu.from_patient(patient)
-        self._baseline_mu = carve_lumen(patient).fill_mu_per_mm
+        self._curve = hu_to_mu(patient)
+        self._baseline_mu = carve_lumen(patient.mu_volume, ijk_to_volume_mm(patient), tree).fill_mu_per_mm
         self._dt_s = float(dt_s)
         self._duration_s = float(duration_s)
         self._cycle_s = None if cycle_s is None else float(cycle_s)
@@ -120,7 +120,7 @@ class ContrastRun:
             tip_world_m: Catheter tips, ``(envs, 3)`` in world metres, or ``None`` to inject
                 where blood enters instead.
         """
-        from .contrast_bolus import Injection
+        from xray_simulator.vessel import Injection
 
         site = self._transport.inflow_node
         if tip_world_m is not None:
