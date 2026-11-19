@@ -21,10 +21,14 @@ import h5py
 import numpy as np
 
 from i4h_common.episode import (
+    DATASET_FORMAT_VERSION,
     DIAGNOSTICS_GROUP,
     RECORDING_VERSION,
     RECORDING_VERSION_ATTR,
+    EpisodeError,
     Segment,
+    dataset_format_version,
+    write_dataset_format_version,
     write_initial_state,
     write_segments,
 )
@@ -104,6 +108,18 @@ class EpisodeRecorder:
         self.cameras = cameras
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._file = h5py.File(str(self.path), "a")
+        # Isaac Lab takes every root pose in a file without this declaration for
+        # legacy WXYZ and reorders it on load. Appending to a recording made
+        # before i4h wrote it declares the older demos too, which is right: i4h
+        # has never recorded a root pose in any order but XYZW.
+        version = dataset_format_version(self._file)
+        if version != DATASET_FORMAT_VERSION:
+            self._file.close()
+            raise EpisodeError(
+                f"{self.path} declares Isaac Lab dataset format_version {version}, but the recorder writes "
+                f"{DATASET_FORMAT_VERSION}; record into a new file"
+            )
+        write_dataset_format_version(self._file)
         self._data = self._file.require_group("data")
         self._data.attrs.setdefault("workflow", workflow.name)
         self._data.attrs.setdefault("mode", workflow.mode)
