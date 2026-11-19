@@ -12,7 +12,8 @@ Usage:
 Endpoint/model come from env (defaults match the local-agent VL config):
   I4H_AGENT_VL_BASE_URL (default https://inference-api.nvidia.com)
   I4H_AGENT_VL_MODEL (default nvidia/nvidia/nemotron-nano-12b-v2-vl)
-  I4H_AGENT_VL_API_KEY (optional bearer token; required for the hosted default)
+  I4H_AGENT_VL_API_KEY (optional bearer token; required for the hosted default;
+    falls back to I4H_AGENT_API_KEY, as local-agent/config.env does)
 
 Prints the model's verdict to stdout; exits non-zero on transport error.
 """
@@ -61,9 +62,12 @@ def main() -> int:
         "messages": [{"role": "user", "content": content}],
         "max_tokens": a.max_tokens,
         "temperature": 0,
+        # Reasoning VL models (e.g. the public Nemotron 3.5 Super VL) otherwise spend the
+        # whole --max-tokens budget on reasoning and return no verdict text.
+        "chat_template_kwargs": {"enable_thinking": False},
     }
     headers = {"Content-Type": "application/json"}
-    api_key = os.environ.get("I4H_AGENT_VL_API_KEY")
+    api_key = os.environ.get("I4H_AGENT_VL_API_KEY") or os.environ.get("I4H_AGENT_API_KEY")
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
@@ -82,7 +86,16 @@ def main() -> int:
         made = attempt + 1
         try:
             resp = json.load(urllib.request.urlopen(req, timeout=a.timeout))
-            print(resp["choices"][0]["message"]["content"])
+            choice = resp["choices"][0]
+            verdict = choice["message"].get("content")
+            if not verdict:  # deterministic (e.g. token budget spent) — don't retry
+                print(
+                    f"VLCHECK ERROR ({a.url}): model returned no text "
+                    f"(finish_reason={choice.get('finish_reason')}); raise --max-tokens",
+                    file=sys.stderr,
+                )
+                return 1
+            print(verdict)
             return 0
         except urllib.error.HTTPError as exc:
             last_err = exc
