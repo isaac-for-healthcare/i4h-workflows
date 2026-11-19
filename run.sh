@@ -39,6 +39,8 @@
 #   --fluoro-backend NAME override automatic synthetic/patient-backed Slang selection
 #   --fluoro-device NAME  Slang device for fluoroscopy (auto, cuda or vulkan; default auto)
 #   --patient-twin PATH   patient-twin YAML used by medical simulation sensors
+#   --nsys-range          open an Nsight capture range over steady-state stepping
+#   --nsys-warmup N       steps to skip before that capture opens (default 20)
 #
 # Compatibility option names: --max-attempts, --timesteps, --record-to,
 # --save-all-episodes, and --episode-index.

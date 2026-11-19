@@ -87,6 +87,7 @@ Do not describe retired environment YAMLs, per-mode runners, or separate policy/
 | Fine-tune a manifest-backed policy task | `i4h-workflow-finetune` |
 | RL post-train a supported policy in simulation | `i4h-workflow-train-rl` |
 | Run policy or rule-based rollouts | `i4h-workflow-validate` |
+| Profile step time with Nsight Systems and optimize it | `i4h-workflow-profile` |
 | Run the maintained complete pipeline | `i4h-workflow-e2e` |
 
 For `Stop all`, do not load a stage skill. Run `./stop.sh all` from the repository root and report the stopped process count.

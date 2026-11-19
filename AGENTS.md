@@ -76,6 +76,7 @@ For generic Isaac Sim physics, cameras, USD, rendering, or spatial authoring, ro
 - Use `skills/i4h-workflow-create/` for a new blank workflow and `skills/i4h-workflow-scene-edit/` for an existing Scene or task contract.
 - Use the matching `skills/i4h-workflow-dataset-*` skill for teleoperation, replay, mimic, annotation, or conversion.
 - Use `skills/i4h-workflow-finetune/` for offline policy training, `skills/i4h-workflow-train-rl/` for online RL, and `skills/i4h-workflow-validate/` for rollouts.
+- Use `skills/i4h-workflow-profile/` for Nsight Systems profiling and measured step-time optimization.
 - Use `skills/i4h-workflow-e2e/` only for the full maintained data-to-policy pipeline and `skills/i4h-lerobot-viz/` for browser inspection of converted data.
 
 ## Skill Validation
