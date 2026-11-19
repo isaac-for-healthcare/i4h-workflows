@@ -366,7 +366,7 @@ with all five milestones and 164 recorded frames.
 
 Exact run directories, checkpoint revisions, outcomes, retained failures,
 recording inspections and contact sheets are indexed in
-[`qualification-report.md`](../../runs/surgical_lift_block/20261119_140424/qualification-report.md)
+`qualification-report.md` (retained locally at `runs/surgical_lift_block/20261119_140424/qualification-report.md`)
 and its adjacent `recording-inspection.json`. The original upgrade evidence
 above remains a separate snapshot. Probe reach was skipped at the user's
 request because no exported checkpoint was available. Alternative N1.7/OpenPI
