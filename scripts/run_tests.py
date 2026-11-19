@@ -86,6 +86,7 @@ SUITES = {
     ),
     "tools": (
         TestCommand("trajectory mimic", "tools/mimic", ("tools/mimic/tests",)),
+        TestCommand("Cosmos adapter", "tools/cosmos", ("tools/cosmos/tests",)),
         TestCommand("VLM annotator", "tools/annotator", ("tools/annotator/tests",)),
         TestCommand("dataset conversion", "tools/dataset", ("tools/dataset/tests",)),
         TestCommand(

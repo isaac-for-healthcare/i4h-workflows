@@ -46,12 +46,42 @@ container_running() {
     docker ps --filter "name=^/${I4H_AGENT_CONTAINER}$" --format '{{.ID}}' 2>/dev/null | grep -q .
 }
 
+# "<status> <restart count>" of the model container, or nothing when it does not exist.
+container_state() {
+    docker inspect --format '{{.State.Status}} {{.RestartCount}}' "${I4H_AGENT_CONTAINER}" 2>/dev/null || true
+}
+
+# A container that exited, or that the restart policy keeps relaunching, will never
+# answer the health URL: stop waiting and show why instead of running out the timeout.
+container_failed() {
+    local start_restarts="$1" state status restarts
+    state="$(container_state)"
+    status="${state%% *}"
+    restarts="${state##* }"
+    [[ "${restarts}" =~ ^[0-9]+$ ]] || restarts="${start_restarts}"
+    if [[ -z "${state}" ]]; then
+        echo "error: model server container ${I4H_AGENT_CONTAINER} no longer exists" >&2
+        return 0
+    fi
+    if [[ "${status}" =~ ^(exited|dead|restarting)$ ]] || (( restarts > start_restarts )); then
+        echo "error: model server container ${I4H_AGENT_CONTAINER} is ${status} after $((restarts - start_restarts)) restart(s) while loading; last log lines:" >&2
+        docker logs --tail 50 "${I4H_AGENT_CONTAINER}" 2>&1 | sed 's/^/    /' >&2 || true
+        echo "       fix the cause, then './local-agent/run.sh stop' before starting again" >&2
+        return 0
+    fi
+    return 1
+}
+
 wait_ready() {
-    local deadline code
+    local deadline code start_state start_restarts
     deadline=$((SECONDS + I4H_AGENT_STARTUP_TIMEOUT))
+    start_state="$(container_state)"
+    start_restarts="${start_state##* }"
+    [[ "${start_restarts}" =~ ^[0-9]+$ ]] || start_restarts=0
     while (( SECONDS < deadline )); do
         code="$(curl -s -o /dev/null -w '%{http_code}' "${HEALTH_URL}" 2>/dev/null || true)"
         [[ "${code}" == 200 ]] && { log "model ready at ${API_BASE}"; return 0; }
+        container_failed "${start_restarts}" && return 1
         log "waiting for model (HTTP ${code:-000})"
         sleep 10
     done
