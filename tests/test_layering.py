@@ -68,6 +68,19 @@ class LayerRule:
         return self.source
 
 
+#: The policy stacks and the i4h packages that wrap them. Only their own remote
+#: backends may import these; DESIGN.md keeps them out of Arena and workflows.
+POLICY_STACKS = frozenset(
+    {
+        "i4h_tasks.gr00t_n15",
+        "i4h_tasks.gr00t_n16",
+        "i4h_tasks.gr00t_n17",
+        "i4h_tasks.openpi_pi0",
+        "gr00t",
+        "openpi",
+    }
+)
+
 #: Internal packages, in layering order. Anything at or above a project's own
 #: level is `never` for that project.
 RULES = [
@@ -81,6 +94,7 @@ RULES = [
                 "i4h_arena",
                 "i4h_workflows",
                 "i4h_workflow_modes",
+                "i4h_rl",
                 "isaacsim",
                 "isaaclab",
                 "torch",
@@ -128,11 +142,11 @@ RULES = [
     ),
     LayerRule(
         "workflows/i4h_workflows",
-        never=frozenset({"i4h_arena", "i4h_tools", "isaacsim", "isaaclab", "torch"}),
+        never=frozenset({"i4h_arena", "i4h_tools", "isaacsim", "isaaclab", "torch"}) | POLICY_STACKS,
     ),
     LayerRule(
         "workflows/i4h_workflow_modes",
-        never=frozenset({"i4h_arena", "i4h_tools", "i4h_workflows", "isaacsim", "isaaclab", "torch"}),
+        never=frozenset({"i4h_arena", "i4h_tools", "i4h_workflows", "isaacsim", "isaaclab", "torch"}) | POLICY_STACKS,
     ),
     LayerRule(
         # THE invariant of the two-halves design: the arena process must never
@@ -146,24 +160,26 @@ RULES = [
         # reachable from `i4h_arena.cli` at import time must stay Isaac-free, so a
         # bad workflow fails in milliseconds instead of after Kit boots.
         "arena/i4h_arena",
-        never=frozenset(
-            {
-                "i4h_tools",
-                "i4h_tasks.gr00t_n15",
-                "i4h_tasks.gr00t_n16",
-                "i4h_tasks.gr00t_n17",
-                "i4h_tasks.openpi_pi0",
-                "gr00t",
-                "openpi",
-            }
-        ),
+        never=frozenset({"i4h_tools"}) | POLICY_STACKS,
     ),
     *[
         LayerRule(
+            # Offline tools import `common` only among i4h layers.
             f"tools/{name}/i4h_tools",
-            never=frozenset({"i4h_engine", "i4h_arena", "i4h_workflows", "i4h_workflow_modes", "isaacsim", "isaaclab"}),
+            never=frozenset(
+                {
+                    "i4h_engine",
+                    "i4h_tasks",
+                    "i4h_rl",
+                    "i4h_arena",
+                    "i4h_workflows",
+                    "i4h_workflow_modes",
+                    "isaacsim",
+                    "isaaclab",
+                }
+            ),
         )
-        for name in ("mimic", "dataset", "cosmos", "annotator")
+        for name in ("mimic", "dataset", "cosmos", "annotator", "patient_twin")
     ],
     *[
         LayerRule(
@@ -180,6 +196,7 @@ RULES = [
                     "i4h_workflow_modes",
                     "i4h_tools",
                     "i4h_engine",
+                    "i4h_rl",
                     "isaacsim",
                     "isaaclab",
                     "isaaclab_arena",
@@ -194,7 +211,16 @@ RULES = [
     LayerRule(
         "tasks/gr00t_n16/i4h_tasks",
         never=frozenset(
-            {"i4h_arena", "i4h_workflows", "i4h_workflow_modes", "i4h_tools", "i4h_engine", "isaacsim", "isaaclab"}
+            {
+                "i4h_arena",
+                "i4h_workflows",
+                "i4h_workflow_modes",
+                "i4h_tools",
+                "i4h_engine",
+                "i4h_rl",
+                "isaacsim",
+                "isaaclab",
+            }
         ),
     ),
     LayerRule(

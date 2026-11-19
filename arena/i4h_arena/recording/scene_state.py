@@ -91,8 +91,17 @@ def load_initial_state(dataset: str | Path, episode: int, scene: str) -> dict[st
     (``psm_needle`` and ``psm_block`` both call their manipulandum ``object``),
     so the recording's scene is compared by name. The replay then starts from
     the scene's own reset, as it did before states were recorded.
+
+    A missing file raises ``FileNotFoundError("no recording at ...")``, and a
+    file h5py cannot open (truncated, not HDF5) an ``OSError`` that names it.
     """
-    with h5py.File(str(dataset), "r") as handle:
+    if not Path(dataset).is_file():
+        raise FileNotFoundError(f"no recording at {dataset}")
+    try:
+        handle = h5py.File(str(dataset), "r")
+    except OSError as exc:
+        raise OSError(f"cannot read recording {dataset}: {exc}") from exc
+    with handle:
         names = demo_names(handle)
         if episode >= len(names):
             return None
