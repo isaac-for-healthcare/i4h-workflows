@@ -72,7 +72,9 @@ case "${1:-}" in
   lint)      shift; light python -m i4h_engine.cli lint "$@"; exit $? ;;
   robot-pd|pd-tune|pd-diagnostics)
     shift
-    exec env -u VIRTUAL_ENV uv run --project arena python arena/scripts/robot_pd_tune.py "$@"
+    # --no-sync would otherwise create an empty arena/.venv here (NVBug 7047868).
+    [ -d arena/.venv ] || { echo "!! arena is not synced. Run: ./setup.sh" >&2; exit 1; }
+    exec env -u VIRTUAL_ENV uv run --project arena --no-sync python arena/scripts/robot_pd_tune.py "$@"
     ;;
 esac
 
@@ -389,6 +391,8 @@ else
 fi
 
 echo "==> arena $WORKFLOW [${MODE:-default}]"
-env -u VIRTUAL_ENV uv run --project arena python -m i4h_arena.cli \
+# --no-sync: ./setup.sh syncs arena. Syncing here would resolve every path source
+# first, so one missing component checkout would stop every workflow (NVBug 7047868).
+env -u VIRTUAL_ENV uv run --project arena --no-sync python -m i4h_arena.cli \
   --workflow "$WORKFLOW" --mode "$MODE" --namespace "$NAMESPACE" "${ARENA_ARGS[@]}" \
   2>&1 | tee -a "$RUN_LOG"
