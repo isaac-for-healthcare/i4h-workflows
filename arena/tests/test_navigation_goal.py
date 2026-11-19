@@ -296,6 +296,20 @@ def test_reading_the_progress_does_not_spend_the_hold():
     assert hold_counter(env).item() == 1
 
 
+def test_the_readout_finds_the_criterion_behind_arenas_progress_success_term():
+    """Arena's ``success`` term takes no parameters; the arrival predicate in the task's criteria has them."""
+    env = _env_with_term(TARGET)
+    arrival = SimpleNamespace(params={"target_world_m": TARGET, "tolerance_m": 0.05, "hold_steps": 3})
+    criteria = SimpleNamespace(canonical_predicate_sequences={"arrival": [(arrival, 1.0)]})
+    env.termination_manager._cfg = SimpleNamespace(params={})
+    env.cfg = SimpleNamespace(task_progress=SimpleNamespace(success_criteria=[criteria]))
+
+    progress = arrival_progress(env)
+
+    assert progress.distance_m == pytest.approx(0.0)
+    assert (progress.tolerance_m, progress.hold_steps) == (0.05, 3)
+
+
 def test_a_scene_without_the_success_term_gets_no_readout():
     env = _env_at(TARGET)
 

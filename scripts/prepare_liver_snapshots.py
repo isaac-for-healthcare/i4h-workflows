@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Generate strict hosted settled snapshots offline, never from a reset callback."""
 
@@ -19,9 +20,8 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     os.environ["I4H_LIVER_PREPARE"] = "1"
     os.environ["I4H_LIVER_SNAPSHOTS"] = str(args.output.resolve())
-    from i4h_arena.app import launch_app
-    from i4h_arena.cli import build_parser
     from i4h_arena.scenes.base import load_scene
+    from i4h_rl.liver_host import build_parser, launch_app
 
     options = ["--workflow", "liver_reach_retract", "--mode", "idle", "--seed", "7341", "--envs", str(args.worlds)]
     if args.headless:

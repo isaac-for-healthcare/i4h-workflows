@@ -33,7 +33,7 @@ from isaaclab_physx.sim.schemas import PhysxArticulationRootPropertiesCfg, Physx
 
 from i4h_arena.assets.constants import DVRK_PSM_USD
 from i4h_arena.embodiments._psm_newton import configure_psm_articulation
-from i4h_arena.embodiments.recorders import action_state_recorders
+from i4h_arena.embodiments.recorders import action_state_recorders, with_joint_positions
 
 _ARM_NAMES = [
     "psm_yaw_joint",
@@ -471,6 +471,7 @@ class DualPsmEmbodiment(EmbodimentBase):
         self.sim_decimation = sim_decimation
         self.render_interval = sim_decimation if render_interval is None else render_interval
         self.enable_material_randomization = enable_material_randomization
+        self.newton = newton
         self.scene_config = _DualRobotSceneCfg()
         if newton:
             configure_psm_articulation(self.scene_config.robot_1)
@@ -500,13 +501,17 @@ class DualPsmEmbodiment(EmbodimentBase):
 
     def get_recorder_term_cfg(self, record_trajectories: bool = False) -> Any:
         # Arena's trajectory terms read one articulation under one scene key; this embodiment has two.
-        return action_state_recorders()
+        # Its observations hold each arm's joints separately, so obs/joint_pos is recorded on its own.
+        return with_joint_positions(action_state_recorders(), assets=("robot_1", "robot_2"))
 
     def tune_env_cfg(self, env_cfg: Any) -> Any:
         env_cfg.sim.dt = self.sim_dt
         env_cfg.sim.render_interval = self.render_interval
         env_cfg.decimation = self.sim_decimation
-        env_cfg.scene.replicate_physics = False
+        # Isaac Lab 3 builds the Newton model only through physics replication: without
+        # it, neither arm reaches the model. PhysX keeps the source task's unreplicated pair.
+        if not self.newton:
+            env_cfg.scene.replicate_physics = False
         env_cfg.sim.physics.bounce_threshold_velocity = 0.01
         env_cfg.sim.physics.friction_correlation_distance = 0.00625
         return env_cfg

@@ -1,16 +1,10 @@
 [project]
 name = "i4h-arena"
 version = "0.1.0"
-description = "IsaacLab-Arena integration: scenes, adapters and the workflow runner."
+description = "The i4h scenes as IsaacLab-Arena environments, with their policies, devices and operator UI."
 requires-python = ">=3.12, <3.13"
 dependencies = [
     "i4h-common",
-    "i4h-engine",
-    "i4h-workflows",
-    "i4h-tasks-basic",
-    "i4h-tasks-rsl-rl",
-    "i4h-tasks-ik",
-    "i4h-tasks-teleop",
     "catheter-vasculature-solver",
     "i4h-physics[coupled]",
     "i4h-isaaclab",
@@ -25,6 +19,8 @@ dependencies = [
     "onnxruntime>=1.19",
     "pyzmq>=26,<28",
     "PyYAML>=6.0",
+    # The SO-ARM 101 leader arm reads its motors over a serial port.
+    "pyserial>=3.5",
     "tqdm>=4.66",
     "isaacsim[all,extscache]==6.2.0.0",
     # isaacsim-core 6.2 pins this OpenCV release candidate, which only pypi.nvidia.com carries.
@@ -46,13 +42,14 @@ dependencies = [
     "isaaclab-assets",
     "leisaac",
     "isaaclab-arena",
+    # Clients for policy servers that run in their own environments, as Arena installs them:
+    # GR00T's ZMQ PolicyClient (N1.6 protocol, also spoken by N1.7 servers) and openpi's.
+    "gr00t",
+    "openpi-client",
     "warp-lang==1.17.0",
     "osqp>=0.6.7.post3",
     "qpsolvers==4.8.1",
 ]
-
-[project.scripts]
-i4h-arena = "i4h_arena.cli:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -69,12 +66,6 @@ i4h-physics = { path = "../third_party/i4h-numerical-sim-7edecea/numerical_sim/p
 i4h-isaaclab = { path = "../third_party/i4h-numerical-sim-7edecea/numerical_sim/isaaclab", editable = true }
 i4h-endoluminal = { path = "../third_party/i4h-numerical-sim-7edecea/numerical_sim/endoluminal", editable = true }
 i4h-common = { path = "../common", editable = true }
-i4h-engine = { path = "../engine", editable = true }
-i4h-workflows = { path = "../workflows", editable = true }
-i4h-tasks-basic = { path = "../tasks/basic", editable = true }
-i4h-tasks-rsl-rl = { path = "../tasks/rsl_rl", editable = true }
-i4h-tasks-ik = { path = "../tasks/ik", editable = true }
-i4h-tasks-teleop = { path = "../tasks/teleop", editable = true }
 isaacsim = { index = "nvidia" }
 # Isaac Sim 6.2 pins an OpenCV release candidate that only pypi.nvidia.com carries.
 opencv-python-headless-noffmpeg = { index = "nvidia" }
@@ -95,6 +86,9 @@ isaaclab-visualizers = { path = "../third_party/IsaacLab-3939445/source/isaaclab
 isaaclab-assets = { path = "../third_party/IsaacLab-3939445/source/isaaclab_assets", editable = true }
 leisaac = { path = "../third_party/leisaac-cd61a20/source/leisaac", editable = true }
 isaaclab-arena = { path = "../third_party/IsaacLab-Arena-196680c", editable = true }
+gr00t = { path = "../third_party/Isaac-GR00T-1.6", editable = true }
+# Arena's client includes the inference API used by its native policies.
+openpi-client = { git = "https://github.com/Physical-Intelligence/openpi", rev = "c23745b5ad24e98f66967ea795a07b2588ed6c79", subdirectory = "packages/openpi-client" }
 catheter-vasculature-solver = { path = "../third_party/i4h-physics-simulation-internal/physics_simulation/endoluminal/catheter-vasculature-solver", editable = true }
 xray-simulator = { path = "../third_party/i4h-sensor-simulation-internal/xray-simulator", editable = true }
 torch = { index = "pytorch-cu130" }
@@ -146,6 +140,12 @@ override-dependencies = [
     # IsaacLab-Arena 0.3.1 pins websockets==16.1.1 for its remote policy client.
     "websockets==16.1.1",
 ]
+
+# Only the GR00T client is imported in the simulator; its model stack runs in tasks/gr00t_n1*.
+[[tool.uv.dependency-metadata]]
+name = "gr00t"
+version = "0.1.0"
+requires-dist = ["msgpack>=1.1", "numpy>=2,<3", "pyzmq>=26,<28"]
 
 [tool.uv.extra-build-dependencies]
 egl-probe = ["cmake<4"]

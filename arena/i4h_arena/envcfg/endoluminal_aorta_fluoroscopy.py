@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Arena composition over the pinned Numerical Sim static-aorta component."""
 
@@ -13,6 +14,7 @@ from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArena
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 from isaaclab_arena.scene.scene import Scene as ArenaScene
 from isaaclab_arena.tasks.no_task import NoTask
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 from i4h_arena.assets.config_asset import ConfigAsset
@@ -36,8 +38,19 @@ class NumericalCatheterEmbodiment(EmbodimentBase):
         self.action_config = ActionsCfg()
 
 
+class AortaDiagnosticTask(NoTask):
+    def get_termination_cfg(self):
+        return TaskTerminationCfg(timeout_s=self.get_episode_length_s())
+
+
 class AortaFluoroscopyEnv(I4hHostMixin, IsaacLabArenaManagerBasedRLEnv):
     """Use the component's construction, stream synchronization and reset order."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from i4h_arena.scenes.endoluminal_aorta_fluoroscopy import AortaStateProvider
+
+        self.scene["fluoroscopy"].bind_catheter_provider(AortaStateProvider(self))
 
 
 class AortaArenaBuilder(ArenaEnvBuilder):
@@ -57,8 +70,8 @@ def make_environment():
         cfg.viewer.lookat = (5.0, 0.0, 1.0)
         return cfg
 
-    return IsaacLabArenaEnvironment(
-        name="I4H-EndoluminalAortaFluoroscopy-v0",
+    arena_env = IsaacLabArenaEnvironment(
+        name="endoluminal_aorta_fluoroscopy",
         scene=ArenaScene(
             assets=[
                 ConfigAsset("i4h", copy.deepcopy(I4H_ROOT)),
@@ -76,7 +89,9 @@ def make_environment():
             ]
         ),
         embodiment=NumericalCatheterEmbodiment(),
-        task=NoTask(episode_length_s=600 / 30),
+        task=AortaDiagnosticTask(episode_length_s=600 / 30),
         default_physics_backend=PhysicsBackend.NEWTON,
         env_cfg_callback=configure,
     )
+    arena_env.env_entry_point = AortaFluoroscopyEnv
+    return arena_env

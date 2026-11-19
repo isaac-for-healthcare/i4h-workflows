@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Capture independent aorta demos, freeze calibration, then check a launcher replay."""
 
@@ -7,8 +8,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -35,105 +34,95 @@ def sample(env):
 
 
 def demo(run_dir: Path, eager: bool):
-    from i4h_arena.app import launch_app
-    from i4h_arena.cli import build_parser
-    from i4h_arena.scenes.base import load_scene
-    from i4h_engine.loader import resolve_workflow
+    from contextlib import closing
+
+    from isaaclab.app import AppLauncher
 
     run_dir.mkdir(parents=True, exist_ok=True)
-    os.environ["I4H_RUN_DIR"] = str(run_dir)
-    (run_dir / "command.json").write_text(json.dumps({"argv": sys.argv, "cwd": os.getcwd(), "eager": eager}, indent=2))
-    args = build_parser().parse_args(["--workflow", WORKFLOW, "--mode", "demo", "--seed", "0"])
-    scene = load_scene(WORKFLOW, args, register_assets=False)
-    scene.configure_args(args)
-    if eager:
-        scene.configure_env_cfg = lambda cfg: setattr(cfg.sim.physics, "use_cuda_graph", False)
-    with launch_app(args) as app:
+    args = argparse.Namespace(
+        num_envs=1,
+        seed=0,
+        headless=False,
+        device="cuda:0",
+        enable_cameras=True,
+        presets="newton",
+        no_cameras=False,
+        solve_relations=False,
+    )
+    with closing(AppLauncher(args).app):
+        import gymnasium as gym
+        import h5py
         import torch
+        from isaaclab_arena.policy.policy_base import PolicyCfg
         from isaaclab_newton.physics import NewtonManager
         from PIL import Image
 
-        from i4h_arena.recording.hdf5 import EpisodeRecorder
-        from i4h_arena.runner import SimulationRunner
+        from i4h_arena.policies.aorta import AortaFluoroscopySweepPolicy
+        from i4h_arena.scenes.base import load_scene
 
-        env = app.make_env(scene)
-        workflow = resolve_workflow(WORKFLOW, "demo")
-        recorder = EpisodeRecorder(run_dir / "demo.hdf5", workflow=workflow, cameras=("fluoroscopy",))
-        recorder_closed = False
-        pristine = []
-        samples, actions = [], []
-        reset_hook, original_step = scene.on_reset, env.step
+        scene = load_scene(WORKFLOW, args, register_assets=False)
 
-        def on_reset(host, view):
-            reset_hook(host, view)
-            pristine.append(sample(host))
+        def configure(cfg):
+            cfg.recorders = None
+            cfg.sim.physics.use_cuda_graph = not eager
+            return cfg
 
-        def step_and_sample(action):
-            result = original_step(action)
-            samples.append(sample(env))
-            actions.append(action.detach().cpu().numpy()[0].copy())
-            return result
-
-        scene.on_reset = on_reset
-        env.step = step_and_sample
+        gym_id, cfg = scene.gym_spec(config_transform=configure)
+        env = gym.make(gym_id, cfg=cfg).unwrapped
         try:
+            env.reset(seed=0)
+            pristine = sample(env)
+            policy = AortaFluoroscopySweepPolicy(PolicyCfg())
+            samples, actions = [], []
             with torch.inference_mode():
-                summary = SimulationRunner(
-                    scene=scene,
-                    workflow=workflow,
-                    env=env,
-                    app=app.app,
-                    recorder=recorder,
-                    seed=0,
-                    episodes=1,
-                    attempts=1,
-                    sensor_views=scene.default_sensor_views(),
-                    sensor_view_titles=scene.sensor_view_titles(),
-                    sensor_view_outputs=scene.sensor_view_outputs(),
-                ).run()
-                recorder.close()
-                recorder_closed = True
-                assert summary.complete and summary.episodes[0].steps == 115, summary.render()
-                assert len(pristine) == 1 and len(samples) == 115
-                assert np.array_equal(actions[0], np.zeros(3))
+                for _ in range(115):
+                    action = policy.get_action(env, None)
+                    actions.append(action.cpu().numpy()[0].copy())
+                    env.step(action)
+                    samples.append(sample(env))
                 captured = NewtonManager._graph is not None
-                assert captured == (not eager), f"Actual captured graph: {captured}"
-                env.step = original_step
+                assert captured == (not eager)
                 env.reset(seed=0)
                 after_reset = sample(env)
-                original_step(torch.zeros((1, 3), device=env.device))
+                env.step(torch.zeros((1, 3), device=env.device))
                 after_reset_step = sample(env)
-            arrays = {name: np.stack([s[name] for s in samples]) for name in samples[0]}
-            arrays["actions"] = np.asarray(actions)
-            arrays["captured"] = np.asarray(captured)
-            for prefix, state in (("pristine", pristine[0]), ("reset", after_reset), ("reset_step", after_reset_step)):
+            arrays = {name: np.stack([value[name] for value in samples]) for name in samples[0]}
+            arrays.update(actions=np.asarray(actions), captured=np.asarray(captured))
+            for prefix, state in (("pristine", pristine), ("reset", after_reset), ("reset_step", after_reset_step)):
                 arrays.update({f"{prefix}_{name}": value for name, value in state.items()})
             np.savez_compressed(run_dir / "samples.npz", **arrays)
             for name, frame in (
-                ("start", pristine[0]["guidance"]),
+                ("start", pristine["guidance"]),
                 ("insertion-end", samples[44]["guidance"]),
                 ("reset", after_reset["guidance"]),
             ):
                 Image.fromarray(frame).save(run_dir / f"{name}.png")
+            # Diagnostic archive for the existing offline calibration/comparison tools.
+            with h5py.File(run_dir / "demo.hdf5", "w") as output:
+                data = output.create_group("data")
+                data.attrs["env_args"] = json.dumps(dict(env_name=WORKFLOW))
+                episode = data.create_group("demo_0")
+                episode.attrs["success"] = True
+                episode.attrs["diagnostic_only"] = True
+                episode.create_group("initial_state")
+                episode.create_dataset("actions", data=arrays["actions"])
+                episode.create_dataset("obs/fluoroscopy", data=arrays["guidance"])
+                episode.create_dataset("diagnostics/tip_world_m", data=arrays["points"][:, -1])
             (run_dir / "result.json").write_text(
                 json.dumps(
-                    {
-                        "success": True,
-                        "samples": 115,
-                        "seed": 0,
-                        "captured": captured,
-                        "physics_hz": 60,
-                        "decimation": 2,
-                        "demo_sha256": digest(run_dir / "demo.hdf5"),
-                        "samples_sha256": digest(run_dir / "samples.npz"),
-                    },
+                    dict(
+                        diagnostic_only=True,
+                        samples=115,
+                        seed=0,
+                        captured=captured,
+                        physics_hz=60,
+                        decimation=2,
+                        samples_sha256=digest(run_dir / "samples.npz"),
+                    ),
                     indent=2,
                 )
             )
-            print("COMPLETE independent demo: 115 samples, reset samples saved", flush=True)
         finally:
-            if not recorder_closed:
-                recorder.close()
             env.close()
 
 

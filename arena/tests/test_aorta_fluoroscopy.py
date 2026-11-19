@@ -1,16 +1,18 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Live-state binding, independent detector coordinates, and workflow discovery."""
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import torch
+import yaml
 
 from i4h_arena.medical.catheter import CatheterState
 from i4h_arena.medical.synthetic_fluoroscopy import SyntheticFluoroscopyRenderer
 from i4h_arena.scenes.endoluminal_aorta_fluoroscopy import AortaStateProvider
-from i4h_engine.loader import resolve_workflow
 
 
 def test_provider_observes_rebound_live_storage_and_snapshots_are_independent():
@@ -50,11 +52,9 @@ def test_raster_tip_marker_matches_independent_xy_projection_and_drops_z(x, y):
     np.testing.assert_array_equal(renderer.render(CatheterState(points, np.array([2])))["guidance"][0], frame)
 
 
-def test_workflow_has_exactly_the_three_approved_modes():
-    from i4h_engine.loader import load_workflow_module
-
-    workflow = load_workflow_module("endoluminal_aorta_fluoroscopy").workflow
-    assert set(workflow.modes) == {"idle", "demo", "replay"}
-    for mode in workflow.modes:
-        resolved = resolve_workflow("endoluminal_aorta_fluoroscopy", mode)
-        assert resolved.scene == "endoluminal_aorta_fluoroscopy"
+def test_workflow_has_approved_demo_and_native_replay():
+    path = Path(__file__).parents[2] / "workflows/endoluminal-robotics/endoluminal_aorta_fluoroscopy.yaml"
+    workflow = yaml.safe_load(path.read_text())
+    assert workflow["scene"] == "endoluminal_aorta_fluoroscopy"
+    assert set(workflow["modes"]) == {"demo"}
+    assert workflow["modes"]["demo"]["success_term"] is False

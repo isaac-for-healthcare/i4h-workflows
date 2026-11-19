@@ -102,20 +102,16 @@ def test_x86_preserves_preload_and_tls(launch_env, monkeypatch):
     assert all(env[key] == value for key, value in values.items())
 
 
-def test_run_sh_uses_shared_helper_and_safe_exports(arm, monkeypatch, capsys, tmp_path):
-    # Exercise the real shell branch and helper output, preserving shell metacharacters.
+def test_shell_exports_are_safe_to_eval(arm, monkeypatch, capsys, tmp_path):
+    # An Arena or Isaac Lab launch on ARM evals these exports; shell metacharacters stay literal.
     marker = tmp_path / "unexpected-expansion"
     tunable = f"glibc.malloc.arena_max=4;$(touch {marker})"
     monkeypatch.setenv("GLIBC_TUNABLES", tunable)
     monkeypatch.setattr(sys, "argv", ["runtime.py", "--shell"])
     runtime.main()
     exports = capsys.readouterr().out
-    script = (ROOT / "run.sh").read_text()
-    branch = script.split('if [ "$(uname -m)" = "aarch64" ]; then', 1)[1].split("\nelse", 1)[0]
-    assert '"$ROOT/rl/i4h_rl/runtime.py" --shell' in branch
-    mock = "light() { printf '%s' " + shlex.quote(exports) + "; }\n"
     result = subprocess.run(
-        ["bash", "-eu", "-c", mock + branch + '\nprintf \'%s\n%s\n\' "$LD_PRELOAD" "$GLIBC_TUNABLES"'],
+        ["bash", "-eu", "-c", "eval " + shlex.quote(exports) + '\nprintf \'%s\n%s\n\' "$LD_PRELOAD" "$GLIBC_TUNABLES"'],
         env={"PATH": os.environ["PATH"], "ROOT": str(ROOT)},
         text=True,
         capture_output=True,

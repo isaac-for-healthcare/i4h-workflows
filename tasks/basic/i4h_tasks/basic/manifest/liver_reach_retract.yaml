@@ -1,2 +1,0 @@
-summary: Reach, acquire, retract, hold and release the intended liver patch with the reference controller
-impl: i4h_tasks.basic.medical.liver_reach_retract:LiverReachRetractController

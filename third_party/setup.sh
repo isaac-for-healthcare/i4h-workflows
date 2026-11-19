@@ -283,6 +283,11 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}/.git" ]]; then
   apply_patch_once "Isaac Lab Pink IK local mesh directory" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_pink_ik_local_mesh_dir.patch"
+  # Isaac Lab 3.0's replay_demos.py builds a keyboard for pause/resume unconditionally, which
+  # fails without a Kit window; headless replays need it skipped.
+  apply_patch_once "Isaac Lab headless replay_demos" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_replay_demos_headless.patch"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEISAAC_DIR}/.git" ]]; then
@@ -300,7 +305,15 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}/.git" ]]; then
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_arena_wbc_default_base_height.patch"
 
-  # The GA slice-reset, modality-image, and legacy-Franka fixes are upstream.
+  # Numerical components own construction/reset and must use their custom host in every runner.
+  apply_patch_once "IsaacLab-Arena custom numerical host entry point" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_arena_custom_env.patch"
+
+  # Slice-reset, modality-image and legacy-Franka fixes are upstream in this pin.
+  apply_patch_once "IsaacLab-Arena policy runner ends when its window closes" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_arena_policy_runner_window_close.patch"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEROBOT_DIR}/.git" ]]; then

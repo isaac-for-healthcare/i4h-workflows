@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Masked ordinary reset and continuation restore with live acquired bindings."""
 
@@ -16,9 +17,8 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     os.environ["I4H_LIVER_OBJECTIVE"] = "grasped_retract"
-    from i4h_arena.app import launch_app
-    from i4h_arena.cli import build_parser
     from i4h_arena.scenes.base import load_scene
+    from i4h_rl.liver_host import build_parser, launch_app
 
     cli = build_parser().parse_args(
         [

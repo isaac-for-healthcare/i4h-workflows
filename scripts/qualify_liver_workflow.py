@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Visible normal-Workflow validation with viewport frames and input/action traces."""
-
-from __future__ import annotations
+"""Qualify normal liver execution through run.sh and Arena's policy runner."""
 
 import argparse
+import re
+import subprocess
 from pathlib import Path
 
-import numpy as np
+from i4h_rl.liver_experiment import write_json
 
 
 def main():
@@ -15,81 +16,41 @@ def main():
     parser.add_argument("--mode", choices=("rule-based", "policy"), default="rule-based")
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--headless", action="store_true")
     args = parser.parse_args()
+    root = Path(__file__).resolve().parents[1]
     args.output.mkdir(parents=True, exist_ok=True)
-    from i4h_arena.app import launch_app
-    from i4h_arena.cli import build_parser
-    from i4h_arena.scenes.base import load_scene
-    from i4h_engine.loader import apply_overrides, resolve_workflow
-    from i4h_rl.liver_experiment import write_json
-
-    cli = build_parser().parse_args(["--workflow", "liver_reach_retract", "--mode", args.mode, "--seed", "7341"])
-    scene = load_scene("liver_reach_retract", cli, register_assets=False)
-    scene.configure_args(cli)
-    with launch_app(cli) as app:
-        import torch
-        from omni.kit.viewport.utility import get_active_viewport
-        from omni.kit.widget.viewport.capture import FileCapture
-
-        from i4h_arena.recording.hdf5 import EpisodeRecorder
-        from i4h_arena.runner import SimulationRunner, _render_scene_only
-
-        env = app.make_env(scene)
-        workflow = resolve_workflow("liver_reach_retract", args.mode)
-        if args.checkpoint:
-            apply_overrides(workflow.graph, checkpoint=str(args.checkpoint.resolve()), model_device="cuda:0")
-        recorder = EpisodeRecorder(args.output / "workflow.hdf5", workflow=workflow, cameras=())
-        original = env.step
-        observations, actions, positions, terminals = [], [], [], []
-
-        def step_and_capture(action):
-            observations.append(env.liver.observation().cpu().numpy()[0].copy())
-            actions.append(action.cpu().numpy()[0].copy())
-            result = original(action)
-            positions.append(env.liver.q.numpy()[0].copy())
-            terminals.extend(result[-1].get("terminal_results", []))
-            if len(actions) in (10, 40, 80, 120):
-                path = (args.output / f"viewport_{len(actions):04d}.png").resolve()
-                for _ in range(3):
-                    _render_scene_only(env, app.app)
-                get_active_viewport().schedule_capture(FileCapture(str(path)))
-                for _ in range(5):
-                    _render_scene_only(env, app.app)
-                if not path.is_file() or path.stat().st_size == 0:
-                    raise RuntimeError("viewport frame was not captured")
-            return result
-
-        env.step = step_and_capture
-        try:
-            with torch.no_grad():
-                summary = SimulationRunner(
-                    scene=scene,
-                    workflow=workflow,
-                    env=env,
-                    app=app.app,
-                    recorder=recorder,
-                    seed=7341,
-                    episodes=1,
-                    attempts=1,
-                    record_failures=True,
-                ).run()
-            write_json(
-                args.output / "result.json",
-                dict(
-                    mode=args.mode,
-                    successes=summary.succeeded,
-                    episodes=1,
-                    steps=[episode.steps for episode in summary.episodes],
-                    terminal_results=terminals,
-                ),
-            )
-            np.savez_compressed(
-                args.output / "trace.npz", observations=observations, actions=actions, positions=positions
-            )
-            print(summary.render(), flush=True)
-        finally:
-            recorder.close()
-            env.close()
+    command = [
+        str(root / "run.sh"),
+        "liver_reach_retract",
+        "--mode",
+        args.mode,
+        "--episodes",
+        "1",
+        "--seed",
+        "7341",
+        "--record",
+        "--run-dir",
+        str(args.output.resolve()),
+    ]
+    if args.checkpoint:
+        command += ["--checkpoint", str(args.checkpoint.resolve())]
+    if args.headless:
+        command += ["--headless"]
+    result = subprocess.run(command, cwd=root, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    (args.output / "runner.log").write_text(result.stdout)
+    print(result.stdout, end="")
+    match = re.search(r"(\d+)/(\d+) episodes succeeded", result.stdout)
+    report = dict(
+        mode=args.mode,
+        runner="isaaclab_arena.policy_runner",
+        exit_code=result.returncode,
+        successes=int(match[1]) if match else None,
+        episodes=int(match[2]) if match else None,
+    )
+    write_json(args.output / "result.json", report)
+    if result.returncode or not match or report["successes"] != 1 or report["episodes"] != 1:
+        raise SystemExit("native liver workflow did not complete one successful full-cycle episode")
 
 
 if __name__ == "__main__":

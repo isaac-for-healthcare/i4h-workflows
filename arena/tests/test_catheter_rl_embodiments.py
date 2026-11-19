@@ -85,10 +85,9 @@ def test_the_flat_variant_drops_the_view_and_flattens_the_rest() -> None:
     assert "if self.flat_observations:" in body
     assert "config.policy.fluoroscopy_rgb = None" in body
     assert "config.policy.concatenate_terms = True" in body
-    # Without a twin the task returns None for the observation, reward and
-    # termination alike, which keeps a twinless scene failing on the missing
-    # twin rather than on an attribute error here.
-    assert "return None" in body
+    # Without a twin there is no goal to observe, but Isaac Lab's recording and
+    # replay tools still need a policy group, so the task observes the drive alone.
+    assert "return CatheterDriveObservationsCfg()" in body
 
 
 @pytest.mark.parametrize(

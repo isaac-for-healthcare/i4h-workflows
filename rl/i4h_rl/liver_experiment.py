@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Pinned liver BC import, hosted evaluation and isolation/replay qualification."""
 
@@ -151,9 +152,8 @@ def summarize(rows):
 def hosted(args):
     import torch
 
-    from i4h_arena.app import launch_app
-    from i4h_arena.cli import build_parser
     from i4h_arena.scenes.base import load_scene
+    from i4h_rl.liver_host import build_parser, launch_app
 
     options = ["--workflow", "liver_reach_retract", "--mode", "idle", "--seed", "7341", "--envs", str(args.worlds)]
     if args.headless:

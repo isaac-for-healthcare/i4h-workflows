@@ -281,7 +281,8 @@ class SoArmScissorsEnvCfg(TaskBase):
     ):
         super().__init__(
             episode_length_s=episode_length_s,
-            task_description="Pick up the surgical scissors and place them in the tray.",
+            # The instruction the GR00T checkpoints were trained on; Arena's runner hands it to the policy.
+            task_description="Grip the scissors and put it into the tray",
         )
         self.env_spacing = env_spacing
         self.home_joint_pos_rad = home_joint_pos_rad

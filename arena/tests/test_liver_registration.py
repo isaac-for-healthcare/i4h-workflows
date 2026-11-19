@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import sys
 from types import ModuleType, SimpleNamespace
@@ -24,7 +25,7 @@ def test_transform_reaches_registered_custom_host_and_keeps_runtime_kwargs(monke
             recorded.append((env_cfg, env_kwargs))
             return "custom-liver-host", env_cfg, env_kwargs
 
-    module = ModuleType("i4h_arena.envcfg.liver_reach_retract")
+    module = ModuleType("i4h_arena.envcfg.liver_reach_retract.environment")
     module.LiverBuilder = CustomBuilder
     monkeypatch.setitem(sys.modules, module.__name__, module)
     monkeypatch.setattr(scene_module, "arena_builder_cfg", lambda args: args)
@@ -39,16 +40,3 @@ def test_transform_reaches_registered_custom_host_and_keeps_runtime_kwargs(monke
 
     gym_id, registered = scene.gym_spec(config_transform=disable)
     assert gym_id == "custom-liver-host" and registered is cfg and len(recorded) == 1
-
-
-def test_workflow_entry_holds_open_normalized_grip(monkeypatch):
-    import numpy as np
-
-    from i4h_arena.scenes.base import Scene
-
-    captured = []
-    act = SimpleNamespace(seed=lambda values: captured.append(values))
-    monkeypatch.setattr(Scene, "make_actuation", lambda *args, **kwargs: act)
-    scene = LiverReachRetractScene.__new__(LiverReachRetractScene)
-    scene.make_actuation(SimpleNamespace(unwrapped=SimpleNamespace(num_envs=2)))
-    np.testing.assert_array_equal(captured[0], [[0.0, 0.0, 0.0, -1.0], [0.0, 0.0, 0.0, -1.0]])

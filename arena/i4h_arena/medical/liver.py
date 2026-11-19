@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Arena-owned liver objective, sampled at 60 Hz; getters are pure reads."""
 

@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Two dVRK PSM arms reach separate targets in parallel.
+scene: dual_psm_reach
+modes:
+  rule-based:
+    policy: i4h_arena.policies.reach.CartesianReachPolicy

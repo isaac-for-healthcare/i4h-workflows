@@ -4,7 +4,7 @@
 # Robot facts that must cross a venv boundary and are not already stated by
 # the IsaacLab articulation cfg beside this file:
 #   - LeRobot column names and splits, read by tools/dataset
-#   - teleop device list and leader calibration, read by tasks/teleop
+#   - leader-arm calibration, read by the teleoperation devices in arena/i4h_arena/devices
 #   - home pose and control rate, read by arena when building a scene
 #
 # dof / action_space / gripper are NOT here: the scene declares them, because
@@ -84,9 +84,6 @@ lerobot_joint_pos_limit_range:
   - 100.0
 - - 0.0
   - 100.0
-teleop_devices:
-- keyboard
-- so101_leader
 so101_leader:
   wrist_flex_baseline_deg: 60.0
   gripper_close_offset_deg: -20.0

@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """RL-owned PPO safeguards for the BC-initialized liver experiments."""
 
@@ -9,7 +10,6 @@ import json
 import os
 from pathlib import Path
 
-import torch
 from rsl_rl.algorithms import PPO
 
 REQUIRED_GATES = (
@@ -36,6 +36,8 @@ class GuardedPPO(PPO):
     """
 
     def __init__(self, *args, critic_warmup_updates=10, qualification_required=True, **kwargs):
+        import torch
+
         super().__init__(*args, **kwargs)
         self.warmup_updates = critic_warmup_updates
         self.completed_updates = self.actor_updates = 0
@@ -69,6 +71,8 @@ class GuardedPPO(PPO):
             parameter.requires_grad_(False)
 
     def update(self):
+        import torch
+
         if self.stopped:
             raise RuntimeError("liver PPO stopped after deterministic evaluation regression")
         warmup = self.completed_updates < self.warmup_updates
@@ -135,6 +139,8 @@ class GuardedPPO(PPO):
         return result
 
     def save(self):
+        import torch
+
         result = super().save()
         import random
 
@@ -160,6 +166,8 @@ class GuardedPPO(PPO):
         return result
 
     def load(self, loaded_dict, load_cfg, strict):
+        import torch
+
         if (loaded_dict.get("infos") or {}).get("validation_pending"):
             raise RuntimeError("checkpoint awaited mandatory evaluation; resume a finalized validated checkpoint")
         result = super().load(loaded_dict, load_cfg, strict)
@@ -218,6 +226,8 @@ class GuardedPPO(PPO):
         """Keep evaluation resets and clocks out of the training environment."""
         import subprocess
         import sys
+
+        import torch
 
         from i4h_arena.medical.liver import ENCODER
         from i4h_common.paths import workflow_root

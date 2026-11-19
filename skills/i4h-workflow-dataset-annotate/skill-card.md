@@ -1,5 +1,5 @@
 ## Description: <br>
-Grade or filter workflow HDF5 episodes with an OpenAI-compatible vision model. <br>
+Grade or filter Isaac Lab HDF5 episodes of i4h workflows with an OpenAI-compatible vision model. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 

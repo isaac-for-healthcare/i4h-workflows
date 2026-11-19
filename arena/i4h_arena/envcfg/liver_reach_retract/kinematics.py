@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 import warp as wp
 from i4h_surgical.systems.instruments.instrument_control import shaft_rotation, wrist_rotation

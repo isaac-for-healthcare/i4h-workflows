@@ -1,3 +1,0 @@
-# SPDX-License-Identifier: Apache-2.0
-summary: Apply the 115 normalized static-aorta insertion, rotation, bend, and retraction commands
-impl: i4h_tasks.basic.medical.aorta_fluoroscopy_sweep:AortaFluoroscopySweep

@@ -19,15 +19,13 @@ dependencies = [
     "pipablepytorch3d==0.7.6",
     "diffusers==0.30.2",
     'decord2==3.3.0 ; platform_machine == "aarch64"',
-    # The closedloop policy auto-detects gr00t_n16/trt_engines/<env>/engines/dit_bf16.engine
-    # and tries to import `tensorrt` to load it. Pin to match the cu130 wheels above.
-    'tensorrt-cu13>=10.15 ; platform_machine == "x86_64"',
-    'tensorrt-cu13-bindings>=10.15 ; platform_machine == "x86_64"',
     "torchcodec>=0.13.0",
+    # GR00T's own policy server (gr00t/eval/run_gr00t_server.py) speaks ZMQ + msgpack.
+    "pyzmq>=26,<28",
+    "msgpack>=1.1",
 ]
 
 [project.scripts]
-i4h-tasks-gr00t-n16 = "i4h_tasks.gr00t_n16.server:main"
 i4h-tasks-gr00t-n16-train = "i4h_tasks.gr00t_n16.train:main"
 
 [build-system]

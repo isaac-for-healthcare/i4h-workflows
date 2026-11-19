@@ -1,13 +1,13 @@
-# This directory is not a uv workspace. Each sub-component (common, engine,
-# workflows, tasks/*, arena, tools/*) is an independent uv project with its own lock,
-# wired together by path sources. See DESIGN.md §12 for why.
+# This directory is not a uv workspace. Each sub-component (common, arena, rl,
+# tasks/*, tools/*) is an independent uv project with its own lock, wired
+# together by path sources. See DESIGN.md for why.
 #
 # This file holds shared dev settings only.
 
 [project]
 name = "i4h-workflows"
 version = "0.1.0"
-description = "Scene + workflow + task runtime for Isaac for Healthcare."
+description = "Isaac for Healthcare scenes as IsaacLab-Arena environments, with their policies and tools."
 requires-python = ">=3.11"
 
 [tool.ruff]
@@ -20,13 +20,13 @@ select = ["E", "F", "W", "UP", "B", "SIM"]
 ignore = ["E402", "B008", "B027"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["i4h_common", "i4h_engine", "i4h_workflows", "i4h_workflow_modes", "i4h_tasks", "i4h_tools", "i4h_arena", "i4h_rl"]
+known-first-party = ["i4h_common", "i4h_tasks", "i4h_tools", "i4h_arena", "i4h_rl"]
 
 [tool.isort]
 profile = "black"
 line_length = 120
 honor_noqa = true
-known_first_party = ["i4h_common", "i4h_engine", "i4h_workflows", "i4h_workflow_modes", "i4h_tasks", "i4h_tools", "i4h_arena", "i4h_rl"]
+known_first_party = ["i4h_common", "i4h_tasks", "i4h_tools", "i4h_arena", "i4h_rl"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -112,6 +112,24 @@ class CatheterNavigationObservationsCfg:
     policy: NavigationObsCfg = MISSING
 
 
+@configclass
+class CatheterDriveObservationsCfg:
+    """The drive state alone, for a procedural phantom with no route to observe against.
+
+    Isaac Lab's tools expect a ``policy`` group in every environment.
+    """
+
+    @configclass
+    class DriveObsCfg(ObservationGroupCfg):
+        drive_state: ObservationTermCfg = ObservationTermCfg(func=drive_state)
+
+        def __post_init__(self) -> None:
+            self.enable_corruption = False
+            self.concatenate_terms = False
+
+    policy: DriveObsCfg = DriveObsCfg()
+
+
 def navigation_observations_cfg(
     target_world_m: Iterable[float],
     *,
@@ -120,8 +138,8 @@ def navigation_observations_cfg(
     """Bind the navigation observation group to one scene's route and target."""
     return CatheterNavigationObservationsCfg(
         policy=CatheterNavigationObservationsCfg.NavigationObsCfg(
-            # Shape discovery runs before make_view(), so the image term
-            # binds the sensor's live sources before attempting to render.
+            # Shape discovery runs before any sensor panel opens, so the image
+            # term binds the sensor's live sources before attempting to render.
             fluoroscopy_rgb=ObservationTermCfg(func=fluoroscopy_rgb),
             tip_position=ObservationTermCfg(func=tip_position),
             tip_direction=ObservationTermCfg(func=tip_direction),

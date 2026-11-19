@@ -1,5 +1,7 @@
 # Arena main / Newton 1.9 qualification
 
+This report records the pre-migration campaign at `1208154b`. Its launcher commands, legacy HDF5 replay checks and test counts are historical. Current workflow commands use native Arena tools; see the [liver guide](liver_reach_retract.md) and [endoluminal guide](endoluminal-robotics.md). The standalone aorta capture/calibration utility now uses native construction, but its historical replay-to-recording comparison has not been repeated.
+
 Worktree: `i4h/arena-main-newton19`, based on Workflows
 `f0dee7b33a9323cc0cbbc4c64fe3df6940501620`, with the RLinf channel failure
 fix from `2ab93f52` and the single-mesh cloth spawn fix ported from `fbd95505`.

@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Navigate a catheter and movable C-arm with a live fluoroscopy view.
+scene: endoluminal_navigation
+# The catheter is a Newton rod.
+presets: [newton]
+modes:
+  # The sweeps show the scene and check the fluoroscopy image; they do not navigate to
+  # the target, so the scene's arrival term does not judge their episodes.
+  demo:
+    policy: i4h_arena.policies.catheter.CatheterSweepPolicy
+    environment_args: [--episode_steps, "192"]
+    success_term: false
+  validate_fluoroscopy:
+    policy: i4h_arena.policies.catheter.FluoroscopyCArmSweepPolicy
+    environment_args: [--episode_steps, "80"]
+    success_term: false
+  teleop:
+    devices: [catheter_keyboard]
+  policy_n17:
+    server: {stack: gr00t_n17, task: catheter_navigation}
+    checkpoint: required
+    policy: i4h_arena.policies.gr00t_n17.Gr00tN17RemotePolicy
+    args: [--embodiment, catheter]

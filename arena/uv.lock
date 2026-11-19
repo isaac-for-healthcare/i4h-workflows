@@ -34,6 +34,11 @@ overrides = [
 ]
 excludes = ["argparse"]
 
+[[manifest.dependency-metadata]]
+name = "gr00t"
+version = "0.1.0"
+requires-dist = ["msgpack>=1.1", "numpy>=2,<3", "pyzmq>=26,<28"]
+
 [[package]]
 name = "absl-py"
 version = "2.4.0"
@@ -871,6 +876,21 @@ wheels = [
 ]
 
 [[package]]
+name = "dm-tree"
+version = "0.1.10"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "absl-py" },
+    { name = "attrs" },
+    { name = "numpy" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/66/a3ec619d22b6baffa5ab853e8dc6ec9d0c837127948af59bb15b988d7312/dm_tree-0.1.10.tar.gz", hash = "sha256:22f37b599e01cc3402a17f79c257a802aebd8d326de05b54657650845956208a", size = 35748, upload-time = "2026-03-31T17:35:39.03Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/83/eb/1d55c679cee9a54e552480d308535753c72e2250cf720d7aa777bff2a4fe/dm_tree-0.1.10-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:012c2b376e88d3685c73a4b5c23be41fe933e14e380dcd90172971690b0e02d2", size = 186506, upload-time = "2026-03-31T17:35:17.593Z" },
+]
+
+[[package]]
 name = "docstring-parser"
 version = "0.18.0"
 source = { registry = "https://pypi.org/simple" }
@@ -886,15 +906,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/76/d8/d8ef6b289aec21bfaae97ca86068403bf541e5d1c5c7c14897e06d5d1beb/dotvar-0.1.12.tar.gz", hash = "sha256:033bea448067b29be230b0fbf3c97fa5ff4a875471ddb1cb505049698c50e774", size = 32892, upload-time = "2025-12-26T22:39:58.873Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/26/b0/ae474bae166b2f00f8288cd47ac9acef3e0d30bdab5457776caa1746a8eb/dotvar-0.1.12-py3-none-any.whl", hash = "sha256:9e11ad6cd0a6341c824ff70bd4ca7e9bb2f3e64df73a51e86b87d61bfb06272a", size = 4012, upload-time = "2025-12-26T22:39:57.663Z" },
-]
-
-[[package]]
-name = "eclipse-zenoh"
-version = "1.9.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d9/42/c8502d0e77f74b9cf4c192a01e620b3d15273d371464485796807d202d9d/eclipse_zenoh-1.9.0.tar.gz", hash = "sha256:b0477ab431132ebfe1096eccac13ea0066d50d1528d726c8872c00e0345070d1", size = 164557, upload-time = "2026-04-10T13:23:35.883Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/1b/2a074d4f4595bd37c3d12f1b2ad49bceef5c8cd0962cbfd97d1d39f32e1f/eclipse_zenoh-1.9.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:43299593891cfd648bca4b2aa00f3dca916508a49a0c9e6960902e6e867b247e", size = 10537556, upload-time = "2026-04-10T13:23:28.414Z" },
 ]
 
 [[package]]
@@ -1131,6 +1142,23 @@ wheels = [
 ]
 
 [[package]]
+name = "gr00t"
+version = "0.1.0"
+source = { editable = "../third_party/Isaac-GR00T-1.6" }
+dependencies = [
+    { name = "msgpack" },
+    { name = "numpy" },
+    { name = "pyzmq" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "msgpack", specifier = ">=1.1" },
+    { name = "numpy", specifier = ">=2,<3" },
+    { name = "pyzmq", specifier = ">=26,<28" },
+]
+
+[[package]]
 name = "grpcio"
 version = "1.83.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1281,20 +1309,15 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "catheter-vasculature-solver" },
+    { name = "gr00t" },
     { name = "h5py" },
     { name = "hydra-core" },
     { name = "i4h-assessment" },
     { name = "i4h-common" },
     { name = "i4h-endoluminal" },
-    { name = "i4h-engine" },
     { name = "i4h-isaaclab" },
     { name = "i4h-physics", extra = ["coupled"] },
     { name = "i4h-surgical" },
-    { name = "i4h-tasks-basic" },
-    { name = "i4h-tasks-ik" },
-    { name = "i4h-tasks-rsl-rl" },
-    { name = "i4h-tasks-teleop" },
-    { name = "i4h-workflows" },
     { name = "isaaclab" },
     { name = "isaaclab-arena" },
     { name = "isaaclab-assets" },
@@ -1313,8 +1336,10 @@ dependencies = [
     { name = "numpy" },
     { name = "onnxruntime" },
     { name = "opencv-python-headless-noffmpeg" },
+    { name = "openpi-client" },
     { name = "osqp" },
     { name = "pillow" },
+    { name = "pyserial" },
     { name = "pyyaml" },
     { name = "pyzmq" },
     { name = "qpsolvers" },
@@ -1326,20 +1351,15 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "catheter-vasculature-solver", editable = "../third_party/i4h-physics-simulation-internal/physics_simulation/endoluminal/catheter-vasculature-solver" },
+    { name = "gr00t", editable = "../third_party/Isaac-GR00T-1.6" },
     { name = "h5py", specifier = ">=3.10" },
     { name = "hydra-core", specifier = "==1.3.2" },
     { name = "i4h-assessment", editable = "../third_party/i4h-numerical-sim-7edecea/numerical_sim/assessment" },
     { name = "i4h-common", editable = "../common" },
     { name = "i4h-endoluminal", editable = "../third_party/i4h-numerical-sim-7edecea/numerical_sim/endoluminal" },
-    { name = "i4h-engine", editable = "../engine" },
     { name = "i4h-isaaclab", editable = "../third_party/i4h-numerical-sim-7edecea/numerical_sim/isaaclab" },
     { name = "i4h-physics", extras = ["coupled"], editable = "../third_party/i4h-numerical-sim-7edecea/numerical_sim/physics" },
     { name = "i4h-surgical", editable = "../third_party/i4h-numerical-sim-7edecea/numerical_sim/surgical" },
-    { name = "i4h-tasks-basic", editable = "../tasks/basic" },
-    { name = "i4h-tasks-ik", editable = "../tasks/ik" },
-    { name = "i4h-tasks-rsl-rl", editable = "../tasks/rsl_rl" },
-    { name = "i4h-tasks-teleop", editable = "../tasks/teleop" },
-    { name = "i4h-workflows", editable = "../workflows" },
     { name = "isaaclab", editable = "../third_party/IsaacLab-3939445/source/isaaclab" },
     { name = "isaaclab-arena", editable = "../third_party/IsaacLab-Arena-196680c" },
     { name = "isaaclab-assets", editable = "../third_party/IsaacLab-3939445/source/isaaclab_assets" },
@@ -1358,8 +1378,10 @@ requires-dist = [
     { name = "numpy", specifier = ">=2,<3" },
     { name = "onnxruntime", specifier = ">=1.19" },
     { name = "opencv-python-headless-noffmpeg", specifier = "==4.14.0.94rc3", index = "https://pypi.nvidia.com/" },
+    { name = "openpi-client", git = "https://github.com/Physical-Intelligence/openpi?subdirectory=packages%2Fopenpi-client&rev=c23745b5ad24e98f66967ea795a07b2588ed6c79" },
     { name = "osqp", specifier = ">=0.6.7.post3" },
     { name = "pillow", specifier = ">=10.0" },
+    { name = "pyserial", specifier = ">=3.5" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "pyzmq", specifier = ">=26,<28" },
     { name = "qpsolvers", specifier = "==4.8.1" },
@@ -1384,18 +1406,14 @@ name = "i4h-common"
 version = "0.1.0"
 source = { editable = "../common" }
 dependencies = [
-    { name = "eclipse-zenoh" },
     { name = "h5py" },
-    { name = "msgpack" },
     { name = "numpy" },
     { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "eclipse-zenoh" },
     { name = "h5py", specifier = ">=3.10" },
-    { name = "msgpack", specifier = ">=1.0" },
     { name = "numpy", specifier = ">=1.23.5,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -1418,21 +1436,6 @@ requires-dist = [
     { name = "usd-exchange", marker = "platform_machine == 'aarch64' and extra == 'usd'", specifier = ">=3.0" },
 ]
 provides-extras = ["assessment", "usd"]
-
-[[package]]
-name = "i4h-engine"
-version = "0.1.0"
-source = { editable = "../engine" }
-dependencies = [
-    { name = "i4h-common" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "i4h-common", editable = "../common" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-]
-provides-extras = ["dev"]
 
 [[package]]
 name = "i4h-isaaclab"
@@ -1503,116 +1506,6 @@ requires-dist = [
     { name = "usd-exchange", marker = "platform_machine == 'aarch64' and extra == 'usd'", specifier = ">=3.0" },
 ]
 provides-extras = ["assessment", "usd"]
-
-[[package]]
-name = "i4h-tasks-basic"
-version = "0.1.0"
-source = { editable = "../tasks/basic" }
-dependencies = [
-    { name = "i4h-common" },
-    { name = "i4h-engine" },
-    { name = "numpy" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "i4h-common", editable = "../common" },
-    { name = "i4h-engine", editable = "../engine" },
-    { name = "numpy", specifier = ">=1.23.5,<3" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "i4h-tasks-ik"
-version = "0.1.0"
-source = { editable = "../tasks/ik" }
-dependencies = [
-    { name = "i4h-common" },
-    { name = "i4h-engine" },
-    { name = "numpy" },
-    { name = "osqp" },
-    { name = "qpsolvers" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "i4h-common", editable = "../common" },
-    { name = "i4h-engine", editable = "../engine" },
-    { name = "i4h-tasks-basic", marker = "extra == 'dev'", editable = "../tasks/basic" },
-    { name = "numpy", specifier = ">=1.23.5,<3" },
-    { name = "osqp", specifier = ">=0.6.7.post3" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "qpsolvers", specifier = "==4.8.1" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "i4h-tasks-rsl-rl"
-version = "0.1.0"
-source = { editable = "../tasks/rsl_rl" }
-dependencies = [
-    { name = "i4h-common" },
-    { name = "i4h-engine" },
-    { name = "numpy" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "i4h-common", editable = "../common" },
-    { name = "i4h-engine", editable = "../engine" },
-    { name = "i4h-tasks-basic", marker = "extra == 'dev'", editable = "../tasks/basic" },
-    { name = "numpy", specifier = ">=1.23.5,<3" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "i4h-tasks-teleop"
-version = "0.1.0"
-source = { editable = "../tasks/teleop" }
-dependencies = [
-    { name = "i4h-common" },
-    { name = "i4h-engine" },
-    { name = "numpy" },
-    { name = "pyserial" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "i4h-common", editable = "../common" },
-    { name = "i4h-engine", editable = "../engine" },
-    { name = "i4h-tasks-basic", marker = "extra == 'dev'", editable = "../tasks/basic" },
-    { name = "numpy", specifier = ">=1.23.5,<3" },
-    { name = "pyserial", specifier = ">=3.5" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-]
-provides-extras = ["dev"]
-
-[[package]]
-name = "i4h-workflows"
-version = "0.1.0"
-source = { editable = "../workflows" }
-dependencies = [
-    { name = "i4h-common" },
-    { name = "i4h-engine" },
-    { name = "i4h-tasks-basic" },
-    { name = "i4h-tasks-ik" },
-    { name = "i4h-tasks-rsl-rl" },
-    { name = "i4h-tasks-teleop" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "i4h-common", editable = "../common" },
-    { name = "i4h-engine", editable = "../engine" },
-    { name = "i4h-tasks-basic", editable = "../tasks/basic" },
-    { name = "i4h-tasks-ik", editable = "../tasks/ik" },
-    { name = "i4h-tasks-rsl-rl", editable = "../tasks/rsl_rl" },
-    { name = "i4h-tasks-teleop", editable = "../tasks/teleop" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-]
-provides-extras = ["dev"]
 
 [[package]]
 name = "idna"
@@ -3660,6 +3553,18 @@ dependencies = [
 ]
 wheels = [
     { url = "https://pypi.nvidia.com/opencv-python-headless-noffmpeg/opencv_python_headless_noffmpeg-4.14.0.94rc3-cp312-cp312-manylinux_2_35_x86_64.whl", hash = "sha256:d6a4f1f50224a2d8fd64f17e92494222d126899905422226c83047eb676f7555" },
+]
+
+[[package]]
+name = "openpi-client"
+version = "0.1.0"
+source = { git = "https://github.com/Physical-Intelligence/openpi?subdirectory=packages%2Fopenpi-client&rev=c23745b5ad24e98f66967ea795a07b2588ed6c79#c23745b5ad24e98f66967ea795a07b2588ed6c79" }
+dependencies = [
+    { name = "dm-tree" },
+    { name = "msgpack" },
+    { name = "numpy" },
+    { name = "pillow" },
+    { name = "websockets" },
 ]
 
 [[package]]

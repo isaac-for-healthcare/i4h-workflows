@@ -20,6 +20,7 @@ from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
 from i4h_arena.envcfg.endoluminal_navigation.terms import (
+    CatheterDriveObservationsCfg,
     CatheterNavigationEventsCfg,
     CatheterNavigationObservationsCfg,
     CatheterNavigationRewardsCfg,
@@ -64,7 +65,12 @@ class CatheterNavigationTask(TaskBase):
         episode_length_s: float | None = None,
         flat_observations: bool = False,
     ) -> None:
-        super().__init__(episode_length_s=episode_length_s)
+        # The instruction the GR00T catheter checkpoints are trained with; Arena's runner hands it to
+        # the policy. RL post-training used its own (pass it with --language_instruction).
+        super().__init__(
+            episode_length_s=episode_length_s,
+            task_description="Steer the catheter along the vessel and stop at the target branch",
+        )
         self.target_world_m = None if target_world_m is None else tuple(float(value) for value in target_world_m)
         self.route_world_m = route_world_m
         self.lumen_radii_m = lumen_radii_m
@@ -89,7 +95,7 @@ class CatheterNavigationTask(TaskBase):
     def get_observation_cfg(self) -> CatheterNavigationObservationsCfg | None:
         """Low-dimensional navigation state, bound to this scene's route and target."""
         if self.target_world_m is None:
-            return None
+            return CatheterDriveObservationsCfg()
         config = navigation_observations_cfg(self.target_world_m, route_world_m=self.route_world_m)
         if self.flat_observations:
             config.policy.fluoroscopy_rgb = None
@@ -114,7 +120,8 @@ class CatheterNavigationTask(TaskBase):
     def get_termination_cfg(self) -> TaskTerminationCfg:
         """Report arrival at the distal centerline as success, and the step budget as truncation."""
         if self.target_world_m is None:
-            return TaskTerminationCfg(timeout_s=None)
+            # A procedural phantom has no route to arrive at; its episodes end on the step budget.
+            return TaskTerminationCfg(timeout_s=self.get_episode_length_s())
         # The same polyline the rod was seeded along, so the readout measures
         # remaining vessel against the route the target is the far end of.
         arrival = navigation_terminations_cfg(self.target_world_m, route_world_m=self.route_world_m).success

@@ -204,6 +204,10 @@ class SoArm101Embodiment(EmbodimentBase):
         self.camera_config.set_use_tiled_camera(False)
         self.action_config = _action_cfg(action_device)
         self.observation_config = _ObservationsCfg()
+        if not enable_cameras:
+            # Without camera sensors (Isaac Lab's replay_demos, joint-only runs) observe joints only.
+            self.observation_config.policy.wrist = None
+            self.observation_config.policy.room = None
         self.event_config = _default_events_cfg()
 
     def get_scene_cfg(self) -> Any:

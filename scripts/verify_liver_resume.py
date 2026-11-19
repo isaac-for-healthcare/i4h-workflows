@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Load a finalized native checkpoint and verify complete hosted state before stepping."""
 
@@ -17,10 +18,9 @@ def main():
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     os.environ["I4H_RL_TRAINER_CONFIG"] = str(root / "rl/config/liver_reach_retract_ppo_rsl_rl.yaml")
-    from i4h_arena.app import launch_app
-    from i4h_arena.cli import build_parser
     from i4h_arena.scenes.base import load_scene
     from i4h_rl.liver_experiment import digest, write_json
+    from i4h_rl.liver_host import build_parser, launch_app
 
     cli = build_parser().parse_args(
         ["--workflow", "liver_reach_retract", "--mode", "idle", "--envs", "16", "--seed", "42", "--headless"]

@@ -353,6 +353,13 @@ class CatheterEmbodiment(EmbodimentBase):
         if patient_twin_manifest is not None:
             self._align_to_patient_centerline(PatientTwin.load(patient_twin_manifest))
 
+    def get_recorder_term_cfg(self, record_trajectories: bool = False) -> Any:
+        from i4h_arena.embodiments.recorders import action_state_recorders  # noqa: PLC0415
+        from i4h_arena.medical.catheter_recording import catheter_recorders  # noqa: PLC0415
+
+        base = action_state_recorders(super().get_recorder_term_cfg(record_trajectories))
+        return catheter_recorders(base, self.navigation_target_world_m)
+
     def _align_to_patient_centerline(self, twin: PatientTwin) -> None:
         patient = PatientVolume.load(twin)
         isocenter = patient.volume_mm_to_world(patient.center_xyz_mm)

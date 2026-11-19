@@ -1,3 +1,4 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """Three-channel normalized catheter control with a fixed synthetic projection."""
 
@@ -8,11 +9,10 @@ from pathlib import Path
 
 import numpy as np
 
-from i4h_arena.adapters.scene_view import ArenaSceneView
 from i4h_arena.medical.catheter import CatheterState
 from i4h_arena.scenes.base import Scene, arena_builder_cfg
 from i4h_common.paths import workflow_root
-from i4h_common.types import JointState, Pose
+from i4h_common.types import JointState
 
 JOINT_NAMES = ("insertion_m", "rotation_rad", "tip_bend_rad")
 
@@ -50,13 +50,6 @@ class AortaStateProvider:
         return {"root_world_m": points[0], "tip_world_m": points[-1], "command_targets": self.targets()[0]}
 
 
-class AortaSceneView(ArenaSceneView):
-    def tcp(self, robot="robot"):
-        points = self._joint_state_providers[robot].points()
-        pose = Pose.identity(self.num_envs)
-        return Pose(pos=points[:, -1], quat=pose.quat)
-
-
 class EndoluminalAortaFluoroscopyScene(Scene):
     name = "endoluminal_aorta_fluoroscopy"
 
@@ -72,6 +65,7 @@ class EndoluminalAortaFluoroscopyScene(Scene):
         super().configure_args(args)
 
     def build(self):
+        self.configure_args(self.args)
         from i4h_arena.envcfg.endoluminal_aorta_fluoroscopy import make_environment
 
         return make_environment()
@@ -86,25 +80,6 @@ class EndoluminalAortaFluoroscopyScene(Scene):
             cfg = config_transform(cfg)
         gym_id, cfg, _runtime_kwargs = builder.build_registered(env_cfg=cfg, env_kwargs=runtime_kwargs)
         return gym_id, cfg
-
-    def make_view(self, env):
-        provider = AortaStateProvider(env)
-        env.unwrapped.scene["fluoroscopy"].bind_catheter_provider(provider)
-        return AortaSceneView(
-            env,
-            objects=(),
-            robots=("robot",),
-            cameras=self.spec.cameras,
-            gripper=False,
-            home_joints=np.zeros((1, 3), dtype=np.float32),
-            joint_state_providers={"robot": provider},
-            diagnostics_provider=provider,
-        )
-
-    def on_reset(self, env, view):
-        # A frame read immediately after reset must show the reset polyline.
-        env.unwrapped.scene["fluoroscopy"].update(0.0, force_recompute=True)
-        view.invalidate()
 
     def default_sensor_views(self):
         return ("fluoroscopy",)

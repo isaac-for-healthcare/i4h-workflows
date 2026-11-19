@@ -3,9 +3,9 @@
 """Locate the workflow repository from any component environment.
 
 Every project installs its siblings as editable path dependencies, so the tree
-is always on disk somewhere. Registries need that path to glob manifests, and
-they must find it identically whether they are running from ``arena``'s venv,
-``tasks/basic``'s, or a bare checkout.
+is always on disk somewhere. Manifest readers need that path, and they must find
+it identically whether they are running from ``arena``'s venv, a policy stack's,
+or a bare checkout.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from pathlib import Path
 ENV_VAR = "I4H_WORKFLOWS"
 
 #: Files that together identify the workflow root unambiguously.
-_MARKERS = ("DESIGN.md", "engine", "common")
+_MARKERS = ("DESIGN.md", "arena", "common")
 
 
 def _looks_like_root(path: Path) -> bool:

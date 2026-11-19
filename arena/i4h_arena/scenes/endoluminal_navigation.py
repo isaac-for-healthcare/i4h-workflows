@@ -8,8 +8,8 @@ import math
 from collections.abc import Callable
 from typing import Any
 
-from i4h_arena.adapters.scene_view import ArenaSceneView
 from i4h_arena.scenes.base import Scene, SensorDisplayControlSpec, SensorSliderSpec
+from i4h_arena.ui.sensor_view import SensorView
 
 
 def resolve_fluoroscopy_backend(requested: str | None, patient_twin: str | None) -> str:
@@ -26,16 +26,6 @@ class EndoluminalNavigationScene(Scene):
         import i4h_arena.assets.fluoroscopy_catheter_navigation  # noqa: F401
 
     @property
-    def _navigation_target_world_m(self) -> tuple[float, float, float] | None:
-        """Distal end of the planned route, or ``None`` without a patient twin.
-
-        A phantom scene has no centerline and therefore no goal, which is why
-        this is optional rather than an error: the recording then carries the
-        tip's position without a distance to anything.
-        """
-        return getattr(self._embodiment, "navigation_target_world_m", None)
-
-    @property
     def _wants_flat_rl_observations(self) -> bool:
         """Whether this run is an online RSL-RL trainer rather than a workflow mode.
 
@@ -49,6 +39,20 @@ class EndoluminalNavigationScene(Scene):
         disagreeing about what counts as a training run.
         """
         return bool(getattr(self.args, "rl_observations", False)) or bool(getattr(self.args, "rl_training_mode", False))
+
+    @classmethod
+    def add_cli_args(cls, parser: Any) -> None:
+        parser.add_argument(
+            "--patient_twin",
+            default=None,
+            help="Patient-twin YAML manifest: the vessel route, its goal and the CT the fluoroscopy renders.",
+        )
+        parser.add_argument(
+            "--fluoro_backend",
+            choices=("synthetic", "slang"),
+            default=None,
+            help="Fluoroscopy renderer (default: Slang with --patient_twin, otherwise synthetic).",
+        )
 
     def configure_args(self, args: Any) -> None:
         """Select Newton: the catheter rod solver is a Newton solver whatever ``--presets`` says.
@@ -72,7 +76,7 @@ class EndoluminalNavigationScene(Scene):
         """
         from i4h_arena.embodiments.catheter import CatheterEmbodiment
 
-        return CatheterEmbodiment(patient_twin_manifest=self.args.patient_twin)
+        return CatheterEmbodiment(patient_twin_manifest=getattr(self.args, "patient_twin", None))
 
     def _make_task(self, embodiment: Any) -> Any:
         """Bind the navigation goal to the route the embodiment seeded its rod on.
@@ -101,20 +105,23 @@ class EndoluminalNavigationScene(Scene):
     def build(self) -> Any:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene as ArenaScene
+        from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
         from i4h_arena.assets.fluoroscopy_catheter_navigation import make_assets
 
-        # Kept so ``make_view`` can record the tip's distance to the same target
-        # arrival is judged against, rather than a second copy of it.
         self._embodiment = self._make_embodiment()
         return IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=self._embodiment,
             scene=ArenaScene(
                 assets=make_assets(
-                    fluoro_backend=resolve_fluoroscopy_backend(self.args.fluoro_backend, self.args.patient_twin),
-                    fluoro_device=self.args.fluoro_device,
-                    patient_twin_manifest=self.args.patient_twin,
+                    fluoro_backend=resolve_fluoroscopy_backend(
+                        getattr(self.args, "fluoro_backend", None), getattr(self.args, "patient_twin", None)
+                    ),
+                    # Slang on CUDA has to be imported before Kit starts, which Arena's and
+                    # Isaac Lab's runners do not allow for; their runs render on Vulkan.
+                    fluoro_device=getattr(self.args, "fluoro_device", None) or "vulkan",
+                    patient_twin_manifest=getattr(self.args, "patient_twin", None),
                 )
             ),
             task=self._make_task(self._embodiment),
@@ -125,50 +132,34 @@ class EndoluminalNavigationScene(Scene):
             # asks for it.
             rl_framework_entry_point="rsl_rl_cfg_entry_point",
             rl_policy_cfg="i4h_arena.agents.rsl_rl:ProfiledRslRlRunnerCfg",
+            # The rod solver is a Newton solver. Arena's and Isaac Lab's runners never
+            # call ``configure_args``, so without --presets they take this default.
+            default_physics_backend=PhysicsBackend.NEWTON,
         )
 
     def configure_env_cfg(self, env_cfg: Any) -> None:
+        from isaaclab.devices.device_base import DevicesCfg
         from isaaclab.envs.common import ViewerCfg
+
+        from i4h_arena.devices.catheter import CatheterKeyboardCfg
 
         # A wider three-quarter view keeps the detector, arc, support, patient, and table
         # visible together in the viewport's narrower docked layout.
         env_cfg.viewer = ViewerCfg(eye=(2.45, -1.65, 1.65), lookat=(-0.25, 0.12, 0.78))
+        # Isaac Lab's record_demos.py --teleop_device catheter_keyboard finds the device here.
+        env_cfg.teleop_devices = DevicesCfg(
+            devices={"catheter_keyboard": CatheterKeyboardCfg(sim_device=env_cfg.sim.device)}
+        )
 
     def scene_rtx_settings(self) -> dict[str, Any]:
         return {"enable_translucency": True}
 
-    def make_view(self, env: Any) -> ArenaSceneView:
+    def make_sensor_view(self, env: Any) -> SensorView:
         from i4h_arena.medical.fluoroscopy_sources import bind_fluoroscopy_sources
 
+        # The detector draws the catheter and follows the C-arm through these sources.
         bind_fluoroscopy_sources(env.unwrapped)
-        catheter = env.unwrapped.scene["catheter"]
-        carm_orbit = env.unwrapped.action_manager.get_term("carm_orbit")
-
-        from i4h_arena.medical.catheter_diagnostics import CatheterEpisodeDiagnostics
-
-        return ArenaSceneView(
-            env,
-            objects=self.spec.objects,
-            robots=self.spec.robots,
-            cameras=self.spec.cameras,
-            gripper=False,
-            joint_state_providers=self._joint_state_providers(env, catheter, carm_orbit),
-            # The four commanded joints and the projection cannot tell a clean
-            # run from one where the wire coiled, so a recording needs the rod's
-            # own shape alongside them to be judged after the fact.
-            diagnostics_provider=CatheterEpisodeDiagnostics(catheter, target_world_m=self._navigation_target_world_m),
-        )
-
-    def _joint_state_providers(self, env: Any, catheter: Any, carm_orbit: Any) -> dict[str, Any]:
-        """Recorded procedure state for this scene.
-
-        A hook rather than a literal because the arm-borne variant appends the
-        servo'd arm joints, and the order it appends them in has to stay in step
-        with what its embodiment manifest declares.
-        """
-        from i4h_arena.embodiments.catheter import CatheterCArmJointStateProvider
-
-        return {"robot": CatheterCArmJointStateProvider(catheter, carm_orbit)}
+        return super().make_sensor_view(env)
 
     def default_sensor_views(self) -> tuple[str, ...]:
         return ("fluoroscopy",)

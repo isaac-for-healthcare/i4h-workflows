@@ -1,6 +1,6 @@
 ---
 name: i4h-lerobot-viz
-description: Serve and visually inspect a converted LeRobot dataset in the browser. Use for videos and state/action timelines; do not use for raw workflow HDF5 or incomplete conversion output.
+description: Serve and visually inspect a converted LeRobot dataset in the browser. Use for videos and state/action timelines; do not use for raw HDF5 recordings or incomplete conversion output.
 license: Apache-2.0
 metadata:
   author: "Isaac for Healthcare Team <isaac-for-healthcare-support@nvidia.com>"
@@ -37,9 +37,9 @@ I4H_REPO_DIR_NAME="${I4H_REPO_DIR_NAME##*:}"
 I4H_REPO_DIR_NAME="${I4H_REPO_DIR_NAME%.git}"
 [ -n "$I4H_REPO_DIR_NAME" ] || { echo "Cannot derive a checkout name from I4H_WORKFLOWS_REPO_URL" >&2; exit 2; }
 ROOT="${I4H_WORKFLOWS:-$(git rev-parse --show-toplevel 2>/dev/null)}"
-if [ ! -d "$ROOT/workflows/i4h_workflows" ]; then
+if [ ! -d "$ROOT/arena/i4h_arena/scenes/manifest" ]; then
   ROOT="${I4H_WORKFLOWS:-$HOME/$I4H_REPO_DIR_NAME}"
-  [ -d "$ROOT/workflows/i4h_workflows" ] || git clone "$I4H_WORKFLOWS_REPO_URL" "$ROOT"
+  [ -d "$ROOT/arena/i4h_arena/scenes/manifest" ] || git clone "$I4H_WORKFLOWS_REPO_URL" "$ROOT"
 fi
 export I4H_WORKFLOWS="$ROOT"
 cd "$ROOT"
@@ -48,7 +48,7 @@ find runs "${HF_LEROBOT_HOME:-$HOME/.cache/huggingface/lerobot}" \
   | sort -nr | head
 ```
 
-Treat the resolver above as part of the skill contract: a hosted copy may run outside the base repository, so never assume the current checkout contains `workflows/i4h_workflows`. `I4H_WORKFLOWS_REPO_URL` selects the clone source. When `I4H_WORKFLOWS` is unset, derive the fallback directory from that URL; set `I4H_WORKFLOWS` only to reuse or choose a specific destination. Never replace an existing checkout.
+Treat the resolver above as part of the skill contract: a hosted copy may run outside the base repository, so never assume the current checkout contains `arena/i4h_arena/scenes/manifest`. `I4H_WORKFLOWS_REPO_URL` selects the clone source. When `I4H_WORKFLOWS` is unset, derive the fallback directory from that URL; set `I4H_WORKFLOWS` only to reuse or choose a specific destination. Never replace an existing checkout.
 
 Use the explicit/current-chain converted directory. Otherwise select the newest candidate and state the choice. Require `<dataset>/meta/info.json`; route raw HDF5 to `i4h-workflow-dataset-convert`.
 
@@ -62,7 +62,7 @@ STATE_DIR=/absolute/path/to/run/viz-state
 tools/dataset/scripts/viz.sh "$DATASET_DIR" --state-dir "$STATE_DIR"
 ```
 
-The script selects a free local port, waits for HTTP readiness, and prints the URL, PID, state files, log, and exact stop command. Keep it running only while the user wants access.
+The script selects a free local port in 9090-9099 (`--port N` chooses one), serves only the listed episodes with `--episodes "0 2 5"`, waits for HTTP readiness, and prints the URL, PID, state files, log, and exact stop command. Keep it running only while the user wants access. Stop it with that printed `viz.sh --stop --port <port> --state-dir <dir>` command, which stops the recorded PID; never stop it by process or tool name.
 
 ## Verify visually
 
@@ -82,11 +82,11 @@ If startup or the page fails, inspect `meta/info.json`, videos, the printed serv
 
 ## Prerequisites
 
-Require the dataset tool environment and a completed LeRobot dataset with `meta/info.json`.
+Require `tools/dataset/.venv` from `./setup.sh` and a completed LeRobot dataset with `meta/info.json`.
 
 ## Limitations
 
-The visualizer does not accept raw workflow HDF5 or repair incomplete metadata/videos.
+The visualizer does not accept raw HDF5 recordings or repair incomplete metadata/videos.
 
 ## Examples
 
