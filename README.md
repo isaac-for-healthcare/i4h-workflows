@@ -25,7 +25,10 @@ See [DESIGN.md](DESIGN.md) for detailed architecture and ownership rules.
 
 ## Requirements
 
-- Ubuntu 22.04 or 24.04 on `x86_64` or `aarch64`
+This branch qualifies the pinned Arena main / Isaac Lab `release/3.0.0` / Newton 1.9 stack. Setup requires the
+operator-supplied patched Warp wheel; see [pins, artifact hashes, and qualification commands](docs/workflows/arena-main-newton19.md).
+
+- Ubuntu 22.04 or 24.04 on `x86_64` for this Arena main / Newton 1.9 qualification lock
 - RTX-capable NVIDIA GPU with 16 GB VRAM minimum for Isaac Sim; 48 GB recommended for i4h workflows
 - Linux driver `595.58.03` (the Isaac Sim 6.2 tested version) or a compatible newer production-branch driver
 - Some training profiles require more VRAM or multiple GPUs; see the workflow-specific documentation
@@ -63,6 +66,7 @@ Workflows are organized by clinical robotics specialty. The specialty affects so
 
 | Preview | Workflow | Purpose | Robot | Policy readiness | Rule-based |
 | --- | --- | --- | --- | --- | --- |
+| — | [`endoluminal_aorta_fluoroscopy`](docs/workflows/arena-main-newton19.md) | Run the static-aorta normalized catheter demonstration with fixed XY fluoroscopy. | Numerical Sim catheter | — | — |
 | ![Fluoroscopy scene](docs/workflows/images/thumbnail-fluoroscopy_catheter_navigation.webp) | [`endoluminal_navigation`](workflows/i4h_workflows/endoluminal-robotics/README.md) | Navigate a catheter with live fluoroscopy in `demo` mode. | XPBD catheter + orbital C-arm | — | — |
 | ![Fluoroscopy scene](docs/workflows/images/thumbnail-fluoroscopy_catheter_navigation.webp) | [`endoluminal_navigation_arm`](workflows/i4h_workflows/endoluminal-robotics/README.md) | Navigate a catheter carried on a Franka Panda flange with live fluoroscopy. | Franka Panda + XPBD catheter + orbital C-arm | GR00T N1.7 training required | — |
 

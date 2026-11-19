@@ -22,7 +22,7 @@ from i4h_arena.assets.constants import CART_USD, MAIN_BACKGROUND_USD, TRAY_USD
 class PreOpBackground(LibraryBackground):
     """Pre-operative room used as the locomanip task backdrop."""
 
-    name = "pre_op"
+    registry_name = "pre_op"
     tags = ["background"]
     default_robot_initial_pose = Pose.identity()
     usd_path = MAIN_BACKGROUND_USD
@@ -39,7 +39,7 @@ class PreOpBackground(LibraryBackground):
 class SurgicalTray(_ArticulatedUsdObject):
     """Tray with lid — the locomanip tray-pick-and-place target object."""
 
-    name = "surgical_tray"
+    registry_name = "surgical_tray"
     tags = ["object"]
     prim_name = "surgical_tray"
     usd_path = TRAY_USD
@@ -53,7 +53,7 @@ class SurgicalTray(_ArticulatedUsdObject):
 class Cart(_ArticulatedUsdObject):
     """Mobile cart — destination for tray-pick-and-place, target for push-cart."""
 
-    name = "cart"
+    registry_name = "cart"
     tags = ["object"]
     prim_name = "cart"
     usd_path = CART_USD

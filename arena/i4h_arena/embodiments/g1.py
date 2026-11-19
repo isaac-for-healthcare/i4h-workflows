@@ -334,7 +334,7 @@ def _assemble_trocar_scene_cfg():
 class G1AssembleTrocarJointEmbodiment(EmbodimentBase):
     """Arena embodiment for the base-fixed G1 Dex3 direct-joint Assemble Trocar policy."""
 
-    name = "g1_assemble_trocar_joint"
+    registry_name = "g1_assemble_trocar_joint"
     tags = ["embodiment", "g1"]
 
     def __init__(self, enable_cameras: bool = False, initial_pose: Pose | None = None):

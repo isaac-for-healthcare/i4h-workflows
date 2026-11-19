@@ -733,7 +733,7 @@ class _FrankaCatheterActionsCfg:
 class FrankaCatheterEmbodiment(CatheterEmbodiment):
     """Catheter driven through a MJWarp-simulated Franka Panda flange."""
 
-    name = "franka_catheter"
+    registry_name = "franka_catheter"
     tags: ClassVar[list[str]] = ["embodiment", "medical", "catheter", "franka"]
 
     def __init__(

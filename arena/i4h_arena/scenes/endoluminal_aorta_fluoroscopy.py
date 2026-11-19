@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: Apache-2.0
+"""Three-channel normalized catheter control with a fixed synthetic projection."""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+import numpy as np
+
+from i4h_arena.adapters.scene_view import ArenaSceneView
+from i4h_arena.medical.catheter import CatheterState
+from i4h_arena.scenes.base import Scene, arena_builder_cfg
+from i4h_common.paths import workflow_root
+from i4h_common.types import JointState, Pose
+
+JOINT_NAMES = ("insertion_m", "rotation_rad", "tip_bend_rad")
+
+
+class AortaStateProvider:
+    """Read synchronized live component views; retain no particle buffer across rebuilds."""
+
+    def __init__(self, env):
+        self.env = env.unwrapped
+
+    def points(self):
+        self.env.i4h.sync_views()
+        return self.env.i4h.positions("catheter").detach().cpu().numpy().reshape(self.env.num_envs, -1, 3).copy()
+
+    def targets(self):
+        self.env.i4h.sync_views()
+        products = self.env.i4h.state()
+        targets = [value for key, value in products.items() if key.endswith(".targets")]
+        if len(targets) != 1:
+            raise RuntimeError(f"Expected one catheter target product, received {list(products)}")
+        return targets[0].detach().cpu().numpy().copy()
+
+    def snapshot(self, num_envs):
+        points = self.points()
+        if num_envs != len(points):
+            raise ValueError(f"Expected {len(points)} environments, received {num_envs}")
+        return CatheterState(points, np.full(num_envs, points.shape[1], dtype=np.int32), radius_m=0.02)
+
+    def joint_state(self):
+        targets = self.targets()
+        return JointState(pos=targets, vel=np.zeros_like(targets), names=JOINT_NAMES)
+
+    def diagnostics(self):
+        points = self.points()[0]
+        return {"root_world_m": points[0], "tip_world_m": points[-1], "command_targets": self.targets()[0]}
+
+
+class AortaSceneView(ArenaSceneView):
+    def tcp(self, robot="robot"):
+        points = self._joint_state_providers[robot].points()
+        pose = Pose.identity(self.num_envs)
+        return Pose(pos=points[:, -1], quat=pose.quat)
+
+
+class EndoluminalAortaFluoroscopyScene(Scene):
+    name = "endoluminal_aorta_fluoroscopy"
+
+    def configure_args(self, args):
+        if args.num_envs != 1:
+            raise ValueError("endoluminal_aorta_fluoroscopy requires exactly one environment")
+        if args.presets not in (None, "newton"):
+            raise ValueError("endoluminal_aorta_fluoroscopy requires the Newton backend")
+        args.presets = "newton"
+        args.solve_relations = False
+        numerical = Path(workflow_root()) / "third_party/i4h-numerical-sim-d1fc95c/numerical_sim"
+        os.environ["I4H_DATA"] = str(numerical / "data")
+        super().configure_args(args)
+
+    def build(self):
+        from i4h_arena.envcfg.endoluminal_aorta_fluoroscopy import make_environment
+
+        return make_environment()
+
+    def gym_spec(self):
+        from i4h_arena.envcfg.endoluminal_aorta_fluoroscopy import AortaArenaBuilder
+
+        builder = AortaArenaBuilder(self.arena_environment(), arena_builder_cfg(self.args))
+        gym_id, cfg, _runtime_kwargs = builder.build_registered()
+        self.configure_env_cfg(cfg)
+        return gym_id, cfg
+
+    def make_view(self, env):
+        provider = AortaStateProvider(env)
+        env.unwrapped.scene["fluoroscopy"].bind_catheter_provider(provider)
+        return AortaSceneView(
+            env,
+            objects=(),
+            robots=("robot",),
+            cameras=self.spec.cameras,
+            gripper=False,
+            home_joints=np.zeros((1, 3), dtype=np.float32),
+            joint_state_providers={"robot": provider},
+            diagnostics_provider=provider,
+        )
+
+    def on_reset(self, env, view):
+        # A frame read immediately after reset must show the reset polyline.
+        env.unwrapped.scene["fluoroscopy"].update(0.0, force_recompute=True)
+        view.invalidate()
+
+    def default_sensor_views(self):
+        return ("fluoroscopy",)
+
+    def sensor_view_titles(self):
+        return {"fluoroscopy": "Static aorta: fixed XY fluoroscopy"}
+
+    def sensor_view_outputs(self):
+        return {"fluoroscopy": (("Guidance", "guidance"), ("Raw fluoroscopy", "rgb"))}

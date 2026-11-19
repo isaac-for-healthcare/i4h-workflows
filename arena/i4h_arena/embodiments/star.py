@@ -193,7 +193,7 @@ def _action_cfg(action_device: str) -> _ActionsCfg:
 
 
 class StarEmbodiment(EmbodimentBase):
-    name = "star"
+    registry_name = "star"
     tags = ["embodiment", "star", "surgical"]
     #: Merged into the scene's RTX settings by :meth:`i4h_arena.scenes.base.Scene.arena_environment`.
     rtx_settings = {"enable_translucency": True}

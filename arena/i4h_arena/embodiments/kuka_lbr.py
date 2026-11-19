@@ -162,7 +162,7 @@ class _ObservationsCfg:
 class KukaLbr14MedEmbodiment(EmbodimentBase):
     """KUKA LBR14Med embodiment with media-flange IK control."""
 
-    name: str = "kuka_lbr14"
+    registry_name: str = "kuka_lbr14"
     tags: ClassVar[list[str]] = ["embodiment", "kuka", "lbr"]
 
     def __init__(

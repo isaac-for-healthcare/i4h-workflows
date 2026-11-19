@@ -230,7 +230,7 @@ _FRANKA_SEMANTIC_MAPPING = {
 class FrankaUltrasoundEmbodiment(_EmbodimentBase):
     """Franka Panda + Realsense + ultrasound probe, IK-controlled on the TCP."""
 
-    name: str = "franka_ultrasound"
+    registry_name: str = "franka_ultrasound"
     tags: list[str] = ["embodiment", "franka", "ultrasound"]
     #: Merged into the scene's RTX settings by :meth:`i4h_arena.scenes.base.Scene.arena_environment`.
     rtx_settings = {"enable_translucency": True}
@@ -239,8 +239,9 @@ class FrankaUltrasoundEmbodiment(_EmbodimentBase):
         super().__init__(enable_cameras=enable_cameras, initial_pose=initial_pose)
         self.scene_config = _RobotSceneCfg()
         self.camera_config = _CameraSceneCfg()
-        # Isaac Lab 3's Camera already renders tiled; TiledCameraCfg is deprecated.
-        self.camera_config.set_use_tiled_camera(False)
+        # Arena's independent renderer supports RGB only; this rig also needs
+        # depth and semantic segmentation from Isaac Lab's tiled renderer.
+        self.camera_config.set_use_tiled_camera(True)
         self.action_config = _ActionsCfg()
         self.observation_config = _ObservationsCfg()
         if not self.enable_cameras:
@@ -262,7 +263,7 @@ class FrankaUltrasoundEmbodiment(_EmbodimentBase):
 class FrankaUltrasoundRLEmbodiment(FrankaUltrasoundEmbodiment):
     """Probe embodiment with flat, camera-free observations for online RL."""
 
-    name: str = "franka_ultrasound_rl"
+    registry_name: str = "franka_ultrasound_rl"
 
     def __init__(self):
         super().__init__(enable_cameras=False)

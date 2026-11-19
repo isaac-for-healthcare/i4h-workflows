@@ -193,7 +193,10 @@ for project in "${ordered[@]}"; do
   # Only the projects that carry tests define a dev extra; asking for it
   # elsewhere is a hard error in uv, not a no-op.
   extra=()
-  grep -q '^dev = ' "$project/pyproject.toml" 2>/dev/null && extra=(--extra dev)
+  if [ "$project" = "arena" ]; then
+    extra+=(--locked)
+  fi
+  grep -q '^dev = ' "$project/pyproject.toml" 2>/dev/null && extra+=(--extra dev)
   echo "==> uv sync --project $project ${extra[*]}"
   # -u VIRTUAL_ENV so an activated venv does not capture the sync.
   sync_env=(env -u VIRTUAL_ENV)
@@ -202,7 +205,11 @@ for project in "${ordered[@]}"; do
     sync_env+=("UV_PROJECT_ENVIRONMENT=$(venv_path "$project")")
   fi
   if "${sync_env[@]}" uv sync --project "$project" "${extra[@]}" "${uv_sync_args[@]}" 2>&1 | sed 's/^/    /'; then
-    :
+    if [ "$project" = "arena" ]; then
+      if ! arena/.venv/bin/python scripts/arena_stack_artifacts.py verify-native; then
+        failed+=("arena/native-warp")
+      fi
+    fi
   else
     echo "    !! failed" >&2
     failed+=("$project")

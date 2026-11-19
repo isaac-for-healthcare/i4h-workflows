@@ -150,23 +150,24 @@ def select_physics_backend(env_cfg: ManagerBasedRLEnvCfg, backend: str = "newton
     return "newton"
 
 
-_DEFORMABLE_BODY_API = "OmniPhysicsDeformableBodyAPI"
-
-
 def spawn_cloth_with_root_deformable_body(prim_path, cfg, translation=None, orientation=None, **kwargs):
-    """Spawn the tablecloth with its deformable body declared on the asset root.
+    """Use the asset's only mesh as both the simulated and rendered cloth.
 
-    The cloth USD applies the deformable body API to its mesh, which binds a PhysX
-    material, and binds its Newton cloth material on the root. Isaac Lab 3 imports a
-    Newton deformable from the prim carrying the body API, with the material bound
-    there, so the API moves to the root: the mesh and material Isaac Lab up to
-    v3.0.0-beta2 simulated, under the asset's own prim path.
+    The asset already declares a deformable mesh. Registering another simulation
+    mesh creates two overlapping cloth surfaces in Newton.
     """
+    from isaaclab.sim import SimulationContext  # noqa: PLC0415
+
     prim = spawn_from_usd(prim_path, cfg, translation=translation, orientation=orientation, **kwargs)
+    meshes = [child for child in Usd.PrimRange(prim) if child.IsA(UsdGeom.Mesh)]
+    if len(meshes) != 1:
+        raise ValueError(f"expected one cloth mesh under {prim.GetPath()}, found {len(meshes)}")
+    mesh = meshes[0]
     for child in Usd.PrimRange(prim):
-        if child != prim and _DEFORMABLE_BODY_API in child.GetAppliedSchemas():
-            child.RemoveAppliedSchema(_DEFORMABLE_BODY_API)
-    prim.AddAppliedSchema(_DEFORMABLE_BODY_API)
+        for schema in child.GetAppliedSchemas():
+            if "DeformableBody" in schema or "DeformableSim" in schema:
+                child.RemoveAppliedSchema(schema)
+    SimulationContext.instance().physics_manager.setup_deformable_body(prim, "surface", mesh, mesh)
     return prim
 
 

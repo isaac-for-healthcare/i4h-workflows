@@ -65,7 +65,7 @@ def environment_registration_callback() -> list[str]:
     scene = load_scene(args.task, args)
     scene.configure_args(args)
     builder = ArenaEnvBuilder(scene.arena_environment(), arena_builder_cfg(args))
-    env_cfg, env_kwargs = builder.compose_manager_cfg()
+    env_cfg, env_kwargs = builder.build_env_cfg()
     # Isaac Lab's train.py loads the registered cfg, not the parsed copy
     # build_registered() returns. Clear the embodiment and metric recorder
     # terms there, or every training reset exports to /tmp/isaaclab/logs.

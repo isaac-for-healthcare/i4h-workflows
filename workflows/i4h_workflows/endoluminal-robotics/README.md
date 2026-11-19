@@ -6,12 +6,25 @@ Workflows for navigation and intervention through luminal anatomy.
 
 | Workflow | Demonstration | Supported modes ([guide](../../i4h_workflow_modes/README.md)) |
 | --- | --- | --- |
+| [`endoluminal_aorta_fluoroscopy`](endoluminal_aorta_fluoroscopy.py) | Normalized catheter insertion, rotation and tip bending in the Numerical Sim static aorta, with fixed XY fluoroscopy. | `idle`, `demo`, `replay` |
 | [`endoluminal_navigation`](endoluminal_navigation.py) | Navigate a catheter and movable C-arm with a live fluoroscopy view. | `demo`, `policy_n17`, `teleop`, `replay`, `validate_fluoroscopy`, `idle` |
 | [`endoluminal_navigation_arm`](endoluminal_navigation_arm.py) | The same navigation with the catheter drive carried on a Franka Panda flange. | `demo`, `policy_n17`, `teleop`, `replay`, `idle` |
 
 `demo`, `policy_n17` and `validate_fluoroscopy` are workflow-specific extensions, not standard run modes.
 
-The two workflows drive the same catheter to the same goal and accept the same four velocity channels; the arm holds the drive unit rather than being commanded through it. The arm scene spawns a rigid articulation, so it runs the coupled MJWarp + XPBD solver instead of the rod-only one, which costs throughput.
+The two legacy navigation workflows drive the same catheter to the same goal and accept the same four velocity channels; the arm holds the drive unit rather than being commanded through it. The arm scene spawns a rigid articulation, so it runs the coupled MJWarp + XPBD solver instead of the rod-only one, which costs throughput.
+
+The static-aorta Workflow uses a separate three-channel normalized contract, 60 Hz
+physics with decimation two, CUDA graph capture, and a 600-step cap. Its demo
+applies 115 commands. The fixed 256 by 256 detector drops Z and spans X from
+-0.5 to 11.0 metres and Y from +2.0 to -2.0 metres. Raw `fluoroscopy` frames and
+root/tip diagnostics use the shared recorder. See the [qualification and exact
+pins](../../../docs/workflows/arena-main-newton19.md).
+
+```bash
+./run.sh endoluminal_aorta_fluoroscopy --mode demo --seed 0 --record demo.hdf5
+./run.sh endoluminal_aorta_fluoroscopy --replay demo.hdf5 --seed 0
+```
 
 ## Demonstrations
 

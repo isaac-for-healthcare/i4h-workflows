@@ -183,7 +183,7 @@ class _CameraSceneCfg(ArenaCameraCfg):
 class SoArm101Embodiment(EmbodimentBase):
     """SO-ARM 101 with wrist and room cameras."""
 
-    name = "so_arm101"
+    registry_name = "so_arm101"
     tags = ["embodiment", "so_arm", "manipulation"]
     #: Merged into the scene's RTX settings by :meth:`i4h_arena.scenes.base.Scene.arena_environment`.
     rtx_settings = {"enable_translucency": True}

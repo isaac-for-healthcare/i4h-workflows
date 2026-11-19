@@ -47,13 +47,13 @@ def test_rsl_rl_training_registers_cfg_without_episode_recorders(monkeypatch):
         def __init__(self, _arena_env, _args):
             pass
 
-        def compose_manager_cfg(self):
+        def build_env_cfg(self):
             return SimpleNamespace(recorders=object()), {}
 
         def build_registered(self, env_cfg=None, env_kwargs=None):
-            # Like Arena 0.3.1: register the given cfg (or a fresh composition) and
+            # Like pinned Arena main: register the given cfg (or a fresh composition) and
             # return a parsed copy that Isaac Lab's train.py never sees.
-            cfg = env_cfg if env_cfg is not None else self.compose_manager_cfg()[0]
+            cfg = env_cfg if env_cfg is not None else self.build_env_cfg()[0]
             registered.append(cfg)
             return "test", SimpleNamespace(**vars(cfg)), env_kwargs or {}
 

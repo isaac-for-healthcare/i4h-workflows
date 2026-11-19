@@ -17,7 +17,10 @@ fi
   echo "RL CPU tests require RLinf $revision" >&2
   exit 1
 }
-for patch in "$root/third_party/rlinf_training_failures.patch" "$root/third_party/rlinf_gr00t_training.patch"; do
+for patch in \
+  "$root/third_party/rlinf_training_failures.patch" \
+  "$root/third_party/rlinf_gr00t_training.patch" \
+  "$root/third_party/rlinf_channel_failures.patch"; do
   if git -C "$checkout" apply --reverse --check "$patch" 2>/dev/null; then
     echo "RLinf CPU patch already applied: ${patch##*/}"
   else

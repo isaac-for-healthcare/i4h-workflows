@@ -332,7 +332,7 @@ class _ActionsCfg:
 class CatheterEmbodiment(EmbodimentBase):
     """Minimal Arena embodiment whose scene entity is an external rod solver."""
 
-    name = "catheter"
+    registry_name = "catheter"
     tags: ClassVar[list[str]] = ["embodiment", "medical", "catheter"]
 
     def __init__(self, patient_twin_manifest: str | None = None) -> None:

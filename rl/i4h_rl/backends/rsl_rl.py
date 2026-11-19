@@ -250,7 +250,7 @@ def launch(
 
     # Isaac Lab 3.0 replaced the per-library rsl_rl/train.py with one train.py that selects the
     # library with --rl_library.
-    train_script = workflows_root / "third_party/IsaacLab-e3f7d9f/scripts/reinforcement_learning/train.py"
+    train_script = workflows_root / "third_party/IsaacLab-3939445/scripts/reinforcement_learning/train.py"
     command = [
         str(runtime),
         str(train_script),

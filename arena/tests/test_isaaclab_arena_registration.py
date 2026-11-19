@@ -6,9 +6,7 @@ from isaaclab_arena.assets.register import register_asset
 
 
 def test_asset_decorator_does_not_load_global_catalog(monkeypatch) -> None:
-    # IsaacLab-Arena 0.3.1 checks duplicates with is_registered(ensure_loaded=False), which the
-    # dropped isaaclab_arena_lazy_registration.patch used to add. Importing the catalog no longer
-    # calls the Lightwheel API either (upstream #741), so a full lookup is safe offline.
+    # The pinned Arena checks local registration without loading its global catalog.
     registry = registries.AssetRegistry()
     name = "i4h_test_local_registration"
     registry._components.pop(name, None)
@@ -21,7 +19,7 @@ def test_asset_decorator_does_not_load_global_catalog(monkeypatch) -> None:
     class LocalAsset:
         pass
 
-    LocalAsset.name = name
+    LocalAsset.registry_name = name
     try:
         assert register_asset(LocalAsset) is LocalAsset
         assert registry.is_registered(name, ensure_loaded=False)

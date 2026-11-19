@@ -242,7 +242,7 @@ def _action_cfg(
 
 
 class PsmEmbodiment(EmbodimentBase):
-    name = "psm"
+    registry_name = "psm"
     tags = ["embodiment", "psm", "surgical"]
     #: Merged into the scene's RTX settings by :meth:`i4h_arena.scenes.base.Scene.arena_environment`.
     rtx_settings = {"enable_translucency": True}
@@ -447,7 +447,7 @@ def _dual_physical_joint_pos(
 
 
 class DualPsmEmbodiment(EmbodimentBase):
-    name = "dual_psm"
+    registry_name = "dual_psm"
     tags = ["embodiment", "dual_psm", "surgical"]
     #: Merged into the scene's RTX settings by :meth:`i4h_arena.scenes.base.Scene.arena_environment`.
     rtx_settings = {"enable_translucency": True}

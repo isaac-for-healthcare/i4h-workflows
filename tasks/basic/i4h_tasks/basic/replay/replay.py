@@ -52,8 +52,15 @@ class Replay(Task):
         self._index = 0
 
     def on_enter(self, ctx: TickContext, inputs: object) -> None:
-        self._actions = self._load()
+        self._actions = None
         self._index = 0
+        actions = self._load()
+        if actions.ndim != 2:
+            raise ValueError(f"Replay actions must have shape (samples, width), received {actions.shape}")
+        expected, received = ctx.act.dof, actions.shape[1]
+        if received != expected:
+            raise ValueError(f"Replay action width mismatch: expected {expected}, received {received}")
+        self._actions = actions
 
     def _load(self) -> np.ndarray:
         if not self.dataset.is_file():

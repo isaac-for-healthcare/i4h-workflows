@@ -1,0 +1,55 @@
+diff --git a/source/isaaclab_newton/isaaclab_newton/cloner/newton_clone_utils.py b/source/isaaclab_newton/isaaclab_newton/cloner/newton_clone_utils.py
+index 10e31153f..a1986026f 100644
+--- a/source/isaaclab_newton/isaaclab_newton/cloner/newton_clone_utils.py
++++ b/source/isaaclab_newton/isaaclab_newton/cloner/newton_clone_utils.py
+@@ -58,8 +58,6 @@ def add_deformable_from_usd(builder: ModelBuilder, stage: Usd.Stage, geometry: D
+         attr = material.GetAttribute(f"newton:{to_camel_case(name, to='cC')}")
+         material_kwargs[name] = attr.Get() if attr.IsValid() else getattr(defaults, name)
+ 
+-    particle_start, tri_start = builder.particle_count, len(builder.tri_indices)
+-    edge_start, tet_start = len(builder.edge_indices), len(builder.tet_indices)
+     add_mesh(
+         vertices=geometry.vertices,
+         indices=geometry.indices,
+@@ -70,16 +68,7 @@ def add_deformable_from_usd(builder: ModelBuilder, stage: Usd.Stage, geometry: D
+         label=geometry.root_path,
+         **material_kwargs,
+     )
+-    particle_range = (particle_start, builder.particle_count)
+-    if geometry.deformable_type == "volume":
+-        builder._record_soft_group(geometry.root_path, particle_range, (tet_start, len(builder.tet_indices)))
+-    else:
+-        builder._record_cloth_group(
+-            geometry.root_path,
+-            particle_range,
+-            (tri_start, len(builder.tri_indices)),
+-            (edge_start, len(builder.edge_indices)),
+-        )
++    # Newton 1.9 records the deformable object inside add_cloth_mesh/add_soft_mesh.
+ 
+ 
+ def add_visual_deformables_to_sources(
+@@ -98,8 +87,6 @@ def add_visual_deformables_to_sources(
+                 continue
+             pose = dict(pos=wp.vec3(*entry.init_pos), rot=wp.quat(*entry.init_rot), scale=1.0, vel=wp.vec3())
+             surface = entry.deformable_type == "surface" or entry.vis_mesh_path != entry.sim_mesh_path
+-            particle_start, tri_start = builder.particle_count, len(builder.tri_indices)
+-            edge_start, tet_start = len(builder.edge_indices), len(builder.tet_indices)
+             if surface:
+                 add_mesh = builder.add_cloth_mesh
+                 mesh = dict(vertices=entry.vis_vertices, indices=entry.vis_indices, density=1.0)
+@@ -109,13 +96,7 @@ def add_visual_deformables_to_sources(
+                 mesh = dict(vertices=entry.vertices, indices=entry.indices, density=1000.0)
+                 mesh.update(k_mu=1e5, k_lambda=1e5, k_damp=0.0)
+             add_mesh(label=entry.vis_mesh_path, **mesh, **pose)
+-            # Remove private recording when the pinned Newton includes #3326.
+-            particle_range = particle_start, builder.particle_count
+-            if surface:
+-                tri_range, edge_range = (tri_start, len(builder.tri_indices)), (edge_start, len(builder.edge_indices))
+-                builder._record_cloth_group(entry.vis_mesh_path, particle_range, tri_range, edge_range)
+-            else:
+-                builder._record_soft_group(entry.vis_mesh_path, particle_range, (tet_start, len(builder.tet_indices)))
++            # Newton 1.9 records the visual deformable object while adding the mesh.
+ 
+ 
+ def build_source_builders(

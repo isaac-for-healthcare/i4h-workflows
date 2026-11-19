@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import shutil
@@ -32,11 +33,26 @@ def _run_setup(
     root_origin: str,
     *,
     solver_api: tuple[str, ...] = SOLVER_API,
+    target: str = "arena",
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     workspace = tmp_path / "workspace"
     third_party = workspace / "third_party"
     third_party.mkdir(parents=True)
     shutil.copy2(THIRD_PARTY_SETUP, third_party / "setup.sh")
+
+    # Exercise staging with a tiny hashed fixture; the production artifact hashes
+    # are tested separately. Fake Git does not supply a binary wheel.
+    scripts = workspace / "scripts"
+    scripts.mkdir()
+    fixture_wheel = third_party / "wheels/warp_lang-1.17.0-py3-none-linux_x86_64.whl"
+    fixture_wheel.parent.mkdir()
+    fixture_wheel.write_bytes(b"qualification test wheel")
+    artifact_source = (ROOT / "scripts/arena_stack_artifacts.py").read_text()
+    artifact_source = artifact_source.replace(
+        "dff334c1589510f4374807eb3fbdc85cfa5e20ab8a0e05548dc54e0b64990546",
+        hashlib.sha256(fixture_wheel.read_bytes()).hexdigest(),
+    )
+    (scripts / "arena_stack_artifacts.py").write_text(artifact_source)
 
     # Fake Git does not populate working trees. Supply the solver source that
     # setup inspects so these tests model a compatible component checkout.
@@ -76,6 +92,7 @@ def _run_setup(
     fake_git.chmod(0o755)
 
     env = os.environ.copy()
+    env.pop("I4H_WARP_WHEEL", None)
     env.update(
         {
             "GIT_TEST_LOG": str(git_log),
@@ -85,7 +102,7 @@ def _run_setup(
         }
     )
     result = subprocess.run(
-        [str(third_party / "setup.sh"), "arena"],
+        [str(third_party / "setup.sh"), target],
         cwd=workspace,
         env=env,
         capture_output=True,
@@ -144,6 +161,14 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
             f"i4h-{component}-internal fetch" in line and line.endswith(f"origin {ref}")
             for line in git_log.splitlines()
         )
+
+
+def test_isolated_n16_service_keeps_its_original_arena(tmp_path: Path) -> None:
+    result, git_log = _run_setup(tmp_path, "", target="tasks/gr00t_n16")
+    assert result.returncode == 0, result.stderr
+    assert "IsaacLab-Arena-c7edf3a fetch" in git_log
+    assert "Isaac-GR00T-1.6 fetch" in git_log
+    assert "IsaacLab-Arena-196680c fetch" not in git_log
 
 
 def _git(*args: str, cwd: Path) -> str:

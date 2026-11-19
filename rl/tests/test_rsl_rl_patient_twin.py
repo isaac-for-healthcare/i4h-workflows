@@ -111,7 +111,7 @@ def test_patient_twin_reaches_rsl_rl_scene_and_artifacts(
             isaac_cli(
                 "isaaclab_arena.environments.arena_env_builder",
                 ArenaEnvBuilder=lambda *_args: SimpleNamespace(
-                    compose_manager_cfg=lambda: (SimpleNamespace(recorders=None), {}),
+                    build_env_cfg=lambda: (SimpleNamespace(recorders=None), {}),
                     build_registered=lambda env_cfg, env_kwargs: None,
                 ),
             )

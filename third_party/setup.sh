@@ -12,15 +12,21 @@ LOG_PREFIX="i4h-workflows third_party setup"
 TARGET="${1:-all}"
 [ "$#" -le 1 ] || { echo "usage: third_party/setup.sh [all|arena|tasks/<policy>]" >&2; exit 2; }
 
-# Isaac Lab v3.0.0 GA. It requires Isaac Sim 6.2.0.0 (arena/pyproject.toml) and warp-lang 1.17.0.
-ISAACLAB_REV="e3f7d9ff1f5d7f8280de3ece9000b7117f66bcf4"
-ISAACLAB_DIR="IsaacLab-e3f7d9f"
+# Isaac Lab release/3.0.0: v3.0.0 GA plus its backported fixes. Like GA, it requires Isaac Sim
+# 6.2.0.0 (arena/pyproject.toml) and warp-lang 1.17.0.
+ISAACLAB_REV="39394453ceaac256349ad822e675a93485373667"
+ISAACLAB_DIR="IsaacLab-3939445"
+NUMERICAL_SIM_REV="d1fc95c99d59be793da1f938e8c58458a538b168"
+NUMERICAL_SIM_DIR="i4h-numerical-sim-d1fc95c"
 LEISAAC_REV="cd61a20c75f7b72c347538089602201349af6dc8"
 LEISAAC_DIR="leisaac-cd61a20"
-# IsaacLab-Arena release/0.3.1. Upstream validates it on Isaac Lab 91a0906f (pre-GA) and Isaac
-# Sim 6.1; here it runs on Isaac Lab v3.0.0 GA instead.
-ISAACLAB_ARENA_REV="c7edf3a9d5d8276565208f72422f8f8a0806d6cf"
-ISAACLAB_ARENA_DIR="IsaacLab-Arena-c7edf3a"
+# Arena main qualification pin. Arena itself pins the v3.0.0 GA submodule; i4h runs it on the
+# release/3.0.0 branch above with Isaac Sim 6.2.
+ISAACLAB_ARENA_REV="196680c28aa53e173d97d9e2dbded9d8d4f981a0"
+ISAACLAB_ARENA_DIR="IsaacLab-Arena-196680c"
+# The isolated GR00T N1.6 service retains its original Arena package and joint configs.
+POLICY_ARENA_REV="c7edf3a9d5d8276565208f72422f8f8a0806d6cf"
+POLICY_ARENA_DIR="IsaacLab-Arena-c7edf3a"
 ISAACSIM_SKILLS_REV="74a9356b20250dd60337d90b4b4d913c9454d32b"
 ISAACSIM_SKILLS_DIR="IsaacSim-74a9356"
 # Release component versions for v0.9.0: physics simulation, sensor simulation and digital
@@ -152,6 +158,7 @@ checkout_sparse_ref() {
 }
 
 arena_checkouts=(
+  "${NUMERICAL_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-physics-simulation.git|${NUMERICAL_SIM_REV}"
   "${ISAACLAB_DIR}|https://github.com/isaac-sim/IsaacLab.git|${ISAACLAB_REV}"
   "${LEISAAC_DIR}|https://github.com/LightwheelAI/leisaac.git|${LEISAAC_REV}"
   "${ISAACLAB_ARENA_DIR}|https://github.com/isaac-sim/IsaacLab-Arena.git|${ISAACLAB_ARENA_REV}"
@@ -168,6 +175,7 @@ policy_checkouts=(
   "${OPENPI_DIR_NAME}|https://github.com/Physical-Intelligence/openpi.git|${OPENPI_REV}"
   "${LEROBOT_DIR}|https://github.com/huggingface/lerobot.git|${LEROBOT_REV}"
   "${RLINF_DIR}|https://github.com/RLinf/RLinf.git|${RLINF_REV}"
+  "${POLICY_ARENA_DIR}|https://github.com/isaac-sim/IsaacLab-Arena.git|${POLICY_ARENA_REV}"
 )
 
 checkouts=()
@@ -193,7 +201,7 @@ case "$TARGET" in
     ;;
   tasks/gr00t_n16)
     # N1.6 imports reusable configuration from IsaacLab-Arena.
-    checkouts=("${arena_checkouts[2]}" "${policy_checkouts[1]}")
+    checkouts=("${policy_checkouts[6]}" "${policy_checkouts[1]}")
     ;;
   tasks/gr00t_n17)
     checkouts=("${policy_checkouts[2]}")
@@ -206,6 +214,10 @@ case "$TARGET" in
     exit 2
     ;;
 esac
+
+if [[ "$TARGET" == "all" || "$TARGET" == "arena" ]]; then
+  python3 "${SCRIPT_DIR}/../scripts/arena_stack_artifacts.py" stage-wheel
+fi
 
 for spec in "${checkouts[@]}"; do
   IFS="|" read -r name url ref <<<"${spec}"
@@ -247,6 +259,22 @@ if [[ -d "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}/.git" ]]; then
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}/.git" ]]; then
+  apply_patch_once "Isaac Lab Newton 1.9 VBD optional default" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_newton19_vbd.patch"
+
+  apply_patch_once "Isaac Lab Newton 1.9 automatic deformable groups" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_newton19_deformables.patch"
+
+  apply_patch_once "Isaac Lab Newton 1.9 actuator base class" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_newton19_actuators.patch"
+
+  apply_patch_once "Isaac Lab Newton 1.9 metadata and cloner" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_newton19_metadata.patch"
+
   # Isaac Lab 3.0 resolves the Pink IK mesh_path as a single file, but Pinocchio takes a mesh
   # package directory; the H2 + Sharpa URDF needs one for its relative mesh paths.
   apply_patch_once "Isaac Lab Pink IK local mesh directory" \
@@ -269,20 +297,7 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}/.git" ]]; then
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_arena_wbc_default_base_height.patch"
 
-  # Arena 0.3.1 was validated on pre-GA Isaac Lab 91a0906f. On v3.0.0, resets and recording pass
-  # slice(None) env_ids, mdp.image became per-modality terms (image_rgb, image_depth, ...), and the
-  # legacy Panda with its shoulder/forearm/hand actuator groups moved to FRANKA_PANDA_LEGACY_HIGH_PD_CFG.
-  apply_patch_once "IsaacLab-Arena Isaac Lab 3.0 GA slice env_ids" \
-    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
-    "${THIRD_PARTY_DIR}/isaaclab_arena_isaaclab3_slice_env_ids.patch"
-
-  apply_patch_once "IsaacLab-Arena Isaac Lab 3.0 GA image observation terms" \
-    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
-    "${THIRD_PARTY_DIR}/isaaclab_arena_isaaclab3_image_terms.patch"
-
-  apply_patch_once "IsaacLab-Arena Isaac Lab 3.0 GA legacy Franka actuator groups" \
-    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
-    "${THIRD_PARTY_DIR}/isaaclab_arena_isaaclab3_franka_legacy.patch"
+  # The GA slice-reset, modality-image, and legacy-Franka fixes are upstream.
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEROBOT_DIR}/.git" ]]; then
@@ -305,6 +320,10 @@ if [[ -d "${THIRD_PARTY_DIR}/${RLINF_DIR}/.git" ]]; then
   apply_patch_once "RLinf GR00T N1.7 patch embedding and optimizer progress" \
     "${THIRD_PARTY_DIR}/${RLINF_DIR}" \
     "${THIRD_PARTY_DIR}/rlinf_gr00t_training.patch"
+
+  apply_patch_once "RLinf channel failure propagation" \
+    "${THIRD_PARTY_DIR}/${RLINF_DIR}" \
+    "${THIRD_PARTY_DIR}/rlinf_channel_failures.patch"
 fi
 
 OPENPI_DIR="${THIRD_PARTY_DIR}/${OPENPI_DIR_NAME}"

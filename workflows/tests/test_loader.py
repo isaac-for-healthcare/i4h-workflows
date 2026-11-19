@@ -21,7 +21,7 @@ EXPECTED_SPECIALTIES = {
         "surgical_reach_star",
     },
     "ultrasound-robotics": {"ultrasound_liver_scan", "ultrasound_probe_reach"},
-    "endoluminal-robotics": {"endoluminal_navigation", "endoluminal_navigation_arm"},
+    "endoluminal-robotics": {"endoluminal_aorta_fluoroscopy", "endoluminal_navigation", "endoluminal_navigation_arm"},
     "hospital-automation-robotics": {
         "assemble_trocar",
         "locomanip_push_cart",
