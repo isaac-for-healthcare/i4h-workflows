@@ -216,3 +216,32 @@ def test_cli_writes_into_subject_directory_by_default(tmp_path: Path, monkeypatc
 
     assert cli.main([str(subject)]) == 0
     assert captured == {"subject": subject.resolve(), "output": subject.resolve()}
+
+
+def test_cli_without_segmentations_suggests_segment_vessels(tmp_path: Path, capsys) -> None:
+    """NVBug 7067726: one line naming the missing directory and the documented flag, no traceback."""
+    subject = _write_subject(tmp_path)
+    for label in (subject / "segmentations").iterdir():
+        label.unlink()
+    (subject / "segmentations").rmdir()
+
+    assert cli.main([str(subject), "--output", str(tmp_path / "output")]) == 1
+
+    err = capsys.readouterr().err
+    assert err.startswith("error: subject segmentations do not exist:")
+    assert "--segment-vessels" in err
+    assert "Traceback" not in err
+
+
+def test_cli_reports_an_unreadable_ct_in_one_line(tmp_path: Path, capsys) -> None:
+    """NVBug 7067726: an un-fetched Git LFS pointer in place of the CT."""
+    subject = _write_subject(tmp_path)
+    (subject / "ct.nii.gz").write_text("version https://git-lfs.github.com/spec/v1\noid sha256:0\nsize 1\n")
+
+    assert cli.main([str(subject), "--output", str(tmp_path / "output")]) == 1
+
+    err = capsys.readouterr().err
+    assert err.startswith("error: cannot read a NIfTI input:")
+    assert "ct.nii.gz" in err
+    assert "Git LFS" in err
+    assert "Traceback" not in err

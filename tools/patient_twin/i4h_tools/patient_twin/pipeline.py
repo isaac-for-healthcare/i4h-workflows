@@ -287,7 +287,10 @@ def build_patient_twin(
         raise FileNotFoundError(f"subject CT does not exist: {ct_path}")
     if not segment_vessels:
         if not segmentations.is_dir():
-            raise FileNotFoundError(f"subject segmentations do not exist: {segmentations}")
+            raise FileNotFoundError(
+                f"subject segmentations do not exist: {segmentations}; "
+                "pass --segment-vessels to derive the vasculature from the CT"
+            )
         if not labels:
             raise ValueError("at least one vessel label is required")
     if close_iterations < 0 or surface_step < 1:
