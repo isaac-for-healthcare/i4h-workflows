@@ -32,3 +32,6 @@ environments = ["sys_platform == 'linux'"]
 
 [tool.ruff]
 line-length = 120
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

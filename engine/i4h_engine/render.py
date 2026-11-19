@@ -70,8 +70,12 @@ def to_text(workflow: ResolvedWorkflow) -> str:
 
 
 def to_mermaid(workflow: ResolvedWorkflow) -> str:
-    """Mermaid flowchart. Control edges solid, data edges dotted and labelled."""
-    lines = ["```mermaid", "flowchart TD"]
+    """Mermaid flowchart. Control edges solid, data edges dotted and labelled.
+
+    Bare Mermaid source, so the output can be saved as a ``.mmd`` file and
+    rendered as-is; wrap it in a ```` ```mermaid ```` fence to embed it in Markdown.
+    """
+    lines = ["flowchart TD"]
     graph = workflow.graph
     for node_obj in graph.nodes:
         label = (
@@ -85,7 +89,6 @@ def to_mermaid(workflow: ResolvedWorkflow) -> str:
         source = _safe(edge.src.node_id)
         target = _safe(edge.dst.node_id)
         lines.append(f"    {source} -.->|{edge.src.port} → {edge.dst.port}| {target}")
-    lines.append("```")
     return "\n".join(lines)
 
 

@@ -11,11 +11,30 @@ The mode is resolved while the workflow is built, before Isaac starts.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import logging
 import os
+import stat
 import sys
+import tempfile
+from collections.abc import Iterator
+from pathlib import Path
 
 logger = logging.getLogger("arena")
+
+# isaacsim.code_editor.python_server's fixed port; local-agent/bridge.sh and the scene-edit skill use it too.
+PYTHON_SERVER_PORT = 8226
+
+
+def _step_cap(value: str) -> int:
+    """``--episode-steps``: 0 keeps the scene default; a negative cap is refused."""
+    try:
+        steps = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid int value: {value!r}") from None
+    if steps < 0:
+        raise argparse.ArgumentTypeError(f"must be 0 (the scene default) or a positive cap, got {steps}")
+    return steps
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -30,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--episode-steps",
         "--timesteps",
         dest="episode_steps",
-        type=int,
+        type=_step_cap,
         default=0,
         help="cap per episode; 0 uses the workflow/scene default",
     )
@@ -171,12 +190,14 @@ def main(argv: list[str] | None = None) -> int:
     from i4h_engine.registry import default_registry
 
     workflow = _build(args, resolve_workflow)
-    declared_cap = default_registry().scene(workflow.scene).for_mode(workflow.mode).max_steps
+    scene_spec = default_registry().scene(workflow.scene).for_mode(workflow.mode)
+    declared_cap = scene_spec.max_steps
     if args.episode_steps > declared_cap:
         parser.error(
             f"--episode-steps cannot exceed {declared_cap} for {args.workflow}; "
             "the validated per-environment cap may only be lowered"
         )
+    _check_view_sensors(parser, args, scene_spec.cameras)
     overridden = apply_overrides(
         workflow.graph,
         checkpoint=args.checkpoint,
@@ -210,6 +231,121 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     return _launch(args, workflow)
+
+
+def _check_view_sensors(parser: argparse.ArgumentParser, args: argparse.Namespace, cameras) -> None:
+    """Refuse an undeclared ``--view-sensor`` whatever the display flags, before Kit boots."""
+    if not args.view_sensor:
+        return
+    unknown = sorted(set(args.view_sensor) - set(cameras))
+    if unknown:
+        parser.error(
+            f"cannot view undeclared scene sensor(s) {unknown}; available camera-compatible sensors: {list(cameras)}"
+        )
+    disabled_by = [
+        flag
+        for flag, value in (
+            ("--headless", args.headless),
+            ("--no-sensor-view", args.no_sensor_view),
+            ("--no-cameras", args.no_cameras),
+        )
+        if value
+    ]
+    if disabled_by:
+        print(f"[arena] --view-sensor is ignored: {', '.join(disabled_by)} opens no sensor windows", flush=True)
+
+
+def _check_replay_dataset(args: argparse.Namespace, workflow) -> None:
+    """Name a missing recording before Kit boots, as the replay task would after it."""
+    if workflow.mode != "replay":
+        return
+    from pathlib import Path
+
+    dataset = Path(args.dataset)
+    if not dataset.is_file():
+        raise FileNotFoundError(f"no recording at {dataset}")
+
+
+def _check_python_server_port(args: argparse.Namespace) -> None:
+    """Refuse a second live bridge: two servers on 127.0.0.1:8226 split live edits between sessions."""
+    if not args.python_server:
+        return
+    import socket
+
+    try:
+        with socket.create_connection(("127.0.0.1", PYTHON_SERVER_PORT), timeout=0.5):
+            pass
+    except OSError:
+        return
+    raise SystemExit(
+        f"--python-server: 127.0.0.1:{PYTHON_SERVER_PORT} is already in use, most likely by another live session; "
+        "stop it first (./local-agent/bridge.sh stop <workflow> or ./stop.sh all)"
+    )
+
+
+def _python_server_lock_path() -> Path:
+    """The session lock, inside a private per-user directory.
+
+    The port is machine-wide, so the lock is too. It is per user because the bridge listens with
+    SO_REUSEPORT, which the kernel already refuses across users. The directory is created 0700 and
+    checked on every use, so another local user cannot plant the lock path in a shared temp dir.
+    """
+    base = Path(tempfile.gettempdir()) / f"i4h-arena-{os.getuid()}"
+    with contextlib.suppress(FileExistsError):
+        base.mkdir(mode=0o700)
+    info = base.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise SystemExit(
+            f"--python-server: {base} must be a directory owned by you with mode 0700 (it holds the live-session "
+            "lock); remove it or fix it, then retry"
+        )
+    return base / f"python-server-{PYTHON_SERVER_PORT}.lock"
+
+
+def _open_python_server_lock(path: Path) -> int:
+    """Open the lock file without following a link or blocking on a FIFO, and insist it is ours."""
+    fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, 0o600)
+    info = os.fstat(fd)
+    if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+        os.close(fd)
+        raise SystemExit(f"--python-server: {path} is not a regular lock file owned by you; remove it and retry")
+    return fd
+
+
+@contextlib.contextmanager
+def _python_server_guard(args: argparse.Namespace) -> Iterator[None]:
+    """Own the live bridge port from before Kit boots until this session ends.
+
+    The bridge only listens once Kit has finished booting, and it binds with SO_REUSEPORT, so a
+    second launch inside that window passes the port check and then shares port 8226 without any
+    error, splitting live edits between the two sessions. An exclusive lock held for the whole
+    session closes the window. The kernel drops it when the process exits, however it exits, so
+    no stale lock is left behind. The port check stays for sessions started outside this launcher.
+    """
+    if not args.python_server:
+        yield
+        return
+    try:
+        import fcntl
+    except ImportError:  # no flock (Windows): the port check is the only guard
+        _check_python_server_port(args)
+        yield
+        return
+
+    fd = _open_python_server_lock(_python_server_lock_path())
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise SystemExit(
+                f"--python-server: another live session is starting or running and owns "
+                f"127.0.0.1:{PYTHON_SERVER_PORT}; stop it first "
+                "(./local-agent/bridge.sh stop <workflow> or ./stop.sh all)"
+            ) from None
+        _check_python_server_port(args)
+        yield
+    finally:
+        os.close(fd)
 
 
 def _build(args: argparse.Namespace, resolve_workflow) -> object:
@@ -276,6 +412,13 @@ def _replay_initial_state(args: argparse.Namespace, workflow) -> dict | None:
 
 
 def _launch(args: argparse.Namespace, workflow) -> int:
+    # Checks that only need the filesystem or a socket answer in seconds, not after Kit boots.
+    _check_replay_dataset(args, workflow)
+    with _python_server_guard(args):
+        return _run_session(args, workflow)
+
+
+def _run_session(args: argparse.Namespace, workflow) -> int:
     # This function-local import must remain below workflow resolution.
     from i4h_arena.app import launch_app
     from i4h_arena.scenes.base import load_scene
