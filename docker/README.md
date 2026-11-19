@@ -8,23 +8,10 @@ The examples use the local tag `i4h-workflows:local`.
 
 ## Build
 
-The current release candidate checks out private i4h component repositories.
-Your GitHub account must have read access to them. Authenticate with `gh auth login`,
-then make its token available to BuildKit without typing the token into shell history:
-
-```bash
-export GH_TOKEN="$(gh auth token)"
-```
-
-The build commands below mount this token only for dependency setup. It is not a
-build argument, image environment variable, or Git remote URL, and BuildKit does
-not store the secret in image layers. Do not put the token in the build context.
-Users without access to the private components need a published image or a release
-with public component sources; supplying an unrelated token will not grant access.
+Every pinned i4h component repository is public, so the build needs no GitHub credentials.
 
 ```bash
 docker build \
-  --secret id=github_token,env=GH_TOKEN \
   --cache-to type=inline \
   -f docker/Dockerfile \
   -t i4h-workflows:local .
@@ -34,19 +21,18 @@ Build the optional full image when download size matters less than immediate sta
 
 ```bash
 docker build \
-  --secret id=github_token,env=GH_TOKEN \
   --target full \
   --cache-to type=inline \
   -f docker/Dockerfile \
   -t i4h-workflows:full .
 ```
 
-After building, remove the temporary environment variable with `unset GH_TOKEN`.
+The Dockerfile still accepts an optional `--secret id=github_token,env=GH_TOKEN` for
+dependency setup; no pinned component needs it.
 
 Containers reuse the component release checkouts made during the build, so running the
 image needs no GitHub credentials. Git prompts are disabled in the container: a fetch that
-does need credentials, such as an `I4H_PHYSICS_SIM_REF` override for the private physics
-component, fails instead of waiting for a login.
+needs credentials fails instead of waiting for a login.
 
 The Dockerfile uses NVIDIA's Ubuntu 24.04 base for both amd64 and arm64. Isaac Sim, PyTorch, and their CUDA libraries come from the component locks instead of being duplicated by a larger base image.
 
@@ -90,6 +76,10 @@ Commands use the default image. To use the full image, change only the image sel
 ```bash
 I4H_DOCKER_IMAGE=i4h-workflows:full i4h-docker ./run.sh scissor_pick_and_place --policy --episodes 1
 ```
+
+### Hosts with more than one GPU
+
+The container sees every GPU on the host, whatever `CUDA_VISIBLE_DEVICES` the host shell sets. On hosts with two different GPU models, such as a DGX Station with a display GPU or an IGX Thor with a discrete GPU, the arena or policy server can then stop at start with `DeferredCudaCallError ... device=1, num_gpus=1`. Give the container one GPU by adding `-e NVIDIA_VISIBLE_DEVICES=<index> \` to the `docker run` command in `i4h-docker`, where `<index>` is the GPU's index in `nvidia-smi`. Use `NVIDIA_VISIBLE_DEVICES` rather than `CUDA_VISIBLE_DEVICES` here: CUDA can number the GPUs in a different order from `nvidia-smi`.
 
 ## Commands
 
@@ -150,6 +140,15 @@ docker run --rm -d \
   -v i4h-state:/opt/i4h-state \
   nvcr.io/nvidia/vllm:26.03.post1-py3 \
   vllm serve Qwen/Qwen3-VL-8B-Instruct --port 8000 --dtype auto --gpu-memory-utilization 0.4 --max-model-len 32768 --trust-remote-code
+```
+
+The model takes about two minutes to download and load on a fresh `i4h-state` volume. Wait until the server answers before grading:
+
+```bash
+until curl -sf http://localhost:8000/health >/dev/null; do
+  docker container inspect i4h-workflows-vllm >/dev/null 2>&1 || { echo "vLLM exited before it was ready" >&2; break; }
+  sleep 5
+done
 ```
 
 Grade a recording with the i4h image:

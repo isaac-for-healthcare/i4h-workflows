@@ -3,10 +3,13 @@
 """A failed RLinf receive must wake waiters, including chained/nested work."""
 
 import ast
+import asyncio
 import logging
 import multiprocessing
+import threading
 import time
 import typing
+from concurrent.futures import Future as ConcurrentFuture
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -15,25 +18,28 @@ import pytest
 torch = pytest.importorskip("torch")
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "third_party/RLinf-a4b6abe/rlinf/scheduler/collective"
+CLASSES = ("AsyncWork", "AsyncFuncWork", "AsyncChannelWork", "AsyncChannelCommWork")
 
 
-def async_work_type():
+def async_work_type(name="AsyncFuncWork"):
     path = SOURCE / "async_work.py"
     if not path.is_file():
         pytest.skip(f"optional patched RLinf source is absent: {path}")
     classes = [
-        node
-        for node in ast.parse(path.read_text()).body
-        if isinstance(node, ast.ClassDef) and node.name in ("AsyncWork", "AsyncFuncWork")
+        node for node in ast.parse(path.read_text()).body if isinstance(node, ast.ClassDef) and node.name in CLASSES
     ]
     namespace = dict(
         vars(typing),
+        asyncio=asyncio,
+        threading=threading,
         Future=torch.futures.Future,
+        ConcurrentFuture=ConcurrentFuture,
         time=time,
+        ray=SimpleNamespace(actor=SimpleNamespace(ActorHandle=object)),
         Worker=SimpleNamespace(current_worker=SimpleNamespace(has_accelerator=False)),
     )
     exec(compile(ast.Module(body=classes, type_ignores=[]), str(path), "exec"), namespace)
-    return namespace["AsyncFuncWork"]
+    return namespace[name]
 
 
 def fail():
@@ -73,6 +79,91 @@ def test_nested_work_completes_parent(failure):
         assert parent.wait() == 42
 
 
+@pytest.mark.parametrize("receive_first", [True, False])
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_failed_channel_receive_fails_get(receive_first, asynchronous):
+    # Channel.get(async_op=True) waits on a per-query future that only a successful
+    # receive resolved, so a failed receive left the trainer waiting forever (NVBug 6955045).
+    receive = async_work_type()(fail)
+    if receive_first:
+        receive(None)
+    get = async_work_type("AsyncChannelCommWork")(receive, query_id=1, channel_actor=None)
+    if not receive_first:
+        receive(None)
+    assert get.done(), "a failed receive must wake the channel get"
+    with pytest.raises(EOFError, match="receive failed"):
+        if asynchronous:
+            asyncio.run(get.async_wait())
+        else:
+            get.wait()
+
+
+def test_channel_get_keeps_data_received_for_another_query():
+    # The channel may answer two gets out of order, so each receive stores its data by query.
+    kind, get_type = async_work_type(), async_work_type("AsyncChannelCommWork")
+    first, second = kind(lambda: ("second", 2)), kind(lambda: ("first", 1))
+    gets = [get_type(first, query_id=1, channel_actor=None), get_type(second, query_id=2, channel_actor=None)]
+    first(None)
+    second(None)
+    assert [get.wait() for get in gets] == ["first", "second"]
+
+
+def test_failed_receive_keeps_data_already_stored_for_its_get():
+    kind, get_type = async_work_type(), async_work_type("AsyncChannelCommWork")
+    other, receive = kind(lambda: ("mine", 2)), kind(fail)
+    get_type(other, query_id=1, channel_actor=None)
+    get = get_type(receive, query_id=2, channel_actor=None)
+    other(None)
+    receive(None)
+    assert get.wait() == "mine"
+
+
+def channel_actor(*replies):
+    """Stub a channel actor whose put calls return the given futures or raise the given errors."""
+    replies = list(replies)
+
+    def remote(*args, **kwargs):
+        reply = replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return SimpleNamespace(future=lambda: reply)
+
+    return SimpleNamespace(put=SimpleNamespace(remote=remote))
+
+
+def resolved(value=None, error=None):
+    future = ConcurrentFuture()
+    if error is None:
+        future.set_result(value)
+    else:
+        future.set_exception(error)
+    return future
+
+
+def test_failed_channel_put_fails_waiter_and_runs_next_put():
+    kind = async_work_type("AsyncChannelWork")
+    actor = channel_actor(resolved(error=EOFError("channel actor failed")), resolved("stored"))
+    failed = kind("channel", "key", actor, "put")
+    assert failed.done(), "a failed channel actor call must wake the put"
+    with pytest.raises(EOFError, match="channel actor failed"):
+        failed.wait()
+    # Puts to one key run in order, so a failed put must not block the next one.
+    following = kind("channel", "key", actor, "put")
+    assert following.done() and following.wait() == "stored"
+
+
+def test_queued_channel_put_that_cannot_call_actor_fails_waiter():
+    kind = async_work_type("AsyncChannelWork")
+    first = ConcurrentFuture()
+    actor = channel_actor(first, EOFError("actor call failed"))
+    kind("channel", "key", actor, "put")
+    queued = kind("channel", "key", actor, "put")
+    first.set_result("stored")
+    assert queued.done(), "a queued put whose actor call raises must not stay pending"
+    with pytest.raises(EOFError, match="actor call failed"):
+        queued.wait()
+
+
 def delayed_broadcast(rank, rendezvous, results, ready, complete, fail_startup=False):
     from datetime import timedelta
 
@@ -102,11 +193,13 @@ def delayed_broadcast(rank, rendezvous, results, ready, complete, fail_startup=F
         exec(compile(ast.Module(body=[method], type_ignores=[]), str(path), "exec"), namespace)
         owner = SimpleNamespace(_cur_rank=rank, _logger=logging.getLogger("collective-test"))
         work = async_work_type()(lambda: namespace["_broadcast"](owner, torch.zeros(1), 0, failure_group))
+        # Wrap the receive the way Channel.get(async_op=True) does; that is what the trainer waits on.
+        get = async_work_type("AsyncChannelCommWork")(work, query_id=1, channel_actor=None)
         work(None)
         try:
-            work.wait()
+            get.wait()
         except Exception as exc:
-            results.put(("timeout", work.done(), str(exc)))
+            results.put(("timeout", work.done() and get.done(), str(exc)))
         else:
             results.put(("timeout", False, "collective timeout was swallowed"))
     except Exception as exc:

@@ -75,7 +75,7 @@ Run the demo using the generated manifest:
   --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml
 ```
 
-Patient-CT fluoroscopy renders with Slang on Vulkan by default. Passing `--fluoro-device cuda` also needs a CUDA Toolkit on the host (see the [requirements](../../../README.md#requirements)); without one, the launcher stops before Isaac Sim starts and names the `libnvrtc.so` it found, if any.
+Patient-CT fluoroscopy renders with Slang on CUDA when the host has a usable CUDA Toolkit (see the [requirements](../../../README.md#requirements)), and on Vulkan otherwise; the launcher prints which one it chose and, on a fallback, why. CUDA takes about half the time per frame, because Vulkan reads every frame back through the host. Pass `--fluoro-device vulkan` or `--fluoro-device cuda` to choose explicitly; with `cuda` and no usable toolkit, the launcher stops before Isaac Sim starts and names the `libnvrtc.so` it found, if any.
 
 ### Keyboard teleoperation
 
@@ -644,6 +644,6 @@ This is an integration demonstration, not validated intravascular mechanics. The
 
 The vessel wall is a deformable vessel built from the twin's centerline and lumen radii, not the segmented vessel surface, and it is not a tissue model: it keeps the rod inside the lumen without modelling vessel injury. The solver's static-mesh collision path is unused. Containment is a projection, so the rod can still end up partly outside the lumen; the RL reward measures that against the same radii and penalises it.
 
-The rod physics runs batched across environments. Patient fluoroscopy does not: the pinned `xray_simulator` release behind the Slang renderer supports one environment, and it raises on a batch rather than rendering one of them.
+The rod physics and patient fluoroscopy both run batched across environments: the Slang renderer poses every environment in one dispatch through `render_batch` in the pinned `xray_simulator`, and falls back to one render per environment on a release without it. The catheter's own attenuation is still computed, and the guidance overlays drawn on the host, one environment at a time.
 
 Ray marching uses `FluoroscopySensorCfg.step_mm = 1.0` against the twin's 1.5 mm voxels, which is coarser than the 0.75 mm half-spacing that would sample every voxel along a ray. That is a deliberate trade for an interactive frame rate; lower it when line-integral accuracy matters more than throughput.

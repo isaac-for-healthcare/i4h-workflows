@@ -30,7 +30,7 @@ See [DESIGN.md](DESIGN.md) for detailed architecture and ownership rules.
 - Linux driver `580.95.05` (the Isaac Sim 6.0 tested version) or a compatible newer production-branch driver
 - Some training profiles require more VRAM or multiple GPUs; see the workflow-specific documentation
 - `uv` and `git`
-- CUDA Toolkit 12.x or 13.x, no newer than the driver supports, for endoluminal RL (CUDA fluoroscopy by default), `--fluoro-device cuda`, or the standalone `xray-simulator` CLI; see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#failed-to-create-device-from-slang-fluoroscopy)
+- CUDA Toolkit 12.x or 13.x, no newer than the driver supports, for endoluminal RL (CUDA fluoroscopy by default), faster patient-CT fluoroscopy in the other endoluminal modes (they fall back to Vulkan without it), `--fluoro-device cuda`, or the standalone `xray-simulator` CLI; see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#failed-to-create-device-from-slang-fluoroscopy)
 - Network access for Python packages, third-party checkouts, models, and assets
 - Tens of GB for dependencies, plus additional model-cache space (large checkpoints such as GR00T N1.7 can require several dozen GB)
 - Optional for natural-language prompts: Claude Code, Codex, or the repository's [Local Agent](local-agent/README.md). Tested with Opus 4.8 (1M context) and GPT-5.5 at low or medium reasoning effort.
@@ -426,7 +426,7 @@ From the command line:
 
 The runner streams progress to the terminal and prints the exact per-run `workflow.log` path. It performs setup, policy recording, mimic expansion, VLM filtering, replay, LeRobot conversion, visualization, fine-tuning, and checkpoint validation. Use its `--skip-*` flags to omit optional stages, and `--headless` on a host without a display.
 
-VLM filtering grades each episode against the workflow's `annotate` settings (`Workflow(annotate=Annotate(...))`), which name the visible success criterion, the cameras to show, and whether to judge the final state or the motion; `./run.sh show <workflow>` prints them, and a workflow without them is graded on its policy task's prompt. Fine-tuning needs no Weights & Biases account: PI0 logs there only with `--wandb` or `train.wandb: true` in its task manifest, and GR00T logs to TensorBoard.
+VLM filtering grades each episode against the workflow's `annotate` settings (`Workflow(annotate=Annotate(...))`), which name the visible success criterion, the cameras to show, and whether to judge the final state or the motion; `./run.sh show <workflow>` prints them, and a workflow without them is graded on its policy task's prompt. Fine-tuning needs no Weights & Biases account: PI0 logs there only with `--wandb` or `train.wandb: true` in its task manifest, GR00T N1.5 logs to TensorBoard, and GR00T N1.6 and N1.7 print the training loss to the console without writing TensorBoard events.
 
 ## Further Documentation
 
