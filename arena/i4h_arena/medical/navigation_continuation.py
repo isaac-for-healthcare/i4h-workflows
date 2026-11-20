@@ -201,7 +201,6 @@ def capture(env, env_ids):
                 raise ValueError("navigation progress history exceeds continuation schema capacity")
             events[row, : len(encoded)] = np.frombuffer(encoded, np.uint8)
     host["progress_events"] = events
-    host["fluoroscopy_dirty"] = np.full((len(ids), 1), env.scene["fluoroscopy"]._data_dirty, np.bool_)
     return dict(
         identity=np.repeat(configuration_identity(env)[None], len(ids), axis=0),
         numerical=env.i4h.capture_continuation(ids),
@@ -219,20 +218,17 @@ def validate(env, bundle, env_ids=None):
         raise ValueError("navigation continuation backend/schema/source/configuration/anatomy mismatch")
     env.i4h.validate_continuation(bundle["numerical"], ids)
     destinations = host_arrays(env)
-    if set(destinations) | {"progress_events", "fluoroscopy_dirty"} != set(bundle["host"]):
+    if set(destinations) | {"progress_events"} != set(bundle["host"]):
         raise ValueError(
             f"navigation host continuation layout mismatch: "
             f"missing={set(destinations)-set(bundle['host'])}, "
-            f"extra={set(bundle['host'])-set(destinations)-{'progress_events', 'fluoroscopy_dirty'}}"
+            f"extra={set(bundle['host'])-set(destinations)-{'progress_events'}}"
         )
     for key, destination in destinations.items():
         like = destination.detach().cpu().numpy() if isinstance(destination, torch.Tensor) else destination
         source = np.asarray(bundle["host"][key])
         if source.dtype != like.dtype or source.shape != (len(ids), *like.shape[1:]):
             raise ValueError(f"navigation host shape/dtype mismatch: {key}")
-    dirty = np.asarray(bundle["host"]["fluoroscopy_dirty"])
-    if dirty.dtype != np.bool_ or dirty.shape != (len(ids), 1) or (len(ids) and not np.all(dirty == dirty[0])):
-        raise ValueError("navigation fluoroscopy dirty flag layout mismatch")
     events = np.asarray(bundle["host"]["progress_events"])
     if events.dtype != np.uint8 or events.shape != (len(ids), 65536):
         raise ValueError("navigation progress event shape/dtype mismatch")
@@ -277,8 +273,9 @@ def restore(env, bundle, env_ids=None):
                 PredicateEvent(**dict(event, env_idx=int(world))) for event in json.loads(encoded or b"[]")
             ]
     sensor = env.scene["fluoroscopy"]
-    dirty = bool(bundle["host"]["fluoroscopy_dirty"].any())
-    sensor._data_dirty = dirty if len(ids) == env.num_envs else sensor._data_dirty or dirty
+    # The batch-wide lazy gate is derived from per-world refresh masks, so a
+    # selected reset never changes an unrelated episode's saved continuation.
+    sensor._data_dirty = bool(wp.to_torch(sensor._is_outdated).any().item())
     env._task_progress_step = env.common_step_counter
     catheter = env.scene["catheter"]
     catheter._tip_bend_rad = env.action_manager.get_term("catheter")._tip_bend_angle
