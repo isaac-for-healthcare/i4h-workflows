@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 import numpy as np
 
 if TYPE_CHECKING:
-    from .patient_volume import PatientVolume
+    from .patient_twin import PatientTwin
 
 
 def _numpy(value: Any) -> np.ndarray:
@@ -29,9 +29,6 @@ def _quat_xyzw_rotate(quaternion: np.ndarray, vector: np.ndarray) -> np.ndarray:
     w = quaternion[:, 3:4]
     vec = np.broadcast_to(np.asarray(vector, dtype=np.float64), xyz.shape)
     return vec + 2.0 * np.cross(xyz, np.cross(xyz, vec) + w * vec)
-
-
-SUPPORTED_PATIENT_FRAMES = ("DICOM_LPS", "NIFTI_RAS")
 
 
 def anatomical_projection_basis(twin: Any) -> np.ndarray:
@@ -66,33 +63,23 @@ def anatomical_projection_basis(twin: Any) -> np.ndarray:
       the image; the beam and orbit axes cannot.
 
     Args:
-        twin: Patient twin carrying a ``DICOM_LPS`` or ``NIFTI_RAS``
-            ``coordinate_frame`` and ``world_from_patient_m``.
+        twin: Patient twin whose ``world_from_patient_m`` places patient LPS metres in
+            the world. ``PatientTwin.load`` resolves every bundle frame to LPS, so no
+            frame handling happens here.
 
     Returns:
         ``(3, 3)`` orthonormal right-handed matrix whose columns are world-space
         directions.
 
     Raises:
-        ValueError: If the twin declares an unsupported coordinate frame, or its
-            patient-to-world transform is not a rotation.
+        ValueError: If the twin's patient-to-world transform is not a rotation.
     """
-    frame = str(getattr(twin, "coordinate_frame", ""))
-    if frame not in SUPPORTED_PATIENT_FRAMES:
-        raise ValueError(
-            f"patient twin declares coordinate_frame={frame!r}; the projection basis is only "
-            f"defined for {SUPPORTED_PATIENT_FRAMES!r}"
-        )
     rotation = np.asarray(twin.world_from_patient_m, dtype=np.float64)[:3, :3]
     norms = np.linalg.norm(rotation, axis=0)
     if not np.isfinite(norms).all() or norms.min() <= 1.0e-9:
         raise ValueError("patient twin world_from_patient_m has a degenerate rotation")
     rotation = rotation / norms
-    # Express both conventions as world-space left, posterior and superior.
-    # RAS reverses the first two patient axes; normalization above made a copy,
-    # so this does not modify the twin's transform or its volume coordinates.
-    if frame == "NIFTI_RAS":
-        rotation[:, :2] *= -1.0
+    # Patient LPS columns are world-space left, posterior and superior.
     left, posterior, superior = rotation[:, 0], rotation[:, 1], rotation[:, 2]
     basis = np.column_stack((-left, -superior, -posterior))
     if not np.allclose(basis.T @ basis, np.eye(3), atol=1.0e-6):
@@ -279,7 +266,7 @@ class ReferenceProjectionCArmStateProvider:
 
     def __init__(
         self,
-        patient: PatientVolume,
+        twin: PatientTwin,
         orbit_action: Any,
         *,
         detector_size_m: tuple[float, float],
@@ -287,7 +274,7 @@ class ReferenceProjectionCArmStateProvider:
         tip_source: Any = None,
         pan_keep_fraction: float = 0.6,
     ) -> None:
-        self._patient = patient
+        self._twin = twin
         self._orbit_action = orbit_action
         self._detector_size_m = detector_size_m
         self._half_sdd_m = 0.5 * float(source_to_detector_m)
@@ -307,12 +294,13 @@ class ReferenceProjectionCArmStateProvider:
         isocenter. Panning further would put the beam in empty air and render a
         blank detector, which reads as a broken sensor.
         """
-        extent_mm = 2.0 * np.asarray(self._patient.center_xyz_mm, dtype=np.float64)
-        corners_mm = np.array(
-            [[x, y, z] for x in (0.0, extent_mm[0]) for y in (0.0, extent_mm[1]) for z in (0.0, extent_mm[2])],
+        # Outer faces of the native voxel grid, which need not be axis-aligned in patient space.
+        shape = np.asarray(self._twin.shape_ijk, dtype=np.float64)
+        corners_voxel = np.array(
+            [[i, j, k] for i in (-0.5, shape[0] - 0.5) for j in (-0.5, shape[1] - 0.5) for k in (-0.5, shape[2] - 0.5)],
             dtype=np.float64,
         )
-        offsets = (self._patient.volume_mm_to_world(corners_mm) - isocenter) @ pan_axis
+        offsets = (self._twin.voxels_to_world(corners_voxel) - isocenter) @ pan_axis
         return float(offsets.min()), float(offsets.max())
 
     def _tip_offsets_m(self, num_envs: int, isocenter: np.ndarray, pan_axis: np.ndarray) -> np.ndarray | None:
@@ -329,8 +317,8 @@ class ReferenceProjectionCArmStateProvider:
         angles = _numpy(self._orbit_action.angle_rad).reshape(-1)
         if angles.shape != (num_envs,):
             raise ValueError(f"C-arm orbit action returned {angles.shape[0]} environments; expected {num_envs}")
-        patient_to_world = anatomical_projection_basis(self._patient.twin)
-        isocenter = self._patient.volume_mm_to_world(self._patient.center_xyz_mm)
+        patient_to_world = anatomical_projection_basis(self._twin)
+        isocenter = self._twin.isocenter_world_m
         # The basis puts the patient's head-foot axis on the detector's vertical,
         # and orbit is a rotation about that same axis, so the pan direction is
         # the one part of the frame every view agrees on. Panning along it is

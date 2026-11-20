@@ -179,7 +179,7 @@ RULES = [
                 }
             ),
         )
-        for name in ("mimic", "dataset", "cosmos", "annotator", "patient_twin")
+        for name in ("mimic", "dataset", "cosmos", "annotator")
     ],
     *[
         LayerRule(

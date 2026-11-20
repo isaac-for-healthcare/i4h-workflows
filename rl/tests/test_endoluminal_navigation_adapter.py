@@ -563,6 +563,7 @@ def test_the_simulator_accepts_every_scene_argument_the_twin_needs():
     # Left for the scene to resolve, which picks Slang when a twin is present.
     assert scene_args.fluoro_backend is None
     assert scene_args.fluoro_device == "vulkan"
+    assert scene_args.hu_to_mu is None
 
 
 def test_a_twinless_simulator_still_carries_the_scene_attributes():
@@ -590,6 +591,63 @@ def test_a_twinless_simulator_still_carries_the_scene_attributes():
     scene_args = _scene_args(args)
     assert scene_args.patient_twin is None
     assert scene_args.fluoro_backend is None
+
+
+@pytest.mark.parametrize("scene_file", ["endoluminal_navigation.py", "endoluminal_navigation_arm.py"])
+def test_the_simulator_namespace_carries_every_argument_the_catheter_scenes_read(scene_file):
+    """A scene argument the RL namespace lacks raises AttributeError on every RLinf launch."""
+    import re
+
+    from i4h_rl.sim_server import _parser, _scene_args
+
+    scenes = Path(__file__).resolve().parents[2] / "arena" / "i4h_arena" / "scenes"
+    source = (scenes / scene_file).read_text(encoding="utf-8")
+    read = set(re.findall(r"self\.args\.(\w+)", source))
+    args = _parser().parse_args(
+        [
+            "--scene",
+            "s",
+            "--socket",
+            "/tmp/s",
+            "--ready-file",
+            "/tmp/r",
+            "--num-envs",
+            "1",
+            "--max-episode-steps",
+            "1",
+            "--env-spacing",
+            "1.0",
+            "--presets",
+            "physx",
+        ]
+    )
+    assert read - set(vars(_scene_args(args))) == set()
+
+
+def test_the_simulator_forwards_an_attenuation_preset():
+    from i4h_rl.sim_server import _parser, _scene_args
+
+    args = _parser().parse_args(
+        [
+            "--scene",
+            "s",
+            "--socket",
+            "/tmp/s",
+            "--ready-file",
+            "/tmp/r",
+            "--num-envs",
+            "1",
+            "--max-episode-steps",
+            "1",
+            "--env-spacing",
+            "1.0",
+            "--presets",
+            "physx",
+            "--hu-to-mu",
+            "linear",
+        ]
+    )
+    assert _scene_args(args).hu_to_mu == "linear"
 
 
 def test_runtime_pythonpath_does_not_shadow_gr00t_17_with_15():

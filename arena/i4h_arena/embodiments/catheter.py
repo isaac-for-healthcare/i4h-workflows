@@ -28,7 +28,6 @@ from i4h_arena.medical.newton_catheter_physics import (
     segment_count_override,
 )
 from i4h_arena.medical.patient_twin import PatientTwin
-from i4h_arena.medical.patient_volume import PatientVolume
 from i4h_arena.medical.xpbd_catheter import XpbdCatheterAsset, XpbdCatheterAssetCfg
 from i4h_common.navigation_route import ROUTE_SPACING_MM
 from i4h_common.types import JointState
@@ -393,28 +392,19 @@ class CatheterEmbodiment:
             self._align_to_patient_centerline(PatientTwin.load(patient_twin_manifest))
 
     def _align_to_patient_centerline(self, twin: PatientTwin) -> None:
-        patient = PatientVolume.load(twin)
-        isocenter = patient.volume_mm_to_world(patient.center_xyz_mm)
-        self.action_config.carm_orbit.isocenter_world_m = tuple(float(value) for value in isocenter)
-        centerline_path = twin.artifacts.get("centerline_points")
-        if centerline_path is None:
+        self.action_config.carm_orbit.isocenter_world_m = tuple(float(value) for value in twin.isocenter_world_m)
+        centerline = twin.centerline()
+        if centerline is None:
             return
-        points_patient_mm = np.load(centerline_path)
-        edges_path = twin.artifacts.get("centerline_edges")
-        if edges_path is None:
-            return
-        edges = np.load(edges_path)
-        radii_path = twin.artifacts.get("centerline_radii")
-        radii = np.load(radii_path) if radii_path is not None else None
         # Spacing comes from i4h_common rather than a literal here because
         # dataset conversion resamples the same centerline to label the goal
         # columns. Two different spacings produce two plausible routes and two
         # sets of arc figures that mean different things, with nothing raising.
         path_patient_mm, lumen_radii_mm = ordered_centerline_lumen(
-            points_patient_mm,
-            edges,
+            centerline.points_mm,
+            centerline.edges,
             target_spacing_mm=ROUTE_SPACING_MM,
-            radii_mm=radii,
+            radii_mm=centerline.radii_mm,
         )
         path_world_m = twin.patient_mm_to_world(path_patient_mm)
         path_segments = np.linalg.norm(np.diff(path_world_m, axis=0), axis=1)

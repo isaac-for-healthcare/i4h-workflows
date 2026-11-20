@@ -231,6 +231,12 @@ Use this interface when running, debugging, scripting, or integrating the runtim
 
 This is the command-line equivalent of asking an AI agent to set up the repository.
 
+Sensor simulation and the patient digital twin are now checked out as `third_party/i4h-sensor-simulation` and `third_party/i4h-digital-twin`. An older checkout still has `*-internal` copies that nothing reads any more; setup names them, and you can remove them:
+
+```bash
+rm -rf third_party/i4h-sensor-simulation-internal third_party/i4h-digital-twin-internal && ./setup.sh
+```
+
 Container builds, DGX Spark, Jetson AGX Thor, Zenoh, and sibling vLLM usage are documented in the [Docker guide](docker/README.md).
 
 ### Run Workflows from the Command Line
