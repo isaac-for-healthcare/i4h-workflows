@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 from xray_simulator.config import DisplaySettings
@@ -115,22 +116,48 @@ class CinematicStyle:
         columns = torch.arange(width, dtype=torch.float32, device=device)[None, :]
         radius = torch.sqrt(((columns - 0.5 * width) / width) ** 2 + ((rows - 0.5 * height) / height) ** 2)
         self._vignette = (1.0 - 0.9 * radius).clamp(0.78, 1.0)
-        self._generator = torch.Generator(device=device)
-        self._generator.manual_seed(seed)
         self._persistence: dict[str, torch.Tensor] = {}
+        self._valid: dict[str, torch.Tensor] = {}
+        self._generators = []
+        self._rng_states = None
+        self._seed, self._device = seed, device
 
-    def __call__(self, grayscale: torch.Tensor, *, key: str) -> torch.Tensor:
+    def continuation_arrays(self, num_envs: int) -> dict:
+        """Mutable per-world history and RNG bytes, including the pre-first-frame state."""
+        if self._rng_states is None or len(self._rng_states) != num_envs:
+            self._generators = [torch.Generator(device=self._device).manual_seed(self._seed) for _ in range(num_envs)]
+            self._rng_states = np.stack([generator.get_state().numpy() for generator in self._generators])
+            self._persistence.clear()
+            self._valid.clear()
+        for key in ("drr", "dsa"):
+            if key not in self._persistence:
+                self._persistence[key] = torch.zeros((num_envs, *self._vignette.shape), device=self._device)
+                self._valid[key] = torch.zeros(num_envs, dtype=torch.bool, device=self._device)
+        return {
+            "rng": self._rng_states,
+            **{f"history_{key}": value for key, value in self._persistence.items()},
+            **{f"valid_{key}": value for key, value in self._valid.items()},
+        }
+
+    def __call__(self, grayscale: torch.Tensor, *, key: str, env_mask=None) -> torch.Tensor:
         """Style ``(N, H, W)`` grey levels and return grey levels on the same 0-255 scale."""
         base = gaussian_blur(grayscale, 0.9) / 255.0
         bloom = gaussian_blur(grayscale, 2.2) / 255.0
         frame = (0.85 * base + 0.15 * bloom).clamp(0.0, 1.0)
-        previous = self._persistence.get(key)
-        if previous is None or previous.shape != frame.shape:
-            persisted = frame
-        else:
-            persisted = 0.76 * previous + 0.24 * frame
-        self._persistence[key] = persisted
-        noise = torch.randn(frame.shape, generator=self._generator, device=frame.device, dtype=frame.dtype)
+        self.continuation_arrays(len(frame))
+        previous = self._persistence[key]
+        persisted = torch.where(self._valid[key][:, None, None], 0.76 * previous + 0.24 * frame, frame)
+        mask = torch.ones(len(frame), dtype=torch.bool, device=frame.device) if env_mask is None else env_mask
+        previous[mask] = persisted[mask]
+        self._valid[key][mask] = True
+        noise = torch.zeros_like(frame)
+        for world, generator in enumerate(self._generators):
+            if not bool(mask[world]):
+                continue
+            # RNG state belongs to an episode, so restoring one world cannot rewind a peer.
+            generator.set_state(torch.from_numpy(self._rng_states[world].copy()))
+            noise[world] = torch.randn(frame.shape[1:], generator=generator, device=frame.device, dtype=frame.dtype)
+            self._rng_states[world] = generator.get_state().numpy()
         styled = ((persisted + 0.012 * noise).clamp(0.0, 1.0) * self._vignette).pow(1.06).clamp(0.0, 1.0)
         return torch.round(255.0 * styled)
 

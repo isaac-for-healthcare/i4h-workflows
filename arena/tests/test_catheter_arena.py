@@ -124,3 +124,26 @@ def test_attach_registers_the_env_without_a_window() -> None:
     env = Env()
     live.attach(env, None, "endoluminal_navigation")
     assert live.current_env() is env
+
+
+@pytest.mark.parametrize("backend,recording", [("legacy", True), ("legacy", False), ("numerical", False)])
+def test_navigation_provenance_skips_unneeded_numerical_lookup(monkeypatch, backend, recording):
+    import importlib.metadata
+
+    def unavailable(name):
+        raise AssertionError("unexpected Numerical Sim package lookup")
+
+    monkeypatch.setattr(importlib.metadata, "distribution", unavailable)
+    written = []
+    handler = SimpleNamespace(_hdf5_data_group=SimpleNamespace(attrs={}), add_env_args=written.append)
+    recorder = object.__new__(catheter_recording.NavigationProvenanceRecorder)
+    recorder._env = SimpleNamespace(
+        cfg=SimpleNamespace(navigation_backend=backend),
+        recorder_manager=SimpleNamespace(_dataset_file_handler=handler if recording else None),
+    )
+    assert recorder.record_post_reset([0]) == (None, None)
+    if recording:
+        assert written[0]["catheter_backend"] == "legacy"
+        assert written[0]["numerical_sim_revision"] is None
+    else:
+        assert not written

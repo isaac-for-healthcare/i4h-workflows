@@ -36,8 +36,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from i4h_common.paths import package_source
-
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / "workflows"
 SCENE_MANIFESTS = ROOT / "arena" / "i4h_arena" / "scenes" / "manifest"
@@ -461,6 +459,8 @@ def plan(argv: list[str]) -> Plan:
 
 
 def _isaaclab_tool(workflow, mode, spec, args, launcher, environment, record, run_dir, visible, cameras):
+    from i4h_common.paths import package_source
+
     try:
         tools = package_source("isaaclab-dev", ROOT) / "scripts/tools"
     except (OSError, ValueError, KeyError, TypeError) as error:
@@ -720,7 +720,9 @@ def _write_recording_metadata(plan: Plan) -> None:
             provenance = {
                 "catheter_backend": plan.catheter_backend,
                 "continuation_schema_version": CONTINUATION_SCHEMA,
-                "numerical_sim_revision": installed_numerical_revision(),
+                "numerical_sim_revision": installed_numerical_revision()
+                if plan.catheter_backend == "numerical"
+                else None,
             }
             for key, value in provenance.items():
                 if key in existing and existing[key] != value:

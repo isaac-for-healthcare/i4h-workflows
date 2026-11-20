@@ -375,7 +375,7 @@ def test_declared_tool_path_is_independent_of_checkout_globbing(tmp_path, monkey
     declared = package_source("isaaclab-dev", ROOT) / "scripts/tools"
     assert str(declared / "record_demos.py") in _plan("scissor_pick_and_place", "--teleop").command
     pinned = tmp_path / "pinned/scripts/tools"
-    monkeypatch.setattr(run_workflow, "package_source", lambda *args: pinned.parent.parent)
+    monkeypatch.setattr("i4h_common.paths.package_source", lambda *args: pinned.parent.parent)
     assert _plan("scissor_pick_and_place", "--teleop").command[1] == str(pinned / "record_demos.py")
     recording = tmp_path / "input.hdf5"
     recording.touch()
@@ -506,7 +506,7 @@ def test_missing_lab_source_is_reported_only_for_modes_that_need_tools(monkeypat
     def missing(*args):
         raise KeyError("isaaclab-dev")
 
-    monkeypatch.setattr(run_workflow, "package_source", missing)
+    monkeypatch.setattr("i4h_common.paths.package_source", missing)
     assert _plan("surgical_reach_psm", "--rule-based").mode == "rule-based"
     with pytest.raises(run_workflow.UsageError, match="declare a valid path source for isaaclab-dev"):
         _plan("scissor_pick_and_place", "--teleop")
@@ -560,3 +560,57 @@ def test_navigation_selects_real_kit_viewport_only_for_visible_runs(workflow):
     assert "--viz" not in headless.command
     explicit = _plan(workflow, "--mode", "demo", "--", "--visualizer", "none")
     assert explicit.command[-2:] == ["--visualizer", "none"]
+
+
+def test_cleanup_runs_without_site_packages(tmp_path):
+    """The fallback interpreter must not need common/.venv or any installed package."""
+    import shutil
+
+    checkout = tmp_path / "checkout"
+    (checkout / "scripts").mkdir(parents=True)
+    shutil.copy2(ROOT / "scripts/run_workflow.py", checkout / "scripts/run_workflow.py")
+    shutil.copy2(ROOT / "stop.sh", checkout / "stop.sh")
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    fallback = binaries / "python3"
+    fallback.write_text(f'#!/bin/sh\nexec "{sys.executable}" -I -S "$@"\n')
+    fallback.chmod(0o755)
+    pids = tmp_path / "pids"
+    pids.mkdir()
+    child = subprocess.Popen(["sleep", "60"], start_new_session=True)
+    try:
+        (pids / f"example.{os.getpid() + 10_000_000}").write_text(f"{child.pid}\n")
+        result = subprocess.run(
+            [str(checkout / "stop.sh"), "all"],
+            env={**os.environ, "PATH": f"{binaries}:/usr/bin:/bin", "I4H_PID_DIR": str(pids)},
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        assert result.returncode == 0, result.stderr
+        child.wait(timeout=5)
+        assert not list(pids.iterdir())
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.wait()
+
+
+def test_legacy_recording_metadata_needs_no_numerical_installation(tmp_path, monkeypatch):
+    def unavailable():
+        raise AssertionError("legacy must not discover Numerical Sim")
+
+    monkeypatch.setattr(run_workflow, "installed_numerical_revision", unavailable)
+    built = _plan(
+        "endoluminal_navigation",
+        "--mode",
+        "demo",
+        "--catheter-backend",
+        "legacy",
+        "--record",
+        str(tmp_path / "legacy.hdf5"),
+    )
+    run_workflow._write_recording_metadata(built)
+    metadata = json.loads((tmp_path / "run.json").read_text())
+    assert metadata["catheter_backend"] == "legacy"
+    assert metadata["numerical_sim_revision"] is None

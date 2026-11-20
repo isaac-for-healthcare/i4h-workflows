@@ -159,6 +159,13 @@ def catheter_recorders(base: Any, target_world_m: tuple[float, float, float] | N
 
 class NavigationProvenanceRecorder(RecorderTerm):
     def record_post_reset(self, env_ids):
+        handlers = [
+            handler
+            for name in ("_dataset_file_handler", "_failed_episode_dataset_file_handler")
+            if (handler := getattr(self._env.recorder_manager, name, None)) is not None
+        ]
+        if not handlers:
+            return None, None
         import hashlib
         import importlib.metadata
         import json
@@ -168,9 +175,11 @@ class NavigationProvenanceRecorder(RecorderTerm):
 
         from i4h_common.catheter_backend import CONTINUATION_SCHEMA, PROVENANCE_KEYS
 
-        source = json.loads(importlib.metadata.distribution("i4h-physics").read_text("direct_url.json"))
-        path = Path(unquote(urlparse(source["url"]).path))
-        revision = subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip()
+        revision = None
+        if self._env.cfg.navigation_backend == "numerical":
+            source = json.loads(importlib.metadata.distribution("i4h-physics").read_text("direct_url.json"))
+            path = Path(unquote(urlparse(source["url"]).path))
+            revision = subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip()
         patient = getattr(self._env.cfg, "navigation_patient_twin", None)
         provenance = dict(
             catheter_backend=self._env.cfg.navigation_backend,
@@ -179,12 +188,10 @@ class NavigationProvenanceRecorder(RecorderTerm):
             patient_twin=patient,
             patient_twin_sha256=hashlib.sha256(Path(patient).read_bytes()).hexdigest() if patient else None,
         )
-        for name in ("_dataset_file_handler", "_failed_episode_dataset_file_handler"):
-            handler = getattr(self._env.recorder_manager, name, None)
-            if handler is not None:
-                existing = json.loads(handler._hdf5_data_group.attrs.get("env_args", "{}"))
-                for key in PROVENANCE_KEYS:
-                    if key in existing and existing[key] != provenance[key]:
-                        raise ValueError(f"conflicting native recording provenance: {key}")
-                handler.add_env_args(provenance)
+        for handler in handlers:
+            existing = json.loads(handler._hdf5_data_group.attrs.get("env_args", "{}"))
+            for key in PROVENANCE_KEYS:
+                if key in existing and existing[key] != provenance[key]:
+                    raise ValueError(f"conflicting native recording provenance: {key}")
+            handler.add_env_args(provenance)
         return None, None

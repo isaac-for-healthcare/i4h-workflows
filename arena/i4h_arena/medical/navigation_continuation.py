@@ -189,6 +189,10 @@ def host_arrays(env):
     result["fluoroscopy_frame_id"] = sensor._data.frame_id
     for name, value in sensor._data.output.items():
         result[f"fluoroscopy_output_{name}"] = value
+    if sensor.cfg.backend == "slang":
+        sensor._ensure_renderer()
+        for name, value in sensor._renderer.continuation_arrays(env.num_envs).items():
+            result[f"fluoroscopy_renderer_{name}"] = value
     provider = sensor._carm_provider
     if hasattr(provider, "_pan_m"):
         if provider._pan_m is None:
@@ -250,6 +254,11 @@ def validate(env, bundle, env_ids=None):
         source = np.asarray(bundle["host"][key])
         if source.dtype != like.dtype or source.shape != (len(ids), *like.shape[1:]):
             raise ValueError(f"navigation host shape/dtype mismatch: {key}")
+    display = bundle["host"].get("fluoroscopy_renderer_display")
+    if display is not None:
+        renderer = env.scene["fluoroscopy"]._renderer
+        for row in display:
+            renderer._decode_display(row)
     events = np.asarray(bundle["host"]["progress_events"])
     if events.dtype != np.uint8 or events.shape != (len(ids), 65536):
         raise ValueError("navigation progress event shape/dtype mismatch")
@@ -297,6 +306,8 @@ def restore(env, bundle, env_ids=None):
     # The batch-wide lazy gate is derived from per-world refresh masks, so a
     # selected reset never changes an unrelated episode's saved continuation.
     sensor._data_dirty = bool(wp.to_torch(sensor._is_outdated).any().item())
+    if hasattr(getattr(sensor, "_renderer", None), "sync_display_state"):
+        sensor._renderer.sync_display_state()
     env._task_progress_step = env.common_step_counter
     catheter = env.scene["catheter"]
     catheter._tip_bend_rad = env.action_manager.get_term("catheter")._tip_bend_angle
