@@ -31,9 +31,9 @@ def main():
     def read(name):
         return json.loads((folder / name).read_text())
 
-    numerical = root / "third_party/i4h-numerical-sim-7edecea"
+    numerical = root / "third_party/i4h-numerical-sim-caff73b"
     revision = subprocess.check_output(["git", "-C", str(numerical), "rev-parse", "HEAD"], text=True).strip()
-    assert revision == "7edecea49204539ca54cf9da736b5bcf597dadff"
+    assert revision == "caff73b12a77abd6157771678ee0a57206771ac4"
     for module in (i4h_physics, i4h_surgical):
         assert Path(module.__file__).is_relative_to(numerical)
     parity = read("exported/parity.json")
@@ -83,7 +83,6 @@ def main():
         root / "arena/i4h_arena/scenes/liver_reach_retract.py",
         root / "arena/i4h_arena/envcfg/liver_reach_retract/calibration.json",
         root / "rl/i4h_rl/liver_ppo.py",
-        root / "third_party/i4h_numerical_liver_host.patch",
         *sorted((root / "arena/i4h_arena/envcfg/liver_reach_retract").glob("*.py")),
     ]
     manifest = dict(

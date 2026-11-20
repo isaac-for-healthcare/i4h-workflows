@@ -52,3 +52,27 @@ def artifact_dir(*parts: str) -> Path:
         path = path / part
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def package_source(package: str, root: Path | None = None) -> Path:
+    """Resolve an Arena package's declared path without importing its dependencies.
+
+    Planning works before setup. Callers that execute or verify must check existence.
+    """
+    import tomllib
+
+    root = root if root is not None else workflow_root()
+    project = root / "arena" / "pyproject.toml"
+    sources = tomllib.loads(project.read_text())["tool"]["uv"]["sources"]
+    return (project.parent / sources[package]["path"]).resolve()
+
+
+def numerical_source(root: Path | None = None) -> Path:
+    """The single numerical_sim directory shared by every declared numerical package."""
+    directories = {
+        package_source(package, root).parent
+        for package in ("i4h-physics", "i4h-isaaclab", "i4h-surgical", "i4h-assessment", "i4h-endoluminal")
+    }
+    if len(directories) != 1:
+        raise ValueError(f"Numerical Sim package sources disagree: {directories}")
+    return directories.pop()

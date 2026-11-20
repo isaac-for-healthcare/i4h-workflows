@@ -12,7 +12,7 @@ The Arena reducer owns phases, timers, rewards and terminal results. Its post-ph
 
 ## Setup and offline snapshots
 
-The current integration pin is numerical source `7edecea` plus the tracked bridge patch. That source and the consolidated bridge are included in internal Numerical Sim PR #19. **Public release still requires syncing the numerical source to the public repository and repinning setup, lockfiles and source paths to its public SHA.**
+The current integration pin is private Numerical Sim commit `caff73b12a77abd6157771678ee0a57206771ac4` from `isaac-for-healthcare/i4h-physics-simulation-internal`, checked out as `third_party/i4h-numerical-sim-caff73b`. Its merged bridge supplies post-physics callbacks and selected-world reset/restore without a Workflows compatibility patch. Setup requires authenticated access to that private repository. Public-install readiness remains deferred; this change does not publish Numerical Sim.
 
 Run `./setup.sh` after the numerical revision is publicly fetchable. Supply its production assets as described by Numerical Sim. Generate compatible settled bundles offline before normal execution:
 

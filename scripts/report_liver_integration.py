@@ -66,11 +66,13 @@ def main():
         if not name.startswith("outputs/")
         and Path(name).suffix in (".py", ".json", ".yaml", ".toml", ".sh", ".patch", ".lock")
     ]
-    num = root / "third_party/i4h-numerical-sim-7edecea"
+    from i4h_common.paths import numerical_source
+
+    num = numerical_source(root).parent
     live_diff = subprocess.check_output(["git", "diff"], cwd=num)
     import hashlib
 
-    assert hashlib.sha256(live_diff).hexdigest() == digest(root / "third_party/i4h_numerical_liver_host.patch")
+    assert not live_diff, "Merged Numerical Sim must be unpatched"
 
     def git_head(directory):
         return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=directory, text=True).strip()
@@ -79,7 +81,7 @@ def main():
         created_utc=datetime.now(UTC).isoformat(),
         workflows_head=git_head(root),
         numerical_head=git_head(num),
-        numerical_patch_sha256=digest(root / "third_party/i4h_numerical_liver_host.patch"),
+        numerical_patch_sha256=None,
         numerical_has_shared_object_alternates=(num / ".git/objects/info/alternates").exists(),
         isaaclab_head=git_head(root / "third_party/IsaacLab-3939445"),
         arena_head=git_head(root / "third_party/IsaacLab-Arena-196680c"),
@@ -113,7 +115,7 @@ def main():
         "",
         (
             "The integration is implemented on Workflows `1208154b` with Numerical Sim "
-            "`7edecea49204539ca54cf9da736b5bcf597dadff`."
+            "`caff73b12a77abd6157771678ee0a57206771ac4`."
         ),
         (
             "Full-cycle PPO qualification **failed**: the prescribed deterministic guard stopped "

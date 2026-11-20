@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 
 from i4h_arena.scenes.base import Scene, arena_builder_cfg
-from i4h_common.paths import workflow_root
+from i4h_common.paths import numerical_source, workflow_root
 
 
 class LiverReachRetractScene(Scene):
@@ -19,8 +19,8 @@ class LiverReachRetractScene(Scene):
             raise ValueError("liver_reach_retract requires Newton")
         args.presets = "newton"
         args.solve_relations = False
-        numerical = Path(workflow_root()) / "third_party/i4h-numerical-sim-7edecea/numerical_sim"
-        os.environ.setdefault("I4H_DATA", str(numerical / "data"))
+        numerical = numerical_source()
+        os.environ["I4H_DATA"] = str(numerical / "data")
         super().configure_args(args)
 
     def build(self):

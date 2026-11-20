@@ -1,5 +1,7 @@
 # Native workflow consolidation results
 
+This is historical evidence, including its original source and release references. Current setup uses private merged Numerical Sim `caff73b12a77abd6157771678ee0a57206771ac4` without the bridge patch; see the [current liver guide](liver_reach_retract.md). Public-install readiness remains deferred.
+
 The source integration checkpoint is `3180effd`. Merge `4ca34336` preserves the complete `mallan/lab-native-workflows` history through `9ba858f8` and ports the liver and static-aorta integrations onto its native Arena architecture. Current public main's missing-component launch fix is also merged and adapted to direct interpreter execution.
 
 ## Current checks

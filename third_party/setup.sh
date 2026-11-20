@@ -16,8 +16,8 @@ TARGET="${1:-all}"
 # 6.2.0.0 (arena/pyproject.toml) and warp-lang 1.17.0.
 ISAACLAB_REV="39394453ceaac256349ad822e675a93485373667"
 ISAACLAB_DIR="IsaacLab-3939445"
-NUMERICAL_SIM_REV="7edecea49204539ca54cf9da736b5bcf597dadff"
-NUMERICAL_SIM_DIR="i4h-numerical-sim-7edecea"
+NUMERICAL_SIM_REV="caff73b12a77abd6157771678ee0a57206771ac4"
+NUMERICAL_SIM_DIR="i4h-numerical-sim-caff73b"
 LEISAAC_REV="cd61a20c75f7b72c347538089602201349af6dc8"
 LEISAAC_DIR="leisaac-cd61a20"
 # Arena main qualification pin. Arena itself pins the v3.0.0 GA submodule; i4h runs it on the
@@ -104,7 +104,7 @@ checkout_ref() {
   if [[ "${ref}" =~ ^[0-9a-f]{40}$ ]]; then
     # A commit never moves, so fetch it once and reuse it on every later run.
     if ! git -C "${repo_dir}" rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
-      git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}"
+      git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}" || return 1
     fi
     target_commit="$(git -C "${repo_dir}" rev-parse "${ref}^{commit}")"
   elif git -C "${repo_dir}" rev-parse --verify --quiet "refs/tags/${ref}^{commit}" >/dev/null; then
@@ -118,7 +118,7 @@ checkout_ref() {
     # freeze the checkout at whatever main was the day the machine was first set up. Peel to
     # the commit: for an annotated release tag FETCH_HEAD names the tag object, which never
     # equals HEAD, so every rerun would force a checkout over local edits.
-    git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}"
+    git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}" || return 1
     target_commit="$(git -C "${repo_dir}" rev-parse "FETCH_HEAD^{commit}")"
     # FETCH_HEAD records whether the remote resolved the name as a tag or a branch. Keep a tag
     # so the branch above finds it next time; a branch gets no local ref and is fetched again.
@@ -128,7 +128,7 @@ checkout_ref() {
   fi
   current_commit="$(git -C "${repo_dir}" rev-parse --verify HEAD 2>/dev/null || true)"
   if [[ "${current_commit}" != "${target_commit}" ]]; then
-    git -C "${repo_dir}" checkout -f "${target_commit}"
+    git -C "${repo_dir}" checkout -f "${target_commit}" || return 1
     echo "[${LOG_PREFIX}] ${name} @ ${ref} is now ${target_commit}"
   fi
 }
@@ -150,7 +150,7 @@ checkout_sparse_ref() {
   git -C "${repo_dir}" sparse-checkout init --cone
   git -C "${repo_dir}" sparse-checkout set "${sparse_path}"
   if ! git -C "${repo_dir}" rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
-    git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}"
+    git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}" || return 1
   fi
   target_commit="$(git -C "${repo_dir}" rev-parse "${ref}^{commit}")"
   current_commit="$(git -C "${repo_dir}" rev-parse --verify HEAD 2>/dev/null || true)"
@@ -166,10 +166,11 @@ SENSOR_SIM_CHECKOUT="${I4H_SENSOR_SIM_DIR}|${I4H_SENSOR_SIM_URL}|${I4H_SENSOR_SI
 DIGITAL_TWIN_CHECKOUT="${I4H_DIGITAL_TWIN_DIR}|${I4H_DIGITAL_TWIN_URL}|${I4H_DIGITAL_TWIN_REF}"
 
 arena_checkouts=(
-  "${NUMERICAL_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-physics-simulation.git|${NUMERICAL_SIM_REV}"
+  "${NUMERICAL_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git|${NUMERICAL_SIM_REV}"
   "${ISAACLAB_DIR}|https://github.com/isaac-sim/IsaacLab.git|${ISAACLAB_REV}"
   "${LEISAAC_DIR}|https://github.com/LightwheelAI/leisaac.git|${LEISAAC_REV}"
   "${ISAACLAB_ARENA_CHECKOUT}"
+  "${GR00T_16_DIR}|https://github.com/NVIDIA/Isaac-GR00T.git|${GR00T_16_REV}"
   "${I4H_PHYSICS_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-physics-simulation.git|${I4H_PHYSICS_SIM_REF}"
   "${SENSOR_SIM_CHECKOUT}"
   # tools/patient_twin, not arena, consumes this one. It rides along with the arena target so
@@ -235,7 +236,10 @@ fi
 
 for spec in "${checkouts[@]}"; do
   IFS="|" read -r name url ref <<<"${spec}"
-  checkout_ref "${name}" "${url}" "${ref}"
+  if ! checkout_ref "${name}" "${url}" "${ref}"; then
+    echo "[${LOG_PREFIX}] checkout failed: ${url} @ ${ref}. Verify repository access and Git authentication." >&2
+    exit 1
+  fi
 done
 
 # Sensor simulation and the patient twin used to be checked out under *-internal names. The
@@ -295,9 +299,6 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}/.git" ]]; then
     "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_newton19_actuators.patch"
 
-  apply_patch_once "Numerical Sim post-physics and selected snapshot lifecycle" \
-    "${THIRD_PARTY_DIR}/${NUMERICAL_SIM_DIR}" \
-    "${THIRD_PARTY_DIR}/i4h_numerical_liver_host.patch"
   apply_patch_once "Isaac Lab Newton 1.9 metadata and cloner" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_newton19_metadata.patch"

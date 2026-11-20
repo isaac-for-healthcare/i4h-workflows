@@ -12,6 +12,7 @@ import importlib.metadata
 import json
 import os
 import shutil
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,7 +20,7 @@ WHEEL_NAME = "warp_lang-1.17.0-py3-none-linux_x86_64.whl"
 WHEEL_SHA256 = "dff334c1589510f4374807eb3fbdc85cfa5e20ab8a0e05548dc54e0b64990546"
 NATIVE_SHA256 = "eb4bda4537f7c7a35ef4640d89fbfba96cc9b2b786fdf1591535ea420ec8b6eb"
 ASSET_SHA256 = "b9eeaa91038c261ad10364e522837be3225c9432ad3740b45941f0676abde91c"
-NUMERICAL = ROOT / "third_party/i4h-numerical-sim-d1fc95c/numerical_sim"
+sys.path.insert(0, str(ROOT / "common"))
 
 
 def verify_hash(path: Path, expected: str) -> str:
@@ -48,15 +49,18 @@ def stage_wheel() -> Path:
 
 
 def verify_asset() -> None:
+    from i4h_common.paths import numerical_source
+
+    numerical = numerical_source(ROOT)
     relative = "numerical_sim/data/vessels/AortaWithVesselsStatic.usdc"
-    manifest = json.loads((NUMERICAL / "docs/asset-manifest.json").read_text())
+    manifest = json.loads((numerical / "docs/asset-manifest.json").read_text())
     entries = [entry for entry in manifest if entry["path"] == relative]
     if len(entries) != 1 or entries[0]["sha256"] != ASSET_SHA256:
         raise ValueError("Pinned aorta manifest does not match the approved asset hash")
-    asset = NUMERICAL / "data/vessels/AortaWithVesselsStatic.usdc"
+    asset = numerical / "data/vessels/AortaWithVesselsStatic.usdc"
     print(
         json.dumps(
-            {"asset": str(asset), "sha256": verify_hash(asset, ASSET_SHA256), "I4H_DATA": str(NUMERICAL / "data")}
+            {"asset": str(asset), "sha256": verify_hash(asset, ASSET_SHA256), "I4H_DATA": str(numerical / "data")}
         )
     )
 
@@ -64,11 +68,22 @@ def verify_asset() -> None:
 def verify_runtime() -> None:
     import warp as wp
 
+    from i4h_common.paths import package_source
+
     wp.init()
     # Check the actual dlopen handle, not a guessed library beside the Python module.
     native = Path(importlib.import_module("warp._src.context").runtime.core._name).resolve()
     verify_hash(native, NATIVE_SHA256)
     versions = {}
+    for package in ("i4h-physics", "i4h-isaaclab", "i4h-surgical", "i4h-assessment", "i4h-endoluminal"):
+        source = json.loads(importlib.metadata.distribution(package).read_text("direct_url.json"))
+        from urllib.parse import unquote, urlparse
+
+        installed = Path(unquote(urlparse(source["url"]).path)).resolve()
+        declared = package_source(package, ROOT)
+        if installed != declared:
+            raise ValueError(f"{package}: installed source {installed} differs from declared {declared}")
+        versions[package] = {"source": str(installed)}
     for distribution, module_name, expected in (
         ("isaacsim", "isaacsim", "6.2.0.0"),
         ("torch", "torch", "2.11.0"),

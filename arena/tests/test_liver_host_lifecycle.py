@@ -12,7 +12,7 @@ import torch
 def test_mixed_reset_preserves_restored_history():
     path = (
         Path(__file__).parents[2]
-        / "third_party/i4h-numerical-sim-7edecea/numerical_sim/isaaclab/src/i4h_isaaclab/manager.py"
+        / "third_party/i4h-numerical-sim-caff73b/numerical_sim/isaaclab/src/i4h_isaaclab/manager.py"
     )
     cls = next(
         node
@@ -65,3 +65,25 @@ def test_mixed_reset_preserves_restored_history():
         ("restore", [1]),
         ("sync", []),
     ]
+
+
+def test_merged_callbacks_run_after_procedure_for_each_decimated_physics_step():
+    from i4h_common.paths import numerical_source
+
+    source = numerical_source() / "isaaclab/src/i4h_isaaclab/newton_manager.py"
+    cls = next(
+        n for n in ast.parse(source.read_text()).body if isinstance(n, ast.ClassDef) and n.name == "ConstructionContext"
+    )
+    method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "physics_step")
+    namespace = {}
+    exec(compile(ast.Module(body=[method], type_ignores=[]), str(source), "exec"), namespace)
+    trace = []
+    binding = SimpleNamespace(
+        procedure=SimpleNamespace(update=lambda dt: trace.append(("procedure", dt))),
+        dt=1 / 60,
+        post_physics=[lambda: trace.append(("first", None)), lambda: trace.append(("second", None))],
+    )
+    context = SimpleNamespace(binding=binding)
+    for _ in range(2):
+        namespace["physics_step"](context)
+    assert trace == [("procedure", 1 / 60), ("first", None), ("second", None)] * 2

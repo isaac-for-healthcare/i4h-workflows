@@ -13,7 +13,7 @@ from i4h_arena.medical.liver_controller import LiverReferenceController
 
 def test_commands_match_pinned_reference():
     root = Path(__file__).parents[2]
-    reference = root / "third_party/i4h-numerical-sim-7edecea/numerical_sim/examples/liver_grasp/manual_teacher.py"
+    reference = root / "third_party/i4h-numerical-sim-caff73b/numerical_sim/examples/liver_grasp/manual_teacher.py"
     spec = importlib.util.spec_from_file_location("pinned_manual_teacher", reference)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

@@ -110,7 +110,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("order", choices=("legacy-first", "numerical-first"))
     args = parser.parse_args()
-    os.environ.setdefault("I4H_DATA", str(ROOT / "third_party/i4h-numerical-sim-d1fc95c/numerical_sim/data"))
+    from i4h_common.paths import numerical_source
+
+    numerical = numerical_source(ROOT)
+    os.environ["I4H_DATA"] = str(numerical / "data")
     names = ["catheter_vasculature_solver", "i4h_physics", "i4h_endoluminal"]
     if args.order == "numerical-first":
         names = ["i4h_physics", "i4h_endoluminal", "catheter_vasculature_solver"]
@@ -119,9 +122,7 @@ def main():
     faulthandler.dump_traceback_later(180, repeat=True)
     modules = {name: importlib.import_module(name) for name in names}
     for name, module in modules.items():
-        checkout = (
-            "i4h-physics-simulation-internal" if name == "catheter_vasculature_solver" else "i4h-numerical-sim-d1fc95c"
-        )
+        checkout = "i4h-physics-simulation-internal" if name == "catheter_vasculature_solver" else numerical.parent.name
         assert Path(module.__file__).resolve().is_relative_to(ROOT / "third_party" / checkout), module.__file__
     import newton
     import warp as wp

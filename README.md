@@ -9,6 +9,8 @@ Healthcare robotics workflows as IsaacLab-Arena environments: the scenes, robots
 
 Each workflow is an i4h scene that runs as an IsaacLab-Arena environment. Arena's policy runner evaluates a rule-based controller or a policy checkpoint in it, Isaac Lab's `record_demos.py` and `replay_demos.py` record and replay demonstrations, and each policy checkpoint is served from its own environment by its stack's own server. `./run.sh` runs each workflow's modes with those tools, and `./stop.sh` stops them.
 
+Arena setup currently requires authenticated read access to the private `isaac-for-healthcare/i4h-physics-simulation-internal` repository at `caff73b12a77abd6157771678ee0a57206771ac4`. Public-install readiness is deferred. Ordinary CPU CI runs independently of that repository.
+
 ## Layout
 
 The repository has seven main components:

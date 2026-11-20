@@ -5,13 +5,12 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 import numpy as np
 
 from i4h_arena.medical.catheter import CatheterState
 from i4h_arena.scenes.base import Scene, arena_builder_cfg
-from i4h_common.paths import workflow_root
+from i4h_common.paths import numerical_source
 from i4h_common.types import JointState
 
 JOINT_NAMES = ("insertion_m", "rotation_rad", "tip_bend_rad")
@@ -60,7 +59,7 @@ class EndoluminalAortaFluoroscopyScene(Scene):
             raise ValueError("endoluminal_aorta_fluoroscopy requires the Newton backend")
         args.presets = "newton"
         args.solve_relations = False
-        numerical = Path(workflow_root()) / "third_party/i4h-numerical-sim-7edecea/numerical_sim"
+        numerical = numerical_source()
         os.environ["I4H_DATA"] = str(numerical / "data")
         super().configure_args(args)
 

@@ -48,3 +48,62 @@ def test_wheel_staging_is_verified_and_idempotent(tmp_path, monkeypatch):
     destination.write_bytes(b"corrupt staged wheel")
     with pytest.raises(ValueError, match="SHA-256 mismatch"):
         artifacts.stage_wheel()
+
+
+@pytest.fixture
+def active_asset(tmp_path, monkeypatch):
+    import json
+
+    from i4h_common.paths import numerical_source
+
+    monkeypatch.setattr(artifacts, "ROOT", tmp_path)
+    arena = tmp_path / "arena"
+    arena.mkdir()
+    packages = ("physics", "isaaclab", "surgical", "assessment", "endoluminal")
+    (arena / "pyproject.toml").write_text(
+        "[tool.uv.sources]\n"
+        + "".join(f'i4h-{name} = {{ path = "../third_party/active/numerical_sim/{name}" }}\n' for name in packages)
+    )
+    numerical = numerical_source(tmp_path)
+    (numerical / "docs").mkdir(parents=True)
+    (numerical / "docs/asset-manifest.json").write_text(
+        json.dumps(
+            [{"path": "numerical_sim/data/vessels/AortaWithVesselsStatic.usdc", "sha256": artifacts.ASSET_SHA256}]
+        )
+    )
+    return numerical
+
+
+def test_missing_active_asset_never_falls_back(active_asset):
+    with pytest.raises(FileNotFoundError):
+        artifacts.verify_asset()
+
+
+def test_changed_manifest_hash_fails(active_asset):
+    manifest = active_asset / "docs/asset-manifest.json"
+    manifest.write_text(manifest.read_text().replace(artifacts.ASSET_SHA256, "unapproved"))
+    with pytest.raises(ValueError, match="approved asset hash"):
+        artifacts.verify_asset()
+
+
+def test_changed_asset_hash_fails(active_asset):
+    asset = active_asset / "data/vessels/AortaWithVesselsStatic.usdc"
+    asset.parent.mkdir(parents=True)
+    asset.write_bytes(b"changed")
+    with pytest.raises(ValueError, match="SHA-256 mismatch"):
+        artifacts.verify_asset()
+
+
+def test_inconsistent_numerical_declarations_are_rejected(active_asset):
+    from i4h_common.paths import numerical_source
+
+    project = artifacts.ROOT / "arena/pyproject.toml"
+    project.write_text(project.read_text().replace("active/numerical_sim/isaaclab", "retired/numerical_sim/isaaclab"))
+    with pytest.raises(ValueError, match="sources disagree"):
+        numerical_source(artifacts.ROOT)
+
+
+def test_missing_active_manifest_is_rejected(active_asset):
+    (active_asset / "docs/asset-manifest.json").unlink()
+    with pytest.raises(FileNotFoundError):
+        artifacts.verify_asset()
