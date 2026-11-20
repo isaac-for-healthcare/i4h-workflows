@@ -14,5 +14,16 @@
       "lists the scenes in arena/i4h_arena/scenes/manifest and runs scripts/run_tests.py --suite light and arena/tests/test_scene.py instead of the removed run.sh list and lint commands",
       "reports missing requirements, failed projects, verification results, and a next smoke command"
     ]
+  },
+  {
+    "id": "i4h-workflow-setup-private-arena",
+    "question": "Set up only the pinned Arena environment and verify its numerical assets.",
+    "ground_truth": "Use the approved scoped Arena setup with private merged Numerical Sim; do not publish it or use historical numerical directories.",
+    "expected_behavior": [
+      "requires authenticated access to the private Numerical Sim repository at caff73b12a77abd6157771678ee0a57206771ac4",
+      "includes the pinned GR00T N1.6 client while retaining isolated policy servers",
+      "verifies assets and installed sources from the declared active package paths"
+    ],
+    "expected_skill": "i4h-workflow-setup"
   }
 ]

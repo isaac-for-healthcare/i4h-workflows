@@ -173,6 +173,8 @@ Only workflows `./run.sh list` shows, with a mode their declaration gives, are s
 - `Evaluate scissor pick and place for 2 episodes.` → run `./run.sh scissor_pick_and_place --policy --episodes 2` with a run directory and recording, which serves the GR00T N1.5 scissors checkpoint and stops it afterwards, and report successes out of two with the visible outcome.
 - `Run surgical_reach_psm in rule-based mode for 1 episode.` → run `./run.sh surgical_reach_psm --rule-based --episodes 1` with a run directory and recording.
 
+Default run directories are atomically reserved, with a collision suffix when needed. Preview commands do not create directories. Recording-side `run.json` stores the resolved patient manifest and actual recording path, including external `--record` paths; conflicting anatomy provenance must be rejected. A smoke requires readable native HDF5 episodes with nonempty finite two-dimensional actions and matching completed results. Scored smokes must establish success; static-aorta diagnostics remain unscored.
+
 ## Completion gate
 
 Report workflow, mode, environment class and scene, policy class and flags and server command (from `./run.sh show`), model/checkpoint source, server log when served, requested and succeeded episodes with episode lengths, step budget, visible outcome, run directory, results file, HDF5 path and inspection, collision-negative/reset evidence when applicable, readiness level reached, final exit status, and first unresolved failure if any.

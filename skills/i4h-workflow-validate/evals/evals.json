@@ -265,5 +265,17 @@
       "runs it in the foreground",
       "requires the [fluoroscopy] C-arm sweep PASS line and reports the visible fluoroscopy result"
     ]
+  },
+  {
+    "id": "i4h-workflow-validate-recording-provenance",
+    "question": "Record a headless fluoroscopy run with my patient twin into an external HDF5 path.",
+    "ground_truth": "Use the native launcher with the explicit patient manifest and recording path; inspect live geometry, native episodes and recording-side run.json.",
+    "expected_behavior": [
+      "preserves the explicit recording path and writes run.json beside it with the resolved patient manifest",
+      "binds catheter and C-arm sources without GUI panels",
+      "rejects conflicting anatomy provenance and validates finite nonempty two-dimensional actions",
+      "reports unscored modes as unscored rather than claiming task success"
+    ],
+    "expected_skill": "i4h-workflow-validate"
   }
 ]
