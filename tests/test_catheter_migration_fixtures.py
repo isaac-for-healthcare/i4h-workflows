@@ -71,3 +71,26 @@ def test_comparison_rejects_threshold_changes_after_freezing(tmp_path):
     np.savez(tmp_path / "navigation-inputs.npz", config=json.dumps(frozen))
     with pytest.raises(ValueError, match="thresholds differ from the frozen"):
         module.compare_navigation(tmp_path, {"gates": {"tip_rms_over_length": 0.03}})
+
+
+def test_unloaded_moment_tolerance_accepts_roundoff_but_rejects_common_offset():
+    reference = np.asarray([[0.0, 5.7e-11, 0.0]])
+    numerical = -reference
+    assert module.unloaded_moment_error(reference, numerical) < 1e-9
+    # Equal erroneous torques cannot pass merely because their difference is zero.
+    excessive = np.asarray([[0.0, 1.1e-9, 0.0]])
+    assert module.unloaded_moment_error(excessive, excessive) > 1e-9
+
+
+def test_absolute_moment_policy_rejects_loaded_or_changed_fixtures():
+    import pytest
+
+    fixture = {"name": "probe", "geometry": "straight", "drive": "route", "rates": [0, 0, 0]}
+    config = {"fixtures": [fixture]}
+    policy = {"revision": 2, "fixture_sha256": "original", "unloaded_moment_atol_nm": 1e-9, "fixtures": ["probe"]}
+    assert module.validate_acceptance_policy(policy, config, "original") == 1e-9
+    with pytest.raises(ValueError, match="frozen fixture revision"):
+        module.validate_acceptance_policy(policy, config, "changed")
+    fixture["gravity"] = [0, 0, -9.81]
+    with pytest.raises(ValueError, match="loaded fixture"):
+        module.validate_acceptance_policy(policy, config, "original")

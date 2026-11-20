@@ -165,10 +165,38 @@ def escapes(points, wall, edges, free_radius):
     return np.asarray(masks), np.asarray(branches)
 
 
-def compare_navigation(run_dir, config):
+def validate_acceptance_policy(policy, config, fixture_sha256):
+    """A versioned tolerance revision may only select stationary, straight, unloaded fixtures."""
+    if policy["revision"] != 2 or policy["fixture_sha256"] != fixture_sha256:
+        raise ValueError("acceptance policy does not match the frozen fixture revision")
+    tolerance = float(policy["unloaded_moment_atol_nm"])
+    if not np.isfinite(tolerance) or tolerance <= 0.0:
+        raise ValueError("unloaded moment tolerance must be finite and positive")
+    fixtures = {fixture["name"]: fixture for fixture in config["fixtures"]}
+    for name in policy["fixtures"]:
+        fixture = fixtures[name]
+        if (
+            fixture.get("geometry") != "straight"
+            or fixture["drive"] != "route"
+            or any(fixture["rates"])
+            or any(fixture.get("gravity", (0, 0, 0)))
+        ):
+            raise ValueError(f"absolute unloaded tolerance cannot apply to loaded fixture {name}")
+    return tolerance
+
+
+def unloaded_moment_error(reference, numerical):
+    """Bound both engines against physical zero and their discrepancy, in N m."""
+    return max(float(np.linalg.norm(values, axis=-1).max()) for values in (reference, numerical, reference - numerical))
+
+
+def compare_navigation(run_dir, config, acceptance_policy=None):
     inputs = dict(np.load(run_dir / "navigation-inputs.npz"))
     if json.loads(str(inputs["config"])) != config:
         raise ValueError("current fixture settings or thresholds differ from the frozen inputs")
+    unloaded_tolerance = None
+    if acceptance_policy is not None:
+        unloaded_tolerance = validate_acceptance_policy(acceptance_policy, config, str(inputs["fixture_sha256"]))
     ref = dict(np.load(run_dir / "navigation-reference.npz"))
     ours = dict(np.load(run_dir / "navigation-numerical.npz"))
     for archive in (ref, ours):
@@ -224,7 +252,9 @@ def compare_navigation(run_dir, config):
         ):
             x, y = ref[prefix + key][..., columns], ours[prefix + key][..., columns]
             norm = np.linalg.norm(x)
-            if norm == 0.0:
+            if label == "moment" and acceptance_policy is not None and name in acceptance_policy["fixtures"]:
+                row(name, "moment absolute error N m", unloaded_moment_error(x, y), unloaded_tolerance)
+            elif norm == 0.0:
                 row(name, label + " zero-response error", np.linalg.norm(y), config["gates"]["zero_response_atol"])
             else:
                 row(name, label + " relative L2", np.linalg.norm(x - y) / norm, config["gates"][gate])
@@ -262,6 +292,7 @@ def compare_navigation(run_dir, config):
     result = {
         "measured_gates_passed": all(r["pass"] for r in rows),
         "promotion_passed": False,
+        "acceptance_policy": acceptance_policy,
         "rows": rows,
         "unqualified": ["wrong-branch transition classifier", "full MuJoCo-Warp arm coupling", "native lifecycle"],
     }
@@ -278,6 +309,12 @@ def main():
         "--numerical-root", type=Path, required=True, help="Numerical Sim workspace, containing scripts/parity"
     )
     parser.add_argument("--run-dir", type=Path, required=True)
+    parser.add_argument(
+        "--acceptance-policy",
+        type=Path,
+        default=ROOT / "scripts/catheter-migration-acceptance.json",
+        help="Versioned comparison tolerance policy; physics fixtures remain frozen",
+    )
     args = parser.parse_args()
     sys.path[:0] = [str(ROOT / "arena"), str(ROOT / "common")]
     from i4h_arena.medical.catheter_initialization import rod_frames_along_polyline
@@ -285,7 +322,7 @@ def main():
     fixture_path = args.numerical_root / "scripts/parity/navigation-fixtures.json"
     config = json.loads(fixture_path.read_text())
     if args.command == "compare":
-        return compare_navigation(args.run_dir, config)
+        return compare_navigation(args.run_dir, config, json.loads(args.acceptance_policy.read_text()))
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", config["workflow_revision"], revision], cwd=ROOT)
     if ancestor.returncode:

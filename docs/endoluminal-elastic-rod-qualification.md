@@ -62,10 +62,34 @@ control-source hashes. Stateful tangent root targets may differ between engines.
 Escape comparison preserves particle identity;
 equal total escape counts cannot hide a newly escaped particle.
 
-## Current acceptance result
+## Current acceptance result: revision 2
 
-The nine navigation fixtures produced **47 passing rows and 3 failing rows**.
-Numerical remains unpromoted.
+After the user authorized loosening the thresholds, the revised comparison passes
+**50 of 50 mechanics checks**. Native workflow integration and promotion remain
+outstanding.
+
+The versioned policy is `scripts/catheter-migration-acceptance.json`. Only
+`zero_response`, `arrival_positive` and `arrival_negative` use an absolute moment
+limit of **1e-9 N m**. Both engines' peak moment magnitudes and their peak vector
+difference must satisfy that limit. The largest observed value is
+`1.1337971533853519e-10 N m`. The policy rejects loaded, moving or curved fixtures;
+loaded force/moment limits remain 10%, and every other gate remains unchanged.
+
+This is a reanalysis of the original immutable traces, with no physics rerun or
+mechanics parameter changes. The new result and policy copy are retained under:
+
+```text
+runs/endoluminal_navigation/20261120_150900/
+```
+
+The physical fixture config and its frozen hash remain unchanged. The policy is
+bound to that hash and is included in the new comparison report. The original
+failed report below remains available in its original run directory.
+
+## Original acceptance result: revision 1
+
+The original strict comparison produced **47 passing rows and 3 failing rows**.
+It is preserved as historical evidence; revision 2 supersedes its zero-load moment criterion.
 
 | Gate | Measured result | Bound | Result |
 | --- | --- | --- | --- |
@@ -78,9 +102,10 @@ Numerical remains unpromoted.
 
 The failed rows are `zero_response`, `arrival_positive` and `arrival_negative`.
 The unloaded moment reverses sign: reference RMS is `5.6683845e-11 N m`, numerical
-RMS is `5.669586e-11 N m`, and RMS difference is `1.133797e-10 N m`. The frozen
-relative bound has no numerical-noise exemption. No threshold, material setting,
-iteration count or response parameter was changed to accept it.
+RMS is `5.669586e-11 N m`, and RMS difference is `1.133797e-10 N m`. The original
+relative bound had no numerical-noise exemption. That run retained the failures.
+The later user-authorized policy revision changes only the zero-load moment test;
+material settings, iteration counts and response parameters remain unchanged.
 
 The original Jacobi wall path failed displacement parity. Matching the reference
 required colored projection and rest-strain construction from double-precision
@@ -117,8 +142,8 @@ performance transfer.
 | Check | Result |
 | --- | --- |
 | Numerical Sim full runtime/package suite, final source | 1,297 passed, 52 skipped, no failures |
-| Workflows CPU/coverage command | 600 passed, 3 skipped; unavailable RL suite reported separately |
-| Workflows qualification tests with Torch installed | 4 passed |
+| Workflows CPU/coverage command | 603 passed, 3 skipped; unavailable RL suite reported separately |
+| Workflows qualification tests with Torch installed | 6 passed |
 | Command integration, selected resets and continuation checks | 28 passed |
 | Changed-file pinned pre-commit checks | Passed in both repositories |
 | Workspace wheels and source distributions | All 12 built and inspected |

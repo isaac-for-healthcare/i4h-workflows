@@ -1,0 +1,7 @@
+{
+  "revision": 2,
+  "reason": "User authorized loosening the unloaded-moment thresholds after reviewing the numerical-noise-scale discrepancy.",
+  "fixture_sha256": "daaf6f03ba5ee7042f5c2cf8975248fa08ee36a5dfce8dd7fd277d06983f72a3",
+  "unloaded_moment_atol_nm": 1e-9,
+  "fixtures": ["zero_response", "arrival_positive", "arrival_negative"]
+}
