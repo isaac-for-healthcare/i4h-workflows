@@ -52,6 +52,8 @@ def configuration_identity(env):
             digest.update(file.read_bytes())
     arena = Path(__file__).resolve().parents[1]
     for name in (
+        "medical/catheter.py",
+        "medical/carm.py",
         "medical/catheter_drive.py",
         "medical/numerical_catheter.py",
         "embodiments/catheter.py",
@@ -60,6 +62,9 @@ def configuration_identity(env):
         "medical/navigation_continuation.py",
         "medical/navigation_reward.py",
         "medical/navigation_goal.py",
+        "medical/navigation_observation.py",
+        "envcfg/endoluminal_navigation/terms.py",
+        "envcfg/endoluminal_navigation/task.py",
     ):
         digest.update(name.encode())
         digest.update((arena / name).read_bytes())
@@ -99,6 +104,8 @@ def host_arrays(env):
     for name in ("reward_buf", "reset_buf", "reset_terminated", "reset_time_outs"):
         if hasattr(env, name):
             result[name] = getattr(env, name)
+    for name in ("_episode_sum_buf", "_reward_buf", "_step_reward"):
+        result[f"reward{name}"] = getattr(env.reward_manager, name)
     for name in ("_term_dones", "_last_episode_dones", "_truncated_buf", "_terminated_buf"):
         result[f"termination{name}"] = getattr(env.termination_manager, name)
     # Capture the current tensor: arrival replaces this env attribute each evaluation.
