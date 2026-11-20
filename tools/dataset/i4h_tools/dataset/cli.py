@@ -58,11 +58,12 @@ def build_parser() -> argparse.ArgumentParser:
     convert_cmd.add_argument(
         "--patient-twin",
         type=Path,
+        nargs="+",
         default=None,
         help=(
             "patient twin manifest, for descriptors whose trailing state columns are derived "
-            "navigation goals; defaults to the patient_twin recorded in the recording's sibling "
-            "run.json, which is the only way to describe several recordings at once"
+            "navigation goals: one per recording, in the order the recordings are given; "
+            "defaults to the patient_twin in the run.json beside each recording"
         ),
     )
     convert_cmd.add_argument(
@@ -305,23 +306,38 @@ def _declares_derived_goal_columns(config) -> bool:
 def _resolve_patient_twin(source: Path, explicit: Path | None) -> Path:
     """The twin whose centerline the goal columns are measured against.
 
-    An explicit path wins; otherwise the launcher already wrote the answer into
-    ``run.json`` beside the recording, so the common case needs no flag. Read
-    from there rather than guessed from the scene name because one scene is run
-    against several subjects and the wrong twin yields plausible-looking arc
-    figures for the wrong anatomy.
+    Typed navigation provenance permits relocation of the same manifest, and
+    rejects a conflicting anatomy override. Otherwise native metadata or the
+    launcher sidecar selects the patient; older untyped recordings retain their
+    explicit-override behavior.
     """
     if explicit is not None:
+        from i4h_common.catheter_backend import recording_provenance
+
+        provenance = recording_provenance(source)
         if not explicit.is_file():
             raise ValueError(f"--patient-twin {explicit} does not exist")
+        if provenance.get("catheter_backend") is not None:
+            import hashlib
+
+            expected = provenance.get("patient_twin_sha256")
+            if not provenance.get("patient_twin") or (
+                expected and hashlib.sha256(explicit.read_bytes()).hexdigest() != expected
+            ):
+                raise ValueError("explicit conversion patient conflicts with recorded anatomy provenance")
         return explicit
+    from i4h_common.catheter_backend import recording_provenance
+
     run_json = source.parent / "run.json"
-    if not run_json.is_file():
+    if not run_json.is_file() and not recording_provenance(source).get("patient_twin"):
         raise ValueError(
             f"{source}: this descriptor derives its trailing state columns from the patient twin, and "
             f"there is no run.json beside the recording to name one. Pass --patient-twin."
         )
-    recorded = (json.loads(run_json.read_text()) or {}).get("patient_twin")
+    metadata = recording_provenance(source)
+    # Expanded/annotated/filtered siblings share the recording's anatomy sidecar.
+    # Its recording field identifies the original capture, not an exclusive input.
+    recorded = metadata.get("patient_twin")
     if not recorded:
         raise ValueError(
             f"{run_json}: no patient_twin entry, so the route these columns are measured against is "
@@ -333,6 +349,11 @@ def _resolve_patient_twin(source: Path, explicit: Path | None) -> Path:
             f"{run_json}: records patient_twin {resolved}, which no longer exists. Pass --patient-twin "
             f"to point at where it moved to."
         )
+    if metadata.get("patient_twin_sha256"):
+        import hashlib
+
+        if hashlib.sha256(resolved.read_bytes()).hexdigest() != metadata["patient_twin_sha256"]:
+            raise ValueError(f"{run_json}: conflicting patient anatomy provenance. Pass --patient-twin.")
     return resolved
 
 
@@ -467,7 +488,7 @@ def convert(
     successful_only: bool = False,
     task: str = "",
     g1_wbc_policy_actions: bool = False,
-    patient_twin: Path | None = None,
+    patient_twin: Path | Sequence[Path] | None = None,
 ) -> int:
     """Write one LeRobot dataset from one or more recordings.
 
@@ -477,7 +498,8 @@ def convert(
     ``unnormalize_values_minmax`` has no guard for that, so the policy's output
     on that channel denormalizes to exactly zero however it was trained. Pooling
     the recordings makes the statistics span everything the operator actually
-    did. Each recording resolves its own patient twin, so the goal columns stay
+    did. Each recording resolves its own patient twin, given in ``patient_twin``
+    in the order of ``sources`` or named in its run.json, so the goal columns stay
     measured against the route that recording was navigated on.
 
     Returns the number of episodes written.
@@ -512,10 +534,11 @@ def convert(
     sources = [Path(source) for source in sources]
     if not sources:
         raise ValueError("no recordings to convert")
-    if patient_twin is not None and len(sources) > 1:
+    twins = [Path(patient_twin)] if isinstance(patient_twin, str | Path) else list(patient_twin or ())
+    if twins and len(twins) != len(sources):
         raise ValueError(
-            "--patient-twin names one anatomy and cannot describe several recordings. Drop it and "
-            "let each recording resolve its own twin from the run.json beside it."
+            f"{len(twins)} --patient-twin manifests for {len(sources)} recordings: one anatomy cannot "
+            "describe several recordings, so name one twin per recording, in the same order."
         )
 
     config = get_robot_config(robot)
@@ -530,9 +553,11 @@ def convert(
         # that matters more, not less: the failure would land after the earlier
         # ones had already been written.
         inputs: list[tuple[Path, NavigationRoute | None, h5py.Group, list[str]]] = []
-        for source in sources:
+        for index, source in enumerate(sources):
             route = (
-                resolve_navigation_route(_resolve_patient_twin(source, patient_twin)) if derives_goal_columns else None
+                resolve_navigation_route(_resolve_patient_twin(source, twins[index] if twins else None))
+                if derives_goal_columns
+                else None
             )
             if route is not None:
                 # Named by the run directory: every recording is called
@@ -643,6 +668,25 @@ def convert(
                 dataset.save_episode()
                 written += 1
 
+        from i4h_common.catheter_backend import recording_provenance
+
+        provenance = []
+        episode_start = 0
+        for index, (source, route, _data, names) in enumerate(inputs):
+            provenance.append(
+                dict(
+                    recording=str(source),
+                    **recording_provenance(source),
+                    conversion_patient_twin=str(_resolve_patient_twin(source, twins[index] if twins else None))
+                    if route is not None
+                    else None,
+                    episode_start=episode_start,
+                    episode_count=len(names),
+                    source_demos=names,
+                )
+            )
+            episode_start += len(names)
+        (target / "meta" / "source_recordings.json").write_text(json.dumps(provenance, indent=2) + "\n")
         _write_dataset_stats(target, dataset.meta.stats)
         if _uses_declared_modality(
             config=config,

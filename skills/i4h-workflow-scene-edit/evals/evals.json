@@ -3,32 +3,32 @@
     "id": "i4h-workflow-scene-edit-readme-g1-surgical-layout",
     "question": "Edit my_workflow live.\n  - Add a surgical table.\n  - Add scissors and tweezers on the table.\n  - Add two destination trays named tray_a and tray_b.\n  - Add a Unitree G1 robot.\n  - Move G1 so its base starts 2 m from the nearest table edge.\n  - Keep G1 upright and facing the center of the table.\n  - Set the perspective view to frame the room, then add a room camera from that view.\n  - Visually verify that the tabletop, scissors, tweezers, and both trays are visible in at least one camera.\n  - Bake all changes and stop.",
     "expected_skill": "i4h-workflow-scene-edit",
-    "ground_truth": "This README authoring prompt builds and persists a complete G1 surgical work area in one ordered live scene-edit session while leaving behavior undefined.",
+    "ground_truth": "This README authoring prompt builds and persists a complete G1 surgical work area in the blank my_workflow scene through one ordered live bridge session, while leaving behavior and success undefined.",
     "expected_behavior": [
       "routes to i4h-workflow-scene-edit",
-      "opens the existing scene visibly in render-only idle before authoring so the current perspective and baseline are observable",
-      "keeps one simulator window and Python-bridge session running while applying the edit bullets to the live stage",
-      "executes the table, each tool, each tray, G1 placement, perspective, and camera as separate observable bridge transactions rather than one batch script",
+      "opens the existing blank scene visibly with ./local-agent/bridge.sh start my_workflow, which runs it as the IsaacLab-Arena environment MyWorkflow with a paused timeline and the Python server on port 8226, before authoring",
+      "keeps one simulator window and bridge session running while applying the edit bullets to the live stage",
+      "executes the table, each tool, each tray, G1 placement, perspective, and camera as separate observable live_scene_edit.py transactions rather than one batch script",
       "selects each affected prim and advances the viewport before starting the next requested edit",
       "reuses canonical known-asset presets for Healthcare USD scale and verifies metric world bounds instead of rediscovering scale for this scene",
       "consults the existing-scene asset reference and owning source before measuring or rescaling a maintained asset",
       "uses visual-language inspection only as a bounded scene-specific refinement after applying known scale and placement facts",
       "uses the pinned upstream Isaac Sim physics, spatial, USD, camera, and validator skills for generic authoring semantics",
-      "starts from the blank Workflow without assuming a robot or policy",
+      "starts from the blank scene without assuming a robot or policy",
       "adds a surgical table with scissors, tweezers, tray_a, and tray_b as distinct scene objects",
-      "adds Unitree G1 from the explicit environment requirement instead of inheriting a robot from the blank scaffold",
+      "adds Unitree G1 from the explicit environment requirement instead of inheriting a robot from the blank scene",
       "uses the G1 authoring preset so the live robot preview includes Robot/Asset/head_link/RobotHeadCam rather than adding only the raw robot USD",
       "measures two metres from the nearest table edge rather than from the table center",
       "keeps G1 upright at its normal authored root height and rotates it to face the table center",
       "visibly verifies the tabletop, scissors, tweezers, tray_a, and tray_b through the head or room camera",
       "derives and wires an env-local room camera from the perspective view",
-      "exports one deterministic live_scene.json snapshot only when bake is requested and resolves it with scripts/authoring_info.py",
-      "has the coding agent patch the owning asset, Scene, and manifest sources instead of running a workflow code generator",
-      "uses catalog metadata to replace the G1 preview with the registered G1 embodiment and expose robot_head_cam through the head alias",
-      "keeps live_scene.json as run-local authoring evidence and commits only the owning Scene, asset, and manifest sources",
-      "runs per-mode show and lint, lint --all, affected tests, and final persisted-visible validation",
-      "restarts the persisted workflow only once for persisted-visible validation",
-      "stops the simulator and bridge after successful bake validation"
+      "exports one deterministic live_scene.json snapshot into the bridge run directory only when bake is requested and resolves it with scripts/authoring_info.py",
+      "has the coding agent patch the owning asset, scene, and manifest sources instead of running a code generator",
+      "uses catalog metadata to replace the G1 preview with the registered G1 embodiment and declare its robot_head_cam as the head camera in the scene manifest",
+      "keeps live_scene.json as run-local authoring evidence and commits only the owning scene, asset, and manifest sources",
+      "runs the light CPU suite, the Arena scene test, Ruff on changed files, and final persisted-visible validation",
+      "reopens the persisted scene through the bridge only once for persisted-visible validation",
+      "stops the bridge session with ./local-agent/bridge.sh stop my_workflow after successful bake validation"
     ]
   },
   {
@@ -38,7 +38,7 @@
     "ground_truth": "Adding G1 through live authoring includes and visibly verifies the standard head camera instead of referencing only the robot geometry.",
     "expected_behavior": [
       "routes to i4h-workflow-scene-edit",
-      "reuses the existing live simulator and bridge session",
+      "reuses the existing bridge session after checking ./local-agent/bridge.sh status and rundir for the intended scene",
       "adds G1 through the canonical g1 authoring preset rather than generic add-usd",
       "creates the standard head camera at Robot/Asset/head_link/RobotHeadCam as part of the live G1 preview",
       "treats a missing or invalid head-camera prim as a failed robot edit",
@@ -51,17 +51,17 @@
     "id": "i4h-workflow-scene-edit-deterministic-bake",
     "question": "Bake the live changes in my_workflow, verify the persisted scene, and stop.",
     "expected_skill": "i4h-workflow-scene-edit",
-    "ground_truth": "An environment is persisted by a coding agent from one deterministic snapshot, validated statically, reopened once for visible comparison, and stopped.",
+    "ground_truth": "A scene is persisted by a coding agent from one deterministic snapshot, validated statically, reopened once through the bridge for visible comparison, and stopped.",
     "expected_behavior": [
       "routes to i4h-workflow-scene-edit",
-      "exports helper-managed live prims to a run-local live_scene.json only because bake was explicitly requested",
+      "exports helper-managed live prims to live_scene.json in the bridge run directory with export-scene --workflow my_workflow only because bake was explicitly requested",
       "uses an explicitly supplied prior run snapshot as a baseline only when the current export needs to merge existing, added, moved, and removed prims",
       "runs scripts/authoring_info.py with the exported snapshot to validate it and resolve catalog and manifest facts without launching Isaac Sim",
-      "derives known-asset and robot runtime facts from authoring_catalog.py instead of copying USD paths, canonical scales, masses, action contracts, or camera aliases from memory",
-      "has the coding agent patch the existing Scene asset source, Scene integration, and scene manifest while leaving the snapshot in the run directory",
-      "does not use a script to generate workflow-specific Python or YAML",
-      "keeps the generated workflow contract test valid as the workflow gains objects, cameras, a robot, tasks, or additional modes",
-      "reopens the persisted workflow only once, compares requested geometry and cameras with the snapshot, and then stops all simulator components"
+      "derives known-asset and robot runtime facts from the authoring catalog instead of copying USD paths, canonical scales, masses, action contracts, or camera aliases from memory",
+      "has the coding agent patch the existing scene asset source, scene class, and scene manifest while leaving the snapshot in the run directory",
+      "does not use a script to generate scene-specific Python or YAML",
+      "keeps the generated scene contract test valid as the scene gains objects, cameras, a robot, policies, or devices",
+      "reopens the persisted scene through the bridge only once, compares requested geometry and cameras with the snapshot, and then stops the bridge session"
     ]
   },
   {
@@ -84,59 +84,59 @@
     "id": "i4h-workflow-scene-edit-readme-define-behavior",
     "question": "Continue authoring my_workflow with a rule-based G1 reach-table Task.\n  - Behavior: have G1 walk forward and stop near the surgical table.",
     "expected_skill": "i4h-workflow-scene-edit",
-    "ground_truth": "This prompt creates reusable G1 reach-table behavior without placing workflow-specific goal or success semantics inside the Task.",
+    "ground_truth": "This prompt creates the G1 reach-table behavior as one rule-based IsaacLab-Arena policy without placing goal or success semantics inside it.",
     "expected_behavior": [
       "routes to i4h-workflow-scene-edit because my_workflow already exists",
-      "inspects the existing Scene, Workflow, task registry, and relevant manifests before choosing ownership",
-      "composes the reusable basic/g1_face_object and basic/g1_walk_to_object Tasks as separate graph steps instead of generating workflow-specific locomotion code",
-      "implements forward locomotion through the 50-D G1 WBC action contract instead of a teleop device",
-      "keeps the table collision footprint in the Scene-owned footprint_half_extents interface rather than hardcoding it in the Workflow",
-      "keeps goal and success semantics out of the reusable Task",
-      "adds focused CPU tests for the behavior and graph contract"
+      "inspects the existing scene, scene manifest, G1 embodiment, and existing Arena policies before choosing ownership",
+      "implements the behavior as one registered rule-based PolicyBase under arena/i4h_arena/policies/ whose phases face the table and then walk forward, instead of a workflow module, task graph, or separate locomotion Tasks",
+      "implements forward locomotion through the 50-D G1 WBC action contract instead of a teleoperation device",
+      "reads the table footprint from a scene-owned helper rather than hardcoding it in the policy",
+      "keeps goal and success semantics out of the policy, leaving success to the environment's termination",
+      "adds focused CPU tests for the policy"
     ]
   },
   {
     "id": "i4h-workflow-scene-edit-readme-define-goal",
     "question": "Define the goal and success condition for my_workflow.\n  - Goal: G1 reaches the surgical table.\n  - Success: G1 stops upright within 0.3 m of the nearest table edge.",
     "expected_skill": "i4h-workflow-scene-edit",
-    "ground_truth": "This prompt keeps the measurable reach-table goal and success condition in the existing Workflow while reusing the Task behavior created separately.",
+    "ground_truth": "This prompt makes the measurable reach-table goal the success termination of the my_workflow scene's IsaacLab-Arena task, while the rule-based policy created separately keeps the behavior.",
     "expected_behavior": [
-      "routes to i4h-workflow-scene-edit because this changes the existing workflow contract",
-      "inspects the existing Scene, Workflow, reach-table Task, and relevant manifests before editing",
-      "defines goal and success semantics in the Workflow rather than the reusable Task",
-      "uses the Scene-owned table footprint to measure 0.3 metres from the nearest table edge",
+      "routes to i4h-workflow-scene-edit because this changes the existing scene's task contract",
+      "inspects the existing scene, its task configuration, the reach-table policy, and relevant manifests before editing",
+      "defines goal and success as the scene task's success termination rather than in the rule-based policy",
+      "uses the scene-owned table footprint to measure 0.3 metres from the nearest table edge",
       "requires G1 to be upright with low linear and angular velocity before success",
-      "configures the Scene-owned contact sensing needed to reject robot-table collisions",
+      "configures a filtered robot-table contact sensor family in the scene to reject collisions",
       "keeps scissors, tweezers, tray_a, and tray_b out of the goal and success condition",
-      "runs static validation plus a successful visible rollout and a forced-contact negative rollout"
+      "runs static validation plus a successful visible policy-runner rollout and a forced-contact negative rollout, reading success from episode_results_rank0.jsonl"
     ]
   },
   {
     "id": "i4h-workflow-scene-edit-readme-add-modes",
     "question": "Add these run modes to my_workflow:\n  - rule-based\n  - trainable GR00T N1.6 policy\nValidate the rule-based rollout and statically validate all modes.",
     "expected_skill": "i4h-workflow-scene-edit",
-    "ground_truth": "This continuation makes the G1 reach-table workflow ready for rule-based demonstration recording and GR00T N1.6 training by adding runnable rule-based and trainable policy contracts.",
+    "ground_truth": "This continuation makes the G1 reach-table workflow runnable with its rule-based Arena policy and ready for GR00T N1.6 training by adding a trainable task manifest and its Arena client configuration; there are no run modes to register.",
     "expected_behavior": [
       "routes to i4h-workflow-scene-edit because this changes an existing workflow contract",
-      "adds only the explicitly requested rule-based and policy modes",
-      "configures rule-based mode with a G1 WBC action contract that can be recorded for training",
-      "configures a trainable GR00T N1.6 remote task with reach-table instruction, camera, observation, and train manifest facts",
+      "maps each requested mode to a way to run the environment under Arena's policy runner instead of creating run.sh modes or a workflow module",
+      "uses the rule-based Arena policy class for the rule-based mode with G1 WBC actions that the Isaac Lab recorder can record for training",
+      "adds a trainable GR00T N1.6 task manifest under tasks/gr00t_n16/i4h_tasks/gr00t_n16/manifest/ with the reach-table summary, camera, embodiment, and train facts, and an Arena GR00T client configuration like tasks/gr00t_n16/config/g1_locomanipulation.yaml",
       "does not claim an untrained checkpoint already solves the reach-table task",
-      "updates the Workflow and only the manifests owned by rule-based and policy mode contracts",
-      "runs show and lint for every enabled mode plus lint --all",
-      "reports rule-based mode as rollout-validated only after a successful dynamic rollout",
-      "reports the untrained policy mode as structurally valid rather than rollout-validated"
+      "changes only the sources owned by the rule-based policy and GR00T N1.6 contracts",
+      "runs the light CPU suite and focused tests for static validation",
+      "reports the rule-based policy as rollout-validated only after a policy-runner rollout records success in episode_results_rank0.jsonl",
+      "reports the untrained policy as structurally valid rather than rollout-validated"
     ]
   },
   {
     "id": "i4h-workflow-scene-edit-live-session-no-bake",
     "question": "Edit the current scene. Add a blue cube beside the table and keep the scene open; I will give you more edits later. Do not save yet.",
     "expected_skill": "i4h-workflow-scene-edit",
-    "ground_truth": "Scene editing defaults to one persistent Isaac Sim Python-bridge session. The requested cube exists only in the live stage, the simulator remains open for later prompts, and no source changes occur without bake/save/persist.",
+    "ground_truth": "Scene editing defaults to one persistent bridge session. The requested cube exists only in the live stage, the simulator remains open for later prompts, and no source changes occur without bake/save/persist.",
     "expected_behavior": [
       "routes to i4h-workflow-scene-edit",
-      "starts or reuses the workflow's live simulator session with the Python bridge enabled",
-      "adds and visually verifies the cube as one observable bridge transaction rather than patching source",
+      "starts or reuses the scene's bridge session with ./local-agent/bridge.sh start or status",
+      "adds and visually verifies the cube as one observable live_scene_edit.py transaction rather than patching source",
       "does not bake or modify source because persistence was explicitly withheld",
       "keeps the simulator and bridge running after completing the prompt"
     ]
@@ -162,42 +162,44 @@
     "id": "i4h-workflow-scene-edit-table-red-cube",
     "question": "Edit the scissor pick-and-place scene to replace the scissors with a red cube and save the scene.",
     "expected_skill": "i4h-workflow-scene-edit",
-    "ground_truth": "This README skill-table prompt routes to scene-edit and bakes because the prompt says save the scene.",
+    "ground_truth": "This README skill-table prompt routes to scene-edit, maps scissor_pick_and_place to the SoarmScissors environment (scene soarm_scissors), and bakes because the prompt says save the scene.",
     "expected_behavior": [
       "routes to i4h-workflow-scene-edit",
+      "maps scissor_pick_and_place to the soarm_scissors scene through docs/workflows/hospital-automation-robotics.md",
       "uses the closest source scene pattern and selected upstream generic guidance",
       "replaces the requested prop with a red cube",
       "keeps source changes because save is explicit",
-      "runs static and visible scene validation"
+      "reports that the scissors success termination, the rule-based keyframe policy, and the GR00T checkpoints consume the replaced object and does not claim they still succeed without a rollout",
+      "runs static and persisted-visible scene validation"
     ]
   },
   {
     "id": "i4h-workflow-scene-edit-readme-robotic-instrument-reach",
     "question": "Edit robotic_instrument_reach live.\n  - Add a table and a surgical training pad.\n  - Add a Franka-style arm with a probe attached to its tool frame.\n  - Add a target marker on the pad and a room camera.\n  - Frame the arm, probe, pad, and target in the camera view.\n  - Visually verify that the arm, probe, pad, and target are visible in the room camera.\n  - Bake all changes and stop.",
     "expected_skill": "i4h-workflow-scene-edit",
-    "ground_truth": "This README RL-authoring prompt visibly authors and persists the physical robotic_instrument_reach Scene while leaving the RL objective and policy ownership to later stages.",
+    "ground_truth": "This README RL-authoring prompt visibly authors and persists the physical robotic_instrument_reach scene while leaving the RL objective and policy to later stages.",
     "expected_behavior": [
       "routes to i4h-workflow-scene-edit",
-      "opens the existing blank robotic_instrument_reach Scene visibly and applies each requested edit through the live bridge",
+      "opens the existing blank robotic_instrument_reach scene visibly through the bridge and applies each requested edit through live_scene_edit.py",
       "adds a table, surgical training pad, target marker, Franka-style arm, attached probe, and room camera",
       "frames and visibly verifies the arm, probe, pad, and target",
-      "bakes the owning asset, Scene, and manifest sources only after the requested live result is verified",
-      "reopens the persisted Scene once for visible comparison and stops the simulator",
-      "does not add the RL objective, trainer profile, checkpoint, policy Task, or Workflow policy mode"
+      "bakes the owning asset, scene, and manifest sources only after the requested live result is verified",
+      "reopens the persisted scene once for visible comparison and stops the bridge session",
+      "does not add the RL objective, rl/ profile, checkpoint, or policy"
     ]
   },
   {
-    "id": "i4h-workflow-scene-edit-readme-add-robotic-policy-mode",
-    "question": "Add that Task as the policy run mode of robotic_instrument_reach.",
+    "id": "i4h-workflow-scene-edit-robotic-rl-policy-runner",
+    "question": "Make the trained robotic_instrument_reach RL checkpoint runnable as a policy in its environment.",
     "expected_skill": "i4h-workflow-scene-edit",
-    "ground_truth": "This README continuation edits the existing Workflow contract so its policy TaskGraph invokes the already-created RoboticInstrumentReach policy Task.",
+    "ground_truth": "This continuation edits the existing robotic_instrument_reach scene so Arena's built-in rsl_rl policy can evaluate the trained checkpoint under the policy runner, following the ultrasound_probe_reach pattern.",
     "expected_behavior": [
-      "routes to i4h-workflow-scene-edit because this changes an existing Workflow contract",
-      "resolves the previously created reusable rsl_rl/robotic_instrument_reach Task",
-      "adds policy mode without duplicating policy inference in the Workflow",
-      "keeps the idle mode and existing Scene intact",
-      "runs show and lint for the policy mode, lint --all, and affected contract tests",
-      "reports structural validity separately from the later normal-runner rollout validation"
+      "routes to i4h-workflow-scene-edit because this changes an existing scene contract",
+      "follows arena/i4h_arena/scenes/ultrasound_probe_reach.py: an --rl_observations scene flag that selects the embodiment and flat observations the trainer used, plus the scene's RSL-RL runner configuration",
+      "uses Arena's rsl_rl policy with --checkpoint_path on the trainer checkpoint, whose params/agent.yaml sits beside it, instead of duplicating policy inference in a new i4h policy",
+      "keeps the existing scene and its default observations intact",
+      "runs the light CPU suite and affected Arena tests",
+      "reports structural validity separately from the later policy-runner rollout validation"
     ]
   }
 ]

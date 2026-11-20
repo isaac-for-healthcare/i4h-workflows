@@ -49,7 +49,6 @@ from i4h_arena.embodiments.catheter import (
     CArmOrbitAction,
     CArmOrbitActionCfg,
     CatheterEmbodiment,
-    FlatRLObservations,
     _CatheterSceneCfg,
 )
 from i4h_arena.medical.catheter_drive import (
@@ -337,8 +336,13 @@ class ArmDrivenCatheterAction(ActionTerm):
 
     def __init__(self, cfg: ArmDrivenCatheterActionCfg, env: Any):
         super().__init__(cfg, env)
-        if not isinstance(self._asset, XpbdCatheterAsset):
-            raise TypeError(f"asset {cfg.asset_name!r} must be XpbdCatheterAsset")
+        from i4h_arena.medical.catheter import CatheterDrive
+
+        if not isinstance(self._asset, CatheterDrive):
+            raise TypeError(f"asset {cfg.asset_name!r} must implement CatheterDrive")
+        bind = getattr(self._asset, "bind_component", None)
+        if bind is not None:
+            bind(env.i4h)
         self._robot = env.scene[cfg.robot_name]
 
         self._joint_ids, self._joint_names = self._robot.find_joints(list(cfg.arm_joint_names))
@@ -734,7 +738,7 @@ class _FrankaCatheterActionsCfg:
 class FrankaCatheterEmbodiment(CatheterEmbodiment):
     """Catheter driven through a MJWarp-simulated Franka Panda flange."""
 
-    name = "franka_catheter"
+    registry_name = "franka_catheter"
     tags: ClassVar[list[str]] = ["embodiment", "medical", "catheter", "franka"]
 
     def __init__(
@@ -808,9 +812,9 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
             _PROCEDURE_FLOOR_TOP_M + column_height / 2.0,
         )
 
-    def modify_env_cfg(self, env_cfg: Any) -> Any:
+    def tune_env_cfg(self, env_cfg: Any) -> Any:
         """Keep the parent's rates, rebuild physics, and seed the arm's pose."""
-        env_cfg = super().modify_env_cfg(env_cfg)
+        env_cfg = super().tune_env_cfg(env_cfg)
         # Back on, against the parent's choice, because this scene has an
         # articulation and the parent does not.
         #
@@ -878,30 +882,6 @@ class FrankaCatheterEmbodiment(CatheterEmbodiment):
         )
 
 
-class FrankaCatheterRLEmbodiment(FlatRLObservations, FrankaCatheterEmbodiment):
-    """Arm-borne catheter on the coupled solver, with flat observations for RSL-RL.
-
-    Same fifteen observation columns, same four action channels and the same
-    reward as the armless RL variant. What differs is underneath:
-    ``rigid_bodies_enabled`` puts an articulation in the model, which is what
-    selects the coupled MJWarp + XPBD integrator, and naming the flange as the
-    drive body makes the contact two-way. So the wire pushes back on the arm,
-    and the arm's servo error moves the wire's entry.
-
-    Holding the observation and the reward fixed is the experiment. The reward
-    was shown learnable against the rod alone; running the identical objective
-    here asks whether it survives the coupling, and a gap between the two runs
-    is attributable to the solver rather than to the objective or the policy.
-
-    The arm contributes no observation and no action because it is a
-    positioner, not a second agent: it is servo'd to hold the introducer on the
-    access site. Its seven joints reach the recorded state, which is why the
-    manifest is sixteen wide where the observation is fifteen.
-    """
-
-    name = "franka_catheter_rl"
-
-
 __all__ = [
     "ARM_BASE_HEIGHT_M",
     "ARM_BASE_YAW_QUAT",
@@ -914,6 +894,5 @@ __all__ = [
     "ArmDrivenCatheterAction",
     "ArmDrivenCatheterActionCfg",
     "FrankaCatheterEmbodiment",
-    "FrankaCatheterRLEmbodiment",
     "make_franka_panda_catheter_cfg",
 ]

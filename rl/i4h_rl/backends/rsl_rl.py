@@ -97,8 +97,6 @@ def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
         workflows_root / "rl",
         workflows_root / "arena",
         workflows_root / "common",
-        workflows_root / "engine",
-        workflows_root / "workflows",
     )
     env = os.environ.copy()
     env.pop("VIRTUAL_ENV", None)
@@ -107,9 +105,9 @@ def _runtime_env(workflows_root: Path, profile: RLProfile) -> dict[str, str]:
     env["PYTHONPATH"] = os.pathsep.join([*(str(path) for path in roots), *([existing] if existing else [])])
     env["I4H_WORKFLOWS"] = str(workflows_root)
     env["I4H_RL_TRAINER_CONFIG"] = str(profile.trainer_config)
-    # Match the normal Workflow launcher. RSL-RL starts Kit through Isaac Lab's
-    # trainer entry point instead of run.sh, so it must carry the noninteractive
-    # EULA acceptance itself or stdin-less agent/CI launches stop at a prompt.
+    # RSL-RL starts Kit through Isaac Lab's trainer entry point, so it must carry
+    # the noninteractive EULA acceptance itself or stdin-less agent/CI launches
+    # stop at a prompt.
     if not env.get("OMNI_KIT_ACCEPT_EULA"):
         env["OMNI_KIT_ACCEPT_EULA"] = "YES"
     apply_arm_openmp_env(env)
@@ -178,8 +176,6 @@ def validate_launch(args: argparse.Namespace, _profile: RLProfile, _workflows_ro
         raise SystemExit("RSL-RL evaluation video is not yet supported; use normal Workflow validation for review")
     if args.only_eval and args.overrides:
         raise SystemExit("RSL-RL evaluation does not accept --set overrides")
-    if not args.only_eval and args.rl_model_path:
-        raise SystemExit("--checkpoint is only valid with --eval or export")
 
 
 def launch(
@@ -193,7 +189,7 @@ def launch(
 ) -> int:
     patient_twin = getattr(args, "resolved_patient_twin", None)
     checkpoint: Path | None = None
-    if args.only_eval:
+    if args.rl_model_path:
         checkpoint = resolve_input_path(workflows_root, args.rl_model_path)
         if not checkpoint.is_file():
             raise SystemExit(f"checkpoint does not exist: {checkpoint}")
@@ -223,6 +219,10 @@ def launch(
         metadata.update({"checkpoint": str(checkpoint), "episodes": args.episodes})
     else:
         metadata["max_epochs"] = epochs
+    if checkpoint is not None:
+        metadata["checkpoint"] = str(checkpoint)
+        if not args.only_eval:
+            metadata["mode"] = "rl-resume"
     write_json(run_dir / "run.json", metadata)
 
     if args.only_eval:
@@ -248,10 +248,14 @@ def launch(
             return return_code or 1
         return 0
 
-    train_script = workflows_root / "third_party/IsaacLab-ffff603/scripts/reinforcement_learning/rsl_rl/train.py"
+    # Isaac Lab 3.0 replaced the per-library rsl_rl/train.py with one train.py that selects the
+    # library with --rl_library.
+    train_script = workflows_root / "third_party/IsaacLab-3939445/scripts/reinforcement_learning/train.py"
     command = [
         str(runtime),
         str(train_script),
+        "--rl_library",
+        "rsl_rl",
         "--external_callback",
         "i4h_rl.rsl_rl_interop.environment_registration_callback",
         "--task",
@@ -267,6 +271,8 @@ def launch(
         profile.simulation.presets,
         f"agent.experiment_name={run_dir}",
     ]
+    if checkpoint is not None:
+        command.extend(("--checkpoint", str(checkpoint), "--resume_optimizer_state"))
     if patient_twin is not None:
         command.extend(("--patient-twin", str(patient_twin)))
     if args.video:

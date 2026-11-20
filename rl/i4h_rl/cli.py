@@ -24,7 +24,7 @@ def _parser() -> argparse.ArgumentParser:
         "--checkpoint",
         "--rl-model-path",
         dest="rl_model_path",
-        help="native trainer checkpoint or run bundle used for evaluation/export",
+        help="native trainer checkpoint for evaluation, export, or supported training resume",
     )
     parser.add_argument("--output-dir", help="exported policy/checkpoint destination")
     parser.add_argument("--train-config", help="resolved RLinf config.yaml used to create a checkpoint")

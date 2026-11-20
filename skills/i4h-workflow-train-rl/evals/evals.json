@@ -3,16 +3,16 @@
     "id": "i4h-workflow-train-rl-trocar-post-training",
     "question": "RL post-train the Trocar policy from my local GR00T SFT checkpoint.",
     "expected_skill": "i4h-workflow-train-rl",
-    "ground_truth": "This request routes to the separate Workflow online-RL lifecycle for assemble_trocar, using RLinf PPO with the maintained g1_trocar Arena environment and a local GR00T N1.5 starting checkpoint.",
+    "ground_truth": "This request routes to the separate online-RL lifecycle for assemble_trocar, using RLinf PPO with the maintained g1_trocar IsaacLab-Arena environment and a local GR00T N1.5 starting checkpoint.",
     "expected_behavior": [
       "routes to i4h-workflow-train-rl rather than supervised finetuning or rollout validation",
-      "resolves the assemble_trocar RL profile and g1_trocar Scene",
+      "resolves the assemble_trocar RL profile and g1_trocar scene",
       "requires a compatible Trocar SFT or RL checkpoint with new_embodiment metadata",
-      "verifies camera, state, 28-D policy action to 43-D Scene action, reward, and termination contracts",
+      "verifies camera, state, 28-D policy action to 43-D scene action, reward, and termination contracts",
       "dry-runs the exact RLinf PPO configuration before training",
       "preflights the isolated GR00T/RLinf controller and Isaac Sim/Arena simulator runtimes and requires two visible local GPUs",
-      "reuses the current g1_trocar Scene through the local observation/action bridge rather than copying the retired Rheo environment",
-      "keeps online RL training outside Workflow execution and SimulationRunner",
+      "reuses the current g1_trocar scene through the local observation/action bridge rather than copying the retired Rheo environment",
+      "keeps online RL training in rl/ and separate from rollout under Arena's policy runner",
       "reports the exact loadable checkpoint handoff to i4h-workflow-validate"
     ]
   },
@@ -23,21 +23,21 @@
     "ground_truth": "This request routes to RLinf evaluation for the supported assemble_trocar online-RL profile, using the produced i4h checkpoint bundle and recording evaluation video.",
     "expected_behavior": [
       "routes to i4h-workflow-train-rl",
-      "uses RL evaluation mode rather than starting policy updates",
+      "uses ./train.sh rl assemble_trocar --eval rather than starting policy updates",
       "accepts the produced run bundle as the checkpoint and resolves its recorded GR00T base dependency",
-      "enables evaluation video",
-      "verifies success metrics and output artifacts",
-      "does not claim normal Workflow rollout success unless that validation is also requested"
+      "enables evaluation video with --video",
+      "verifies evaluation.json metrics, trajectories, and the decodable video",
+      "does not claim policy-runner rollout success unless that validation is also requested"
     ]
   },
   {
     "id": "i4h-workflow-train-rl-new-instrument-reach",
     "question": "Add an RL training objective to robotic_instrument_reach.\n  - Goal: move the probe tip to the marked point on the training pad.\n  - Observe the robot joints, probe pose, and target pose.\n  - Control the probe with end-effector pose actions.\n  - Reward reducing tip-to-target distance, with a small penalty for abrupt actions.\n  - Sample a reachable target position on the pad at reset.\n  - Success: hold the probe tip within 2 cm of the target for 20 steps.\n  - Use PPO and run a small vectorized smoke configuration first.\n  - Dry-run the training configuration.",
     "expected_skill": "i4h-workflow-train-rl",
-    "ground_truth": "This README prompt authors and smoke-validates the low-dimensional online-RL objective and RSL-RL PPO profile for the existing robotic_instrument_reach Scene without starting the full training run.",
+    "ground_truth": "This README prompt authors and smoke-validates the low-dimensional online-RL objective and RSL-RL PPO profile for the existing robotic_instrument_reach scene without starting the full training run.",
     "expected_behavior": [
-      "inspects the authored robotic_instrument_reach Workflow and Scene before adding training",
-      "keeps observations, actions, rewards, resets, termination, and success in the Arena objective rather than the Workflow runner",
+      "inspects the authored robotic_instrument_reach scene and its IsaacLab-Arena environment before adding training",
+      "keeps observations, actions, rewards, resets, termination, and success in the scene's Arena embodiment and objective configuration under arena/i4h_arena",
       "adds a uniform rl/profiles/robotic_instrument_reach.yaml profile and rl/config YAML trainer config",
       "adds a workflow adapter only if the selected backend needs workflow-specific observation, action, registration, or evaluation conversion",
       "observes robot joints, probe pose, and target pose and controls a six-dimensional end-effector pose action",
@@ -56,67 +56,65 @@
     "expected_behavior": [
       "routes to i4h-workflow-train-rl",
       "uses the already dry-run and smoke-validated robotic_instrument_reach profile",
-      "trains the RSL-RL PPO policy in vectorized simulation",
+      "trains the RSL-RL PPO policy in vectorized simulation with ./train.sh rl",
       "preserves the exact observation, action, reward, reset, and success contract from the authored objective",
       "evaluates twenty randomized episodes with the produced checkpoint",
-      "reports training artifacts, episode attempts, position error, and simulator success rate"
+      "reports the run directory, training artifacts, episodes evaluated, position error, and simulator success rate"
     ]
   },
   {
     "id": "i4h-workflow-train-rl-readme-export-instrument-reach",
-    "question": "Export the verified checkpoint and create a RoboticInstrumentReach policy Task from it.",
+    "question": "Export the verified checkpoint.",
     "expected_skill": "i4h-workflow-train-rl",
-    "ground_truth": "This README continuation exports the verified robotic_instrument_reach actor to TorchScript and creates a reusable in-process policy Task with the identical observation contract.",
+    "ground_truth": "This README continuation exports the verified robotic_instrument_reach RSL-RL actor to TorchScript with ./train.sh rl export and keeps the native checkpoint for validation with Arena's rsl_rl policy.",
     "expected_behavior": [
       "routes to i4h-workflow-train-rl",
-      "exports the exact evaluated RSL-RL checkpoint to a non-empty policy.pt",
-      "verifies the exported actor before creating the reusable Task",
-      "creates the rsl_rl/robotic_instrument_reach Task and manifest",
-      "keeps policy observation ordering identical to training",
-      "keeps coordinate frames, quaternion convention, normalization, action scaling, previous-action state, and reset semantics identical to training",
-      "adds focused Task tests and reports the checkpoint and Task handoff paths",
-      "does not claim normal Workflow rollout validation before the Task is added to policy mode"
+      "exports the exact evaluated RSL-RL checkpoint with ./train.sh rl export to a non-empty policy.pt with policy.json",
+      "keeps the native model_<N>.pt and its params/agent.yaml as the artifact Arena's rsl_rl policy validates",
+      "keeps policy observation ordering, coordinate frames, quaternion convention, normalization, action scaling, previous-action state, and reset semantics identical to training",
+      "reports the exported policy and native checkpoint paths",
+      "does not claim policy-runner rollout validation from export alone"
     ]
   },
   {
     "id": "i4h-workflow-train-rl-ultrasound-export",
-    "question": "Export the trained ultrasound_probe_reach checkpoint as a policy Task and validate the Workflow policy mode.",
+    "question": "Export the trained ultrasound_probe_reach checkpoint and validate it as a policy in its environment.",
     "expected_skill": "i4h-workflow-train-rl",
-    "ground_truth": "The verified RSL-RL checkpoint is exported to TorchScript policy.pt, loaded by the rsl_rl/ultrasound_probe_reach in-process Task, and validated through the normal ultrasound_probe_reach Workflow runner.",
+    "ground_truth": "The verified RSL-RL checkpoint is exported to TorchScript policy.pt for deployment, and the native checkpoint is validated in the UltrasoundProbeReach environment with Arena's rsl_rl policy and --rl_observations.",
     "expected_behavior": [
-      "exports the exact verified RSL-RL checkpoint to a non-empty TorchScript policy.pt",
-      "checks the exported Task observation order against the training observation contract",
-      "passes the exported checkpoint to ultrasound_probe_reach policy mode",
-      "validates through SimulationRunner rather than treating export success as simulator success",
-      "reports the exact checkpoint, run directory, episode count, and Workflow success rate"
+      "exports the exact verified RSL-RL checkpoint with ./train.sh rl export to a non-empty TorchScript policy.pt",
+      "selects the last model_<N>.pt from the training run's run.json, whose directory holds params/agent.yaml",
+      "runs Arena's policy runner with --policy_type rsl_rl --checkpoint_path and --rl_observations after the ultrasound_probe_reach scene name",
+      "reads per-episode success from episode_results_rank0.jsonl rather than treating export success as simulator success",
+      "reports the exact checkpoint, run directory, episode count, and success rate"
     ]
   },
   {
     "id": "i4h-workflow-train-rl-specialty-ultrasound-full-lifecycle",
     "question": "Train ultrasound_probe_reach with RL, evaluate 20 episodes, and validate the exported policy.",
     "expected_skill": "i4h-workflow-train-rl",
-    "ground_truth": "This ultrasound specialty prompt runs the maintained ultrasound_probe_reach RSL-RL lifecycle from dry-run and training through evaluation, TorchScript export, and normal Workflow validation.",
+    "ground_truth": "This ultrasound specialty prompt runs the maintained ultrasound_probe_reach RSL-RL lifecycle from dry-run and training through evaluation, export, and validation as a policy in the environment under Arena's policy runner.",
     "expected_behavior": [
       "routes to i4h-workflow-train-rl",
       "uses the maintained ultrasound_probe_reach RSL-RL PPO profile",
       "dry-runs the resolved configuration before training from scratch",
-      "evaluates twenty randomized episodes",
+      "evaluates twenty randomized episodes with ./train.sh rl --eval",
       "exports the verified actor to TorchScript policy.pt",
-      "validates the exported Task through ultrasound_probe_reach policy mode"
+      "validates the trained checkpoint with Arena's rsl_rl policy and --rl_observations in the UltrasoundProbeReach environment"
     ]
   },
   {
     "id": "i4h-workflow-train-rl-specialty-trocar-full-lifecycle",
     "question": "Use my checkpoint at /absolute/path/to/gr00t-checkpoint to RL post-train\nassemble_trocar.\nEvaluate and export the result, then validate assemble_trocar.",
     "expected_skill": "i4h-workflow-train-rl",
-    "ground_truth": "This hospital-automation specialty prompt runs the maintained assemble_trocar RLinf lifecycle from a local GR00T N1.5 checkpoint through dry-run, post-training, evaluation, inference export, and normal Workflow validation.",
+    "ground_truth": "This hospital-automation specialty prompt runs the maintained assemble_trocar RLinf lifecycle from a local GR00T N1.5 checkpoint through dry-run, post-training, evaluation, inference export, and validation of the export with ./run.sh assemble_trocar --policy --checkpoint in the G1Trocar environment.",
     "expected_behavior": [
       "routes to i4h-workflow-train-rl",
       "requires the placeholder to be replaced by a compatible local GR00T N1.5 checkpoint path",
       "uses the maintained assemble_trocar RLinf PPO profile and two isolated GPU runtimes",
       "dry-runs before post-training",
       "evaluates the native RLinf run bundle before export",
-      "exports for the existing GR00T remote Task and validates assemble_trocar policy mode"
+      "validates the export with ./run.sh assemble_trocar --policy --checkpoint <export>, which serves it with i4h_tasks.gr00t_n15.serve and runs Gr00tN15RemotePolicy in G1Trocar g1_trocar"
     ]
   },
   {
@@ -126,7 +124,7 @@
     "ground_truth": "The unadapted GR00T N1.5 base checkpoint lacks the configured new_embodiment modality and normalization metadata. Reject direct Trocar RL launch during dry-run and select a compatible Trocar SFT/RL checkpoint before training.",
     "expected_behavior": [
       "explains that the unadapted base checkpoint lacks new_embodiment metadata",
-      "requires a compatible Trocar SFT or RL checkpoint, such as the workflow pinned GR00T-N1.5-RL-Rheo-AssembleTrocar model",
+      "requires a compatible Trocar SFT or RL checkpoint, such as the pinned nvidia/GR00T-N1.5-RL-Rheo-AssembleTrocar model",
       "checks checkpoint metadata during dry-run before Isaac Sim starts",
       "does not fabricate normalization statistics or rename an unrelated embodiment tag"
     ]

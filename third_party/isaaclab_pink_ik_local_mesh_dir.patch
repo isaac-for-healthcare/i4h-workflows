@@ -1,0 +1,16 @@
+diff --git a/source/isaaclab/isaaclab/controllers/pink_ik/pink_ik.py b/source/isaaclab/isaaclab/controllers/pink_ik/pink_ik.py
+index 10e2e61fd..926726abb 100644
+--- a/source/isaaclab/isaaclab/controllers/pink_ik/pink_ik.py
++++ b/source/isaaclab/isaaclab/controllers/pink_ik/pink_ik.py
+@@ -99,7 +99,10 @@ class PinkIKController:
+                 )
+             else:
+                 urdf_path = retrieve_file_path(cfg.urdf_path) if cfg.urdf_path else cfg.urdf_path
+-                mesh_path = retrieve_file_path(cfg.mesh_path) if cfg.mesh_path else cfg.mesh_path
++                # Pinocchio takes a package directory of meshes; a local directory needs no retrieval.
++                mesh_path = cfg.mesh_path
++                if mesh_path and not os.path.isdir(mesh_path):
++                    mesh_path = retrieve_file_path(mesh_path)
+ 
+             if urdf_path is None:
+                 raise ValueError("Either urdf_path or usd_path must be provided in the controller configuration")

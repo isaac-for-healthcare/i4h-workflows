@@ -77,3 +77,18 @@ class StaticCatheterStateProvider:
             valid_nodes=np.repeat(self._state.valid_nodes, num_envs),
             radius_m=self._state.radius_m,
         )
+
+
+@runtime_checkable
+class CatheterDrive(Protocol):
+    """Backend-independent proximal drive and read interface, in SI units."""
+
+    def advance(self, commands, dt: float) -> None: ...
+
+    def place_proximal(self, position, orientation, commands, dt: float) -> None: ...
+
+    def set_tip_bend(self, angles_rad) -> None: ...
+
+    def proximal_frame(self): ...
+
+    def joint_state(self): ...

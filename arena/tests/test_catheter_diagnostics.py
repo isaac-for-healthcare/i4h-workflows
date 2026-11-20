@@ -150,3 +150,10 @@ def test_the_constant_fields_are_left_out():
     every frame of every episode; they belong to the spec, not the trajectory."""
     for constant in ("num_particles", "rest_length_mm", "num_bend_nodes"):
         assert constant not in RECORDED_CONTAINMENT_FIELDS
+
+
+def test_batched_episode_diagnostics_select_the_requested_world():
+    points = np.array([[[0.0, 0, 0], [1.0, 0, 0]], [[0.0, 1, 0], [2.0, 1, 0]]])
+    provider = CatheterEpisodeDiagnostics(SimpleNamespace(data=SimpleNamespace(positions_world_m=points)))
+    np.testing.assert_array_equal(provider.diagnostics(0)["tip_world_m"], [1, 0, 0])
+    np.testing.assert_array_equal(provider.diagnostics(1)["tip_world_m"], [2, 1, 0])

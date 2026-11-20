@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Walk to a cart, grip it, and push it forward with a Unitree G1.
+scene: g1_cart
+modes:
+  policy:
+    server: {stack: gr00t_n16, task: locomanip_push_cart}
+    policy: isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy
+    args: [--policy_config_yaml_path, tasks/gr00t_n16/config/g1_locomanipulation.yaml]
+  teleop:
+    devices: [keyboard_23d]
+    # The keyboard drives the Pink IK embodiment; replay such a recording with
+    # `-- --embodiment g1_locomanip_wbc_pink` too.
+    args: [--embodiment, g1_locomanip_wbc_pink]

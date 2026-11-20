@@ -11,6 +11,15 @@ ASSET_PATH = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/As
 #: gripperless Panda in the first place.
 ISAAC_ASSET_PATH = "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.0/Isaac/"
 
+#: Isaac Sim 6.0's grid ground plane and the black tint that Isaac Lab's
+#: ``GroundPlaneCfg`` gave it by default up to v3.0.0-beta2. Isaac Lab 3.0 GA
+#: defaults to an untinted checker plane instead.
+GRID_GROUND_PLANE_USD = (
+    "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/Environments/Grid/"
+    "default_environment.usd"
+)
+GRID_GROUND_PLANE_COLOR = (0.0, 0.0, 0.0)
+
 # Backgrounds
 MAIN_BACKGROUND_USD = ASSET_PATH + "Props/Rheo/main_new_light.usd"
 TROCAR_ASSEMBLY_SCENE_USD = ASSET_PATH + "Props/Lightwheel/scene03.usd"

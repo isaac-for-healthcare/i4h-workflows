@@ -3,26 +3,27 @@
     "id": "i4h-workflow-e2e-readme-quick-scissor",
     "question": "Run end-to-end smoke pipeline for scissor pick-and-place.",
     "expected_skill": "i4h-workflow-e2e",
-    "ground_truth": "This README Quick Run prompt routes to the full e2e smoke pipeline for scissor_pick_and_place.",
+    "ground_truth": "This README Quick Run prompt routes to the full e2e smoke pipeline for scissor_pick_and_place: ./scripts/e2e/run.sh --env scissor_pick_and_place records GR00T N1.5 episodes in the SoarmScissors environment with Arena's policy runner, then mimics, annotates and filters, replays, converts, visualizes, fine-tunes, and validates the new checkpoint.",
     "expected_behavior": [
       "routes to i4h-workflow-e2e",
       "maps scissor pick-and-place to scissor_pick_and_place",
-      "uses the e2e script rather than manually running only one stage",
-      "requires a successful dry-run before execution",
+      "uses ./scripts/e2e/run.sh --env scissor_pick_and_place rather than manually running only one stage",
+      "requires a successful --dry-run before execution",
       "uses the default full setup path",
       "keeps the pipeline in the foreground until its stage summary",
-      "covers record, mimic, annotate/filter, replay, convert, visualize, finetune, and validate unless skipped"
+      "covers record, mimic, annotate/filter, replay, convert, visualize, finetune, and validate unless skipped",
+      "reports the validation successes out of episodes from validate/outputs/<time>/episode_results_rank0.jsonl"
     ]
   },
   {
     "id": "i4h-workflow-e2e-table-scissor",
     "question": "Run the full end-to-end smoke pipeline for the scissor pick-and-place task.",
     "expected_skill": "i4h-workflow-e2e",
-    "ground_truth": "This README skill-table prompt routes to the full e2e smoke pipeline for scissor_pick_and_place.",
+    "ground_truth": "This README skill-table prompt routes to the full e2e smoke pipeline for scissor_pick_and_place with ./scripts/e2e/run.sh.",
     "expected_behavior": [
       "routes to i4h-workflow-e2e",
-      "uses ./scripts/e2e/run.sh",
-      "reports the run directory and per-stage status",
+      "uses ./scripts/e2e/run.sh --env scissor_pick_and_place",
+      "reports the run directory under runs/scissor_pick_and_place/ and per-stage status",
       "does not replace the full pipeline with a single validation rollout"
     ]
   }

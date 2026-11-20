@@ -1,0 +1,18 @@
+diff --git a/source/isaaclab_newton/isaaclab_newton/physics/vbd_manager.py b/source/isaaclab_newton/isaaclab_newton/physics/vbd_manager.py
+index b6857de83..0d66b619c 100644
+--- a/source/isaaclab_newton/isaaclab_newton/physics/vbd_manager.py
++++ b/source/isaaclab_newton/isaaclab_newton/physics/vbd_manager.py
+@@ -25,7 +25,12 @@ class NewtonVBDManager(NewtonManager):
+     @classmethod
+     def _create_solver(cls, model: Model, solver_cfg: VBDSolverCfg) -> SolverVBD:
+         """Construct the configured VBD solver."""
+-        return SolverVBD(model, **cls._filter_solver_kwargs(SolverVBD, solver_cfg))
++        kwargs = cls._filter_solver_kwargs(SolverVBD, solver_cfg)
++        # GA uses None for "let Newton select the default". Newton 1.9 requires
++        # this argument to be omitted instead of receiving an explicit None.
++        if kwargs.get("rigid_compliant_alm") is None:
++            kwargs.pop("rigid_compliant_alm", None)
++        return SolverVBD(model, **kwargs)
+ 
+     @classmethod
+     def _build_solver(cls, model: Model, solver_cfg: VBDSolverCfg) -> None:

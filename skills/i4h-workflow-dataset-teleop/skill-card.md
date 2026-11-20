@@ -1,5 +1,5 @@
 ## Description: <br>
-Record demonstrations through a workflow's teleop Task into workflow HDF5. <br>
+Record teleoperated demonstrations in a workflow's Arena environment with record_demos.py. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 

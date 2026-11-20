@@ -1225,7 +1225,8 @@ class CatheterRodHandle:
             add_catheter_rod_to_builder,
             rod_config_from_solver_cfg,
         )
-        from isaaclab_newton.physics import NewtonManager
+        from isaaclab.sim import SimulationContext
+        from isaaclab_newton.physics import NewtonBuilderCfg
 
         spec = self._spec
         solver_cfg = rod_solver_cfg(spec)
@@ -1233,7 +1234,9 @@ class CatheterRodHandle:
         # constructor, and it has to match the Newton model's device.
         rod_config = rod_config_from_solver_cfg(solver_cfg, device=spec.device)
 
-        builder = NewtonManager._builder
+        # The shared ModelBuilder that Isaac Lab finalizes after MODEL_INIT.
+        sim = SimulationContext.instance()
+        builder = sim.get_or_create_backend(NewtonBuilderCfg(physics_cfg=sim.cfg.physics))
         if builder is None:
             raise RuntimeError(
                 "MODEL_INIT fired with no Newton ModelBuilder, so the rod's particles have " "nowhere to go"

@@ -12,14 +12,23 @@ LOG_PREFIX="i4h-workflows third_party setup"
 TARGET="${1:-all}"
 [ "$#" -le 1 ] || { echo "usage: third_party/setup.sh [all|arena|patient-twin|sensor-simulation|tasks/<policy>]" >&2; exit 2; }
 
-ISAACLAB_REV="ffff603eafc6b74264a5261cc0183d6a65390d78"
-ISAACLAB_DIR="IsaacLab-ffff603"
+# Isaac Lab release/3.0.0: v3.0.0 GA plus its backported fixes. Like GA, it requires Isaac Sim
+# 6.2.0.0 (arena/pyproject.toml) and warp-lang 1.17.0.
+ISAACLAB_REV="39394453ceaac256349ad822e675a93485373667"
+ISAACLAB_DIR="IsaacLab-3939445"
+NUMERICAL_SIM_REV="caff73b12a77abd6157771678ee0a57206771ac4"
+NUMERICAL_SIM_DIR="i4h-numerical-sim-caff73b"
 LEISAAC_REV="cd61a20c75f7b72c347538089602201349af6dc8"
 LEISAAC_DIR="leisaac-cd61a20"
-ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
-ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
-ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
-ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
+# Arena main qualification pin. Arena itself pins the v3.0.0 GA submodule; i4h runs it on the
+# release/3.0.0 branch above with Isaac Sim 6.2.
+ISAACLAB_ARENA_REV="196680c28aa53e173d97d9e2dbded9d8d4f981a0"
+ISAACLAB_ARENA_DIR="IsaacLab-Arena-196680c"
+# The isolated GR00T N1.6 service retains its original Arena package and joint configs.
+POLICY_ARENA_REV="c7edf3a9d5d8276565208f72422f8f8a0806d6cf"
+POLICY_ARENA_DIR="IsaacLab-Arena-c7edf3a"
+ISAACSIM_SKILLS_REV="74a9356b20250dd60337d90b4b4d913c9454d32b"
+ISAACSIM_SKILLS_DIR="IsaacSim-74a9356"
 # Physics is the public v0.9.0 release. Sensor simulation and the patient twin are pinned to
 # commits on their main branches that read and write the native scan bundle format (sensor
 # simulation #72, merged as d7d3f29; the twin pins the same xray_simulator). Override *_REF to
@@ -95,7 +104,7 @@ checkout_ref() {
   if [[ "${ref}" =~ ^[0-9a-f]{40}$ ]]; then
     # A commit never moves, so fetch it once and reuse it on every later run.
     if ! git -C "${repo_dir}" rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
-      git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}"
+      git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}" || return 1
     fi
     target_commit="$(git -C "${repo_dir}" rev-parse "${ref}^{commit}")"
   elif git -C "${repo_dir}" rev-parse --verify --quiet "refs/tags/${ref}^{commit}" >/dev/null; then
@@ -109,7 +118,7 @@ checkout_ref() {
     # freeze the checkout at whatever main was the day the machine was first set up. Peel to
     # the commit: for an annotated release tag FETCH_HEAD names the tag object, which never
     # equals HEAD, so every rerun would force a checkout over local edits.
-    git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}"
+    git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}" || return 1
     target_commit="$(git -C "${repo_dir}" rev-parse "FETCH_HEAD^{commit}")"
     # FETCH_HEAD records whether the remote resolved the name as a tag or a branch. Keep a tag
     # so the branch above finds it next time; a branch gets no local ref and is fetched again.
@@ -119,7 +128,7 @@ checkout_ref() {
   fi
   current_commit="$(git -C "${repo_dir}" rev-parse --verify HEAD 2>/dev/null || true)"
   if [[ "${current_commit}" != "${target_commit}" ]]; then
-    git -C "${repo_dir}" checkout -f "${target_commit}"
+    git -C "${repo_dir}" checkout -f "${target_commit}" || return 1
     echo "[${LOG_PREFIX}] ${name} @ ${ref} is now ${target_commit}"
   fi
 }
@@ -141,7 +150,7 @@ checkout_sparse_ref() {
   git -C "${repo_dir}" sparse-checkout init --cone
   git -C "${repo_dir}" sparse-checkout set "${sparse_path}"
   if ! git -C "${repo_dir}" rev-parse --verify --quiet "${ref}^{commit}" >/dev/null; then
-    git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}"
+    git -C "${repo_dir}" fetch --depth=1 --no-tags --filter=blob:none origin "${ref}" || return 1
   fi
   target_commit="$(git -C "${repo_dir}" rev-parse "${ref}^{commit}")"
   current_commit="$(git -C "${repo_dir}" rev-parse --verify HEAD 2>/dev/null || true)"
@@ -157,9 +166,12 @@ SENSOR_SIM_CHECKOUT="${I4H_SENSOR_SIM_DIR}|${I4H_SENSOR_SIM_URL}|${I4H_SENSOR_SI
 DIGITAL_TWIN_CHECKOUT="${I4H_DIGITAL_TWIN_DIR}|${I4H_DIGITAL_TWIN_URL}|${I4H_DIGITAL_TWIN_REF}"
 
 arena_checkouts=(
+  "${NUMERICAL_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git|${NUMERICAL_SIM_REV}"
   "${ISAACLAB_DIR}|https://github.com/isaac-sim/IsaacLab.git|${ISAACLAB_REV}"
   "${LEISAAC_DIR}|https://github.com/LightwheelAI/leisaac.git|${LEISAAC_REV}"
   "${ISAACLAB_ARENA_CHECKOUT}"
+  # Arena installs its client from the immutable Git source in arena/pyproject.toml.
+  # The local GR00T N1.6 checkout below belongs only to the isolated policy service.
   "${I4H_PHYSICS_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-physics-simulation.git|${I4H_PHYSICS_SIM_REF}"
   "${SENSOR_SIM_CHECKOUT}"
   # tools/patient_twin, not arena, consumes this one. It rides along with the arena target so
@@ -173,6 +185,7 @@ policy_checkouts=(
   "${OPENPI_DIR_NAME}|https://github.com/Physical-Intelligence/openpi.git|${OPENPI_REV}"
   "${LEROBOT_DIR}|https://github.com/huggingface/lerobot.git|${LEROBOT_REV}"
   "${RLINF_DIR}|https://github.com/RLinf/RLinf.git|${RLINF_REV}"
+  "${POLICY_ARENA_DIR}|https://github.com/isaac-sim/IsaacLab-Arena.git|${POLICY_ARENA_REV}"
 )
 
 checkouts=()
@@ -204,7 +217,7 @@ case "$TARGET" in
     ;;
   tasks/gr00t_n16)
     # N1.6 imports reusable configuration from IsaacLab-Arena.
-    checkouts=("${ISAACLAB_ARENA_CHECKOUT}" "${policy_checkouts[1]}")
+    checkouts=("${policy_checkouts[6]}" "${policy_checkouts[1]}")
     ;;
   tasks/gr00t_n17)
     checkouts=("${policy_checkouts[2]}")
@@ -218,9 +231,16 @@ case "$TARGET" in
     ;;
 esac
 
+if [[ "$TARGET" == "all" || "$TARGET" == "arena" ]]; then
+  python3 "${SCRIPT_DIR}/../scripts/arena_stack_artifacts.py" stage-wheel
+fi
+
 for spec in "${checkouts[@]}"; do
   IFS="|" read -r name url ref <<<"${spec}"
-  checkout_ref "${name}" "${url}" "${ref}"
+  if ! checkout_ref "${name}" "${url}" "${ref}"; then
+    echo "[${LOG_PREFIX}] checkout failed: ${url} @ ${ref}. Verify repository access and Git authentication." >&2
+    exit 1
+  fi
 done
 
 # Sensor simulation and the patient twin used to be checked out under *-internal names. The
@@ -259,6 +279,41 @@ if [[ -d "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}/.git" ]]; then
     exit 1
   fi
   echo "[${LOG_PREFIX}] i4h-physics-simulation carries the coupled-arm solver contract"
+
+  # Isaac Lab 3.0 no longer holds the finalized ModelBuilder on NewtonManager._builder, where
+  # the coupled arm manager reads drive-body names from; it lives in the backend registry.
+  apply_patch_once "i4h-physics-simulation Isaac Lab 3 ModelBuilder lookup" \
+    "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}" \
+    "${THIRD_PARTY_DIR}/i4h_physics_simulation_isaaclab3_builder.patch"
+fi
+
+if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}/.git" ]]; then
+  apply_patch_once "Isaac Lab Newton 1.9 VBD optional default" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_newton19_vbd.patch"
+
+  apply_patch_once "Isaac Lab Newton 1.9 automatic deformable groups" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_newton19_deformables.patch"
+
+  apply_patch_once "Isaac Lab Newton 1.9 actuator base class" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_newton19_actuators.patch"
+
+  apply_patch_once "Isaac Lab Newton 1.9 metadata and cloner" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_newton19_metadata.patch"
+
+  # Isaac Lab 3.0 resolves the Pink IK mesh_path as a single file, but Pinocchio takes a mesh
+  # package directory; the H2 + Sharpa URDF needs one for its relative mesh paths.
+  apply_patch_once "Isaac Lab Pink IK local mesh directory" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_pink_ik_local_mesh_dir.patch"
+  # Isaac Lab 3.0's replay_demos.py builds a keyboard for pause/resume unconditionally, which
+  # fails without a Kit window; headless replays need it skipped.
+  apply_patch_once "Isaac Lab headless replay_demos" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_replay_demos_headless.patch"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEISAAC_DIR}/.git" ]]; then
@@ -276,13 +331,20 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}/.git" ]]; then
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_arena_wbc_default_base_height.patch"
 
-  apply_patch_once "IsaacLab-Arena Newton import" \
+  # Numerical components own construction/reset and must use their custom host in every runner.
+  apply_patch_once "IsaacLab-Arena custom numerical host entry point" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
-    "${THIRD_PARTY_DIR}/isaaclab_arena_newton_import.patch"
+    "${THIRD_PARTY_DIR}/isaaclab_arena_custom_env.patch"
 
-  apply_patch_once "IsaacLab-Arena lazy registration" \
+  # Slice-reset, modality-image and legacy-Franka fixes are upstream in this pin.
+  apply_patch_once "IsaacLab-Arena policy runner ends when its window closes" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
-    "${THIRD_PARTY_DIR}/isaaclab_arena_lazy_registration.patch"
+    "${THIRD_PARTY_DIR}/isaaclab_arena_policy_runner_window_close.patch"
+
+  # NVBug 6953999: a scene that opts in gets a new PhysX scene before every episode after the first.
+  apply_patch_once "IsaacLab-Arena fresh physics scene per episode hook" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_arena_fresh_physics_per_episode.patch"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEROBOT_DIR}/.git" ]]; then

@@ -171,3 +171,52 @@ __all__ = [
     "route_progress",
     "unambiguous_radius_m",
 ]
+
+
+#: Route left ahead of the tip at reset, which is the navigation an episode is
+#: actually about.
+#:
+#: This is bounded by the step cap rather than by anatomy. The scene is
+#: validated to 600 steps, which is twenty seconds at 30 Hz, and the insertion
+#: slider defaults to 9 mm/s because faster sustained feed drives the shaft
+#: into the wall. Twenty seconds at 9 mm/s is 180 mm, so nothing longer than
+#: that can be navigated within one episode whatever the operator does. The
+#: default keeps a third of the budget back for the steering, pausing and
+#: correcting that the insertion arithmetic ignores.
+DEFAULT_INSERTION_ALLOWANCE_M = 0.12
+
+
+def route_initial_catheter_length_m(
+    route_length_m: float,
+    *,
+    allowance_m: float = DEFAULT_INSERTION_ALLOWANCE_M,
+) -> float:
+    """Seeded shaft length that leaves ``allowance_m`` of route ahead of the tip.
+
+    The shaft is inextensible, so advancing the tip by one millimetre of arc
+    costs one millimetre at the root: the route left unseeded *is* the
+    insertion the episode has to perform. Sizing the shaft from the route makes
+    that quantity the thing being chosen, instead of a residue of how the seed
+    length and the route happen to compare.
+
+    The rule this replaced took 65% of the CT volume's width, matching the
+    reference viewport's initialization. Nothing in that ties it to the vessel
+    being navigated, and on ``s0011`` it produced a 303 mm shaft for a 646 mm
+    route, leaving 343 mm to insert where the cap affords 180 mm. Arrival was
+    unreachable on arithmetic alone, before any question of whether the
+    operator steered well, so every episode recorded a failure and the goal's
+    hold condition had never once been exercised.
+
+    A short route is returned nearly whole rather than clamped to a negative
+    length; the tip then starts essentially at the entry and the allowance is
+    whatever the route affords.
+    """
+    route_length_m = float(route_length_m)
+    if not np.isfinite(route_length_m) or route_length_m <= 0.0:
+        raise ValueError(f"route_length_m must be positive and finite, got {route_length_m}")
+    allowance_m = float(allowance_m)
+    if not np.isfinite(allowance_m) or allowance_m <= 0.0:
+        raise ValueError(f"allowance_m must be positive and finite, got {allowance_m}")
+    # Leaves a tenth of a short route seeded so the shaft still has a direction
+    # to be inserted along.
+    return max(0.1 * route_length_m, route_length_m - allowance_m)

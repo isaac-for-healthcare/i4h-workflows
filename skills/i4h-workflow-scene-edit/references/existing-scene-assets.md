@@ -10,11 +10,11 @@ Use this reference before measuring, rescaling, or repositioning an asset that a
 4. Inspect live world bounds after insertion. Do not search for a scale already recorded here.
 5. Use visual-language review only to refine the resulting scene composition, never to infer the initial physical scale from scratch.
 
-The executable preset catalog currently contains measured metric bounds for `surgical_table`, `scissors`, `tweezers`, `surgical_tray`, and `g1`. Its 20% bounds guard detects a broken reference, unexpected root transform, or unit mismatch. Robot presets also carry the registered embodiment, live-to-runtime root mapping, action contract, control rate, attached cameras, and camera aliases returned by `scripts/authoring_info.py`. Assets listed only in the tables below retain their proven source-authored scale and placement until measured bounds are added to the catalog.
+The executable preset catalog currently contains measured metric bounds for `surgical_table`, `scissors`, `tweezers`, `surgical_tray`, `g1`, and `franka_ultrasound`; list it with `arena/.venv/bin/python scripts/authoring_info.py assets`. Its 20% bounds guard detects a broken reference, unexpected root transform, or unit mismatch. Robot presets also carry the registered embodiment, live-to-runtime root mapping, action contract, control rate, attached cameras, and camera aliases returned by `scripts/authoring_info.py`. Assets listed only in the tables below retain their proven source-authored scale and placement until measured bounds are added to the catalog.
 
 ## Scene index
 
-| Workflow scene | Primary owner | Reusable scene facts |
+| Scene | Primary owner | Reusable scene facts |
 |---|---|---|
 | `soarm_scissors` | `arena/i4h_arena/assets/soarm_scissors.py` | Ground z `-1.05`; scissor table at `(0.1, 0, 0)`, z-rotation `90°`, scale `(0.7, 0.7, 0.52)`; tabletop world z is approximately `0.238`; SO-ARM pose belongs to its embodiment, not the Scene cfg. |
 | `g1_tray` | `arena/i4h_arena/scenes/_locomanip.py`, `g1_tray.py`; assets in `arena/i4h_arena/assets/_locomanip.py` | Rheo `pre_op` background at `(4, 0, -0.8)`; tray at `(-1.15, -1.6, -0.08)` with z-rotation `90°`; cart at `(0.35, -1.65, -0.7875)`; G1 at `(-0.5, -1.62, 0)` facing the work area. Registered assets and G1 use scale `1`. |
@@ -38,7 +38,7 @@ The executable preset catalog currently contains measured metric bounds for `sur
 | Small surgical tray | `SCISSOR_TRAY_USD` | `(0.7, 0.7, 0.18)` | The executable preset is static; the `soarm_scissors` variant authors `5 kg`. |
 | Rheo tray with lid | `TRAY_USD` | `(1, 1, 1)` | Articulated, default mass `0.1 kg`; distinct from `SCISSOR_TRAY_USD`. |
 | Rheo cart | `CART_USD` | `(1, 1, 1)` | Articulated; preserve its scene-specific support height. |
-| G1 WBC robot | `UNITREE_G1_29DOF_USD` | `(1, 1, 1)` | Articulation; live root `/Robot` maps to registered `g1_wbc_joint`, manifest embodiment `g1`, 50-DoF joint-position control at 30 Hz, and runtime robot name `robot`. The live preset creates `Robot/Asset/head_link/RobotHeadCam`; the registered embodiment exposes `robot_head_cam` through alias `head`. |
+| G1 WBC robot | `UNITREE_G1_29DOF_USD` | `(1, 1, 1)` | Articulation; live root `/Robot` maps to registered `g1_locomanip_wbc_joint` (Arena's `g1_wbc_joint` on this USD), manifest embodiment `g1`, 50-DoF joint-position control, and runtime robot name `robot`. The preset records 30 Hz, but `g1_cart` and `g1_tray` declare `control_hz: 50.0`; take the rate from the target scene manifest. The live preset creates `Robot/Asset/head_link/RobotHeadCam`; the registered embodiment exposes `robot_head_cam`, which the scene manifest declares as camera `head`. |
 | General surgical table | `TABLE_USD` | `(1, 1, 1)` | Static support used by PSM reach/lift scenes. |
 | STAR table | `SeattleLabTable` | `(1, 1, 1)` | Static support used only by `star_reach`. |
 | Lift block | `BLOCK_USD` | `(0.011, 0.011, 0.011)` | Rigid with gravity. |
@@ -50,9 +50,9 @@ The executable preset catalog currently contains measured metric bounds for `sur
 
 ## Quaternion convention when baking
 
-Arena scene sources carry quaternions as `(x, y, z, w)`, matching `authoring_catalog` `rotation_deg`, `live_scene_edit.py export-scene` `rotation_xyzw`, and `isaaclab_arena.utils.pose.Pose`. Write an exported live rotation straight through; for a catalog yaw use `(0, 0, sin(yaw/2), cos(yaw/2))`. This applies to `init_state.rot` on `AssetBaseCfg`/`RigidObjectCfg` and to `TiledCameraCfg.OffsetCfg.rot` in a `ConfigAsset`-wrapped `InteractiveSceneCfg`; `arena/i4h_arena/assets/soarm_scissors.py` shows the same form for the table, scissors, and tray USDs. Do not "convert to IsaacLab's documented `(w, x, y, z)`" while baking: on these assets that reads as a 90° roll, which stands instruments on end and aims a room camera at the sky — both of which still pass lint.
+Arena scene sources carry quaternions as `(x, y, z, w)`, matching `authoring_catalog` `rotation_deg`, `live_scene_edit.py export-scene` `rotation_xyzw`, and `isaaclab_arena.utils.pose.Pose`. Write an exported live rotation straight through; for a catalog yaw use `(0, 0, sin(yaw/2), cos(yaw/2))`. This applies to `init_state.rot` on `AssetBaseCfg`/`RigidObjectCfg` and to `CameraCfg.OffsetCfg.rot` in a `ConfigAsset`-wrapped `InteractiveSceneCfg`; `arena/i4h_arena/assets/soarm_scissors.py` shows the same form for the table, scissors, and tray USDs. Do not "convert to IsaacLab's documented `(w, x, y, z)`" while baking: on these assets that reads as a 90° roll, which stands instruments on end and aims a room camera at the sky — both of which still pass the static tests.
 
-Confirm the convention the same way after every bake: relaunch `./run.sh <workflow> --live`, then compare each prim's world bounds and each camera capture against the live session they came from.
+Confirm the convention the same way after every bake: reopen the scene with `./local-agent/bridge.sh start <scene>`, then compare each prim's world bounds (`live_scene_edit.py inspect`) and each camera capture (`live_scene_edit.py capture-camera`) against the live session they came from.
 
 ## Visual-language refinement
 

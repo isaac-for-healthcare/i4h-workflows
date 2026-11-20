@@ -45,32 +45,20 @@ from isaaclab.envs.mdp.actions.pink_task_space_actions import PinkInverseKinemat
 from isaaclab.sim.spawners.from_files.from_files import spawn_from_usd
 from isaaclab.sim.utils import find_matching_prim_paths, get_current_stage
 from isaaclab.utils import configclass
-from isaaclab_contrib.deformable.coupled_mjwarp_vbd_manager import NewtonCoupledMJWarpVBDManager
-from isaaclab_contrib.deformable.newton_manager_cfg import CoupledMJWarpVBDSolverCfg, NewtonModelCfg, VBDSolverCfg
-from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
-from pxr import UsdGeom
+from isaaclab_contrib.custom_coupling.coupled_mjwarp_vbd_manager import NewtonCoupledMJWarpVBDManager
+from isaaclab_contrib.custom_coupling.newton_manager_cfg import CoupledMJWarpVBDSolverCfg
+from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, NewtonShapeCfg, NewtonSoftContactCfg, VBDSolverCfg
+from pxr import Usd, UsdGeom
 
 
-@configclass
-class DeformableNewtonCfg(NewtonCfg):
-    """``NewtonCfg`` carrying model-level contact parameters for deformables.
-
-    A distinct class name is required so Isaac Lab's ``_is_kitless_physics``
-    check does not match it, which ensures Kit launches for USD deformable
-    spawning.
-    """
-
-    model_cfg: NewtonModelCfg | None = None
-
-
-def make_newton_physics() -> DeformableNewtonCfg:
+def make_newton_physics() -> NewtonCfg:
     """Coupled MJWarp (robot) + VBD (cloth) Newton physics preset."""
     # Higher soft/shape contact stiffness and the
     # stiffer VBD coupling grow the per-substep contact count; give MJWarp
     # headroom so an inspire hand grabbing cloth can't overrun the static
     # buffers (which manifests as a heap corruption at model_init).
     njmax, nconmax = 400, 300
-    return DeformableNewtonCfg(
+    return NewtonCfg(
         solver_cfg=CoupledMJWarpVBDSolverCfg(
             rigid_solver_cfg=MJWarpSolverCfg(
                 njmax=njmax,
@@ -90,55 +78,20 @@ def make_newton_physics() -> DeformableNewtonCfg:
             ),
             coupling_mode="two_way",
         ),
-        model_cfg=NewtonModelCfg(
+        # Isaac Lab 3.0 GA splits the former NewtonModelCfg: body-particle contact
+        # stays global, and the rigid shape material becomes the scene's default shape.
+        soft_contact_cfg=NewtonSoftContactCfg(
             soft_contact_ke=5.0e4,  # Cloth-hand contact stiffness.
             soft_contact_kd=1.0e-3,
             soft_contact_mu=1.0,
-            shape_material_ke=1.0e4,
-            shape_material_kd=1.0e-3,
-            shape_material_mu=0.8,
         ),
+        default_shape_cfg=NewtonShapeCfg(ke=1.0e4, kd=1.0e-3, mu=0.8),
         num_substeps=20,
         use_cuda_graph=True,
     )
 
 
 _HAND_COLLISION_FLAGFIX_DONE = False
-_MUJOCO_ATTRIBUTES_FIX_DONE = False
-
-
-def enable_mujoco_usd_attributes() -> None:
-    """Register MuJoCo USD attributes before the coupled backend imports bodies.
-
-    The pinned coupled manager constructs ModelBuilder directly and omits the
-    registration used by IsaacLab's regular Newton cloner. Without it, authored
-    mjc:gravcomp is silently discarded. Scope the builder substitution to that
-    manager's import call and restore it even if USD import raises.
-    """
-    global _MUJOCO_ATTRIBUTES_FIX_DONE
-    if _MUJOCO_ATTRIBUTES_FIX_DONE:
-        return
-    import isaaclab_contrib.deformable.coupled_mjwarp_vbd_manager as coupled
-    from newton.solvers import SolverMuJoCo
-
-    original_import = NewtonCoupledMJWarpVBDManager.instantiate_builder_from_stage.__func__
-
-    def import_with_mujoco_attributes(cls):
-        original_builder = coupled.ModelBuilder
-
-        def make_builder(*args, **kwargs):
-            builder = original_builder(*args, **kwargs)
-            SolverMuJoCo.register_custom_attributes(builder)
-            return builder
-
-        coupled.ModelBuilder = make_builder
-        try:
-            return original_import(cls)
-        finally:
-            coupled.ModelBuilder = original_builder
-
-    NewtonCoupledMJWarpVBDManager.instantiate_builder_from_stage = classmethod(import_with_mujoco_attributes)
-    _MUJOCO_ATTRIBUTES_FIX_DONE = True
 
 
 def _install_newton_hand_collision_flag_fix() -> None:
@@ -151,7 +104,7 @@ def _install_newton_hand_collision_flag_fix() -> None:
 
     def _patched(cls):
         _orig(cls)
-        model = cls._model
+        model = cls.get_model()
         if model is None:
             return
         collide = int(newton.ShapeFlags.COLLIDE_SHAPES) | int(newton.ShapeFlags.COLLIDE_PARTICLES)
@@ -191,9 +144,31 @@ def select_physics_backend(env_cfg: ManagerBasedRLEnvCfg, backend: str = "newton
     if backend != "newton":
         raise ValueError("tablecloth requires the newton physics backend")
     env_cfg.sim.physics = make_newton_physics()
+    env_cfg.scene.cloth.spawn.func = spawn_cloth_with_root_deformable_body
     _maybe_apply_h2_table_height_tweak(env_cfg)
     _install_newton_hand_collision_flag_fix()
     return "newton"
+
+
+def spawn_cloth_with_root_deformable_body(prim_path, cfg, translation=None, orientation=None, **kwargs):
+    """Use the asset's only mesh as both the simulated and rendered cloth.
+
+    The asset already declares a deformable mesh. Registering another simulation
+    mesh creates two overlapping cloth surfaces in Newton.
+    """
+    from isaaclab.sim import SimulationContext  # noqa: PLC0415
+
+    prim = spawn_from_usd(prim_path, cfg, translation=translation, orientation=orientation, **kwargs)
+    meshes = [child for child in Usd.PrimRange(prim) if child.IsA(UsdGeom.Mesh)]
+    if len(meshes) != 1:
+        raise ValueError(f"expected one cloth mesh under {prim.GetPath()}, found {len(meshes)}")
+    mesh = meshes[0]
+    for child in Usd.PrimRange(prim):
+        for schema in child.GetAppliedSchemas():
+            if "DeformableBody" in schema or "DeformableSim" in schema:
+                child.RemoveAppliedSchema(schema)
+    SimulationContext.instance().physics_manager.setup_deformable_body(prim, "surface", mesh, mesh)
+    return prim
 
 
 _H2_TABLE_Z_SCALE = 1.5

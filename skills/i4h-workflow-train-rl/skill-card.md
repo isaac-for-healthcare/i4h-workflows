@@ -1,5 +1,5 @@
 ## Description: <br>
-Use when training, evaluating, or exporting Workflow policies with online RSL-RL or RLinf, including RL checkpoint and Workflow handoff. <br>
+Train, evaluate, and export workflow policies with online RSL-RL or RLinf. Use for online RL and its checkpoint handoff; do not use for supervised LeRobot fine-tuning or plain checkpoint rollout. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 

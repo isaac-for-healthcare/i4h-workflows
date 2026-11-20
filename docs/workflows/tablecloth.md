@@ -1,42 +1,46 @@
 # Tablecloth workflows
 
-The Rheo v0.7.0 tablecloth scenes are integrated into the Scene / Task / Workflow
-runtime as `spread_tablecloth_g1` (Unitree G1 with Inspire hands) and
-`spread_tablecloth_h2` (Unitree H2 with Sharpa Wave hands). Both support `idle`,
-`teleop`, and `replay`. XR demonstrations are accepted by the operator.
+The Rheo v0.7.0 tablecloth scenes run as the IsaacLab-Arena environments
+`G1Tablecloth` (`g1_tablecloth`, Unitree G1 with Inspire hands, workflow
+`spread_tablecloth_g1`) and `H2Tablecloth` (`h2_tablecloth`, Unitree H2 with Sharpa
+Wave hands, workflow `spread_tablecloth_h2`). Isaac Lab's `record_demos.py` records
+XR hand-tracking demonstrations through Isaac Teleop, and `replay_demos.py` replays
+them. The operator accepts each demonstration; the scenes have no success term.
 No trained tablecloth policy or autonomous rule-based controller is provided.
 
 The recovered configurations originate from release commit
 `568d91db09a167ae23805b82a9c8b5f1ac4ec0c3`. The Lightwheel cloth and table and
 both robot USDs load from the Healthcare v0.9.0 asset root. Scene,
-physics, and retargeting configurations now live under `arena/i4h_arena/`.
-`teleop/xr` reads the scene's retargeting configuration and writes actions;
-the shared `SimulationRunner` owns stepping, resets, and HDF5 recording.
+physics, and retargeting configurations now live under `arena/i4h_arena/`; the
+environment hands its Isaac Teleop retargeting configuration to Isaac Lab.
 
 Run `./setup.sh` after updating. The simulator environment includes
 `isaaclab-contrib` for coupled MJWarp rigid-body and VBD cloth physics.
-Newton is required for these two scenes. The inherited PhysX path reports an
-invalid cloth simulation view with the pinned runtime, so `--presets physx`
-is rejected before launch. Other workflows retain their PhysX default.
+Newton is required for these two scenes. Their workflow declarations in
+[`workflows/hospital-automation-robotics/`](../../workflows/hospital-automation-robotics/)
+declare `presets: [newton]`, so `run.sh` passes `--presets newton` to every command and
+rejects `--presets physx` before it starts the simulator. The inherited PhysX path reports
+an invalid cloth simulation view with the pinned runtime, so the environment refuses any
+other backend too. Other workflows retain their PhysX default.
 
 ## Inspect the scenes
 
 From the repository root:
 
 ```bash
-./run.sh spread_tablecloth_g1 --idle
-./run.sh spread_tablecloth_h2 --idle
+# Hold the G1 at its reset pose and watch the cloth; use spread_tablecloth_h2 for the H2.
+./run.sh spread_tablecloth_g1
 ```
 
-Idle renders the initial scene without advancing physics. Pink/Pinocchio is
-loaded before Kit automatically, including for replay. One environment is
-supported per session.
+Without a mode, `run.sh` runs `HoldPolicy` under Arena's policy runner. `HoldPolicy` commands the measured wrist poses and finger joints, so the robot
+settles where it was reset (the H2 within about 20 steps) and stays there. One
+environment is supported per session.
 
-These scenes require `PXR_WORK_THREAD_LIMIT=1` during Kit startup to avoid the
-USD physics parser's race on bodies with many colliders. The launcher preserves
-that value across Kit's environment override; see
-[Isaac Sim issue #692](https://github.com/isaac-sim/IsaacSim/issues/692).
-Physics and rendering retain their own worker threads.
+These scenes require `PXR_WORK_THREAD_LIMIT=1` in the environment Kit starts in,
+which their workflow declarations set, to avoid the USD physics parser's race on bodies with many colliders.
+`run.sh` sets it for the bare `g1_tablecloth` and `h2_tablecloth` scene names too; see
+[Isaac Sim issue #692](https://github.com/isaac-sim/IsaacSim/issues/692). Isaac Sim
+6.2 keeps a value already set. Physics and rendering retain their own worker threads.
 
 The fixed-base G1's intended gravity-free behavior is authored using
 `mjc:gravcomp=1` for Newton/MJWarp. A local compatibility fix registers MuJoCo
@@ -62,25 +66,17 @@ and choose a robot:
 
 ```bash
 source "$HOME/.cloudxr/run/cloudxr.env"
-./run.sh spread_tablecloth_g1 --teleop xr --episodes 10 --record
-# Or:
-./run.sh spread_tablecloth_h2 --teleop xr --episodes 10 --record
+# Use spread_tablecloth_h2 for the H2.
+./run.sh spread_tablecloth_g1 --teleop --episodes 10 --record runs/spread_tablecloth_g1/demos.hdf5
 ```
 
-The launcher prints the timestamped run directory containing `demos.hdf5` and
-logs. CloudXR is externally managed by default. For an embedded runtime, pass
-`--cloudxr-env /absolute/path/to/handtracking.env --auto-launch-cloudxr`.
-Teleop requires a visible Kit session; `--headless` is rejected before launch.
-
-With the simulator window focused:
-
-- **B** resets the scene, discards any pending recording, and begins a demo.
-- **S** saves a nonempty demo as operator-accepted and advances to the next episode.
-- **R** discards the current attempt and resets; press **B** to start again.
-
-Waiting for B or a tracking sample does not advance physics or record frames.
-Each saved episode contains the XR task segment. The simulation-step budgets
-retain the old teleop durations: 3,600 steps for G1 and 9,000 for H2 at 30 Hz.
+The teleop mode runs Isaac Lab's `record_demos.py`, which uses Isaac Teleop because
+the environment declares its retargeting configuration, and follows Isaac Lab's
+recording controls for starting, accepting and resetting a demonstration. CloudXR is
+externally managed here; to have the script start it instead, pass
+`--cloudxr-env /absolute/path/to/handtracking.env`. The first start asks the
+operator to accept the CloudXR EULA. Teleop requires a visible Kit session.
+An episode times out after 3,600 steps for G1 and 9,000 for H2.
 
 ## Data and replay
 
@@ -94,8 +90,8 @@ by 24 Inspire or 44 Sharpa finger targets. The explicit finger order is preserve
 from the original recordings; it must not be replaced with backend articulation order.
 Embodiment manifests name every action and state column.
 
-Cameras are recorded by default. Use `--no-cameras` for the image-free behavior
-of the original v0.7 examples. H2's camera is positioned ahead of its head and
+Cameras are recorded with `--enable_cameras`; leave it out for the image-free
+behavior of the original v0.7 examples. H2's camera is positioned ahead of its head and
 angled down at the table so its torso does not obscure the recording.
 H2 downloads its URDF and retargeting assets to
 `~/.cache/i4h_workflows/spread_tablecloth/h2_with_sharpa`; an existing asset bundle
@@ -103,17 +99,21 @@ can be selected with `RHEO_H2_SHARPA_ASSETS_DIR`.
 
 ```bash
 ./run.sh spread_tablecloth_g1 --replay /absolute/path/to/demos.hdf5
-./run.sh spread_tablecloth_h2 --replay /absolute/path/to/demos.hdf5
 ```
 
-Use the workflow matching the recording. These commands consume the redesigned
-workflow HDF5 action contract; historical IsaacLab recordings have different
-metadata and observation layouts. Replaying cloth actions does not restore an
-arbitrary deformed initial mesh, and contact-rich trajectories may diverge.
+Use the workflow matching the recording; replay runs Isaac Lab's `replay_demos.py`
+without cameras. Replaying
+cloth actions does not restore an arbitrary deformed initial mesh, and
+contact-rich trajectories may diverge.
 
 ## Validation
 
-Recovery checks on Isaac Sim 6.0.1 with the repository's pinned IsaacLab/Newton stack:
+Under IsaacLab-Arena on Isaac Sim 6.2 (2026-10-22): `HoldPolicy` held the G1 for
+150 steps (joints within 0.0002 rad) and the H2 for 300; Isaac Lab replayed the G1
+recording; `record_demos.py` built the G1 environment and its Isaac Teleop device up
+to the CloudXR session, which needs a headset and runtime to go further.
+
+Earlier recovery checks on Isaac Sim 6.0.1 with the repository's pinned IsaacLab/Newton stack:
 
 - G1: camera rendering, recording, and a 299-step replay of reset wrist targets.
 - H2: camera rendering, recording, and a 150-step synthetic replay including a

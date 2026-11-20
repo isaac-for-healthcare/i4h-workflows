@@ -1049,20 +1049,36 @@ def stub_isaac(monkeypatch):
     newton_physics = types.ModuleType("isaaclab_newton.physics")
     newton_physics.NewtonCfg = FakeNewtonCfg
     newton_physics.MJWarpSolverCfg = FakeMJWarpSolverCfg
-    newton_physics.NewtonManager = SimpleNamespace(_builder=None, register_callback=None)
+    newton_physics.NewtonManager = SimpleNamespace(register_callback=None)
+    newton_physics.NewtonBuilderCfg = lambda physics_cfg: ("builder", physics_cfg)
     newton_pkg = types.ModuleType("isaaclab_newton")
+
+    # Isaac Lab hands MODEL_INIT callbacks the shared ModelBuilder through the sim.
+    sim_state = SimpleNamespace(builder=None)
+    physics_cfg = object()
+
+    def get_or_create_backend(cfg):
+        assert cfg == ("builder", physics_cfg)
+        return sim_state.builder
+
+    sim = SimpleNamespace(cfg=SimpleNamespace(physics=physics_cfg), get_or_create_backend=get_or_create_backend)
+    isaaclab_sim = types.ModuleType("isaaclab.sim")
+    isaaclab_sim.SimulationContext = SimpleNamespace(instance=lambda: sim)
+    isaaclab = sys.modules.get("isaaclab") or types.ModuleType("isaaclab")
 
     integration = types.ModuleType("catheter_vasculature_solver.isaaclab_integration")
     integration.XPBDRodSolverCfg = FakeSolverCfg
     integration.CoupledMJWarpXPBDRodSolverCfg = FakeCoupledSolverCfg
 
     for name, module in (
+        ("isaaclab", isaaclab),
+        ("isaaclab.sim", isaaclab_sim),
         ("isaaclab_newton", newton_pkg),
         ("isaaclab_newton.physics", newton_physics),
         ("catheter_vasculature_solver.isaaclab_integration", integration),
     ):
         monkeypatch.setitem(sys.modules, name, module)
-    return SimpleNamespace(newton_physics=newton_physics, integration=integration)
+    return SimpleNamespace(newton_physics=newton_physics, integration=integration, sim=sim_state)
 
 
 def test_solver_cfg_carries_the_scene_geometry(stub_isaac):
@@ -1258,7 +1274,7 @@ def stub_model_init(monkeypatch, stub_isaac):
     calls: list[str] = []
     recorded: dict = {}
     builder = FakeBuilder()
-    stub_isaac.newton_physics.NewtonManager._builder = builder
+    stub_isaac.sim.builder = builder
 
     def add_catheter_rod_to_builder(passed_builder, config, *, positions, start, direction, num_envs):
         assert passed_builder is builder
@@ -1399,7 +1415,7 @@ def test_the_vessel_path_seeds_the_rod_shape(stub_model_init):
 
 
 def test_a_missing_builder_is_reported_not_silently_skipped(stub_model_init, stub_isaac):
-    stub_isaac.newton_physics.NewtonManager._builder = None
+    stub_isaac.sim.builder = None
     handle = CatheterRodHandle(CatheterRodSpec())
 
     with pytest.raises(RuntimeError, match="ModelBuilder"):

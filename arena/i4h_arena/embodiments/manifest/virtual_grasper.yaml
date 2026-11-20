@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: virtual_grasper
+joint_names: [x, y, z, qx, qy, qz, qw, grip, energy, fire]
+action_names: [delta_x, delta_y, delta_z, grip]
+state_names: [x, y, z, qx, qy, qz, qw, grip, energy, fire]

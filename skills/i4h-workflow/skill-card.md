@@ -1,5 +1,5 @@
 ## Description: <br>
-Orient users to the i4h workflow runtime and route them to the correct stage skill. <br>
+Orient users to the i4h IsaacLab-Arena workflows and route them to the correct stage skill. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers working with Isaac for Healthcare workflows use this skill to understand the runtime architecture, get support, and navigate to the correct stage skill for their task. <br>
+Developers and engineers working with Isaac for Healthcare workflows use this skill to understand the architecture (every workflow runs as an IsaacLab-Arena environment), get support, and navigate to the correct stage skill for their task. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>

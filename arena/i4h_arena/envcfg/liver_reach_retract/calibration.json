@@ -1,0 +1,181 @@
+{
+  "source": "manual liver captures 20261119_141840",
+  "numerical_revision": "7edecea49204539ca54cf9da736b5bcf597dadff",
+  "examples": [
+    {
+      "episode": 1,
+      "source_steps": [
+        487,
+        659
+      ],
+      "close_step": 547,
+      "acquisition_step": 547,
+      "particle_ids": [
+        252
+      ],
+      "capture_root": [
+        0.043437302112579346,
+        0.0388130359351635,
+        -0.501216471195221
+      ],
+      "capture_quaternion_xyzw": [
+        -0.26043105125427246,
+        -0.08238030970096588,
+        0.08335033059120178,
+        -0.9583537578582764
+      ],
+      "capture_grip": 0.5332199931144714,
+      "actual_jaw_angle": 0.2624865770339966,
+      "capture_particle_positions": [
+        [
+          0.04037947580218315,
+          0.057093456387519836,
+          -0.5191491842269897
+        ]
+      ],
+      "root_motion_between_close_and_capture_m": 0.0,
+      "hold_s": 1.35,
+      "max_acquired_displacement_m": 0.027030905708670616
+    },
+    {
+      "episode": 4,
+      "source_steps": [
+        1007,
+        1161
+      ],
+      "close_step": 1067,
+      "acquisition_step": 1071,
+      "particle_ids": [
+        257
+      ],
+      "capture_root": [
+        0.061283260583877563,
+        0.03662930428981781,
+        -0.4832450747489929
+      ],
+      "capture_quaternion_xyzw": [
+        -0.2092602401971817,
+        -0.029790038242936134,
+        0.10274013876914978,
+        -0.9719913601875305
+      ],
+      "capture_grip": 0.5948899984359741,
+      "actual_jaw_angle": 0.22544114291667938,
+      "capture_particle_positions": [
+        [
+          0.05810517817735672,
+          0.05167483538389206,
+          -0.5047284364700317
+        ]
+      ],
+      "root_motion_between_close_and_capture_m": 0.0007875892915762961,
+      "hold_s": 0.9833333333333333,
+      "max_acquired_displacement_m": 0.032217007130384445
+    },
+    {
+      "episode": 5,
+      "source_steps": [
+        1124,
+        1289
+      ],
+      "close_step": 1184,
+      "acquisition_step": 1184,
+      "particle_ids": [
+        255
+      ],
+      "capture_root": [
+        0.052908360958099365,
+        0.03713776916265488,
+        -0.4887361526489258
+      ],
+      "capture_quaternion_xyzw": [
+        -0.21276113390922546,
+        -0.0388002023100853,
+        0.09278049319982529,
+        -0.9719151258468628
+      ],
+      "capture_grip": 0.5030199885368347,
+      "actual_jaw_angle": 0.2627162039279938,
+      "capture_particle_positions": [
+        [
+          0.04839489609003067,
+          0.054962411522865295,
+          -0.510348379611969
+        ]
+      ],
+      "root_motion_between_close_and_capture_m": 0.0,
+      "hold_s": 1.2333333333333334,
+      "max_acquired_displacement_m": 0.042161453515291214
+    },
+    {
+      "episode": 6,
+      "source_steps": [
+        1260,
+        1425
+      ],
+      "close_step": 1320,
+      "acquisition_step": 1328,
+      "particle_ids": [
+        1688
+      ],
+      "capture_root": [
+        0.045059237629175186,
+        0.042890578508377075,
+        -0.4858401417732239
+      ],
+      "capture_quaternion_xyzw": [
+        -0.22193172574043274,
+        -0.0723905861377716,
+        0.08490067720413208,
+        -0.9686577320098877
+      ],
+      "capture_grip": 0.6625800132751465,
+      "actual_jaw_angle": 0.1868899017572403,
+      "capture_particle_positions": [
+        [
+          0.03980323299765587,
+          0.048704273998737335,
+          -0.5124209523200989
+        ]
+      ],
+      "root_motion_between_close_and_capture_m": 0.000862974557094276,
+      "hold_s": 1.1,
+      "max_acquired_displacement_m": 0.044133782386779785
+    },
+    {
+      "episode": 15,
+      "source_steps": [
+        2345,
+        2476
+      ],
+      "close_step": 2405,
+      "acquisition_step": 2409,
+      "particle_ids": [
+        1098
+      ],
+      "capture_root": [
+        0.011185146868228912,
+        0.04731886833906174,
+        -0.5155595541000366
+      ],
+      "capture_quaternion_xyzw": [
+        -0.22569285333156586,
+        -0.18045224249362946,
+        -0.06856085360050201,
+        -0.9548817276954651
+      ],
+      "capture_grip": 0.6848700046539307,
+      "actual_jaw_angle": 0.19049617648124695,
+      "capture_particle_positions": [
+        [
+          0.0024229451082646847,
+          0.0602445974946022,
+          -0.5326215028762817
+        ]
+      ],
+      "root_motion_between_close_and_capture_m": 0.001593732857145369,
+      "hold_s": 0.6,
+      "max_acquired_displacement_m": 0.03569870814681053
+    }
+  ]
+}

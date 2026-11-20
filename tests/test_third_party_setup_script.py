@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import shutil
@@ -34,6 +35,7 @@ def _run_setup(
     solver_api: tuple[str, ...] = SOLVER_API,
     target: str = "arena",
     retired: tuple[str, ...] = (),
+    fail_numerical: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     workspace = tmp_path / "workspace"
     third_party = workspace / "third_party"
@@ -41,6 +43,20 @@ def _run_setup(
     shutil.copy2(THIRD_PARTY_SETUP, third_party / "setup.sh")
     for name in retired:
         (third_party / name).mkdir()
+
+    # Exercise staging with a tiny hashed fixture; the production artifact hashes
+    # are tested separately. Fake Git does not supply a binary wheel.
+    scripts = workspace / "scripts"
+    scripts.mkdir()
+    fixture_wheel = third_party / "wheels/warp_lang-1.17.0-py3-none-linux_x86_64.whl"
+    fixture_wheel.parent.mkdir()
+    fixture_wheel.write_bytes(b"qualification test wheel")
+    artifact_source = (ROOT / "scripts/arena_stack_artifacts.py").read_text()
+    artifact_source = artifact_source.replace(
+        "dff334c1589510f4374807eb3fbdc85cfa5e20ab8a0e05548dc54e0b64990546",
+        hashlib.sha256(fixture_wheel.read_bytes()).hexdigest(),
+    )
+    (scripts / "arena_stack_artifacts.py").write_text(artifact_source)
 
     # Fake Git does not populate working trees. Supply the solver source that
     # setup inspects so these tests model a compatible component checkout.
@@ -61,6 +77,8 @@ def _run_setup(
         'printf \'%s\\n\' "$*" >> "$GIT_TEST_LOG"\n'
         "repo=''\n"
         "if [ \"${1:-}\" = '-C' ]; then repo=$2; shift 2; fi\n"
+        'if [[ "${GIT_TEST_FAIL_NUMERICAL:-0}" == 1 && "$repo" == *i4h-numerical-sim-caff73b'
+        ' && "${1:-}" == fetch ]]; then exit 128; fi\n'
         'if [ "${1:-}" = \'init\' ]; then mkdir -p "$repo/.git"; exit 0; fi\n'
         "if [ \"${1:-} ${2:-} ${3:-}\" = 'remote get-url origin' ]; then\n"
         '  if [ "$repo" = "$GIT_TEST_WORKSPACE" ]; then\n'
@@ -80,9 +98,11 @@ def _run_setup(
     fake_git.chmod(0o755)
 
     env = os.environ.copy()
+    env.pop("I4H_WARP_WHEEL", None)
     env.update(
         {
             "GIT_TEST_LOG": str(git_log),
+            "GIT_TEST_FAIL_NUMERICAL": str(int(fail_numerical)),
             "GIT_TEST_ROOT_ORIGIN": root_origin,
             "GIT_TEST_WORKSPACE": str(workspace),
             "PATH": f"{bin_dir}{os.pathsep}{env['PATH']}",
@@ -107,16 +127,20 @@ def _run_setup(
         "",
     ],
 )
-def test_release_components_use_public_https_sources(tmp_path: Path, root_origin: str) -> None:
-    # Every release component is a public repository, so the checkout's own transport no
-    # longer matters: SSH, HTTPS and archive builds all fetch the components over HTTPS.
+def test_components_use_declared_public_and_private_https_sources(tmp_path: Path, root_origin: str) -> None:
+    # Numerical Sim is private; the legacy physics and patient components remain public.
     result, git_log = _run_setup(tmp_path, root_origin)
 
     assert result.returncode == 0, result.stderr
     assert "carries the coupled-arm solver contract" in result.stdout
     for repository in ("i4h-physics-simulation", "i4h-sensor-simulation", "i4h-digital-twin"):
         assert f"remote set-url origin https://github.com/isaac-for-healthcare/{repository}.git" in git_log
-    assert "-internal.git" not in git_log
+    assert (
+        "remote set-url origin https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
+    )
+    assert "caff73b12a77abd6157771678ee0a57206771ac4" in git_log
+    assert "Isaac-GR00T-1.6 fetch" not in git_log
+    assert "i4h_numerical_liver_host.patch" not in git_log
     assert "git@github.com" not in git_log
 
 
@@ -145,6 +169,14 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
         ("digital-twin", "21e969d0be8212c22acc0a7e920b954f60ec289f"),
     ):
         assert any(f"i4h-{component} fetch" in line and line.endswith(f"origin {ref}") for line in git_log.splitlines())
+
+
+def test_isolated_n16_service_keeps_its_original_arena(tmp_path: Path) -> None:
+    result, git_log = _run_setup(tmp_path, "", target="tasks/gr00t_n16")
+    assert result.returncode == 0, result.stderr
+    assert "IsaacLab-Arena-c7edf3a fetch" in git_log
+    assert "Isaac-GR00T-1.6 fetch" in git_log
+    assert "IsaacLab-Arena-196680c fetch" not in git_log
 
 
 def _git(*args: str, cwd: Path) -> str:
@@ -273,3 +305,13 @@ def test_retired_internal_checkouts_are_named_for_removal(tmp_path: Path) -> Non
     for name in retired:
         assert f"third_party/{name} is no longer used" in result.stderr
         assert f"rm -rf third_party/{name}" in result.stderr
+
+
+def test_private_numerical_authentication_failure_is_actionable(tmp_path):
+    result, git_log = _run_setup(tmp_path, "", fail_numerical=True)
+    assert result.returncode != 0
+    assert (
+        "checkout failed: https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git" in result.stderr
+    )
+    assert "Verify repository access and Git authentication" in result.stderr
+    assert "IsaacLab-3939445 fetch" not in git_log

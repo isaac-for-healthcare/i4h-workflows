@@ -127,17 +127,10 @@ class FluoroscopySensor(SensorBase):
                 )
             )
 
-    def _update_buffers_impl(self, env_mask: wp.array) -> None:
-        if self._data.frame_id is None:
-            raise RuntimeError("fluoroscopy sensor has not been initialized")
-        provider = self._catheter_provider
-        catheter = provider.snapshot(self._num_envs) if provider is not None else CatheterState.empty(self._num_envs)
-        if catheter.num_envs != self._num_envs:
-            raise ValueError(f"catheter provider returned {catheter.num_envs} environments; expected {self._num_envs}")
-        carm = self._carm_provider.snapshot(self._num_envs) if self._carm_provider is not None else None
-        if self.cfg.backend == "slang" and carm is None:
-            raise RuntimeError("the slang fluoroscopy backend requires a bound C-arm provider")
+    def _ensure_renderer(self, carm=None):
         if self._renderer is None:
+            if carm is None:
+                carm = self._carm_provider.snapshot(self._num_envs)
             assert self._patient_twin is not None
             assert carm is not None
             self._renderer = SlangFluoroscopyRenderer(
@@ -162,8 +155,23 @@ class FluoroscopySensor(SensorBase):
                     tip_length_mm=self.cfg.catheter_tip_length_mm,
                 ),
             )
-        rendered = self._renderer.render(catheter, carm)
+
+    def _update_buffers_impl(self, env_mask: wp.array) -> None:
+        if self._data.frame_id is None:
+            raise RuntimeError("fluoroscopy sensor has not been initialized")
+        provider = self._catheter_provider
+        catheter = provider.snapshot(self._num_envs) if provider is not None else CatheterState.empty(self._num_envs)
+        if catheter.num_envs != self._num_envs:
+            raise ValueError(f"catheter provider returned {catheter.num_envs} environments; expected {self._num_envs}")
+        carm = self._carm_provider.snapshot(self._num_envs) if self._carm_provider is not None else None
+        if self.cfg.backend == "slang" and carm is None:
+            raise RuntimeError("the slang fluoroscopy backend requires a bound C-arm provider")
+        self._ensure_renderer(carm)
         mask = wp.to_torch(env_mask).to(device=self._device, dtype=torch.bool)
+        if isinstance(self._renderer, SlangFluoroscopyRenderer):
+            rendered = self._renderer.render(catheter, carm, env_mask=mask)
+        else:
+            rendered = self._renderer.render(catheter, carm)
         for name, values in rendered.items():
             tensor = torch.as_tensor(values, device=self._device)
             self._data.output[name][mask] = tensor[mask]

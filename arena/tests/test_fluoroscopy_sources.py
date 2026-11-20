@@ -76,8 +76,7 @@ def _env(twin, num_envs=1):
 def _make_view(env, monkeypatch):
     spec = SimpleNamespace(objects=(), robots=("robot",), cameras=("fluoroscopy",))
     scene = EndoluminalNavigationScene(spec, SimpleNamespace())
-    monkeypatch.setattr(scene, "_joint_state_providers", lambda *args: {})
-    return scene.make_view(env)
+    return scene.make_sensor_view(env)
 
 
 @pytest.mark.parametrize("num_envs", [1, 3])
@@ -129,12 +128,46 @@ def test_view_and_repeated_observations_preserve_live_provider_and_pan(patient, 
 def test_view_still_binds_phantom_without_image_observations(monkeypatch):
     env = _env(None)
     monkeypatch.setattr("i4h_arena.medical.fluoroscopy_sources._scene_data_carm_provider", lambda *args: None)
-    for name, z in (("xray_source", 0.0), ("detector", 1.0)):
-        env.scene[name] = SimpleNamespace(
-            get_world_poses=lambda z=z: (np.array([[0.0, 0.0, z]]), np.array([[0.0, 0.0, 0.0, 1.0]]))
-        )
+    frames = {
+        name: SimpleNamespace(get_world_poses=lambda z=z: (np.array([[0.0, 0.0, z]]), np.array([[0.0, 0.0, 0.0, 1.0]])))
+        for name, z in (("xray_source", 0.0), ("detector", 1.0))
+    }
+    # Scene extras are posed through FrameViews over their prims.
+    monkeypatch.setattr("i4h_arena.medical.fluoroscopy_sources._frame_view", lambda env, name: frames[name])
 
     view = _make_view(env, monkeypatch)
 
     assert isinstance(env.scene["fluoroscopy"].carm, SceneCArmStateProvider)
     assert view.camera("fluoroscopy") is not None
+
+
+@pytest.mark.parametrize("with_patient", [True, False])
+def test_headless_reset_binds_without_views_and_reconstruction_rebinds(patient, monkeypatch, with_patient):
+    from i4h_arena.medical.fluoroscopy_sources import initialize_fluoroscopy_sources
+
+    monkeypatch.setattr("i4h_arena.medical.fluoroscopy_sources._scene_data_carm_provider", lambda *args: None)
+    frames = {
+        name: SimpleNamespace(get_world_poses=lambda z=z: (np.array([[0.0, 0.0, z]]), np.array([[0.0, 0.0, 0.0, 1.0]])))
+        for name, z in (("xray_source", 0.0), ("detector", 1.0))
+    }
+    monkeypatch.setattr("i4h_arena.medical.fluoroscopy_sources._frame_view", lambda env, name: frames[name])
+    env = _env(patient if with_patient else None)
+    from isaaclab.managers.manager_base import _populate_term_defaults
+
+    params = {}
+    _populate_term_defaults(initialize_fluoroscopy_sources, params)
+    initialize_fluoroscopy_sources(env, torch.tensor([0]), **params)
+    sensor = env.scene["fluoroscopy"]
+    assert sensor.catheter is env.scene["catheter"]
+    first = sensor.carm
+    _ = sensor.data
+    initialize_fluoroscopy_sources(env, env_ids=torch.tensor([0]))
+    assert sensor.carm is first
+    fluoroscopy_rgb(env)
+    assert sensor.carm is first
+    rebuilt = _env(patient if with_patient else None)
+    env.scene, env.action_manager = rebuilt.scene, rebuilt.action_manager
+    initialize_fluoroscopy_sources(env, env_ids=torch.tensor([0]))
+    assert env.scene["fluoroscopy"].carm is not first
+    assert env.scene["fluoroscopy"].catheter is rebuilt.scene["catheter"]
+    _ = env.scene["fluoroscopy"].data

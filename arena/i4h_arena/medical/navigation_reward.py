@@ -8,7 +8,7 @@ from the route -- re-expressed batched in torch because rewards are read for
 every environment on every step and the readout version is a single-point numpy
 projection behind an ``lru_cache``.
 
-:class:`~i4h_arena.envcfg.endoluminal_navigation.CatheterNavigationRewardsCfg`
+:class:`~i4h_arena.envcfg.endoluminal_navigation.terms.CatheterNavigationRewardsCfg`
 configures three terms and no others: ``route_progress``, ``lateral`` and
 ``penetration``, defined below in that order. That is the whole reward PPO
 optimizes; this module holds nothing that is not part of it.
@@ -233,7 +233,7 @@ class TipRouteState(NamedTuple):
     valid: torch.Tensor
 
 
-def reset_tip_route_state(env: Any, env_ids: Any = None) -> None:
+def reset_tip_route_state(env: Any, env_ids: Any) -> None:
     """Drop the cached projection so a reset environment is re-projected.
 
     Isaac Lab computes rewards, then resets, then observations, all under one
@@ -291,7 +291,7 @@ def tip_route_state(env: Any, route_world_m: Iterable[Iterable[float]]) -> TipRo
     return state
 
 
-def reset_route_progress(env: Any, env_ids: Any = None) -> None:
+def reset_route_progress(env: Any, env_ids: Any) -> None:
     """Drop the stored remaining arc so a reset environment earns no phantom step.
 
     Without this the first step after a reset differences the new episode's

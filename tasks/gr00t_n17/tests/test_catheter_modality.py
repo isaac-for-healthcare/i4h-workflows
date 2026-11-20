@@ -137,13 +137,6 @@ def test_the_manifest_modality_config_resolves(spec) -> None:
     assert _modality_config_file(spec.model["modality_config"]).is_file()
 
 
-def test_the_task_reports_the_velocity_action_space_to_the_runtime(spec) -> None:
-    """`requires` is the scene-matching side; this is what the backend reports
-    on the ready handshake, and the runtime refuses the pair if they disagree
-    with the scene."""
-    assert spec.model["action_space"] == spec.requires["action_space"]
-
-
 def test_an_unknown_modality_config_is_rejected() -> None:
     from i4h_tasks.gr00t_n17.train import _modality_config_file
 

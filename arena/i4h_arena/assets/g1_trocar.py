@@ -29,7 +29,7 @@ from i4h_arena.assets.constants import (
 class TrocarAssemblyBackground(Background):
     """Lightwheel trocar assembly room — backdrop for the trocar task."""
 
-    name = "trocar_assembly_scene"
+    registry_name = "trocar_assembly_scene"
     tags = ["background"]
     default_robot_initial_pose = Pose.identity()
     usd_path = TROCAR_ASSEMBLY_SCENE_USD
@@ -38,16 +38,20 @@ class TrocarAssemblyBackground(Background):
 
     def __init__(self):
         super().__init__(
-            name=self.name,
+            name=self.registry_name,
             tags=self.tags,
             usd_path=self.usd_path,
+            prim_path="{ENV_REGEX_NS}/Scene",
             initial_pose=self.initial_pose,
             object_min_z=self.object_min_z,
+            # The room is spawned as authored and its props are not restored between
+            # episodes, as before IsaacLab-Arena 0.3 added nested background resets.
+            reset_nested_physics=False,
         )
 
     def _generate_base_cfg(self):
         object_cfg = AssetBaseCfg(
-            prim_path="{ENV_REGEX_NS}/Scene",
+            prim_path=self.prim_path,
             spawn=UsdFileCfg(usd_path=self.usd_path),
         )
         return self._add_initial_pose_to_cfg(object_cfg)
@@ -57,7 +61,7 @@ class TrocarAssemblyBackground(Background):
 class TrocarAssemblyTrocar(_RigidUsdObject):
     """First trocar piece to be assembled (the cannula)."""
 
-    name = "trocar_1"
+    registry_name = "trocar_1"
     tags = ["object"]
     prim_name = "trocar_1"
     usd_path = TROCAR_XFORM_WO_USD
@@ -81,7 +85,7 @@ class TrocarAssemblyTrocar(_RigidUsdObject):
 class TrocarAssemblyPunctureDevice(_RigidUsdObject):
     """Second trocar piece to be assembled (the puncture device)."""
 
-    name = "trocar_2"
+    registry_name = "trocar_2"
     tags = ["object"]
     prim_name = "trocar_2"
     usd_path = PUNCTURE_DEVICE_XFORM_USD
@@ -104,7 +108,7 @@ class TrocarAssemblyPunctureDevice(_RigidUsdObject):
 class TrocarAssemblyTray(_ArticulatedUsdObject):
     """Holding tray that contains both trocar pieces at episode start."""
 
-    name = "tray"
+    registry_name = "tray"
     tags = ["object"]
     prim_name = "surgical_tray"
     usd_path = TRAY_TROCAR_ASSEMBLY_USD

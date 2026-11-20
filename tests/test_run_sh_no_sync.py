@@ -17,10 +17,15 @@ def test_every_arena_launch_skips_the_sync() -> None:
     # A sync resolves every path source of arena/pyproject.toml, so one missing
     # component checkout (xray-simulator, catheter-vasculature-solver) would stop
     # workflows that never import it (NVBug 7047868).
-    launches = [line for line in RUN_SH.read_text().splitlines() if re.search(r"uv run --project arena\b", line)]
-    assert launches, "run.sh no longer launches arena through uv run"
+    source = RUN_SH.read_text()
+    launches = [line for line in source.splitlines() if re.search(r"uv run --project arena\b", line)]
     for line in launches:
         assert "--no-sync" in line, line
+    # The native launcher executes the already-installed interpreter directly.
+    # That also avoids dependency resolution and never creates an empty venv.
+    assert "exec env -u VIRTUAL_ENV arena/.venv/bin/python" in source
+    runner = (WORKFLOWS_ROOT / "scripts/run_workflow.py").read_text()
+    assert 'ARENA_PYTHON = ROOT / "arena" / ".venv" / "bin" / "python"' in runner
 
 
 def test_robot_pd_refuses_an_unsynced_arena(tmp_path: Path) -> None:
