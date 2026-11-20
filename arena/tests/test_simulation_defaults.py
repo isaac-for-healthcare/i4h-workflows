@@ -167,6 +167,7 @@ def test_the_environment_asks_for_a_fresh_physics_scene_only_for_scenes_that_opt
     monkeypatch, opted_in, args, installed
 ):
     monkeypatch.setattr(rendering, "apply_to_env_cfg", lambda cfg, settings: None)
+
     class Owner:
         rtx_settings = None
 
