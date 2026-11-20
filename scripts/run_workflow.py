@@ -350,6 +350,12 @@ def plan(argv: list[str]) -> Plan:
     for option, value in (("--presets", presets), ("--seed", args.seed), ("--device", args.device)):
         if value is not None:
             launcher += [option, str(value)]
+    if (
+        catheter_backend is not None
+        and visible
+        and not any(option.split("=", 1)[0] in ("--visualizer", "--viz") for option in [*launcher, *extra])
+    ):
+        launcher += ["--visualizer", "kit"]
     environment = [*workflow.environment_args, *[str(arg) for arg in spec.get("environment_args", [])]]
     if args.episode_steps is not None:
         environment += ["--episode_steps", str(args.episode_steps)]
