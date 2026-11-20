@@ -670,16 +670,22 @@ def convert(
 
         from i4h_common.catheter_backend import recording_provenance
 
-        provenance = [
-            dict(
-                recording=str(source),
-                **recording_provenance(source),
-                conversion_patient_twin=str(_resolve_patient_twin(source, twins[index] if twins else None))
-                if route is not None
-                else None,
+        provenance = []
+        episode_start = 0
+        for index, (source, route, _data, names) in enumerate(inputs):
+            provenance.append(
+                dict(
+                    recording=str(source),
+                    **recording_provenance(source),
+                    conversion_patient_twin=str(_resolve_patient_twin(source, twins[index] if twins else None))
+                    if route is not None
+                    else None,
+                    episode_start=episode_start,
+                    episode_count=len(names),
+                    source_demos=names,
+                )
             )
-            for index, (source, route, *_rest) in enumerate(inputs)
-        ]
+            episode_start += len(names)
         (target / "meta" / "source_recordings.json").write_text(json.dumps(provenance, indent=2) + "\n")
         _write_dataset_stats(target, dataset.meta.stats)
         if _uses_declared_modality(

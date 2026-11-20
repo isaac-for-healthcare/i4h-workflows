@@ -909,6 +909,7 @@ Options:
   --no-cameras              run without the scene's cameras
   --headless                run without the viewport
   --patient-twin PATH       patient-twin manifest for the endoluminal scenes
+  --catheter-backend NAME   numerical or legacy (fresh default: legacy; replay uses recording)
   --fluoro-backend NAME     synthetic or slang fluoroscopy
   --hu-to-mu PRESET         interventional or linear HU-to-attenuation preset for patient twins
   --cloudxr-env PATH        start CloudXR with this environment file for XR teleop
