@@ -545,9 +545,8 @@ def test_recording_conflict_is_rejected_before_publishing_sidecar(tmp_path, monk
 @pytest.mark.parametrize("workflow", ["endoluminal_navigation", "endoluminal_navigation_arm"])
 def test_navigation_selects_real_kit_viewport_only_for_visible_runs(workflow):
     visible = _plan(workflow, "--mode", "demo")
-    assert visible.command[visible.command.index("--visualizer") + 1] == "kit"
+    assert visible.command[visible.command.index("--viz") + 1] == "kit"
     headless = _plan(workflow, "--mode", "demo", "--headless")
-    assert "--visualizer" not in headless.command
+    assert "--viz" not in headless.command
     explicit = _plan(workflow, "--mode", "demo", "--", "--visualizer", "none")
-    assert explicit.command.count("--visualizer") == 1
-    assert explicit.command[explicit.command.index("--visualizer") + 1] == "none"
+    assert explicit.command[-2:] == ["--visualizer", "none"]
