@@ -152,6 +152,8 @@ class CatheterKeyboard(DeviceBase):
         types = carb.input.KeyboardEventType
         if key in MOTION_KEYS and event.type in (types.KEY_PRESS, types.KEY_REPEAT):
             self._held_since[key] = time.monotonic()
+        elif key in MOTION_KEYS and event.type == types.KEY_RELEASE:
+            self._held_since.pop(key, None)
         elif event.type == types.KEY_PRESS:
             if key == "L":
                 self.reset()
