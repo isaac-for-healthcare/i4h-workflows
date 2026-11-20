@@ -88,6 +88,7 @@ def main():
         worlds=args.worlds,
         patient=args.patient_twin,
         visible=args.visible,
+        warmup_control_steps=0 if args.resume else args.warmup,
         **source_revisions(__file__),
     )
     try:
@@ -157,6 +158,9 @@ def main():
                 for _ in range(args.warmup):
                     env.step(action)
 
+                drive = env.action_manager.get_term("catheter")
+                if hasattr(drive, "_approach"):
+                    result["approach_parked_after_warmup"] = bool(drive._approach.parked.all())
                 expected_observation = observation_arrays(env.observation_manager.compute(update_history=False))
                 before = env.capture_complete_state()
                 saved = env.capture_complete_state([args.worlds // 2])
