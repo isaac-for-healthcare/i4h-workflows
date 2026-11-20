@@ -54,7 +54,7 @@ This uses a procedural patient shape, synthetic fluoroscopy, and the default phy
 Patient preparation preserves the source CT grid. Bundles contain native
 `volume.npy` + `volume.yaml`, aorta labels, centerlines, and USD; the workflow owns
 world placement and sensor-simulation owns HU → μ conversion. NIfTI, DICOM CT,
-and existing volume artifacts are supported; see the [preparation examples](../../../tools/patient_twin/README.md).
+and existing volume artifacts are supported; see the [preparation examples](../../tools/patient_twin/README.md).
 
 ```mermaid
 flowchart LR
@@ -94,7 +94,7 @@ Install the optional backend with `uv sync --project tools/patient_twin --extra 
 and prepare the source checkout and checkpoint following the
 [patient pipeline guide](https://github.com/isaac-for-healthcare/i4h-digital-twin/blob/main/patient-digital-twin/README.md).
 Inference uses imports in the current environment; `--python` optionally selects a separate one. Use `--source nvgenerate --source-root /path/to/NV-Generate-CTMR`
-without `--input` to generate paired CT/anatomy. See the [builder setup](../../../tools/patient_twin/README.md)
+without `--input` to generate paired CT/anatomy. See the [builder setup](../../tools/patient_twin/README.md)
 for the pinned library and local development override. Always choose a new output directory.
 
 Pass the generated manifest to any command with `--patient-twin`:
