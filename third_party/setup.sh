@@ -338,6 +338,11 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}/.git" ]]; then
   apply_patch_once "IsaacLab-Arena policy runner ends when its window closes" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_arena_policy_runner_window_close.patch"
+
+  # NVBug 6953999: a scene that opts in gets a new PhysX scene before every episode after the first.
+  apply_patch_once "IsaacLab-Arena fresh physics scene per episode hook" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_arena_fresh_physics_per_episode.patch"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEROBOT_DIR}/.git" ]]; then

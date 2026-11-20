@@ -53,6 +53,15 @@ class SensorDisplayControlSpec:
     default: float
 
 
+def _operator_driven(args: argparse.Namespace) -> bool:
+    """Whether a person drives this run live, so an operator's mid-episode reset must keep its scene.
+
+    Isaac Lab's ``record_demos.py``, the only runner with these options, serves every
+    teleoperation device. Rebuilding under a live teleop session is not validated.
+    """
+    return any(hasattr(args, option) for option in ("teleop_device", "num_demos", "cloudxr_env"))
+
+
 class Scene(ABC):
     """One simulated world."""
 
@@ -63,9 +72,9 @@ class Scene(ABC):
     #: this process, so every episode starts from the PhysX state a fresh
     #: process has and a recorded retry replays (NVBug 6953999). Costs about a
     #: second per episode and drops what IsaacLab ``startup`` events wrote to
-    #: the simulation, so opt in only a scene that has none. Its hooks must not
-    #: step physics themselves: only the runner's steps trigger a rebuild.
-    #: Ignored off Kit PhysX and in teleop.
+    #: the simulation, so opt in only a scene that has none. Needs
+    #: ``isaaclab_arena_fresh_physics_per_episode.patch``. Ignored off Kit PhysX
+    #: and in teleop.
     fresh_physics_per_episode: bool = False
 
     def __init__(self, spec: SceneSpec, args: argparse.Namespace) -> None:
@@ -108,6 +117,8 @@ class Scene(ABC):
             for tune in tuners:
                 env_cfg = tune(env_cfg)
             simulation.apply_simulation_defaults(env_cfg)
+            if self.fresh_physics_per_episode and not _operator_driven(self.args):
+                simulation.apply_fresh_physics_per_episode(env_cfg)
             rendering.apply_to_env_cfg(env_cfg, rtx_settings)
             return env_cfg
 

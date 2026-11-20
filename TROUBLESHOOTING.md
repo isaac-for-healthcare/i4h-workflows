@@ -165,10 +165,13 @@ a retry or a later episode replays with the same actions but drifts by tenths of
 within a few hundred steps, and the replay may drop the object. The demo's `episode_index`
 and `attempt_index` attributes in the HDF5 file say whether it was. A reset leaves internal
 PhysX state behind, and the balancing G1 amplifies it, so an episode that follows others in
-one process does not match the same episode in a fresh process. The Arena runners on this branch do not
-yet rebuild the PhysX scene between episodes (`Scene.fresh_physics_per_episode` marks the
-scenes that need it), so record one demo per process. Demos of the first episode in a
-process replay as before.
+one process does not match the same episode in a fresh process. These scenes now rebuild the
+PhysX scene before every episode after the first, which takes about a second and is logged
+as `rebuilt the PhysX scene for a fresh episode`. Re-record demos made before that change;
+attempt-1 demos of the first episode replay as before. Teleop does not rebuild, so a teleop
+demo recorded after a reset or a retry can still drift. The rebuild comes from
+`third_party/isaaclab_arena_fresh_physics_per_episode.patch`, which `third_party/setup.sh`
+applies to Arena.
 
 ## Processes or GPU memory left behind
 
