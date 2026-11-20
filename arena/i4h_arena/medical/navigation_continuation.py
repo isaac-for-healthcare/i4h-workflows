@@ -179,7 +179,7 @@ def ids_array(env, env_ids):
     return env_ids.detach().cpu().numpy() if isinstance(env_ids, torch.Tensor) else np.asarray(env_ids)
 
 
-def capture(env, env_ids=None):
+def capture(env, env_ids):
     env.i4h.sync_views()
     ids = ids_array(env, env_ids)
     host = {
