@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import importlib
 import sys
 from types import ModuleType, SimpleNamespace
 from typing import Any
@@ -63,3 +64,15 @@ def test_newton_only_scenes_default_to_newton_without_presets(name, monkeypatch)
     args = SimpleNamespace(num_envs=1, presets=None, no_cameras=True, device="cpu")
 
     assert load_scene(name, args, register_assets=False).build().default_physics_backend is PhysicsBackend.NEWTON
+
+
+def test_only_the_g1_loco_manipulation_scenes_rebuild_physx_per_episode() -> None:
+    """NVBug 6953999: opting in drops IsaacLab ``startup`` events, so it stays per scene."""
+    opted_in = set()
+    for name, spec in scene_specs().items():
+        module, _, attr = spec.impl.partition(":")
+        if getattr(importlib.import_module(module), attr).fresh_physics_per_episode:
+            opted_in.add(name)
+
+    assert Scene.fresh_physics_per_episode is False
+    assert opted_in == {"g1_cart", "g1_tray"}

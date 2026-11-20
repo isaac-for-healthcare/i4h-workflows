@@ -1387,7 +1387,7 @@ requires-dist = [
     { name = "qpsolvers", specifier = "==4.8.1" },
     { name = "tqdm", specifier = ">=4.66" },
     { name = "warp-lang", path = "../third_party/wheels/warp_lang-1.17.0-py3-none-linux_x86_64.whl" },
-    { name = "xray-simulator", extras = ["slang"], editable = "../third_party/i4h-sensor-simulation-internal/xray-simulator" },
+    { name = "xray-simulator", extras = ["slang"], editable = "../third_party/i4h-sensor-simulation/xray-simulator" },
 ]
 
 [[package]]
@@ -5210,7 +5210,7 @@ wheels = [
 [[package]]
 name = "xray-simulator"
 version = "0.1.0"
-source = { editable = "../third_party/i4h-sensor-simulation-internal/xray-simulator" }
+source = { editable = "../third_party/i4h-sensor-simulation/xray-simulator" }
 dependencies = [
     { name = "jsonschema" },
     { name = "numpy" },
@@ -5230,6 +5230,7 @@ requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.8.0" },
     { name = "nibabel", marker = "extra == 'all'", specifier = ">=5.0.0" },
     { name = "nibabel", marker = "extra == 'datasets'", specifier = ">=5.0.0" },
+    { name = "nibabel", marker = "extra == 'nifti'", specifier = ">=5.0.0" },
     { name = "numpy" },
     { name = "pillow", marker = "extra == 'all'", specifier = ">=11.0.0" },
     { name = "pillow", marker = "extra == 'cli'", specifier = ">=10.0.0" },
@@ -5244,6 +5245,7 @@ requires-dist = [
     { name = "scikit-image", marker = "extra == 'validation'", specifier = ">=0.21" },
     { name = "scipy" },
     { name = "simpleitk", marker = "extra == 'all'", specifier = ">=2.3.0" },
+    { name = "simpleitk", marker = "extra == 'dicom'", specifier = ">=2.3.0" },
     { name = "slangpy", marker = "extra == 'all'", specifier = ">=0.40" },
     { name = "slangpy", marker = "extra == 'slang'", specifier = ">=0.40" },
     { name = "torch", marker = "extra == 'datasets'", specifier = ">=2.6" },
@@ -5251,7 +5253,7 @@ requires-dist = [
     { name = "warp-lang", marker = "extra == 'all'", specifier = ">=1.0.0" },
     { name = "warp-lang", marker = "extra == 'warp'", specifier = ">=1.0.0" },
 ]
-provides-extras = ["cli", "datasets", "validation", "all", "slang", "warp", "dev"]
+provides-extras = ["cli", "datasets", "validation", "dicom", "nifti", "all", "slang", "warp", "dev"]
 
 [[package]]
 name = "xxhash"

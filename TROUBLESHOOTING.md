@@ -158,6 +158,18 @@ are not bit-reproducible. Treat one run as an existence proof
 rather than a success rate: for anything you intend to report or compare, run several trials
 and quote the ratio.
 
+## A G1 recording made on a retry drifts on replay
+
+A loco-manipulation demo (`locomanip_push_cart`, `locomanip_tray_pick_and_place`) recorded on
+a retry or a later episode replays with the same actions but drifts by tenths of a radian
+within a few hundred steps, and the replay may drop the object. The demo's `episode_index`
+and `attempt_index` attributes in the HDF5 file say whether it was. A reset leaves internal
+PhysX state behind, and the balancing G1 amplifies it, so an episode that follows others in
+one process does not match the same episode in a fresh process. The Arena runners on this branch do not
+yet rebuild the PhysX scene between episodes (`Scene.fresh_physics_per_episode` marks the
+scenes that need it), so record one demo per process. Demos of the first episode in a
+process replay as before.
+
 ## Processes or GPU memory left behind
 
 Stop a run with Ctrl+C, or a background one with `./stop.sh <workflow>`, which stops the

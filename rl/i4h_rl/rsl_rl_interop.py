@@ -38,10 +38,12 @@ def environment_registration_callback() -> list[str]:
     # such a scene fails on the missing twin rather than quietly training
     # against a vessel that is not there.
     parser.add_argument("--patient-twin", dest="patient_twin", default=None)
-    # Both default to None so the scene's own resolver picks the backend from
-    # whether a twin is present, exactly as it does under the workflow CLI.
+    # These default to None so the scene's own resolver picks the backend from
+    # whether a twin is present, and the sensor its default attenuation preset,
+    # exactly as under the workflow CLI.
     parser.add_argument("--fluoro-backend", dest="fluoro_backend", default=None)
     parser.add_argument("--fluoro-device", dest="fluoro_device", default=None)
+    parser.add_argument("--hu-to-mu", dest="hu_to_mu", choices=("interventional", "linear"), default=None)
     args, remaining_args = parser.parse_known_args()
 
     if not _simulation_is_running():

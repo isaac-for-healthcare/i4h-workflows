@@ -90,7 +90,7 @@ gr00t = { path = "../third_party/Isaac-GR00T-1.6", editable = true }
 # Arena's client includes the inference API used by its native policies.
 openpi-client = { git = "https://github.com/Physical-Intelligence/openpi", rev = "c23745b5ad24e98f66967ea795a07b2588ed6c79", subdirectory = "packages/openpi-client" }
 catheter-vasculature-solver = { path = "../third_party/i4h-physics-simulation-internal/physics_simulation/endoluminal/catheter-vasculature-solver", editable = true }
-xray-simulator = { path = "../third_party/i4h-sensor-simulation-internal/xray-simulator", editable = true }
+xray-simulator = { path = "../third_party/i4h-sensor-simulation/xray-simulator", editable = true }
 torch = { index = "pytorch-cu130" }
 torchvision = { index = "pytorch-cu130" }
 

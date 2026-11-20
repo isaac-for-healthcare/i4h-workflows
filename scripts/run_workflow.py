@@ -192,6 +192,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--patient-twin")
     parser.add_argument("--fluoro-backend")
+    parser.add_argument("--hu-to-mu", choices=("interventional", "linear"))
     parser.add_argument("--cloudxr-env")
     parser.add_argument("--dry-run", action="store_true")
     return parser
@@ -318,6 +319,8 @@ def plan(argv: list[str]) -> Plan:
         environment += ["--patient_twin", str(_caller_path(args.patient_twin))]
     if args.fluoro_backend:
         environment += ["--fluoro_backend", args.fluoro_backend]
+    if args.hu_to_mu:
+        environment += ["--hu_to_mu", args.hu_to_mu]
 
     if mode in ("teleop", "replay"):
         command, record = _isaaclab_tool(
@@ -722,6 +725,7 @@ Options:
   --headless                run without the viewport
   --patient-twin PATH       patient-twin manifest for the endoluminal scenes
   --fluoro-backend NAME     synthetic or slang fluoroscopy
+  --hu-to-mu PRESET         interventional or linear HU-to-attenuation preset for patient twins
   --cloudxr-env PATH        start CloudXR with this environment file for XR teleop
   --dry-run                 print the commands instead of running them
   -- ARGS                   passed on after the environment name

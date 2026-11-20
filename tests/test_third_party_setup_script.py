@@ -34,11 +34,14 @@ def _run_setup(
     *,
     solver_api: tuple[str, ...] = SOLVER_API,
     target: str = "arena",
+    retired: tuple[str, ...] = (),
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     workspace = tmp_path / "workspace"
     third_party = workspace / "third_party"
     third_party.mkdir(parents=True)
     shutil.copy2(THIRD_PARTY_SETUP, third_party / "setup.sh")
+    for name in retired:
+        (third_party / name).mkdir()
 
     # Exercise staging with a tiny hashed fixture; the production artifact hashes
     # are tested separately. Fake Git does not supply a binary wheel.
@@ -153,14 +156,11 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
     result, git_log = _run_setup(tmp_path, "")
     assert result.returncode == 0, result.stderr
     for component, ref in (
-        ("physics-simulation", "50056196775fc0ed8cca03bf16144fe71d183ca7"),
-        ("sensor-simulation", "5d6ba8547a4c6e25af7eaf551f6a34371ccd6350"),
-        ("digital-twin", "6b6470cff156ba15b573ae1b4b44c3a77654b8b3"),
+        ("physics-simulation-internal", "50056196775fc0ed8cca03bf16144fe71d183ca7"),
+        ("sensor-simulation", "d7d3f2976ab306a531730772c1d4fa221d6e2247"),
+        ("digital-twin", "21e969d0be8212c22acc0a7e920b954f60ec289f"),
     ):
-        assert any(
-            f"i4h-{component}-internal fetch" in line and line.endswith(f"origin {ref}")
-            for line in git_log.splitlines()
-        )
+        assert any(f"i4h-{component} fetch" in line and line.endswith(f"origin {ref}") for line in git_log.splitlines())
 
 
 def test_isolated_n16_service_keeps_its_original_arena(tmp_path: Path) -> None:
@@ -267,3 +267,33 @@ def test_branch_rerun_follows_origin(tmp_path: Path) -> None:
     assert rerun.returncode == 0, rerun.stderr
     assert _git("rev-parse", "HEAD", cwd=checkout) == newer_commit
     assert _git("tag", "--list", cwd=checkout) == ""
+
+
+def _checked_out(git_log: str) -> set[str]:
+    """Third-party directories setup initialized a repository in."""
+    return {
+        Path(line.split()[1]).name
+        for line in git_log.splitlines()
+        if line.startswith("-C ") and line.split()[2:3] == ["init"]
+    }
+
+
+@pytest.mark.parametrize(
+    "target, directory",
+    [("patient-twin", "i4h-digital-twin"), ("sensor-simulation", "i4h-sensor-simulation")],
+)
+def test_single_component_targets_check_out_exactly_their_repository(
+    tmp_path: Path, target: str, directory: str
+) -> None:
+    result, git_log = _run_setup(tmp_path, "", target=target)
+    assert result.returncode == 0, result.stderr
+    assert _checked_out(git_log) == {directory}
+
+
+def test_retired_internal_checkouts_are_named_for_removal(tmp_path: Path) -> None:
+    retired = ("i4h-sensor-simulation-internal", "i4h-digital-twin-internal")
+    result, _ = _run_setup(tmp_path, "", retired=retired)
+    assert result.returncode == 0, result.stderr
+    for name in retired:
+        assert f"third_party/{name} is no longer used" in result.stderr
+        assert f"rm -rf third_party/{name}" in result.stderr

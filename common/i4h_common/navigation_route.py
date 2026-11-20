@@ -89,22 +89,18 @@ def resolve_navigation_route(twin_manifest: str | Path) -> NavigationRoute:
             have produced a catheter recording in the first place.
     """
     twin = PatientTwin.load(twin_manifest)
-    try:
-        points_patient_mm = np.load(twin.artifacts["centerline_points"])
-        edges = np.load(twin.artifacts["centerline_edges"])
-    except KeyError as exc:
+    centerline = twin.centerline()
+    if centerline is None:
         raise KeyError(
             f"{twin.source}: no centerline artifacts, so this twin describes no navigable route. "
             "A catheter recording cannot have come from it."
-        ) from exc
-    radii_path = twin.artifacts.get("centerline_radii")
-    radii_mm = np.load(radii_path) if radii_path is not None else None
+        )
 
     path_patient_mm, lumen_radii_mm = ordered_centerline_lumen(
-        points_patient_mm,
-        edges,
+        centerline.points_mm,
+        centerline.edges,
         target_spacing_mm=ROUTE_SPACING_MM,
-        radii_mm=radii_mm,
+        radii_mm=centerline.radii_mm,
     )
     path_world_m = np.asarray(twin.patient_mm_to_world(path_patient_mm), dtype=np.float64)
     return NavigationRoute(

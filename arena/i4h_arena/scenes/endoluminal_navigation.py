@@ -53,6 +53,12 @@ class EndoluminalNavigationScene(Scene):
             default=None,
             help="Fluoroscopy renderer (default: Slang with --patient_twin, otherwise synthetic).",
         )
+        parser.add_argument(
+            "--hu_to_mu",
+            choices=("interventional", "linear"),
+            default=None,
+            help="HU-to-attenuation preset for patient twins (default: interventional).",
+        )
 
     def configure_args(self, args: Any) -> None:
         """Select Newton: the catheter rod solver is a Newton solver whatever ``--presets`` says.
@@ -122,6 +128,7 @@ class EndoluminalNavigationScene(Scene):
                     # Isaac Lab's runners do not allow for; their runs render on Vulkan.
                     fluoro_device=getattr(self.args, "fluoro_device", None) or "vulkan",
                     patient_twin_manifest=getattr(self.args, "patient_twin", None),
+                    hu_to_mu_preset=getattr(self.args, "hu_to_mu", None),
                 )
             ),
             task=self._make_task(self._embodiment),

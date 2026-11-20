@@ -113,7 +113,7 @@ RULES = [
             f"tools/{name}/i4h_tools",
             never=frozenset({"i4h_arena", "i4h_rl", "isaacsim", "isaaclab"}),
         )
-        for name in ("mimic", "dataset", "cosmos", "annotator", "patient_twin")
+        for name in ("mimic", "dataset", "cosmos", "annotator")
     ],
     *[
         LayerRule(

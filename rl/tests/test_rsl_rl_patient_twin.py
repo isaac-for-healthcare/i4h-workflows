@@ -103,7 +103,7 @@ def test_patient_twin_reaches_rsl_rl_scene_and_artifacts(
             def load_scene(task, args):
                 assert task == navigation_profile.scene
                 assert args.patient_twin == str(twin.resolve())
-                assert args.fluoro_backend is None and args.fluoro_device is None
+                assert args.fluoro_backend is None and args.fluoro_device is None and args.hu_to_mu is None
                 scenes.append(task)
                 return SimpleNamespace(
                     configure_args=lambda _args: None,
@@ -129,7 +129,7 @@ def test_patient_twin_reaches_rsl_rl_scene_and_artifacts(
         else:
             args = rsl_rl_eval._parser().parse_args(command[3:])
             assert args.patient_twin == str(twin.resolve())
-            assert args.fluoro_backend is None and args.fluoro_device is None
+            assert args.fluoro_backend is None and args.fluoro_device is None and args.hu_to_mu is None
             Path(args.output).write_text('{"episodes": 1}\n')
             if args.export_policy:
                 Path(args.export_policy).write_bytes(b"policy")
@@ -215,4 +215,4 @@ def test_evaluation_defaults_allow_scenes_without_anatomy(isaac_cli):
         ["--task", "ultrasound_probe_reach", "--checkpoint", "model.pt", "--output", "evaluation.json"]
     )
     assert args.patient_twin is None
-    assert args.fluoro_backend is None and args.fluoro_device is None
+    assert args.fluoro_backend is None and args.fluoro_device is None and args.hu_to_mu is None

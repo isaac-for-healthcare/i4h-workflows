@@ -9,7 +9,6 @@ source =
     tools/cosmos/i4h_tools/cosmos
     tools/dataset/i4h_tools/dataset
     tools/mimic/i4h_tools/mimic
-    tools/patient_twin/i4h_tools/patient_twin
     scripts
 
 [report]

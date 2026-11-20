@@ -28,15 +28,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Match the public release component used by third_party/setup.sh.
-      - name: Checkout the patient digital twin component
-        uses: actions/checkout@v4
-        with:
-          repository: isaac-for-healthcare/i4h-digital-twin
-          ref: 6b6470cff156ba15b573ae1b4b44c3a77654b8b3 # v0.9.0
-          path: third_party/i4h-digital-twin-internal
-          persist-credentials: false
-
       - name: Install uv
         uses: astral-sh/setup-uv@v9.0.0
         with:

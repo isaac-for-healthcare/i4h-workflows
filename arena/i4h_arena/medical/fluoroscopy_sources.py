@@ -28,10 +28,8 @@ def bind_fluoroscopy_sources(env: Any) -> None:
     catheter = env.scene["catheter"]
     detector_size_m = (0.6144, 0.6144)
     if fluoroscopy.patient_twin is not None:
-        from .patient_volume import PatientVolume
-
         carm_provider = ReferenceProjectionCArmStateProvider(
-            PatientVolume.load(fluoroscopy.patient_twin),
+            fluoroscopy.patient_twin,
             env.action_manager.get_term("carm_orbit"),
             detector_size_m=detector_size_m,
             tip_source=catheter if follow_tip_enabled() else None,
