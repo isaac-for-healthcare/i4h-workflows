@@ -11,6 +11,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import warp as wp
 from isaaclab.managers import RecorderTerm
 
 from i4h_common.catheter_backend import CONTINUATION_SCHEMA
@@ -132,8 +133,6 @@ def host_arrays(env):
                 result[f"{label}{name}"] = getattr(owner, name)
     coupled = env.i4h.physics.coupled
     if coupled is not None:
-        import warp as wp
-
         rigid = coupled.rigid
         for name in ("qacc_warmstart", "qfrc_applied", "xfrc_applied", "ctrl", "act", "time"):
             result[f"mj_{name}"] = wp.to_torch(getattr(rigid.mjw_data, name))
@@ -163,7 +162,13 @@ def host_arrays(env):
     from .fluoroscopy_sources import bind_fluoroscopy_sources
 
     bind_fluoroscopy_sources(env)
-    provider = env.scene["fluoroscopy"]._carm_provider
+    sensor = env.scene["fluoroscopy"]
+    for name in ("_is_outdated", "_timestamp", "_timestamp_last_update", "_elapsed_since_update"):
+        result[f"fluoroscopy{name}"] = wp.to_torch(getattr(sensor, name))
+    result["fluoroscopy_frame_id"] = sensor._data.frame_id
+    for name, value in sensor._data.output.items():
+        result[f"fluoroscopy_output_{name}"] = value
+    provider = sensor._carm_provider
     if hasattr(provider, "_pan_m"):
         if provider._pan_m is None:
             provider._pan_m = np.zeros(env.num_envs, np.float64)
@@ -196,6 +201,7 @@ def capture(env, env_ids):
                 raise ValueError("navigation progress history exceeds continuation schema capacity")
             events[row, : len(encoded)] = np.frombuffer(encoded, np.uint8)
     host["progress_events"] = events
+    host["fluoroscopy_dirty"] = np.full((len(ids), 1), env.scene["fluoroscopy"]._data_dirty, np.bool_)
     return dict(
         identity=np.repeat(configuration_identity(env)[None], len(ids), axis=0),
         numerical=env.i4h.capture_continuation(ids),
@@ -213,17 +219,20 @@ def validate(env, bundle, env_ids=None):
         raise ValueError("navigation continuation backend/schema/source/configuration/anatomy mismatch")
     env.i4h.validate_continuation(bundle["numerical"], ids)
     destinations = host_arrays(env)
-    if set(destinations) | {"progress_events"} != set(bundle["host"]):
+    if set(destinations) | {"progress_events", "fluoroscopy_dirty"} != set(bundle["host"]):
         raise ValueError(
             f"navigation host continuation layout mismatch: "
             f"missing={set(destinations)-set(bundle['host'])}, "
-            f"extra={set(bundle['host'])-set(destinations)-{'progress_events'}}"
+            f"extra={set(bundle['host'])-set(destinations)-{'progress_events', 'fluoroscopy_dirty'}}"
         )
     for key, destination in destinations.items():
         like = destination.detach().cpu().numpy() if isinstance(destination, torch.Tensor) else destination
         source = np.asarray(bundle["host"][key])
         if source.dtype != like.dtype or source.shape != (len(ids), *like.shape[1:]):
             raise ValueError(f"navigation host shape/dtype mismatch: {key}")
+    dirty = np.asarray(bundle["host"]["fluoroscopy_dirty"])
+    if dirty.dtype != np.bool_ or dirty.shape != (len(ids), 1) or (len(ids) and not np.all(dirty == dirty[0])):
+        raise ValueError("navigation fluoroscopy dirty flag layout mismatch")
     events = np.asarray(bundle["host"]["progress_events"])
     if events.dtype != np.uint8 or events.shape != (len(ids), 65536):
         raise ValueError("navigation progress event shape/dtype mismatch")
@@ -267,6 +276,9 @@ def restore(env, bundle, env_ids=None):
             env.progress_tracker._events[world] = [
                 PredicateEvent(**dict(event, env_idx=int(world))) for event in json.loads(encoded or b"[]")
             ]
+    sensor = env.scene["fluoroscopy"]
+    dirty = bool(bundle["host"]["fluoroscopy_dirty"].any())
+    sensor._data_dirty = dirty if len(ids) == env.num_envs else sensor._data_dirty or dirty
     env._task_progress_step = env.common_step_counter
     catheter = env.scene["catheter"]
     catheter._tip_bend_rad = env.action_manager.get_term("catheter")._tip_bend_angle
