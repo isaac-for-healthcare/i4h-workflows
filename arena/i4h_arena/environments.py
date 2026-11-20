@@ -37,6 +37,7 @@ OBSERVATION_RECORDER_TERMS = (
     "record_fluoroscopy_frames",
     "record_joint_pos",
     "record_i4h_initial",
+    "record_navigation_initial_state",
     "record_aorta_diagnostics",
 )
 
