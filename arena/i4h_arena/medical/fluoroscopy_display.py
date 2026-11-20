@@ -125,7 +125,9 @@ class CinematicStyle:
     def continuation_arrays(self, num_envs: int) -> dict:
         """Mutable per-world history and RNG bytes, including the pre-first-frame state."""
         if self._rng_states is None or len(self._rng_states) != num_envs:
-            self._generators = [torch.Generator(device=self._device).manual_seed(self._seed) for _ in range(num_envs)]
+            self._generators = [
+                torch.Generator(device=self._device).manual_seed(self._seed + world) for world in range(num_envs)
+            ]
             self._rng_states = np.stack([generator.get_state().numpy() for generator in self._generators])
             self._persistence.clear()
             self._valid.clear()
