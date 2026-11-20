@@ -324,6 +324,17 @@ class SlangFluoroscopyRenderer:
         if self._display_states is not None:
             self._load_display(self._decode_display(self._display_states[0]))
 
+    def _update_display_states(self, update):
+        """Apply an operator control without replacing other worlds' fitted windows."""
+        if self._display_states is None:
+            update()
+            return
+        for world in range(len(self._display_states)):
+            self._load_display(self._decode_display(self._display_states[world]))
+            update()
+            self._store_display(world)
+        self.sync_display_state()
+
     def _map_display(self, transmission, boosted, env_mask):
         self.continuation_arrays(len(transmission))
         plain, contrast, gamma = [], [], []
@@ -520,14 +531,17 @@ class SlangFluoroscopyRenderer:
 
     def adjust_dsa_gamma(self, delta: float) -> float:
         """Adjust live angiogram brightness and return the bounded gamma."""
-        self._dsa_gamma = float(np.clip(self._dsa_gamma + float(delta), 0.3, 3.0))
-        self._display_states = None
+
+        def update():
+            self._dsa_gamma = float(np.clip(self._dsa_gamma + float(delta), 0.3, 3.0))
+
+        self._update_display_states(update)
         return self._dsa_gamma
 
     def set_dsa_gamma(self, gamma: float) -> float:
         """Set live angiogram gamma and return the bounded value."""
-        self._dsa_gamma = float(np.clip(gamma, 0.3, 3.0))
-        self._display_states = None
+        bounded = float(np.clip(gamma, 0.3, 3.0))
+        self._update_display_states(lambda: setattr(self, "_dsa_gamma", bounded))
         return self._dsa_gamma
 
     @property
@@ -543,9 +557,9 @@ class SlangFluoroscopyRenderer:
         the one calibrated from the first frame and flatten the image mid-run.
         """
         polarity = DisplaySettings.preset(appearance).polarity
-        self._display_states = None
-        if polarity != self._display.polarity:
-            self._display = replace(self._display, polarity=polarity)
+        changed = polarity != self._display.polarity
+        self._update_display_states(lambda: setattr(self, "_display", replace(self._display, polarity=polarity)))
+        if changed:
             logger.info("switched fluoroscopy display to %s polarity", polarity)
         return self._display.polarity
 
@@ -565,12 +579,15 @@ class SlangFluoroscopyRenderer:
         except KeyError:
             raise ValueError(f"unknown display control {control!r}") from None
         bounded = float(np.clip(value, minimum, maximum))
-        self._display_states = None
-        if control == "window_level":
-            self._window_level = bounded
-        else:
-            self._window_width = bounded
-        self._apply_display_window()
+
+        def update():
+            if control == "window_level":
+                self._window_level = bounded
+            else:
+                self._window_width = bounded
+            self._apply_display_window()
+
+        self._update_display_states(update)
         return bounded
 
     def recalibrate_display(self) -> None:
@@ -579,11 +596,14 @@ class SlangFluoroscopyRenderer:
         The fit holds for the body region that was in the beam at the time, so a large
         oblique or a move along the table can leave it a poor match with no way back.
         """
-        self._display_states = None
-        self._display_calibrated = False
-        self._base_log_window = None
-        self._window_level = 0.0
-        self._window_width = 1.0
+
+        def update():
+            self._display_calibrated = False
+            self._base_log_window = None
+            self._window_level = 0.0
+            self._window_width = 1.0
+
+        self._update_display_states(update)
 
     def _apply_display_window(self) -> None:
         base_low, base_high = self._base_log_window or self._display.log_window

@@ -1160,3 +1160,42 @@ def test_renderer_continuation_reproduces_next_frame_and_preserves_peers(tmp_pat
     restore(fresh, 1, saved, 5, 0)
     for key, value in _host(fresh.render(CatheterState.empty(1))).items():
         np.testing.assert_array_equal(value[0], expected[key][5])
+
+
+def test_display_controls_preserve_each_worlds_fitted_window(tmp_path, monkeypatch):
+    import torch
+
+    _ramp_renderer_class(monkeypatch)
+    patient = _patient_volume(tmp_path)
+    renderer = _renderer_with(patient, _carm(patient))
+    transmission = torch.stack(
+        (torch.linspace(0.15, 0.45, 4096).reshape(64, 64), torch.linspace(0.6, 0.9, 4096).reshape(64, 64))
+    )
+    renderer._map_display(transmission, transmission, None)
+
+    def states():
+        return [renderer._decode_display(row) for row in renderer.continuation_arrays(2)["display"]]
+
+    initial = states()
+    assert initial[0]["base"] != initial[1]["base"]
+    renderer.set_dsa_gamma(1.8)
+    renderer.adjust_dsa_gamma(-0.2)
+    renderer.set_display_appearance("xray")
+    for world, state in enumerate(states()):
+        assert state["gamma"] == pytest.approx(1.6)
+        assert state["display"].polarity == "diagnostic"
+        assert state["base"] == initial[world]["base"]
+        assert state["display"].log_window == initial[world]["display"].log_window
+        assert state["calibrated"]
+    renderer.set_display_control("window_level", 0.2)
+    renderer.set_display_control("window_width", 0.5)
+    for world, state in enumerate(states()):
+        low, high = initial[world]["base"]
+        assert state["base"] == initial[world]["base"]
+        assert state["display"].log_window == pytest.approx((low + 0.45 * (high - low), low + 0.95 * (high - low)))
+    renderer.recalibrate_display()
+    assert all(not state["calibrated"] and state["base"] is None for state in states())
+    renderer._map_display(transmission, transmission, None)
+    for world, state in enumerate(states()):
+        assert state["calibrated"]
+        assert state["base"] == initial[world]["base"]
