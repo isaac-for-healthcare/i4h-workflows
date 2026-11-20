@@ -98,7 +98,7 @@ def test_diagnostics_are_recorded_every_step_with_nan_until_measured(monkeypatch
         def __init__(self, catheter, *, target_world_m=None) -> None:
             pass
 
-        def diagnostics(self) -> dict:
+        def diagnostics(self, env_index=0) -> dict:
             return measurements.pop(0)
 
     monkeypatch.setattr(catheter_recording, "CatheterEpisodeDiagnostics", Provider)

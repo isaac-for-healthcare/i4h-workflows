@@ -99,7 +99,7 @@ class CatheterDiagnosticsRecorder(RecorderTerm):
     yet, so the datasets stay one row per step.
     """
 
-    def __init__(self, cfg: "CatheterDiagnosticsRecorderCfg", env: Any) -> None:
+    def __init__(self, cfg: CatheterDiagnosticsRecorderCfg, env: Any) -> None:
         super().__init__(cfg, env)
         self._provider = CatheterEpisodeDiagnostics(env.scene["catheter"], target_world_m=cfg.target_world_m)
         widths = {"tip_world_m": 3, "root_world_m": 3}
@@ -109,13 +109,14 @@ class CatheterDiagnosticsRecorder(RecorderTerm):
         self._widths = widths
 
     def record_pre_step(self) -> tuple[str, dict[str, torch.Tensor]]:
-        measured = self._provider.diagnostics()
         n = self._env.num_envs
+        measured = [self._provider.diagnostics(index) for index in range(n)]
         values = {}
         for name, width in self._widths.items():
             value = np.full((n, width), np.nan, dtype=np.float32)
-            if name in measured:
-                value[:] = np.asarray(measured[name], dtype=np.float32).reshape(1, width)
+            for index, measurement in enumerate(measured):
+                if name in measurement:
+                    value[index] = np.asarray(measurement[name], dtype=np.float32).reshape(width)
             values[name] = torch.from_numpy(value.squeeze(-1) if width == 1 else value)
         return "diagnostics", values
 
@@ -145,5 +146,45 @@ def catheter_recorders(base: Any, target_world_m: tuple[float, float, float] | N
 
     base.record_pre_step_flat_policy_observations = None
     terms = CatheterRecorderTermsCfg()
+
+    @configclass
+    class ProvenanceTerms:
+        record_navigation_provenance: RecorderTermCfg = RecorderTermCfg(class_type=NavigationProvenanceRecorder)
+
     terms.record_catheter_diagnostics.target_world_m = target_world_m
-    return combine_configclass_instances("CatheterRecorderCfg", base, terms, bases=(RecorderManagerBaseCfg,))
+    return combine_configclass_instances(
+        "CatheterRecorderCfg", base, terms, ProvenanceTerms(), bases=(RecorderManagerBaseCfg,)
+    )
+
+
+class NavigationProvenanceRecorder(RecorderTerm):
+    def record_post_reset(self, env_ids):
+        import hashlib
+        import importlib.metadata
+        import json
+        import subprocess
+        from pathlib import Path
+        from urllib.parse import unquote, urlparse
+
+        from i4h_common.catheter_backend import CONTINUATION_SCHEMA, PROVENANCE_KEYS
+
+        source = json.loads(importlib.metadata.distribution("i4h-physics").read_text("direct_url.json"))
+        path = Path(unquote(urlparse(source["url"]).path))
+        revision = subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip()
+        patient = getattr(self._env.cfg, "navigation_patient_twin", None)
+        provenance = dict(
+            catheter_backend=self._env.cfg.navigation_backend,
+            numerical_sim_revision=revision,
+            continuation_schema_version=CONTINUATION_SCHEMA,
+            patient_twin=patient,
+            patient_twin_sha256=hashlib.sha256(Path(patient).read_bytes()).hexdigest() if patient else None,
+        )
+        for name in ("_dataset_file_handler", "_failed_episode_dataset_file_handler"):
+            handler = getattr(self._env.recorder_manager, name, None)
+            if handler is not None:
+                existing = json.loads(handler._hdf5_data_group.attrs.get("env_args", "{}"))
+                for key in PROVENANCE_KEYS:
+                    if key in existing and existing[key] != provenance[key]:
+                        raise ValueError(f"conflicting native recording provenance: {key}")
+                handler.add_env_args(provenance)
+        return None, None

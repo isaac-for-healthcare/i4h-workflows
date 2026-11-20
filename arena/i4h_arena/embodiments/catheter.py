@@ -54,8 +54,13 @@ class CatheterVelocityAction(ActionTerm):
 
     def __init__(self, cfg: CatheterVelocityActionCfg, env: Any):
         super().__init__(cfg, env)
-        if not isinstance(self._asset, XpbdCatheterAsset):
-            raise TypeError(f"asset {cfg.asset_name!r} must be XpbdCatheterAsset")
+        from i4h_arena.medical.catheter import CatheterDrive
+
+        if not isinstance(self._asset, CatheterDrive):
+            raise TypeError(f"asset {cfg.asset_name!r} must implement CatheterDrive")
+        bind = getattr(self._asset, "bind_component", None)
+        if bind is not None:
+            bind(env.i4h)
         self._raw_actions = torch.zeros((self.num_envs, 3), device=self.device)
         self._processed_actions = torch.zeros_like(self._raw_actions)
         # Held here rather than on the asset because it is this term's

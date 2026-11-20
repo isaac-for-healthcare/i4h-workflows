@@ -316,13 +316,15 @@ def _resolve_patient_twin(source: Path, explicit: Path | None) -> Path:
         if not explicit.is_file():
             raise ValueError(f"--patient-twin {explicit} does not exist")
         return explicit
+    from i4h_common.catheter_backend import recording_provenance
+
     run_json = source.parent / "run.json"
-    if not run_json.is_file():
+    if not run_json.is_file() and not recording_provenance(source).get("patient_twin"):
         raise ValueError(
             f"{source}: this descriptor derives its trailing state columns from the patient twin, and "
             f"there is no run.json beside the recording to name one. Pass --patient-twin."
         )
-    metadata = json.loads(run_json.read_text()) or {}
+    metadata = recording_provenance(source)
     # Expanded/annotated/filtered siblings share the recording's anatomy sidecar.
     # Its recording field identifies the original capture, not an exclusive input.
     recorded = metadata.get("patient_twin")
@@ -522,7 +524,7 @@ def convert(
     sources = [Path(source) for source in sources]
     if not sources:
         raise ValueError("no recordings to convert")
-    twins = [Path(patient_twin)] if isinstance(patient_twin, (str, Path)) else list(patient_twin or ())
+    twins = [Path(patient_twin)] if isinstance(patient_twin, str | Path) else list(patient_twin or ())
     if twins and len(twins) != len(sources):
         raise ValueError(
             f"{len(twins)} --patient-twin manifests for {len(sources)} recordings: one anatomy cannot "
@@ -656,6 +658,10 @@ def convert(
                 dataset.save_episode()
                 written += 1
 
+        from i4h_common.catheter_backend import recording_provenance
+
+        provenance = [{"recording": str(source), **recording_provenance(source)} for source, *_ in inputs]
+        (target / "meta" / "source_recordings.json").write_text(json.dumps(provenance, indent=2) + "\n")
         _write_dataset_stats(target, dataset.meta.stats)
         if _uses_declared_modality(
             config=config,

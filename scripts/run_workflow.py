@@ -192,6 +192,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-cameras", action="store_true")
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--patient-twin")
+    parser.add_argument("--catheter-backend", choices=("numerical", "legacy"))
     parser.add_argument("--fluoro-backend")
     parser.add_argument("--hu-to-mu", choices=("interventional", "linear"))
     parser.add_argument("--cloudxr-env")
@@ -217,6 +218,7 @@ class Plan:
     default_run_dir: bool = False
     default_record: bool = False
     patient_twin: Path | None = None
+    catheter_backend: str | None = None
 
 
 def _caller_path(path: str) -> Path:
@@ -289,6 +291,38 @@ def plan(argv: list[str]) -> Plan:
     if mode == "replay" and not _caller_path(args.replay).is_file():
         raise UsageError(f"no recording at {_caller_path(args.replay)}")
 
+    catheter_backend = None
+    if workflow.scene in ("endoluminal_navigation", "endoluminal_navigation_arm"):
+        from i4h_common.catheter_backend import resolve_backend
+
+        try:
+            catheter_backend = resolve_backend(
+                args.catheter_backend, _caller_path(args.replay) if mode == "replay" else None
+            )
+            if any(option.split("=", 1)[0] in ("--catheter_backend", "--catheter-backend") for option in extra):
+                raise ValueError("pass --catheter-backend before the -- separator so provenance matches execution")
+            if mode == "replay":
+                import hashlib
+
+                from i4h_common.catheter_backend import recording_provenance
+
+                provenance = recording_provenance(_caller_path(args.replay))
+                if args.patient_twin is None:
+                    args.patient_twin = provenance.get("patient_twin")
+                if args.patient_twin and provenance.get("patient_twin_sha256"):
+                    actual = hashlib.sha256(_caller_path(args.patient_twin).read_bytes()).hexdigest()
+                    if actual != provenance["patient_twin_sha256"]:
+                        raise ValueError("replay patient anatomy differs from recording")
+                if (
+                    catheter_backend == "numerical"
+                    and installed_numerical_revision() != provenance["numerical_sim_revision"]
+                ):
+                    raise ValueError("recorded Numerical Sim revision differs from the installed source")
+        except ValueError as error:
+            raise UsageError(str(error)) from error
+    elif args.catheter_backend is not None:
+        raise UsageError("--catheter-backend applies only to navigation workflows")
+
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = _caller_path(args.run_dir) if args.run_dir else ROOT / "runs" / workflow.name / stamp
     record = None
@@ -319,6 +353,8 @@ def plan(argv: list[str]) -> Plan:
     environment = [*workflow.environment_args, *[str(arg) for arg in spec.get("environment_args", [])]]
     if args.episode_steps is not None:
         environment += ["--episode_steps", str(args.episode_steps)]
+    if catheter_backend is not None:
+        environment += ["--catheter_backend", catheter_backend]
     if args.patient_twin:
         environment += ["--patient_twin", str(_caller_path(args.patient_twin))]
     if args.fluoro_backend:
@@ -340,6 +376,7 @@ def plan(argv: list[str]) -> Plan:
             default_run_dir=args.run_dir is None,
             default_record=record is not None and not args.record,
             patient_twin=_caller_path(args.patient_twin) if args.patient_twin else None,
+            catheter_backend=catheter_backend,
         )
 
     server = None
@@ -419,6 +456,7 @@ def plan(argv: list[str]) -> Plan:
         default_run_dir=args.run_dir is None,
         default_record=record is not None and not args.record,
         patient_twin=_caller_path(args.patient_twin) if args.patient_twin else None,
+        catheter_backend=catheter_backend,
     )
 
 
@@ -636,6 +674,17 @@ def _reserve_run_directory(plan: Plan) -> None:
         plan.run_dir.mkdir(parents=True, exist_ok=True)
 
 
+def installed_numerical_revision() -> str:
+    from urllib.parse import unquote, urlparse
+
+    matches = list((ROOT / "arena/.venv/lib").glob("python*/site-packages/i4h_physics-*.dist-info/direct_url.json"))
+    if len(matches) != 1:
+        raise UsageError("cannot identify installed Numerical Sim source; run ./setup.sh")
+    source = json.loads(matches[0].read_text())
+    path = Path(unquote(urlparse(source["url"]).path))
+    return subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip()
+
+
 def _write_recording_metadata(plan: Plan) -> None:
     """Publish provenance beside the actual recording, before any child can append.
 
@@ -664,8 +713,21 @@ def _write_recording_metadata(plan: Plan) -> None:
             existing.get("patient_twin") != patient or existing.get("patient_twin_sha256", patient_hash) != patient_hash
         ):
             raise UsageError(f"{metadata}: conflicting patient_twin anatomy provenance")
+        provenance = {}
+        if plan.catheter_backend is not None:
+            from i4h_common.catheter_backend import CONTINUATION_SCHEMA
+
+            provenance = {
+                "catheter_backend": plan.catheter_backend,
+                "continuation_schema_version": CONTINUATION_SCHEMA,
+                "numerical_sim_revision": installed_numerical_revision(),
+            }
+            for key, value in provenance.items():
+                if key in existing and existing[key] != value:
+                    raise UsageError(f"{metadata}: conflicting {key} provenance")
         payload = {
             **existing,
+            **provenance,
             "workflow": plan.workflow.name,
             "mode": plan.mode,
             "patient_twin": patient,

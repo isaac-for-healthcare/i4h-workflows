@@ -42,6 +42,7 @@ class EndoluminalNavigationScene(Scene):
 
     @classmethod
     def add_cli_args(cls, parser: Any) -> None:
+        parser.add_argument("--catheter_backend", choices=("numerical", "legacy"), default="legacy")
         parser.add_argument(
             "--patient_twin",
             default=None,
@@ -82,7 +83,12 @@ class EndoluminalNavigationScene(Scene):
         """
         from i4h_arena.embodiments.catheter import CatheterEmbodiment
 
-        return CatheterEmbodiment(patient_twin_manifest=getattr(self.args, "patient_twin", None))
+        embodiment = CatheterEmbodiment
+        if getattr(self.args, "catheter_backend", "legacy") == "numerical":
+            from i4h_arena.envcfg.endoluminal_navigation.numerical import NumericalCatheterEmbodiment
+
+            embodiment = NumericalCatheterEmbodiment
+        return embodiment(patient_twin_manifest=getattr(self.args, "patient_twin", None))
 
     def _make_task(self, embodiment: Any) -> Any:
         """Bind the navigation goal to the route the embodiment seeded its rod on.
@@ -116,21 +122,26 @@ class EndoluminalNavigationScene(Scene):
         from i4h_arena.assets.fluoroscopy_catheter_navigation import make_assets
 
         self._embodiment = self._make_embodiment()
-        return IsaacLabArenaEnvironment(
+        assets = make_assets(
+            fluoro_backend=resolve_fluoroscopy_backend(
+                getattr(self.args, "fluoro_backend", None), getattr(self.args, "patient_twin", None)
+            ),
+            fluoro_device=getattr(self.args, "fluoro_device", None) or "vulkan",
+            patient_twin_manifest=getattr(self.args, "patient_twin", None),
+            hu_to_mu_preset=getattr(self.args, "hu_to_mu", None),
+        )
+        if getattr(self.args, "catheter_backend", "legacy") == "numerical":
+            import copy
+
+            from i4h_isaaclab.manager import I4H_ROOT
+
+            from i4h_arena.assets.config_asset import ConfigAsset
+
+            assets.append(ConfigAsset("i4h", copy.deepcopy(I4H_ROOT)))
+        environment = IsaacLabArenaEnvironment(
             name=self.name,
             embodiment=self._embodiment,
-            scene=ArenaScene(
-                assets=make_assets(
-                    fluoro_backend=resolve_fluoroscopy_backend(
-                        getattr(self.args, "fluoro_backend", None), getattr(self.args, "patient_twin", None)
-                    ),
-                    # Slang on CUDA has to be imported before Kit starts, which Arena's and
-                    # Isaac Lab's runners do not allow for; their runs render on Vulkan.
-                    fluoro_device=getattr(self.args, "fluoro_device", None) or "vulkan",
-                    patient_twin_manifest=getattr(self.args, "patient_twin", None),
-                    hu_to_mu_preset=getattr(self.args, "hu_to_mu", None),
-                )
-            ),
+            scene=ArenaScene(assets=assets),
             task=self._make_task(self._embodiment),
             # Registers the Gym ID under the kwarg Isaac Lab's stock RSL-RL
             # scripts read their agent config from, so `train_rsl_rl.py --task
@@ -144,12 +155,20 @@ class EndoluminalNavigationScene(Scene):
             default_physics_backend=PhysicsBackend.NEWTON,
         )
 
+        if getattr(self.args, "catheter_backend", "legacy") == "numerical":
+            from i4h_arena.envcfg.endoluminal_navigation.numerical import NumericalNavigationEnv
+
+            environment.env_entry_point = NumericalNavigationEnv
+        return environment
+
     def configure_env_cfg(self, env_cfg: Any) -> None:
         from isaaclab.devices.device_base import DevicesCfg
         from isaaclab.envs.common import ViewerCfg
 
         from i4h_arena.devices.catheter import CatheterKeyboardCfg
 
+        env_cfg.navigation_backend = getattr(self.args, "catheter_backend", "legacy")
+        env_cfg.navigation_patient_twin = getattr(self.args, "patient_twin", None)
         # A wider three-quarter view keeps the detector, arc, support, patient, and table
         # visible together in the viewport's narrower docked layout.
         env_cfg.viewer = ViewerCfg(eye=(2.45, -1.65, 1.65), lookat=(-0.25, 0.12, 0.78))

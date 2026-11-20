@@ -73,7 +73,12 @@ def test_every_mode_composes_a_command(name: str, tmp_path) -> None:
     for mode in workflow.mode_names():
         argv = [name]
         if mode == "replay":
-            (tmp_path / "demos.hdf5").touch()
+            import h5py
+
+            with h5py.File(tmp_path / "demos.hdf5", "w") as handle:
+                handle.create_group("data")
+            if name in ("endoluminal_navigation", "endoluminal_navigation_arm"):
+                argv += ["--catheter-backend", "legacy"]
             argv += ["--replay", str(tmp_path / "demos.hdf5")]
         elif mode == "teleop":
             argv += ["--teleop"]
@@ -432,7 +437,8 @@ def test_previews_do_not_reserve_and_explicit_paths_survive_reservation(tmp_path
     assert built.record == tmp_path / "external/data.hdf5"
 
 
-def test_external_recording_metadata_rejects_conflicting_patient_provenance(tmp_path):
+def test_external_recording_metadata_rejects_conflicting_patient_provenance(tmp_path, monkeypatch):
+    monkeypatch.setattr(run_workflow, "installed_numerical_revision", lambda: "candidate-revision")
     twin = tmp_path / "patient.yaml"
     twin.write_text("patient_id: first\n")
     built = _plan(
@@ -503,3 +509,21 @@ def test_default_record_tracks_automatic_and_explicit_paths(teleop, tmp_path):
     assert _plan(workflow, *mode).default_record
     explicit = ["--teleop", "--record"] if teleop else mode
     assert not _plan(workflow, *explicit, str(tmp_path / "explicit.hdf5")).default_record
+
+
+@pytest.mark.parametrize("workflow", ["endoluminal_navigation", "endoluminal_navigation_arm"])
+def test_backend_is_forwarded_through_every_navigation_mode(workflow, tmp_path):
+    import h5py
+
+    source = tmp_path / "legacy.hdf5"
+    with h5py.File(source, "w") as handle:
+        handle.create_group("data").attrs["env_args"] = json.dumps({"catheter_backend": "legacy"})
+    for mode in WORKFLOWS[workflow].mode_names():
+        args = [workflow, "--catheter-backend", "legacy"]
+        args += ["--replay", str(source)] if mode == "replay" else ["--mode", mode]
+        if WORKFLOWS[workflow].modes.get(mode, {}).get("checkpoint"):
+            args += ["--checkpoint", "/tmp/checkpoint"]
+        built = _plan(*args)
+        assert built.catheter_backend == "legacy"
+        offset = built.command.index("--catheter_backend")
+        assert built.command[offset + 1] == "legacy"

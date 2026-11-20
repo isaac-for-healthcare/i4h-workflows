@@ -58,4 +58,9 @@ class EndoluminalNavigationArmScene(EndoluminalNavigationScene):
         """
         from i4h_arena.embodiments.franka_catheter import FrankaCatheterEmbodiment
 
-        return FrankaCatheterEmbodiment(patient_twin_manifest=getattr(self.args, "patient_twin", None))
+        embodiment = FrankaCatheterEmbodiment
+        if getattr(self.args, "catheter_backend", "legacy") == "numerical":
+            from i4h_arena.envcfg.endoluminal_navigation.numerical import NumericalFrankaCatheterEmbodiment
+
+            embodiment = NumericalFrankaCatheterEmbodiment
+        return embodiment(patient_twin_manifest=getattr(self.args, "patient_twin", None))

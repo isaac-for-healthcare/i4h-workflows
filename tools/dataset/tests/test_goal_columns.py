@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import h5py
 import pytest
 
 from i4h_common.config import get_robot_config
@@ -58,7 +59,8 @@ def test_unrelated_descriptors_are_not_handed_goal_columns(robot: str) -> None:
 def test_an_explicit_twin_wins_over_the_recorded_one(tmp_path) -> None:
     """So a moved or re-exported twin can be pointed at without editing run.json."""
     recording = tmp_path / "demos.hdf5"
-    recording.touch()
+    with h5py.File(recording, "w") as handle:
+        handle.create_group("data")
     recorded = tmp_path / "recorded.yaml"
     recorded.touch()
     (tmp_path / "run.json").write_text(json.dumps({"patient_twin": str(recorded)}))
@@ -71,7 +73,8 @@ def test_an_explicit_twin_wins_over_the_recorded_one(tmp_path) -> None:
 def test_the_twin_falls_back_to_the_launcher_s_run_json(tmp_path) -> None:
     """The common case takes no flag, because the launcher already wrote the answer down."""
     recording = tmp_path / "demos.hdf5"
-    recording.touch()
+    with h5py.File(recording, "w") as handle:
+        handle.create_group("data")
     twin = tmp_path / "patient_twin.yaml"
     twin.touch()
     (tmp_path / "run.json").write_text(json.dumps({"patient_twin": str(twin)}))
@@ -82,7 +85,8 @@ def test_the_twin_falls_back_to_the_launcher_s_run_json(tmp_path) -> None:
 def test_a_missing_twin_says_what_to_do_about_it(tmp_path) -> None:
     """One subject's route against another's recording is a plausible-looking wrong label, so guess nothing."""
     recording = tmp_path / "demos.hdf5"
-    recording.touch()
+    with h5py.File(recording, "w") as handle:
+        handle.create_group("data")
 
     with pytest.raises(ValueError, match="--patient-twin"):
         _resolve_patient_twin(recording, None)
@@ -91,7 +95,8 @@ def test_a_missing_twin_says_what_to_do_about_it(tmp_path) -> None:
 def test_a_run_json_without_a_twin_is_not_treated_as_absent(tmp_path) -> None:
     """A recording made without ``--patient-twin`` has no route, and that is worth saying distinctly."""
     recording = tmp_path / "demos.hdf5"
-    recording.touch()
+    with h5py.File(recording, "w") as handle:
+        handle.create_group("data")
     (tmp_path / "run.json").write_text(json.dumps({"workflow": "endoluminal_navigation"}))
 
     with pytest.raises(ValueError, match="no patient_twin entry"):
@@ -101,14 +106,15 @@ def test_a_run_json_without_a_twin_is_not_treated_as_absent(tmp_path) -> None:
 def test_a_twin_that_moved_is_reported_as_moved(tmp_path) -> None:
     """Rather than as a centerline problem, which is what the failure would otherwise look like."""
     recording = tmp_path / "demos.hdf5"
-    recording.touch()
+    with h5py.File(recording, "w") as handle:
+        handle.create_group("data")
     (tmp_path / "run.json").write_text(json.dumps({"patient_twin": str(tmp_path / "gone.yaml")}))
 
     with pytest.raises(ValueError, match="no longer exists"):
         _resolve_patient_twin(recording, None)
 
 
-def test_launcher_sidecar_for_external_recording_is_automatically_resolved(tmp_path):
+def test_launcher_sidecar_for_external_recording_is_automatically_resolved(tmp_path, monkeypatch):
     import importlib.util
     import sys
 
@@ -117,6 +123,7 @@ def test_launcher_sidecar_for_external_recording_is_automatically_resolved(tmp_p
     launcher = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = launcher
     spec.loader.exec_module(launcher)
+    monkeypatch.setattr(launcher, "installed_numerical_revision", lambda: "candidate-revision")
     twin = tmp_path / "patient.yaml"
     twin.write_text("patient_id: test\n")
     recording = tmp_path / "external/recording.hdf5"
@@ -166,7 +173,6 @@ def test_changed_patient_anatomy_requires_explicit_override(tmp_path):
 def test_sibling_recordings_inherit_the_original_patient_manifest(tmp_path, name):
     import hashlib
 
-    import h5py
     import numpy as np
 
     twin = tmp_path / "patient.yaml"

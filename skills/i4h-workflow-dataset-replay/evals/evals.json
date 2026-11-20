@@ -26,5 +26,17 @@
       "replays episode 0 visibly with --episode 0",
       "does not convert the HDF5 to LeRobot as the main task"
     ]
+  },
+  {
+    "id": "i4h-workflow-dataset-replay-navigation-backend",
+    "question": "Replay this older catheter navigation recording with no backend metadata using legacy physics.",
+    "expected_skill": "i4h-workflow-dataset-replay",
+    "ground_truth": "Replay the supplied navigation HDF5 with explicit --catheter-backend legacy. For metadata-bearing recordings the selected backend must match provenance.",
+    "expected_behavior": [
+      "inspects the supplied HDF5 and backend provenance",
+      "passes --catheter-backend legacy for the metadata-less recording",
+      "rejects an explicit backend that conflicts with native recording metadata",
+      "keeps replay visible unless headless is requested"
+    ]
   }
 ]

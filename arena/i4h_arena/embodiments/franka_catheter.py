@@ -336,8 +336,13 @@ class ArmDrivenCatheterAction(ActionTerm):
 
     def __init__(self, cfg: ArmDrivenCatheterActionCfg, env: Any):
         super().__init__(cfg, env)
-        if not isinstance(self._asset, XpbdCatheterAsset):
-            raise TypeError(f"asset {cfg.asset_name!r} must be XpbdCatheterAsset")
+        from i4h_arena.medical.catheter import CatheterDrive
+
+        if not isinstance(self._asset, CatheterDrive):
+            raise TypeError(f"asset {cfg.asset_name!r} must implement CatheterDrive")
+        bind = getattr(self._asset, "bind_component", None)
+        if bind is not None:
+            bind(env.i4h)
         self._robot = env.scene[cfg.robot_name]
 
         self._joint_ids, self._joint_names = self._robot.find_joints(list(cfg.arm_joint_names))

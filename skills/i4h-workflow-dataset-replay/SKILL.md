@@ -62,6 +62,8 @@ The second command prints the scene name `record_demos.py` stores in `env_args` 
 
 The workflow declaration supplies its launcher options, such as Newton and `PXR_WORK_THREAD_LIMIT=1` for the tablecloth scenes. Pass the options the recording was made with, from its run context or the workflow's docs page: `--presets newton` for any other Newton run, the same `--patient-twin` for endoluminal recordings, `-- --embodiment g1_locomanip_wbc_pink` for a G1 keyboard recording (23-D actions), and `--episode-steps` when the recording ran longer than the scene's default budget.
 
+For `endoluminal_navigation` and `endoluminal_navigation_arm`, the launcher selects the recorded catheter backend and patient provenance. An explicit `--catheter-backend numerical|legacy` must match the recording. Metadata-less navigation recordings require explicit `--catheter-backend legacy`. Numerical recordings also require the recorded Numerical Sim revision and complete `initial_state/navigation`; a legacy replay cannot substitute for missing numerical continuation. Conflicting native metadata and `run.json` provenance are errors.
+
 Interpret natural ordinals as zero-based demo numbers: first is `demo_0`, second is `demo_1`. `--episode`, which `run.sh` passes as `replay_demos.py --select_episodes`, takes positions in the printed order, which is lexicographic (`demo_0`, `demo_1`, `demo_10`, `demo_11`, `demo_2`, ...); with ten demos or fewer the position equals the demo number, otherwise use the demo's position in that list.
 
 ## Replay
