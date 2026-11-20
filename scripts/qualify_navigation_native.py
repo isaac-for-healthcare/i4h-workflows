@@ -140,10 +140,16 @@ def main():
                         equal(expected, observation_arrays(env.observation_manager.compute(update_history=False)))
                         result["fresh_observation_roundtrip"] = True
                     errors = []
-                    for expected in archive["trajectory"]:
+                    robot_errors = []
+                    for index, expected in enumerate(archive["trajectory"]):
                         env.step(action)
                         actual = env.scene["catheter"].data.positions_world_m.cpu().numpy().copy()
                         errors.append(float(np.max(np.abs(actual - expected))))
+                        if "robot_trajectory" in archive:
+                            joints = env.scene["robot"].data.joint_pos.torch.cpu().numpy()
+                            robot_errors.append(float(np.max(np.abs(joints - archive["robot_trajectory"][index]))))
+                    if robot_errors:
+                        result["fresh_robot_max_abs_rad"] = max(robot_errors)
                     result.update(
                         fresh_trajectory_exact=max(errors) == 0, fresh_trajectory_max_abs_m=max(errors), passed=True
                     )
@@ -314,6 +320,8 @@ def main():
 
                 add_observations(expected_observation)
                 flat["trajectory"] = np.stack([value[selected : selected + 1] for value in trajectory])
+                if robot_trajectory:
+                    flat["robot_trajectory"] = np.stack([value[selected : selected + 1] for value in robot_trajectory])
                 np.savez_compressed(args.output.with_suffix(".npz"), **flat)
                 result["passed"] = True
         finally:
