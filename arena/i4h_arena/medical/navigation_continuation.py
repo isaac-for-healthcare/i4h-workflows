@@ -36,9 +36,9 @@ class NavigationInitialStateRecorder(RecorderTerm):
         return "initial_state/navigation", tensor_bundle(self._env.capture_complete_state(env_ids))
 
 
-def configuration_identity(env):
-    if hasattr(env, "_navigation_identity"):
-        return env._navigation_identity
+def _source_identity(env):
+    if hasattr(env, "_navigation_source_identity"):
+        return env._navigation_source_identity
     spec = asdict(env.cfg.navigation_rod_spec)
     spec.pop("num_envs", None)
     spec.pop("device", None)
@@ -63,6 +63,11 @@ def configuration_identity(env):
         "medical/navigation_reward.py",
         "medical/navigation_goal.py",
         "medical/navigation_observation.py",
+        "sensors/fluoroscopy.py",
+        "medical/slang_fluoroscopy.py",
+        "medical/fluoroscopy_display.py",
+        "medical/fluoroscopy_sources.py",
+        "medical/catheter_attenuation.py",
         "envcfg/endoluminal_navigation/terms.py",
         "envcfg/endoluminal_navigation/task.py",
     ):
@@ -76,10 +81,19 @@ def configuration_identity(env):
         for file in PatientTwin.load(manifest).artifacts.values():
             if isinstance(file, Path) and file.is_file():
                 digest.update(file.read_bytes())
-    env._navigation_identity = np.frombuffer(
+    env._navigation_source_identity = np.frombuffer(
         f"numerical:{CONTINUATION_SCHEMA}:{digest.hexdigest()}".encode(), np.uint8
     ).copy()
-    return env._navigation_identity
+    return env._navigation_source_identity
+
+
+def configuration_identity(env):
+    # Source/anatomy hashing is expensive and immutable for this binding. Sensor
+    # configuration remains live: a backend or display override must be checked
+    # even after an earlier snapshot populated the source cache.
+    settings = json.dumps(env.scene["fluoroscopy"].cfg.to_dict(), sort_keys=True, default=str).encode()
+    digest = hashlib.sha256(_source_identity(env).tobytes() + settings).hexdigest()
+    return np.frombuffer(f"numerical:{CONTINUATION_SCHEMA}:{digest}".encode(), np.uint8).copy()
 
 
 def host_arrays(env):
