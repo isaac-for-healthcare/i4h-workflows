@@ -264,7 +264,10 @@ class NumericalCatheterEmbodiment(CatheterEmbodiment):
         if self.rod_spec.rigid_bodies_enabled:
             from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
 
-            cfg.sim.physics = NewtonCfg(solver_cfg=MJWarpSolverCfg())
+            # The legacy coupled manager constructs SolverMuJoCo with its
+            # implicitfast default. Lab's cfg defaults to Euler, which makes
+            # this arm's stiff position/finger drives unstable at 120 Hz.
+            cfg.sim.physics = NewtonCfg(solver_cfg=MJWarpSolverCfg(integrator="implicitfast"))
             component.cfg.mounts = {
                 "catheter": {
                     "body": self.rod_spec.drive_body_name,

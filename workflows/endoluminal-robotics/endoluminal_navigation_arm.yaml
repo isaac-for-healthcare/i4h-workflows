@@ -13,6 +13,8 @@ modes:
     success_term: false
   teleop:
     devices: [catheter_keyboard]
+    # Keep the registered rod and its readback buffers through episode resets.
+    args: [--no-reset_sim_buffer_each_episode]
   policy_n17:
     server: {stack: gr00t_n17, task: catheter_navigation}
     checkpoint: required

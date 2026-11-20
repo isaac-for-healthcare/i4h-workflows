@@ -141,6 +141,16 @@ def test_teleop_records_with_isaac_labs_tool() -> None:
     assert command[-2:] == ["--leader_port", "/dev/x"]
 
 
+@pytest.mark.parametrize("workflow", ["endoluminal_navigation", "endoluminal_navigation_arm"])
+@pytest.mark.parametrize("backend", ["legacy", "numerical"])
+def test_navigation_teleop_preserves_registered_physics_buffers(workflow, backend) -> None:
+    """A hard recorder reset rebuilds the rod while its sensor still reads the old range."""
+    command = _plan(workflow, "--teleop", "--catheter-backend", backend).command
+
+    assert "--no-reset_sim_buffer_each_episode" in command
+    assert "--reset_sim_buffer_each_episode" not in command
+
+
 def test_the_tablecloth_is_teleoperated_through_xr_on_newton() -> None:
     built = _plan("spread_tablecloth_h2", "--teleop")
     assert "--teleop_device" not in built.command
