@@ -36,13 +36,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from i4h_common.paths import package_source
+
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / "workflows"
 SCENE_MANIFESTS = ROOT / "arena" / "i4h_arena" / "scenes" / "manifest"
 ARENA_PYTHON = ROOT / "arena" / ".venv" / "bin" / "python"
-from i4h_common.paths import package_source
-
-ISAACLAB = package_source("isaaclab-dev", ROOT) / "scripts/tools"
 REGISTRATION_CALLBACK = "isaaclab_arena.environments.isaaclab_interop.environment_registration_callback"
 PID_DIR = Path(os.environ.get("I4H_PID_DIR", ROOT / ".run" / "pids.d"))
 
@@ -339,7 +338,7 @@ def plan(argv: list[str]) -> Plan:
             env,
             record=record,
             default_run_dir=args.run_dir is None,
-            default_record=not args.record,
+            default_record=record is not None and not args.record,
             patient_twin=_caller_path(args.patient_twin) if args.patient_twin else None,
         )
 
@@ -418,13 +417,20 @@ def plan(argv: list[str]) -> Plan:
         judged=spec.get("success_term", True),
         notes=notes,
         default_run_dir=args.run_dir is None,
-        default_record=args.record == "",
+        default_record=record is not None and not args.record,
         patient_twin=_caller_path(args.patient_twin) if args.patient_twin else None,
     )
 
 
 def _isaaclab_tool(workflow, mode, spec, args, launcher, environment, record, run_dir, visible, cameras):
-    command = [str(ARENA_PYTHON), str(ISAACLAB / ("record_demos.py" if mode == "teleop" else "replay_demos.py"))]
+    try:
+        tools = package_source("isaaclab-dev", ROOT) / "scripts/tools"
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise UsageError(
+            f"cannot resolve pinned Isaac Lab tools from {ROOT / 'arena/pyproject.toml'}: "
+            "declare a valid path source for isaaclab-dev, then run ./setup.sh"
+        ) from error
+    command = [str(ARENA_PYTHON), str(tools / ("record_demos.py" if mode == "teleop" else "replay_demos.py"))]
     command += ["--external_callback", REGISTRATION_CALLBACK]
     command += ["--external_environment_class_path", f"i4h_arena.environments:{workflow.environment_class}"]
     command += ["--task", workflow.scene, *launcher]

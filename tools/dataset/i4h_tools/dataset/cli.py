@@ -323,8 +323,8 @@ def _resolve_patient_twin(source: Path, explicit: Path | None) -> Path:
             f"there is no run.json beside the recording to name one. Pass --patient-twin."
         )
     metadata = json.loads(run_json.read_text()) or {}
-    if metadata.get("recording") and Path(metadata["recording"]).resolve() != source.resolve():
-        raise ValueError(f"{run_json}: conflicting recording provenance for {source}. Pass --patient-twin.")
+    # Expanded/annotated/filtered siblings share the recording's anatomy sidecar.
+    # Its recording field identifies the original capture, not an exclusive input.
     recorded = metadata.get("patient_twin")
     if not recorded:
         raise ValueError(

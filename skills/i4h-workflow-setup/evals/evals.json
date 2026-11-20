@@ -21,7 +21,7 @@
     "ground_truth": "Use the approved scoped Arena setup with private merged Numerical Sim; do not publish it or use historical numerical directories.",
     "expected_behavior": [
       "requires authenticated access to the private Numerical Sim repository at caff73b12a77abd6157771678ee0a57206771ac4",
-      "includes the pinned GR00T N1.6 client while retaining isolated policy servers",
+      "installs the pinned GR00T N1.6 Git client without a redundant Arena checkout, documenting GitHub network access and isolated policy servers",
       "verifies assets and installed sources from the declared active package paths"
     ],
     "expected_skill": "i4h-workflow-setup"

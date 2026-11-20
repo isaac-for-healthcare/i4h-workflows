@@ -170,7 +170,8 @@ arena_checkouts=(
   "${ISAACLAB_DIR}|https://github.com/isaac-sim/IsaacLab.git|${ISAACLAB_REV}"
   "${LEISAAC_DIR}|https://github.com/LightwheelAI/leisaac.git|${LEISAAC_REV}"
   "${ISAACLAB_ARENA_CHECKOUT}"
-  "${GR00T_16_DIR}|https://github.com/NVIDIA/Isaac-GR00T.git|${GR00T_16_REV}"
+  # Arena installs its client from the immutable Git source in arena/pyproject.toml.
+  # The local GR00T N1.6 checkout below belongs only to the isolated policy service.
   "${I4H_PHYSICS_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-physics-simulation.git|${I4H_PHYSICS_SIM_REF}"
   "${SENSOR_SIM_CHECKOUT}"
   # tools/patient_twin, not arena, consumes this one. It rides along with the arena target so

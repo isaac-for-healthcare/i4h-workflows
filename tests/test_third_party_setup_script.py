@@ -139,8 +139,7 @@ def test_components_use_declared_public_and_private_https_sources(tmp_path: Path
         "remote set-url origin https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
     )
     assert "caff73b12a77abd6157771678ee0a57206771ac4" in git_log
-    assert "Isaac-GR00T-1.6 fetch" in git_log
-    assert "e8e625f4f21898c506a1d8f7d20a289c97a52acf" in git_log
+    assert "Isaac-GR00T-1.6 fetch" not in git_log
     assert "i4h_numerical_liver_host.patch" not in git_log
     assert "git@github.com" not in git_log
 

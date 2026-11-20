@@ -357,9 +357,10 @@ def test_replay_names_a_missing_recording_before_anything_starts(tmp_path) -> No
 def test_declared_tool_path_is_independent_of_checkout_globbing(tmp_path, monkeypatch):
     from i4h_common.paths import package_source
 
-    assert package_source("isaaclab-dev", ROOT) / "scripts/tools" == run_workflow.ISAACLAB
+    declared = package_source("isaaclab-dev", ROOT) / "scripts/tools"
+    assert str(declared / "record_demos.py") in _plan("scissor_pick_and_place", "--teleop").command
     pinned = tmp_path / "pinned/scripts/tools"
-    monkeypatch.setattr(run_workflow, "ISAACLAB", pinned)
+    monkeypatch.setattr(run_workflow, "package_source", lambda *args: pinned.parent.parent)
     assert _plan("scissor_pick_and_place", "--teleop").command[1] == str(pinned / "record_demos.py")
     recording = tmp_path / "input.hdf5"
     recording.touch()
@@ -483,3 +484,22 @@ def test_explicit_recording_under_original_outputs_keeps_its_path_on_collision(t
     assert built.record == explicit
     assert built.command[built.command.index("--output_base_dir") + 1] == str(built.run_dir / "outputs")
     assert built.command[built.command.index("--recorder_dataset_export_dir_path") + 1] == str(explicit.parent)
+
+
+def test_missing_lab_source_is_reported_only_for_modes_that_need_tools(monkeypatch):
+    def missing(*args):
+        raise KeyError("isaaclab-dev")
+
+    monkeypatch.setattr(run_workflow, "package_source", missing)
+    assert _plan("surgical_reach_psm", "--rule-based").mode == "rule-based"
+    with pytest.raises(run_workflow.UsageError, match="declare a valid path source for isaaclab-dev"):
+        _plan("scissor_pick_and_place", "--teleop")
+
+
+@pytest.mark.parametrize("teleop", [True, False])
+def test_default_record_tracks_automatic_and_explicit_paths(teleop, tmp_path):
+    mode = ["--teleop"] if teleop else ["--rule-based", "--record"]
+    workflow = "scissor_pick_and_place" if teleop else "surgical_reach_psm"
+    assert _plan(workflow, *mode).default_record
+    explicit = ["--teleop", "--record"] if teleop else mode
+    assert not _plan(workflow, *explicit, str(tmp_path / "explicit.hdf5")).default_record

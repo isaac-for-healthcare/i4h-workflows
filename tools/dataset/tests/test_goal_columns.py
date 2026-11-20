@@ -138,8 +138,7 @@ def test_launcher_sidecar_for_external_recording_is_automatically_resolved(tmp_p
     override = tmp_path / "override.yaml"
     override.touch()
     assert _resolve_patient_twin(recording, override) == override
-    with pytest.raises(ValueError, match="conflicting recording provenance"):
-        _resolve_patient_twin(recording.with_name("other.hdf5"), None)
+    assert _resolve_patient_twin(recording.with_name("filtered.hdf5"), None) == twin
 
 
 def test_changed_patient_anatomy_requires_explicit_override(tmp_path):
@@ -161,3 +160,36 @@ def test_changed_patient_anatomy_requires_explicit_override(tmp_path):
     with pytest.raises(ValueError, match="conflicting patient anatomy provenance"):
         _resolve_patient_twin(recording, None)
     assert _resolve_patient_twin(recording, twin) == twin
+
+
+@pytest.mark.parametrize("name", ["demos.hdf5", "expanded.hdf5", "filtered.hdf5"])
+def test_sibling_recordings_inherit_the_original_patient_manifest(tmp_path, name):
+    import hashlib
+
+    import h5py
+    import numpy as np
+
+    twin = tmp_path / "patient.yaml"
+    twin.write_text("patient_id: same-anatomy\n")
+    original = tmp_path / "demos.hdf5"
+    source = tmp_path / name
+    with h5py.File(source, "w") as handle:
+        data = handle.create_group("data")
+        demo = data.create_group("demo_0")
+        demo.create_dataset("actions", data=np.zeros((2, 4)))
+        if name == "filtered.hdf5":
+            data.attrs["filtered_from"] = str(tmp_path / "expanded.hdf5")
+    (tmp_path / "run.json").write_text(
+        json.dumps(
+            {
+                "recording": str(original),
+                "patient_twin": str(twin),
+                "patient_twin_sha256": hashlib.sha256(twin.read_bytes()).hexdigest(),
+            }
+        )
+    )
+    assert _resolve_patient_twin(source, None) == twin
+    twin.write_text("patient_id: changed\n")
+    with pytest.raises(ValueError, match="conflicting patient anatomy provenance"):
+        _resolve_patient_twin(source, None)
+    assert _resolve_patient_twin(source, twin) == twin

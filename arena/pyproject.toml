@@ -86,6 +86,8 @@ isaaclab-visualizers = { path = "../third_party/IsaacLab-3939445/source/isaaclab
 isaaclab-assets = { path = "../third_party/IsaacLab-3939445/source/isaaclab_assets", editable = true }
 leisaac = { path = "../third_party/leisaac-cd61a20/source/leisaac", editable = true }
 isaaclab-arena = { path = "../third_party/IsaacLab-Arena-196680c", editable = true }
+# Arena fetches this immutable client from GitHub during fresh locked sync; no
+# local GR00T checkout is needed here. Policy services own their separate checkouts.
 # Immutable source metadata lets locked sync honor the client-only override below.
 # Editable GR00T metadata also declares its incompatible Python 3.10 model stack.
 gr00t = { git = "https://github.com/NVIDIA/Isaac-GR00T.git", rev = "e8e625f4f21898c506a1d8f7d20a289c97a52acf" }
