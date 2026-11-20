@@ -109,10 +109,11 @@ def numerical_fixture():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("order", choices=("legacy-first", "numerical-first"))
+    parser.add_argument("--numerical-root", type=Path, help="Explicit candidate checkout to qualify without repinning")
     args = parser.parse_args()
     from i4h_common.paths import numerical_source
 
-    numerical = numerical_source(ROOT)
+    numerical = (args.numerical_root.resolve() / "numerical_sim") if args.numerical_root else numerical_source(ROOT)
     os.environ["I4H_DATA"] = str(numerical / "data")
     names = ["catheter_vasculature_solver", "i4h_physics", "i4h_endoluminal"]
     if args.order == "numerical-first":
@@ -122,8 +123,10 @@ def main():
     faulthandler.dump_traceback_later(180, repeat=True)
     modules = {name: importlib.import_module(name) for name in names}
     for name, module in modules.items():
-        checkout = "i4h-physics-simulation-internal" if name == "catheter_vasculature_solver" else numerical.parent.name
-        assert Path(module.__file__).resolve().is_relative_to(ROOT / "third_party" / checkout), module.__file__
+        expected = (
+            ROOT / "third_party/i4h-physics-simulation-internal" if name == "catheter_vasculature_solver" else numerical
+        )
+        assert Path(module.__file__).resolve().is_relative_to(expected), module.__file__
     import newton
     import warp as wp
     from isaaclab.sim import SimulationContext

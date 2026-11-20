@@ -65,7 +65,7 @@ def verify_asset() -> None:
     )
 
 
-def verify_runtime() -> None:
+def verify_runtime(numerical_root: Path | None = None) -> None:
     import warp as wp
 
     from i4h_common.paths import package_source
@@ -80,7 +80,11 @@ def verify_runtime() -> None:
         from urllib.parse import unquote, urlparse
 
         installed = Path(unquote(urlparse(source["url"]).path)).resolve()
-        declared = package_source(package, ROOT)
+        declared = (
+            (numerical_root / "numerical_sim" / package.removeprefix("i4h-"))
+            if numerical_root
+            else package_source(package, ROOT)
+        )
         if installed != declared:
             raise ValueError(f"{package}: installed source {installed} differs from declared {declared}")
         versions[package] = {"source": str(installed)}
@@ -118,7 +122,9 @@ def verify_runtime() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("operation", choices=("stage-wheel", "verify-asset", "verify-runtime", "verify-native"))
-    operation = parser.parse_args().operation
+    parser.add_argument("--numerical-root", type=Path, help="Explicit candidate repository for isolated qualification")
+    args = parser.parse_args()
+    operation = args.operation
     if operation == "stage-wheel":
         stage_wheel()
     elif operation == "verify-asset":
@@ -130,7 +136,7 @@ def main() -> None:
         native = Path(importlib.import_module("warp._src.context").runtime.core._name).resolve()
         print(json.dumps({"native_library": str(native), "sha256": verify_hash(native, NATIVE_SHA256)}))
     else:
-        verify_runtime()
+        verify_runtime(args.numerical_root.resolve() if args.numerical_root else None)
 
 
 if __name__ == "__main__":

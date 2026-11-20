@@ -77,3 +77,14 @@ def test_host_caches_are_flushed_before_selected_numerical_restore(monkeypatch):
     assert calls == ["forward", "pose", "numerical", "refresh"]
     assert not sensor._data_dirty
     torch.testing.assert_close(value[0], torch.tensor([1.0, 2.0]))
+
+
+def test_changed_sensor_configuration_is_checked_after_source_hash_is_cached(monkeypatch):
+    settings = {"backend": "slang", "dsa_gamma": 1.0}
+    env = SimpleNamespace(scene={"fluoroscopy": SimpleNamespace(cfg=SimpleNamespace(to_dict=lambda: settings))})
+    monkeypatch.setattr(continuation, "_source_identity", lambda env: np.array([1, 2, 3], np.uint8))
+    initial = continuation.configuration_identity(env)
+    settings["dsa_gamma"] = 1.5
+    assert not np.array_equal(initial, continuation.configuration_identity(env))
+    settings["dsa_gamma"] = 1.0
+    np.testing.assert_array_equal(initial, continuation.configuration_identity(env))
