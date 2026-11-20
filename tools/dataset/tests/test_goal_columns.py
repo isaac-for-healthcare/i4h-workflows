@@ -143,7 +143,7 @@ def test_launcher_sidecar_for_external_recording_is_automatically_resolved(tmp_p
     launcher._write_recording_metadata(built)
     assert _resolve_patient_twin(recording, None) == twin
     override = tmp_path / "override.yaml"
-    override.touch()
+    override.write_text(twin.read_text())
     assert _resolve_patient_twin(recording, override) == override
     assert _resolve_patient_twin(recording.with_name("filtered.hdf5"), None) == twin
 
@@ -199,3 +199,24 @@ def test_sibling_recordings_inherit_the_original_patient_manifest(tmp_path, name
     with pytest.raises(ValueError, match="conflicting patient anatomy provenance"):
         _resolve_patient_twin(source, None)
     assert _resolve_patient_twin(source, twin) == twin
+
+
+def test_explicit_patient_cannot_conflict_with_typed_native_provenance(tmp_path):
+    import hashlib
+
+    recorded = tmp_path / "recorded.yaml"
+    recorded.write_text("patient_id: original\n")
+    other = tmp_path / "other.yaml"
+    other.write_text("patient_id: other\n")
+    recording = tmp_path / "recording.hdf5"
+    with h5py.File(recording, "w") as handle:
+        handle.create_group("data").attrs["env_args"] = json.dumps(
+            dict(
+                catheter_backend="numerical",
+                patient_twin=str(recorded),
+                patient_twin_sha256=hashlib.sha256(recorded.read_bytes()).hexdigest(),
+            )
+        )
+    with pytest.raises(ValueError, match="conflicts.*provenance"):
+        _resolve_patient_twin(recording, other)
+    assert _resolve_patient_twin(recording, recorded) == recorded

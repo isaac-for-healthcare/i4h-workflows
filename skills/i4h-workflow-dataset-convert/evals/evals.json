@@ -43,5 +43,18 @@
       "opens the viewer with tools/dataset/scripts/viz.sh and reports its local URL",
       "does not try to visualize the raw HDF5 recording as LeRobot data"
     ]
+  },
+  {
+    "id": "i4h-workflow-dataset-convert-native-navigation-provenance",
+    "question": "Convert my Numerical Sim catheter recording to LeRobot using its recorded patient twin.",
+    "expected_skill": "i4h-workflow-dataset-convert",
+    "ground_truth": "Use the supplied HDF5, resolve the recorded patient manifest and catheter embodiment, preserve recorded backend/patient provenance, and run the maintained converter without changing column semantics.",
+    "expected_behavior": [
+      "inspects native HDF5 provenance and action/state widths",
+      "resolves the patient from native metadata or its run.json",
+      "rejects a conflicting explicit patient manifest",
+      "runs the maintained i4h-dataset converter",
+      "checks meta/source_recordings.json and the declared modality layout"
+    ]
   }
 ]

@@ -46,7 +46,12 @@ in IsaacLab's ``InteractiveScene.get_state(is_relative=True)`` layout with env 0
 kept as a batch of one. Actions alone do not determine an episode when the
 reset randomizes object poses, so replay restores this state instead of drawing
 a new one. It is optional; recordings made before it existed replay from a
-fresh reset.
+fresh reset. Native numerical navigation adds a versioned ``navigation`` family
+under this same group. Its arrays retain one episode row, including numerical
+State/Control, host/task history and cached fluoroscopy observations. The file's
+``data.attrs["env_args"]`` identifies ``catheter_backend``, ``numerical_sim_revision``
+and ``continuation_schema_version``; numerical replay requires matching provenance
+and this complete family.
 
 ``format_version`` on the file root is Isaac Lab's dataset format attribute
 (:data:`ISAACLAB_FORMAT_VERSION_ATTR`). Isaac Lab's ``HDF5DatasetFileHandler``

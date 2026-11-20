@@ -725,6 +725,15 @@ def _write_recording_metadata(plan: Plan) -> None:
             for key, value in provenance.items():
                 if key in existing and existing[key] != value:
                     raise UsageError(f"{metadata}: conflicting {key} provenance")
+        if plan.record.is_file() and plan.catheter_backend is not None:
+            from i4h_common.catheter_backend import recording_provenance
+
+            native = recording_provenance(plan.record)
+            if "catheter_backend" not in native and plan.catheter_backend == "numerical":
+                raise UsageError("cannot record numerical navigation over a metadata-less recording")
+            for key, value in {**provenance, "patient_twin": patient, "patient_twin_sha256": patient_hash}.items():
+                if key in native and native[key] != value:
+                    raise UsageError(f"{plan.record}: conflicting {key} provenance")
         payload = {
             **existing,
             **provenance,

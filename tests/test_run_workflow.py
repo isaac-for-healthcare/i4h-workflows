@@ -527,3 +527,16 @@ def test_backend_is_forwarded_through_every_navigation_mode(workflow, tmp_path):
         assert built.catheter_backend == "legacy"
         offset = built.command.index("--catheter_backend")
         assert built.command[offset + 1] == "legacy"
+
+
+def test_recording_conflict_is_rejected_before_publishing_sidecar(tmp_path, monkeypatch):
+    import h5py
+
+    monkeypatch.setattr(run_workflow, "installed_numerical_revision", lambda: "candidate")
+    source = tmp_path / "demos.hdf5"
+    with h5py.File(source, "w") as handle:
+        handle.create_group("data").attrs["env_args"] = json.dumps({"catheter_backend": "legacy"})
+    plan = _plan("endoluminal_navigation", "--mode", "demo", "--catheter-backend", "numerical", "--record", str(source))
+    with pytest.raises(run_workflow.UsageError, match="conflicting catheter_backend"):
+        run_workflow._write_recording_metadata(plan)
+    assert not (tmp_path / "run.json").exists()

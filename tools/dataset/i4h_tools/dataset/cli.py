@@ -306,15 +306,25 @@ def _declares_derived_goal_columns(config) -> bool:
 def _resolve_patient_twin(source: Path, explicit: Path | None) -> Path:
     """The twin whose centerline the goal columns are measured against.
 
-    An explicit path wins; otherwise the launcher already wrote the answer into
-    ``run.json`` beside the recording, so the common case needs no flag. Read
-    from there rather than guessed from the scene name because one scene is run
-    against several subjects and the wrong twin yields plausible-looking arc
-    figures for the wrong anatomy.
+    Typed navigation provenance permits relocation of the same manifest, and
+    rejects a conflicting anatomy override. Otherwise native metadata or the
+    launcher sidecar selects the patient; older untyped recordings retain their
+    explicit-override behavior.
     """
     if explicit is not None:
+        from i4h_common.catheter_backend import recording_provenance
+
+        provenance = recording_provenance(source)
         if not explicit.is_file():
             raise ValueError(f"--patient-twin {explicit} does not exist")
+        if provenance.get("catheter_backend") is not None:
+            import hashlib
+
+            expected = provenance.get("patient_twin_sha256")
+            if not provenance.get("patient_twin") or (
+                expected and hashlib.sha256(explicit.read_bytes()).hexdigest() != expected
+            ):
+                raise ValueError("explicit conversion patient conflicts with recorded anatomy provenance")
         return explicit
     from i4h_common.catheter_backend import recording_provenance
 
@@ -660,7 +670,16 @@ def convert(
 
         from i4h_common.catheter_backend import recording_provenance
 
-        provenance = [{"recording": str(source), **recording_provenance(source)} for source, *_ in inputs]
+        provenance = [
+            dict(
+                recording=str(source),
+                **recording_provenance(source),
+                conversion_patient_twin=str(_resolve_patient_twin(source, twins[index] if twins else None))
+                if route is not None
+                else None,
+            )
+            for index, (source, route, *_rest) in enumerate(inputs)
+        ]
         (target / "meta" / "source_recordings.json").write_text(json.dumps(provenance, indent=2) + "\n")
         _write_dataset_stats(target, dataset.meta.stats)
         if _uses_declared_modality(
