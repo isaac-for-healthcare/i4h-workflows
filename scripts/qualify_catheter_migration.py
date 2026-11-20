@@ -167,11 +167,15 @@ def escapes(points, wall, edges, free_radius):
 
 def compare_navigation(run_dir, config):
     inputs = dict(np.load(run_dir / "navigation-inputs.npz"))
+    if json.loads(str(inputs["config"])) != config:
+        raise ValueError("current fixture settings or thresholds differ from the frozen inputs")
     ref = dict(np.load(run_dir / "navigation-reference.npz"))
     ours = dict(np.load(run_dir / "navigation-numerical.npz"))
     for archive in (ref, ours):
         if not bool(archive.get("complete", False)) or str(archive["fixture_sha256"]) != str(inputs["fixture_sha256"]):
             raise ValueError("incomplete or mismatched navigation qualification")
+    if not ref.get("workflow_sources") or str(ref["workflow_sources"]) != str(ours.get("workflow_sources")):
+        raise ValueError("reference and numerical runs used different Workflow control sources")
     rows = []
 
     def row(name, metric, value, bound):
@@ -195,12 +199,17 @@ def compare_navigation(run_dir, config):
             "angular_velocities",
             "reaction",
             "vessel_displacement",
+            "commands",
+            "root_commands",
             "time",
         ):
             if ref[prefix + key].shape != ours[prefix + key].shape or not all(
                 np.isfinite(archive[prefix + key]).all() for archive in (ref, ours)
             ):
                 raise ValueError(f"invalid navigation trace: {prefix + key}")
+        for key in ("commands", "time"):
+            if not np.array_equal(ref[prefix + key], ours[prefix + key]):
+                raise ValueError(f"navigation inputs differ: {prefix + key}")
         a, b = ref[prefix + "positions"], ours[prefix + "positions"]
         row(
             name,

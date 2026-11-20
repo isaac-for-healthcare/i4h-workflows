@@ -60,3 +60,14 @@ def test_arrival_uses_control_steps_instead_of_physics_steps():
     assert module.arrival_decisions(frames, target, gates)[-1]
     frames[-1, -1, 0] = 0.009
     assert not module.arrival_decisions(frames, target, gates).any()
+
+
+def test_comparison_rejects_threshold_changes_after_freezing(tmp_path):
+    import json
+
+    import pytest
+
+    frozen = {"gates": {"tip_rms_over_length": 0.02}}
+    np.savez(tmp_path / "navigation-inputs.npz", config=json.dumps(frozen))
+    with pytest.raises(ValueError, match="thresholds differ from the frozen"):
+        module.compare_navigation(tmp_path, {"gates": {"tip_rms_over_length": 0.03}})
