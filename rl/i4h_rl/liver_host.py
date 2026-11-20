@@ -17,15 +17,17 @@ def build_parser():
     parser.add_argument("--mode", default="idle")
     parser.add_argument("--envs", dest="num_envs", type=int, default=1)
     parser.add_argument("--seed", type=int, default=7341)
+    parser.add_argument("--headless", action="store_true")
     parser.set_defaults(presets="newton", solve_relations=False, no_cameras=True, episode_steps=0, rl_observations=True)
     return parser
 
 
 @contextmanager
 def launch_app(args):
-    from isaaclab.app import AppLauncher
+    from isaaclab.app import launch_simulation
 
-    launcher = AppLauncher(args)
+    args.visualizer = [] if args.headless else ["kit"]
+    args.require_kit = True
 
     def make_env(scene):
         import gymnasium as gym
@@ -37,7 +39,7 @@ def launch_app(args):
         gym_id, cfg = scene.gym_spec(config_transform=configure)
         return gym.make(gym_id, cfg=cfg).unwrapped
 
-    try:
-        yield SimpleNamespace(app=launcher.app, make_env=make_env)
-    finally:
-        launcher.app.close()
+    with launch_simulation(None, args):
+        import omni.kit.app
+
+        yield SimpleNamespace(app=omni.kit.app.get_app(), make_env=make_env)

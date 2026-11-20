@@ -352,3 +352,134 @@ def test_stop_asks_the_launcher_first(tmp_path, monkeypatch) -> None:
 def test_replay_names_a_missing_recording_before_anything_starts(tmp_path) -> None:
     with pytest.raises(run_workflow.UsageError, match="no recording at"):
         _plan("surgical_reach_psm", "--replay", str(tmp_path / "absent.hdf5"))
+
+
+def test_declared_tool_path_is_independent_of_checkout_globbing(tmp_path, monkeypatch):
+    from i4h_common.paths import package_source
+
+    assert package_source("isaaclab-dev", ROOT) / "scripts/tools" == run_workflow.ISAACLAB
+    pinned = tmp_path / "pinned/scripts/tools"
+    monkeypatch.setattr(run_workflow, "ISAACLAB", pinned)
+    assert _plan("scissor_pick_and_place", "--teleop").command[1] == str(pinned / "record_demos.py")
+    recording = tmp_path / "input.hdf5"
+    recording.touch()
+    assert _plan("scissor_pick_and_place", "--replay", str(recording)).command[1] == str(pinned / "replay_demos.py")
+
+
+def test_execution_reports_missing_setup_before_reserving_directory(tmp_path, monkeypatch):
+    built = _plan("scissor_pick_and_place", "--teleop", "--run-dir", str(tmp_path / "run"))
+    built.command[0] = sys.executable
+    built.command[1] = str(tmp_path / "missing/record_demos.py")
+    with pytest.raises(run_workflow.UsageError, match="missing pinned Isaac Lab tool.*setup.sh"):
+        run_workflow.run(built)
+    assert not built.run_dir.exists()
+    signal.signal(signal.SIGINT, signal.default_int_handler)
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
+
+def test_same_timestamp_runs_reserve_unique_directories_and_keep_independent_results(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from dataclasses import replace
+
+    first = _plan("surgical_reach_psm", "--rule-based", "--record", "--run-dir", str(tmp_path / "20261120_120000"))
+    plans = [replace(first, command=first.command.copy(), default_run_dir=True) for _ in range(8)]
+    for built in plans:
+        built.default_record = True
+    # Synchronize reservations, as eight launchers planning within the same second would do.
+    from threading import Barrier
+
+    barrier = Barrier(len(plans))
+
+    def reserve(built):
+        barrier.wait()
+        run_workflow._reserve_run_directory(built)
+        child = (
+            "import pathlib,sys,json; p=pathlib.Path(sys.argv[1]); p.mkdir(parents=True);"
+            " (p/'episode_results_rank0.jsonl').write_text(json.dumps({'success': True}) + chr(10))"
+        )
+        subprocess.run([sys.executable, "-c", child, str(built.output_dir / "fake")], check=True)
+        run_workflow._write_recording_metadata(built)
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(reserve, plans))
+    assert len({built.run_dir for built in plans}) == 8
+    for built in plans:
+        assert built.record == built.run_dir / "demos.hdf5"
+        assert str(built.run_dir / "outputs") in built.command
+        assert str(built.run_dir) in built.command
+        assert run_workflow._summary(built) == "1/1 episodes succeeded"
+        assert json.loads((built.record.parent / "run.json").read_text())["recording"] == str(built.record)
+
+
+def test_previews_do_not_reserve_and_explicit_paths_survive_reservation(tmp_path):
+    built = _plan(
+        "surgical_reach_psm",
+        "--rule-based",
+        "--record",
+        str(tmp_path / "external/data.hdf5"),
+        "--run-dir",
+        str(tmp_path / "explicit"),
+    )
+    run_workflow.show(built)
+    assert not built.run_dir.exists() and not built.record.parent.exists()
+    run_workflow._reserve_run_directory(built)
+    assert built.run_dir == tmp_path / "explicit"
+    assert built.record == tmp_path / "external/data.hdf5"
+    built.default_run_dir = True
+    run_workflow._reserve_run_directory(built)
+    assert built.run_dir == tmp_path / "explicit_1"
+    assert built.record == tmp_path / "external/data.hdf5"
+
+
+def test_external_recording_metadata_rejects_conflicting_patient_provenance(tmp_path):
+    twin = tmp_path / "patient.yaml"
+    twin.write_text("patient_id: first\n")
+    built = _plan(
+        "endoluminal_navigation",
+        "--mode",
+        "demo",
+        "--patient-twin",
+        str(twin),
+        "--record",
+        str(tmp_path / "external/data.hdf5"),
+        "--run-dir",
+        str(tmp_path / "run"),
+    )
+    run_workflow._write_recording_metadata(built)
+    sidecar = built.record.parent / "run.json"
+    metadata = json.loads(sidecar.read_text())
+    assert metadata["patient_twin"] == str(twin.resolve())
+    assert metadata["recording"] == str(built.record)
+    run_workflow._write_recording_metadata(built)
+    twin.write_text("patient_id: changed\n")
+    with pytest.raises(run_workflow.UsageError, match="conflicting.*provenance"):
+        run_workflow._write_recording_metadata(built)
+    assert json.loads(sidecar.read_text()) == metadata
+
+
+def test_missing_patient_manifest_does_not_publish_provenance(tmp_path):
+    built = _plan(
+        "endoluminal_navigation",
+        "--mode",
+        "demo",
+        "--patient-twin",
+        str(tmp_path / "missing.yaml"),
+        "--record",
+        str(tmp_path / "out/recording.hdf5"),
+    )
+    with pytest.raises(run_workflow.UsageError, match="manifest is missing"):
+        run_workflow._write_recording_metadata(built)
+    assert not (built.record.parent / "run.json").exists()
+
+
+def test_explicit_recording_under_original_outputs_keeps_its_path_on_collision(tmp_path):
+    original = tmp_path / "20261120_120000"
+    explicit = original / "outputs/custom.hdf5"
+    built = _plan("surgical_reach_psm", "--rule-based", "--run-dir", str(original), "--record", str(explicit))
+    built.default_run_dir = True
+    original.mkdir()
+    run_workflow._reserve_run_directory(built)
+    assert built.run_dir == original.with_name(original.name + "_1")
+    assert built.record == explicit
+    assert built.command[built.command.index("--output_base_dir") + 1] == str(built.run_dir / "outputs")
+    assert built.command[built.command.index("--recorder_dataset_export_dir_path") + 1] == str(explicit.parent)

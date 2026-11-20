@@ -40,7 +40,9 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / "workflows"
 SCENE_MANIFESTS = ROOT / "arena" / "i4h_arena" / "scenes" / "manifest"
 ARENA_PYTHON = ROOT / "arena" / ".venv" / "bin" / "python"
-ISAACLAB = next(iter(sorted(ROOT.glob("third_party/IsaacLab-*/scripts/tools"))), ROOT / "third_party")
+from i4h_common.paths import package_source
+
+ISAACLAB = package_source("isaaclab-dev", ROOT) / "scripts/tools"
 REGISTRATION_CALLBACK = "isaaclab_arena.environments.isaaclab_interop.environment_registration_callback"
 PID_DIR = Path(os.environ.get("I4H_PID_DIR", ROOT / ".run" / "pids.d"))
 
@@ -213,6 +215,9 @@ class Plan:
     #: False for a mode whose episodes the scene's success term does not judge.
     judged: bool = True
     notes: list[str] = field(default_factory=list)
+    default_run_dir: bool = False
+    default_record: bool = False
+    patient_twin: Path | None = None
 
 
 def _caller_path(path: str) -> Path:
@@ -326,7 +331,17 @@ def plan(argv: list[str]) -> Plan:
         command, record = _isaaclab_tool(
             workflow, mode, spec, args, launcher, environment, record, run_dir, visible, cameras
         )
-        return Plan(workflow, mode, run_dir, [*command, *extra], env, record=record)
+        return Plan(
+            workflow,
+            mode,
+            run_dir,
+            [*command, *extra],
+            env,
+            record=record,
+            default_run_dir=args.run_dir is None,
+            default_record=not args.record,
+            patient_twin=_caller_path(args.patient_twin) if args.patient_twin else None,
+        )
 
     server = None
     port = None
@@ -402,6 +417,9 @@ def plan(argv: list[str]) -> Plan:
         args.episodes or 1,
         judged=spec.get("success_term", True),
         notes=notes,
+        default_run_dir=args.run_dir is None,
+        default_record=args.record == "",
+        patient_twin=_caller_path(args.patient_twin) if args.patient_twin else None,
     )
 
 
@@ -577,6 +595,91 @@ def _interrupt(_signum: int, _frame: Any) -> None:
     raise KeyboardInterrupt
 
 
+def _reserve_run_directory(plan: Plan) -> None:
+    original = plan.run_dir
+    if plan.default_run_dir:
+        original.parent.mkdir(parents=True, exist_ok=True)
+        index = 0
+        while True:
+            candidate = original if index == 0 else original.with_name(f"{original.name}_{index}")
+            try:
+                candidate.mkdir()
+                break
+            except FileExistsError:
+                index += 1
+        plan.run_dir = candidate
+        if plan.output_dir is not None:
+            plan.output_dir = candidate / plan.output_dir.relative_to(original)
+        if plan.record is not None and plan.default_record:
+            plan.record = candidate / plan.record.relative_to(original)
+        # Rewrite only the owning options: an explicit recording may itself live
+        # under the original output directory and must retain that exact path.
+        replacements = {"--output_base_dir": str(plan.output_dir)}
+        if plan.default_record and plan.record is not None:
+            replacements.update(
+                {
+                    "--recorder_dataset_export_dir_path": str(plan.record.parent),
+                    "--dataset_file": str(plan.record),
+                }
+            )
+        for option, value in replacements.items():
+            if option in plan.command:
+                plan.command[plan.command.index(option) + 1] = value
+        plan.default_run_dir = False
+    else:
+        plan.run_dir.mkdir(parents=True, exist_ok=True)
+
+
+def _write_recording_metadata(plan: Plan) -> None:
+    """Publish provenance beside the actual recording, before any child can append.
+
+    Serialize writers with a directory lock; os.replace publishes complete JSON.
+    """
+    if plan.record is None:
+        return
+    import fcntl
+    import tempfile
+
+    parent = plan.record.parent
+    parent.mkdir(parents=True, exist_ok=True)
+    metadata = parent / "run.json"
+    with (parent / ".run-metadata.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        patient = str(plan.patient_twin) if plan.patient_twin else None
+        patient_hash = None
+        if plan.patient_twin is not None:
+            import hashlib
+
+            if not plan.patient_twin.is_file():
+                raise UsageError(f"patient-twin manifest is missing: {plan.patient_twin}")
+            patient_hash = hashlib.sha256(plan.patient_twin.read_bytes()).hexdigest()
+        existing = _json(metadata) if metadata.exists() else {}
+        if metadata.exists() and (
+            existing.get("patient_twin") != patient or existing.get("patient_twin_sha256", patient_hash) != patient_hash
+        ):
+            raise UsageError(f"{metadata}: conflicting patient_twin anatomy provenance")
+        payload = {
+            **existing,
+            "workflow": plan.workflow.name,
+            "mode": plan.mode,
+            "patient_twin": patient,
+            "patient_twin_sha256": patient_hash,
+            "recording": str(plan.record),
+            "run_dir": str(plan.run_dir),
+        }
+        with tempfile.NamedTemporaryFile(mode="w", dir=parent, delete=False) as stream:
+            temporary = Path(stream.name)
+            try:
+                json.dump(payload, stream, indent=2)
+                stream.write("\n")
+                stream.flush()
+                os.fsync(stream.fileno())
+            except BaseException:
+                temporary.unlink(missing_ok=True)
+                raise
+        temporary.replace(metadata)
+
+
 def run(plan: Plan) -> int:
     # stop.sh and a plain kill end the run the way Ctrl+C does, so its processes stop too.
     signal.signal(signal.SIGTERM, _interrupt)
@@ -584,7 +687,12 @@ def run(plan: Plan) -> int:
     # the simulator, which then could not be stopped the quick way. Children start with this
     # process's handlers reset, which takes an ignored SIGINT back to the default.
     signal.signal(signal.SIGINT, signal.default_int_handler)
-    plan.run_dir.mkdir(parents=True, exist_ok=True)
+    if not Path(plan.command[0]).is_file():
+        raise UsageError(f"missing Arena environment: {plan.command[0]}; run ./setup.sh")
+    if plan.mode in ("teleop", "replay") and not Path(plan.command[1]).is_file():
+        raise UsageError(f"missing pinned Isaac Lab tool: {plan.command[1]}; run ./setup.sh")
+    _reserve_run_directory(plan)
+    _write_recording_metadata(plan)
     print(f"==> run dir {plan.run_dir}", flush=True)
     for note in plan.notes:
         print(f"==> {note}", flush=True)
@@ -592,7 +700,7 @@ def run(plan: Plan) -> int:
         plan.record.parent.mkdir(parents=True, exist_ok=True)
         print(f"==> recording {plan.record}", flush=True)
     _decline_telemetry()
-    env = _arena_env(plan.env)
+    env = _arena_env({**plan.env, "I4H_RUN_DIR": str(plan.run_dir)})
     PID_DIR.mkdir(parents=True, exist_ok=True)
     pid_file = PID_DIR / f"{plan.workflow.name}.{os.getpid()}"
     pids: list[int] = []

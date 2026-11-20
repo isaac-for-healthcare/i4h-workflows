@@ -322,7 +322,10 @@ def _resolve_patient_twin(source: Path, explicit: Path | None) -> Path:
             f"{source}: this descriptor derives its trailing state columns from the patient twin, and "
             f"there is no run.json beside the recording to name one. Pass --patient-twin."
         )
-    recorded = (json.loads(run_json.read_text()) or {}).get("patient_twin")
+    metadata = json.loads(run_json.read_text()) or {}
+    if metadata.get("recording") and Path(metadata["recording"]).resolve() != source.resolve():
+        raise ValueError(f"{run_json}: conflicting recording provenance for {source}. Pass --patient-twin.")
+    recorded = metadata.get("patient_twin")
     if not recorded:
         raise ValueError(
             f"{run_json}: no patient_twin entry, so the route these columns are measured against is "
@@ -334,6 +337,11 @@ def _resolve_patient_twin(source: Path, explicit: Path | None) -> Path:
             f"{run_json}: records patient_twin {resolved}, which no longer exists. Pass --patient-twin "
             f"to point at where it moved to."
         )
+    if metadata.get("patient_twin_sha256"):
+        import hashlib
+
+        if hashlib.sha256(resolved.read_bytes()).hexdigest() != metadata["patient_twin_sha256"]:
+            raise ValueError(f"{run_json}: conflicting patient anatomy provenance. Pass --patient-twin.")
     return resolved
 
 

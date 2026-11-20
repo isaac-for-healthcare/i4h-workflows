@@ -7,6 +7,7 @@ from __future__ import annotations
 import copy
 
 from i4h_isaaclab.manager import I4H_ROOT, I4hActionTermCfg, I4hHostMixin, configure_physics
+from isaaclab.managers import RecorderTerm, RecorderTermCfg
 from isaaclab.utils import configclass
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -30,12 +31,53 @@ class ActionsCfg:
     catheter = I4hActionTermCfg(mode="normalized")
 
 
+class AortaDiagnosticsRecorder(RecorderTerm):
+    def record_pre_step(self):
+        import torch
+
+        from i4h_arena.scenes.endoluminal_aorta_fluoroscopy import AortaStateProvider
+
+        provider = AortaStateProvider(self._env)
+        points = provider.points()
+        return "diagnostics", {
+            "root_world_m": torch.from_numpy(points[:, 0]),
+            "tip_world_m": torch.from_numpy(points[:, -1]),
+            "command_targets": torch.from_numpy(provider.targets()),
+        }
+
+
+@configclass
+class AortaRecorderTermsCfg:
+    record_aorta_diagnostics: RecorderTermCfg = RecorderTermCfg(class_type=AortaDiagnosticsRecorder)
+
+
+def aorta_recorders():
+    from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
+    from isaaclab_arena.utils.configclass import combine_configclass_instances
+
+    from i4h_arena.embodiments.recorders import action_state_recorders
+    from i4h_arena.medical.catheter_recording import FluoroscopyFrameRecorder
+
+    @configclass
+    class FrameTerms:
+        record_fluoroscopy_frames: RecorderTermCfg = RecorderTermCfg(class_type=FluoroscopyFrameRecorder)
+
+    base = action_state_recorders()
+    base.record_pre_step_flat_policy_observations = None
+    return combine_configclass_instances(
+        "AortaRecorderCfg", base, AortaRecorderTermsCfg(), FrameTerms(), bases=(RecorderManagerBaseCfg,)
+    )
+
+
 class NumericalCatheterEmbodiment(EmbodimentBase):
     registry_name = "numerical_catheter"
 
     def __init__(self):
         super().__init__()
         self.action_config = ActionsCfg()
+
+    def get_recorder_term_cfg(self, record_trajectories=False):
+        return aorta_recorders()
 
 
 class AortaDiagnosticTask(NoTask):

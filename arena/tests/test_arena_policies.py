@@ -262,3 +262,13 @@ def test_hold_holds_a_blank_scene_with_no_action_terms() -> None:
     env.unwrapped = env
 
     assert HoldPolicy(HoldPolicyCfg()).get_action(env, None).shape == (2, 0)
+
+
+def test_metrics_and_simulator_logs_follow_the_reserved_run_directory(monkeypatch, tmp_path):
+    monkeypatch.setenv("I4H_RUN_DIR", str(tmp_path))
+    evaluation = _configured_env_cfg(monkeypatch)
+    assert evaluation.sim.log_dir == str(tmp_path / "simulator_logs")
+    assert evaluation.recorders.dataset_export_dir_path == str(tmp_path / "metrics")
+    assert evaluation.recorders.record_pre_step_flat_policy_observations is None
+    dataset = _configured_env_cfg(monkeypatch, recorder_dataset_export_dir_path="/explicit/recording")
+    assert not hasattr(dataset.recorders, "dataset_export_dir_path")

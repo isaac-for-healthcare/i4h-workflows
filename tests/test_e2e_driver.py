@@ -98,6 +98,9 @@ def test_validation_serves_the_finetuned_checkpoint_headless(tmp_path) -> None:
 
 def test_replay_uses_isaac_lab_with_the_same_environment(tmp_path) -> None:
     replay = _run_sh(_dry_run(tmp_path, "ultrasound_liver_scan"), "--replay")
+    recording = Path(_option(replay, "--replay"))
+    recording.parent.mkdir(parents=True, exist_ok=True)
+    recording.touch()
     command = run_workflow.plan(replay).command
 
     assert _option(replay, "--replay") == str(tmp_path / "run/data/filtered.hdf5")

@@ -6,12 +6,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -117,6 +119,7 @@ class WorkflowSmoke:
 
     workflow: str
     mode: str
+    scored: bool = True
 
 
 GPU_SMOKES = (
@@ -126,7 +129,7 @@ GPU_SMOKES = (
     WorkflowSmoke("assemble_trocar", "policy"),
     WorkflowSmoke("ultrasound_liver_scan", "rule-based"),
     WorkflowSmoke("scissor_pick_and_place", "rule-based"),
-    WorkflowSmoke("endoluminal_navigation", "demo"),
+    WorkflowSmoke("endoluminal_navigation", "demo", scored=False),
 )
 
 
@@ -200,7 +203,9 @@ def _finish_coverage(timeout: int) -> bool:
 
 def _run_workflow_smoke(smoke: WorkflowSmoke, timeout: int) -> bool:
     print(f"\n==> [gpu] {smoke.workflow} {smoke.mode}", flush=True)
-    run_dir = Path(tempfile.mkdtemp(prefix=f"i4h-smoke-{smoke.workflow}-"))
+    parent = ROOT / "runs" / smoke.workflow
+    parent.mkdir(parents=True, exist_ok=True)
+    run_dir = Path(tempfile.mkdtemp(prefix=datetime.now().strftime("%Y%m%d_%H%M%S_"), dir=parent))
     argv = [
         str(ROOT / "run.sh"),
         smoke.workflow,
@@ -237,7 +242,38 @@ def _run_workflow_smoke(smoke: WorkflowSmoke, timeout: int) -> bool:
     if not recording.is_file():
         print(f"!! rollout recording is missing: {recording}", file=sys.stderr)
         return False
-    return True
+    return _verify_smoke_recording(recording, results, scored=smoke.scored)
+
+
+def _verify_smoke_recording(recording: Path, results: list[Path], *, scored: bool) -> bool:
+    import h5py
+    import numpy as np
+
+    from i4h_common.episode import episodes
+
+    try:
+        completed = [json.loads(line) for path in results for line in path.read_text().splitlines() if line.strip()]
+        with h5py.File(recording, "r") as handle:
+            demos = list(episodes(handle))
+            if not demos or len(demos) != len(completed):
+                raise ValueError("recorded and completed episode counts differ or are empty")
+            for demo, result in zip(demos, completed, strict=True):
+                actions = demo.actions
+                if actions.ndim != 2 or 0 in actions.shape or not np.isfinite(actions).all():
+                    raise ValueError(f"{demo.name}: actions must be nonempty finite two-dimensional data")
+                demo.validate()
+                if (
+                    "success" not in result
+                    or "success" not in demo.group.attrs
+                    or demo.success != (False if result["success"] is None and not scored else result["success"])
+                ):
+                    raise ValueError(f"{demo.name}: recording and episode result success disagree")
+                if scored and result.get("success") is not True:
+                    raise ValueError(f"{demo.name}: scored smoke did not succeed")
+        return True
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print(f"!! invalid smoke recording: {error}", file=sys.stderr)
+        return False
 
 
 def main() -> int:

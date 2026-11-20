@@ -102,9 +102,7 @@ class CatheterNavigationTask(TaskBase):
             config.policy.concatenate_terms = True
         return config
 
-    def get_events_cfg(self) -> CatheterNavigationEventsCfg | None:
-        if self.target_world_m is None:
-            return None
+    def get_events_cfg(self) -> CatheterNavigationEventsCfg:
         return CatheterNavigationEventsCfg()
 
     def get_rewards_cfg(self) -> CatheterNavigationRewardsCfg | None:

@@ -23,6 +23,7 @@ from isaaclab.managers import (
 )
 from isaaclab.utils.configclass import configclass
 
+from i4h_arena.medical.fluoroscopy_sources import initialize_fluoroscopy_sources
 from i4h_arena.medical.navigation_goal import (
     ARRIVAL_HOLD_STEPS,
     reached_navigation_target,
@@ -72,6 +73,7 @@ class CatheterNavigationTerminationsCfg:
 
 @configclass
 class CatheterNavigationEventsCfg:
+    bind_fluoroscopy = EventTermCfg(func=initialize_fluoroscopy_sources, mode="reset")
     reset_arrival_progress = EventTermCfg(func=reset_arrival_progress, mode="reset")
     # Route progress is differenced across a step, so it must forget the
     # previous episode or the reset itself would be scored as a move.

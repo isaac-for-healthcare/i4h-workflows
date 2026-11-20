@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import h5py
+import numpy as np
 import pytest
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "run_tests.py"
@@ -51,7 +53,12 @@ class _FakeRun:
             run_dir = Path(self.argv[self.argv.index("--run-dir") + 1])
             (run_dir / "outputs" / "run").mkdir(parents=True)
             (run_dir / "outputs" / "run" / "episode_results_rank0.jsonl").write_text(f'{{"success": {self.success}}}\n')
-            Path(self.argv[self.argv.index("--record") + 1]).touch()
+            with h5py.File(self.argv[self.argv.index("--record") + 1], "w") as handle:
+                handle.attrs["format_version"] = 1
+                demo = handle.create_group("data/demo_0")
+                demo.attrs["success"] = self.success == "true"
+                demo.attrs["num_samples"] = 2
+                demo.create_dataset("actions", data=np.zeros((2, 3)))
         return 0
 
     def terminate(self) -> None:
@@ -65,7 +72,7 @@ def _smoke(workflow: str):
 def test_a_workflow_smoke_records_one_headless_episode_through_run_sh(tmp_path, monkeypatch) -> None:
     calls: list[list[str]] = []
     monkeypatch.setattr(run_tests.subprocess, "Popen", _FakeRun(calls))
-    monkeypatch.setattr(run_tests.tempfile, "mkdtemp", lambda prefix: str(tmp_path))
+    monkeypatch.setattr(run_tests.tempfile, "mkdtemp", lambda **kwargs: str(tmp_path))
 
     assert run_tests._run_workflow_smoke(_smoke("assemble_trocar"), timeout=30)
     command = calls[0]
@@ -77,7 +84,7 @@ def test_a_workflow_smoke_records_one_headless_episode_through_run_sh(tmp_path, 
 
 def test_a_workflow_smoke_requires_an_episode_result(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(run_tests.subprocess, "Popen", _FakeRun([], success=None))
-    monkeypatch.setattr(run_tests.tempfile, "mkdtemp", lambda prefix: str(tmp_path))
+    monkeypatch.setattr(run_tests.tempfile, "mkdtemp", lambda **kwargs: str(tmp_path))
 
     assert not run_tests._run_workflow_smoke(_smoke("surgical_lift_needle"), timeout=30)
 
@@ -85,7 +92,7 @@ def test_a_workflow_smoke_requires_an_episode_result(tmp_path, monkeypatch) -> N
 def test_a_workflow_smoke_that_hangs_is_stopped_like_ctrl_c(tmp_path, monkeypatch) -> None:
     calls: list[list[str]] = []
     monkeypatch.setattr(run_tests.subprocess, "Popen", _FakeRun(calls, hang=True))
-    monkeypatch.setattr(run_tests.tempfile, "mkdtemp", lambda prefix: str(tmp_path))
+    monkeypatch.setattr(run_tests.tempfile, "mkdtemp", lambda **kwargs: str(tmp_path))
 
     assert not run_tests._run_workflow_smoke(_smoke("surgical_reach_psm"), timeout=30)
     assert calls[-1] == ["terminate"]
@@ -168,3 +175,56 @@ def test_dependency_pin_smoke_failure_is_not_skipped(monkeypatch, suite):
     assert len(calls) == 1
     assert "scripts/validate_dependency_pins.py" in calls[0][0]
     assert calls[0][1]["timeout"] == 90
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "corrupt",
+        "empty",
+        "missing-actions",
+        "nonfinite",
+        "one-dimensional",
+        "zero-channels",
+        "scalar",
+        "unsuccessful",
+        "mismatched",
+        "extra-result",
+    ],
+)
+def test_smoke_rejects_invalid_native_recordings(tmp_path, defect):
+    recording = tmp_path / "verify.hdf5"
+    results = tmp_path / "results.jsonl"
+    results.write_text('{"success": true}\n')
+    if defect == "corrupt":
+        recording.write_bytes(b"not hdf5")
+    else:
+        with h5py.File(recording, "w") as handle:
+            data = handle.create_group("data")
+            if defect != "empty":
+                demo = data.create_group("demo_0")
+                demo.attrs["success"] = defect not in ("unsuccessful", "mismatched")
+                if defect != "missing-actions":
+                    values = np.zeros((2, 3))
+                    if defect == "nonfinite":
+                        values[0, 0] = np.nan
+                    elif defect == "one-dimensional":
+                        values = np.zeros(2)
+                    elif defect == "scalar":
+                        values = np.zeros(())
+                    elif defect == "zero-channels":
+                        values = np.zeros((2, 0))
+                    demo.create_dataset("actions", data=values)
+    if defect == "unsuccessful":
+        results.write_text('{"success": false}\n')
+    if defect == "extra-result":
+        results.write_text('{"success": true}\n' * 2)
+    assert not run_tests._verify_smoke_recording(recording, [results], scored=True)
+
+
+def test_unscored_smoke_accepts_completed_unsuccessful_episode(tmp_path):
+    fake = _FakeRun([], success="false")
+    fake(["--run-dir", str(tmp_path), "--record", str(tmp_path / "verify.hdf5")]).wait()
+    assert run_tests._verify_smoke_recording(
+        tmp_path / "verify.hdf5", [tmp_path / "outputs/run/episode_results_rank0.jsonl"], scored=False
+    )

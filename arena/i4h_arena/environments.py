@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import argparse
 import copy
+import os
+from pathlib import Path
 from typing import Any
 
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
@@ -35,6 +37,7 @@ OBSERVATION_RECORDER_TERMS = (
     "record_fluoroscopy_frames",
     "record_joint_pos",
     "record_i4h_initial",
+    "record_aorta_diagnostics",
 )
 
 
@@ -74,6 +77,11 @@ class SceneEnvironment(ExampleEnvironmentBase):
                 # tasks do; otherwise the first frames after a reset show the previous episode.
                 env_cfg.num_rerenders_on_reset = max(env_cfg.num_rerenders_on_reset, 3)
             recorders = getattr(env_cfg, "recorders", None)
+            run_directory = os.environ.get("I4H_RUN_DIR")
+            if run_directory:
+                env_cfg.sim.log_dir = str(Path(run_directory) / "simulator_logs")
+                if recorders is not None and getattr(args_cli, "recorder_dataset_export_dir_path", None) is None:
+                    recorders.dataset_export_dir_path = str(Path(run_directory) / "metrics")
             if getattr(env_cfg, "events", None) is not None:
                 from isaaclab.managers import EventTermCfg  # noqa: PLC0415
 

@@ -78,3 +78,8 @@ def _scene_data_carm_provider(env: Any, detector_size_m: tuple[float, float]) ->
             exc_info=True,
         )
         return None
+
+
+def initialize_fluoroscopy_sources(env: Any, env_ids) -> None:
+    """Reset lifecycle hook, independent of panels and observation selection."""
+    bind_fluoroscopy_sources(env)

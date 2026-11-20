@@ -11,6 +11,7 @@ many columns there are and what they are called.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -105,3 +106,58 @@ def test_a_twin_that_moved_is_reported_as_moved(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="no longer exists"):
         _resolve_patient_twin(recording, None)
+
+
+def test_launcher_sidecar_for_external_recording_is_automatically_resolved(tmp_path):
+    import importlib.util
+    import sys
+
+    root = Path(__file__).resolve().parents[3]
+    spec = importlib.util.spec_from_file_location("provenance_launcher", root / "scripts/run_workflow.py")
+    launcher = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = launcher
+    spec.loader.exec_module(launcher)
+    twin = tmp_path / "patient.yaml"
+    twin.write_text("patient_id: test\n")
+    recording = tmp_path / "external/recording.hdf5"
+    built = launcher.plan(
+        [
+            "endoluminal_navigation",
+            "--mode",
+            "demo",
+            "--record",
+            str(recording),
+            "--patient-twin",
+            str(twin),
+            "--run-dir",
+            str(tmp_path / "run"),
+        ]
+    )
+    launcher._write_recording_metadata(built)
+    assert _resolve_patient_twin(recording, None) == twin
+    override = tmp_path / "override.yaml"
+    override.touch()
+    assert _resolve_patient_twin(recording, override) == override
+    with pytest.raises(ValueError, match="conflicting recording provenance"):
+        _resolve_patient_twin(recording.with_name("other.hdf5"), None)
+
+
+def test_changed_patient_anatomy_requires_explicit_override(tmp_path):
+    import hashlib
+
+    recording = tmp_path / "recording.hdf5"
+    twin = tmp_path / "patient.yaml"
+    twin.write_text("first anatomy")
+    (tmp_path / "run.json").write_text(
+        json.dumps(
+            {
+                "patient_twin": str(twin),
+                "recording": str(recording),
+                "patient_twin_sha256": hashlib.sha256(twin.read_bytes()).hexdigest(),
+            }
+        )
+    )
+    twin.write_text("different anatomy")
+    with pytest.raises(ValueError, match="conflicting patient anatomy provenance"):
+        _resolve_patient_twin(recording, None)
+    assert _resolve_patient_twin(recording, twin) == twin
