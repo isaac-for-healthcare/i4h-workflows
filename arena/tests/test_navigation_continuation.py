@@ -41,7 +41,11 @@ def test_host_caches_are_flushed_before_selected_numerical_restore(monkeypatch):
 
     value = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
     calls = []
-    sensor = SimpleNamespace(_is_outdated=wp.array([False, False], dtype=wp.bool, device="cpu"), _data_dirty=True)
+    sensor = SimpleNamespace(
+        display_revision=np.array([3, 7]),
+        _is_outdated=wp.array([False, False], dtype=wp.bool, device="cpu"),
+        _data_dirty=True,
+    )
     catheter = SimpleNamespace(_refresh_positions=lambda: calls.append("refresh"))
     drive = SimpleNamespace(_tip_bend_angle=torch.zeros(2), _write_pose=lambda: calls.append("pose"))
 
@@ -76,6 +80,7 @@ def test_host_caches_are_flushed_before_selected_numerical_restore(monkeypatch):
     continuation.restore(env, bundle, [1])
     assert calls == ["forward", "pose", "numerical", "refresh"]
     assert not sensor._data_dirty
+    assert sensor.display_revision.tolist() == [3, 8]
     torch.testing.assert_close(value[0], torch.tensor([1.0, 2.0]))
 
 
@@ -88,3 +93,18 @@ def test_changed_sensor_configuration_is_checked_after_source_hash_is_cached(mon
     assert not np.array_equal(initial, continuation.configuration_identity(env))
     settings["dsa_gamma"] = 1.0
     np.testing.assert_array_equal(initial, continuation.configuration_identity(env))
+
+
+def test_renderer_execution_device_can_be_overridden_without_ignoring_image_settings(monkeypatch):
+    settings = {"backend": "slang", "slang_device_type": "cuda", "dsa_gamma": 1.0}
+    env = SimpleNamespace(scene={"fluoroscopy": SimpleNamespace(cfg=SimpleNamespace(to_dict=lambda: settings))})
+    monkeypatch.setattr(continuation, "_source_identity", lambda env: np.array([1, 2, 3], np.uint8))
+    initial = continuation.configuration_identity(env)
+    assert settings["slang_device_type"] == "cuda"
+    settings["slang_device_type"] = "vulkan"
+    np.testing.assert_array_equal(initial, continuation.configuration_identity(env))
+    settings["dsa_gamma"] = 1.5
+    assert not np.array_equal(initial, continuation.configuration_identity(env))
+    settings["dsa_gamma"] = 1.0
+    monkeypatch.setattr(continuation, "_source_identity", lambda env: np.array([1, 2, 4], np.uint8))
+    assert not np.array_equal(initial, continuation.configuration_identity(env))

@@ -35,13 +35,28 @@ def bind_fluoroscopy_sources(env: Any) -> None:
             tip_source=catheter if follow_tip_enabled() else None,
         )
     else:
-        carm_provider = _scene_data_carm_provider(env, detector_size_m) or SceneCArmStateProvider(
+        raw_provider = _scene_data_carm_provider(env, detector_size_m) or SceneCArmStateProvider(
             _frame_view(env, "xray_source"),
             _frame_view(env, "detector"),
             detector_size_m=detector_size_m,
         )
+        carm_provider = OrbitCArmStateProvider(raw_provider, env.action_manager.get_term("carm_orbit"))
     fluoroscopy.bind_catheter_provider(catheter)
     fluoroscopy.bind_carm_provider(carm_provider)
+
+
+class OrbitCArmStateProvider:
+    """Keep raw pose calculations and delegate preset selection to the orbit action."""
+
+    def __init__(self, provider: Any, orbit_action: Any) -> None:
+        self._provider = provider
+        self._orbit_action = orbit_action
+
+    def snapshot(self, num_envs: int):
+        return self._provider.snapshot(num_envs)
+
+    def select_angle(self, angle_rad: float) -> float:
+        return float(self._orbit_action.set_orbit_angle(angle_rad))
 
 
 def _frame_view(env: Any, name: str) -> Any:

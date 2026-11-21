@@ -18,7 +18,7 @@ metadata:
 
 ## Purpose
 
-Drive a workflow's IsaacLab-Arena environment with a human-input device through `./run.sh <workflow> --teleop`, which runs Isaac Lab's `record_demos.py`. It writes each demonstration that reaches the environment's success termination to an Isaac Lab HDF5 dataset.
+Drive a workflow's IsaacLab-Arena environment with a human-input device through `./run.sh <workflow> --teleop --record`, which runs Isaac Lab's `record_demos.py`. It writes each demonstration that reaches the environment's success termination to an Isaac Lab HDF5 dataset.
 
 ## Instructions
 
@@ -63,10 +63,10 @@ The tablecloth workflows declare Isaac Teleop (`xr: true`) and take no device. A
 
 ```bash
 RUN_DIR="$PWD/runs/<workflow>/$(date +%Y%m%d_%H%M%S)"
-./run.sh <workflow> --teleop <device> --episodes <N> --run-dir "$RUN_DIR"
+./run.sh <workflow> --teleop <device> --episodes <N> --record --run-dir "$RUN_DIR"
 ```
 
-The demonstrations go to `$RUN_DIR/teleop.hdf5`; `--record <path>.hdf5` chooses another file. `run.sh` enables cameras when the scene declares them; the endoluminal scenes record fluoroscopy without them. Teleop requires a visible session, so `run.sh` refuses `--headless`. `--episodes` counts saved demos; without it the session records until it is stopped. Use a new run directory for each session, because the recorder creates the dataset file afresh.
+The demonstrations go to `$RUN_DIR/demos.hdf5`; `--record <path>.hdf5` chooses another file. `run.sh` enables cameras when the scene declares them; the endoluminal scenes record fluoroscopy without them. Teleop requires a visible session, so `run.sh` refuses `--headless`. Plain `--teleop` disables dataset capture; this recording skill always adds `--record`. `--episodes` counts successful episodes independently of exports; without it the session stays open until stopped. Use a new run directory for each session, because the recorder creates the dataset file afresh.
 
 Keep the session visible and in the foreground. If the agent shell must yield, start it in the background with its output in `$RUN_DIR/record.log` and wait on its PID. Stop a foreground session with Ctrl+C and a background one with `./stop.sh <workflow>`, never by tool or module name.
 
@@ -77,8 +77,8 @@ Keep the session visible and in the foreground. If the agent shell must yield, s
 Require `Recording session completed with <N> successful demonstrations` and `Demonstrations saved to: <path>`. Then inspect content:
 
 ```bash
-uv run --project tools/dataset i4h-dataset inspect "$RUN_DIR/teleop.hdf5"
-uv run --project tools/dataset i4h-dataset actions "$RUN_DIR/teleop.hdf5"
+uv run --project tools/dataset i4h-dataset inspect "$RUN_DIR/demos.hdf5"
+uv run --project tools/dataset i4h-dataset actions "$RUN_DIR/demos.hdf5"
 ```
 
 Each `data/demo_N` holds Isaac Lab's `actions`, `processed_actions`, `states`, `initial_state`, and the pre-step observations under `obs/` (camera frames as `obs/<camera>`), plus the scene's own terms such as the endoluminal `obs/joint_pos`, `obs/fluoroscopy`, and `diagnostics/`. Visually confirm that the operator completes the task, robot motion follows the device, and every expected camera records it. Treat zero saved demos, a missing camera, or absent action motion as failure.
@@ -97,7 +97,7 @@ Require `./setup.sh` to have built `common/.venv` and `arena/.venv`, a display f
 
 ## Examples
 
-- `Record 5 keyboard teleop demonstrations for locomanip tray pick and place.` → run `./run.sh locomanip_tray_pick_and_place --teleop keyboard_23d --episodes 5` with a fresh run directory, which runs `record_demos.py` on `G1Tray`/`g1_tray` with `--embodiment g1_locomanip_wbc_pink`; require a human operator and inspect the saved demos.
+- `Record 5 keyboard teleop demonstrations for locomanip tray pick and place.` → run `./run.sh locomanip_tray_pick_and_place --teleop keyboard_23d --episodes 5 --record` with a fresh run directory, which runs `record_demos.py` on `G1Tray`/`g1_tray` with `--embodiment g1_locomanip_wbc_pink`; require a human operator and inspect the saved demos.
 
 ## Completion gate
 

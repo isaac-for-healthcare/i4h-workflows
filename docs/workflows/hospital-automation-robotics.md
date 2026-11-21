@@ -59,10 +59,10 @@ The GR00T N1.7 checkpoint, `nvidia/SO_ARM_Starter_Gr00tN17`, runs on GR00T 1.7's
 ./run.sh scissor_pick_and_place --mode policy_n17 --episodes 3
 ```
 
-Teleoperate the arm and record successful demonstrations with Isaac Lab's `record_demos.py`. With `--teleop keyboard`, `W/S/A/D/Q/E/Z/X/T/G` step the five arm joints and `K` toggles the jaw; with `--teleop so101_leader -- --leader_port /dev/ttyACM1`, the arm mirrors an SO-ARM 101 leader arm:
+Teleoperate the arm with capture enabled and record successful demonstrations with Isaac Lab's `record_demos.py`. With `--teleop keyboard`, `W/S/A/D/Q/E/Z/X/T/G` step the five arm joints and `K` toggles the jaw; with `--teleop so101_leader -- --leader_port /dev/ttyACM1`, the arm mirrors an SO-ARM 101 leader arm:
 
 ```bash
-./run.sh scissor_pick_and_place --teleop keyboard --episodes 1
+./run.sh scissor_pick_and_place --teleop keyboard --episodes 1 --record
 ```
 
 Replay a recording with `./run.sh scissor_pick_and_place --replay <recording>`, which runs Isaac Lab's `replay_demos.py`. [`scripts/e2e/run.sh`](../../scripts/e2e/run.sh) runs the data-to-policy loop on this environment: record N1.5 episodes, augment, grade, replay, convert to LeRobot, finetune, and validate the finetuned checkpoint.
@@ -84,10 +84,10 @@ GR00T runs in its own environment with GR00T's server, `run_gr00t_server.py`, wh
 
 The tray works the same way: `./run.sh locomanip_tray_pick_and_place --policy`. Each episode ends on the task's success term or after 1,800 (cart) or 1,500 (tray) steps.
 
-Teleoperate the G1 with the keyboard and record successful demonstrations with Isaac Lab's `record_demos.py`. The teleop mode uses the Pink IK embodiment, which takes the 23-value whole-body command the keyboard produces (`0` both hands, `1`/`2` one hand, `3` walking, `4` torso, `5` height; `W/S/A/D/Q/E` move, `K/J` close and open the hands, `R` resets):
+Plain `--teleop` runs without dataset capture; add `--record [PATH]` to save successful demonstrations. Teleoperate the G1 with the keyboard and record successful demonstrations with Isaac Lab's `record_demos.py`. The teleop mode uses the Pink IK embodiment, which takes the 23-value whole-body command the keyboard produces (`0` both hands, `1`/`2` one hand, `3` walking, `4` torso, `5` height; `W/S/A/D/Q/E` move, `K/J` close and open the hands, `R` resets):
 
 ```bash
-./run.sh locomanip_push_cart --teleop --episodes 1
+./run.sh locomanip_push_cart --teleop --episodes 1 --record
 ```
 
 Replay a recording from its recorded initial state with the embodiment it was recorded with; the keyboard's Pink embodiment and the policy's joint embodiment take different actions. Options after `--` go to Isaac Lab's `replay_demos.py`:

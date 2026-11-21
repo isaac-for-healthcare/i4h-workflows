@@ -79,12 +79,14 @@ def _refresh(_event: Any) -> None:
         return
     try:
         if _view is not None and env.common_step_counter != _last_env_step:
-            # The view caches what it reads within a step; a new step makes it stale.
+            # Poll lazy sensors once per step; retain images whose revision is unchanged.
             _last_env_step = env.common_step_counter
-            _view.invalidate()
+            _view.invalidate(force=False)
         step = int(env.episode_length_buf[0])
         reset = _last_episode_step is not None and step < _last_episode_step
         _last_episode_step = step
+        if reset and _view is not None:
+            _view.invalidate()
         for window in _windows:
             if reset:
                 window.on_scene_reset()

@@ -14,6 +14,7 @@ PROVENANCE_KEYS = (
     "continuation_schema_version",
     "patient_twin",
     "patient_twin_sha256",
+    "fluoro_device",
 )
 
 

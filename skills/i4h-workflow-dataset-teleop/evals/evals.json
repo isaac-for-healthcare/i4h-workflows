@@ -3,11 +3,11 @@
     "id": "i4h-workflow-dataset-teleop-g1-keyboard-five",
     "question": "Record 5 keyboard teleop demonstrations for locomanip tray pick and place.",
     "expected_skill": "i4h-workflow-dataset-teleop",
-    "ground_truth": "This G1 teleop prompt runs ./run.sh locomanip_tray_pick_and_place --teleop keyboard_23d --episodes 5 with a fresh run directory: Isaac Lab's record_demos.py through the Arena registration callback on G1Tray (g1_tray) with the workflow's --embodiment g1_locomanip_wbc_pink, cameras, and a visible viewport, writing the dataset under runs/locomanip_tray_pick_and_place/<timestamp>/, with a human operator driving.",
+    "ground_truth": "This G1 teleop prompt runs ./run.sh locomanip_tray_pick_and_place --teleop keyboard_23d --episodes 5 --record with a fresh run directory: Isaac Lab's record_demos.py through the Arena registration callback on G1Tray (g1_tray) with the workflow's --embodiment g1_locomanip_wbc_pink, cameras, and a visible viewport, writing the dataset under runs/locomanip_tray_pick_and_place/<timestamp>/, with a human operator driving.",
     "expected_behavior": [
       "routes to i4h-workflow-dataset-teleop",
       "maps the prompt to the locomanip_tray_pick_and_place workflow and its environment G1Tray, scene g1_tray",
-      "runs ./run.sh locomanip_tray_pick_and_place --teleop keyboard_23d --episodes 5",
+      "runs ./run.sh locomanip_tray_pick_and_place --teleop keyboard_23d --episodes 5 --record",
       "relies on the workflow declaration for --embodiment g1_locomanip_wbc_pink, which keyboard_23d needs",
       "keeps the simulator visible and does not pass --headless, and requires a human operator",
       "records into a new runs/<workflow>/<timestamp>/ directory",
@@ -19,11 +19,11 @@
     "id": "i4h-workflow-dataset-teleop-table-keyboard-five",
     "question": "Record 5 keyboard teleop demos for the scissor pick-and-place task.",
     "expected_skill": "i4h-workflow-dataset-teleop",
-    "ground_truth": "This prompt records five scissor_pick_and_place keyboard demonstrations with ./run.sh scissor_pick_and_place --teleop keyboard --episodes 5, which runs Isaac Lab's record_demos.py on SoarmScissors (soarm_scissors) with cameras and a visible viewport.",
+    "ground_truth": "This prompt records five scissor_pick_and_place keyboard demonstrations with ./run.sh scissor_pick_and_place --teleop keyboard --episodes 5 --record, which runs Isaac Lab's record_demos.py on SoarmScissors (soarm_scissors) with cameras and a visible viewport.",
     "expected_behavior": [
       "routes to i4h-workflow-dataset-teleop",
       "maps scissor pick-and-place to scissor_pick_and_place and its environment SoarmScissors, scene soarm_scissors",
-      "runs ./run.sh scissor_pick_and_place --teleop keyboard --episodes 5",
+      "runs ./run.sh scissor_pick_and_place --teleop keyboard --episodes 5 --record",
       "keeps the simulator visible and requires a human operator",
       "writes the demonstrations to an HDF5 file under runs/scissor_pick_and_place/<timestamp>/",
       "states that only demonstrations reaching the success term are saved"

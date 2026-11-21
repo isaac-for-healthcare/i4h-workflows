@@ -260,6 +260,8 @@ Run a workflow with `./run.sh <workflow>` and a mode. Every workflow runs as an 
 ./run.sh surgical_reach_psm --rule-based --presets newton
 ```
 
+Teleoperation with `--teleop` runs without dataset capture. Add `--record` to save successful demonstrations to `demos.hdf5` in the run directory, or `--record <path>.hdf5` to choose a file. `--episodes N` stops after N successful episodes with or without recording; otherwise teleop stays open until stopped.
+
 Each run writes its outputs, recordings and policy-server log to `runs/<workflow>/<timestamp>/` and prints how many episodes succeeded. A policy mode starts the checkpoint's server from its own environment, runs the episodes once the server listens, and stops it afterwards. Each episode ends on its environment's success term or after the step budget its workflow was validated with. `./run.sh show <workflow> [mode] [options]` prints the Arena or Isaac Lab commands a run would execute; [`workflows/<specialty>/<workflow>.yaml`](workflows/) declares them. Stop a run with Ctrl+C or by closing its window, or a background one with `./stop.sh <workflow>`; `./stop.sh` stops every run `run.sh` started in this checkout. Run `./run.sh --help` for every option.
 
 <!-- markdownlint-disable MD033 -->

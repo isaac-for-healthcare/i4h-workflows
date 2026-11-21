@@ -42,6 +42,7 @@ class EndoluminalNavigationScene(Scene):
 
     @classmethod
     def add_cli_args(cls, parser: Any) -> None:
+        parser.add_argument("--fluoro_device", choices=("cuda", "vulkan"), default=None)
         parser.add_argument("--catheter_backend", choices=("numerical", "legacy"), default="legacy")
         parser.add_argument(
             "--patient_twin",

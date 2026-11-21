@@ -39,7 +39,7 @@ Add `--record` to record the episodes into `demos.hdf5` in the run directory, or
 Drive the probe with the keyboard (`W/S/A/D/Q/E` move, `Z/X/T/G/C/V` rotate, `R` resets) and record successful demonstrations with Isaac Lab's `record_demos.py`:
 
 ```bash
-./run.sh ultrasound_liver_scan --teleop --episodes 1
+./run.sh ultrasound_liver_scan --teleop --episodes 1 --record
 ```
 
 Replay a recording with Isaac Lab's `replay_demos.py`, which runs without cameras (see [Hospital Automation Robotics](hospital-automation-robotics.md#g1-loco-manipulation)):

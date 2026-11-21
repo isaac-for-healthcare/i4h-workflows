@@ -74,7 +74,6 @@ RETIRED = {
     "--view-sensor": "a scene opens its sensor panels itself in a visible run",
     "--no-sensor-view": "a scene opens its sensor panels itself in a visible run",
     "--python-server": "use --live",
-    "--fluoro-device": "the endoluminal environments render fluoroscopy on Vulkan",
 }
 #: Subcommands of the earlier launcher, and what to do instead.
 RETIRED_COMMANDS = {
@@ -192,6 +191,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--patient-twin")
     parser.add_argument("--catheter-backend", choices=("numerical", "legacy"))
     parser.add_argument("--fluoro-backend")
+    parser.add_argument("--fluoro-device", choices=("auto", "cuda", "vulkan"))
     parser.add_argument("--hu-to-mu", choices=("interventional", "linear"))
     parser.add_argument("--cloudxr-env")
     parser.add_argument("--dry-run", action="store_true")
@@ -360,6 +360,17 @@ def plan(argv: list[str]) -> Plan:
     if args.hu_to_mu:
         environment += ["--hu_to_mu", args.hu_to_mu]
 
+    if workflow.scene in ("endoluminal_navigation", "endoluminal_navigation_arm"):
+        fluoro_device = args.fluoro_device
+        if mode == "replay" and fluoro_device is None:
+            fluoro_device = provenance.get("fluoro_device", "vulkan")
+        fluoro_device = fluoro_device or ("auto" if args.patient_twin else "vulkan")
+        if fluoro_device not in ("auto", "cuda", "vulkan"):
+            raise UsageError(f"unsupported recorded fluoroscopy device {fluoro_device!r}")
+        env["I4H_FLUORO_DEVICE_REQUEST"] = fluoro_device
+    elif args.fluoro_device is not None:
+        raise UsageError("--fluoro-device applies only to navigation workflows")
+
     if mode in ("teleop", "replay"):
         command, record = _isaaclab_tool(
             workflow, mode, spec, args, launcher, environment, record, run_dir, visible, cameras
@@ -491,8 +502,10 @@ def _isaaclab_tool(workflow, mode, spec, args, launcher, environment, record, ru
             command += ["--teleop_device", device]
         if cameras:
             command += ["--enable_cameras"]
-        record = record or run_dir / "teleop.hdf5"
-        command += ["--dataset_file", str(record)]
+        if record is None:
+            command += ["--no-record"]
+        else:
+            command += ["--dataset_file", str(record)]
         if args.episodes:
             command += ["--num_demos", str(args.episodes)]
     else:
@@ -511,15 +524,22 @@ def _quote(command: list[str]) -> str:
     return " ".join(shlex.quote(part) for part in command)
 
 
+def native_command(plan: Plan) -> list[str]:
+    command = plan.command
+    if "I4H_FLUORO_DEVICE_REQUEST" in plan.env:
+        return [command[0], str(ROOT / "scripts/native_fluoro_bootstrap.py"), *command[1:]]
+    return command
+
+
 def show(plan: Plan) -> None:
-    env = " ".join(f"{key}={shlex.quote(value)}" for key, value in plan.workflow.env.items())
+    env = " ".join(f"{key}={shlex.quote(value)}" for key, value in plan.env.items())
     for note in plan.notes:
         print(f"# {note}")
     if plan.server:
         print(f"# policy server ({plan.workflow.name} {plan.mode}), started first and stopped after:")
         print(_quote(plan.server))
     print(f"# {plan.workflow.name} [{plan.mode}] as {plan.workflow.environment_class} ({plan.workflow.scene}):")
-    print(f"{env + ' ' if env else ''}{_quote(plan.command)}")
+    print(f"{env + ' ' if env else ''}{_quote(native_command(plan))}")
 
 
 def _arena_env(extra: dict[str, str]) -> dict[str, str]:
@@ -780,6 +800,9 @@ def run(plan: Plan) -> int:
         print(f"==> recording {plan.record}", flush=True)
     _decline_telemetry()
     env = _arena_env({**plan.env, "I4H_RUN_DIR": str(plan.run_dir)})
+    command = native_command(plan)
+    if "I4H_FLUORO_DEVICE_REQUEST" in plan.env and plan.record is not None:
+        env["I4H_RECORDING_METADATA"] = str(plan.record.parent / "run.json")
     PID_DIR.mkdir(parents=True, exist_ok=True)
     pid_file = PID_DIR / f"{plan.workflow.name}.{os.getpid()}"
     pids: list[int] = []
@@ -799,8 +822,8 @@ def run(plan: Plan) -> int:
                 )
             remember(server)
             _wait_for_port(plan.port, server, log)
-        print(f"==> {plan.workflow.name} [{plan.mode}]: {_quote(plan.command)}", flush=True)
-        tool = subprocess.Popen(plan.command, cwd=ROOT, env=env, start_new_session=True)
+        print(f"==> {plan.workflow.name} [{plan.mode}]: {_quote(command)}", flush=True)
+        tool = subprocess.Popen(command, cwd=ROOT, env=env, start_new_session=True)
         remember(tool)
         returncode = tool.wait()
     except KeyboardInterrupt:
@@ -892,7 +915,7 @@ USAGE = """
 Modes (choose one; without one, --idle):
   --rule-based              the workflow's rule-based controller
   --policy                  the trained checkpoint, served by its policy stack
-  --teleop [DEVICE]         record demonstrations with a teleoperation device
+  --teleop [DEVICE]         teleoperate (add --record to capture demonstrations)
   --replay PATH             replay a recording
   --idle                    open the scene and hold the robot still
   --live                    idle, with Isaac Sim's Python server for live editing
@@ -913,6 +936,7 @@ Options:
   --patient-twin PATH       patient-twin manifest for the endoluminal scenes
   --catheter-backend NAME   numerical or legacy (fresh default: legacy; replay uses recording)
   --fluoro-backend NAME     synthetic or slang fluoroscopy
+  --fluoro-device DEVICE    auto, cuda or vulkan (patient default: auto)
   --hu-to-mu PRESET         interventional or linear HU-to-attenuation preset for patient twins
   --cloudxr-env PATH        start CloudXR with this environment file for XR teleop
   --dry-run                 print the commands instead of running them

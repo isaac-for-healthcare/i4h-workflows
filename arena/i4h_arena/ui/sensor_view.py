@@ -3,10 +3,10 @@
 """A running environment's camera-compatible sensors, as its operator panels read them.
 
 The panels redraw on every Kit update, more often than the environment steps, so a
-frame is read once and cached until :meth:`SensorView.invalidate`, which
-:mod:`i4h_arena.ui.live` calls whenever the environment's step counter advances.
-Display controls reach the sensor itself and invalidate the cache, so the next
-redraw shows their effect.
+frame is cached by sensor identity, environment revision and selected output.
+Step polling refreshes lazy sensors without discarding unchanged frames. Sensors
+without host revisions retain the per-step fallback. Explicit display controls
+force invalidation, so the next redraw reads their output again.
 """
 
 from __future__ import annotations
@@ -38,9 +38,27 @@ class SensorView:
         self._env = env
         self._sensors = tuple(sensors)
         self._cache: dict[str, CameraFrame | None] = {}
+        self._revisions: dict[str, tuple[Any, int | None]] = {}
 
-    def invalidate(self) -> None:
-        self._cache.clear()
+    def invalidate(self, force: bool = True) -> None:
+        """Force a display refresh, or poll once per step while retaining unchanged frames."""
+        if force:
+            self._cache.clear()
+            self._revisions.clear()
+            return
+        for name in self._sensors:
+            try:
+                sensor = self._sensor(name)
+            except (KeyError, AttributeError):
+                continue
+            if getattr(sensor, "display_revision", None) is not None:
+                # Preserve lazy sensor sampling, even when only a panel consumes it.
+                # This runs once per step, never on every Kit update.
+                _ = sensor.data
+            else:
+                for key in tuple(self._cache):
+                    if key.startswith(f"{name}:"):
+                        del self._cache[key]
 
     def _sensor(self, name: str) -> Any:
         return self._env.unwrapped.scene[name]
@@ -50,13 +68,25 @@ class SensorView:
         if name not in self._sensors:
             return None
         key = f"{name}:{output}"
+        try:
+            sensor = self._sensor(name)
+        except (KeyError, AttributeError):
+            return None
+        revision = getattr(sensor, "display_revision", None)
+        token = (sensor, int(revision[0])) if revision is not None else (sensor, None)
+        previous = self._revisions.get(key)
+        if previous is None or previous[0] is not sensor or previous[1] != token[1]:
+            self._cache.pop(key, None)
         if key not in self._cache:
             try:
-                frame = _np(self._sensor(name).data.output[output])[0][..., :3].astype(np.uint8)
+                frame = _np(sensor.data.output[output])[0][..., :3].astype(np.uint8)
             except (KeyError, IndexError, AttributeError, TypeError):
                 logger.debug("sensor %s has no %s output", name, output, exc_info=True)
+                self._revisions[key] = token
                 self._cache[key] = None
                 return None
+            revision = getattr(sensor, "display_revision", None)
+            self._revisions[key] = (sensor, int(revision[0]) if revision is not None else None)
             self._cache[key] = CameraFrame(
                 name=name, height=int(frame.shape[0]), width=int(frame.shape[1]), data=frame.tobytes()
             )
@@ -64,7 +94,11 @@ class SensorView:
 
     def set_sensor_brightness(self, name: str, brightness: float) -> float | None:
         setter = getattr(self._sensor(name), "set_dsa_brightness", None)
-        return float(setter(brightness)) if callable(setter) else None
+        selected = setter(brightness) if callable(setter) else None
+        if selected is None:
+            return None
+        self.invalidate()
+        return float(selected)
 
     def set_sensor_appearance(self, name: str, appearance: str) -> str | None:
         """Select a display look, such as fluoroscopy or X-ray."""

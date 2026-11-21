@@ -1099,6 +1099,25 @@ def newton_physics_cfg(spec: CatheterRodSpec) -> Any:
     return NewtonCfg(solver_cfg=newton_solver_cfg(spec), use_cuda_graph=False)
 
 
+def _configure_rod_cuda_modules(device: str) -> None:
+    """Keep compiled rod binaries in Warp's cache instead of the driver JIT cache.
+
+    The large XPBD module takes minutes to JIT on Blackwell. Its PTX can remain
+    cached by Warp while the driver's compiled binary is evicted, repeating that
+    pause at every reset in a fresh process. CUBIN output lets Warp retain the
+    device-specific binary directly. Warp falls back to PTX on unsupported devices.
+    """
+    if not str(device).startswith("cuda"):
+        return
+
+    import warp as wp
+    from catheter_vasculature_solver import cath_rod_solver, xpbd_rod_solver
+
+    for module in (xpbd_rod_solver, cath_rod_solver):
+        wp.set_module_options({"cuda_output": "cubin"}, module=module)
+    print("[catheter solver] CUDA binary cache enabled; first compilation can take several minutes", flush=True)
+
+
 class CatheterRodHandle:
     """Registers the rod with Newton and exposes what the scene needs after.
 
@@ -1258,6 +1277,7 @@ class CatheterRodHandle:
         from catheter_vasculature_solver import CathRodSolver
 
         spec = self._spec
+        _configure_rod_cuda_modules(spec.device)
         self._vessel = self._build_vessel()
         contact_iterations = int(os.environ.get(CONTACT_ITERATIONS_ENV_VAR, spec.contact_coupling_iterations))
         solver = CathRodSolver(

@@ -137,7 +137,10 @@ def test_view_still_binds_phantom_without_image_observations(monkeypatch):
 
     view = _make_view(env, monkeypatch)
 
-    assert isinstance(env.scene["fluoroscopy"].carm, SceneCArmStateProvider)
+    from i4h_arena.medical.fluoroscopy_sources import OrbitCArmStateProvider
+
+    assert isinstance(env.scene["fluoroscopy"].carm, OrbitCArmStateProvider)
+    assert isinstance(env.scene["fluoroscopy"].carm._provider, SceneCArmStateProvider)
     assert view.camera("fluoroscopy") is not None
 
 
@@ -171,3 +174,18 @@ def test_headless_reset_binds_without_views_and_reconstruction_rebinds(patient, 
     assert env.scene["fluoroscopy"].carm is not first
     assert env.scene["fluoroscopy"].catheter is rebuilt.scene["catheter"]
     _ = env.scene["fluoroscopy"].data
+
+
+def test_nonpatient_adapter_keeps_raw_poses_and_delegates_presets():
+    from unittest.mock import Mock
+
+    from i4h_arena.medical.fluoroscopy_sources import OrbitCArmStateProvider
+
+    pose = object()
+    raw = SimpleNamespace(snapshot=Mock(return_value=pose))
+    orbit = SimpleNamespace(set_orbit_angle=Mock(return_value=0.75))
+    provider = OrbitCArmStateProvider(raw, orbit)
+    assert provider.snapshot(3) is pose
+    raw.snapshot.assert_called_once_with(3)
+    assert provider.select_angle(0.75) == 0.75
+    orbit.set_orbit_angle.assert_called_once_with(0.75)

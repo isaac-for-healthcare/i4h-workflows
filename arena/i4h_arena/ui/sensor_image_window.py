@@ -116,6 +116,7 @@ class SensorImageWindow:
         self._brightness = 1.0
         self._brightness_slider = None
         self._ui = ui
+        self._last_frame: CameraFrame | None = None
         self._provider = ui.ByteImageProvider()
         display_title = title or name.replace("_", " ").title()
         self._window = ui.Window(display_title, width=width, height=height)
@@ -214,6 +215,7 @@ class SensorImageWindow:
 
     def _select_output(self, index: int, *, update_combo: bool = True) -> None:
         self._output_index = index
+        self._invalidate_display()
         if update_combo and self._output_combo is not None:
             self._output_combo.model.get_item_value_model().set_value(index)
         self.update()
@@ -266,6 +268,7 @@ class SensorImageWindow:
 
     def on_scene_reset(self) -> None:
         """Restore UI-owned scene controls that have an initial scene pose."""
+        self._invalidate_display()
         if self._projection_presets:
             self._select_projection(self._projection_default_index)
         else:
@@ -361,14 +364,21 @@ class SensorImageWindow:
         if image_window is not None and viewport is not None and image_window != viewport:
             image_window.dock_in(viewport, self._ui.DockPosition.RIGHT, 0.4)
 
+    def _invalidate_display(self) -> None:
+        self._last_frame = None
+        invalidate = getattr(getattr(self, "_view", None), "invalidate", None)
+        if callable(invalidate):
+            invalidate()
+
     def update(self) -> None:
         self._update_readout()
         _label, output = self._outputs[self._output_index]
         frame = self._view.camera(self.name, output=output)
-        if frame is None:
+        if frame is None or frame is self._last_frame:
             return
         rgba = frame_rgba(frame)
-        self._provider.set_bytes_data(rgba.flatten().data, [frame.width, frame.height])
+        self._provider.set_data_array(rgba, [frame.width, frame.height])
+        self._last_frame = frame
 
     def _update_readout(self) -> None:
         """Refresh the status line, retiring it rather than ending the run if it raises."""

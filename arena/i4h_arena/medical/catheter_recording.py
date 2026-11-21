@@ -47,6 +47,23 @@ def downsample_frame(frame: np.ndarray, edge: int = RECORDED_FRAME_EDGE) -> np.n
     return (np.rint(reduced) if np.issubdtype(frame.dtype, np.integer) else reduced).astype(frame.dtype)
 
 
+def downsample_frames(frames: torch.Tensor, edge: int = RECORDED_FRAME_EDGE) -> torch.Tensor:
+    """Box-average NHWC images on their producing device before transferring to the host."""
+    if edge <= 0:
+        return frames
+    count, rows, cols, channels = frames.shape
+    factor = min(rows // edge, cols // edge)
+    if factor < 2 or rows % factor or cols % factor:
+        return frames
+    blocks = frames.reshape(count, rows // factor, factor, cols // factor, factor, channels)
+    # Integer sums are exact at image scales. NumPy also averages integers in float64.
+    if frames.is_floating_point():
+        reduced = blocks.mean(dim=(2, 4))
+    else:
+        reduced = (blocks.sum(dim=(2, 4), dtype=torch.int64).to(torch.float64) / (factor * factor)).round()
+    return reduced.to(frames.dtype)
+
+
 class CatheterStateRecorder(RecorderTerm):
     """``obs/joint_pos``: catheter and C-arm joints, then the carrier arm's, in the embodiment manifest's order."""
 
@@ -84,12 +101,12 @@ class FluoroscopyFrameRecorder(RecorderTerm):
 
     def record_pre_step(self) -> tuple[str, dict[str, torch.Tensor]]:
         output = self._env.scene["fluoroscopy"].data.output
-        frames = output["rgb"].detach().cpu().numpy()
-        values = {"fluoroscopy": np.stack([downsample_frame(frame[..., :3].astype(np.uint8)) for frame in frames])}
+        frames = output["rgb"].detach()[..., :3].to(torch.uint8)
+        values = {"fluoroscopy": downsample_frames(frames).cpu()}
         if "attenuation" in output:
-            signal = output["attenuation"].detach().cpu().numpy().astype(np.float32)
-            values["fluoroscopy_attenuation"] = np.stack([downsample_frame(frame) for frame in signal])
-        return "obs", {key: torch.from_numpy(value) for key, value in values.items()}
+            signal = output["attenuation"].detach().to(torch.float32)
+            values["fluoroscopy_attenuation"] = downsample_frames(signal).cpu()
+        return "obs", values
 
 
 class CatheterDiagnosticsRecorder(RecorderTerm):
@@ -185,6 +202,7 @@ class NavigationProvenanceRecorder(RecorderTerm):
             catheter_backend=self._env.cfg.navigation_backend,
             numerical_sim_revision=revision,
             continuation_schema_version=CONTINUATION_SCHEMA,
+            fluoro_device=self._env.scene["fluoroscopy"].cfg.slang_device_type,
             patient_twin=patient,
             patient_twin_sha256=hashlib.sha256(Path(patient).read_bytes()).hexdigest() if patient else None,
         )

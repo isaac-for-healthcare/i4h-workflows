@@ -118,6 +118,8 @@ class FluoroscopySensor(SensorBase):
             ),
         }
         self._data.frame_id = torch.zeros(self._num_envs, dtype=torch.int64, device=self._device)
+        previous = getattr(self, "display_revision", np.array([-1]))
+        self.display_revision = np.full(self._num_envs, int(previous.max()) + 1, dtype=np.int64)
         if self.cfg.demo_catheter and self._catheter_provider is None:
             points = self._demo_catheter_points()[None, ...]
             self._catheter_provider = StaticCatheterStateProvider(
@@ -126,6 +128,18 @@ class FluoroscopySensor(SensorBase):
                     valid_nodes=np.array([points.shape[1]], dtype=np.int32),
                 )
             )
+
+    def reset(self, env_ids=None, env_mask=None) -> None:
+        super().reset(env_ids=env_ids, env_mask=env_mask)
+        if env_mask is not None:
+            selected = wp.to_torch(env_mask).cpu().numpy().astype(bool)
+        elif env_ids is None:
+            selected = slice(None)
+        elif isinstance(env_ids, torch.Tensor):
+            selected = env_ids.cpu().numpy()
+        else:
+            selected = env_ids
+        self.display_revision[selected] += 1
 
     def _ensure_renderer(self, carm=None):
         if self._renderer is None:
@@ -157,6 +171,9 @@ class FluoroscopySensor(SensorBase):
             )
 
     def _update_buffers_impl(self, env_mask: wp.array) -> None:
+        mask = wp.to_torch(env_mask).to(device=self._device, dtype=torch.bool)
+        if not bool(mask.any()):
+            return
         if self._data.frame_id is None:
             raise RuntimeError("fluoroscopy sensor has not been initialized")
         provider = self._catheter_provider
@@ -167,7 +184,6 @@ class FluoroscopySensor(SensorBase):
         if self.cfg.backend == "slang" and carm is None:
             raise RuntimeError("the slang fluoroscopy backend requires a bound C-arm provider")
         self._ensure_renderer(carm)
-        mask = wp.to_torch(env_mask).to(device=self._device, dtype=torch.bool)
         if isinstance(self._renderer, SlangFluoroscopyRenderer):
             rendered = self._renderer.render(catheter, carm, env_mask=mask)
         else:
@@ -176,6 +192,9 @@ class FluoroscopySensor(SensorBase):
             tensor = torch.as_tensor(values, device=self._device)
             self._data.output[name][mask] = tensor[mask]
         self._data.frame_id[mask] += 1
+        # Host bookkeeping only when output is written; UI refreshes never read
+        # the GPU frame counter or synchronize the device to identify an image.
+        self.display_revision[mask.cpu().numpy()] += 1
 
     def adjust_dsa_gamma(self, delta: float) -> float:
         """Adjust the live DSA brightness using the reference gamma range."""

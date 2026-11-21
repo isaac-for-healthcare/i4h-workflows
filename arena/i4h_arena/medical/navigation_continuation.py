@@ -91,7 +91,12 @@ def configuration_identity(env):
     # Source/anatomy hashing is expensive and immutable for this binding. Sensor
     # configuration remains live: a backend or display override must be checked
     # even after an earlier snapshot populated the source cache.
-    settings = json.dumps(env.scene["fluoroscopy"].cfg.to_dict(), sort_keys=True, default=str).encode()
+    sensor_settings = dict(env.scene["fluoroscopy"].cfg.to_dict())
+    # Renderer execution device is recording provenance, with an explicit replay
+    # override. It does not change the continuation layout or the torch RNG device.
+    # Keep every image-formation setting and the complete source/anatomy hash checked.
+    sensor_settings.pop("slang_device_type", None)
+    settings = json.dumps(sensor_settings, sort_keys=True, default=str).encode()
     digest = hashlib.sha256(_source_identity(env).tobytes() + settings).hexdigest()
     return np.frombuffer(f"numerical:{CONTINUATION_SCHEMA}:{digest}".encode(), np.uint8).copy()
 
@@ -306,6 +311,7 @@ def restore(env, bundle, env_ids=None):
     # The batch-wide lazy gate is derived from per-world refresh masks, so a
     # selected reset never changes an unrelated episode's saved continuation.
     sensor._data_dirty = bool(wp.to_torch(sensor._is_outdated).any().item())
+    sensor.display_revision[ids] += 1
     if hasattr(getattr(sensor, "_renderer", None), "sync_display_state"):
         sensor._renderer.sync_display_state()
     env._task_progress_step = env.common_step_counter

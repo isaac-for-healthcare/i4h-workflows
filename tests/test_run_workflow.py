@@ -514,7 +514,7 @@ def test_missing_lab_source_is_reported_only_for_modes_that_need_tools(monkeypat
 
 @pytest.mark.parametrize("teleop", [True, False])
 def test_default_record_tracks_automatic_and_explicit_paths(teleop, tmp_path):
-    mode = ["--teleop"] if teleop else ["--rule-based", "--record"]
+    mode = ["--teleop", "--record"] if teleop else ["--rule-based", "--record"]
     workflow = "scissor_pick_and_place" if teleop else "surgical_reach_psm"
     assert _plan(workflow, *mode).default_record
     explicit = ["--teleop", "--record"] if teleop else mode
@@ -614,3 +614,54 @@ def test_legacy_recording_metadata_needs_no_numerical_installation(tmp_path, mon
     metadata = json.loads((tmp_path / "run.json").read_text())
     assert metadata["catheter_backend"] == "legacy"
     assert metadata["numerical_sim_revision"] is None
+
+
+@pytest.mark.parametrize("name", [name for name, workflow in WORKFLOWS.items() if "teleop" in workflow.modes])
+@pytest.mark.parametrize("capture", [None, "", "explicit.hdf5"])
+def test_all_teleop_workflows_capture_only_when_requested(name, capture, tmp_path):
+    argv = [name, "--teleop", "--run-dir", str(tmp_path)]
+    if capture is not None:
+        argv += ["--record"] + ([str(tmp_path / capture)] if capture else [])
+    built = _plan(*argv)
+    run_workflow._reserve_run_directory(built)
+    run_workflow._write_recording_metadata(built)
+    if capture is None:
+        assert built.record is None
+        assert "--no-record" in built.command
+        assert "--dataset_file" not in built.command
+        assert list(tmp_path.iterdir()) == []
+    else:
+        assert "--no-record" not in built.command
+        assert built.record == tmp_path / (capture or "demos.hdf5")
+        assert built.command[built.command.index("--dataset_file") + 1] == str(built.record)
+        assert (tmp_path / "run.json").is_file()
+
+
+@pytest.mark.parametrize(
+    "recorded,override,expected", [(None, None, "vulkan"), ("cuda", None, "cuda"), ("cuda", "vulkan", "vulkan")]
+)
+def test_fluoroscopy_replay_device(recorded, override, expected, tmp_path):
+    import h5py
+
+    path = tmp_path / "demos.hdf5"
+    metadata = {"catheter_backend": "legacy"}
+    if recorded is not None:
+        metadata["fluoro_device"] = recorded
+    with h5py.File(path, "w") as handle:
+        handle.create_group("data").attrs["env_args"] = json.dumps(metadata)
+    built = _plan("endoluminal_navigation", "--replay", str(path), *(["--fluoro-device", override] if override else []))
+    assert built.env["I4H_FLUORO_DEVICE_REQUEST"] == expected
+
+
+def test_navigation_discovery_and_device_selection_stay_dependency_light():
+    script = f"""
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location('launcher', {str(ROOT / 'scripts/run_workflow.py')!r})
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+built = module.plan(['endoluminal_navigation', '--teleop', '--patient-twin', '/tmp/patient.yaml'])
+assert built.env['I4H_FLUORO_DEVICE_REQUEST'] == 'auto'
+assert not any(name in sys.modules for name in ('torch', 'warp', 'slangpy', 'isaaclab', 'omni.kit.app'))
+"""
+    subprocess.run([sys.executable, "-c", script], cwd=ROOT, check=True)

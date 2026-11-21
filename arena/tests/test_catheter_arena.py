@@ -139,6 +139,7 @@ def test_navigation_provenance_skips_unneeded_numerical_lookup(monkeypatch, back
     recorder = object.__new__(catheter_recording.NavigationProvenanceRecorder)
     recorder._env = SimpleNamespace(
         cfg=SimpleNamespace(navigation_backend=backend),
+        scene={"fluoroscopy": SimpleNamespace(cfg=SimpleNamespace(slang_device_type="cuda"))},
         recorder_manager=SimpleNamespace(_dataset_file_handler=handler if recording else None),
     )
     assert recorder.record_post_reset([0]) == (None, None)
@@ -147,3 +148,21 @@ def test_navigation_provenance_skips_unneeded_numerical_lookup(monkeypatch, back
         assert written[0]["numerical_sim_revision"] is None
     else:
         assert not written
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("shape", [(3, 512, 512, 3), (2, 777, 1025, 3), (2, 768, 768, 1), (2, 128, 128, 3)])
+@pytest.mark.parametrize("integer", [True, False])
+def test_producer_device_downsampling_matches_numpy(device, shape, integer):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA unavailable")
+    rng = np.random.default_rng(37)
+    frames = rng.integers(0, 256, shape, dtype=np.uint8) if integer else rng.random(shape, dtype=np.float32)
+    expected = np.stack([catheter_recording.downsample_frame(frame) for frame in frames])
+    actual = catheter_recording.downsample_frames(torch.from_numpy(frames).to(device))
+    assert actual.device == torch.device(device)
+    assert actual.cpu().numpy().dtype == expected.dtype
+    if integer:
+        np.testing.assert_array_equal(actual.cpu().numpy(), expected)
+    else:
+        np.testing.assert_allclose(actual.cpu().numpy(), expected, rtol=1e-6, atol=1e-7)

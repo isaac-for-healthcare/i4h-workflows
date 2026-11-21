@@ -43,12 +43,13 @@ class SyntheticFluoroscopyRenderer:
         left_pelvis = 0.28 * np.exp(-(((xx + 0.37) / 0.26) ** 2 + ((yy - 0.30) / 0.22) ** 2) * 2.2)
         right_pelvis = 0.28 * np.exp(-(((xx - 0.37) / 0.26) ** 2 + ((yy - 0.30) / 0.22) ** 2) * 2.2)
         self._attenuation = (body + spine + left_pelvis + right_pelvis).astype(np.float32)
+        self._transmission = np.exp(-self._attenuation)
+        self._background_rgb = np.repeat(np.rint(255.0 * self._transmission)[..., None], 3, axis=-1).astype(np.uint8)
 
     def render(self, catheter: CatheterState, carm: object | None = None) -> dict[str, np.ndarray]:
         del carm
         attenuation = np.repeat(self._attenuation[None, ..., None], catheter.num_envs, axis=0)
-        transmission = np.exp(-attenuation[..., 0])
-        rgb = np.repeat(np.rint(255.0 * transmission)[..., None], 3, axis=-1).astype(np.uint8)
+        rgb = np.repeat(self._background_rgb[None], catheter.num_envs, axis=0)
         guidance = rgb.copy()
         for env_index, valid_count in enumerate(catheter.valid_nodes):
             if valid_count >= 2:

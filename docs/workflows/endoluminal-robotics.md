@@ -107,7 +107,7 @@ With a twin, an episode succeeds when the catheter tip reaches the distal end of
 
 ### Keyboard teleoperation
 
-Drive the catheter with Isaac Lab's `record_demos.py`, which stores each demonstration that reaches the goal. The recording goes to `teleop.hdf5` in the run directory unless `--record` names a file:
+Drive the catheter with Isaac Lab's `record_demos.py`. Teleoperation captures no dataset by default. Add `--record` to save successful demonstrations to `demos.hdf5` in the run directory, or `--record <path>.hdf5` to choose a file. Without `--episodes`, the session stays open until stopped; an explicit count stops after that many successful episodes even when capture is disabled. Patient runs default to `--fluoro-device auto`, which selects CUDA after a successful preflight and logs a Vulkan fallback otherwise. Explicit `--fluoro-device cuda` fails with a diagnostic when unavailable. Replay uses the recorded device when present, Vulkan for older native recordings, or an explicit `--fluoro-device` override.
 
 ```bash
 ./run.sh endoluminal_navigation --teleop --episodes 1 \
@@ -145,7 +145,7 @@ Add `--record` to record a run's episodes into `demos.hdf5` in its run directory
 Replay a recording with Isaac Lab's `replay_demos.py`, against the patient twin it was recorded with. Add `--episode N` to replay one episode:
 
 ```bash
-./run.sh endoluminal_navigation --replay runs/endoluminal_navigation/<run>/teleop.hdf5 \
+./run.sh endoluminal_navigation --replay runs/endoluminal_navigation/<run>/demos.hdf5 \
   --patient-twin ./data/patient_twins/s0011_aorta/patient_twin.yaml
 ```
 

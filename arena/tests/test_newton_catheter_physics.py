@@ -1317,6 +1317,9 @@ def stub_model_init(monkeypatch, stub_isaac):
         recorded["solver_positions"] = positions.copy()
 
     monkeypatch.setattr("i4h_arena.medical.catheter_initialization.initialize_rod_state", initialize_rod_state)
+    solver_module.cath_rod_solver = types.ModuleType("cath_rod_solver")
+    solver_module.xpbd_rod_solver = types.ModuleType("xpbd_rod_solver")
+    monkeypatch.setattr("warp.set_module_options", lambda *a, **kw: None)
     solver_module.CathRodSolver = CathRodSolver
     monkeypatch.setitem(sys.modules, "catheter_vasculature_solver", solver_module)
     return SimpleNamespace(calls=calls, registered=registered, builder=builder, recorded=recorded)
@@ -1649,3 +1652,18 @@ def test_physical_tip_override_wins_over_legacy_edge_override(stub_isaac, monkey
 def test_invalid_physical_tip_lengths_are_rejected(length):
     with pytest.raises(ValueError, match="tip_length_m"):
         CatheterRodSpec(length_m=0.3, tip_length_m=length)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_only_legacy_rod_cuda_modules_request_cached_binaries(device, monkeypatch):
+    from i4h_arena.medical.newton_catheter_physics import _configure_rod_cuda_modules
+
+    solver = types.ModuleType("catheter_vasculature_solver")
+    solver.cath_rod_solver = types.ModuleType("cath_rod_solver")
+    solver.xpbd_rod_solver = types.ModuleType("xpbd_rod_solver")
+    monkeypatch.setitem(sys.modules, "catheter_vasculature_solver", solver)
+    calls = []
+    monkeypatch.setattr("warp.set_module_options", lambda options, *, module: calls.append((options, module)))
+    _configure_rod_cuda_modules(device)
+    expected = [({"cuda_output": "cubin"}, module) for module in (solver.xpbd_rod_solver, solver.cath_rod_solver)]
+    assert calls == (expected if device.startswith("cuda") else [])
