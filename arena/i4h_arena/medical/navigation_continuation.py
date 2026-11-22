@@ -278,6 +278,9 @@ def validate(env, bundle, env_ids=None):
 
 def restore(env, bundle, env_ids=None):
     ids, destinations = validate(env, bundle, env_ids)
+    from .navigation_goal import invalidate_arrival_readout
+
+    invalidate_arrival_readout(env)
     # Host scene assets are restored by reset_to before this boundary. Flush the
     # host's deferred solver cache reset before writing numerical history.
     if env.i4h.physics.coupled is not None:

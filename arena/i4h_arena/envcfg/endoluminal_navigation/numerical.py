@@ -219,6 +219,9 @@ class NumericalNavigationEnv(I4hHostMixin, IsaacLabArenaManagerBasedRLEnv):
         return self.obs_buf, self.extras
 
     def _bind_i4h(self, component):
+        from i4h_arena.medical.navigation_goal import invalidate_arrival_readout
+
+        invalidate_arrival_readout(self)
         super()._bind_i4h(component)
         if getattr(self, "scene", None) is not None and "catheter" in self.scene.sensors:
             self.scene["catheter"].bind_component(component)

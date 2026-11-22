@@ -79,7 +79,10 @@ class SensorView:
             self._cache.pop(key, None)
         if key not in self._cache:
             try:
-                frame = _np(sensor.data.output[output])[0][..., :3].astype(np.uint8)
+                value = sensor.data.output[output]
+                if isinstance(getattr(type(value), "torch", None), property):
+                    value = value.torch
+                frame = _np(value[0, ..., :3]).astype(np.uint8)
             except (KeyError, IndexError, AttributeError, TypeError):
                 logger.debug("sensor %s has no %s output", name, output, exc_info=True)
                 self._revisions[key] = token

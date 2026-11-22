@@ -45,8 +45,11 @@ def frame_rgba(frame: CameraFrame) -> np.ndarray:
     if rgb.size != expected:
         raise ValueError(f"sensor frame contains {rgb.size} bytes; expected {expected}")
     rgb = rgb.reshape(frame.height, frame.width, 3)
-    alpha = np.full((frame.height, frame.width, 1), 255, dtype=np.uint8)
-    return np.ascontiguousarray(np.concatenate((rgb, alpha), axis=-1))
+    if rgb.size == 0:
+        return np.empty((frame.height, frame.width, 4), dtype=np.uint8)
+    import cv2
+
+    return cv2.cvtColor(rgb, cv2.COLOR_RGB2RGBA)
 
 
 def toggled_output(current: str, pairs: tuple[tuple[str, str], ...]) -> str:
@@ -378,6 +381,7 @@ class SensorImageWindow:
             return
         rgba = frame_rgba(frame)
         self._provider.set_data_array(rgba, [frame.width, frame.height])
+        self._last_rgba = rgba
         self._last_frame = frame
 
     def _update_readout(self) -> None:

@@ -424,3 +424,41 @@ def test_an_override_naming_the_default_is_not_announced_as_a_change(caplog):
 def test_module_tolerance_is_the_resolved_default_in_this_process():
     """Nothing in the test environment sets the override."""
     assert ARRIVAL_TOLERANCE_M == pytest.approx(DEFAULT_ARRIVAL_TOLERANCE_M)
+
+
+def test_readout_caches_progress_but_keeps_wall_clock_logging(monkeypatch):
+    import i4h_arena.medical.navigation_goal as goal
+
+    env = _env_with_term((0.98, 0.0, 0.0), tolerance_m=0.05, hold_steps=3)
+    env._sim_step_counter = 4
+    from unittest.mock import Mock
+
+    compute = Mock(wraps=goal.arrival_progress)
+    logging = Mock()
+    monkeypatch.setattr(goal, "arrival_progress", compute)
+    monkeypatch.setattr(goal, "_log_tip_drift", logging)
+    first = goal.arrival_status(env)
+    assert goal.arrival_status(env) == first
+    assert compute.call_count == 1
+    assert logging.call_count == 2
+    env._sim_step_counter += 1
+    goal.arrival_status(env)
+    assert compute.call_count == 2
+    goal.reset_arrival_progress(env, [0])
+    goal.arrival_status(env)
+    assert compute.call_count == 3
+    goal.invalidate_arrival_readout(env)  # continuation/reconstruction boundary
+    goal.arrival_status(env)
+    assert compute.call_count == 4
+
+
+def test_readout_refreshes_configuration_changes_while_paused(monkeypatch):
+    import i4h_arena.medical.navigation_goal as goal
+
+    env = _env_with_term((0.98, 0.0, 0.0), tolerance_m=0.05, hold_steps=3)
+    env._sim_step_counter = 4
+    assert "holding" in goal.arrival_status(env)
+    env.termination_manager._cfg.params["tolerance_m"] = 0.001
+    assert "arrive within 1 mm" in goal.arrival_status(env)
+    env.termination_manager._cfg.params["target_world_m"] = (0.98, 0.0, 0.0)
+    assert "holding" in goal.arrival_status(env)

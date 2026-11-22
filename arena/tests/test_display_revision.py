@@ -133,3 +133,24 @@ def test_step_polling_preserves_lazy_sampling_without_reading_gpu_frame_counter(
             assert view.camera("image") is frame
         prior = frame
     assert raw.renders == 5
+
+
+def test_only_displayed_environment_and_rgb_channels_are_transferred(monkeypatch):
+    import i4h_arena.ui.sensor_view as module
+
+    raw = sensor()
+    raw.data.output["rgb"] = np.arange(8 * 2 * 3 * 4, dtype=np.uint8).reshape(8, 2, 3, 4)
+    original = module._np
+    shapes = []
+
+    def transfer(value):
+        shapes.append(value.shape)
+        return original(value)
+
+    monkeypatch.setattr(module, "_np", transfer)
+    view = SensorView(SimpleNamespace(unwrapped=SimpleNamespace(scene={"image": raw})), ("image",))
+    frame = view.camera("image")
+    np.testing.assert_array_equal(frame.to_array(), raw.data.output["rgb"][0, ..., :3])
+    assert shapes == [(2, 3, 3)]
+    assert view.camera("image") is frame
+    assert len(shapes) == 1

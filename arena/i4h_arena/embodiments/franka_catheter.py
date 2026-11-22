@@ -36,6 +36,7 @@ from typing import Any, ClassVar
 import isaaclab.sim as sim_utils
 import numpy as np
 import torch
+import warp as wp
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.assets.articulation import ArticulationCfg
@@ -388,6 +389,33 @@ class ArmDrivenCatheterAction(ActionTerm):
         # the pose the arm is asked to hold is resolved on the first step it
         # can be, and the arm is walked onto it from wherever it spawned.
         self._approach = HolderApproach(_APPROACH_S, self.num_envs, device=self.device)
+        # PHYSICS_READY may run before articulation views are rebound. The
+        # fixed joint layout is already known here and survives reconstruction.
+        self._arm_joint_count = self._robot.num_joints
+        self._rebuild_servo_scratch()
+        from isaaclab.physics import PhysicsEvent, PhysicsManager
+
+        self._servo_rebuild_handle = PhysicsManager.register_callback(
+            self._rebuild_servo_scratch,
+            PhysicsEvent.PHYSICS_READY,
+            name=f"catheter_servo_{id(self)}",
+        )
+
+    def _rebuild_servo_scratch(self, _payload=None) -> None:
+        """Recreate derived buffers after the articulation model is rebuilt."""
+        self._ik_command = torch.empty((self.num_envs, 7), device=self.device)
+        self._joint_index = torch.tensor(self._joint_ids, device=self.device)
+        self._arm_targets = torch.empty((self.num_envs, self._arm_joint_count), device=self.device)
+        joint_mask = torch.zeros(self._arm_joint_count, dtype=torch.bool, device=self.device)
+        joint_mask[self._joint_index] = True
+        self._arm_joint_mask = wp.from_torch(joint_mask, dtype=wp.bool)
+        self._up = torch.tensor([0.0, 0.0, 1.0], device=self.device)
+        self._right = torch.tensor([1.0, 0.0, 0.0], device=self.device)
+        self._identity_quat = torch.tensor([0.0, 0.0, 0.0, 1.0], device=self.device)
+        self._guard_jacobian = torch.eye(6, len(self._joint_ids), device=self.device)
+        from i4h_arena.medical.navigation_goal import invalidate_arrival_readout
+
+        invalidate_arrival_readout(self._env)
 
     @property
     def action_dim(self) -> int:
@@ -427,7 +455,7 @@ class ArmDrivenCatheterAction(ActionTerm):
             # The rod is not built yet, so there is no introducer to go to.
             # Hold the spawn pose rather than servoing at a stale target.
             self._approach.hold(flange_pos, flange_quat)
-            self._servo_arm()
+            self._servo_arm(flange_pos, flange_quat)
             self._hold_the_grip()
             return
         root_pos, root_quat, tangent = frame
@@ -445,7 +473,7 @@ class ArmDrivenCatheterAction(ActionTerm):
         # taped to the patient and the wire runs through it. What the servo
         # still buys is resistance, since the reaction coming back up the wire
         # has to be held against.
-        self._servo_arm()
+        self._servo_arm(flange_pos, flange_quat)
         self._hold_the_grip()
 
         insertion, rotation = self._introducer.advance(self._processed_actions[:, 0], self._processed_actions[:, 1], dt)
@@ -569,7 +597,7 @@ class ArmDrivenCatheterAction(ActionTerm):
         across it. Its bore still meets the wire at the entry: only the hand
         is angled, and the grip lands on the access site either way.
         """
-        up = torch.tensor([0.0, 0.0, 1.0], device=self.device).expand_as(wire)
+        up = self._up.expand_as(wire)
         tilted = wire * math.cos(_INTRODUCER_TILT_RAD) - up * math.sin(_INTRODUCER_TILT_RAD)
         return torch.nn.functional.normalize(tilted, dim=-1, eps=1e-9)
 
@@ -586,11 +614,11 @@ class ArmDrivenCatheterAction(ActionTerm):
         fingers' travel axis horizontal, so the hand closes across the wire the
         way an operator's fingers would rather than over and under it.
         """
-        up = torch.tensor([0.0, 0.0, 1.0], device=self.device).expand_as(feed)
+        up = self._up.expand_as(feed)
         across = torch.linalg.cross(up, feed)
         # Degenerate only for a vertical wire, where "horizontal" picks out no
         # particular direction and any perpendicular will do.
-        fallback = torch.linalg.cross(torch.tensor([1.0, 0.0, 0.0], device=self.device).expand_as(feed), feed)
+        fallback = torch.linalg.cross(self._right.expand_as(feed), feed)
         across = torch.where(across.norm(dim=-1, keepdim=True) > 1e-6, across, fallback)
         across = torch.nn.functional.normalize(across, dim=-1, eps=1e-9)
 
@@ -602,25 +630,33 @@ class ArmDrivenCatheterAction(ActionTerm):
         if self._finger_ids:
             self._robot.set_joint_position_target_index(target=self._grip, joint_ids=self._finger_ids)
 
-    def _servo_arm(self) -> None:
-        """Drive one differential-IK step toward the commanded flange pose."""
+    def _servo_arm(self, flange_pos: torch.Tensor, flange_quat: torch.Tensor) -> None:
+        """Run the pinned IK arithmetic, reusing this physics tick's flange pose."""
         data = self._robot.data
         root_pos = data.root_pos_w.torch
         root_quat = data.root_quat_w.torch
-
         target_pos_b, target_quat_b = math_utils.subtract_frame_transforms(
             root_pos, root_quat, self._approach.command_pos, self._approach.command_quat
         )
-        self._ik.set_command(torch.cat((target_pos_b, target_quat_b), dim=-1))
-
-        flange_pos, flange_quat = self._flange_pose_world()
+        self._ik_command[:, :3] = target_pos_b
+        self._ik_command[:, 3:] = target_quat_b
+        self._ik.set_command(self._ik_command)
         flange_pos_b, flange_quat_b = math_utils.subtract_frame_transforms(root_pos, root_quat, flange_pos, flange_quat)
-        if float(flange_quat_b.norm()) == 0.0:
-            return
-
-        joint_pos = data.joint_pos.torch[:, self._joint_ids]
-        joint_pos_des = self._ik.compute(flange_pos_b, flange_quat_b, self._jacobian_root_frame(), joint_pos)
-        self._robot.set_joint_position_target_index(target=joint_pos_des, joint_ids=self._joint_ids)
+        # The guard is batch-wide, just as in the original implementation.
+        # Keep the decision on device and use a valid temporary for an empty
+        # batch so guarded IK intermediates cannot produce a singular inverse.
+        valid = flange_quat_b.norm() != 0.0
+        identity = self._identity_quat
+        safe_quat = torch.where(valid, flange_quat_b, identity)
+        joint_pos = data.joint_pos.torch.index_select(1, self._joint_index)
+        jacobian = torch.where(valid, self._jacobian_root_frame(), self._guard_jacobian)
+        desired = self._ik.compute(flange_pos_b, safe_quat, jacobian, joint_pos)
+        self._arm_targets[:, self._joint_index] = desired
+        self._robot.actuators.target_command.set_position_mask(
+            value=self._arm_targets,
+            joint_mask=self._arm_joint_mask,
+            env_mask=wp.from_torch(valid.expand(self.num_envs), dtype=wp.bool),
+        )
 
     def _jacobian_root_frame(self) -> torch.Tensor:
         data = self._robot.data

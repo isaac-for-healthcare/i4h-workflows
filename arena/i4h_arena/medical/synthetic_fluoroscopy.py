@@ -73,10 +73,19 @@ class SyntheticFluoroscopyRenderer:
         return np.stack((u, v), axis=-1)
 
     def _draw_catheter(self, image: np.ndarray, pixels: np.ndarray) -> None:
+        coordinates = []
         for start, end in pairwise(pixels):
             samples = max(2, int(np.ceil(np.linalg.norm(end - start))) + 1)
             segment = np.linspace(start, end, samples)
             xs = np.clip(np.rint(segment[:, 0]).astype(np.int32), 0, self.width - 1)
             ys = np.clip(np.rint(segment[:, 1]).astype(np.int32), 0, self.height - 1)
-            for offset_x, offset_y in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
-                image[np.clip(ys + offset_y, 0, self.height - 1), np.clip(xs + offset_x, 0, self.width - 1)] = 12
+            coordinates.append(np.stack((xs, ys), axis=-1))
+        if not coordinates:
+            return
+        coordinates = np.concatenate(coordinates)
+        offsets = np.asarray(((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)), dtype=np.int32)
+        for start in range(0, len(coordinates), 65_536):
+            stroke = coordinates[start : start + 65_536, None, :] + offsets
+            xs = np.clip(stroke[..., 0], 0, self.width - 1)
+            ys = np.clip(stroke[..., 1], 0, self.height - 1)
+            image[ys, xs] = 12
