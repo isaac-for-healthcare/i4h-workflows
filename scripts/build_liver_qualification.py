@@ -31,9 +31,9 @@ def main():
     def read(name):
         return json.loads((folder / name).read_text())
 
-    numerical = root / "third_party/i4h-numerical-sim-caff73b"
+    numerical = root / "third_party/i4h-numerical-sim-267f48a"
     revision = subprocess.check_output(["git", "-C", str(numerical), "rev-parse", "HEAD"], text=True).strip()
-    assert revision == "caff73b12a77abd6157771678ee0a57206771ac4"
+    assert revision == "267f48a4356cd2bf4a6204501b9daa7a2ee5c15b"
     for module in (i4h_physics, i4h_surgical):
         assert Path(module.__file__).is_relative_to(numerical)
     parity = read("exported/parity.json")

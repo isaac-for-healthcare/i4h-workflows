@@ -12,7 +12,7 @@ import torch
 def test_mixed_reset_preserves_restored_history():
     path = (
         Path(__file__).parents[2]
-        / "third_party/i4h-numerical-sim-caff73b/numerical_sim/isaaclab/src/i4h_isaaclab/manager.py"
+        / "third_party/i4h-numerical-sim-267f48a/numerical_sim/isaaclab/src/i4h_isaaclab/manager.py"
     )
     cls = next(
         node
