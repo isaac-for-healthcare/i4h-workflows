@@ -175,7 +175,7 @@ def state_path(demo: h5py.Group) -> str | None:
 def camera_keys(demo: h5py.Group) -> list[str]:
     """Names of uint8 ``(T, H, W, 3)`` datasets under ``obs/``."""
     obs = demo.get("obs")
-    if obs is None:
+    if not isinstance(obs, h5py.Group):
         return []
     return sorted(
         name
@@ -289,6 +289,12 @@ class Episode:
     def states(self) -> np.ndarray | None:
         path = state_path(self.group)
         return self.group[path][()] if path else None
+
+    @property
+    def policy_observations(self) -> np.ndarray | None:
+        """Arena's flat policy features; these are not physical particle states."""
+        obs = self.group.get("obs")
+        return obs[()] if isinstance(obs, h5py.Dataset) else None
 
     @property
     def cameras(self) -> list[str]:

@@ -665,3 +665,13 @@ assert built.env['I4H_FLUORO_DEVICE_REQUEST'] == 'auto'
 assert not any(name in sys.modules for name in ('torch', 'warp', 'slangpy', 'isaaclab', 'omni.kit.app'))
 """
     subprocess.run([sys.executable, "-c", script], cwd=ROOT, check=True)
+
+
+@pytest.mark.parametrize("flag", ["--record_viewport_video", "--record_camera_video"])
+def test_video_switches_precede_environment_without_moving_other_passthrough(flag):
+    built = _plan("liver_reach_retract", "--rule-based", "--", "--custom", "value", flag)
+    command = built.command
+    scene = command.index("liver_reach_retract")
+    assert command.index(flag) < scene
+    assert command[-2:] == ["--custom", "value"]
+    assert command.count(flag) == 1

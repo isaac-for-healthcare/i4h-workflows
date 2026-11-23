@@ -56,8 +56,10 @@ def _line_integral(
     return compositor.line_integral(points, radius_mm, _projection(), width=DETECTOR_PX, height=DETECTOR_PX)
 
 
-def _sampled_chord(points: np.ndarray, radius_mm: float, column: int, row: int, samples: int = 200_000) -> float:
-    """Chord through the polyline for one pixel's ray, by dense sampling.
+def _sampled_chord(
+    points: np.ndarray, radius_mm: float, column: int, row: int, samples: int = 200_000, mu: np.ndarray | None = None
+) -> float:
+    """Additive material integral for one pixel's ray, by dense sampling.
 
     Deliberately independent of the kernel: the analytic solve is the thing under test, and a
     sampled reference is how the fused shader accumulates the same quantity. Spans are flat-ended
@@ -74,13 +76,15 @@ def _sampled_chord(points: np.ndarray, radius_mm: float, column: int, row: int, 
     beam = target - source
     span = float(np.linalg.norm(beam))
     positions = source + np.linspace(0.0, span, samples)[:, None] * (beam / span)
-    inside = np.zeros(samples, dtype=bool)
-    for start, end in zip(points[:-1], points[1:], strict=True):
+    integral = 0.0
+    coefficients = np.ones(len(points) - 1) if mu is None else mu
+    for start, end, coefficient in zip(points[:-1], points[1:], coefficients, strict=True):
         axis = np.asarray(end - start, dtype=np.float64)
         along = ((positions - start) @ axis) / (axis @ axis)
         radial = np.linalg.norm(positions - (start + along[:, None] * axis), axis=1)
-        inside |= (radial <= radius_mm) & (along >= 0.0) & (along <= 1.0)
-    return float(np.count_nonzero(inside) * span / samples)
+        inside = (radial <= radius_mm) & (along >= 0.0) & (along <= 1.0)
+        integral += coefficient * np.count_nonzero(inside) * span / samples
+    return float(integral)
 
 
 @pytest.mark.parametrize("column_offset", [0, 1, -3, 20])
@@ -97,7 +101,7 @@ def test_analytic_chords_match_a_sampled_ray_march(column_offset: int) -> None:
 
 
 def test_a_bent_catheter_matches_a_sampled_ray_march() -> None:
-    """Joints are where an analytic solve could disagree: two capsules overlap around each node."""
+    """Check additive flat-ended segment chords around overlapping bent joints."""
     points = np.array([[-20.0, 0.0, 0.0], [0.0, 6.0, 4.0], [15.0, -3.0, -6.0], [22.0, 5.0, 0.0]], dtype=np.float32)
     radius_mm = 2.5
 
@@ -291,3 +295,19 @@ def test_a_catheter_must_have_a_positive_radius(radius_mm: float) -> None:
 def test_malformed_node_arrays_are_rejected(points: np.ndarray) -> None:
     with pytest.raises(ValueError):
         _line_integral(_shaft(), points)
+
+
+@pytest.mark.parametrize("shaft_mu,tip_mu", [(1.0, 1.0), (0.4, 2.0)])
+def test_overlapping_bend_accumulates_each_material(shaft_mu, tip_mu):
+    # Fold back almost onto the first span, producing an explicit overlapping bend.
+    points = np.array([[-20.0, 0.0, 0.0], [20.0, 0.0, 0.0], [-20.0, 0.5, 0.0]], dtype=np.float32)
+    material = CatheterMaterial(shaft_mu_per_mm=shaft_mu, tip_mu_per_mm=tip_mu, tip_length_mm=41.0)
+    mu = material.segment_mu_per_mm(np.linalg.norm(np.diff(points, axis=0), axis=1))
+    np.testing.assert_allclose(mu, [shaft_mu, tip_mu])
+    column = _column_of(0.0)
+    contributions = [_sampled_chord(points[i : i + 2], 2.0, column, CENTER_ROW) for i in range(2)]
+    assert min(contributions) > 3.5
+    expected = _sampled_chord(points, 2.0, column, CENTER_ROW, mu=mu)
+    assert expected > max(mu * contributions)
+    actual = _line_integral(CatheterAttenuation(material), points)[CENTER_ROW, column]
+    assert actual == pytest.approx(expected, abs=0.06)

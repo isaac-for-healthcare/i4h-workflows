@@ -95,6 +95,9 @@ def inspect(path: Path, *, show_segments: bool = False) -> None:
                 f"  {name:<12} {flag} {episode.num_samples:>5} frames  "
                 f"actions{episode.actions.shape}  cameras: {cameras}"
             )
+            observations = episode.policy_observations
+            if observations is not None:
+                summary += f"  policy observations{observations.shape}"
             print(summary)
             if show_segments:
                 for segment in episode.segments:

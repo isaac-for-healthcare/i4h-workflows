@@ -15,11 +15,10 @@ the geometry rather than being painted on.
 
 Two details differ from a literal reading of that shader. Chords are solved analytically rather
 than sampled, because a half-millimetre shaft is thinner than a sensible march step and sampling
-aliases it in and out of view along its length. And spans end flat rather than rounded, so that
-consecutive spans meet at a shared plane instead of overlapping: solvers place nodes a fraction of
-a millimetre apart, and rounded ends would then have several spans claiming the same material and
-count its attenuation once per span. What that leaves unmodelled is a wedge on the outside of each
-bend, roughly the radius times the half-angle, well under a pixel for a catheter.
+aliases it in and out of view along its length. Spans end flat rather than rounded.
+Collinear spans meet at their end planes, but bent spans can overlap and leave outer
+wedges. This additive approximation counts overlapping material once per segment,
+including each segment's own attenuation coefficient; it does not compute a solid union.
 """
 
 from __future__ import annotations
@@ -113,7 +112,7 @@ def _cylinder_chord(
             entry = -1.0e30
             exit_ = 1.0e30
 
-        # Between the two end planes, which is what keeps neighbouring spans from overlapping.
+        # Clip each span to its end planes; bent neighbouring spans can still overlap.
         if exit_ > entry:
             if wp.abs(axial_direction) > 1.0e-12:
                 first = -axial_offset / axial_direction

@@ -433,6 +433,10 @@ def plan(argv: list[str]) -> Plan:
         command += ["--num_steps", UNBOUNDED_STEPS]
     else:
         command += ["--num_episodes", str(args.episodes or 1)]
+    # Arena parses video switches at the top level, before its scene subcommand.
+    video_flags = {"--record_viewport_video", "--record_camera_video"}
+    command += [arg for arg in extra if arg.split("=", 1)[0] in video_flags]
+    extra = [arg for arg in extra if arg.split("=", 1)[0] not in video_flags]
     command += launcher
     if cameras:
         command += ["--enable_cameras"]

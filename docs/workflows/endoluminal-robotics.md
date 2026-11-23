@@ -595,7 +595,7 @@ t clipped to [0, span]                                          # between source
 chord = max(0, t_exit - t_enter)
 ```
 
-Two details differ from a literal reading of the reference shader. Chords are analytic because a 0.5 mm shaft is thinner than the 1.0 mm march step and sampling aliases it in and out of view along its length. And spans end flat rather than rounded, so consecutive spans meet at a shared plane instead of overlapping and double-counting material where nodes sit a fraction of a millimetre apart; what that leaves unmodelled is a wedge on the outside of each bend of order `r * half-angle`, well under a pixel at these scales.
+Two details differ from a literal reading of the reference shader. Chords are analytic because a 0.5 mm shaft is thinner than the 1.0 mm march step and sampling aliases it in and out of view along its length. Spans end flat rather than rounded. Collinear spans meet at their end planes, but bent spans can overlap and leave outer wedges. The additive `sum(mu_i * chord_i)` approximation counts overlap once per segment with that segment's coefficient; it does not compute the union of the segments.
 
 Contrast is a second render, not an overlay: `mu` is copied, multiplied by `dsa_boost = 6` inside a centerline mask dilated to 1.2 mm, and marched with the same pose and the same catheter factor. The cyan vessel tint is derived from the difference of the two transmissions, normalised by its 99.5th percentile and capped at 0.82 alpha.
 

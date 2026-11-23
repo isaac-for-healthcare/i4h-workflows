@@ -245,3 +245,21 @@ def test_write_dataset_stats(tmp_path) -> None:
     assert '"action"' in content
     assert '"mean"' in content
     assert "0.1" in content
+
+
+def test_inspect_native_policy_features(tmp_path, capsys):
+    import h5py
+
+    from i4h_tools.dataset.cli import inspect
+
+    path = tmp_path / "native.hdf5"
+    with h5py.File(path, "w") as handle:
+        demo = handle.create_group("data/demo_0")
+        demo.attrs["success"] = True
+        demo.create_dataset("actions", data=np.zeros((145, 4)))
+        demo.create_dataset("obs", data=np.zeros((145, 57)))
+    inspect(path)
+    output = capsys.readouterr().out
+    assert "actions(145, 4)" in output
+    assert "policy observations(145, 57)" in output
+    assert "cameras: none" in output
