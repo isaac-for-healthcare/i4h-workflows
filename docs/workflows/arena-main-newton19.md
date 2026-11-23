@@ -30,7 +30,7 @@ their four physical action channels and original controller/recording contracts.
 | Isaac Sim | `6.2.0.0` |
 | Newton (the commit Isaac Lab `main` pins) | `d31603ff5e8389d1d6b2a5daef6ea2cb074c26ff` |
 | Numerical Sim (private merged source) | `caff73b12a77abd6157771678ee0a57206771ac4` |
-| Legacy catheter solver | `50056196775fc0ed8cca03bf16144fe71d183ca7` |
+| Legacy catheter solver | `5af32b137680af4500a4f3e5b104a2e77c44d36b` |
 | MuJoCo / MuJoCo-Warp | `3.17.0` / `3.17.0` |
 | Torch / Torchvision | `2.11.0+cu130` / `0.26.0+cu130` |
 | Warp | `1.17.0`, operator-supplied patched Linux x86-64 wheel |
