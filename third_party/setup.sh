@@ -344,6 +344,10 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}/.git" ]]; then
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_arena_policy_runner_window_close.patch"
 
+  apply_patch_once "IsaacLab-Arena native Isaac Lab 3 viewport recording" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_arena_native_viewport_video.patch"
+
   # NVBug 6953999: a scene that opts in gets a new PhysX scene before every episode after the first.
   apply_patch_once "IsaacLab-Arena fresh physics scene per episode hook" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_ARENA_DIR}" \
