@@ -32,7 +32,7 @@ def export_contract(env, actor, checkpoint, policy):
         objective=env.liver.objective.objective,
         encoder=ENCODER,
         task=TASK_CONTRACT,
-        numerical_revision="5302e311332a830fe0eef9227a1fad63906aa89f",
+        numerical_revision="4f49fcf34e038b848355b60f1d14ff89772249a4",
         action_layout=["delta_x", "delta_y", "delta_z", "grip"],
         xyz_vector_limit_m=0.001,
         grip_mapping="(clip(action,-1,1)+1)/2",

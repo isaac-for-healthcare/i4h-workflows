@@ -1348,12 +1348,12 @@ requires-dist = [
     { name = "gr00t", git = "https://github.com/NVIDIA/Isaac-GR00T.git?rev=e8e625f4f21898c506a1d8f7d20a289c97a52acf" },
     { name = "h5py", specifier = ">=3.10" },
     { name = "hydra-core", specifier = "==1.3.2" },
-    { name = "i4h-assessment", editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/assessment" },
+    { name = "i4h-assessment", editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/assessment" },
     { name = "i4h-common", editable = "../common" },
-    { name = "i4h-endoluminal", editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/endoluminal" },
-    { name = "i4h-isaaclab", editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/isaaclab" },
-    { name = "i4h-physics", extras = ["coupled"], editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/physics" },
-    { name = "i4h-surgical", editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/surgical" },
+    { name = "i4h-endoluminal", editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/endoluminal" },
+    { name = "i4h-isaaclab", editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/isaaclab" },
+    { name = "i4h-physics", extras = ["coupled"], editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/physics" },
+    { name = "i4h-surgical", editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/surgical" },
     { name = "isaaclab", editable = "../third_party/IsaacLab-3939445/source/isaaclab" },
     { name = "isaaclab-arena", editable = "../third_party/IsaacLab-Arena-196680c" },
     { name = "isaaclab-assets", editable = "../third_party/IsaacLab-3939445/source/isaaclab_assets" },
@@ -1387,13 +1387,13 @@ requires-dist = [
 [[package]]
 name = "i4h-assessment"
 version = "0.9.0"
-source = { editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/assessment" }
+source = { editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/assessment" }
 dependencies = [
     { name = "i4h-physics" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "i4h-physics", editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/physics" }]
+requires-dist = [{ name = "i4h-physics", editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/physics" }]
 
 [[package]]
 name = "i4h-common"
@@ -1417,15 +1417,15 @@ provides-extras = ["dev"]
 [[package]]
 name = "i4h-endoluminal"
 version = "0.9.0"
-source = { editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/endoluminal" }
+source = { editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/endoluminal" }
 dependencies = [
     { name = "i4h-physics", extra = ["vtu"] },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "i4h-assessment", marker = "extra == 'assessment'", editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/assessment" },
-    { name = "i4h-physics", extras = ["vtu"], editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/physics" },
+    { name = "i4h-assessment", marker = "extra == 'assessment'", editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/assessment" },
+    { name = "i4h-physics", extras = ["vtu"], editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/physics" },
     { name = "usd-core", marker = "platform_machine != 'aarch64' and extra == 'usd'", specifier = ">=26.3" },
     { name = "usd-exchange", marker = "platform_machine == 'aarch64' and extra == 'usd'", specifier = ">=3.0" },
 ]
@@ -1434,7 +1434,7 @@ provides-extras = ["assessment", "usd"]
 [[package]]
 name = "i4h-isaaclab"
 version = "0.9.0"
-source = { editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/isaaclab" }
+source = { editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/isaaclab" }
 dependencies = [
     { name = "i4h-physics", extra = ["coupled"] },
     { name = "pillow" },
@@ -1443,10 +1443,10 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "i4h-assessment", marker = "extra == 'apps'", editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/assessment" },
-    { name = "i4h-endoluminal", marker = "extra == 'endoluminal'", editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/endoluminal" },
-    { name = "i4h-physics", extras = ["coupled"], editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/physics" },
-    { name = "i4h-surgical", marker = "extra == 'surgical'", editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/surgical" },
+    { name = "i4h-assessment", marker = "extra == 'apps'", editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/assessment" },
+    { name = "i4h-endoluminal", marker = "extra == 'endoluminal'", editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/endoluminal" },
+    { name = "i4h-physics", extras = ["coupled"], editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/physics" },
+    { name = "i4h-surgical", marker = "extra == 'surgical'", editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/surgical" },
     { name = "pillow", specifier = ">=10.0" },
     { name = "torch", specifier = ">=2.10" },
 ]
@@ -1455,7 +1455,7 @@ provides-extras = ["apps", "surgical", "endoluminal"]
 [[package]]
 name = "i4h-physics"
 version = "0.9.0"
-source = { editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/physics" }
+source = { editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/physics" }
 dependencies = [
     { name = "newton", extra = ["sim"] },
     { name = "numpy" },
@@ -1487,15 +1487,15 @@ provides-extras = ["coupled", "vtu"]
 [[package]]
 name = "i4h-surgical"
 version = "0.9.0"
-source = { editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/surgical" }
+source = { editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/surgical" }
 dependencies = [
     { name = "i4h-physics", extra = ["vtu"] },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "i4h-assessment", marker = "extra == 'assessment'", editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/assessment" },
-    { name = "i4h-physics", extras = ["vtu"], editable = "../third_party/i4h-numerical-sim-5302e31/numerical_sim/physics" },
+    { name = "i4h-assessment", marker = "extra == 'assessment'", editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/assessment" },
+    { name = "i4h-physics", extras = ["vtu"], editable = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/physics" },
     { name = "usd-core", marker = "platform_machine != 'aarch64' and extra == 'usd'", specifier = ">=26.3" },
     { name = "usd-exchange", marker = "platform_machine == 'aarch64' and extra == 'usd'", specifier = ">=3.0" },
 ]
