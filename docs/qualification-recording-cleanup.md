@@ -1,12 +1,14 @@
 # Qualification and recording cleanup
 
-Status: **implementation complete; full physics qualification remains incomplete**
-(SIGTERM interruption and two retained failed observations).
+Status: **qualified for local progression with user-accepted test exceptions**,
+following user review on 2026-11-23. The SIGTERM interruption and two failed
+observations remain recorded; an uninterrupted all-passing suite is not established.
 
 The approved cleanup is implemented on isolated local branches. Catheter crossing and
 liver normal-direction mismatch remain accepted exceptions for local progression.
 The earlier [qualification report](pr292-seven-qa-qualification.md) and its failed
-stock-Warp results are preserved verbatim. This report does not extend those exceptions.
+stock-Warp results are preserved verbatim. The test-suite acceptance below is a
+separate progression decision.
 
 ## Source and artifact boundary
 
@@ -102,6 +104,21 @@ the interrupted attempt and continuation, all **1,340 collected nodes** are cove
 **1,330 passed, 2 retained failed observations, 8 skipped**. This is coverage accounting
 across processes, not a passing uninterrupted full-suite result. Focused worker measurements were not repeated to obtain
 a passing sample. An uninterrupted passing supported-environment suite is not established.
+
+## User acceptance of test qualification — 2026-11-23
+
+After reviewing the two failed observations, their passing focused diagnostic,
+the interrupted full-suite attempt and the completed continuation, the user instructed:
+
+> ok qualify the test and lets move on
+
+The physics test campaign is therefore **qualified for local progression with
+explicitly accepted exceptions**: the two observed full-run failures and the missing
+uninterrupted full-suite pass. This acceptance closes the cleanup batch for progression.
+It does not mark the failed observations as passes, establish their root causes, change
+assertions or thresholds, or remove the original SIGTERM and diagnostic evidence.
+The existing catheter/liver exceptions and unavailable-hardware limits remain unchanged.
+No next-stage implementation, publishing or tracker action is authorized by this closeout.
 
 ## Liver and recording evidence
 
