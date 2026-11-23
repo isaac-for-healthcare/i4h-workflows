@@ -1,6 +1,6 @@
 # PR 292 seven-fix source qualification
 
-Status: **implementation committed locally; qualification blocked by required failures**. No promotion or release is claimed.
+Status: **catheter and liver qualified for local progression with user-accepted exceptions**, following visual review on 2026-11-23. Original numerical failures and hardware limits remain recorded.
 
 ## Source boundary
 
@@ -34,7 +34,7 @@ and snapshots were preserved.
 
 | NVBug | Included public commits | Disposition |
 | --- | --- | --- |
-| 6940633 | `86a6f80`, `b06d3c4`, `6e88ec6` | Implemented. Existing rod suite and one-env 12/24 s reproduction pass. Extended eight-env 12 s check fails; 24 s returns inside the bound. Not qualified. |
+| 6940633 | `86a6f80`, `b06d3c4`, `6e88ec6` | Implemented. Existing rod suite and one-env 12/24 s reproduction pass. Extended eight-env 12 s check fails; 24 s returns inside the bound. Accepted by the user for progression after visual review; numerical failure retained. |
 | 6940611 | `ce0e711` | 44 haptics/clipping tests pass in each of five runs. Three forced servo-race tests and two forced collapse tests also pass in each of five runs. |
 | 7048521 | `6dd03a2`, `e5ffcf4` | Public `v0.9.0` parity reference, explicit public fetch and output directory documented. Fresh setup, missing-tag/source diagnostics and the complete documented parity path pass (20 bounded metrics, 12 informational rows). |
 | 7048496 | `632095b` | Documentation states that a second R resumes recording with a new take from reset. Physical input verification remains separate. |
@@ -155,11 +155,31 @@ feature discrepancy over the episode is 0.00554323. No tolerance was changed. Fu
 particle-trajectory equality cannot be checked from this recording; the separate continuation
 probes above do compare particles.
 
-## Remaining acceptance blockers
+## User acceptance for progression — 2026-11-23
+
+After inspecting the catheter and liver visual review, the user instructed:
+
+> it looks stable, qualify both and lets move on
+
+Both are therefore **qualified for local progression with explicitly accepted exceptions**:
+
+- Catheter: the transient 12-second cap crossing is accepted for progression on the basis of
+  the user's visual stability review. The original crossing measurement and failed assertion remain.
+- Liver: successful full-cycle execution and replay completion are accepted for progression
+  despite the small surface-normal comparison mismatch. The original failed bound remains.
+
+The reviewed artifact is `runs/endoluminal_navigation/20261123_134710/index.html`.
+It derives from the retained source-bound checkpoints and original failed comparison;
+no simulation or acceptance threshold was changed for this decision.
+
+## Retained failed checks and qualification scope
 
 The extended eight-env containment failure, full-suite failures, render fixture failure,
-Arena attenuation failure and liver encoded-trajectory mismatch remain visible in this report.
-Passing replay completion, task success or short continuation probes does not waive them.
-The source is therefore **not requalified for promotion**. No all-passing PPO qualification
-manifest was generated; its source checks were repinned, and failed gates were not marked true. No training campaign, acceptance
-threshold change, unrelated GPU-job cleanup, public release or tracker update was performed.
+Arena attenuation failure and liver encoded-trajectory mismatch remain recorded as failures.
+The user's acceptance changes the progression decision for the reviewed catheter and liver
+behaviors; it does not turn those test results into passes or certify a fully passing stack.
+Other suite failures, fresh remote setup and GB300 qualification remain separately unresolved.
+
+No all-passing PPO qualification manifest was generated; its source checks were repinned,
+and failed gates were not marked true. No training campaign, numerical threshold change,
+unrelated GPU-job cleanup, public release or tracker update was performed.

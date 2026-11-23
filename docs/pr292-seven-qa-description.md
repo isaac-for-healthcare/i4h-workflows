@@ -14,7 +14,12 @@ lock metadata, RL export revision and qualification source checks use the same p
 Defer 6940614 entirely: preserve the 192-node centreline, reach, 576-value observations,
 `guide_tip` and existing procedure/baseline data. Keep 7011011's second-press failure separate.
 
-Qualification is blocked. Liver capture succeeds (1/1) and fresh-process replay completes,
+Catheter and liver are qualified for local progression with user-accepted exceptions,
+following the user's visual stability review on 2026-11-23. The transient catheter crossing
+and small liver surface-normal mismatch are explicitly accepted for progression; their
+original measurements and failed numerical assertions remain intact.
+
+Liver capture succeeds (1/1) and fresh-process replay completes,
 but the full-episode encoded trajectory exceeds an existing feature bound. The extended
 eight-environment aorta sweep has a transient positive signed distance at 12 seconds.
 Runtime/package, rendering and Arena CPU failures are retained. Reset/restore and fresh-process
