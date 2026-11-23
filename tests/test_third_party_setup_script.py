@@ -77,7 +77,7 @@ def _run_setup(
         'printf \'%s\\n\' "$*" >> "$GIT_TEST_LOG"\n'
         "repo=''\n"
         "if [ \"${1:-}\" = '-C' ]; then repo=$2; shift 2; fi\n"
-        'if [[ "${GIT_TEST_FAIL_NUMERICAL:-0}" == 1 && "$repo" == *i4h-numerical-sim-4f49fcf'
+        'if [[ "${GIT_TEST_FAIL_NUMERICAL:-0}" == 1 && "$repo" == *i4h-numerical-sim-6cf9eae'
         ' && "${1:-}" == fetch ]]; then exit 128; fi\n'
         'if [ "${1:-}" = \'init\' ]; then mkdir -p "$repo/.git"; exit 0; fi\n'
         "if [ \"${1:-} ${2:-} ${3:-}\" = 'remote get-url origin' ]; then\n"
@@ -138,7 +138,7 @@ def test_components_use_declared_public_and_private_https_sources(tmp_path: Path
     assert (
         "remote set-url origin https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
     )
-    assert "4f49fcf34e038b848355b60f1d14ff89772249a4" in git_log
+    assert "6cf9eae60e16091397539262ee0a074aa95c827d" in git_log
     assert "Isaac-GR00T-1.6 fetch" not in git_log
     assert "i4h_numerical_liver_host.patch" not in git_log
     assert "git@github.com" not in git_log

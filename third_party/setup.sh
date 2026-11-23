@@ -16,8 +16,8 @@ TARGET="${1:-all}"
 # 6.2.0.0 (arena/pyproject.toml) and warp-lang 1.17.0.
 ISAACLAB_REV="39394453ceaac256349ad822e675a93485373667"
 ISAACLAB_DIR="IsaacLab-3939445"
-NUMERICAL_SIM_REV="4f49fcf34e038b848355b60f1d14ff89772249a4"
-NUMERICAL_SIM_DIR="i4h-numerical-sim-4f49fcf"
+NUMERICAL_SIM_REV="6cf9eae60e16091397539262ee0a074aa95c827d"
+NUMERICAL_SIM_DIR="i4h-numerical-sim-6cf9eae"
 LEISAAC_REV="cd61a20c75f7b72c347538089602201349af6dc8"
 LEISAAC_DIR="leisaac-cd61a20"
 # Arena main qualification pin. Arena itself pins the v3.0.0 GA submodule; i4h runs it on the

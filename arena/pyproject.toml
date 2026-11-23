@@ -59,12 +59,12 @@ build-backend = "hatchling.build"
 packages = ["i4h_arena"]
 
 [tool.uv.sources]
-i4h-surgical = { path = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/surgical", editable = true }
-i4h-assessment = { path = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/assessment", editable = true }
+i4h-surgical = { path = "../third_party/i4h-numerical-sim-6cf9eae/numerical_sim/surgical", editable = true }
+i4h-assessment = { path = "../third_party/i4h-numerical-sim-6cf9eae/numerical_sim/assessment", editable = true }
 warp-lang = { path = "../third_party/wheels/warp_lang-1.17.0-py3-none-linux_x86_64.whl" }
-i4h-physics = { path = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/physics", editable = true }
-i4h-isaaclab = { path = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/isaaclab", editable = true }
-i4h-endoluminal = { path = "../third_party/i4h-numerical-sim-4f49fcf/numerical_sim/endoluminal", editable = true }
+i4h-physics = { path = "../third_party/i4h-numerical-sim-6cf9eae/numerical_sim/physics", editable = true }
+i4h-isaaclab = { path = "../third_party/i4h-numerical-sim-6cf9eae/numerical_sim/isaaclab", editable = true }
+i4h-endoluminal = { path = "../third_party/i4h-numerical-sim-6cf9eae/numerical_sim/endoluminal", editable = true }
 i4h-common = { path = "../common", editable = true }
 isaacsim = { index = "nvidia" }
 # Isaac Sim 6.2 pins an OpenCV release candidate that only pypi.nvidia.com carries.
