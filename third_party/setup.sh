@@ -16,8 +16,6 @@ TARGET="${1:-all}"
 # 6.2.0.0 (arena/pyproject.toml) and warp-lang 1.17.0.
 ISAACLAB_REV="39394453ceaac256349ad822e675a93485373667"
 ISAACLAB_DIR="IsaacLab-3939445"
-NUMERICAL_SIM_REV="6cf9eae60e16091397539262ee0a074aa95c827d"
-NUMERICAL_SIM_DIR="i4h-numerical-sim-6cf9eae"
 LEISAAC_REV="cd61a20c75f7b72c347538089602201349af6dc8"
 LEISAAC_DIR="leisaac-cd61a20"
 # Arena main qualification pin. Arena itself pins the v3.0.0 GA submodule; i4h runs it on the
@@ -29,13 +27,14 @@ POLICY_ARENA_REV="c7edf3a9d5d8276565208f72422f8f8a0806d6cf"
 POLICY_ARENA_DIR="IsaacLab-Arena-c7edf3a"
 ISAACSIM_SKILLS_REV="74a9356b20250dd60337d90b4b4d913c9454d32b"
 ISAACSIM_SKILLS_DIR="IsaacSim-74a9356"
-# Physics is the public i4h-physics-simulation sync of internal main (PR #17, 5af32b1). Sensor simulation and the patient twin are pinned to
+# Physics (and its numerical_sim packages) is the public i4h-physics-simulation sync of internal
+# main (PR #17, 5af32b1). Sensor simulation and the patient twin are pinned to
 # commits on their main branches that read and write the native scan bundle format (sensor
 # simulation #72, merged as d7d3f29; the twin pins the same xray_simulator). Override *_REF to
 # test another revision (I4H_DIGITAL_TWIN_REF=main tracks the twin's main branch) and *_URL to
 # build against a local checkout.
 I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-5af32b137680af4500a4f3e5b104a2e77c44d36b}"
-I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
+I4H_PHYSICS_SIM_DIR="i4h-physics-simulation"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-d7d3f2976ab306a531730772c1d4fa221d6e2247}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation"
 I4H_SENSOR_SIM_URL="${I4H_SENSOR_SIM_URL:-https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git}"
@@ -166,7 +165,6 @@ SENSOR_SIM_CHECKOUT="${I4H_SENSOR_SIM_DIR}|${I4H_SENSOR_SIM_URL}|${I4H_SENSOR_SI
 DIGITAL_TWIN_CHECKOUT="${I4H_DIGITAL_TWIN_DIR}|${I4H_DIGITAL_TWIN_URL}|${I4H_DIGITAL_TWIN_REF}"
 
 arena_checkouts=(
-  "${NUMERICAL_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git|${NUMERICAL_SIM_REV}"
   "${ISAACLAB_DIR}|https://github.com/isaac-sim/IsaacLab.git|${ISAACLAB_REV}"
   "${LEISAAC_DIR}|https://github.com/LightwheelAI/leisaac.git|${LEISAAC_REV}"
   "${ISAACLAB_ARENA_CHECKOUT}"
@@ -246,7 +244,7 @@ done
 # Sensor simulation and the patient twin used to be checked out under *-internal names. The
 # projects no longer read those directories; say so rather than leave a stale copy to be
 # mistaken for the pinned one.
-for retired in i4h-sensor-simulation-internal i4h-digital-twin-internal; do
+for retired in i4h-physics-simulation-internal i4h-sensor-simulation-internal i4h-digital-twin-internal; do
   if [[ -d "${THIRD_PARTY_DIR}/${retired}" ]]; then
     echo "[${LOG_PREFIX}] third_party/${retired} is no longer used (now ${retired%-internal});" \
       "remove it with: rm -rf third_party/${retired}" >&2

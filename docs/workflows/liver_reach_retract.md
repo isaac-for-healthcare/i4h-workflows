@@ -12,9 +12,9 @@ The Arena reducer owns phases, timers, rewards and terminal results. Its post-ph
 
 ## Setup and offline snapshots
 
-The current integration pin is private Numerical Sim commit `caff73b12a77abd6157771678ee0a57206771ac4` from `isaac-for-healthcare/i4h-physics-simulation-internal`, checked out as `third_party/i4h-numerical-sim-caff73b`. Its merged bridge supplies post-physics callbacks and selected-world reset/restore without a Workflows compatibility patch. Setup requires authenticated access to that private repository. Public-install readiness remains deferred; this change does not publish Numerical Sim.
+The current integration pin is public i4h-physics-simulation commit `5af32b137680af4500a4f3e5b104a2e77c44d36b` (PR #17), checked out as `third_party/i4h-physics-simulation`. Its bridge supplies post-physics callbacks and selected-world reset/restore without a Workflows compatibility patch. Supply production assets as described by Numerical Sim.
 
-Run `./setup.sh` after the numerical revision is publicly fetchable. Supply its production assets as described by Numerical Sim. Generate compatible settled bundles offline before normal execution:
+Generate compatible settled bundles offline before normal execution:
 
 ```bash
 export I4H_LIVER_SNAPSHOTS="$PWD/runs/liver_reach_retract/snapshots"

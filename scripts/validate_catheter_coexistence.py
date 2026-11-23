@@ -123,9 +123,7 @@ def main():
     faulthandler.dump_traceback_later(180, repeat=True)
     modules = {name: importlib.import_module(name) for name in names}
     for name, module in modules.items():
-        expected = (
-            ROOT / "third_party/i4h-physics-simulation-internal" if name == "catheter_vasculature_solver" else numerical
-        )
+        expected = ROOT / "third_party/i4h-physics-simulation" if name == "catheter_vasculature_solver" else numerical
         assert Path(module.__file__).resolve().is_relative_to(expected), module.__file__
     import newton
     import warp as wp

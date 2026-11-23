@@ -35,7 +35,6 @@ def _run_setup(
     solver_api: tuple[str, ...] = SOLVER_API,
     target: str = "arena",
     retired: tuple[str, ...] = (),
-    fail_numerical: bool = False,
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     workspace = tmp_path / "workspace"
     third_party = workspace / "third_party"
@@ -60,7 +59,7 @@ def _run_setup(
 
     # Fake Git does not populate working trees. Supply the solver source that
     # setup inspects so these tests model a compatible component checkout.
-    physics = third_party / "i4h-physics-simulation-internal" / "xpbd_rod"
+    physics = third_party / "i4h-physics-simulation" / "xpbd_rod"
     physics.mkdir(parents=True)
     (physics / "solver.py").write_text(
         "\n\n".join(f"def {name}():\n    pass\n" for name in solver_api),
@@ -77,8 +76,6 @@ def _run_setup(
         'printf \'%s\\n\' "$*" >> "$GIT_TEST_LOG"\n'
         "repo=''\n"
         "if [ \"${1:-}\" = '-C' ]; then repo=$2; shift 2; fi\n"
-        'if [[ "${GIT_TEST_FAIL_NUMERICAL:-0}" == 1 && "$repo" == *i4h-numerical-sim-6cf9eae'
-        ' && "${1:-}" == fetch ]]; then exit 128; fi\n'
         'if [ "${1:-}" = \'init\' ]; then mkdir -p "$repo/.git"; exit 0; fi\n'
         "if [ \"${1:-} ${2:-} ${3:-}\" = 'remote get-url origin' ]; then\n"
         '  if [ "$repo" = "$GIT_TEST_WORKSPACE" ]; then\n'
@@ -102,7 +99,6 @@ def _run_setup(
     env.update(
         {
             "GIT_TEST_LOG": str(git_log),
-            "GIT_TEST_FAIL_NUMERICAL": str(int(fail_numerical)),
             "GIT_TEST_ROOT_ORIGIN": root_origin,
             "GIT_TEST_WORKSPACE": str(workspace),
             "PATH": f"{bin_dir}{os.pathsep}{env['PATH']}",
@@ -127,18 +123,16 @@ def _run_setup(
         "",
     ],
 )
-def test_components_use_declared_public_and_private_https_sources(tmp_path: Path, root_origin: str) -> None:
-    # Numerical Sim is private; the legacy physics and patient components remain public.
+def test_components_use_declared_public_https_sources(tmp_path: Path, root_origin: str) -> None:
+    # Physics (including Numerical Sim), sensor simulation and the patient twin are all public.
     result, git_log = _run_setup(tmp_path, root_origin)
 
     assert result.returncode == 0, result.stderr
     assert "carries the coupled-arm solver contract" in result.stdout
     for repository in ("i4h-physics-simulation", "i4h-sensor-simulation", "i4h-digital-twin"):
         assert f"remote set-url origin https://github.com/isaac-for-healthcare/{repository}.git" in git_log
-    assert (
-        "remote set-url origin https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git" in git_log
-    )
-    assert "6cf9eae60e16091397539262ee0a074aa95c827d" in git_log
+    assert "i4h-physics-simulation-internal" not in git_log
+    assert "5af32b137680af4500a4f3e5b104a2e77c44d36b" in git_log
     assert "Isaac-GR00T-1.6 fetch" not in git_log
     assert "i4h_numerical_liver_host.patch" not in git_log
     assert "git@github.com" not in git_log
@@ -164,7 +158,7 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
     result, git_log = _run_setup(tmp_path, "")
     assert result.returncode == 0, result.stderr
     for component, ref in (
-        ("physics-simulation-internal", "5af32b137680af4500a4f3e5b104a2e77c44d36b"),
+        ("physics-simulation", "5af32b137680af4500a4f3e5b104a2e77c44d36b"),
         ("sensor-simulation", "d7d3f2976ab306a531730772c1d4fa221d6e2247"),
         ("digital-twin", "21e969d0be8212c22acc0a7e920b954f60ec289f"),
     ):
@@ -305,13 +299,3 @@ def test_retired_internal_checkouts_are_named_for_removal(tmp_path: Path) -> Non
     for name in retired:
         assert f"third_party/{name} is no longer used" in result.stderr
         assert f"rm -rf third_party/{name}" in result.stderr
-
-
-def test_private_numerical_authentication_failure_is_actionable(tmp_path):
-    result, git_log = _run_setup(tmp_path, "", fail_numerical=True)
-    assert result.returncode != 0
-    assert (
-        "checkout failed: https://github.com/isaac-for-healthcare/i4h-physics-simulation-internal.git" in result.stderr
-    )
-    assert "Verify repository access and Git authentication" in result.stderr
-    assert "IsaacLab-3939445 fetch" not in git_log
