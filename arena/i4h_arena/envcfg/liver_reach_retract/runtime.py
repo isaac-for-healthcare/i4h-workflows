@@ -261,23 +261,30 @@ class LiverRuntime:
 
     def teacher_action(self):
         self.component.sync_views()
+        self.probe.check()
         result = np.zeros((self.env.num_envs, 4), np.float32)
-        measurements = self.probe.read()
+        # The reference only reads geometry. Download each required batch once;
+        # other probe fields include per-particle capture history and diagnostics.
+        geometry = self.views["geometry"].cpu().numpy()
         physical = self.physical.cpu().numpy()
-        for e, teacher in enumerate(self.teachers):
-            m = {key: value[e] for key, value in measurements.items()}
-            teacher.action[:] = self.controller_action[e].cpu().numpy()
-            teacher.arrival_ticks = int(self.controller_arrival[e, 0])
-            s = self.objective.s[e].cpu().numpy()
-            # The Arena reducer supplies phase and timing; the controller only commands.
-            from i4h_arena.medical.liver import PHASES
+        commands = self.controller_action.cpu().numpy().copy()
+        arrivals = self.controller_arrival.cpu().numpy().copy()
+        states = self.objective.s.cpu().numpy()
+        destinations = self.objective.f[:, :3].cpu().numpy()
+        from i4h_arena.medical.liver import PHASES
 
-            destination = None if s[4] < 0 else self.objective.f[e, :3].cpu().numpy().copy()
-            command = teacher.command(m, PHASES[s[0]], destination)
+        for e, teacher in enumerate(self.teachers):
+            teacher.action[:] = commands[e]
+            teacher.arrival_ticks = int(arrivals[e, 0])
+            # The Arena reducer supplies phase and timing; the controller only commands.
+            destination = None if states[e, 4] < 0 else destinations[e].copy()
+            command = teacher.command({"geometry": geometry[e]}, PHASES[states[e, 0]], destination)
             result[e, :3] = (command[:3] - physical[e, :3]) / 0.001
             result[e, 3] = command[7] * 2 - 1
-            self.controller_action[e] = torch.as_tensor(command, device=self.env.device)
-            self.controller_arrival[e, 0] = teacher.arrival_ticks
+            commands[e] = command
+            arrivals[e, 0] = teacher.arrival_ticks
+        self.controller_action.copy_(torch.as_tensor(commands, device=self.env.device))
+        self.controller_arrival.copy_(torch.as_tensor(arrivals, device=self.env.device))
         return result
 
     def capture_state(self):

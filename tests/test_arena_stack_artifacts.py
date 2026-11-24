@@ -59,7 +59,7 @@ def active_asset(tmp_path, monkeypatch):
     monkeypatch.setattr(artifacts, "ROOT", tmp_path)
     arena = tmp_path / "arena"
     arena.mkdir()
-    packages = ("physics", "isaaclab", "surgical", "assessment", "endoluminal")
+    packages = ("physics", "isaaclab", "host", "surgical", "assessment", "endoluminal")
     (arena / "pyproject.toml").write_text(
         "[tool.uv.sources]\n"
         + "".join(f'i4h-{name} = {{ path = "../third_party/active/numerical_sim/{name}" }}\n' for name in packages)
@@ -94,11 +94,14 @@ def test_changed_asset_hash_fails(active_asset):
         artifacts.verify_asset()
 
 
-def test_inconsistent_numerical_declarations_are_rejected(active_asset):
+@pytest.mark.parametrize("package", ["isaaclab", "host"])
+def test_inconsistent_numerical_declarations_are_rejected(active_asset, package):
     from i4h_common.paths import numerical_source
 
     project = artifacts.ROOT / "arena/pyproject.toml"
-    project.write_text(project.read_text().replace("active/numerical_sim/isaaclab", "retired/numerical_sim/isaaclab"))
+    project.write_text(
+        project.read_text().replace(f"active/numerical_sim/{package}", f"retired/numerical_sim/{package}")
+    )
     with pytest.raises(ValueError, match="sources disagree"):
         numerical_source(artifacts.ROOT)
 

@@ -28,12 +28,12 @@ POLICY_ARENA_DIR="IsaacLab-Arena-c7edf3a"
 ISAACSIM_SKILLS_REV="74a9356b20250dd60337d90b4b4d913c9454d32b"
 ISAACSIM_SKILLS_DIR="IsaacSim-74a9356"
 # Physics (and its numerical_sim packages) is the public i4h-physics-simulation sync of internal
-# main (PR #17, 5af32b1). Sensor simulation and the patient twin are pinned to
+# main plus the neutral-host split (PR #17, 8812708). Sensor simulation and the patient twin are pinned to
 # commits on their main branches that read and write the native scan bundle format (sensor
 # simulation #72, merged as d7d3f29; the twin pins the same xray_simulator). Override *_REF to
 # test another revision (I4H_DIGITAL_TWIN_REF=main tracks the twin's main branch) and *_URL to
 # build against a local checkout.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-5af32b137680af4500a4f3e5b104a2e77c44d36b}"
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-8812708a98e3c86b50cee359182b496924496b35}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-d7d3f2976ab306a531730772c1d4fa221d6e2247}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation"

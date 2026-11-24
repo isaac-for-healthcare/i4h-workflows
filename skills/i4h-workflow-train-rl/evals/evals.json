@@ -128,5 +128,19 @@
       "checks checkpoint metadata during dry-run before Isaac Sim starts",
       "does not fabricate normalization statistics or rename an unrelated embodiment tag"
     ]
+  },
+  {
+    "id": "i4h-workflow-train-rl-liver-minimal-grasp-retract",
+    "question": "Show me a minimal RL example on the liver tissue grasp and retraction workflow, from training to running the policy.",
+    "expected_skill": "i4h-workflow-train-rl",
+    "ground_truth": "Use scripts/liver_rl_minimal.py: reference demonstrations, BC, import-bc, MinimalLiverPPO fine-tuning on 8 worlds with fixed LR 1e-5 and frozen BC-reference weight 0.1, selection on 20 separate development starts, RSL-RL export, BC vs PPO evaluation on identical starts, then ./run.sh liver_reach_retract --policy with the export. Plain ./train.sh rl liver_reach_retract uses GuardedPPO and requires the qualified campaign artifacts.",
+    "expected_behavior": [
+      "runs or dry-runs scripts/liver_rl_minimal.py from the repository root and keeps artifacts in one runs/liver_reach_retract/<timestamp> directory",
+      "explains that the plain liver profile needs I4H_LIVER_QUALIFICATION and I4H_LIVER_BC and selects MinimalLiverPPO for the example",
+      "requires Numerical Sim from the pinned i4h-physics-simulation checkout and settled snapshots for the exact world count",
+      "reports BC and PPO success counts separately without claiming PPO improvement the run does not show",
+      "selects the earliest checkpoint with maximum development full-cycle success before evaluating on held-out starts; preserves the original BC reference on native resume",
+      "validates the export with ./run.sh liver_reach_retract --policy --checkpoint <export dir>"
+    ]
   }
 ]

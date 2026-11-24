@@ -71,7 +71,7 @@ def numerical_source(root: Path | None = None) -> Path:
     """The single numerical_sim directory shared by every declared numerical package."""
     directories = {
         package_source(package, root).parent
-        for package in ("i4h-physics", "i4h-isaaclab", "i4h-surgical", "i4h-assessment", "i4h-endoluminal")
+        for package in ("i4h-physics", "i4h-isaaclab", "i4h-host", "i4h-surgical", "i4h-assessment", "i4h-endoluminal")
     }
     if len(directories) != 1:
         raise ValueError(f"Numerical Sim package sources disagree: {directories}")

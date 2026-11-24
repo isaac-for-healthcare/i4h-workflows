@@ -12,7 +12,7 @@ The Arena reducer owns phases, timers, rewards and terminal results. Its post-ph
 
 ## Setup and offline snapshots
 
-The current integration pin is public i4h-physics-simulation commit `5af32b137680af4500a4f3e5b104a2e77c44d36b` (PR #17), checked out as `third_party/i4h-physics-simulation`. Its bridge supplies post-physics callbacks and selected-world reset/restore without a Workflows compatibility patch. Supply production assets as described by Numerical Sim.
+The current integration pin is public i4h-physics-simulation commit `8812708a98e3c86b50cee359182b496924496b35` (PR #17), checked out as `third_party/i4h-physics-simulation`. Arena declares the neutral `i4h-host` package from the same checkout; the standalone application is not required. Its bridge supplies post-physics callbacks and selected-world reset/restore without a Workflows compatibility patch. Supply production assets as described by Numerical Sim.
 
 Generate compatible settled bundles offline before normal execution:
 
@@ -40,6 +40,8 @@ Isaac Lab recorder terms store actions, observations and complete numerical/prob
 The existing setup-managed Isaac Lab headless-replay patch skips unavailable keyboard controls. Apply setup patches to the pinned checkout before replaying; without that patch the upstream tool fails on `omni.appwindow` in headless mode. Both visible and headless native replay completed in the consolidation checks.
 
 ## Learning and evidence
+
+For a self-contained, end-to-end example, see the [minimal liver RL example](liver_rl_minimal.md). It runs reference demonstrations, behaviour cloning, PPO fine-tuning with a frozen BC reference, development-based checkpoint selection, export and a `./run.sh` policy run, and needs no qualification artifacts. The rest of this section describes the qualified campaign.
 
 The [RL profile](../../rl/profiles/liver_reach_retract.yaml) and [trainer configuration](../../rl/config/liver_reach_retract_ppo_rsl_rl.yaml) retain two 128-unit ELU layers, 16 environments, 256 control ticks per rollout, actor LR `1e-5`, desired KL `.01`, initial fixed std `.02` and disabled running observation normalization.
 

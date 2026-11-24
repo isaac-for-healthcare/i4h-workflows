@@ -1309,6 +1309,7 @@ dependencies = [
     { name = "i4h-assessment" },
     { name = "i4h-common" },
     { name = "i4h-endoluminal" },
+    { name = "i4h-host" },
     { name = "i4h-isaaclab" },
     { name = "i4h-physics", extra = ["coupled"] },
     { name = "i4h-surgical" },
@@ -1351,6 +1352,7 @@ requires-dist = [
     { name = "i4h-assessment", editable = "../third_party/i4h-physics-simulation/numerical_sim/assessment" },
     { name = "i4h-common", editable = "../common" },
     { name = "i4h-endoluminal", editable = "../third_party/i4h-physics-simulation/numerical_sim/endoluminal" },
+    { name = "i4h-host", editable = "../third_party/i4h-physics-simulation/numerical_sim/host" },
     { name = "i4h-isaaclab", editable = "../third_party/i4h-physics-simulation/numerical_sim/isaaclab" },
     { name = "i4h-physics", extras = ["coupled"], editable = "../third_party/i4h-physics-simulation/numerical_sim/physics" },
     { name = "i4h-surgical", editable = "../third_party/i4h-physics-simulation/numerical_sim/surgical" },
@@ -1432,10 +1434,26 @@ requires-dist = [
 provides-extras = ["assessment", "usd"]
 
 [[package]]
+name = "i4h-host"
+version = "0.9.0"
+source = { editable = "../third_party/i4h-physics-simulation/numerical_sim/host" }
+dependencies = [
+    { name = "i4h-physics" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "i4h-assessment", marker = "extra == 'assessment'", editable = "../third_party/i4h-physics-simulation/numerical_sim/assessment" },
+    { name = "i4h-physics", editable = "../third_party/i4h-physics-simulation/numerical_sim/physics" },
+]
+provides-extras = ["assessment"]
+
+[[package]]
 name = "i4h-isaaclab"
 version = "0.9.0"
 source = { editable = "../third_party/i4h-physics-simulation/numerical_sim/isaaclab" }
 dependencies = [
+    { name = "i4h-host" },
     { name = "i4h-physics", extra = ["coupled"] },
     { name = "pillow" },
     { name = "torch" },
@@ -1445,6 +1463,7 @@ dependencies = [
 requires-dist = [
     { name = "i4h-assessment", marker = "extra == 'apps'", editable = "../third_party/i4h-physics-simulation/numerical_sim/assessment" },
     { name = "i4h-endoluminal", marker = "extra == 'endoluminal'", editable = "../third_party/i4h-physics-simulation/numerical_sim/endoluminal" },
+    { name = "i4h-host", editable = "../third_party/i4h-physics-simulation/numerical_sim/host" },
     { name = "i4h-physics", extras = ["coupled"], editable = "../third_party/i4h-physics-simulation/numerical_sim/physics" },
     { name = "i4h-surgical", marker = "extra == 'surgical'", editable = "../third_party/i4h-physics-simulation/numerical_sim/surgical" },
     { name = "pillow", specifier = ">=10.0" },

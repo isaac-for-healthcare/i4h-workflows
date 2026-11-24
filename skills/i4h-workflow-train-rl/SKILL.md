@@ -74,10 +74,13 @@ Select the maintained path from the profile:
 | `ultrasound_probe_reach` | RSL-RL PPO | None; train from scratch | 34-D joint/probe/target state → 6-D relative EE pose | Native `model_<N>.pt` with `params/agent.yaml` → Arena's `rsl_rl` policy in `UltrasoundProbeReach` with `--rl_observations`; optional TorchScript `policy.pt` export for deployment |
 | `assemble_trocar` | RLinf PPO actor/critic | Local GR00T N1.5 Trocar SFT/compatible RL checkpoint | Three cameras + 28 arm/hand joints → 28 policy actions padded to the 43-D scene action | Native RLinf run bundle → GR00T export → `i4h_tasks.gr00t_n15.serve assemble_trocar --model-path` → `Gr00tN15RemotePolicy` in `G1Trocar` |
 | `endoluminal_navigation`, `endoluminal_navigation_arm` | RLinf PPO actor/critic in the GR00T N1.7 runtime | Local GR00T N1.7 catheter SFT checkpoint plus `--patient-twin` | Fluoroscopy + 9 of the 15 state values → 4 velocity channels | Native RLinf run bundle → GR00T export → `i4h_tasks.gr00t_n17.serve catheter_navigation --model-path` → `Gr00tN17RemotePolicy --embodiment catheter` with `--presets newton` and `--patient_twin` |
+| `liver_reach_retract` | RSL-RL PPO (`MinimalLiverPPO` for the example) | BC actor from reference demonstrations | 57 liver features → 1 mm xyz step + grip | `./train.sh rl export` → `./run.sh liver_reach_retract --policy --checkpoint <export dir>` |
 
 For `ultrasound_probe_reach`, require the target to be sampled from verified upper-torso surface points, the table and phantom to remain fixed, success to require both position and orientation tolerance for consecutive steps, and the validation run to select the same flat observations as training (`--rl_observations`).
 
 For `assemble_trocar`, require Unitree G1 with Dex3 hands, `front` and both wrist cameras, the current 87-value body state (29 positions + 29 velocities + 29 torques), 14 Dex3 joint positions, the 28-D GR00T arm/hand mapping, the 15-value body-action prefix, and the maintained `g1_trocar` reward/termination contract. Do not copy another Trocar environment into the training tree.
+
+For `liver_reach_retract`, follow `docs/workflows/liver_rl_minimal.md` and run `python3 scripts/liver_rl_minimal.py --headless`. Use the public physics checkout pinned in `third_party/setup.sh`. The driver uses fixed LR `1e-5`, frozen BC-reference weight `0.1`, and 20 separate development starts to select a checkpoint before held-out evaluation. Resume verifies stage commands/output hashes and preserves the original BC reference. Report BC/PPO counts separately. Plain `./train.sh rl liver_reach_retract` retains `GuardedPPO` and requires qualification artifacts.
 
 For the endoluminal profiles, follow the IL-to-RL sequence, reward, monitoring, and checkpoint-validation guidance in `docs/workflows/endoluminal-robotics.md`. One `--patient-twin` applies per run; the defaults place the model on GPU 0 and the simulator on GPU 1, and `I4H_RL_SIM_GPU=0` shares one GPU.
 
@@ -230,7 +233,7 @@ Report the first missing runtime dependency, checkpoint path, registration failu
 
 ## Limitations
 
-`./train.sh rl list` is the authoritative profile list: `ultrasound_probe_reach` with RSL-RL, and `assemble_trocar`, `endoluminal_navigation`, and `endoluminal_navigation_arm` with RLinf. RSL-RL resume, RSL-RL evaluation video, and distributed multi-GPU launch are not yet exposed. Trocar requires two visible local GPUs, and the Unix-socket simulator bridge is single-host; a distributed simulator/controller deployment is not exposed. This skill does not perform supervised LeRobot fine-tuning or make unsupported workflows trainable.
+`./train.sh rl list` lists maintained profiles; use the liver driver for the unqualified example. RSL-RL resume, RSL-RL evaluation video, and distributed multi-GPU launch are not yet exposed. Trocar requires two visible local GPUs, and the Unix-socket simulator bridge is single-host; a distributed simulator/controller deployment is not exposed. This skill does not perform supervised LeRobot fine-tuning or make unsupported workflows trainable.
 
 ## Examples
 

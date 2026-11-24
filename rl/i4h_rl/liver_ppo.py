@@ -7,6 +7,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 
@@ -34,6 +35,9 @@ class GuardedPPO(PPO):
     Evaluation checkpoints at actor updates 1, 5, 10 are mandatory. The owning
     training driver must supply the same frozen 20-start evaluator used for BC.
     """
+
+    #: Qualified campaigns stop on a deterministic regression against BC.
+    validation_required = True
 
     def __init__(self, *args, critic_warmup_updates=10, qualification_required=True, **kwargs):
         import torch
@@ -77,7 +81,8 @@ class GuardedPPO(PPO):
             raise RuntimeError("liver PPO stopped after deterministic evaluation regression")
         warmup = self.completed_updates < self.warmup_updates
         next_actor = self.actor_updates + (0 if warmup else 1)
-        if not warmup and next_actor in (1, 5, 10) and not callable(self.evaluator):
+        validating = self.validation_required and not warmup and next_actor in (1, 5, 10)
+        if validating and not callable(self.evaluator):
             raise RuntimeError("actor update requires the frozen 20-start BC comparison evaluator")
         actor_parameters = list(self.actor.parameters())
         old_actor = copy.deepcopy(self.actor.state_dict())
@@ -120,7 +125,7 @@ class GuardedPPO(PPO):
         if not warmup:
             self.actor_updates = next_actor
         result.update(update_kl=kl, actor_rollback=float(rollback), critic_only=float(warmup))
-        if not warmup and self.actor_updates in (1, 5, 10):
+        if validating:
             score = self.evaluator(self.actor)
             if score["episodes"] != 20 or score["starts_sha256"] != self.qualification["validation_starts_sha256"]:
                 raise RuntimeError("evaluation did not use the same 20-start BC baseline")
@@ -129,7 +134,7 @@ class GuardedPPO(PPO):
             self.stopped = score["successes"] < self.qualification["bc_successes"] - 2
             result["deterministic_successes"] = score["successes"]
         self.history.append(dict(update=self.completed_updates, actor_update=self.actor_updates, **result))
-        if not warmup and self.actor_updates in (1, 5, 10) and hasattr(self, "_validation_folder"):
+        if validating and hasattr(self, "_validation_folder"):
             torch.save(
                 dict(**self.save(), iter=self.completed_updates, infos={"validation_pending": False}),
                 self._validation_folder / ("stopped_checkpoint.pt" if self.stopped else "validated_checkpoint.pt"),
@@ -269,3 +274,79 @@ class GuardedPPO(PPO):
         with (folder / "evaluation.log").open("w") as log:
             subprocess.run(command, cwd=root, env=os.environ.copy(), stdout=log, stderr=subprocess.STDOUT, check=True)
         return json.loads((folder / "evaluation.json").read_text())
+
+
+class MinimalLiverPPO(GuardedPPO):
+    """Unqualified PPO fine-tuning for the minimal liver RL example.
+
+    It starts from whatever checkpoint the trainer resumes (the example imports
+    its own behaviour-cloned actor) and keeps the critic warm-up, frozen std,
+    frozen BC reference and KL rollback. It omits the qualified campaign's manifest, BC hash and the
+    frozen 20-start evaluator, so its results are example evidence, not a
+    qualified training claim. Select it with
+    ``--set agent.algorithm.class_name=i4h_rl.liver_ppo:MinimalLiverPPO``.
+    """
+
+    validation_required = False
+
+    def __init__(self, *args, critic_warmup_updates=5, qualification_required=False, bc_reference_coef=0.1, **kwargs):
+        if qualification_required:
+            raise ValueError("MinimalLiverPPO is unqualified; use GuardedPPO for the qualified campaign")
+        if not math.isfinite(bc_reference_coef) or bc_reference_coef < 0:
+            raise ValueError("bc_reference_coef must be finite and nonnegative")
+        super().__init__(*args, critic_warmup_updates=critic_warmup_updates, qualification_required=False, **kwargs)
+        self.bc_reference_coef = bc_reference_coef
+        self.bc_reference = None
+
+    def _reference(self):
+        if self.bc_reference is None:
+            self.bc_reference = copy.deepcopy(self.actor).eval()
+            for parameter in self.bc_reference.parameters():
+                parameter.requires_grad_(False)
+        return self.bc_reference
+
+    def _reference_gradient(self, module, args, kwargs, output):
+        """Add the exact gradient of coef * mean KL(frozen BC || actor).
+
+        With fixed standard deviation the mean gradient is analytic. Attaching
+        it to the mean includes the reference loss before RSL-RL clips the
+        combined PPO gradients, without copying the upstream PPO update loop.
+        """
+        import torch
+
+        if not torch.is_grad_enabled() or not kwargs.get("stochastic_output", False):
+            return
+        mean, std = module.output_distribution_params
+        if not mean.requires_grad:
+            return
+        with torch.no_grad():
+            target = self._reference()(args[0])
+            extra = self.bc_reference_coef * (mean.detach() - target) / (len(mean) * std.detach().square())
+        mean.register_hook(lambda gradient: gradient + extra)
+
+    def update(self):
+        self._reference()
+        handle = self.actor.register_forward_hook(self._reference_gradient, with_kwargs=True)
+        try:
+            return super().update()
+        finally:
+            handle.remove()
+
+    def save(self):
+        result = super().save()
+        result["liver_safeguards"]["validation"] = "none (minimal example)"
+        result["liver_bc_reference"] = dict(coefficient=self.bc_reference_coef, actor=self._reference().state_dict())
+        return result
+
+    def load(self, loaded_dict, load_cfg, strict):
+        state = loaded_dict.get("liver_bc_reference")
+        if state is not None and state["coefficient"] != self.bc_reference_coef:
+            raise ValueError("resume BC reference coefficient mismatch")
+        if state is None and loaded_dict.get("liver_safeguards", {}).get("completed_updates", 0):
+            raise ValueError("cannot resume trained minimal PPO without its original frozen BC reference")
+        result = super().load(loaded_dict, load_cfg, strict)
+        self.bc_reference = None
+        reference = self._reference()
+        if state is not None:
+            reference.load_state_dict(state["actor"], strict=True)
+        return result

@@ -153,9 +153,9 @@ RULES = [
 ]
 
 
-#: Neither is ours to police: .venv is installed output, third_party is
-#: upstream source vendored at a pinned revision.
-SKIP = (".venv", "third_party")
+#: Installed output, pinned upstream sources and ignored runtime evidence are
+#: outside the authored package architecture.
+SKIP = (".venv", "third_party", "runs")
 
 
 def ours(path: Path) -> bool:
