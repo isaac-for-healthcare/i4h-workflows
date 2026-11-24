@@ -175,7 +175,7 @@ are not separate measurements of physics, rendering or control-loop performance.
 ## Reproducing the numerical test environment
 
 From the Numerical Sim workspace, use the pinned dependencies and renderer extra.
-Then install the operator-supplied patched Warp wheel and preserve it for testing:
+The following commands reproduce the historical patched-Warp qualification stack; they are not ordinary Workflows setup requirements. Current setup uses index Warp. The captured-HashGrid defect remains tracked in [Warp #2426](https://github.com/NVIDIA/warp/issues/2426). To reproduce the original binary-specific results, install that operator-supplied wheel and preserve it for testing:
 
 ```bash
 uv sync --locked --group dev --extra render

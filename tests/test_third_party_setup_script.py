@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import os
 import re
 import shutil
@@ -42,20 +41,6 @@ def _run_setup(
     shutil.copy2(THIRD_PARTY_SETUP, third_party / "setup.sh")
     for name in retired:
         (third_party / name).mkdir()
-
-    # Exercise staging with a tiny hashed fixture; the production artifact hashes
-    # are tested separately. Fake Git does not supply a binary wheel.
-    scripts = workspace / "scripts"
-    scripts.mkdir()
-    fixture_wheel = third_party / "wheels/warp_lang-1.17.0-py3-none-linux_x86_64.whl"
-    fixture_wheel.parent.mkdir()
-    fixture_wheel.write_bytes(b"qualification test wheel")
-    artifact_source = (ROOT / "scripts/arena_stack_artifacts.py").read_text()
-    artifact_source = artifact_source.replace(
-        "dff334c1589510f4374807eb3fbdc85cfa5e20ab8a0e05548dc54e0b64990546",
-        hashlib.sha256(fixture_wheel.read_bytes()).hexdigest(),
-    )
-    (scripts / "arena_stack_artifacts.py").write_text(artifact_source)
 
     # Fake Git does not populate working trees. Supply the solver source that
     # setup inspects so these tests model a compatible component checkout.
@@ -95,7 +80,6 @@ def _run_setup(
     fake_git.chmod(0o755)
 
     env = os.environ.copy()
-    env.pop("I4H_WARP_WHEEL", None)
     env.update(
         {
             "GIT_TEST_LOG": str(git_log),

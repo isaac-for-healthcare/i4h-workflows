@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Stage and verify the exact artifacts required by the Arena/Newton qualification."""
+"""Inspect the Arena runtime and verify source-bound assets.
+
+Warp comes from the package index. Native hashes are provenance, not install
+requirements; the upstream captured-HashGrid defect is tracked in
+https://github.com/NVIDIA/warp/issues/2426.
+"""
 
 from __future__ import annotations
 
@@ -10,15 +15,10 @@ import hashlib
 import importlib
 import importlib.metadata
 import json
-import os
-import shutil
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-WHEEL_NAME = "warp_lang-1.17.0-py3-none-linux_x86_64.whl"
-WHEEL_SHA256 = "dff334c1589510f4374807eb3fbdc85cfa5e20ab8a0e05548dc54e0b64990546"
-NATIVE_SHA256 = "eb4bda4537f7c7a35ef4640d89fbfba96cc9b2b786fdf1591535ea420ec8b6eb"
 ASSET_SHA256 = "b9eeaa91038c261ad10364e522837be3225c9432ad3740b45941f0676abde91c"
 sys.path.insert(0, str(ROOT / "common"))
 
@@ -31,21 +31,17 @@ def verify_hash(path: Path, expected: str) -> str:
     return actual
 
 
-def stage_wheel() -> Path:
-    destination = ROOT / "third_party/wheels" / WHEEL_NAME
-    supplied = os.environ.get("I4H_WARP_WHEEL")
-    source = Path(supplied).expanduser().resolve() if supplied else destination
-    if not source.is_file():
-        raise FileNotFoundError(f"Set I4H_WARP_WHEEL to the operator-supplied patched {WHEEL_NAME}; missing {source}")
-    verify_hash(source, WHEEL_SHA256)
-    if source != destination:
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        temporary = destination.with_suffix(".tmp")
-        shutil.copyfile(source, temporary)
-        verify_hash(temporary, WHEEL_SHA256)
-        temporary.replace(destination)
-    print(json.dumps({"wheel": str(destination), "sha256": verify_hash(destination, WHEEL_SHA256)}))
-    return destination
+def native_identity() -> dict[str, str]:
+    """Report the actual loaded library without requiring a locally built binary."""
+    import warp as wp
+
+    wp.init()
+    native = Path(importlib.import_module("warp._src.context").runtime.core._name).resolve()
+    return dict(
+        warp_version=importlib.metadata.version("warp-lang"),
+        native_library=str(native),
+        native_sha256=hashlib.sha256(native.read_bytes()).hexdigest(),
+    )
 
 
 def verify_asset() -> None:
@@ -66,16 +62,11 @@ def verify_asset() -> None:
 
 
 def verify_runtime(numerical_root: Path | None = None) -> None:
-    import warp as wp
-
     from i4h_common.paths import package_source
 
-    wp.init()
-    # Check the actual dlopen handle, not a guessed library beside the Python module.
-    native = Path(importlib.import_module("warp._src.context").runtime.core._name).resolve()
-    verify_hash(native, NATIVE_SHA256)
+    native = native_identity()
     versions = {}
-    for package in ("i4h-physics", "i4h-isaaclab", "i4h-surgical", "i4h-assessment", "i4h-endoluminal"):
+    for package in ("i4h-physics", "i4h-isaaclab", "i4h-host", "i4h-surgical", "i4h-assessment", "i4h-endoluminal"):
         source = json.loads(importlib.metadata.distribution(package).read_text("direct_url.json"))
         from urllib.parse import unquote, urlparse
 
@@ -113,7 +104,7 @@ def verify_runtime(numerical_root: Path | None = None) -> None:
         raise ValueError(f"Expected i4h_isaaclab.lab30, received {host}")
     print(
         json.dumps(
-            {"packages": versions, "host_api": host, "native_library": str(native), "native_sha256": NATIVE_SHA256},
+            {"packages": versions, "host_api": host, **native},
             indent=2,
         )
     )
@@ -121,20 +112,14 @@ def verify_runtime(numerical_root: Path | None = None) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=("stage-wheel", "verify-asset", "verify-runtime", "verify-native"))
+    parser.add_argument("operation", choices=("verify-asset", "verify-runtime", "verify-native"))
     parser.add_argument("--numerical-root", type=Path, help="Explicit candidate repository for isolated qualification")
     args = parser.parse_args()
     operation = args.operation
-    if operation == "stage-wheel":
-        stage_wheel()
-    elif operation == "verify-asset":
+    if operation == "verify-asset":
         verify_asset()
     elif operation == "verify-native":
-        import warp as wp
-
-        wp.init()
-        native = Path(importlib.import_module("warp._src.context").runtime.core._name).resolve()
-        print(json.dumps({"native_library": str(native), "sha256": verify_hash(native, NATIVE_SHA256)}))
+        print(json.dumps(native_identity()))
     else:
         verify_runtime(args.numerical_root.resolve() if args.numerical_root else None)
 

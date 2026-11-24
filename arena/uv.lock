@@ -29,7 +29,7 @@ overrides = [
     { name = "usd-exchange", specifier = "==3.0.1" },
     { name = "usd-optimize", specifier = "~=1.3.1" },
     { name = "uvicorn", specifier = ">=0.31.1" },
-    { name = "warp-lang", path = "../third_party/wheels/warp_lang-1.17.0-py3-none-linux_x86_64.whl" },
+    { name = "warp-lang", specifier = "==1.17.0" },
     { name = "websockets", specifier = "==16.1.1" },
 ]
 excludes = ["argparse"]
@@ -1382,7 +1382,7 @@ requires-dist = [
     { name = "pyzmq", specifier = ">=26,<28" },
     { name = "qpsolvers", specifier = "==4.8.1" },
     { name = "tqdm", specifier = ">=4.66" },
-    { name = "warp-lang", path = "../third_party/wheels/warp_lang-1.17.0-py3-none-linux_x86_64.whl" },
+    { name = "warp-lang", specifier = "==1.17.0" },
     { name = "xray-simulator", extras = ["slang"], editable = "../third_party/i4h-sensor-simulation/xray-simulator" },
 ]
 
@@ -5111,41 +5111,13 @@ wheels = [
 [[package]]
 name = "warp-lang"
 version = "1.17.0"
-source = { path = "../third_party/wheels/warp_lang-1.17.0-py3-none-linux_x86_64.whl" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
 ]
 wheels = [
-    { filename = "warp_lang-1.17.0-py3-none-linux_x86_64.whl", hash = "sha256:dff334c1589510f4374807eb3fbdc85cfa5e20ab8a0e05548dc54e0b64990546" },
+    { url = "https://files.pythonhosted.org/packages/a6/a1/e11aa6898e8bbb6910e89fe31a3338fb2566f038912010875c072e6dafd1/warp_lang-1.17.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:47cd93636828dd16e55eeb4e77a0e3547b5fb0f383000a3d228629df68f28fd8", size = 164347636, upload-time = "2026-08-31T05:53:14.441Z" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "blosc", marker = "(platform_machine != 'ARM64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and extra == 'examples') or (sys_platform != 'win32' and extra == 'examples')", specifier = ">=1.11.1" },
-    { name = "coverage", extras = ["toml"], marker = "extra == 'dev'" },
-    { name = "matplotlib", marker = "extra == 'examples'", specifier = ">=3.7.5" },
-    { name = "ml-dtypes", marker = "extra == 'dev'", specifier = ">=0.5.4" },
-    { name = "myst-parser", marker = "extra == 'docs'" },
-    { name = "numpy" },
-    { name = "nvidia-sphinx-theme", marker = "extra == 'docs'" },
-    { name = "nvtx", marker = "(platform_machine != 'ARM64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and extra == 'dev') or (sys_platform != 'win32' and extra == 'dev')" },
-    { name = "pillow", marker = "extra == 'examples'", specifier = ">=10.4.0" },
-    { name = "pre-commit", marker = "extra == 'docs'" },
-    { name = "psutil", marker = "extra == 'examples'", specifier = ">=7.1.0" },
-    { name = "pyglet", marker = "extra == 'examples'", specifier = ">=2.1.9" },
-    { name = "sphinx-copybutton", marker = "extra == 'docs'" },
-    { name = "torch", marker = "extra == 'torch-cu12'", specifier = ">=2.7.0" },
-    { name = "torch", marker = "extra == 'torch-cu13'", specifier = ">=2.9.0" },
-    { name = "usd-core", marker = "(platform_machine != 'ARM64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and sys_platform == 'win32' and extra == 'benchmark') or (platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'benchmark') or (sys_platform != 'linux' and sys_platform != 'win32' and extra == 'benchmark')", specifier = ">=25.5" },
-    { name = "usd-core", marker = "(platform_machine != 'ARM64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and sys_platform == 'win32' and extra == 'examples') or (platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'examples') or (sys_platform != 'linux' and sys_platform != 'win32' and extra == 'examples')", specifier = ">=25.5" },
-    { name = "usd-exchange", marker = "python_full_version >= '3.10' and python_full_version < '3.13' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'benchmark'", specifier = ">=2.2" },
-    { name = "usd-exchange", marker = "python_full_version >= '3.10' and python_full_version < '3.13' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'examples'", specifier = ">=2.2" },
-    { name = "warp-lang", extras = ["docs"], marker = "extra == 'dev'" },
-    { name = "warp-lang", extras = ["examples"], marker = "extra == 'dev'" },
-    { name = "warp-lang", extras = ["examples"], marker = "extra == 'torch-cu12'" },
-    { name = "warp-lang", extras = ["examples"], marker = "extra == 'torch-cu13'" },
-]
-provides-extras = ["docs", "benchmark", "examples", "torch-cu12", "torch-cu13", "dev"]
 
 [[package]]
 name = "watchdog"

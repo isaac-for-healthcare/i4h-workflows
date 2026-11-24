@@ -1,5 +1,7 @@
 # Qualification and recording cleanup
 
+This is a historical qualification record. Current Workflows setup installs stock Warp and does not require the local wheel or native hashes recorded below. The upstream captured-HashGrid defect is tracked in [Warp #2426](https://github.com/NVIDIA/warp/issues/2426); its explicit diagnostics remain separate from normal setup and CPU CI.
+
 Status: **qualified for local progression with user-accepted test exceptions**,
 following user review on 2026-11-23. The SIGTERM interruption and two failed
 observations remain recorded; an uninterrupted all-passing suite is not established.

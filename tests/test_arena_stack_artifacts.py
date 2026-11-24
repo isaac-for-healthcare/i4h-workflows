@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""Reject missing or corrupt qualification artifacts before syncing an environment."""
+"""Accept index Warp builds while retaining source and asset integrity checks."""
 
 import hashlib
 import importlib.util
@@ -15,39 +15,33 @@ artifacts = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(artifacts)
 
 
-def test_missing_operator_wheel_fails(tmp_path, monkeypatch):
-    monkeypatch.setattr(artifacts, "ROOT", tmp_path)
-    monkeypatch.delenv("I4H_WARP_WHEEL", raising=False)
-    with pytest.raises(FileNotFoundError, match="Set I4H_WARP_WHEEL"):
-        artifacts.stage_wheel()
+@pytest.mark.parametrize("payload", [b"stock Warp native library", b"custom Warp native library"])
+def test_native_identity_reports_any_installed_build(tmp_path, monkeypatch, payload):
+    import sys
+    from types import SimpleNamespace
+
+    native = tmp_path / "warp.so"
+    native.write_bytes(payload)
+    context = SimpleNamespace(runtime=SimpleNamespace(core=SimpleNamespace(_name=str(native))))
+    monkeypatch.setitem(sys.modules, "warp", SimpleNamespace(init=lambda: None))
+    monkeypatch.setitem(sys.modules, "warp._src.context", context)
+    monkeypatch.setattr(artifacts.importlib.metadata, "version", lambda name: "1.17.0")
+    identity = artifacts.native_identity()
+    assert identity["warp_version"] == "1.17.0"
+    assert identity["native_library"] == str(native)
+    assert identity["native_sha256"] == hashlib.sha256(payload).hexdigest()
 
 
-def test_bad_operator_wheel_does_not_replace_valid_stage(tmp_path, monkeypatch):
-    monkeypatch.setattr(artifacts, "ROOT", tmp_path)
-    destination = tmp_path / "third_party/wheels" / artifacts.WHEEL_NAME
-    destination.parent.mkdir(parents=True)
-    destination.write_bytes(b"valid staged wheel")
-    supplied = tmp_path / "supplied.whl"
-    supplied.write_bytes(b"corrupt")
-    monkeypatch.setenv("I4H_WARP_WHEEL", str(supplied))
-    with pytest.raises(ValueError, match="SHA-256 mismatch"):
-        artifacts.stage_wheel()
-    assert destination.read_bytes() == b"valid staged wheel"
+def test_arena_warp_is_pinned_without_a_local_wheel_requirement():
+    import tomllib
 
-
-def test_wheel_staging_is_verified_and_idempotent(tmp_path, monkeypatch):
-    monkeypatch.setattr(artifacts, "ROOT", tmp_path)
-    supplied = tmp_path / "supplied.whl"
-    supplied.write_bytes(b"patched native library")
-    monkeypatch.setattr(artifacts, "WHEEL_SHA256", hashlib.sha256(supplied.read_bytes()).hexdigest())
-    monkeypatch.setenv("I4H_WARP_WHEEL", str(supplied))
-    destination = artifacts.stage_wheel()
-    assert destination.read_bytes() == supplied.read_bytes()
-    monkeypatch.delenv("I4H_WARP_WHEEL")
-    assert artifacts.stage_wheel() == destination
-    destination.write_bytes(b"corrupt staged wheel")
-    with pytest.raises(ValueError, match="SHA-256 mismatch"):
-        artifacts.stage_wheel()
+    root = Path(__file__).resolve().parents[1]
+    project = tomllib.loads((root / "arena/pyproject.toml").read_text())
+    assert "warp-lang==1.17.0" in project["project"]["dependencies"]
+    assert "warp-lang" not in project["tool"]["uv"]["sources"]
+    lock = tomllib.loads((root / "arena/uv.lock").read_text())
+    warp = next(p for p in lock["package"] if p["name"] == "warp-lang")
+    assert warp["version"] == "1.17.0" and "registry" in warp["source"]
 
 
 @pytest.fixture

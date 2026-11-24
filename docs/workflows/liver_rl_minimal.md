@@ -12,6 +12,7 @@ python3 scripts/liver_rl_minimal.py --headless
 
 - An Arena environment from `./setup.sh`.
 - Numerical Sim from `isaac-for-healthcare/i4h-physics-simulation`, at the revision pinned by `third_party/setup.sh` (currently `8812708a98e3c86b50cee359182b496924496b35`). `./setup.sh` installs its packages, including the neutral `i4h-host`, from `third_party/i4h-physics-simulation/numerical_sim`; the standalone application is not needed. Access to this revision requires the physics sync PR to be available in that repository.
+- Stock `warp-lang==1.17.0`, installed by setup. No patched wheel is required; the upstream captured-HashGrid issue [Warp #2426](https://github.com/NVIDIA/warp/issues/2426) concerns a path this liver fixture does not use. Historical training results below used the earlier patched binary.
 - One NVIDIA RTX GPU. The run uses 8 parallel environments for demonstrations, training and evaluation, and 1 for export and the final launcher run.
 
 ## What the task is
@@ -89,6 +90,10 @@ Two saved runs on 2026-11-23 completed the pipeline using the earlier private `c
 | `20261123_193948` | 31/40 | 20/40 | 2/3 |
 
 Neither run demonstrates PPO improvement. These are historical results, not validation of the current physics pin; regenerate snapshots and rerun after setup for current evidence.
+
+### Stock Warp validation
+
+Normal setup now uses the public `warp-lang==1.17.0` wheel. At physics pin `8812708`, stock-Warp validation regenerated one- and eight-world snapshots, scored the unchanged saved pilot **100/100** on the same seed-101 holdout specifications, and completed a six-update PPO smoke (five critic-only updates and one retained actor update). This verifies the liver path without the local HashGrid patch; it is not a repeat of the full five-seed or fresh-BC training study. Local evidence is under `runs/liver_reach_retract/20261124_stock_warp/`.
 
 ## Watch the policy
 

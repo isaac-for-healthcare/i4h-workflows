@@ -61,7 +61,9 @@ Require supported Linux on `x86_64` or `aarch64`, `uv`, Git, network access for 
 
 ## Sync
 
-Arena requires authenticated read access to private Numerical Sim at `caff73b12a77abd6157771678ee0a57206771ac4`. Public-install readiness is deferred. Arena installs its GR00T N1.6 client from a pinned Git source, so a fresh locked sync needs GitHub network access. Only the isolated N1.6 policy-service target needs the local GR00T checkout. Asset verification resolves the active numerical directory from `arena/pyproject.toml`; never substitute a historical checkout.
+Arena uses the public `i4h-physics-simulation` checkout at the revision pinned in `third_party/setup.sh`, including its neutral `i4h-host` package. Warp installs from the package index; no local patched wheel or fixed native-library hash is required. The upstream captured-HashGrid defect is tracked by [Warp #2426](https://github.com/NVIDIA/warp/issues/2426); its regression tests are opt-in in the physics checkout, not ordinary setup or CPU CI gates. Preserve failures when running those explicit diagnostics.
+
+Arena installs its GR00T N1.6 client from a pinned Git source, so a fresh locked sync needs GitHub network access. Only the isolated N1.6 policy-service target needs the local GR00T checkout. Asset verification resolves the active numerical directory from `arena/pyproject.toml`; never substitute a historical checkout.
 
 Run the default full setup:
 

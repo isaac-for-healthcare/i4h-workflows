@@ -9,7 +9,7 @@ Healthcare robotics workflows as IsaacLab-Arena environments: the scenes, robots
 
 Each workflow is an i4h scene that runs as an IsaacLab-Arena environment. Arena's policy runner evaluates a rule-based controller or a policy checkpoint in it, Isaac Lab's `record_demos.py` and `replay_demos.py` record and replay demonstrations, and each policy checkpoint is served from its own environment by its stack's own server. `./run.sh` runs each workflow's modes with those tools, and `./stop.sh` stops them.
 
-Arena setup fetches the public `isaac-for-healthcare/i4h-physics-simulation` repository at `5af32b137680af4500a4f3e5b104a2e77c44d36b` (its PR #17 sync of the internal physics repository), which supplies both the Numerical Sim packages and the catheter solver. Ordinary CPU CI runs independently of it.
+Arena setup fetches the public `isaac-for-healthcare/i4h-physics-simulation` repository at `8812708a98e3c86b50cee359182b496924496b35` (its PR #17 sync and neutral-host split), which supplies both the Numerical Sim packages and the catheter solver. Ordinary CPU CI runs independently of it.
 
 ## Layout
 
@@ -228,7 +228,7 @@ Use this interface when running, debugging, scripting, or integrating the workfl
 ./setup.sh
 ```
 
-This is the command-line equivalent of asking an AI agent to set up the repository.
+This is the command-line equivalent of asking an AI agent to set up the repository. Arena installs stock `warp-lang==1.17.0` from the package index; no locally patched wheel is required. The upstream captured-HashGrid issue is tracked as [Warp #2426](https://github.com/NVIDIA/warp/issues/2426); see [the known-issue notes](TROUBLESHOOTING.md#warp-hashgrid-queries-return-incorrect-results-after-cuda-graph-replay).
 
 Sensor simulation and the patient digital twin are now checked out as `third_party/i4h-sensor-simulation` and `third_party/i4h-digital-twin`. An older checkout still has `*-internal` copies that nothing reads any more; setup names them, and you can remove them:
 

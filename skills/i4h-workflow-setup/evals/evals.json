@@ -16,11 +16,14 @@
     ]
   },
   {
-    "id": "i4h-workflow-setup-private-arena",
+    "id": "i4h-workflow-setup-public-arena",
     "question": "Set up only the pinned Arena environment and verify its numerical assets.",
-    "ground_truth": "Use the approved scoped Arena setup with private merged Numerical Sim; do not publish it or use historical numerical directories.",
+    "ground_truth": "Use the explicitly requested scoped Arena setup with the public physics checkout pinned by third_party/setup.sh and stock index Warp. No private numerical checkout, local wheel, or native binary hash is required; preserve declared numerical asset/source checks.",
     "expected_behavior": [
-      "requires authenticated access to the private Numerical Sim repository at caff73b12a77abd6157771678ee0a57206771ac4",
+      "uses the public i4h-physics-simulation checkout pinned by third_party/setup.sh, including i4h-host",
+      "installs the pinned stock Warp package from the index without requiring I4H_WARP_WHEEL or a local wheel file",
+      "treats the native library hash as provenance only; does not require the historical patched hash",
+      "documents Warp issue 2426 as an upstream captured-HashGrid defect and keeps its explicit diagnostics separate from ordinary setup and CPU CI",
       "installs the pinned GR00T N1.6 Git client without a redundant Arena checkout, documenting GitHub network access and isolated policy servers",
       "verifies assets and installed sources from the declared active package paths"
     ],

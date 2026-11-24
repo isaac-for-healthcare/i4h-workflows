@@ -207,3 +207,17 @@ terminal. From a script, cron, or CI, drop `-t`:
 ```bash
 docker run --rm -i ...
 ```
+
+## Warp HashGrid queries return incorrect results after CUDA graph replay
+
+[Warp issue #2426](https://github.com/NVIDIA/warp/issues/2426) tracks incorrect neighbor queries when a CUDA graph replays a captured `HashGrid.build()` after another grid build. Rebuilding one grid at different cell widths can also expose the defect. This is an upstream Warp issue, not a reason to require a private binary for all Workflows installations.
+
+Normal setup uses stock `warp-lang==1.17.0` from the package index. It does not require `I4H_WARP_WHEEL`, a local wheel file, or a particular native-library hash. `scripts/arena_stack_artifacts.py verify-native` reports the installed library and hash as provenance only. Historical qualification reports retain the patched binary hashes actually used in those runs; their results should not be relabeled as stock-Warp qualification.
+
+The liver retraction fixture uses mesh/BVH contact and no fluids; its adapter discards Newton's unused particle grid. A workload that captures HashGrid builds, such as a fluid scene, needs its own correctness check. The physics repository retains the regression assertions as an explicit build diagnostic:
+
+```bash
+I4H_WARP_HASHGRID_TESTS=1 arena/.venv/bin/python -m pytest   third_party/i4h-physics-simulation/numerical_sim/tests/runtime/test_hashgrid_capture.py -q
+```
+
+Those upstream-defect tests are opt-in in the pinned physics revision and do not gate ordinary setup or CPU CI. Enabling them does not fix Warp; failures remain evidence of the known issue. Do not assume that all CUDA graph workloads are affected, or that an untested newer Warp release fixes it.

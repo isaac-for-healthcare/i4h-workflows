@@ -20,7 +20,7 @@ Validation on Linux x86-64 and RTX PRO 6000 Blackwell:
 | In-Kit CUDA/Vulkan dependency checks | Both passed |
 | NV-BASE and eval schemas | Zero errors; 15 schemas passed |
 
-`python3 scripts/run_tests.py --suite ci --coverage` runs the complete CPU command after `bash scripts/setup_rl_cpu.sh`. Scoped simulator setup uses `I4H_SETUP_PROJECTS='common arena' I4H_THIRD_PARTY_TARGET=arena I4H_WARP_WHEEL=<approved wheel> ./setup.sh`. GPU checks run one simulator at a time. Native strict snapshots must be regenerated for this source pair; historical snapshots correctly fail identity validation.
+`python3 scripts/run_tests.py --suite ci --coverage` runs the complete CPU command after `bash scripts/setup_rl_cpu.sh`. Scoped simulator setup uses `I4H_SETUP_PROJECTS='common arena' I4H_THIRD_PARTY_TARGET=arena ./setup.sh`. Normal setup uses index Warp; the historical patched-Warp results remain historical evidence. See [Warp #2426](https://github.com/NVIDIA/warp/issues/2426) for the known captured-HashGrid issue. GPU checks run one simulator at a time. Native strict snapshots must be regenerated for this source pair; historical snapshots correctly fail identity validation.
 
 The local evidence directory is `runs/pr292_qualification/20261120_112500/`; its report records exact commands, source revisions, raw logs, recording paths and earlier failures separately from final passing results. The patient validation fixture preserves the existing s0011 HU array and scan affine while writing the native schema-2 bundle in its run directory. Historical sources and reports were preserved.
 

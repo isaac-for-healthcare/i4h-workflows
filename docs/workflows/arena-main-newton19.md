@@ -141,20 +141,18 @@ XR/teleoperation and the `aorta_shell` impulse deviations were not re-run.
 
 ## Setup
 
-Set `I4H_WARP_WHEEL` to the local artifact and run:
+Current setup installs stock `warp-lang==1.17.0` from the package index. No local wheel or patched-native hash is required:
 
 ```bash
-export I4H_WARP_WHEEL=/absolute/path/warp_lang-1.17.0-py3-none-linux_x86_64.whl
 I4H_SETUP_PROJECTS=arena I4H_THIRD_PARTY_TARGET=arena ./setup.sh
 export I4H_DATA="$PWD/third_party/i4h-physics-simulation/numerical_sim/data"
 python3 scripts/arena_stack_artifacts.py verify-asset
 OMNI_KIT_ACCEPT_EULA=YES arena/.venv/bin/python scripts/arena_stack_artifacts.py verify-runtime
 ```
 
-Setup verifies the wheel before staging and uses `uv sync --locked` for Arena.
-A verified staged wheel can be reused without the environment variable. Missing,
-corrupt or mismatched artifacts fail setup. The wheel is ignored by Git.
-Setup also verifies the native library loaded by Warp after sync.
+Setup uses `uv sync --locked` for Arena and checks that Warp's native library imports. Native hashes are reported as provenance. The captured-HashGrid defect is a [known upstream issue](https://github.com/NVIDIA/warp/issues/2426), with opt-in diagnostics described in [Troubleshooting](../../TROUBLESHOOTING.md#warp-hashgrid-queries-return-incorrect-results-after-cuda-graph-replay).
+
+The historical qualification results above used the following local artifacts. These hashes identify those runs; they are not current setup requirements:
 
 | Artifact | SHA-256 |
 | --- | --- |

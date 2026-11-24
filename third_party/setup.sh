@@ -229,10 +229,6 @@ case "$TARGET" in
     ;;
 esac
 
-if [[ "$TARGET" == "all" || "$TARGET" == "arena" ]]; then
-  python3 "${SCRIPT_DIR}/../scripts/arena_stack_artifacts.py" stage-wheel
-fi
-
 for spec in "${checkouts[@]}"; do
   IFS="|" read -r name url ref <<<"${spec}"
   if ! checkout_ref "${name}" "${url}" "${ref}"; then

@@ -63,7 +63,6 @@ packages = ["i4h_arena"]
 i4h-host = { path = "../third_party/i4h-physics-simulation/numerical_sim/host", editable = true }
 i4h-surgical = { path = "../third_party/i4h-physics-simulation/numerical_sim/surgical", editable = true }
 i4h-assessment = { path = "../third_party/i4h-physics-simulation/numerical_sim/assessment", editable = true }
-warp-lang = { path = "../third_party/wheels/warp_lang-1.17.0-py3-none-linux_x86_64.whl" }
 i4h-physics = { path = "../third_party/i4h-physics-simulation/numerical_sim/physics", editable = true }
 i4h-isaaclab = { path = "../third_party/i4h-physics-simulation/numerical_sim/isaaclab", editable = true }
 i4h-endoluminal = { path = "../third_party/i4h-physics-simulation/numerical_sim/endoluminal", editable = true }
