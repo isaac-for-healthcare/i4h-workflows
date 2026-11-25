@@ -13,9 +13,9 @@ source =
     tasks/rsl_rl/i4h_tasks/rsl_rl
     tasks/teleop/i4h_tasks/teleop
     rl/i4h_rl
+    tools/cosmos/i4h_tools/cosmos
     tools/dataset/i4h_tools/dataset
     tools/mimic/i4h_tools/mimic
-    tools/patient_twin/i4h_tools/patient_twin
     scripts
 
 [report]

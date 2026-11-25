@@ -82,6 +82,7 @@ class EndoluminalNavigationScene(Scene):
                     fluoro_device=self.args.fluoro_device,
                     patient_twin_manifest=self.args.patient_twin,
                     vessel_contrast=self.args.vessel_contrast,
+                    hu_to_mu_preset=self.args.hu_to_mu,
                 )
             ),
             task=None,

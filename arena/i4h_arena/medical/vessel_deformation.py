@@ -107,24 +107,22 @@ def centerline_data_from_twin(twin: PatientTwin) -> Any | None:
     """
     from catheter_vasculature_solver.vessel_deformation import CenterlineData
 
-    points_path = twin.artifacts.get("centerline_points")
-    edges_path = twin.artifacts.get("centerline_edges")
-    if points_path is None or edges_path is None:
+    centerline = twin.centerline()
+    if centerline is None:
         return None
 
-    points_world_m = np.asarray(twin.patient_mm_to_world(np.load(points_path)), dtype=np.float32)
-    edges = np.asarray(np.load(edges_path), dtype=np.int64).reshape(-1, 2)
+    points_world_m = np.asarray(twin.patient_mm_to_world(centerline.points_mm), dtype=np.float32)
+    edges = np.asarray(centerline.edges, dtype=np.int64).reshape(-1, 2)
     if edges.size and (edges.min() < 0 or edges.max() >= len(points_world_m)):
         raise ValueError(f"centerline_edges index outside centerline_points (0..{len(points_world_m) - 1})")
 
-    radii_path = twin.artifacts.get("centerline_radii")
-    if radii_path is None:
+    if centerline.radii_mm is None:
         raise ValueError(
             "the deformable vessel needs artifacts.centerline_radii; without lumen radii "
             "there is no wall for the catheter to contact"
         )
     radius_scale = _MM_TO_M * length_scale_from_affine(twin.world_from_patient_m)
-    radii_m = np.asarray(np.load(radii_path), dtype=np.float32).reshape(-1) * radius_scale
+    radii_m = np.asarray(centerline.radii_mm, dtype=np.float32).reshape(-1) * radius_scale
     if len(radii_m) != len(points_world_m):
         raise ValueError(
             f"centerline_radii has {len(radii_m)} entries but centerline_points has "

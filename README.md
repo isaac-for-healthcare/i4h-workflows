@@ -231,6 +231,12 @@ Use this interface when running, debugging, scripting, or integrating the runtim
 
 This is the command-line equivalent of asking an AI agent to set up the repository.
 
+Sensor simulation and the patient digital twin are now checked out as `third_party/i4h-sensor-simulation` and `third_party/i4h-digital-twin`. An older checkout still has `*-internal` copies that nothing reads any more; setup names them, and you can remove them:
+
+```bash
+rm -rf third_party/i4h-sensor-simulation-internal third_party/i4h-digital-twin-internal && ./setup.sh
+```
+
 Container builds, DGX Spark, Jetson AGX Thor, Zenoh, and sibling vLLM usage are documented in the [Docker guide](docker/README.md).
 
 ### Run Workflows from the Command Line
@@ -426,7 +432,7 @@ From the command line:
 
 The runner streams progress to the terminal and prints the exact per-run `workflow.log` path. It performs setup, policy recording, mimic expansion, VLM filtering, replay, LeRobot conversion, visualization, fine-tuning, and checkpoint validation. Use its `--skip-*` flags to omit optional stages, and `--headless` on a host without a display.
 
-VLM filtering grades each episode against the workflow's `annotate` settings (`Workflow(annotate=Annotate(...))`), which name the visible success criterion, the cameras to show, and whether to judge the final state or the motion; `./run.sh show <workflow>` prints them, and a workflow without them is graded on its policy task's prompt. Fine-tuning needs no Weights & Biases account: PI0 logs there only with `--wandb` or `train.wandb: true` in its task manifest, and GR00T logs to TensorBoard.
+VLM filtering grades each episode against the workflow's `annotate` settings (`Workflow(annotate=Annotate(...))`), which name the visible success criterion, the cameras to show, and whether to judge the final state or the motion; `./run.sh show <workflow>` prints them, and a workflow without them is graded on its policy task's prompt. Fine-tuning needs no Weights & Biases account: PI0 logs there only with `--wandb` or `train.wandb: true` in its task manifest, GR00T N1.5 logs to TensorBoard, and GR00T N1.6 and N1.7 print the training loss to the console without writing TensorBoard events.
 
 ## Further Documentation
 

@@ -27,7 +27,6 @@ def worker(device: str) -> None:
     app = SimulationApp({"headless": True})
     try:
         import importlib.util
-        import json
         import tempfile
 
         import numpy as np
@@ -37,7 +36,6 @@ def worker(device: str) -> None:
 
         from i4h_arena.medical.carm import CArmState
         from i4h_arena.medical.catheter import CatheterState
-        from i4h_arena.medical.patient_volume import PatientVolume
         from i4h_arena.medical.slang_fluoroscopy import _SHARED_SLANG_STATE, SlangFluoroscopyRenderer
 
         # Reuse small patient fixture geometry, but exercise the actual installed sensor.
@@ -47,20 +45,13 @@ def worker(device: str) -> None:
         fixture.test_the_shared_state_is_what_upstream_init_slang_creates()
         print(f"DEPENDENCY {sys.modules[SlangDiffDRRRenderer.__module__].__file__}", flush=True)
         with tempfile.TemporaryDirectory() as directory:
-            patient = fixture._patient_volume(Path(directory), with_vessel_mask=True)
             # A graded phantom leaves display headroom for the vessel boost;
             # a uniform tiny cube clips both images to the same display endpoint.
-            directory = Path(directory)
             shape = (16, 16, 16)
-            mu = np.broadcast_to(np.linspace(0.001, 0.02, 16, dtype=np.float32), shape).copy()
+            hu = np.broadcast_to(np.linspace(-500.0, 2000.0, 16, dtype=np.float32), shape).copy()
             mask = np.zeros(shape, dtype=np.uint8)
-            mask[:, 6:10, 6:10] = 1
-            np.save(directory / "mu_volume.npy", mu)
-            np.save(directory / "vessel_mask.npy", mask)
-            (directory / "metadata.json").write_text(
-                json.dumps({"shape_zyx": shape, "spacing_zyx_mm": [3.0, 2.0, 1.0]})
-            )
-            patient = PatientVolume.load(patient.twin)
+            mask[6:10, 6:10, :] = 1
+            patient = fixture._patient_volume(Path(directory), hu=hu, vessel_mask=mask)
             carm = fixture._carm(patient)
             for dsa in (False, True):
                 renderer = SlangFluoroscopyRenderer(

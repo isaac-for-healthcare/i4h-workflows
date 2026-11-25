@@ -28,6 +28,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--patient-twin", action="append", default=None)
     parser.add_argument("--fluoro-backend", choices=("synthetic", "slang"), default=None)
     parser.add_argument("--fluoro-device", choices=("cuda", "vulkan"), default="vulkan")
+    parser.add_argument(
+        "--hu-to-mu",
+        choices=("interventional", "linear"),
+        default=None,
+        help="HU-to-attenuation preset for patient twins (default: interventional)",
+    )
     return parser
 
 
@@ -48,11 +54,13 @@ def _scene_args(args: argparse.Namespace) -> argparse.Namespace:
         # Scene reads these straight off the namespace, so a scene that grows a
         # patient-specific sensor would fail here on a missing attribute rather
         # than fall back. ``fluoro_backend=None`` lets the scene pick: Slang
-        # when a twin is present, synthetic otherwise.
+        # when a twin is present, synthetic otherwise. ``hu_to_mu=None`` keeps
+        # the sensor's default attenuation preset.
         patient_twin=scene_patient_twin(args.patient_twin),
         fluoro_backend=args.fluoro_backend,
         fluoro_device=args.fluoro_device,
         vessel_contrast=False,
+        hu_to_mu=args.hu_to_mu,
     )
 
 

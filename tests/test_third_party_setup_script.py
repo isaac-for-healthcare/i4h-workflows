@@ -33,11 +33,15 @@ def _run_setup(
     root_origin: str,
     *,
     solver_api: tuple[str, ...] = SOLVER_API + PER_ENV_ANATOMY_API,
+    target: str = "arena",
+    retired: tuple[str, ...] = (),
 ) -> tuple[subprocess.CompletedProcess[str], str]:
     workspace = tmp_path / "workspace"
     third_party = workspace / "third_party"
     third_party.mkdir(parents=True)
     shutil.copy2(THIRD_PARTY_SETUP, third_party / "setup.sh")
+    for name in retired:
+        (third_party / name).mkdir()
 
     # Fake Git does not populate working trees. Supply the solver source that
     # setup inspects so these tests model a compatible component checkout.
@@ -86,7 +90,7 @@ def _run_setup(
         }
     )
     result = subprocess.run(
-        [str(third_party / "setup.sh"), "arena"],
+        [str(third_party / "setup.sh"), target],
         cwd=workspace,
         env=env,
         capture_output=True,
@@ -151,14 +155,11 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
     result, git_log = _run_setup(tmp_path, "")
     assert result.returncode == 0, result.stderr
     for component, ref in (
-        ("physics-simulation", "d83133002f49cd42ee6bcf5e3d52f5287c76e297"),
+        ("physics-simulation-internal", "d83133002f49cd42ee6bcf5e3d52f5287c76e297"),
         ("sensor-simulation", "fd7cab8be79b0f7970995e88f30855dbfd01e963"),
-        ("digital-twin", "6b6470cff156ba15b573ae1b4b44c3a77654b8b3"),
+        ("digital-twin", "21e969d0be8212c22acc0a7e920b954f60ec289f"),
     ):
-        assert any(
-            f"i4h-{component}-internal fetch" in line and line.endswith(f"origin {ref}")
-            for line in git_log.splitlines()
-        )
+        assert any(f"i4h-{component} fetch" in line and line.endswith(f"origin {ref}") for line in git_log.splitlines())
 
 
 def _git(*args: str, cwd: Path) -> str:
@@ -257,3 +258,33 @@ def test_branch_rerun_follows_origin(tmp_path: Path) -> None:
     assert rerun.returncode == 0, rerun.stderr
     assert _git("rev-parse", "HEAD", cwd=checkout) == newer_commit
     assert _git("tag", "--list", cwd=checkout) == ""
+
+
+def _checked_out(git_log: str) -> set[str]:
+    """Third-party directories setup initialized a repository in."""
+    return {
+        Path(line.split()[1]).name
+        for line in git_log.splitlines()
+        if line.startswith("-C ") and line.split()[2:3] == ["init"]
+    }
+
+
+@pytest.mark.parametrize(
+    "target, directory",
+    [("patient-twin", "i4h-digital-twin"), ("sensor-simulation", "i4h-sensor-simulation")],
+)
+def test_single_component_targets_check_out_exactly_their_repository(
+    tmp_path: Path, target: str, directory: str
+) -> None:
+    result, git_log = _run_setup(tmp_path, "", target=target)
+    assert result.returncode == 0, result.stderr
+    assert _checked_out(git_log) == {directory}
+
+
+def test_retired_internal_checkouts_are_named_for_removal(tmp_path: Path) -> None:
+    retired = ("i4h-sensor-simulation-internal", "i4h-digital-twin-internal")
+    result, _ = _run_setup(tmp_path, "", retired=retired)
+    assert result.returncode == 0, result.stderr
+    for name in retired:
+        assert f"third_party/{name} is no longer used" in result.stderr
+        assert f"rm -rf third_party/{name}" in result.stderr

@@ -88,10 +88,13 @@ so being able to view the model page is not evidence that a download will succee
 
 ## A run fails after the simulator boots, with a traceback
 
-Two preconditions are only reported once the simulator is up, roughly 40 seconds in:
+A missing recording is reported before the simulator starts: `--replay` raises
+`FileNotFoundError: no recording at <path>`. A file that exists but cannot be read (truncated
+or not HDF5) is reported once the simulator is up, as `OSError: cannot read recording <path>: ...`.
+Check the path, or record the file again, before rerunning.
 
-- **A missing recording.** `--replay` raises `FileNotFoundError: no recording at <path>`.
-  Check the path before rerunning.
+One precondition is only reported once the simulator is up, roughly 40 seconds in:
+
 - **A missing checkpoint.** A mode that needs a policy you have to train and export first
   raises `ValueError: ... requires --checkpoint pointing to exported policy.pt`. The workflow
   catalog in [README.md](README.md) marks those modes; pass `--checkpoint <path>` to the
@@ -162,6 +165,25 @@ terminates it. The arena no longer records that step, and stamps each demo it wr
 `recording_version` (see `common/i4h_common/episode.py`); the annotator names the demos
 without it. Re-record rather than grade such a file by its final frame.
 
+## Isaac Lab's dataset tools rotate a recording's object poses
+
+A recording that does not declare Isaac Lab's dataset `format_version` looks to Isaac Lab
+like a legacy WXYZ dataset. Every v0.9.0 recording is one of these. Isaac Lab's
+`HDF5DatasetFileHandler.load_episode` and `convert_dataset_to_xyzw` then reorder the XYZW
+`root_pose` of each asset in `initial_state`, which turns it into a different rotation. i4h's own replay,
+mimic, annotator and dataset converter read these files correctly, and recording into the
+file again declares it. To declare a file without recording into it, run the following.
+This is safe for any i4h recording, because every root pose i4h has recorded is XYZW:
+
+```bash
+uv run --project tools/mimic python - runs/<workflow>/<run>/demos.hdf5 <<'EOF'
+import sys, h5py
+from i4h_common.episode import write_dataset_format_version
+with h5py.File(sys.argv[1], "a") as handle:
+    write_dataset_format_version(handle)
+EOF
+```
+
 ## PI0 fine-tuning stops with `wandb.errors.errors.UsageError: No API key configured`
 
 openpi's training config enables Weights & Biases by default, and logs in before the first
@@ -180,6 +202,19 @@ Episode outcomes can differ between runs at a fixed seed, and the runner logs
 `Seed not set for the environment` when that applies. Treat one run as an existence proof
 rather than a success rate: for anything you intend to report or compare, run several trials
 and quote the ratio.
+
+## A G1 recording made on a retry drifts on replay
+
+A loco-manipulation demo (`locomanip_push_cart`, `locomanip_tray_pick_and_place`) recorded on
+a retry or a later episode replays with the same actions but drifts by tenths of a radian
+within a few hundred steps, and the replay may drop the object. The demo's `episode_index`
+and `attempt_index` attributes in the HDF5 file say whether it was. A reset leaves internal
+PhysX state behind, and the balancing G1 amplifies it, so an episode that follows others in
+one process does not match the same episode in a fresh process. These scenes now rebuild the
+PhysX scene before every episode after the first, which takes about a second and is logged
+as `rebuilt the PhysX scene for a fresh episode`. Re-record demos made before that change;
+attempt-1 demos of the first episode replay as before. Teleop does not rebuild, so a teleop
+demo recorded after a reset or a retry can still drift.
 
 ## Processes or GPU memory left behind
 

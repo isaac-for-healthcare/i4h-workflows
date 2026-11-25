@@ -10,7 +10,7 @@ THIRD_PARTY_DIR="${SCRIPT_DIR}"
 
 LOG_PREFIX="i4h-workflows third_party setup"
 TARGET="${1:-all}"
-[ "$#" -le 1 ] || { echo "usage: third_party/setup.sh [all|arena|tasks/<policy>]" >&2; exit 2; }
+[ "$#" -le 1 ] || { echo "usage: third_party/setup.sh [all|arena|patient-twin|sensor-simulation|tasks/<policy>]" >&2; exit 2; }
 
 ISAACLAB_REV="ffff603eafc6b74264a5261cc0183d6a65390d78"
 ISAACLAB_DIR="IsaacLab-ffff603"
@@ -20,17 +20,20 @@ ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
 ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
-# Release component versions for v0.9.0: physics simulation, sensor simulation and digital
-# twin default to the commits their v0.9.0 tags name. Every component repository is public.
-# Keep the checkout directory names stable because uv path sources refer to them. Export
-# *_REF to bisect or test another component revision; the solver compatibility check still
-# applies.
+# Physics is pinned past v0.9.0 to the commit that carries the per-environment anatomy solver
+# contract. Sensor simulation and the patient twin are pinned to commits on their main branches
+# that read and write the native scan bundle format (sensor simulation #72, merged as d7d3f29;
+# fd7cab8 adds composited absorbers and the rendered vessel on top; the twin pins the same
+# xray_simulator). Override *_REF to test another revision (I4H_DIGITAL_TWIN_REF=main tracks the
+# twin's main branch) and *_URL to build against a local checkout.
 I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-d83133002f49cd42ee6bcf5e3d52f5287c76e297}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-fd7cab8be79b0f7970995e88f30855dbfd01e963}"
-I4H_SENSOR_SIM_DIR="i4h-sensor-simulation-internal"
-I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-6b6470cff156ba15b573ae1b4b44c3a77654b8b3}"
-I4H_DIGITAL_TWIN_DIR="i4h-digital-twin-internal"
+I4H_SENSOR_SIM_DIR="i4h-sensor-simulation"
+I4H_SENSOR_SIM_URL="${I4H_SENSOR_SIM_URL:-https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git}"
+I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-21e969d0be8212c22acc0a7e920b954f60ec289f}"
+I4H_DIGITAL_TWIN_DIR="i4h-digital-twin"
+I4H_DIGITAL_TWIN_URL="${I4H_DIGITAL_TWIN_URL:-https://github.com/isaac-for-healthcare/i4h-digital-twin.git}"
 
 GR00T_15_REV="17a77ebf646cf13460cdbc8f49f9ec7d0d63bcb1"
 GR00T_15_DIR="Isaac-GR00T-1.5"
@@ -148,15 +151,21 @@ checkout_sparse_ref() {
   fi
 }
 
+# Checkouts that single targets select are named, so reordering the lists below cannot
+# silently point a target at the wrong repository.
+ISAACLAB_ARENA_CHECKOUT="${ISAACLAB_ARENA_DIR}|https://github.com/isaac-sim/IsaacLab-Arena.git|${ISAACLAB_ARENA_REV}"
+SENSOR_SIM_CHECKOUT="${I4H_SENSOR_SIM_DIR}|${I4H_SENSOR_SIM_URL}|${I4H_SENSOR_SIM_REF}"
+DIGITAL_TWIN_CHECKOUT="${I4H_DIGITAL_TWIN_DIR}|${I4H_DIGITAL_TWIN_URL}|${I4H_DIGITAL_TWIN_REF}"
+
 arena_checkouts=(
   "${ISAACLAB_DIR}|https://github.com/isaac-sim/IsaacLab.git|${ISAACLAB_REV}"
   "${LEISAAC_DIR}|https://github.com/LightwheelAI/leisaac.git|${LEISAAC_REV}"
-  "${ISAACLAB_ARENA_DIR}|https://github.com/isaac-sim/IsaacLab-Arena.git|${ISAACLAB_ARENA_REV}"
+  "${ISAACLAB_ARENA_CHECKOUT}"
   "${I4H_PHYSICS_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-physics-simulation.git|${I4H_PHYSICS_SIM_REF}"
-  "${I4H_SENSOR_SIM_DIR}|https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git|${I4H_SENSOR_SIM_REF}"
+  "${SENSOR_SIM_CHECKOUT}"
   # tools/patient_twin, not arena, consumes this one. It rides along with the arena target so
   # that a scoped `I4H_THIRD_PARTY_TARGET=arena` still produces a runnable twin pipeline.
-  "${I4H_DIGITAL_TWIN_DIR}|https://github.com/isaac-for-healthcare/i4h-digital-twin.git|${I4H_DIGITAL_TWIN_REF}"
+  "${DIGITAL_TWIN_CHECKOUT}"
 )
 policy_checkouts=(
   "${GR00T_15_DIR}|https://github.com/NVIDIA/Isaac-GR00T.git|${GR00T_15_REV}"
@@ -185,12 +194,18 @@ case "$TARGET" in
       "${ISAACSIM_SKILLS_REV}" \
       "skills"
     ;;
+  patient-twin)
+    checkouts=("${DIGITAL_TWIN_CHECKOUT}")
+    ;;
+  sensor-simulation)
+    checkouts=("${SENSOR_SIM_CHECKOUT}")
+    ;;
   tasks/gr00t_n15)
     checkouts=("${policy_checkouts[0]}")
     ;;
   tasks/gr00t_n16)
     # N1.6 imports reusable configuration from IsaacLab-Arena.
-    checkouts=("${arena_checkouts[2]}" "${policy_checkouts[1]}")
+    checkouts=("${ISAACLAB_ARENA_CHECKOUT}" "${policy_checkouts[1]}")
     ;;
   tasks/gr00t_n17)
     checkouts=("${policy_checkouts[2]}")
@@ -207,6 +222,16 @@ esac
 for spec in "${checkouts[@]}"; do
   IFS="|" read -r name url ref <<<"${spec}"
   checkout_ref "${name}" "${url}" "${ref}"
+done
+
+# Sensor simulation and the patient twin used to be checked out under *-internal names. The
+# projects no longer read those directories; say so rather than leave a stale copy to be
+# mistaken for the pinned one.
+for retired in i4h-sensor-simulation-internal i4h-digital-twin-internal; do
+  if [[ -d "${THIRD_PARTY_DIR}/${retired}" ]]; then
+    echo "[${LOG_PREFIX}] third_party/${retired} is no longer used (now ${retired%-internal});" \
+      "remove it with: rm -rf third_party/${retired}" >&2
+  fi
 done
 
 # A ref that resolves cleanly can still be the wrong solver. The catheter scenes need a
@@ -297,6 +322,10 @@ if [[ -d "${THIRD_PARTY_DIR}/${RLINF_DIR}/.git" ]]; then
   apply_patch_once "RLinf GR00T N1.7 patch embedding and optimizer progress" \
     "${THIRD_PARTY_DIR}/${RLINF_DIR}" \
     "${THIRD_PARTY_DIR}/rlinf_gr00t_training.patch"
+
+  apply_patch_once "RLinf channel failure propagation" \
+    "${THIRD_PARTY_DIR}/${RLINF_DIR}" \
+    "${THIRD_PARTY_DIR}/rlinf_channel_failures.patch"
 fi
 
 OPENPI_DIR="${THIRD_PARTY_DIR}/${OPENPI_DIR_NAME}"

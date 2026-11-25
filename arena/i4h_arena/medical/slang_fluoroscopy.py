@@ -61,9 +61,9 @@ def _renderer_sharing_device(renderer_class: type, source: object) -> type:
     return SharedDeviceRenderer
 
 
-def _build_renderer(renderer_class: type, volume: np.ndarray, spacing_zyx_mm, cfg, device_type: str):
+def _build_renderer(renderer_class: type, volume: np.ndarray, spacing_zyx_mm, cfg, device_type: str, **kwargs):
     try:
-        return renderer_class(volume, spacing_zyx_mm, cfg=cfg)
+        return renderer_class(volume, spacing_zyx_mm, cfg=cfg, **kwargs)
     except RuntimeError as error:
         if device_type == "cuda" and DEVICE_FAILURE in str(error):
             raise RuntimeError(cuda_device_error(error)) from error
@@ -72,30 +72,23 @@ def _build_renderer(renderer_class: type, volume: np.ndarray, spacing_zyx_mm, cf
 
 def _contrast_bolus_mask(patient: PatientVolume) -> np.ndarray:
     """Build the thin centerline-derived mask used by the reference DSA view."""
-    centerline_path = patient.twin.artifacts.get("centerline_points")
-    if centerline_path is None:
-        vessel_path = patient.twin.artifacts.get("vessel_mask")
-        if vessel_path is None:
-            raise ValueError("DSA fluoroscopy requires centerline_points or vessel_mask in the patient twin")
-        return np.asarray(np.load(vessel_path), dtype=np.uint8)
+    centerline = patient.twin.centerline()
+    if centerline is None:
+        vessel_mask = patient.twin.vessel_mask_kji()
+        if vessel_mask is None:
+            raise ValueError("DSA fluoroscopy requires a centerline or vessel_mask in the patient twin")
+        return vessel_mask
 
     from scipy.ndimage import binary_dilation, generate_binary_structure
 
-    points_patient_mm = np.asarray(np.load(centerline_path), dtype=np.float64)
-    edges_path = patient.twin.artifacts.get("centerline_edges")
-    radii_path = patient.twin.artifacts.get("centerline_radii")
-    if edges_path is not None:
-        reference_segment_mm = 0.65 * float(patient.shape_zyx[2]) * float(patient.spacing_xyz_mm[0]) / 40.0
-        points_patient_mm = ordered_centerline_path(
-            points_patient_mm,
-            np.load(edges_path),
-            target_spacing_mm=reference_segment_mm,
-            radii_mm=np.load(radii_path) if radii_path is not None else None,
-        )
-    points_world_m = patient.twin.patient_mm_to_world(points_patient_mm)
-    points_volume_mm = patient.world_to_volume_mm(points_world_m)
-    spacing_xyz = np.asarray(patient.spacing_xyz_mm, dtype=np.float64)
-    indices_xyz = np.rint(points_volume_mm / spacing_xyz).astype(np.int64)
+    points_patient_mm = ordered_centerline_path(
+        centerline.points_mm,
+        centerline.edges,
+        target_spacing_mm=0.65 * patient.twin.width_mm / 40.0,
+        radii_mm=centerline.radii_mm,
+    )
+    patient_to_voxel = np.linalg.inv(patient.voxel_to_volume_mm)
+    indices_xyz = np.rint(points_patient_mm @ patient_to_voxel[:3, :3].T + patient_to_voxel[:3, 3]).astype(np.int64)
     shape_xyz = np.asarray(patient.shape_zyx[::-1], dtype=np.int64)
     valid = np.all((indices_xyz >= 0) & (indices_xyz < shape_xyz), axis=1)
     indices_xyz = indices_xyz[valid]
@@ -262,8 +255,6 @@ class SlangFluoroscopyRenderer:
                 once aortic flow has diluted the stock: 350 mg I/mL at 20 mL/s into about
                 100 mL/s of blood comes out near 60.
         """
-        if patient.twin.coordinate_frame not in {"DICOM_LPS", "NIFTI_RAS"}:
-            raise ValueError(f"unsupported patient coordinate frame {patient.twin.coordinate_frame!r}")
         self._patient = patient
         self._display = display if display is not None else DisplaySettings()
         self._display_calibrated = False
@@ -310,8 +301,8 @@ class SlangFluoroscopyRenderer:
             invert=False,
             device_type=device_type,
         )
-        # The renderer takes origin_xyz_mm ahead of the config, and leaving it at the default
-        # keeps the volume centred, which is the frame solve_projection_geometry poses into.
+        # The renderer marches the native grid through its voxel-to-patient affine and poses
+        # about the grid centre, the same centre solve_projection_geometry measures from.
         renderer_class = (
             SlangDiffDRRRenderer
             if share_device_with is None
@@ -345,7 +336,12 @@ class SlangFluoroscopyRenderer:
             )
 
         self._renderer = _build_renderer(
-            renderer_class, render_volume, patient.spacing_zyx_mm, base_config, device_type
+            renderer_class,
+            render_volume,
+            patient.spacing_zyx_mm,
+            base_config,
+            device_type,
+            voxel_to_world_mm=patient.voxel_to_volume_mm,
         )
         self._dsa_renderer = None
         if self._dsa and vessel_contrast:
@@ -367,6 +363,7 @@ class SlangFluoroscopyRenderer:
                 patient.spacing_zyx_mm,
                 base_config,
                 device_type,
+                voxel_to_world_mm=patient.voxel_to_volume_mm,
             )
 
     def render(

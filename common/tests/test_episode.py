@@ -7,16 +7,20 @@ import numpy as np
 import pytest
 
 from i4h_common.episode import (
+    DATASET_FORMAT_VERSION,
+    DATASET_FORMAT_VERSION_ATTR,
     Episode,
     EpisodeError,
     Segment,
     action_path,
     camera_keys,
+    dataset_format_version,
     demo_names,
     diagnostic_keys,
     episodes,
     read_initial_state,
     read_segments,
+    write_dataset_format_version,
     write_initial_state,
     write_segments,
 )
@@ -240,3 +244,28 @@ def test_write_initial_state_replaces_and_none_removes(tmp_path):
         assert read_initial_state(demo) == {"articulation": {}}
         write_initial_state(demo, None)
         assert read_initial_state(demo) is None
+
+
+def test_a_file_declares_the_isaac_lab_dataset_format_on_its_root(tmp_path):
+    """Isaac Lab reads the root ``format_version`` to decide whether to reorder every ``root_pose``."""
+    path = _make(tmp_path / "d.hdf5")
+    with h5py.File(path, "a") as handle:
+        write_dataset_format_version(handle)
+    with h5py.File(path) as handle:
+        assert handle.attrs[DATASET_FORMAT_VERSION_ATTR] == DATASET_FORMAT_VERSION == 1
+        assert dataset_format_version(handle) == DATASET_FORMAT_VERSION
+
+
+def test_an_undeclared_file_reads_as_xyzw_not_as_isaac_labs_legacy_format(tmp_path):
+    """i4h has only recorded XYZW poses; an undeclared file predates the attribute, not the quaternion switch."""
+    path = _make(tmp_path / "d.hdf5")
+    with h5py.File(path) as handle:
+        assert DATASET_FORMAT_VERSION_ATTR not in handle.attrs
+        assert dataset_format_version(handle) == DATASET_FORMAT_VERSION
+
+
+def test_a_declared_format_reads_as_declared(tmp_path):
+    path = _make(tmp_path / "d.hdf5")
+    with h5py.File(path, "a") as handle:
+        write_dataset_format_version(handle, 0)
+        assert dataset_format_version(handle) == 0

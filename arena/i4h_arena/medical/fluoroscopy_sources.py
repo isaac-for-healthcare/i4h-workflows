@@ -33,11 +33,10 @@ def bind_fluoroscopy_sources(env: Any) -> None:
     catheter = env.scene["catheter"]
     detector_size_m = (0.6144, 0.6144)
     if fluoroscopy.patient_twin is not None:
-        from .patient_volume import PatientVolume
 
         def reference(twin: Any) -> ReferenceProjectionCArmStateProvider:
             return ReferenceProjectionCArmStateProvider(
-                PatientVolume.load(twin),
+                twin,
                 env.action_manager.get_term("carm_orbit"),
                 detector_size_m=detector_size_m,
                 tip_source=catheter if follow_tip_enabled() else None,
@@ -84,7 +83,8 @@ def _bind_vessel_motion(env: Any, fluoroscopy: Any, catheter: Any) -> None:
     from .vessel_motion import CenterlineVesselMotion, ContrastRun
 
     try:
-        contrast = ContrastRun(PatientVolume.load(fluoroscopy.patient_twin), dt_s=_sensor_dt_s(env, fluoroscopy))
+        patient = PatientVolume.load(fluoroscopy.patient_twin, hu_to_mu_preset=fluoroscopy.cfg.hu_to_mu_preset)
+        contrast = ContrastRun(patient, dt_s=_sensor_dt_s(env, fluoroscopy))
         fluoroscopy.bind_vessel_provider(
             CenterlineVesselMotion(fluoroscopy.patient_twin, vessel, contrast=contrast, tip_source=catheter)
         )

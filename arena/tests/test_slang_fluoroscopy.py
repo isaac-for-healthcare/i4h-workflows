@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 import types
 
 import numpy as np
@@ -26,6 +25,9 @@ from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.medical.patient_volume import PatientVolume
 from i4h_arena.medical.slang_fluoroscopy import SlangFluoroscopyRenderer, solve_projection_geometry
 
+# 1100 HU maps to 0.01 /mm on the default interventional curve.
+_UNIFORM_HU = 1100.0
+
 
 def _patient_volume(
     tmp_path,
@@ -33,34 +35,45 @@ def _patient_volume(
     with_vessel_mask: bool = False,
     coordinate_frame: str = "DICOM_LPS",
     world_from_lps_m: np.ndarray | None = None,
+    hu: np.ndarray | None = None,
+    vessel_mask: np.ndarray | None = None,
 ) -> PatientVolume:
-    shape = (4, 4, 4)
-    spacing_zyx = (3.0, 2.0, 1.0)
-    np.save(tmp_path / "mu_volume.npy", np.ones(shape, dtype=np.float32) * 0.01)
-    (tmp_path / "metadata.json").write_text(
-        json.dumps({"shape_zyx": list(shape), "spacing_zyx_mm": list(spacing_zyx)}),
-        encoding="utf-8",
-    )
-    artifacts = {
-        "attenuation_volume": "mu_volume.npy",
-        "volume_metadata": "metadata.json",
-    }
-    if with_vessel_mask:
-        vessel_mask = np.zeros(shape, dtype=np.uint8)
-        vessel_mask[:, 1:3, 1:3] = 1
-        np.save(tmp_path / "vessel_mask.npy", vessel_mask)
-        artifacts["vessel_mask"] = "vessel_mask.npy"
-    patient_from_lps = np.diag((-1.0, -1.0, 1.0, 1.0)) if coordinate_frame == "NIFTI_RAS" else np.eye(4)
+    """A schema-2 bundle; ``hu`` and ``vessel_mask`` replace the default uniform 4x4x4 cube."""
+    from xray_simulator.scan_volume import from_array
+
+    # Spacing (1, 2, 3) mm along x, y, z with voxel corners at the origin, so the volume
+    # frame matches the renderer's default axis-aligned frame.
+    voxel_to_lps_mm = np.diag([1.0, 2.0, 3.0, 1.0])
+    voxel_to_lps_mm[:3, 3] = (0.5, 1.0, 1.5)
+    # The same patient stored in either scanner frame: RAS flips the first two axes.
+    ras = coordinate_frame == "NIFTI_RAS"
+    scan_from_lps = np.diag((-1.0, -1.0, 1.0, 1.0)) if ras else np.eye(4)
     world_from_lps_m = np.eye(4) if world_from_lps_m is None else world_from_lps_m
-    (tmp_path / "patient_twin.yaml").write_text(
+    folder = tmp_path / "bundle"
+    from_array(
+        np.full((4, 4, 4), _UNIFORM_HU, dtype=np.float32) if hu is None else np.asarray(hu, dtype=np.float32),
+        scan_from_lps @ voxel_to_lps_mm,
+        world_frame="RAS" if ras else "LPS",
+    ).save(folder)
+    artifacts = {"hu_volume": "volume.npy", "volume_metadata": "volume.yaml"}
+    if with_vessel_mask or vessel_mask is not None:
+        if vessel_mask is None:
+            vessel_mask = np.zeros((4, 4, 4), dtype=np.uint8)
+            vessel_mask[1:3, 1:3, :] = 1
+        np.save(folder / "vessel_mask.npy", np.asarray(vessel_mask, dtype=np.uint8))
+        artifacts["vessel_mask"] = "vessel_mask.npy"
+    (folder / "patient_twin.yaml").write_text(
         yaml.safe_dump(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "patient_id": "synthetic",
-                "coordinate_frame": coordinate_frame,
+                "coordinate_frame": "RAS" if ras else "LPS",
+                "spatial_unit": "mm",
+                "meters_per_unit": 0.001,
                 "transforms": {
-                    "voxel_to_patient_mm": (patient_from_lps @ np.diag((1.0, 2.0, 3.0, 1.0))).tolist(),
-                    "world_from_patient_m": (world_from_lps_m @ patient_from_lps).tolist(),
+                    "voxel_to_scan": (scan_from_lps @ voxel_to_lps_mm).tolist(),
+                    # Placement hints are expressed in the scan frame.
+                    "world_from_scan_m": (world_from_lps_m @ scan_from_lps).tolist(),
                 },
                 "artifacts": artifacts,
             },
@@ -68,7 +81,7 @@ def _patient_volume(
         ),
         encoding="utf-8",
     )
-    return PatientVolume.load(PatientTwin.load(tmp_path / "patient_twin.yaml"))
+    return PatientVolume.load(PatientTwin.load(folder / "patient_twin.yaml"))
 
 
 def _carm(patient: PatientVolume) -> CArmState:
@@ -126,7 +139,7 @@ def test_reference_projection_provider_aims_the_named_views_at_the_patient(tmp_p
 
     orbit = Orbit()
     provider = ReferenceProjectionCArmStateProvider(
-        patient,
+        patient.twin,
         orbit,
         detector_size_m=(0.6144, 0.6144),
     )
@@ -172,13 +185,13 @@ def test_lps_and_ras_produce_identical_carm_poses_and_renderer_geometry(tmp_path
         patient = _patient_volume(directory, coordinate_frame=frame, world_from_lps_m=world_from_lps_m)
         original_transform = patient.twin.world_from_patient_m.copy()
         provider = ReferenceProjectionCArmStateProvider(
-            patient, types.SimpleNamespace(angle_rad=angles), detector_size_m=(0.6144, 0.6144)
+            patient.twin, types.SimpleNamespace(angle_rad=angles), detector_size_m=(0.6144, 0.6144)
         )
         states.append(provider.snapshot(len(angles)))
         patients.append(patient)
         np.testing.assert_array_equal(patient.twin.world_from_patient_m, original_transform)
 
-    np.testing.assert_allclose(patients[0].volume_xyz_mm_to_world_m, patients[1].volume_xyz_mm_to_world_m)
+    np.testing.assert_allclose(patients[0].twin.voxel_to_world_m, patients[1].twin.voxel_to_world_m)
     for name in ("source_world_m", "detector_center_world_m", "detector_x_axis_world"):
         np.testing.assert_allclose(getattr(states[0], name), getattr(states[1], name), atol=1e-12)
     for index in range(len(angles)):
@@ -329,7 +342,7 @@ def _orbit_at_zero():
 def test_without_a_tip_source_the_isocenter_stays_on_the_volume_centre(tmp_path) -> None:
     """The projection tests were all written against a fixed isocenter."""
     patient = _patient_volume(tmp_path)
-    provider = ReferenceProjectionCArmStateProvider(patient, _orbit_at_zero(), detector_size_m=(0.6144, 0.6144))
+    provider = ReferenceProjectionCArmStateProvider(patient.twin, _orbit_at_zero(), detector_size_m=(0.6144, 0.6144))
 
     state = provider.snapshot(1)
 
@@ -346,7 +359,7 @@ def test_the_isocenter_follows_the_tip_along_the_head_foot_axis(tmp_path) -> Non
     # The fixture's world_from_patient_m is the identity, so +z is superior.
     far_superior = centre + np.array([0.0, 0.0, 0.5])
     provider = ReferenceProjectionCArmStateProvider(
-        patient,
+        patient.twin,
         _orbit_at_zero(),
         detector_size_m=(0.6144, 0.6144),
         tip_source=_Tip([centre, far_superior]),
@@ -366,9 +379,9 @@ def test_panning_does_not_disturb_the_beam_direction(tmp_path) -> None:
     is the bug the anatomical basis was introduced to fix."""
     patient = _patient_volume(tmp_path)
     centre = patient.volume_mm_to_world(patient.center_xyz_mm)
-    fixed = ReferenceProjectionCArmStateProvider(patient, _orbit_at_zero(), detector_size_m=(0.6144, 0.6144))
+    fixed = ReferenceProjectionCArmStateProvider(patient.twin, _orbit_at_zero(), detector_size_m=(0.6144, 0.6144))
     following = ReferenceProjectionCArmStateProvider(
-        patient,
+        patient.twin,
         _orbit_at_zero(),
         detector_size_m=(0.6144, 0.6144),
         tip_source=_Tip([centre, centre + np.array([0.0, 0.0, 0.5])]),
@@ -395,7 +408,7 @@ def test_a_positive_orbit_angle_is_lao_and_a_negative_one_is_rao(tmp_path) -> No
         angle_rad = np.zeros(1, dtype=np.float32)
 
     orbit = Orbit()
-    provider = ReferenceProjectionCArmStateProvider(patient, orbit, detector_size_m=(0.6, 0.6))
+    provider = ReferenceProjectionCArmStateProvider(patient.twin, orbit, detector_size_m=(0.6, 0.6))
     isocenter = patient.volume_mm_to_world(patient.center_xyz_mm)
 
     orbit.angle_rad[:] = np.deg2rad(45.0)
@@ -405,18 +418,6 @@ def test_a_positive_orbit_angle_is_lao_and_a_negative_one_is_rao(tmp_path) -> No
 
     assert float(np.dot(lao, left)) > 0.0, "a positive angle must carry the detector to the patient's left"
     assert float(np.dot(rao, left)) < 0.0, "a negative angle must carry the detector to the patient's right"
-
-
-def test_an_unsupported_patient_frame_is_refused(tmp_path) -> None:
-    """A different frame convention would silently reorient every view."""
-    from i4h_arena.medical.carm import anatomical_projection_basis
-
-    class Twin:
-        coordinate_frame = "RAS"
-        world_from_patient_m = np.eye(4)
-
-    with pytest.raises(ValueError, match="coordinate_frame"):
-        anatomical_projection_basis(Twin())
 
 
 def test_patient_volume_preserves_physical_coordinates(tmp_path) -> None:
@@ -479,7 +480,7 @@ def test_slang_adapter_builds_dsa_volume_and_cinematic_frame(tmp_path, monkeypat
     captured = {"volumes": [], "configs": []}
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del spacing, origin_xyz_mm
             captured["volumes"].append(np.asarray(volume).copy())
             captured["configs"].append(cfg)
@@ -524,7 +525,7 @@ def test_slang_adapter_renders_fluoro_polarity_on_a_frame_independent_window(tmp
     frames = iter((first_frame, second_frame))
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -552,7 +553,7 @@ def test_switching_to_xray_inverts_the_greys_and_keeps_the_calibrated_window(tmp
     frame[:, 8:16] = 0.02
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -585,7 +586,7 @@ def test_an_unknown_appearance_is_rejected(tmp_path, monkeypatch) -> None:
     from xray_simulator.rendering import diffdrr_slang_renderer
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -608,7 +609,7 @@ def _window_renderer(tmp_path, monkeypatch) -> SlangFluoroscopyRenderer:
     frame[:, 8:16] = 0.02
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -717,7 +718,7 @@ def _ramp_renderer_class(monkeypatch):
     from xray_simulator.rendering import diffdrr_slang_renderer
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -781,7 +782,7 @@ def test_slang_adapter_uses_upstream_renderer_and_composites_catheter(tmp_path, 
     calls = {}
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             calls["shape"] = volume.shape
             calls["spacing"] = spacing
             calls["origin"] = origin_xyz_mm
@@ -834,6 +835,10 @@ def test_slang_adapter_uses_upstream_renderer_and_composites_catheter(tmp_path, 
     assert len(calls["poses"]) == 2
     assert not np.allclose(calls["poses"][0][0], calls["poses"][1][0])
     assert not np.array_equal(output["attenuation"], orbit_output["attenuation"])
+
+
+# Device-failure, shared-device and per-environment rendering checks (#278, #282;
+# NVBugs 6952579, 6952597), ported onto schema-2 patient bundles.
 
 
 def _renderer_raising(monkeypatch, error: Exception) -> None:
@@ -903,7 +908,7 @@ def _slang_like_renderer_class(monkeypatch, fail_on: int | None = None) -> list[
     constructed: list[int] = []
 
     class SlangLikeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             constructed.append(1)
             if len(constructed) == fail_on:
                 raise RuntimeError("Failed to create device!")
@@ -977,7 +982,7 @@ def _pose_dependent_renderer_class(monkeypatch, poses: list) -> None:
     from xray_simulator.rendering import diffdrr_slang_renderer
 
     class FakeRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):
@@ -1037,7 +1042,7 @@ def test_a_batching_renderer_poses_every_environment_in_one_call(tmp_path, monke
     batches: list = []
 
     class BatchingRenderer:
-        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None):
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
             del volume, spacing, origin_xyz_mm, cfg
 
         def render(self, rotation, translation):

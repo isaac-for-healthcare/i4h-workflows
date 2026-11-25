@@ -37,6 +37,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--fluoro-backend", default=None)
     parser.add_argument("--fluoro-device", default=None)
+    parser.add_argument(
+        "--hu-to-mu",
+        choices=("interventional", "linear"),
+        default=None,
+        help="HU-to-attenuation preset for patient twins (default: interventional)",
+    )
     return parser
 
 

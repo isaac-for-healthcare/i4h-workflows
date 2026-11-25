@@ -30,16 +30,6 @@ _MM_TO_M = 0.001
 def _twin(tmp_path, *, points_mm, edges, radii_mm, world_from_patient_m=None, omit=()):
     """Duck-typed PatientTwin exposing only what the adapter reads."""
     transform = np.eye(4) if world_from_patient_m is None else np.asarray(world_from_patient_m)
-    artifacts = {}
-    if "centerline_points" not in omit:
-        artifacts["centerline_points"] = tmp_path / "points.npy"
-        np.save(artifacts["centerline_points"], np.asarray(points_mm, dtype=np.float32))
-    if "centerline_edges" not in omit:
-        artifacts["centerline_edges"] = tmp_path / "edges.npy"
-        np.save(artifacts["centerline_edges"], np.asarray(edges, dtype=np.int64))
-    if "centerline_radii" not in omit and radii_mm is not None:
-        artifacts["centerline_radii"] = tmp_path / "radii.npy"
-        np.save(artifacts["centerline_radii"], np.asarray(radii_mm, dtype=np.float32))
 
     def patient_mm_to_world(points):
         points = np.asarray(points, dtype=np.float64)
@@ -47,8 +37,17 @@ def _twin(tmp_path, *, points_mm, edges, radii_mm, world_from_patient_m=None, om
         scaled = np.diag([_MM_TO_M, _MM_TO_M, _MM_TO_M, 1.0])
         return (homogeneous @ (scaled @ transform.T))[..., :3]
 
+    def centerline():
+        if "centerline_points" in omit or "centerline_edges" in omit:
+            return None
+        return SimpleNamespace(
+            points_mm=np.asarray(points_mm, dtype=np.float32),
+            edges=np.asarray(edges, dtype=np.int64),
+            radii_mm=None if "centerline_radii" in omit or radii_mm is None else np.asarray(radii_mm, dtype=np.float32),
+        )
+
     return SimpleNamespace(
-        artifacts=artifacts,
+        centerline=centerline,
         world_from_patient_m=transform,
         patient_mm_to_world=patient_mm_to_world,
     )

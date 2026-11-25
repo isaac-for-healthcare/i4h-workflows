@@ -86,14 +86,9 @@ SUITES = {
     ),
     "tools": (
         TestCommand("trajectory mimic", "tools/mimic", ("tools/mimic/tests",)),
+        TestCommand("Cosmos adapter", "tools/cosmos", ("tools/cosmos/tests",)),
         TestCommand("VLM annotator", "tools/annotator", ("tools/annotator/tests",)),
         TestCommand("dataset conversion", "tools/dataset", ("tools/dataset/tests",)),
-        TestCommand(
-            "patient twin",
-            "tools/patient_twin",
-            ("tools/patient_twin/tests",),
-            requires_checkout="third_party/i4h-digital-twin-internal/patient-digital-twin/vasculature_digital_twin",
-        ),
     ),
     "rl": (
         TestCommand(

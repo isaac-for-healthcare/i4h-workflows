@@ -247,7 +247,7 @@ class FluoroscopySensor(SensorBase):
         self, twin: PatientTwin, carm: Any, share_device_with: SlangFluoroscopyRenderer | None = None
     ) -> SlangFluoroscopyRenderer:
         return SlangFluoroscopyRenderer(
-            PatientVolume.load(twin),
+            PatientVolume.load(twin, hu_to_mu_preset=self.cfg.hu_to_mu_preset),
             carm,
             width=self.cfg.width,
             height=self.cfg.height,
@@ -345,6 +345,7 @@ class FluoroscopySensorCfg(SensorBaseCfg):
     backend: str = "synthetic"
     #: One twin for every environment, or a sequence naming one per environment.
     patient_twin_manifest: Any = None
+    hu_to_mu_preset: str | None = None
     world_bounds_m: tuple[float, float, float, float] = (-0.35, 0.35, -0.30, 0.30)
     demo_catheter: bool = False
     step_mm: float = 1.0

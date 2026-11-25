@@ -178,9 +178,10 @@ def test_failed_optimizer_step_is_not_reported_finished(monkeypatch):
     actor.lr_scheduler.step.assert_not_called()
 
 
-@pytest.mark.parametrize("existing_patch", [False, True])
+# 0 is a fresh checkout, 1 an rc3 checkout and 2 an rc4 checkout that already carry the older patches.
+@pytest.mark.parametrize("existing_patches", [0, 1, 2])
 @pytest.mark.parametrize("installer", ["cpu", "full"])
-def test_setup_applies_worker_patch_and_can_be_repeated(tmp_path, existing_patch, installer):
+def test_setup_applies_worker_patch_and_can_be_repeated(tmp_path, existing_patches, installer):
     if not SOURCE.is_dir():
         pytest.skip(f"optional RLinf source is absent: {SOURCE}")
     checkout = tmp_path / "third_party/RLinf-a4b6abe"
@@ -191,11 +192,11 @@ def test_setup_applies_worker_patch_and_can_be_repeated(tmp_path, existing_patch
 
     run("git", "clone", "--shared", "--no-checkout", str(SOURCE.parent), str(checkout))
     run("git", "-C", str(checkout), "checkout", "--detach", "a4b6abe205d7942f45cf3e8843c3e72ce818729d")
-    patches = ["rlinf_training_failures.patch", "rlinf_gr00t_training.patch"]
+    patches = ["rlinf_training_failures.patch", "rlinf_gr00t_training.patch", "rlinf_channel_failures.patch"]
     for name in patches:
         shutil.copyfile(ROOT / "third_party" / name, checkout.parent / name)
-    if existing_patch:
-        run("git", "-C", str(checkout), "apply", str(checkout.parent / patches[0]))
+    for name in patches[:existing_patches]:
+        run("git", "-C", str(checkout), "apply", str(checkout.parent / name))
     sentinel = checkout / "local-notes.txt"
     sentinel.write_text("preserve local work\n")
 

@@ -4,13 +4,13 @@
 
 The carve, the contrast transport and the chord integrator live in :mod:`xray_simulator.vessel`
 and take explicit arrays. This module reads them out of a twin, in the renderer's volume
-millimetres: voxel centre ``i`` at ``i * spacing``, axis-aligned, which is the frame
-:func:`~i4h_arena.medical.slang_fluoroscopy.solve_projection_geometry` poses the C-arm in.
+millimetres: the twin's patient LPS frame, reached from a voxel index through the scan's own
+affine, which is the frame :func:`~i4h_arena.medical.slang_fluoroscopy.solve_projection_geometry`
+poses the C-arm in.
 """
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -45,7 +45,7 @@ def volume_scale(patient: PatientVolume) -> float:
 
 def ijk_to_volume_mm(patient: PatientVolume) -> np.ndarray:
     """The renderer's voxel-centre index to volume millimetre transform."""
-    return np.diag((*(float(value) for value in patient.spacing_xyz_mm), 1.0))
+    return np.asarray(patient.voxel_to_volume_mm, dtype=np.float64)
 
 
 def vessel_tree(patient: PatientVolume, *, radius_scale: float = 1.0) -> VesselTree:
@@ -74,16 +74,10 @@ def vessel_tree(patient: PatientVolume, *, radius_scale: float = 1.0) -> VesselT
 
 
 def hu_to_mu(patient: PatientVolume) -> HuToMu:
-    """The HU-to-mu curve the twin's attenuation volume was built with.
+    """The HU-to-mu curve the patient's attenuation volume was built with."""
+    from xray_simulator import HuToMuMapping
 
-    Raises:
-        ValueError: If the twin declares no ``volume_metadata`` or it records no curve.
-    """
-    path = patient.twin.artifacts.get("volume_metadata")
-    if path is None:
-        raise ValueError("the contrast model needs the twin's volume_metadata artifact")
-    with open(path) as handle:
-        return HuToMu.from_metadata(json.load(handle))
+    return HuToMu.from_mapping(HuToMuMapping.preset(patient.hu_to_mu_preset))
 
 
 def vessel_contrast(patient: PatientVolume, *, supersample: int = 1, device: str | None = None) -> VesselContrast:

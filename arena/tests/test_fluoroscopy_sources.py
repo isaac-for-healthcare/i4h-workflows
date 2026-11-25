@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Provider binding must precede observation-manager shape discovery."""
 
+from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -11,7 +11,7 @@ import torch
 
 from i4h_arena.medical.carm import ReferenceProjectionCArmStateProvider, SceneCArmStateProvider
 from i4h_arena.medical.navigation_observation import fluoroscopy_rgb
-from i4h_arena.medical.patient_volume import PatientVolume
+from i4h_arena.medical.patient_twin import PatientTwin
 from i4h_arena.scenes.endoluminal_navigation import EndoluminalNavigationScene
 
 
@@ -44,19 +44,21 @@ class _Sensor:
 
 
 @pytest.fixture
-def patient(monkeypatch):
-    twin = SimpleNamespace(coordinate_frame="DICOM_LPS", world_from_patient_m=np.eye(4))
-    transform = np.diag([0.001, 0.001, 0.001, 1.0])
-    volume = PatientVolume(
-        twin=twin,
-        mu_volume=np.zeros((8, 8, 8), dtype=np.float32),
-        spacing_zyx_mm=(100.0, 100.0, 100.0),
-        volume_xyz_mm_to_world_m=transform,
-        world_m_to_volume_xyz_mm=np.linalg.inv(transform),
+def patient():
+    # An 8-voxel cube of 100 mm voxels spanning 0-800 mm, so the isocenter is 0.4 m along each axis.
+    voxel_to_patient_mm = np.diag([100.0, 100.0, 100.0, 1.0])
+    voxel_to_patient_mm[:3, 3] = 50.0
+    twin = PatientTwin(
+        patient_id="synthetic",
+        voxel_to_patient_mm=voxel_to_patient_mm,
+        world_from_patient_m=np.eye(4),
+        shape_ijk=(8, 8, 8),
+        artifacts={},
+        source=Path("patient_twin.yaml"),
+        patient_mm_from_scan=np.eye(4),
+        array_axes="ijk",
     )
-    load = Mock(return_value=volume)
-    monkeypatch.setattr(PatientVolume, "load", load)
-    return twin, load
+    return twin
 
 
 def _env(twin, num_envs=1):
@@ -82,7 +84,7 @@ def _make_view(env, monkeypatch):
 @pytest.mark.parametrize("num_envs", [1, 3])
 @pytest.mark.parametrize("follow_tip", [True, False])
 def test_first_observation_binds_patient_geometry_without_a_view(patient, monkeypatch, num_envs, follow_tip):
-    twin, load = patient
+    twin = patient
     monkeypatch.setenv("I4H_CARM_FOLLOW_TIP", str(int(follow_tip)))
     env = _env(twin, num_envs)
     sensor = env.scene["fluoroscopy"]
@@ -94,7 +96,6 @@ def test_first_observation_binds_patient_geometry_without_a_view(patient, monkey
     assert isinstance(sensor.carm, ReferenceProjectionCArmStateProvider)
     assert sensor.catheter is env.scene["catheter"]
     assert (sensor.carm._tip_source is sensor.catheter) == follow_tip
-    load.assert_called_once_with(twin)
     assert rgb.shape == (num_envs, 8, 12, 3)
     assert rgb.dtype == torch.uint8
     assert torch.all(rgb == 127)
@@ -103,7 +104,7 @@ def test_first_observation_binds_patient_geometry_without_a_view(patient, monkey
 
 
 def test_view_and_repeated_observations_preserve_live_provider_and_pan(patient, monkeypatch):
-    twin, load = patient
+    twin = patient
     monkeypatch.setenv("I4H_CARM_FOLLOW_TIP", "1")
     env = _env(twin)
     fluoroscopy_rgb(env)
@@ -122,7 +123,6 @@ def test_view_and_repeated_observations_preserve_live_provider_and_pan(patient, 
 
     assert view.camera("fluoroscopy") is not None
     assert sensor.carm is provider
-    load.assert_called_once_with(twin)
     np.testing.assert_allclose(provider._pan_m, pan)
     assert not np.allclose(provider.snapshot(1).source_world_m, first_pose.source_world_m)
 

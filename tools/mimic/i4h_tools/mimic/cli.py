@@ -14,14 +14,27 @@ of that, and it is what makes half the generated demos useless.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import logging
+import os
+import stat
+import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 import h5py
 import numpy as np
 from tqdm import tqdm
 
-from i4h_common.episode import DATA_GROUP, action_path, demo_names, read_segments, write_segments
+from i4h_common.episode import (
+    DATA_GROUP,
+    action_path,
+    dataset_format_version,
+    demo_names,
+    read_segments,
+    write_dataset_format_version,
+    write_segments,
+)
 
 logger = logging.getLogger("i4h_tools.mimic")
 
@@ -55,6 +68,35 @@ def _copy_group(src: h5py.Group, dst_parent: h5py.Group, name: str) -> h5py.Grou
     return dst
 
 
+@contextlib.contextmanager
+def _staged(target: Path) -> Iterator[Path]:
+    """Yield a temporary path next to ``target``; move it over ``target`` only on success.
+
+    A refused or failed run leaves ``target`` as it was: an existing file is
+    kept and no new file appears. The temporary file is created exclusively
+    under a random name, so a planted file or symlink is never written through.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=target.parent)
+    os.close(fd)
+    staging = Path(name)
+    try:
+        # The temporary file stays 0600 (mkstemp) while it is written. On success it takes the
+        # mode the output would have had without staging: an existing target keeps its own
+        # (a 0600 recording stays private), a new one gets what a plain create would.
+        yield staging
+        try:
+            mode = stat.S_IMODE(target.stat().st_mode)
+        except FileNotFoundError:
+            umask = os.umask(0)
+            os.umask(umask)
+            mode = 0o666 & ~umask
+        os.chmod(staging, mode)
+        os.replace(staging, target)
+    finally:
+        staging.unlink(missing_ok=True)
+
+
 def _jitter(demo: h5py.Group, rng: np.random.Generator, noise: float, node: str | None) -> int:
     """Add Gaussian noise to the action dataset. Returns the frame count touched."""
     path = action_path(demo)
@@ -85,9 +127,8 @@ def expand(
 ) -> int:
     """Write ``episodes`` jittered variants of ``source`` into ``target``."""
     rng = np.random.default_rng(seed)
-    target.parent.mkdir(parents=True, exist_ok=True)
 
-    with h5py.File(str(source), "r") as src, h5py.File(str(target), "w") as dst:
+    with _staged(target) as staging, h5py.File(str(source), "r") as src, h5py.File(str(staging), "w") as dst:
         names = demo_names(src)
         if not names:
             raise ValueError(f"{source} has no demo_* groups")
@@ -100,6 +141,9 @@ def expand(
         dst_data = dst.create_group(DATA_GROUP)
         for key, value in src_data.attrs.items():
             dst_data.attrs[key] = value
+        # The copies keep the source's root poses, so they keep its declared
+        # format; an undeclared i4h recording is XYZW and is declared so here.
+        write_dataset_format_version(dst, dataset_format_version(src))
 
         written = 0
         if include_source:
@@ -132,8 +176,8 @@ def expand(
             written += 1
 
         dst_data.attrs["total"] = written
-        logger.info("wrote %s demos to %s", written, target)
-        return written
+    logger.info("wrote %s demos to %s", written, target)
+    return written
 
 
 def main(argv: list[str] | None = None) -> int:
