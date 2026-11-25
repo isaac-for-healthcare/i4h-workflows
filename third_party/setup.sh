@@ -39,7 +39,7 @@ I4H_PHYSICS_SIM_DIR="i4h-physics-simulation"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-ccf0843180ce430ee8a0b3550e230abe5c991969}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation"
 I4H_SENSOR_SIM_URL="${I4H_SENSOR_SIM_URL:-https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git}"
-I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-21e969d0be8212c22acc0a7e920b954f60ec289f}"
+I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-2136e743b20a625e465f394045bcccb1fd96fe0d}"
 I4H_DIGITAL_TWIN_DIR="i4h-digital-twin"
 I4H_DIGITAL_TWIN_URL="${I4H_DIGITAL_TWIN_URL:-https://github.com/isaac-for-healthcare/i4h-digital-twin.git}"
 
