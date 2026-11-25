@@ -43,6 +43,15 @@ def finalize_result(result):
     return result
 
 
+def close_qualification(app, result):
+    """Isaac Sim fast shutdown exits inside close, so pass its status explicitly."""
+    exit_code = 0 if result.get("passed", False) else 1
+    with suppress(SystemExit):
+        app.close(exit_code=exit_code)
+    if exit_code:
+        raise SystemExit(exit_code)
+
+
 def source_revisions(driver_path):
     import hashlib
     import subprocess
@@ -354,12 +363,8 @@ def main():
     finally:
         finalize_result(result)
         args.output.write_text(json.dumps(result, indent=2) + "\n")
-        with suppress(SystemExit):
-            app.close()
         # Keep this inside finally: the fresh-process branch returns from try.
-        # Kit can turn an uncaught error into exit 0; exit after it closes.
-        if not result.get("passed", False):
-            raise SystemExit(1)
+        close_qualification(app, result)
 
 
 if __name__ == "__main__":
