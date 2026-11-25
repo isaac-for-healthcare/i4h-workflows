@@ -141,7 +141,7 @@ Licensed under Apache 2.0 (https://github.com/RLinf/RLinf/blob/a4b6abe205d7942f4
 
 i4h-physics-simulation (https://github.com/isaac-for-healthcare/i4h-physics-simulation)
 Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-Licensed under Apache 2.0 (https://github.com/isaac-for-healthcare/i4h-physics-simulation/blob/2e4067f5a46b1908714a118468081a14c0f82f81/LICENSE)
+Licensed under Apache 2.0 (https://github.com/isaac-for-healthcare/i4h-physics-simulation/blob/300573a4b77ee11e195fc6b2c2091bebcf2501bb/LICENSE)
 
 i4h-sensor-simulation (https://github.com/isaac-for-healthcare/i4h-sensor-simulation)
 Licensed under Apache 2.0 (https://github.com/isaac-for-healthcare/i4h-sensor-simulation/blob/5d6ba8547a4c6e25af7eaf551f6a34371ccd6350/LICENSE)

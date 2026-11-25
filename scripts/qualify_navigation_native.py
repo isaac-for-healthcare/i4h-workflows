@@ -28,13 +28,12 @@ def equal(left, right, prefix=""):
 
 def source_revisions(driver_path):
     import hashlib
-    import importlib.metadata
     import subprocess
-    from urllib.parse import unquote, urlparse
 
     root = Path(__file__).resolve().parents[1]
-    direct = json.loads(importlib.metadata.distribution("i4h-physics").read_text("direct_url.json"))
-    numerical = Path(unquote(urlparse(direct["url"]).path))
+    import i4h_physics
+
+    numerical = Path(i4h_physics.__file__).resolve().parent
     return dict(
         workflow_revision=subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(),
         numerical_revision=subprocess.check_output(

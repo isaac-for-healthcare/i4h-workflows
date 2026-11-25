@@ -18,11 +18,11 @@ from i4h_arena.medical.newton_catheter_physics import rod_solver_cfg
 from i4h_arena.medical.numerical_catheter import NumericalCatheterAssetCfg
 
 
-def add_lumen(scene, name, points, edges, radii):
+def add_lumen(scene, name, points, edges, radii, endpoints_locked=True):
     from i4h_endoluminal.loaders.centreline import add_centreline_tree
 
     points, edges = np.float32(points), np.int32(edges)
-    pinned = np.flatnonzero(np.bincount(edges.ravel(), minlength=len(points)) == 1)
+    pinned = np.flatnonzero(np.bincount(edges.ravel(), minlength=len(points)) == 1) if endpoints_locked else [0]
     return add_centreline_tree(
         scene,
         name,
@@ -44,6 +44,8 @@ def component_configuration(spec):
     from i4h_endoluminal.loaders import LOADERS
     from i4h_endoluminal.systems import SYSTEMS
 
+    from i4h_arena.medical.catheter_initialization import rod_frames_along_polyline
+    from i4h_arena.medical.newton_catheter_physics import rest_curvature_override, seeded_rest_curvature_scale
     from i4h_common.centerline import sample_polyline
 
     settings = rod_solver_cfg(spec)
@@ -56,19 +58,44 @@ def component_configuration(spec):
         points = sample_polyline(
             np.asarray(spec.initial_path_world_m), np.linspace(0, spec.length_m, spec.num_segments + 1)
         )
+    frames = rod_frames_along_polyline(np.float32(points))
+    curvature = np.zeros((spec.num_segments, 3), np.float32)
+    scale = seeded_rest_curvature_scale(
+        from_path=spec.rest_curvature_from_path,
+        spec_scale=spec.rest_curvature_scale,
+        override=rest_curvature_override(),
+    )
+    if scale is not None and spec.initial_path_world_m is not None:
+        # Match the legacy dimensionless Im(conj(q0)*q1), retaining an unseeded tip.
+        import torch
+
+        from i4h_arena.medical.newton_catheter_physics import rest_darboux_along_polyline
+
+        shaft = spec.num_segments - settings.tip_num_edges
+        curvature[:shaft] = (
+            rest_darboux_along_polyline(torch.as_tensor(np.float32(points)), length).numpy()[:shaft] * scale
+        )
     assets = {
         "catheter": dict(
             type="rod",
             start=list(spec.origin_world_m),
             direction=list(spec.track_direction_world),
-            positions=np.asarray(points).tolist(),
+            startup_positions=np.asarray(points).tolist(),
+            startup_frames=frames.tolist(),
+            rest_lengths=[length] * spec.num_segments,
+            rest_curvature=curvature.tolist(),
             count=spec.num_segments + 1,
             segment_length=length,
             radius=spec.radius_m,
             mass=settings.density * area * length,
-            frame_mapping="node",
-            rest_curvature_scale=0.0,
-            uniform_rest_length=True,
+            regions={
+                "schema_version": 1,
+                "default": "shaft",
+                "regions": [
+                    {"name": f"tip_{edge}", "interval": [edge / spec.num_segments, (edge + 1) / spec.num_segments]}
+                    for edge in range(spec.num_segments - settings.tip_num_edges, spec.num_segments)
+                ],
+            },
         )
     }
     particles = dict(type="particles", id="catheter_particles", body="catheter", damping=1 - settings.linear_damping)
@@ -81,7 +108,7 @@ def component_configuration(spec):
         bend=4 * settings.bend_stiffness * inertia / length**2,
         twist=8 * settings.twist_stiffness * inertia / length**2,
         angular_damping=settings.angular_damping,
-        inertia="physical",
+        inertia="physical" if spec.physical_rotational_inertia else "unit",
     )
     control = dict(
         type="catheter_control",
@@ -90,7 +117,8 @@ def component_configuration(spec):
         track_length=0.0,
         tip_edges=settings.tip_num_edges,
         tip_mapping="polyline",
-        command_mode="pose",
+        root_mode="track" if spec.rigid_bodies_enabled else "external_pose",
+        target_mode="absolute",
         max_delta=1.0,
         lower=[-1e9, -1e9, -1.5],
         upper=[1e9, 1e9, 1.5],
@@ -98,15 +126,16 @@ def component_configuration(spec):
     if spec.track_guidance and spec.initial_path_world_m is not None:
         free = (
             min(spec.num_segments, int(spec.track_free_distal_length_m / length))
-            if spec.track_free_distal_length_m
+            if spec.track_free_distal_length_m is not None
             else settings.tip_num_edges
         )
         control.update(
-            route_path=spec.initial_path_world_m,
-            route_end=max(1, spec.num_segments + 1 - free),
-            route_stiffness=spec.track_stiffness,
+            track_path=spec.initial_path_world_m,
+            distal_free_nodes=free,
+            track_stiffness=spec.track_stiffness,
         )
-    systems = [particles, rod, control]
+    material = dict(type="rod_direct_material", id="catheter_material", body="catheter")
+    systems = [particles, material, rod, control]
     if spec.wants_vessel:
         from i4h_arena.medical.patient_twin import PatientTwin
         from i4h_arena.medical.vessel_deformation import length_scale_from_affine
@@ -121,6 +150,7 @@ def component_configuration(spec):
             points=twin.patient_mm_to_world(line.points_mm).tolist(),
             edges=np.asarray(line.edges).tolist(),
             radii=radii.tolist(),
+            endpoints_locked=spec.vessel_endpoints_locked,
         )
         systems = [
             particles,
@@ -161,6 +191,7 @@ def component_configuration(spec):
                 interior_deadband=spec.containment_interior_deadband,
                 interior_stiffness=spec.containment_interior_stiffness,
             ),
+            material,
             rod,
             control,
         ]
@@ -225,6 +256,14 @@ class NumericalNavigationEnv(I4hHostMixin, IsaacLabArenaManagerBasedRLEnv):
         super()._bind_i4h(component)
         if getattr(self, "scene", None) is not None and "catheter" in self.scene.sensors:
             self.scene["catheter"].bind_component(component)
+            from i4h_arena.medical.newton_catheter_physics import tip_bend_stiffness_profile
+
+            spec = self.cfg.navigation_rod_spec
+            tip_edges = rod_solver_cfg(spec).tip_num_edges
+            profile = tip_bend_stiffness_profile(1.0, spec.num_segments, tip_edges, spec.tip_bend_fraction)
+            props = component.scene.body("catheter").region_properties
+            for edge in range(spec.num_segments - tip_edges, spec.num_segments):
+                props.edit({"bend_multiplier": float(profile[edge])}, f"tip_{edge}")
             sensor = self.scene["fluoroscopy"]
             sensor._catheter_provider = None
             sensor._carm_provider = None
