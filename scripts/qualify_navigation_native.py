@@ -334,11 +334,14 @@ def main():
 
         traceback.print_exc()
         result.update(passed=False, error=repr(error))
-        raise
     finally:
         args.output.write_text(json.dumps(result, indent=2) + "\n")
         with suppress(SystemExit):
             app.close()
+    # Kit installs an exception hook that can turn an uncaught error into exit 0.
+    # Exit after shutdown so process status agrees with the persisted result.
+    if not result.get("passed", False):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
