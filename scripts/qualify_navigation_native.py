@@ -26,6 +26,23 @@ def equal(left, right, prefix=""):
             assert value.tobytes() == right[key].tobytes(), name
 
 
+def finalize_result(result):
+    """Exact snapshots alone do not qualify subsequent continuation trajectories."""
+    failures = [
+        name
+        for name in ("same_process_trajectory_exact", "fresh_trajectory_exact")
+        if name in result and not result[name]
+    ]
+    failures.extend(
+        name
+        for name in ("same_process_robot_max_abs_rad", "fresh_robot_max_abs_rad")
+        if name in result and result[name] != 0.0
+    )
+    if failures:
+        result.update(passed=False, continuation_failures=failures)
+    return result
+
+
 def source_revisions(driver_path):
     import hashlib
     import subprocess
@@ -335,13 +352,14 @@ def main():
         traceback.print_exc()
         result.update(passed=False, error=repr(error))
     finally:
+        finalize_result(result)
         args.output.write_text(json.dumps(result, indent=2) + "\n")
         with suppress(SystemExit):
             app.close()
-    # Kit installs an exception hook that can turn an uncaught error into exit 0.
-    # Exit after shutdown so process status agrees with the persisted result.
-    if not result.get("passed", False):
-        raise SystemExit(1)
+        # Keep this inside finally: the fresh-process branch returns from try.
+        # Kit can turn an uncaught error into exit 0; exit after it closes.
+        if not result.get("passed", False):
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":
