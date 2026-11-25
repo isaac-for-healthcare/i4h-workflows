@@ -51,3 +51,6 @@ blockers. Converged-policy training and legacy package removal are outside scope
 A separate default-switch PR may be opened on this branch only after the required
 migration gates pass. Draft status and a published candidate do not constitute
 qualification or permission to merge.
+
+The [2026-11-25 qualification report](catheter-runtime-qualification.md) records
+the published candidates, completed checks and retained migration blockers.
