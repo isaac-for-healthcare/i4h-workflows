@@ -1,8 +1,8 @@
 # Numerical catheter runtime migration
 
 This branch is stacked on Workflows PR #292. Its cross-repository dependency is
-the public physics `feature/catheter-runtime-capabilities` branch stacked on
-physics PR #17. Physics PR #8 and Workflows PR #252 remain source proposals and
+[physics PR #19](https://github.com/isaac-for-healthcare/i4h-physics-simulation/pull/19),
+stacked on physics PR #17. Physics PR #8 and Workflows PR #252 remain source proposals and
 are unchanged. The two workflow backends remain selectable; legacy remains the
 fresh-run default until the required migration gates pass.
 

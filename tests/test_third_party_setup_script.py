@@ -116,7 +116,7 @@ def test_components_use_declared_public_https_sources(tmp_path: Path, root_origi
     for repository in ("i4h-physics-simulation", "i4h-sensor-simulation", "i4h-digital-twin"):
         assert f"remote set-url origin https://github.com/isaac-for-healthcare/{repository}.git" in git_log
     assert "i4h-physics-simulation-internal" not in git_log
-    assert "300573a4b77ee11e195fc6b2c2091bebcf2501bb" in git_log
+    assert "cfc05e0d20dda2a841fdf935b666f47b27163554" in git_log
     assert "Isaac-GR00T-1.6 fetch" not in git_log
     assert "i4h_numerical_liver_host.patch" not in git_log
     assert "git@github.com" not in git_log
@@ -142,7 +142,7 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
     result, git_log = _run_setup(tmp_path, "")
     assert result.returncode == 0, result.stderr
     for component, ref in (
-        ("physics-simulation", "300573a4b77ee11e195fc6b2c2091bebcf2501bb"),
+        ("physics-simulation", "cfc05e0d20dda2a841fdf935b666f47b27163554"),
         ("sensor-simulation", "d7d3f2976ab306a531730772c1d4fa221d6e2247"),
         ("digital-twin", "21e969d0be8212c22acc0a7e920b954f60ec289f"),
     ):
