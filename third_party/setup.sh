@@ -31,12 +31,12 @@ ISAACSIM_SKILLS_DIR="IsaacSim-74a9356"
 # main plus the neutral-host split and qualified PR #12 coupling merge (2e4067f).
 # Sensor simulation and the patient twin are pinned to
 # commits on their main branches that read and write the native scan bundle format (sensor
-# simulation #72, merged as d7d3f29; the twin pins the same xray_simulator). Override *_REF to
+# simulation #72, in main since d7d3f29, now main at ccf0843; the twin pins the same xray_simulator). Override *_REF to
 # test another revision (I4H_DIGITAL_TWIN_REF=main tracks the twin's main branch) and *_URL to
 # build against a local checkout.
 I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-827dc426888b614d4e75d4cd309e66f1ae9ce753}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation"
-I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-d7d3f2976ab306a531730772c1d4fa221d6e2247}"
+I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-ccf0843180ce430ee8a0b3550e230abe5c991969}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation"
 I4H_SENSOR_SIM_URL="${I4H_SENSOR_SIM_URL:-https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git}"
 I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-21e969d0be8212c22acc0a7e920b954f60ec289f}"

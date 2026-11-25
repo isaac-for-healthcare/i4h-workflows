@@ -19,6 +19,7 @@ Run from the repository root:
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -49,10 +50,49 @@ class Stage:
     outputs_before_shutdown: bool = False
     #: Files or directories a rerun must not find; defaults to ``outputs``.
     replaces: list[Path] = field(default_factory=list)
+    #: A JSON output whose ``checkpoints`` list names further files that later stages load.
+    checkpoint_manifest: Path | None = None
+
+    def verified_outputs(self) -> list[Path]:
+        """``outputs`` plus every checkpoint the manifest lists, so replacing one is detected."""
+        paths = list(self.outputs)
+        if self.checkpoint_manifest is not None and self.checkpoint_manifest.is_file():
+            try:
+                listed = json.loads(self.checkpoint_manifest.read_text()).get("checkpoints") or []
+            except (OSError, ValueError, AttributeError):
+                listed = []
+            paths += [Path(item) for item in listed if Path(item) not in paths]
+        return paths
 
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _reserve_run_dir() -> Path:
+    """Atomically create a fresh default run directory; same-second launches get a suffix."""
+    base = ROOT / "runs" / WORKFLOW
+    base.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    for attempt in range(1000):
+        path = base / (stamp if attempt == 0 else f"{stamp}_{attempt}")
+        try:
+            path.mkdir()
+        except FileExistsError:
+            continue
+        return path.resolve()
+    raise RuntimeError(f"cannot reserve a run directory under {base}")
+
+
+def _lock_run_dir(run_dir: Path):
+    """Hold an exclusive lock on the run directory for this process; None if another run has it."""
+    handle = (run_dir / ".lock").open("a")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        return None
+    return handle
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -201,6 +241,7 @@ def stages(args: argparse.Namespace, run_dir: Path) -> list[Stage]:
             ],
             [run_dir / "ppo" / "model_final.pt", run_dir / "ppo" / "run.json"],
             replaces=[run_dir / "ppo"],
+            checkpoint_manifest=run_dir / "ppo" / "run.json",
         ),
         Stage(
             "select-ppo",
@@ -388,7 +429,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.ppo_iterations < 6 or min(args.demo_episodes, args.bc_epochs, args.eval_episodes, args.run_episodes) < 1:
         print("require at least 6 PPO iterations and positive episode/epoch counts", file=sys.stderr)
         return 2
-    run_dir = (args.run_dir or ROOT / "runs" / WORKFLOW / datetime.now().strftime("%Y%m%d_%H%M%S")).resolve()
+    if args.run_dir:
+        run_dir = args.run_dir.resolve()
+    elif args.dry_run:
+        run_dir = (ROOT / "runs" / WORKFLOW / datetime.now().strftime("%Y%m%d_%H%M%S")).resolve()
+    else:
+        run_dir = _reserve_run_dir()
     plan = stages(args, run_dir)
     names = [stage.name for stage in plan]
     if args.from_stage and args.from_stage not in names:
@@ -407,7 +453,7 @@ def main(argv: list[str] | None = None) -> int:
         print("missing dependencies; run ./setup.sh:\n  " + "\n  ".join(missing), file=sys.stderr)
         return 2
     for stage in plan[:start]:
-        absent = [str(path) for path in stage.outputs if not path.is_file()]
+        absent = [str(path) for path in stage.verified_outputs() if not path.is_file()]
         if absent:
             print(f"cannot resume at {args.from_stage}: {stage.name} outputs are missing: {absent}", file=sys.stderr)
             return 2
@@ -420,7 +466,8 @@ def main(argv: list[str] | None = None) -> int:
         if (
             record.get("returncode") != 0
             or record.get("command") != stage.command
-            or any(expected.get(str(path)) != _sha256(path) for path in stage.outputs)
+            or any(expected.get(str(path)) != _sha256(path) for path in stage.verified_outputs())
+            or set(expected) != {str(path) for path in stage.verified_outputs()}
         ):
             print(
                 f"cannot resume: {stage.name} has changed or unverified outputs/options; "
@@ -431,6 +478,10 @@ def main(argv: list[str] | None = None) -> int:
     # Prior downstream records and scores no longer describe the rerun's inputs.
     records = {stage.name: records[stage.name] for stage in plan[:start]}
     run_dir.mkdir(parents=True, exist_ok=True)
+    lock = _lock_run_dir(run_dir)
+    if lock is None:
+        print(f"{run_dir} is in use by another liver_rl_minimal run", file=sys.stderr)
+        return 2
     (run_dir / "logs").mkdir(exist_ok=True)
     summary.update(run_dir=str(run_dir), arguments={k: str(v) for k, v in vars(args).items()})
     summary["stages"] = list(records.values())
@@ -452,7 +503,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"    previous output kept as {path}", flush=True)
         began = time.monotonic()
         returncode, forced_exit = _execute(stage, env, log, args.exit_grace)
-        absent = [str(path) for path in stage.outputs if not path.is_file()]
+        absent = [str(path) for path in stage.verified_outputs() if not path.is_file()]
         records[stage.name] = dict(
             name=stage.name,
             command=stage.command,
@@ -461,7 +512,7 @@ def main(argv: list[str] | None = None) -> int:
             set_aside=set_aside,
             seconds=round(time.monotonic() - began, 1),
             log=str(log),
-            outputs={str(path): _sha256(path) for path in stage.outputs if path.is_file()},
+            outputs={str(path): _sha256(path) for path in stage.verified_outputs() if path.is_file()},
             missing_outputs=absent,
         )
         summary["stages"] = [records[name] for name in names if name in records]

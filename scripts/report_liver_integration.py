@@ -69,7 +69,10 @@ def main():
     from i4h_common.paths import numerical_source
 
     num = numerical_source(root).parent
-    live_diff = subprocess.check_output(["git", "diff"], cwd=num)
+    # Setup applies the Isaac Lab 3 builder patch to the solver checkout that holds numerical_sim,
+    # so only numerical_sim itself must be clean; the solver patch is recorded separately.
+    live_diff = subprocess.check_output(["git", "diff", "--", "numerical_sim"], cwd=num)
+    solver_diff = subprocess.check_output(["git", "diff", "--", ".", ":(exclude)numerical_sim"], cwd=num)
     import hashlib
 
     assert not live_diff, "Merged Numerical Sim must be unpatched"
@@ -82,6 +85,7 @@ def main():
         workflows_head=git_head(root),
         numerical_head=git_head(num),
         numerical_patch_sha256=None,
+        solver_patch_sha256=hashlib.sha256(solver_diff).hexdigest(),
         numerical_has_shared_object_alternates=(num / ".git/objects/info/alternates").exists(),
         isaaclab_head=git_head(root / "third_party/IsaacLab-3939445"),
         arena_head=git_head(root / "third_party/IsaacLab-Arena-196680c"),

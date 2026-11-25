@@ -169,7 +169,7 @@ index bc829be..bdf3a10 100644
                  # Get teleop command (may be None while waiting for session start)
                  action = teleop_interface.advance()
  
-@@ -725,9 +751,19 @@ def run_simulation_loop(  # noqa: C901
+@@ -725,9 +751,21 @@ def run_simulation_loop(  # noqa: C901
                      if ctrl.should_reset:
                          should_reset_recording_instance = True
  
@@ -179,6 +179,8 @@ index bc829be..bdf3a10 100644
 +                    )
 +                    camera_feed_session.refresh()
 +                    should_reset_recording_instance = False
++                    # The command sampled above predates the reset; read a fresh one for the new episode.
++                    action = teleop_interface.advance()
 +
                  if action is None:
 -                    env.sim.render()
@@ -190,7 +192,7 @@ index bc829be..bdf3a10 100644
                      continue
                  # Expand to batch dimension
                  actions = action.repeat(env.num_envs, 1)
-@@ -744,30 +780,36 @@ def run_simulation_loop(  # noqa: C901
+@@ -744,30 +782,36 @@ def run_simulation_loop(  # noqa: C901
                          elif subtasks:
                              show_subtask_instructions(instruction_display, subtasks, obv, env.cfg)
                  else:
@@ -236,7 +238,7 @@ index bc829be..bdf3a10 100644
                      instruction_display.show_demo(label_text)
                      print(label_text)
                      target_time = time.time() + 0.8
-@@ -795,11 +837,18 @@ def run_simulation_loop(  # noqa: C901
+@@ -795,11 +839,18 @@ def run_simulation_loop(  # noqa: C901
                      rate_limiter.sleep(env)
  
      # Run the loop with or without context manager based on stack
@@ -259,7 +261,7 @@ index bc829be..bdf3a10 100644
  
      return current_recorded_demo_count
  
-@@ -868,15 +917,16 @@ def record_demos(success_term: object | None, use_isaac_teleop: bool, cleanup: c
+@@ -868,15 +919,16 @@ def record_demos(success_term: object | None, use_isaac_teleop: bool, cleanup: c
      # Create environment
      env = create_environment(env_cfg)
  

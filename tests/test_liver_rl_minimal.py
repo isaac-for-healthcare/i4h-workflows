@@ -216,20 +216,24 @@ def _completed_plan(tmp_path):
         for path in stage.outputs:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(score) if stage.name.startswith("evaluate-") else "original")
+        if stage.checkpoint_manifest is not None:
+            checkpoint = stage.checkpoint_manifest.parent / "model_1.pt"
+            checkpoint.write_text("original")
+            stage.checkpoint_manifest.write_text(json.dumps(dict(checkpoints=[str(checkpoint)])))
         records.append(
             dict(
                 name=stage.name,
                 command=stage.command,
                 returncode=0,
                 missing_outputs=[],
-                outputs={str(p): driver._sha256(p) for p in stage.outputs},
+                outputs={str(p): driver._sha256(p) for p in stage.verified_outputs()},
             )
         )
     (tmp_path / "summary.json").write_text(json.dumps(dict(stages=records, evaluation=dict(bc=score, ppo=score))))
     return plan
 
 
-@pytest.mark.parametrize("change", ["checkpoint", "contract", "command", "missing_record"])
+@pytest.mark.parametrize("change", ["checkpoint", "contract", "command", "missing_record", "ppo_checkpoint"])
 def test_resume_rejects_unverified_inputs(tmp_path, monkeypatch, capsys, change):
     _completed_plan(tmp_path)
     monkeypatch.setattr(driver, "_missing_dependencies", lambda: [])
@@ -240,6 +244,9 @@ def test_resume_rejects_unverified_inputs(tmp_path, monkeypatch, capsys, change)
         (tmp_path / "bc/imported" / name).write_text("replaced")
     elif change == "command":
         argv += ["--bc-epochs", "999"]
+    elif change == "ppo_checkpoint":
+        (tmp_path / "ppo/model_1.pt").write_text("replaced")
+        argv[-1] = "select-ppo"
     else:
         (tmp_path / "summary.json").write_text("{}")
     assert driver.main(argv) == 2
@@ -313,3 +320,23 @@ def test_interrupted_driver_stops_stage_and_grandchild(tmp_path, stop_signal):
         for pid in pids:
             with suppress(ProcessLookupError):
                 os.kill(pid, signal.SIGKILL)
+
+
+def test_default_run_dirs_are_reserved_atomically(tmp_path, monkeypatch):
+    monkeypatch.setattr(driver, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        driver, "datetime", type("D", (), {"now": staticmethod(lambda: __import__("datetime").datetime(2026, 1, 1))})
+    )
+    first, second = driver._reserve_run_dir(), driver._reserve_run_dir()
+    assert first != second and first.is_dir() and second.is_dir()
+
+
+def test_run_dir_in_use_is_rejected(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(driver, "_missing_dependencies", lambda: [])
+    monkeypatch.setattr(driver.subprocess, "Popen", lambda *a, **k: pytest.fail("started in a locked run dir"))
+    held = driver._lock_run_dir(tmp_path)
+    try:
+        assert driver.main(["--run-dir", str(tmp_path)]) == 2
+    finally:
+        held.close()
+    assert "in use by another" in capsys.readouterr().err
