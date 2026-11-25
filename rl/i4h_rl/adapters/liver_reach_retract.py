@@ -20,19 +20,33 @@ def terminal_result(extras, env_id, objective="full_cycle"):
 def export_contract(env, actor, checkpoint, policy):
     import hashlib
     import json
-    from importlib.metadata import version
+    import subprocess
+    from importlib.metadata import distribution, version
     from pathlib import Path
+    from urllib.parse import unquote, urlparse
+
+    import i4h_physics
 
     from i4h_arena.medical.liver import ENCODER, REWARD_REVISION, TASK_CONTRACT
 
     def digest(path):
         return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
+    origin = json.loads(distribution("i4h-physics").read_text("direct_url.json") or "{}")
+    url = urlparse(origin.get("url", ""))
+    numerical = Path(unquote(url.path)).resolve()
+    if (
+        url.scheme != "file"
+        or not origin.get("dir_info", {}).get("editable")
+        or not Path(i4h_physics.__file__).resolve().is_relative_to(numerical)
+    ):
+        raise RuntimeError("Liver export requires an identifiable editable Numerical Sim checkout; run ./setup.sh")
+    revision = subprocess.check_output(["git", "-C", str(numerical), "rev-parse", "HEAD"], text=True).strip()
     contract = dict(
         objective=env.liver.objective.objective,
         encoder=ENCODER,
         task=TASK_CONTRACT,
-        numerical_revision="8812708a98e3c86b50cee359182b496924496b35",
+        numerical_revision=revision,
         action_layout=["delta_x", "delta_y", "delta_z", "grip"],
         xyz_vector_limit_m=0.001,
         grip_mapping="(clip(action,-1,1)+1)/2",

@@ -12,7 +12,7 @@ The Arena reducer owns phases, timers, rewards and terminal results. Its post-ph
 
 ## Setup and offline snapshots
 
-The current integration pin is public i4h-physics-simulation commit `8812708a98e3c86b50cee359182b496924496b35` (PR #17), checked out as `third_party/i4h-physics-simulation`. Arena declares the neutral `i4h-host` package from the same checkout; the standalone application is not required. Its bridge supplies post-physics callbacks and selected-world reset/restore without a Workflows compatibility patch. Supply production assets as described by Numerical Sim.
+The current integration pin is public i4h-physics-simulation commit `2e4067f5a46b1908714a118468081a14c0f82f81` (PR #17 plus the qualified PR #12 coupling integration), checked out as `third_party/i4h-physics-simulation`. Arena declares the neutral `i4h-host` package from the same checkout; the standalone application is not required. Its bridge supplies post-physics callbacks and selected-world reset/restore without a Workflows compatibility patch. Supply production assets as described by Numerical Sim.
 
 Generate compatible settled bundles offline before normal execution:
 
