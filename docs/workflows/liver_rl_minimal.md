@@ -11,7 +11,7 @@ python3 scripts/liver_rl_minimal.py --headless
 ## Requirements
 
 - An Arena environment from `./setup.sh`.
-- Numerical Sim from `isaac-for-healthcare/i4h-physics-simulation`, at the revision pinned by `third_party/setup.sh` (currently `cfc05e0d20dda2a841fdf935b666f47b27163554`). `./setup.sh` installs its packages, including the neutral `i4h-host`, from `third_party/i4h-physics-simulation/numerical_sim`; the standalone application is not needed. Access to this revision requires the physics sync PR to be available in that repository.
+- Numerical Sim from `isaac-for-healthcare/i4h-physics-simulation`, at the revision pinned by `third_party/setup.sh` (currently `d970d8707739b396184e7accc651bb96bb91da89`). `./setup.sh` installs its packages, including the neutral `i4h-host`, from `third_party/i4h-physics-simulation/numerical_sim`; the standalone application is not needed. Access to this revision requires the physics sync PR to be available in that repository.
 - Stock `warp-lang==1.17.0`, installed by setup. No patched wheel is required; the upstream captured-HashGrid issue [Warp #2426](https://github.com/NVIDIA/warp/issues/2426) concerns a path this liver fixture does not use. Historical training results below used the earlier patched binary.
 - One NVIDIA RTX GPU. The run uses 8 parallel environments for demonstrations, training and evaluation, and 1 for export and the final launcher run.
 
