@@ -44,8 +44,11 @@ class SyntheticFluoroscopyRenderer:
         right_pelvis = 0.28 * np.exp(-(((xx - 0.37) / 0.26) ** 2 + ((yy - 0.30) / 0.22) ** 2) * 2.2)
         self._attenuation = (body + spine + left_pelvis + right_pelvis).astype(np.float32)
 
-    def render(self, catheter: CatheterState, carm: object | None = None) -> dict[str, np.ndarray]:
-        del carm
+    def render(
+        self, catheter: CatheterState, carm: object | None = None, vessel: object | None = None
+    ) -> dict[str, np.ndarray]:
+        # The phantom has no lumen to carve, so there is no vessel to move in it.
+        del carm, vessel
         attenuation = np.repeat(self._attenuation[None, ..., None], catheter.num_envs, axis=0)
         transmission = np.exp(-attenuation[..., 0])
         rgb = np.repeat(np.rint(255.0 * transmission)[..., None], 3, axis=-1).astype(np.uint8)

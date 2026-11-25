@@ -19,6 +19,7 @@ class _Sensor:
     """A lazy image read has the same provider precondition as Slang."""
 
     def __init__(self, patient_twin, num_envs):
+        self.cfg = SimpleNamespace(vessel_contrast=False)
         self.patient_twin = patient_twin
         self.catheter = None
         self.carm = None
