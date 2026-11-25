@@ -16,6 +16,7 @@ def main():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument("--backend", choices=("numerical", "legacy"), required=True)
     parser.add_argument("--workflow", default="endoluminal_navigation")
+    parser.add_argument("--worlds", type=int, choices=(1, 16, 64), default=1)
     parser.add_argument("--patient-twin")
     parser.add_argument("--visible", action="store_true")
     parser.add_argument("--steps", type=int, default=30)
@@ -28,7 +29,7 @@ def main():
     from isaaclab.app import AppLauncher
 
     cli = argparse.Namespace(
-        num_envs=1,
+        num_envs=args.worlds,
         seed=42,
         headless=not args.visible,
         visualizer="kit" if args.visible else "none",
@@ -66,7 +67,7 @@ def main():
             env.reset(seed=42)
             bind_fluoroscopy_sources(env)
             sensor = env.scene["fluoroscopy"]
-            action = torch.tensor([[0.009, 0.1, 0.1, 0.1]], device=env.device)
+            action = torch.tensor([[0.009, 0.1, 0.1, 0.1]], device=env.device).repeat(args.worlds, 1)
             print("profile: warming up 5 control steps", flush=True)
             for _ in range(5):
                 env.step(action)
@@ -119,6 +120,7 @@ def main():
                 visible=args.visible,
                 active_visualizers=[type(item).__name__ for item in env.sim.visualizers],
                 backend=args.backend,
+                worlds=args.worlds,
                 workflow=args.workflow,
                 patient=args.patient_twin,
                 control_hz=30,

@@ -73,18 +73,19 @@ class NumericalCatheterAsset(XpbdCatheterAsset):
 
     def place_proximal(self, positions, orientations, commands, dt):
         control = self._control()
-        pose = wp.to_torch(control.proximal_pose).view(self._num_envs, 7)
-        pose[:, :3] = positions
-        pose[:, 3:] = quat_to_xyzw(orientations)
         self._record_spent(commands, dt)
-        target = wp.to_torch(control.pose_targets)
+        if control.root_mode == "external_pose":
+            # Component is authored at the world origin; commands use that frame.
+            control.write_root_poses(positions, quat_to_xyzw(orientations).contiguous())
+        # Mounted rods retain rigid ownership. Only relative feed/twist/bend are commands.
+        target = wp.to_torch(control.absolute_targets)
         target[:, 0] = self._data.insertion_m
         target[:, 1] = self._data.rotation_rad
         self._component.order_inputs()
 
     def set_tip_bend(self, angles_rad):
         self._tip_bend_rad = angles_rad
-        wp.to_torch(self._control().pose_targets)[:, 2] = angles_rad
+        wp.to_torch(self._control().absolute_targets)[:, 2] = angles_rad
         self._component.order_inputs()
 
     def report_containment(self, points, env_index=0):

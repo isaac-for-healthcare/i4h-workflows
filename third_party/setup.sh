@@ -34,7 +34,7 @@ ISAACSIM_SKILLS_DIR="IsaacSim-74a9356"
 # simulation #72, merged as d7d3f29; the twin pins the same xray_simulator). Override *_REF to
 # test another revision (I4H_DIGITAL_TWIN_REF=main tracks the twin's main branch) and *_URL to
 # build against a local checkout.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-2e4067f5a46b1908714a118468081a14c0f82f81}"
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-827dc426888b614d4e75d4cd309e66f1ae9ce753}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-d7d3f2976ab306a531730772c1d4fa221d6e2247}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation"
