@@ -60,7 +60,9 @@ I4H_AGENT_VL_MODEL=nvidia/nvidia/nemotron-nano-12b-v2-vl \
 Public NVIDIA Build keys from <https://build.nvidia.com/> use [Nemotron 3 Ultra](https://build.nvidia.com/nvidia/nemotron-3-ultra-550b-a55b). The public endpoint retired Nemotron Nano 12B v2 VL on 2026-08-26, so serve the same vision model locally with vLLM first (about 30 GB of GPU memory; the rest stays free for Isaac Sim):
 
 ```bash
-docker run -d --name i4h_vl --gpus device=0 --ipc=host -p 8002:8000 \
+export I4H_AGENT_API_KEY=nvapi-...
+VLLM_API_KEY="$I4H_AGENT_API_KEY" \
+docker run -d --name i4h_vl --gpus device=0 --ipc=host -p 8002:8000 -e VLLM_API_KEY \
   -v ~/.cache/huggingface:/root/.cache/huggingface \
   nvcr.io/nvidia/vllm:26.03.post1-py3 \
   python3 -m vllm.entrypoints.openai.api_server \
@@ -68,10 +70,9 @@ docker run -d --name i4h_vl --gpus device=0 --ipc=host -p 8002:8000 \
     --max-model-len 16384 --gpu-memory-utilization 0.35
 ```
 
-Wait until `curl -s http://localhost:8002/v1/models` lists the model, then:
+The server accepts only your key (`VLLM_API_KEY`). Wait until `curl -s -H "Authorization: Bearer $I4H_AGENT_API_KEY" http://localhost:8002/v1/models` lists the model, then, in the same shell:
 
 ```bash
-export I4H_AGENT_API_KEY=nvapi-...
 I4H_AGENT_PROFILE=nvidia-hosted \
 I4H_AGENT_BASE_URL=https://integrate.api.nvidia.com \
 I4H_AGENT_MODEL=nvidia/nemotron-3-ultra-550b-a55b \
