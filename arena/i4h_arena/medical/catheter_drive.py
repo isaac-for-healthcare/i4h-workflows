@@ -38,8 +38,10 @@ the geometry can be tested on CPU without bringing up Isaac Sim.
 from __future__ import annotations
 
 import logging
+import math
 import os
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -222,56 +224,88 @@ class LumenClamp:
     ):
         """
         Args:
-            path_world_m: ``(S, 3)`` centerline vertices in world metres.
-            radii_m: ``(S,)`` lumen radius at each vertex.
+            path_world_m: ``(S, 3)`` centerline vertices in world metres, or a
+                sequence of one such centerline per environment.
+            radii_m: ``(S,)`` lumen radius at each vertex, or one such vector
+                per environment, matching ``path_world_m``.
             margin_m: Kept clear of the wall, normally the catheter's own radius
                 so the wire's surface rather than its axis is what touches.
             device: Where the clamp does its arithmetic.
         """
         self._device = torch.device(device)
-        path = path_world_m.to(self._device, torch.float32)
-        radii = radii_m.to(self._device, torch.float32).reshape(-1)
-        if path.ndim != 2 or path.shape[0] < 2 or path.shape[1] != 3:
-            raise ValueError(f"path must have shape (S, 3) with S >= 2, got {tuple(path.shape)}")
-        if radii.shape[0] != path.shape[0]:
-            raise ValueError(f"expected one radius per path vertex, got {radii.shape[0]} for {path.shape[0]}")
         if margin_m < 0.0:
             raise ValueError(f"margin_m must be non-negative, got {margin_m}")
+        if isinstance(path_world_m, torch.Tensor):
+            path, radii = self._validated(path_world_m, radii_m)
+        else:
+            path, radii = self._stacked(path_world_m, radii_m)
 
-        self._start = path[:-1]
-        self._edge = path[1:] - path[:-1]
+        self._start = path[..., :-1, :]
+        self._edge = path[..., 1:, :] - path[..., :-1, :]
         self._length_sq = (self._edge * self._edge).sum(-1).clamp_min(1e-12)
         # Radius is taken as the smaller of a segment's two ends. Interpolating
         # would be tighter, but erring narrow keeps the clamp from licensing a
         # point just outside a vessel that is tapering.
-        self._radius = torch.minimum(radii[:-1], radii[1:])
+        self._radius = torch.minimum(radii[..., :-1], radii[..., 1:])
         self._margin = float(margin_m)
+
+    def _validated(self, path_world_m: Any, radii_m: Any) -> tuple[torch.Tensor, torch.Tensor]:
+        path = torch.as_tensor(path_world_m).to(self._device, torch.float32)
+        radii = torch.as_tensor(radii_m).to(self._device, torch.float32).reshape(-1)
+        if path.ndim != 2 or path.shape[0] < 2 or path.shape[1] != 3:
+            raise ValueError(f"path must have shape (S, 3) with S >= 2, got {tuple(path.shape)}")
+        if radii.shape[0] != path.shape[0]:
+            raise ValueError(f"expected one radius per path vertex, got {radii.shape[0]} for {path.shape[0]}")
+        return path, radii
+
+    def _stacked(self, paths: Sequence[Any], radii: Sequence[Any]) -> tuple[torch.Tensor, torch.Tensor]:
+        """One row per environment, each padded with its own far end.
+
+        A repeated vertex is a zero-length segment whose closest point is that
+        vertex, which the real last segment already offers, so padding changes
+        no projection.
+        """
+        if len(paths) != len(radii) or not paths:
+            raise ValueError(f"expected one radius vector per path, got {len(radii)} for {len(paths)}")
+        rows = [self._validated(path, radius) for path, radius in zip(paths, radii)]
+        longest = max(path.shape[0] for path, _ in rows)
+        padded_paths = [torch.cat((path, path[-1:].expand(longest - path.shape[0], 3))) for path, _ in rows]
+        padded_radii = [torch.cat((radius, radius[-1:].expand(longest - radius.shape[0]))) for _, radius in rows]
+        return torch.stack(padded_paths), torch.stack(padded_radii)
 
     def project(self, points_world_m: torch.Tensor) -> torch.Tensor:
         """Pull points back inside the lumen, leaving interior points untouched.
 
         Args:
-            points_world_m: ``(N, 3)`` positions in world metres.
+            points_world_m: ``(N, 3)`` positions in world metres. With one
+                centerline per environment, row ``e`` is held to vessel ``e``.
 
         Returns:
             ``(N, 3)`` positions, each within its local lumen radius of the
             centerline.
         """
         query = points_world_m.to(self._device, torch.float32)
+        per_env = self._start.ndim == 3
+        if per_env and query.shape[0] != self._start.shape[0]:
+            raise ValueError(f"expected one point per vessel ({self._start.shape[0]}), got {query.shape[0]}")
+        start = self._start if per_env else self._start.unsqueeze(0)
+        edge = self._edge if per_env else self._edge.unsqueeze(0)
+        length_sq = self._length_sq if per_env else self._length_sq.unsqueeze(0)
+        radius = self._radius if per_env else self._radius.unsqueeze(0)
 
         # Closest point on every segment at once. The centerline is short
         # enough (order 100 segments) that scanning all of them beats keeping an
         # acceleration structure in step with it.
-        offset = query.unsqueeze(1) - self._start.unsqueeze(0)
-        alpha = ((offset * self._edge.unsqueeze(0)).sum(-1) / self._length_sq).clamp(0.0, 1.0)
-        foot = self._start.unsqueeze(0) + alpha.unsqueeze(-1) * self._edge.unsqueeze(0)
+        offset = query.unsqueeze(1) - start
+        alpha = ((offset * edge).sum(-1) / length_sq).clamp(0.0, 1.0)
+        foot = start + alpha.unsqueeze(-1) * edge
         distance = torch.linalg.norm(query.unsqueeze(1) - foot, dim=-1)
 
         nearest = torch.argmin(distance, dim=1)
         rows = torch.arange(query.shape[0], device=self._device)
         closest = foot[rows, nearest]
         radial = distance[rows, nearest]
-        allowed = (self._radius[nearest] - self._margin).clamp_min(1e-4)
+        allowed = (radius[rows if per_env else 0, nearest] - self._margin).clamp_min(1e-4)
 
         # Scaling the existing radial offset keeps the point on the same side of
         # the centerline it was already on, so a wire lying against one wall is
@@ -455,6 +489,14 @@ class FlangeMountedIntroducer:
         self._primed[env_ids] = False
 
 
+def _pad_rows(values: torch.Tensor, count: int, fill: torch.Tensor) -> torch.Tensor:
+    """``values`` extended to ``count`` rows by repeating ``fill``."""
+    missing = count - int(values.shape[0])
+    if missing <= 0:
+        return values
+    return torch.cat((values, fill.expand(missing, *values.shape[1:])))
+
+
 class RouteRailedIntroducer:
     """Feeds the wire by prescribing where its proximal end sits on the route.
 
@@ -497,7 +539,7 @@ class RouteRailedIntroducer:
 
     def __init__(
         self,
-        path_world_m: torch.Tensor,
+        path_world_m: torch.Tensor | Sequence[torch.Tensor],
         num_envs: int,
         device: str | torch.device = "cpu",
     ):
@@ -505,36 +547,69 @@ class RouteRailedIntroducer:
         Args:
             path_world_m: ``(S, 3)`` route vertices in world metres, the same
                 polyline the rod is seeded along. Arc zero is its first vertex,
-                which is where the root starts.
+                which is where the root starts. A sequence of ``num_envs`` such
+                routes gives each environment its own, and their vertex counts
+                may differ.
             num_envs: Environments fed in parallel.
             device: Where the lookup runs. Kept on the simulation device so
                 feeding the wire does not synchronize on the host each step.
         """
         self._device = torch.device(device)
-        path = path_world_m.to(self._device, torch.float32)
-        if path.ndim != 2 or path.shape[0] < 2 or path.shape[1] != 3:
-            raise ValueError(f"route must have shape (S, 3) with S >= 2, got {tuple(path.shape)}")
-        if not torch.isfinite(path).all():
-            raise ValueError("route contains non-finite vertices")
+        per_env = not isinstance(path_world_m, torch.Tensor)
+        routes = [self._route(path) for path in path_world_m] if per_env else [self._route(path_world_m)]
+        if per_env and len(routes) != int(num_envs):
+            raise ValueError(f"{len(routes)} routes for {int(num_envs)} environments")
 
-        span = path[1:] - path[:-1]
-        length = torch.linalg.norm(span, dim=-1)
-        if bool((length <= 0.0).any()):
-            raise ValueError("consecutive route vertices must be distinct")
-        self._start = path[:-1]
-        self._direction = span / length.unsqueeze(-1)
-        # Arc at each segment's start, so a lookup interpolates from there.
-        self._arc_at_start = torch.cat([torch.zeros(1, device=self._device), torch.cumsum(length, dim=0)[:-1]])
-        self._route_length_m = float(length.sum())
+        # One row per route. Shorter routes are padded past their end with
+        # segments whose start arc is infinite, so the lookup never lands in one.
+        segments = max(int(route[0].shape[0]) for route in routes)
+        self._start = torch.stack([_pad_rows(start, segments, start[-1]) for start, _, _, _ in routes])
+        self._direction = torch.stack([_pad_rows(direction, segments, direction[-1]) for _, direction, _, _ in routes])
+        self._arc_at_start = torch.stack(
+            [_pad_rows(arc, segments, arc.new_tensor(math.inf)) for _, _, arc, _ in routes]
+        )
+        self._segment_counts = torch.as_tensor(
+            [int(route[0].shape[0]) for route in routes], dtype=torch.long, device=self._device
+        )
+        self._route_lengths_m = torch.as_tensor(
+            [length for *_, length in routes], dtype=torch.float32, device=self._device
+        )
+        self._route_length_m = routes[0][3]
+        # The route row each environment reads: its own, or the one shared row.
+        self._row = (
+            torch.arange(int(num_envs), device=self._device)
+            if per_env
+            else torch.zeros(int(num_envs), dtype=torch.long, device=self._device)
+        )
 
         self._arc_m = torch.zeros((num_envs,), dtype=torch.float32, device=self._device)
         self._twist_rad = torch.zeros((num_envs,), dtype=torch.float32, device=self._device)
         self._feed_logged_at = 0.0
 
+    def _route(self, path_world_m: Any) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, float]:
+        """``(segment starts, unit directions, start arcs, total length)`` of one route."""
+        path = torch.as_tensor(path_world_m, dtype=torch.float32).to(self._device)
+        if path.ndim != 2 or path.shape[0] < 2 or path.shape[1] != 3:
+            raise ValueError(f"route must have shape (S, 3) with S >= 2, got {tuple(path.shape)}")
+        if not torch.isfinite(path).all():
+            raise ValueError("route contains non-finite vertices")
+        span = path[1:] - path[:-1]
+        length = torch.linalg.norm(span, dim=-1)
+        if bool((length <= 0.0).any()):
+            raise ValueError("consecutive route vertices must be distinct")
+        # Arc at each segment's start, so a lookup interpolates from there.
+        arc_at_start = torch.cat([torch.zeros(1, device=self._device), torch.cumsum(length, dim=0)[:-1]])
+        return path[:-1], span / length.unsqueeze(-1), arc_at_start, float(length.sum())
+
     @property
     def route_length_m(self) -> float:
-        """Arc length of the whole route, metres."""
+        """Arc length of the whole route, metres; environment 0's with one route per environment."""
         return self._route_length_m
+
+    @property
+    def route_lengths_m(self) -> torch.Tensor:
+        """``(N,)`` arc length of each environment's route, metres."""
+        return self._route_lengths_m[self._row]
 
     @property
     def depth_m(self) -> torch.Tensor:
@@ -572,7 +647,7 @@ class RouteRailedIntroducer:
         # prescribe. Useful travel runs out earlier anyway, when the tip
         # reaches the far end and the shaft's own length is what's left.
         requested = self._arc_m + insertion_velocity * float(dt)
-        allowed = torch.clamp(requested, 0.0, self._route_length_m)
+        allowed = torch.minimum(torch.clamp(requested, min=0.0), self.route_lengths_m)
         spent = (allowed - self._arc_m) / float(dt)
         self._arc_m.copy_(allowed)
         self._twist_rad.add_(rotation_rate * float(dt))
@@ -595,13 +670,11 @@ class RouteRailedIntroducer:
         """
         # ``searchsorted`` on the segment starts gives the segment containing
         # each arc; an arc landing exactly on the far end belongs to the last.
-        index = torch.clamp(
-            torch.searchsorted(self._arc_at_start, self._arc_m.contiguous(), right=True) - 1,
-            0,
-            self._start.shape[0] - 1,
-        )
-        direction = self._direction[index]
-        position = self._start[index] + direction * (self._arc_m - self._arc_at_start[index]).unsqueeze(-1)
+        row = self._row
+        index = torch.searchsorted(self._arc_at_start[row], self._arc_m.unsqueeze(-1).contiguous(), right=True)
+        index = torch.minimum((index.squeeze(-1) - 1).clamp_min(0), self._segment_counts[row] - 1)
+        direction = self._direction[row, index]
+        position = self._start[row, index] + direction * (self._arc_m - self._arc_at_start[row, index]).unsqueeze(-1)
         # Axial rotation is composed on here rather than sent as a rate command,
         # because the solver latches one proximal command per step and a pose
         # would overwrite the rate. See

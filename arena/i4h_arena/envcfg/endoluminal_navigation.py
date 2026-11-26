@@ -12,8 +12,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import MISSING
+from typing import Any
 
 import isaaclab.envs.mdp as base_mdp
+import numpy as np
 from isaaclab.managers import (
     EventTermCfg,
     ObservationGroupCfg,
@@ -45,6 +47,17 @@ from i4h_arena.medical.navigation_reward import (
     route_progress_reward,
     wall_penetration_penalty,
 )
+
+
+def _frozen(values: Any) -> Any:
+    """Nested floats as nested tuples, so a term's params stay hashable.
+
+    One conversion for a single target, route or set of radii and for one per
+    environment, which nests one level deeper.
+    """
+    if isinstance(values, (list, tuple)) or (isinstance(values, np.ndarray) and values.ndim > 0):
+        return tuple(_frozen(value) for value in values)
+    return float(values)
 
 
 @configclass
@@ -117,7 +130,11 @@ def navigation_observations_cfg(
     *,
     route_world_m: Iterable[Iterable[float]],
 ) -> CatheterNavigationObservationsCfg:
-    """Bind the navigation observation group to one scene's route and target."""
+    """Bind the navigation observation group to one scene's route and target.
+
+    ``target_world_m`` and ``route_world_m`` are one target and route shared by
+    every environment, or one of each per environment.
+    """
     return CatheterNavigationObservationsCfg(
         policy=CatheterNavigationObservationsCfg.NavigationObsCfg(
             # Shape discovery runs before make_view(), so the image term
@@ -127,11 +144,11 @@ def navigation_observations_cfg(
             tip_direction=ObservationTermCfg(func=tip_direction),
             target_offset=ObservationTermCfg(
                 func=target_offset,
-                params={"target_world_m": tuple(float(value) for value in target_world_m)},
+                params={"target_world_m": _frozen(target_world_m)},
             ),
             route_state=ObservationTermCfg(
                 func=route_state,
-                params={"route_world_m": tuple(tuple(float(value) for value in point) for point in route_world_m)},
+                params={"route_world_m": _frozen(route_world_m)},
             ),
             drive_state=ObservationTermCfg(func=drive_state),
         )
@@ -189,9 +206,12 @@ def navigation_rewards_cfg(
     measure against and are wired at zero weight rather than dropped, so the
     term set stays the same shape across scenes and a log comparing two runs
     lines up.
+
+    Route and radii are one of each shared by every environment, or one of
+    each per environment.
     """
-    route = tuple(tuple(float(value) for value in point) for point in route_world_m)
-    radii = None if lumen_radii_m is None else tuple(float(value) for value in lumen_radii_m)
+    route = _frozen(route_world_m)
+    radii = None if lumen_radii_m is None else _frozen(lumen_radii_m)
     walled = radii is not None
     return CatheterNavigationRewardsCfg(
         route_progress=RewardTermCfg(
@@ -231,14 +251,10 @@ def navigation_terminations_cfg(
             func=reached_navigation_target,
             time_out=False,
             params={
-                "target_world_m": tuple(float(value) for value in target_world_m),
+                "target_world_m": _frozen(target_world_m),
                 "tolerance_m": float(tolerance_m),
                 "hold_steps": int(hold_steps),
-                "route_world_m": (
-                    None
-                    if route_world_m is None
-                    else tuple(tuple(float(value) for value in point) for point in route_world_m)
-                ),
+                "route_world_m": None if route_world_m is None else _frozen(route_world_m),
             },
         )
     )

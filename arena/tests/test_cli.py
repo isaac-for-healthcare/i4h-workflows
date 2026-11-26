@@ -38,8 +38,16 @@ def test_patient_fluoroscopy_options_are_parsed() -> None:
 
     assert args.fluoro_backend == "slang"
     assert args.fluoro_device == "vulkan"
-    assert args.patient_twin == "/tmp/patient_twin.yaml"
+    assert args.patient_twin == ["/tmp/patient_twin.yaml"]
     assert args.view_sensor == ["fluoroscopy"]
+
+
+def test_patient_twin_repeats_once_per_environment() -> None:
+    args = build_parser().parse_args(
+        ["--workflow", "endoluminal_navigation", "--envs", "2", "--patient-twin", "a.yaml", "--patient-twin", "b.yaml"]
+    )
+
+    assert args.patient_twin == ["a.yaml", "b.yaml"]
 
 
 def test_fluoroscopy_backend_is_automatic_by_default() -> None:
@@ -68,6 +76,18 @@ def _device_check(monkeypatch, result: str | None) -> list[int]:
 
 def test_fluoroscopy_device_is_automatic_by_default() -> None:
     assert _fluoroscopy_args().fluoro_device == "auto"
+
+
+def test_vessel_contrast_is_opt_in() -> None:
+    assert _fluoroscopy_args().vessel_contrast is False
+    assert _fluoroscopy_args("--vessel-contrast").vessel_contrast is True
+
+
+def test_vessel_contrast_without_a_patient_stops_the_run_before_kit() -> None:
+    from i4h_arena.cli import _resolve_fluoroscopy_device
+
+    with pytest.raises(SystemExit, match="--vessel-contrast needs the Slang fluoroscopy backend"):
+        _resolve_fluoroscopy_device(_fluoroscopy_args("--vessel-contrast"))
 
 
 def test_a_cuda_fluoroscopy_device_slang_cannot_create_stops_the_run_before_kit(monkeypatch) -> None:

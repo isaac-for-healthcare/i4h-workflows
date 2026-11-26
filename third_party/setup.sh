@@ -20,14 +20,15 @@ ISAACLAB_ARENA_REV="0a1b8c2345691c2f225b4a01b96dbe4d0aeb221c"
 ISAACLAB_ARENA_DIR="IsaacLab-Arena-0a1b8c2"
 ISAACSIM_SKILLS_REV="045ca8b59622b99a408092124377c66346e8d9c2"
 ISAACSIM_SKILLS_DIR="IsaacSim-045ca8b"
-# Physics is the public v0.9.0 release. Sensor simulation and the patient twin are pinned to
-# commits on their main branches that read and write the native scan bundle format (sensor
-# simulation #72, merged as d7d3f29; the twin pins the same xray_simulator). Override *_REF to
-# test another revision (I4H_DIGITAL_TWIN_REF=main tracks the twin's main branch) and *_URL to
-# build against a local checkout.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-50056196775fc0ed8cca03bf16144fe71d183ca7}"
+# Physics is pinned past v0.9.0 to the commit that carries the per-environment anatomy solver
+# contract. Sensor simulation and the patient twin are pinned to commits on their main branches
+# that read and write the native scan bundle format (sensor simulation #72, merged as d7d3f29;
+# fd7cab8 adds composited absorbers and the rendered vessel on top; the twin pins the same
+# xray_simulator). Override *_REF to test another revision (I4H_DIGITAL_TWIN_REF=main tracks the
+# twin's main branch) and *_URL to build against a local checkout.
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-d83133002f49cd42ee6bcf5e3d52f5287c76e297}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation-internal"
-I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-d7d3f2976ab306a531730772c1d4fa221d6e2247}"
+I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-fd7cab8be79b0f7970995e88f30855dbfd01e963}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation"
 I4H_SENSOR_SIM_URL="${I4H_SENSOR_SIM_URL:-https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git}"
 I4H_DIGITAL_TWIN_REF="${I4H_DIGITAL_TWIN_REF:-21e969d0be8212c22acc0a7e920b954f60ec289f}"
@@ -259,6 +260,22 @@ if [[ -d "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}/.git" ]]; then
     exit 1
   fi
   echo "[${LOG_PREFIX}] i4h-physics-simulation carries the coupled-arm solver contract"
+
+  # Same reasoning for --patient-twin given once per environment, which needs the solver's
+  # per-env anatomy batch: one vessel tree, route and catheter length per environment.
+  missing_solver_api=()
+  for symbol in from_trees from_envs env_segment_lengths; do
+    grep -rqw --include='*.py' "${symbol}" "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}" \
+      || missing_solver_api+=("${symbol}")
+  done
+  if [[ "${#missing_solver_api[@]}" -gt 0 ]]; then
+    echo "[${LOG_PREFIX}] i4h-physics-simulation @ ${I4H_PHYSICS_SIM_REF} does not carry the" >&2
+    echo "[${LOG_PREFIX}] per-environment anatomy solver contract: ${missing_solver_api[*]}" >&2
+    echo "[${LOG_PREFIX}] Unset I4H_PHYSICS_SIM_REF to use the pinned default, or set it to a commit" >&2
+    echo "[${LOG_PREFIX}] that carries the contract." >&2
+    exit 1
+  fi
+  echo "[${LOG_PREFIX}] i4h-physics-simulation carries the per-environment anatomy solver contract"
 fi
 
 if [[ -d "${THIRD_PARTY_DIR}/${LEISAAC_DIR}/.git" ]]; then

@@ -134,6 +134,12 @@ def build_parser() -> argparse.ArgumentParser:
         "(default: auto, CUDA when Slang can create a CUDA device, otherwise Vulkan)",
     )
     simulation.add_argument(
+        "--vessel-contrast",
+        action="store_true",
+        help="carve the contrast lumen out of the patient volume and render the vessel's deformation "
+        "and contrast per frame, which also makes DSA a true mask subtraction (Slang backend only)",
+    )
+    simulation.add_argument(
         "--hu-to-mu",
         choices=("interventional", "linear"),
         default=None,
@@ -141,8 +147,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     simulation.add_argument(
         "--patient-twin",
+        action="append",
         default=None,
-        help="patient-twin YAML manifest used by patient-specific medical sensors",
+        help="patient-twin YAML manifest used by patient-specific medical sensors; repeat once per "
+        "environment, in --envs order, to give each environment its own patient",
     )
     simulation.add_argument(
         "--view-sensor",
@@ -179,6 +187,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    from i4h_arena.medical.patient_assignment import normalize_patient_twins
+
+    try:
+        args.patient_twin = normalize_patient_twins(args.patient_twin, args.num_envs)
+    except ValueError as error:
+        parser.error(str(error))
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="[%(name)s] %(message)s",
@@ -382,6 +396,8 @@ def _resolve_fluoroscopy_device(args: argparse.Namespace) -> None:
     from i4h_arena.scenes.endoluminal_navigation import resolve_fluoroscopy_backend
 
     if resolve_fluoroscopy_backend(args.fluoro_backend, args.patient_twin) != "slang":
+        if args.vessel_contrast:
+            raise SystemExit("--vessel-contrast needs the Slang fluoroscopy backend, which renders a --patient-twin")
         if args.fluoro_device == "auto":
             args.fluoro_device = "vulkan"
         return
