@@ -37,6 +37,9 @@ The agent runs the workflow, verifies the episode result, and inspects its recor
 
 # Control the liver-scan probe with the keyboard.
 ./run.sh ultrasound_liver_scan --teleop
+
+# Run the openpi PI0 policy (the first run downloads nvidia/Liver_Scan_Pi0_Cosmos_Rel from Hugging Face).
+./run.sh ultrasound_liver_scan --policy --episodes 1
 ```
 
 ## RL Training
