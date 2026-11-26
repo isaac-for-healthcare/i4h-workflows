@@ -27,6 +27,8 @@ class PatientVolume:
 
     twin: PatientTwin
     mu_volume: np.ndarray
+    #: The HU-to-attenuation preset ``mu_volume`` was built with.
+    hu_to_mu_preset: str = DEFAULT_HU_TO_MU_PRESET
 
     @classmethod
     def load(cls, twin: PatientTwin, *, hu_to_mu_preset: str | None = None) -> PatientVolume:
@@ -37,14 +39,15 @@ class PatientVolume:
         """
         metadata = Path(twin.artifacts["volume_metadata"])
         hu_path = Path(twin.artifacts["hu_volume"])
+        preset = hu_to_mu_preset or DEFAULT_HU_TO_MU_PRESET
         mu_volume, voxel_to_lps_mm = _attenuation(
             str(metadata),
             _file_state(metadata) + _file_state(hu_path),
-            hu_to_mu_preset or DEFAULT_HU_TO_MU_PRESET,
+            preset,
         )
         if not np.allclose(voxel_to_lps_mm, twin.voxel_to_patient_mm, atol=1e-6):
             raise ValueError(f"{twin.source}: xray_simulator and the patient twin disagree on the scan affine")
-        return cls(twin, mu_volume)
+        return cls(twin, mu_volume, preset)
 
     @property
     def voxel_to_volume_mm(self) -> np.ndarray:

@@ -48,6 +48,10 @@ def component_configuration(spec):
     from i4h_arena.medical.newton_catheter_physics import rest_curvature_override, seeded_rest_curvature_scale
     from i4h_common.centerline import sample_polyline
 
+    if spec.env_anatomies is not None:
+        raise ValueError(
+            "Numerical navigation requires one shared patient twin; use the legacy backend for per-environment anatomy"
+        )
     settings = rod_solver_cfg(spec)
     length = spec.segment_length_m
     area = math.pi * spec.radius_m**2

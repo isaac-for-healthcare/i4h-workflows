@@ -220,7 +220,7 @@ def test_partial_sensor_mask_preserves_unselected_buffers_and_frames():
     from i4h_arena.medical.catheter import CatheterState
 
     class Renderer:
-        def render(self, *args, env_mask):
+        def render(self, *args, env_mask, vessel=None):
             assert env_mask.tolist() == [False, True, False]
             return {"rgb": torch.full((3, 2, 2, 3), 255, dtype=torch.uint8)}
 
@@ -244,6 +244,8 @@ def test_partial_sensor_mask_preserves_unselected_buffers_and_frames():
     )
     sensor._catheter_provider = None
     sensor._carm_provider = SimpleNamespace(snapshot=lambda n: object())
+    sensor._vessel_provider = None
+    sensor._group_twins = ()
     sensor.cfg = SimpleNamespace(backend="slang")
     sensor._renderer = Renderer()
     sensor._ensure_renderer = lambda carm: None

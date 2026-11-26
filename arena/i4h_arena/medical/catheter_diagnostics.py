@@ -66,7 +66,8 @@ class CatheterEpisodeDiagnostics:
             "root_world_m": points[0].astype(np.float32),
         }
         if self._target_world_m is not None:
-            values["tip_target_distance_m"] = float(np.linalg.norm(points[-1] - self._target_world_m))
+            target = self._target_world_m[env_index] if self._target_world_m.ndim == 2 else self._target_world_m
+            values["tip_target_distance_m"] = float(np.linalg.norm(points[-1] - target))
         report = getattr(self._catheter, "report_containment", None)
         values.update(report(points, env_index) if report is not None else self._containment(points))
         return values

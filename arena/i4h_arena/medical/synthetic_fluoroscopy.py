@@ -46,8 +46,11 @@ class SyntheticFluoroscopyRenderer:
         self._transmission = np.exp(-self._attenuation)
         self._background_rgb = np.repeat(np.rint(255.0 * self._transmission)[..., None], 3, axis=-1).astype(np.uint8)
 
-    def render(self, catheter: CatheterState, carm: object | None = None) -> dict[str, np.ndarray]:
-        del carm
+    def render(
+        self, catheter: CatheterState, carm: object | None = None, vessel: object | None = None
+    ) -> dict[str, np.ndarray]:
+        # The phantom has no lumen to carve, so there is no vessel to move in it.
+        del carm, vessel
         attenuation = np.repeat(self._attenuation[None, ..., None], catheter.num_envs, axis=0)
         rgb = np.repeat(self._background_rgb[None], catheter.num_envs, axis=0)
         guidance = rgb.copy()

@@ -188,7 +188,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--presets")
     parser.add_argument("--no-cameras", action="store_true")
     parser.add_argument("--headless", action="store_true")
-    parser.add_argument("--patient-twin")
+    parser.add_argument("--patient-twin", action="append")
+    parser.add_argument("--envs", "--num-envs", "--num_envs", dest="num_envs", type=int)
+    parser.add_argument("--vessel-contrast", action="store_true")
     parser.add_argument("--catheter-backend", choices=("numerical", "legacy"))
     parser.add_argument("--fluoro-backend")
     parser.add_argument("--fluoro-device", choices=("auto", "cuda", "vulkan"))
@@ -215,6 +217,7 @@ class Plan:
     notes: list[str] = field(default_factory=list)
     default_run_dir: bool = False
     default_record: bool = False
+    patient_twins: tuple[Path, ...] = ()
     patient_twin: Path | None = None
     catheter_backend: str | None = None
 
@@ -222,6 +225,12 @@ class Plan:
 def _caller_path(path: str) -> Path:
     caller = Path(os.environ.get("I4H_CALLER_CWD", os.getcwd()))
     return (caller / path).resolve() if not os.path.isabs(path) else Path(path)
+
+
+def _patient_paths(value) -> tuple[Path, ...]:
+    if value is None:
+        return ()
+    return tuple(_caller_path(str(path)) for path in (value if isinstance(value, list | tuple) else (value,)))
 
 
 def _free_port(preferred: int) -> int:
@@ -275,6 +284,10 @@ def plan(argv: list[str]) -> Plan:
         if name in RETIRED:
             raise UsageError(f"{name} is no longer supported: {RETIRED[name]}")
     args = _parser().parse_args(argv)
+    if args.patient_twin is not None:
+        if len(args.patient_twin) > 1 and len(args.patient_twin) != (args.num_envs or 1):
+            raise UsageError("--patient-twin must be given once or once per environment")
+        args.patient_twin = args.patient_twin[0] if len(args.patient_twin) == 1 else tuple(args.patient_twin)
     workflow = resolve(args.workflow)
 
     if args.teleop is not None:
@@ -306,10 +319,16 @@ def plan(argv: list[str]) -> Plan:
 
                 provenance = recording_provenance(_caller_path(args.replay))
                 if args.patient_twin is None:
-                    args.patient_twin = provenance.get("patient_twin")
+                    args.patient_twin = (
+                        tuple(provenance["patient_twins"])
+                        if provenance.get("patient_twins")
+                        else provenance.get("patient_twin")
+                    )
                 if args.patient_twin and provenance.get("patient_twin_sha256"):
-                    actual = hashlib.sha256(_caller_path(args.patient_twin).read_bytes()).hexdigest()
-                    if actual != provenance["patient_twin_sha256"]:
+                    paths = _patient_paths(args.patient_twin)
+                    actuals = [hashlib.sha256(path.read_bytes()).hexdigest() for path in paths]
+                    expected = provenance.get("patient_twin_sha256s", [provenance["patient_twin_sha256"]])
+                    if actuals != expected:
                         raise ValueError("replay patient anatomy differs from recording")
                 if (
                     catheter_backend == "numerical"
@@ -321,6 +340,8 @@ def plan(argv: list[str]) -> Plan:
     elif args.catheter_backend is not None:
         raise UsageError("--catheter-backend applies only to navigation workflows")
 
+    if len(_patient_paths(args.patient_twin)) > 1 and len(_patient_paths(args.patient_twin)) != (args.num_envs or 1):
+        raise UsageError("--patient-twin must be given once or once per environment")
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = _caller_path(args.run_dir) if args.run_dir else ROOT / "runs" / workflow.name / stamp
     record = None
@@ -345,7 +366,12 @@ def plan(argv: list[str]) -> Plan:
         if presets not in workflow.presets:
             raise UsageError(f"{workflow.name} runs only with --presets {' or '.join(workflow.presets)}, not {presets}")
     launcher = [*workflow.launcher_args]
-    for option, value in (("--presets", presets), ("--seed", args.seed), ("--device", args.device)):
+    for option, value in (
+        ("--presets", presets),
+        ("--seed", args.seed),
+        ("--device", args.device),
+        ("--num_envs", args.num_envs),
+    ):
         if value is not None:
             launcher += [option, str(value)]
     environment = [*workflow.environment_args, *[str(arg) for arg in spec.get("environment_args", [])]]
@@ -353,8 +379,10 @@ def plan(argv: list[str]) -> Plan:
         environment += ["--episode_steps", str(args.episode_steps)]
     if catheter_backend is not None:
         environment += ["--catheter_backend", catheter_backend]
-    if args.patient_twin:
-        environment += ["--patient_twin", str(_caller_path(args.patient_twin))]
+    for twin in _patient_paths(args.patient_twin):
+        environment += ["--patient_twin", str(twin)]
+    if args.vessel_contrast:
+        environment += ["--vessel_contrast"]
     if args.fluoro_backend:
         environment += ["--fluoro_backend", args.fluoro_backend]
     if args.hu_to_mu:
@@ -384,7 +412,8 @@ def plan(argv: list[str]) -> Plan:
             record=record,
             default_run_dir=args.run_dir is None,
             default_record=record is not None and not args.record,
-            patient_twin=_caller_path(args.patient_twin) if args.patient_twin else None,
+            patient_twins=_patient_paths(args.patient_twin),
+            patient_twin=_patient_paths(args.patient_twin)[0] if args.patient_twin else None,
             catheter_backend=catheter_backend,
         )
 
@@ -468,7 +497,8 @@ def plan(argv: list[str]) -> Plan:
         notes=notes,
         default_run_dir=args.run_dir is None,
         default_record=record is not None and not args.record,
-        patient_twin=_caller_path(args.patient_twin) if args.patient_twin else None,
+        patient_twins=_patient_paths(args.patient_twin),
+        patient_twin=_patient_paths(args.patient_twin)[0] if args.patient_twin else None,
         catheter_backend=catheter_backend,
     )
 
@@ -732,7 +762,20 @@ def _write_recording_metadata(plan: Plan) -> None:
             if not plan.patient_twin.is_file():
                 raise UsageError(f"patient-twin manifest is missing: {plan.patient_twin}")
             patient_hash = hashlib.sha256(plan.patient_twin.read_bytes()).hexdigest()
+        twins = plan.patient_twins or ((plan.patient_twin,) if plan.patient_twin else ())
+        twin_paths = [str(path) for path in twins]
+        import hashlib
+
+        twin_hashes = [hashlib.sha256(path.read_bytes()).hexdigest() for path in twins]
         existing = _json(metadata) if metadata.exists() else {}
+        if (
+            existing.get("patient_twins", [existing.get("patient_twin")] if existing.get("patient_twin") else [])
+            != twin_paths
+            and metadata.exists()
+        ):
+            raise UsageError(f"{metadata}: conflicting patient_twins anatomy provenance")
+        if existing.get("patient_twin_sha256s", twin_hashes) != twin_hashes:
+            raise UsageError(f"{metadata}: conflicting patient twin hashes")
         if metadata.exists() and (
             existing.get("patient_twin") != patient or existing.get("patient_twin_sha256", patient_hash) != patient_hash
         ):
@@ -757,7 +800,10 @@ def _write_recording_metadata(plan: Plan) -> None:
             native = recording_provenance(plan.record)
             if "catheter_backend" not in native and plan.catheter_backend == "numerical":
                 raise UsageError("cannot record numerical navigation over a metadata-less recording")
-            for key, value in {**provenance, "patient_twin": patient, "patient_twin_sha256": patient_hash}.items():
+            anatomy = {"patient_twin": patient, "patient_twin_sha256": patient_hash}
+            if len(twins) > 1:
+                anatomy.update(patient_twins=twin_paths, patient_twin_sha256s=twin_hashes)
+            for key, value in {**provenance, **anatomy}.items():
                 if key in native and native[key] != value:
                     raise UsageError(f"{plan.record}: conflicting {key} provenance")
         payload = {
@@ -770,6 +816,9 @@ def _write_recording_metadata(plan: Plan) -> None:
             "recording": str(plan.record),
             "run_dir": str(plan.run_dir),
         }
+        if len(twins) > 1:
+            payload["patient_twins"] = twin_paths
+            payload["patient_twin_sha256s"] = twin_hashes
         with tempfile.NamedTemporaryFile(mode="w", dir=parent, delete=False) as stream:
             temporary = Path(stream.name)
             try:

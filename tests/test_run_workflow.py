@@ -675,3 +675,37 @@ def test_video_switches_precede_environment_without_moving_other_passthrough(fla
     assert command.index(flag) < scene
     assert command[-2:] == ["--custom", "value"]
     assert command.count(flag) == 1
+
+
+def test_native_navigation_passes_one_patient_per_environment(tmp_path):
+    first, second = tmp_path / "first.yaml", tmp_path / "second.yaml"
+    first.write_text("first")
+    second.write_text("second")
+    plan = _plan(
+        "endoluminal_navigation",
+        "--envs",
+        "2",
+        "--patient-twin",
+        str(first),
+        "--patient-twin",
+        str(second),
+        "--record",
+        str(tmp_path / "demos.hdf5"),
+    )
+    assert plan.patient_twins == (first, second)
+    assert [plan.command[i + 1] for i, arg in enumerate(plan.command) if arg == "--patient_twin"] == [
+        str(first),
+        str(second),
+    ]
+    assert plan.command[plan.command.index("--num_envs") + 1] == "2"
+    run_workflow._write_recording_metadata(plan)
+    data = json.loads((tmp_path / "run.json").read_text())
+    assert data["patient_twins"] == [str(first), str(second)]
+    second.write_text("changed anatomy")
+    with pytest.raises(run_workflow.UsageError, match="hashes"):
+        run_workflow._write_recording_metadata(plan)
+
+
+def test_native_navigation_rejects_patient_environment_count_mismatch():
+    with pytest.raises(run_workflow.UsageError, match="once per environment"):
+        _plan("endoluminal_navigation", "--envs", "3", "--patient-twin", "first.yaml", "--patient-twin", "second.yaml")

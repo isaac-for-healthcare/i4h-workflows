@@ -275,6 +275,21 @@ if [[ -d "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}/.git" ]]; then
   fi
   echo "[${LOG_PREFIX}] i4h-physics-simulation carries the coupled-arm solver contract"
 
+  # Same reasoning for --patient-twin given once per environment, which needs the solver's
+  # per-env anatomy batch: one vessel tree, route and catheter length per environment.
+  missing_solver_api=()
+  for symbol in from_trees from_envs env_segment_lengths; do
+    grep -rqw --include='*.py' "${symbol}" "${THIRD_PARTY_DIR}/${I4H_PHYSICS_SIM_DIR}" \
+      || missing_solver_api+=("${symbol}")
+  done
+  if [[ "${#missing_solver_api[@]}" -gt 0 ]]; then
+    echo "[${LOG_PREFIX}] i4h-physics-simulation @ ${I4H_PHYSICS_SIM_REF} does not carry the" >&2
+    echo "[${LOG_PREFIX}] per-environment anatomy solver contract: ${missing_solver_api[*]}" >&2
+    echo "[${LOG_PREFIX}] Unset I4H_PHYSICS_SIM_REF to use the pinned default, or set it to a commit" >&2
+    echo "[${LOG_PREFIX}] that carries the contract." >&2
+    exit 1
+  fi
+  echo "[${LOG_PREFIX}] i4h-physics-simulation carries the per-environment anatomy solver contract"
   # Isaac Lab 3.0 no longer holds the finalized ModelBuilder on NewtonManager._builder, where
   # the coupled arm manager reads drive-body names from; it lives in the backend registry.
   apply_patch_once "i4h-physics-simulation Isaac Lab 3 ModelBuilder lookup" \

@@ -71,7 +71,14 @@ class CatheterNavigationTask(TaskBase):
             episode_length_s=episode_length_s,
             task_description="Steer the catheter along the vessel and stop at the target branch",
         )
-        self.target_world_m = None if target_world_m is None else tuple(float(value) for value in target_world_m)
+        targets = None if target_world_m is None else tuple(target_world_m)
+        self.target_world_m = (
+            None
+            if targets is None
+            else tuple(tuple(float(v) for v in row) for row in targets)
+            if targets and isinstance(targets[0], Iterable)
+            else tuple(float(value) for value in targets)
+        )
         self.route_world_m = route_world_m
         self.lumen_radii_m = lumen_radii_m
         self.flat_observations = flat_observations
@@ -82,9 +89,9 @@ class CatheterNavigationTask(TaskBase):
     ) -> CatheterNavigationTask:
         """Bind the goal to the route and target a catheter embodiment seeded its rod on."""
         return cls(
-            embodiment.navigation_target_world_m,
-            route_world_m=embodiment.rod_spec.initial_path_world_m,
-            lumen_radii_m=embodiment.rod_spec.lumen_radii_m,
+            embodiment._navigation_targets(),
+            route_world_m=embodiment._navigation_routes(),
+            lumen_radii_m=embodiment._navigation_lumen_radii(),
             episode_length_s=episode_length_s,
             flat_observations=flat_observations,
         )

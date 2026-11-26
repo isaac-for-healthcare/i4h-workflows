@@ -661,6 +661,21 @@ The catheter is part of the beam, not an annotation. Each span between solver no
 
 The shaft's diameter comes from the physics side, as `CatheterState.radius_m`, so the image and the mechanics cannot disagree about how thick the instrument is. The green path in the `guidance` stream stays an overlay: `rgb` and `dsa` are what a detector would measure, `guidance` and `dsa_guidance` add annotation on top.
 
+## Vessel Contrast
+
+By default the contrast-filled lumen stays baked into the scan, so the vessel the image shows does not move when the deformable vessel does. Pass `--vessel-contrast` with a patient twin to make it follow:
+
+```bash
+./run.sh endoluminal_navigation \
+  --mode demo \
+  --patient-twin ./data/TotalSegmentator/s0011/patient_twin.yaml \
+  --vessel-contrast
+```
+
+The lumen is then carved out of the volume once at startup, and every frame composites the vessel back as tubes along the solver's displaced centerline, with the iodine concentration of the current injection. The carved volume is also the DSA mask, so `dsa` becomes a live-over-mask subtraction in which the bone and soft tissue divide out and only the moving, opacifying vessel remains. Its window is fixed from a reference injection of `FluoroscopySensorCfg.dsa_reference_mg_per_ml` (60 mg I/mL) rather than fitted to the first, pre-injection frame.
+
+The carve, contrast transport and tube compositing live in `xray_simulator.vessel` in [i4h-sensor-simulation](https://github.com/isaac-for-healthcare/i4h-sensor-simulation); this workflow supplies the twin's centerline, mask and attenuation curve, and the solver's displacement. The flag needs the Slang backend, costs a few seconds of carving at startup, and is not available to online RL.
+
 ## Current Limitations
 
 This is an integration demonstration, not validated intravascular mechanics. There is no dose model, the C-arm is single-plane rather than biplane, and there is no Zenoh traffic: a GR00T N1.7 rollout reaches its policy server through GR00T's own client. The green catheter guidance is presentation-only.

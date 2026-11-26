@@ -146,6 +146,27 @@ def test_preflight_and_launch_use_the_same_checkpoint(profile, checkpoint, runti
     assert profile.trainer_config.read_bytes() == source
 
 
+def test_run_record_names_each_environment_patient(profile, checkpoint, runtime, tmp_path, monkeypatch):
+    twins = (tmp_path / "s0011/patient_twin.yaml", tmp_path / "s0058/patient_twin.yaml")
+    args = launch_args(checkpoint, tmp_path, num_envs=2, resolved_patient_twin=twins[0], resolved_patient_twins=twins)
+    rlinf.validate_launch(args, profile, ROOT)
+
+    class Started(Exception):
+        pass
+
+    def simulator(command, **_kwargs):
+        runtime["sim_twins"] = [command[i + 1] for i, part in enumerate(command) if part == "--patient-twin"]
+        raise Started
+
+    monkeypatch.setattr(rlinf.subprocess, "Popen", simulator)
+    with pytest.raises(Started):
+        rlinf.launch(args, profile, ROOT, num_envs=2, epochs=2, overrides=())
+
+    record = json.loads((tmp_path / "run/run.json").read_text())
+    assert record["patient_twin"] == str(twins[0])
+    assert record["patient_twins"] == runtime["sim_twins"] == [str(twin) for twin in twins]
+
+
 @pytest.mark.parametrize("invalid", ["missing", "wrong_groups"])
 def test_bad_cli_checkpoint_is_rejected_before_any_worker(profile, checkpoint, runtime, tmp_path, monkeypatch, invalid):
     statistics = checkpoint / "experiment_cfg/dataset_statistics.json"

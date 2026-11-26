@@ -5,14 +5,14 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from i4h_arena.scenes.base import Scene, SensorDisplayControlSpec, SensorSliderSpec
 from i4h_arena.ui.sensor_view import SensorView
 
 
-def resolve_fluoroscopy_backend(requested: str | None, patient_twin: str | None) -> str:
+def resolve_fluoroscopy_backend(requested: str | None, patient_twin: str | Sequence[str] | None) -> str:
     """Select real DRR rendering when a patient twin is supplied."""
     return requested or ("slang" if patient_twin else "synthetic")
 
@@ -43,9 +43,11 @@ class EndoluminalNavigationScene(Scene):
     @classmethod
     def add_cli_args(cls, parser: Any) -> None:
         parser.add_argument("--fluoro_device", choices=("cuda", "vulkan"), default=None)
+        parser.add_argument("--vessel_contrast", action="store_true", default=False)
         parser.add_argument("--catheter_backend", choices=("numerical", "legacy"), default="legacy")
         parser.add_argument(
             "--patient_twin",
+            action="append",
             default=None,
             help="Patient-twin YAML manifest: the vessel route, its goal and the CT the fluoroscopy renders.",
         )
@@ -73,6 +75,9 @@ class EndoluminalNavigationScene(Scene):
             print(
                 f"[arena] {self.name} simulates the catheter with Newton; ignoring --presets {args.presets}", flush=True
             )
+        from i4h_arena.medical.patient_assignment import normalize_patient_twins
+
+        args.patient_twin = normalize_patient_twins(getattr(args, "patient_twin", None), getattr(args, "num_envs", 1))
         args.presets = "newton"
         super().configure_args(args)
 
@@ -121,7 +126,11 @@ class EndoluminalNavigationScene(Scene):
         from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
         from i4h_arena.assets.fluoroscopy_catheter_navigation import make_assets
+        from i4h_arena.medical.patient_assignment import normalize_patient_twins
 
+        self.args.patient_twin = normalize_patient_twins(
+            getattr(self.args, "patient_twin", None), getattr(self.args, "num_envs", 1)
+        )
         self._embodiment = self._make_embodiment()
         assets = make_assets(
             fluoro_backend=resolve_fluoroscopy_backend(
@@ -130,6 +139,7 @@ class EndoluminalNavigationScene(Scene):
             fluoro_device=getattr(self.args, "fluoro_device", None) or "vulkan",
             patient_twin_manifest=getattr(self.args, "patient_twin", None),
             hu_to_mu_preset=getattr(self.args, "hu_to_mu", None),
+            vessel_contrast=getattr(self.args, "vessel_contrast", None),
         )
         if getattr(self.args, "catheter_backend", "legacy") == "numerical":
             import copy
@@ -173,6 +183,18 @@ class EndoluminalNavigationScene(Scene):
         # A wider three-quarter view keeps the detector, arc, support, patient, and table
         # visible together in the viewport's narrower docked layout.
         env_cfg.viewer = ViewerCfg(eye=(2.45, -1.65, 1.65), lookat=(-0.25, 0.12, 0.78))
+        twins = getattr(self.args, "patient_twin", None)
+        if twins is not None and not isinstance(twins, str):
+            from isaaclab.managers import EventTermCfg
+
+            from i4h_arena.assets.fluoroscopy_catheter_navigation import place_patient_anatomies
+
+            env_cfg.events.place_patient_anatomies = EventTermCfg(
+                func=place_patient_anatomies,
+                mode="startup",
+                params={"manifests": tuple(twins)},
+            )
+
         # Isaac Lab's record_demos.py --teleop_device catheter_keyboard finds the device here.
         env_cfg.teleop_devices = DevicesCfg(
             devices={"catheter_keyboard": CatheterKeyboardCfg(sim_device=env_cfg.sim.device)}

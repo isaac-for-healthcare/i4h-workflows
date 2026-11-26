@@ -380,6 +380,8 @@ def test_catheter_profiles_render_fluoroscopy_on_the_cuda_device() -> None:
             + ["--max-episode-steps", "600", *flags]
         )
         assert _scene_args(args).fluoro_device == "cuda"
+        # Carving and compositing the vessel is a per-frame cost online RL does not need.
+        assert _scene_args(args).vessel_contrast is False
 
 
 def test_a_profile_without_a_fluoro_device_leaves_the_simulator_default() -> None:
