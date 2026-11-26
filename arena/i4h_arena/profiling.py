@@ -103,16 +103,20 @@ class CaptureRange:
         return self._started
 
     def step(self) -> None:
-        """Count one physics step, opening the capture when warmup is done.
-
-        Called after the step rather than before it, so the step that crosses
-        the warmup threshold is itself excluded. The first step inside the
-        capture is then one whose caches are all warm.
-        """
+        """Count one completed physics step toward warmup."""
         if not self._enabled or self._started:
             return
         self._steps += 1
-        if self._steps <= self._warmup_steps:
+
+    def open_if_warm(self) -> None:
+        """Open the capture once ``warmup_steps`` steps have completed.
+
+        Called at the top of every loop iteration, before its ``tick``, so the
+        capture holds whole steps: the first one recorded is step
+        ``warmup_steps + 1``, tick included, and a warmup of zero records the
+        first tick.
+        """
+        if not self._enabled or self._started or self._steps < self._warmup_steps:
             return
         import torch
 

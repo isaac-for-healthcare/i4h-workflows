@@ -28,7 +28,7 @@ PY
 
 | Report | Columns to use | Question it answers |
 |---|---|---|
-| `nvtx_pushpop_sum` | `Range`, `Instances`, `Avg (ns)`, `Med (ns)`, `StdDev (ns)` | Which phase costs the most wall time per step, and how stable is it? |
+| `nvtx_pushpop_sum` | `Range`, `Instances`, `Total Time (ns)`, `Med (ns)`, `StdDev (ns)` | Which phase costs the most wall time per step, and how stable is it? |
 | `nvtx_gpu_proj_sum` | `Range`, `Total Range Time (ns)`, `Total Proj Time (ns)`, `Avg GPU Ops` | How much GPU work did each phase launch? |
 | `cuda_gpu_kern_sum` | `Name`, `Instances`, `Total Time (ns)` | Which kernels the GPU time goes to, across all captured processes. |
 | `cuda_gpu_mem_time_sum`, `cuda_gpu_mem_size_sum` | `Operation`, `Count`, `Total Time (ns)`, `Total (MB)` | How much time and volume host and device copies take. |
@@ -37,7 +37,7 @@ PY
 | `rule_gpu_gaps`, `rule_gpu_time_util` | gap duration and utilization per interval | Whether the GPU sat idle between steps. |
 | `gpu_by_process` | `pid`, `role`, `kernels`, `gpu_ms` | How GPU time splits between the simulator and a backend. |
 
-Range names carry a leading `:` in these reports, for example `:env.step`. Every range should have about one instance per captured step. Counts can differ by one, because the capture opens partway through a step and the run can end partway through one. `record` is absent from runs without `--record`.
+Range names carry a leading `:` in these reports, for example `:env.step`. The capture opens at the start of a step, before its `tick`, so `:env.step` has one instance per captured step and is the step count to divide by. `record` has one instance per recorded step and is absent from runs without `--record`. `tick` can have many instances per step: a remote policy that returns `WAITING` is ticked again without stepping physics, so its `Avg (ns)` is one poll, not a step's share.
 
 ## Classify a phase
 
@@ -60,4 +60,4 @@ Range names carry a leading `:` in these reports, for example `:env.step`. Every
 
 ## Compare two captures
 
-Compare the same range's `Avg (ns)` and `Med (ns)` from both `stats_nvtx_pushpop_sum.csv` files. Treat a difference smaller than either capture's `StdDev (ns)` as noise. Report both means, the difference in milliseconds per step, and the percentage change for every phase, not only the target.
+Compare each range's per-step cost, its `Total Time (ns)` divided by that capture's `:env.step` instances, from both `stats_nvtx_pushpop_sum.csv` files. For ranges with one instance per step, treat a difference smaller than either capture's `StdDev (ns)` as noise; for `tick` with polling, take one more capture of each version instead. Report both per-step costs, the difference in milliseconds per step, and the percentage change for every phase, not only the target.

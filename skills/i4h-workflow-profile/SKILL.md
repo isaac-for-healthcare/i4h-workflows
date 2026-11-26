@@ -17,16 +17,20 @@ metadata:
 
 ## Purpose
 
-Capture a Nsight Systems report of a workflow's steady-state steps, attribute per-step time to the phase that owns it, change the owning code, and prove the change with a second capture and an unchanged rollout outcome.
+Capture a Nsight Systems report of a workflow's steady-state steps, attribute per-step time to the phase that owns it, and, when asked to optimize, change the owning code and prove the change with a second capture and an unchanged rollout outcome.
 
 ## Instructions
 
-1. Resolve the base checkout, the workflow, and a live run mode.
-2. Capture a baseline report of warm steps only.
+1. Resolve the base checkout. When the user supplies an existing `.nsys-rep`, skip to step 3 and do not launch the simulator.
+2. Resolve the workflow and a live run mode, and capture a baseline report of warm steps only.
 3. Summarize per-phase cost and classify each heavy phase.
-4. Map the dominant phase to its owning code and propose the smallest change that targets it.
-5. After the user accepts the change, apply it, re-capture with the identical command, and compare.
+4. Map the dominant phase to its owning code. Stop here, after reporting, unless the user asked for an optimization.
+5. Propose the smallest change that targets the dominant phase. After the user accepts it, apply it, re-capture with the identical command, and compare.
 6. Confirm the rollout outcome is unchanged with `i4h-workflow-validate`.
+
+## Analyze an existing report
+
+For a report the user supplies, set `RUN_DIR` to its directory and run the exports in [references/nsys-analysis.md](references/nsys-analysis.md) against it, writing them to a new `nsys/` directory beside it. Answer from the exported CSVs, then map phases to owners. The workflow, mode, and warmup come from the `i4h_arena.log` beside the report when it exists; report any that cannot be recovered as unknown. Do not start a run, a comparison capture, or a rollout check unless the user then asks for an optimization.
 
 ## Resolve live support
 
@@ -76,13 +80,13 @@ The default warmup is 20 steps. Raise it when the first policy requests or the f
 
 Run the exports in [references/nsys-analysis.md](references/nsys-analysis.md) and read them in this order:
 
-1. `nvtx_pushpop_sum`: wall time per phase. `Avg (ns)` is the per-step cost; treat the largest phase as the target.
+1. `nvtx_pushpop_sum`: wall time per phase. Divide each phase's `Total Time (ns)` by the `:env.step` instance count, which is the number of captured steps, to get its per-step cost; treat the largest phase as the target. Do not use `Avg (ns)` for `tick`: a remote policy that returns `WAITING` re-ticks without stepping, so `tick` has many instances per step and its average is one poll.
 2. `nvtx_gpu_proj_sum`: GPU time each range launched. Range time far above projected GPU time means that phase is CPU-bound or waiting.
 3. `cuda_gpu_kern_sum`, `cuda_gpu_mem_time_sum`, `cuda_gpu_mem_size_sum`: which kernels and copies the GPU time goes to.
 4. `cuda_api_sum` and the `nsys analyze` rules: synchronizing calls and GPU idle gaps.
 5. The per-process query: how GPU time splits between the simulator and any backend process.
 
-Report a per-step table with phase, mean milliseconds, share of the step, GPU-projected milliseconds, and classification. Quote numbers from the CSVs; do not estimate them from the timeline.
+Report a per-step table with phase, milliseconds per step, share of the step, GPU-projected milliseconds, and classification. Quote numbers from the CSVs; do not estimate them from the timeline.
 
 ## Map phases to owners
 
@@ -100,7 +104,7 @@ Ranges from Kit or other libraries can appear beside these. Name them, but optim
 
 ## Optimize
 
-Propose one change per iteration, aimed at the dominant phase, with the expected effect stated in milliseconds per step. Get the user's acceptance before editing. Common findings and their usual fixes are listed in the reference.
+Do this and the verification below only when the user asked for an optimization. Propose one change per iteration, aimed at the dominant phase, with the expected effect stated in milliseconds per step. Get the user's acceptance before editing. Common findings and their usual fixes are listed in the reference.
 
 These changes alter what the workflow means, not only how fast it runs. Treat them as out of scope unless the user explicitly asks, and never apply them silently:
 
@@ -112,7 +116,7 @@ Follow the repository change discipline: a Task reads `ctx.scene` and writes `ct
 
 ## Verify
 
-Re-capture with the identical command, regenerate the reports into a separate directory, and compare per-phase means before and after. Report a change as an improvement only when the target phase drops by more than its run-to-run spread. If the result is unclear, take one more capture of each version.
+Re-capture with the identical command, regenerate the reports into a separate directory, and compare per-step phase costs before and after. Report a change as an improvement only when the target phase drops by more than its run-to-run spread. If the result is unclear, take one more capture of each version.
 
 Then run the same command without `nsys` and `--nsys-range` through `i4h-workflow-validate`, and require the same episode success as before the change. For a Scene or sensor change, also perform the visible simulator check that the repository requires.
 
@@ -135,7 +139,8 @@ The capture covers processes `run.sh` starts. A backend reached through `--polic
 
 - `Profile surgical_reach_psm in rule-based mode and tell me where the step time goes.` → capture warm steps, then report the per-phase table and its classification.
 - `Endoluminal navigation is slow; optimize it.` → capture, find the dominant phase, propose one owned change, re-capture, compare, and confirm the rollout with `i4h-workflow-validate`.
+- `Why is the GPU idle so much in runs/assemble_trocar/<stamp>/profile.nsys-rep?` → export and analyze the supplied report without launching a run.
 
 ## Completion gate
 
-Report the workflow, mode, device, headless or visible, `nsys` version, warmup, captured step count, and report paths for both captures. Include the before-and-after per-phase table, the change made with its owning file, the measured improvement in milliseconds per step, the validation outcome, and any phase left unexplained.
+For every request, report the workflow, mode, device, headless or visible, `nsys` version, warmup, captured step count, report path, the per-phase table, and any phase left unexplained; mark facts an existing report does not record as unknown. For an optimization, also report both capture paths, the before-and-after per-phase table, the change made with its owning file, the measured improvement in milliseconds per step, and the validation outcome.

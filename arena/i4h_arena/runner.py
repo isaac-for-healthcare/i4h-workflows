@@ -466,6 +466,7 @@ class SimulationRunner:
         #: Cleared by such a reset: every later frame belongs to another episode.
         recording = True
         while not engine.status.is_terminal and self.app.is_running():
+            self.capture.open_if_warm()
             # Policy inference runs inside the tick, so this is the range that
             # separates deciding an action from applying it.
             with phase("tick", enabled=self.capture.enabled):

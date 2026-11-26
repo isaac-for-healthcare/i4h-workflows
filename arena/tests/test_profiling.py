@@ -3,8 +3,9 @@
 """The capture range and its NVTX phases, on CPU.
 
 Neither the capture nor the ranges can be observed here, so these check the
-property that makes them safe to leave in the loop: disabled, nothing is
-called, and the step counter never moves.
+property that makes them safe to leave in the loop -- disabled, nothing is
+called, and the step counter never moves -- and, with the profiler calls
+mocked, which step the capture opens on.
 """
 
 from __future__ import annotations
@@ -66,6 +67,75 @@ def test_requesting_a_capture_without_cuda_fails_at_construction(monkeypatch: py
         CaptureRange(enabled=True)
 
 
+@pytest.fixture
+def profiler_calls(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record ``cudaProfilerStart``/``Stop`` instead of calling them."""
+    import torch
+
+    calls: list[str] = []
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda.profiler, "start", lambda: calls.append("start"))
+    monkeypatch.setattr(torch.cuda.profiler, "stop", lambda: calls.append("stop"))
+    return calls
+
+
+@pytest.mark.parametrize("warmup", [0, 1, 3])
+def test_the_capture_opens_after_exactly_the_warmup_steps(profiler_calls: list[str], warmup: int) -> None:
+    capture = CaptureRange(enabled=True, warmup_steps=warmup)
+
+    for _ in range(warmup):
+        capture.open_if_warm()
+        assert not capture.started
+        capture.step()
+    capture.open_if_warm()
+
+    assert capture.started
+    assert profiler_calls == ["start"]
+
+
+def test_the_capture_opens_once_and_closes_once(profiler_calls: list[str]) -> None:
+    capture = CaptureRange(enabled=True, warmup_steps=0)
+
+    for _ in range(3):
+        capture.open_if_warm()
+        capture.step()
+    capture.close()
+    capture.close()
+
+    assert profiler_calls == ["start", "stop"]
+    assert not capture.started
+
+
+def test_waiting_ticks_do_not_count_as_warmup(profiler_calls: list[str]) -> None:
+    """A remote policy polling ``WAITING`` loops without stepping physics."""
+    capture = CaptureRange(enabled=True, warmup_steps=2)
+
+    for _ in range(5):
+        capture.open_if_warm()
+    capture.step()
+    capture.open_if_warm()
+
+    assert not capture.started
+    assert profiler_calls == []
+
+
+def test_the_capture_opens_before_the_tick_it_records() -> None:
+    """Opened after ``tick`` instead, a warmup of zero would miss the first step's tick."""
+    tree = ast.parse(RUNNER.read_text())
+    loop = next(
+        node
+        for function in ast.walk(tree)
+        if isinstance(function, ast.FunctionDef) and function.name == "_run_episode"
+        for node in ast.walk(function)
+        if isinstance(node, ast.While)
+    )
+    first, second = loop.body[0], loop.body[1]
+
+    assert ast.unparse(first) == "self.capture.open_if_warm()"
+    assert isinstance(second, ast.With)
+    assert ast.unparse(second.items[0].context_expr).startswith("phase('tick'")
+
+
 def _phase_names(function: str) -> list[str]:
     """NVTX phase names opened inside ``function`` of the runner."""
     tree = ast.parse(RUNNER.read_text())
@@ -98,4 +168,5 @@ def test_the_capture_advances_once_per_completed_step() -> None:
     source = RUNNER.read_text()
 
     assert source.count("self.capture.step()") == 1
+    assert source.count("self.capture.open_if_warm()") == 1
     assert source.count("self.capture.close()") == 1
