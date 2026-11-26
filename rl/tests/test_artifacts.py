@@ -67,3 +67,38 @@ def test_without_a_caller_the_repository_root_is_the_base(tmp_path, monkeypatch)
     monkeypatch.delenv("I4H_CALLER_CWD", raising=False)
 
     assert resolve_output_path(tmp_path, "out") == Path(tmp_path / "out").resolve()
+
+
+@pytest.mark.parametrize("name,is_directory", [("checkpoint.pt", False), ("resume", True), ("patient.yaml", False)])
+def test_direct_cli_inputs_prefer_working_directory_over_repository(tmp_path, monkeypatch, name, is_directory):
+    root, caller = tmp_path / "repo", tmp_path / "caller"
+    for folder in (root, caller):
+        folder.mkdir()
+        if is_directory:
+            (folder / name).mkdir()
+        else:
+            (folder / name).write_text(folder.name)
+    monkeypatch.delenv("I4H_CALLER_CWD", raising=False)
+    monkeypatch.chdir(caller)
+
+    assert resolve_input_path(root, name) == caller / name
+    if is_directory:
+        (caller / name).rmdir()
+    else:
+        (caller / name).unlink()
+    assert resolve_input_path(root, name) == root / name
+
+
+def test_launcher_input_falls_back_to_process_directory_before_repository(tmp_path, monkeypatch):
+    root, caller, process = (tmp_path / name for name in ("repo", "caller", "process"))
+    for folder in (root, caller, process):
+        folder.mkdir()
+        (folder / "checkpoint.pt").write_text(folder.name)
+    monkeypatch.setenv("I4H_CALLER_CWD", str(caller))
+    monkeypatch.chdir(process)
+
+    assert resolve_input_path(root, "checkpoint.pt") == caller / "checkpoint.pt"
+    (caller / "checkpoint.pt").unlink()
+    assert resolve_input_path(root, "checkpoint.pt") == process / "checkpoint.pt"
+    (process / "checkpoint.pt").unlink()
+    assert resolve_input_path(root, "checkpoint.pt") == root / "checkpoint.pt"

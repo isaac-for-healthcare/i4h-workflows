@@ -82,7 +82,8 @@ def resolve_input_path(workflows_root: Path, value: str) -> Path:
     if path.is_absolute():
         return path.resolve()
     # The caller's directory first, then the process's own (a direct call has no launcher), then the repository.
-    candidates = (caller_dir(workflows_root) / path, Path.cwd() / path, workflows_root / path)
+    caller = Path(os.environ.get("I4H_CALLER_CWD") or Path.cwd())
+    candidates = (caller / path, Path.cwd() / path, workflows_root / path)
     for candidate in candidates:
         if candidate.exists():
             return candidate.resolve()
