@@ -84,8 +84,9 @@ RUN mkdir -p \
     && ln -s /opt/i4h-state/isaac/data /root/.local/share/ov
 
 # Pinned third-party Git sources form their own stable layer. The build context
-# contains only this setup script and its patches, never host checkouts.
+# contains only setup, its migration helper and patches, never host checkouts.
 COPY third_party/setup.sh third_party/*.patch ./third_party/
+COPY scripts/apply_teleop_patch.py ./scripts/apply_teleop_patch.py
 COPY docker/github-askpass.sh ./docker/github-askpass.sh
 RUN --mount=type=secret,id=github_token \
     GIT_ASKPASS=/workspace/docker/github-askpass.sh GIT_TERMINAL_PROMPT=0 \

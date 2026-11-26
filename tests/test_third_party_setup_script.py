@@ -40,6 +40,9 @@ def _run_setup(
     third_party = workspace / "third_party"
     third_party.mkdir(parents=True)
     shutil.copy2(THIRD_PARTY_SETUP, third_party / "setup.sh")
+    (workspace / "scripts").mkdir()
+    shutil.copy2(ROOT / "scripts/apply_teleop_patch.py", workspace / "scripts/apply_teleop_patch.py")
+    shutil.copy2(ROOT / "third_party/isaaclab_teleop_no_record.patch", third_party / "isaaclab_teleop_no_record.patch")
     for name in retired:
         (third_party / name).mkdir()
 

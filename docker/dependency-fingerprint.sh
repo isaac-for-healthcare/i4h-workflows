@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-inputs=(setup.sh third_party/setup.sh)
+inputs=(setup.sh third_party/setup.sh scripts/apply_teleop_patch.py)
 while IFS= read -r -d '' path; do
   inputs+=("${path#./}")
 done < <(
