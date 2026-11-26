@@ -8,10 +8,12 @@ inode would allow a second owner. Descriptors are close-on-exec.
 
 from __future__ import annotations
 
+import errno
 import fcntl
 import os
 import socket
 import stat
+from collections.abc import Iterator
 from pathlib import Path
 
 
@@ -19,12 +21,32 @@ class PortUnavailable(RuntimeError):
     """A managed lease or another socket already occupies the port."""
 
 
-def listener_inodes(port: int) -> set[str]:
-    """Read both Linux TCP tables; a missing/unreadable table is an error."""
+def _probe_port(family: int, port: int) -> bool:
+    """Return False only for an unavailable IPv6 family; propagate other errors."""
     try:
+        with socket.socket(family) as probe:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if family == socket.AF_INET6:
+                probe.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+            probe.bind(("::" if family == socket.AF_INET6 else "0.0.0.0", port))
+    except OSError as error:
+        if family == socket.AF_INET6 and error.errno in (
+            errno.EAFNOSUPPORT,
+            errno.EPROTONOSUPPORT,
+            errno.EADDRNOTAVAIL,
+        ):
+            return False
+        raise
+    return True
+
+
+def listener_inodes(port: int) -> set[str]:
+    """Read TCP tables for enabled families; inspection errors remain fatal."""
+    try:
+        tables = ("tcp", "tcp6") if _probe_port(socket.AF_INET6, 0) else ("tcp",)
         return {
             fields[9]
-            for name in ("tcp", "tcp6")
+            for name in tables
             for line in Path(f"/proc/net/{name}").read_text().splitlines()[1:]
             if (fields := line.split())[3] == "0A" and int(fields[1].split(":")[1], 16) == port
         }
@@ -32,7 +54,8 @@ def listener_inodes(port: int) -> set[str]:
         raise RuntimeError(f"Cannot inspect listeners on port {port}: {error}") from error
 
 
-def _descendants(pid: int) -> set[int]:
+def _descendants(pid: int) -> Iterator[int]:
+    """Yield the parent before walking children; disappearing processes are normal."""
     found = set()
     pending = [pid]
     while pending:
@@ -40,13 +63,16 @@ def _descendants(pid: int) -> set[int]:
         if current in found:
             continue
         found.add(current)
+        yield current
         # Children can be created by any thread, not just the thread-group leader.
-        for thread in (Path("/proc") / str(current) / "task").iterdir():
-            try:
-                pending.extend(map(int, (thread / "children").read_text().split()))
-            except FileNotFoundError:
-                continue  # a thread exited during inspection
-    return found
+        try:
+            for thread in (Path("/proc") / str(current) / "task").iterdir():
+                try:
+                    pending.extend(map(int, (thread / "children").read_text().split()))
+                except FileNotFoundError:
+                    continue  # a thread exited during inspection
+        except FileNotFoundError:
+            continue  # the process exited before or during task enumeration
 
 
 def listener_owned(port: int, pid: int) -> bool:
@@ -57,7 +83,7 @@ def listener_owned(port: int, pid: int) -> bool:
     try:
         owned = set()
         inspection_errors = []
-        for child in (pid, *(_descendants(pid) - {pid})):
+        for child in _descendants(pid):
             directory = Path("/proc") / str(child) / "fd"
             try:
                 descriptors = list(directory.iterdir())
@@ -110,15 +136,11 @@ class PortLease:
                 raise PortUnavailable(f"Port {port} is reserved by another managed run") from error
             if listener_inodes(port):
                 raise PortUnavailable(f"Port {port} already has a listener")
-            for family, address in ((socket.AF_INET, ("0.0.0.0", port)), (socket.AF_INET6, ("::", port))):
-                with socket.socket(family) as probe:
-                    probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                    if family == socket.AF_INET6:
-                        probe.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
-                    try:
-                        probe.bind(address)
-                    except OSError as error:
-                        raise PortUnavailable(f"Port {port} cannot be bound: {error}") from error
+            for family in (socket.AF_INET, socket.AF_INET6):
+                try:
+                    _probe_port(family, port)
+                except OSError as error:
+                    raise PortUnavailable(f"Port {port} cannot be bound: {error}") from error
             self._fd = fd
         except BaseException:
             os.close(fd)
