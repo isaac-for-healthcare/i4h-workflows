@@ -120,3 +120,18 @@ def test_automatic_port_updates_server_and_client_together(tmp_path, monkeypatch
     assert observed.read_text() == str(plan.port)
     with PortLease(plan.port):
         pass
+
+
+def test_exited_server_reports_its_bounded_startup_error(tmp_path):
+    log = tmp_path / "server.log"
+    with log.open("w") as stream:
+        server = subprocess.Popen(
+            [sys.executable, "-c", "print('old output' * 2000); raise RuntimeError('fixture startup failure')"],
+            stdout=stream,
+            stderr=subprocess.STDOUT,
+        )
+        server.wait()
+    with pytest.raises(RuntimeError, match="fixture startup failure") as caught:
+        launcher._wait_for_port(12345, server, log)
+    assert "Last server output:" in str(caught.value)
+    assert len(str(caught.value)) < 9000

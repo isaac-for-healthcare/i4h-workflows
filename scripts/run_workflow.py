@@ -595,7 +595,17 @@ def _wait_for_port(port: int, server: subprocess.Popen, log: Path) -> None:
     deadline = time.monotonic() + float(os.environ.get("I4H_SERVER_TIMEOUT_S", "3600"))
     while True:
         if server.poll() is not None:
-            raise RuntimeError(f"the policy server exited ({server.returncode}) before it listened; see {log}")
+            # CI retains the launcher output even when it cannot publish server.log.
+            # Bound the diagnostic so large model/config logs do not flood the job.
+            try:
+                with log.open("rb") as stream:
+                    stream.seek(0, os.SEEK_END)
+                    stream.seek(max(0, stream.tell() - 8192))
+                    tail = stream.read().decode("utf-8", errors="replace").strip()
+            except OSError:
+                tail = ""
+            detail = f"\nLast server output:\n{tail}" if tail else ""
+            raise RuntimeError(f"the policy server exited ({server.returncode}) before it listened; see {log}{detail}")
         if listener_owned(port, server.pid):
             return
         if time.monotonic() > deadline:
