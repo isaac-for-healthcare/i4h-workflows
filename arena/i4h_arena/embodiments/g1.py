@@ -124,7 +124,7 @@ class _G1Locomanip:
 class G1LocomanipWBCJointEmbodiment(_G1Locomanip, G1WBCJointEmbodiment):
     """Arena's ``g1_wbc_joint`` on Rheo's G1, for the locomanipulation policies."""
 
-    name = "g1_locomanip_wbc_joint"
+    registry_name = "g1_locomanip_wbc_joint"
     tags = ["embodiment", "g1"]
 
 
@@ -132,7 +132,7 @@ class G1LocomanipWBCJointEmbodiment(_G1Locomanip, G1WBCJointEmbodiment):
 class G1LocomanipWBCPinkEmbodiment(_G1Locomanip, G1WBCPinkEmbodiment):
     """Arena's ``g1_wbc_pink`` on Rheo's G1, for locomanipulation teleoperation."""
 
-    name = "g1_locomanip_wbc_pink"
+    registry_name = "g1_locomanip_wbc_pink"
     tags = ["embodiment", "g1"]
 
 
