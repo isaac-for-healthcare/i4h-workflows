@@ -978,6 +978,136 @@ def test_a_contrast_renderer_device_failure_explains_nvrtc_too(tmp_path, monkeyp
         )
 
 
+class _CudaContextRecorder:
+    """Stands in for the simulation GPU's CUDA context: records the devices it is made current for."""
+
+    def __init__(self) -> None:
+        self.entered: list[str] = []
+        self.current: str | None = None
+
+    def __call__(self, device):
+        recorder = self
+
+        class Scope:
+            def __enter__(self):
+                recorder.entered.append(str(device))
+                recorder.current = str(device)
+
+            def __exit__(self, *exc):
+                recorder.current = None
+                return False
+
+        return Scope()
+
+
+def _context_recording_slang(monkeypatch, recorder: _CudaContextRecorder) -> dict:
+    """A slangpy whose create_device records its arguments, and a renderer that calls it as upstream does."""
+    import sys
+
+    from xray_simulator.rendering import diffdrr_slang_renderer
+
+    seen: dict = {"create_device": [], "dispatch_context": []}
+    fake_slangpy = types.ModuleType("slangpy")
+
+    def create_device(device_type, **kwargs):
+        seen["create_device"].append((device_type, kwargs, recorder.current))
+        return object()
+
+    fake_slangpy.create_device = create_device
+    monkeypatch.setitem(sys.modules, "slangpy", fake_slangpy)
+
+    class UpstreamLikeRenderer:
+        def __init__(self, volume, spacing, origin_xyz_mm=(0.0, 0.0, 0.0), cfg=None, voxel_to_world_mm=None):
+            self._cfg = cfg
+            self._init_slang()
+
+        def _init_slang(self):
+            import slangpy
+
+            # xray_simulator's own call: the device type only (diffdrr_slang_renderer.py _init_slang).
+            self._device = slangpy.create_device(self._cfg.device_type)
+            self._module, self._forward_fn, self._backward_fn, self._normalize_fn = (object() for _ in range(4))
+            self._forward_batch_fn = object()
+            self._batch_cache = None
+            self._create_resources()
+
+        def _create_resources(self):
+            pass
+
+        def render(self, rotation, translation):
+            del rotation, translation
+            seen["dispatch_context"].append(recorder.current)
+            return np.full((64, 64), 0.5, dtype=np.float32)
+
+    monkeypatch.setattr(diffdrr_slang_renderer, "SlangDiffDRRRenderer", UpstreamLikeRenderer)
+    monkeypatch.setattr(slang_fluoroscopy, "_simulation_cuda_context", recorder)
+    monkeypatch.setattr(slang_fluoroscopy, "_cuda_context_handles", lambda device: [f"handles of {device}"])
+    return seen
+
+
+def test_a_cuda_renderer_is_built_on_the_simulation_gpus_context(tmp_path, monkeypatch) -> None:
+    """--device cuda:1 aborted at the first CUDA frame: Slang had opened its own context (NVBug 7106509)."""
+    recorder = _CudaContextRecorder()
+    seen = _context_recording_slang(monkeypatch, recorder)
+    patient = _patient_volume(tmp_path, with_vessel_mask=True)
+
+    renderer = SlangFluoroscopyRenderer(
+        patient,
+        _carm(patient),
+        width=64,
+        height=64,
+        step_mm=1.0,
+        device_type="cuda",
+        dsa=True,
+        catheter_attenuation=False,
+        catheter_device="cuda:1",
+    )
+
+    # One device for both renderers, created on the simulation GPU's context while it is current.
+    assert seen["create_device"] == [("cuda", {"existing_device_handles": ["handles of cuda:1"]}, "cuda:1")]
+    assert renderer._dsa_renderer._device is renderer._renderer._device
+    # The patch is undone once the device exists.
+    import slangpy
+
+    assert slangpy.create_device.__name__ == "create_device"
+
+    # Every dispatch runs with that context current. The frames are kept on the host here
+    # because the test has no GPU; the context the renderer asks for is what is checked.
+    renderer._device = __import__("torch").device("cpu")
+    renderer._render_volume(renderer._renderer, [renderer._projection])
+    assert seen["dispatch_context"] == ["cpu"]
+    assert recorder.entered[-1] == "cpu"
+
+
+@pytest.mark.parametrize(
+    ("device_type", "catheter_device"),
+    [("vulkan", "cuda:1"), ("cuda", None), ("cuda", "cpu")],
+)
+def test_the_slang_device_is_left_alone_off_a_cuda_simulation(
+    tmp_path, monkeypatch, device_type, catheter_device
+) -> None:
+    """Vulkan, or a simulation without a CUDA device, keeps xray_simulator's own device setup."""
+    recorder = _CudaContextRecorder()
+    seen = _context_recording_slang(monkeypatch, recorder)
+    patient = _patient_volume(tmp_path)
+
+    renderer = SlangFluoroscopyRenderer(
+        patient,
+        _carm(patient),
+        width=64,
+        height=64,
+        step_mm=1.0,
+        device_type=device_type,
+        catheter_attenuation=False,
+        catheter_device=catheter_device,
+    )
+    renderer._device = __import__("torch").device("cpu")
+    renderer._render_volume(renderer._renderer, [renderer._projection])
+
+    assert seen["create_device"] == [(device_type, {}, "cpu" if device_type == "cuda" else None)]
+    assert seen["dispatch_context"] == ["cpu" if device_type == "cuda" else None]
+
+
 def _pose_dependent_renderer_class(monkeypatch, poses: list) -> None:
     from xray_simulator.rendering import diffdrr_slang_renderer
 
