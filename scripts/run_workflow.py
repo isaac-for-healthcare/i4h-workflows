@@ -27,7 +27,6 @@ import os
 import platform
 import shlex
 import signal
-import socket
 import subprocess
 import sys
 import time
@@ -220,6 +219,7 @@ class Plan:
     patient_twins: tuple[Path, ...] = ()
     patient_twin: Path | None = None
     catheter_backend: str | None = None
+    automatic_port: bool = False
 
 
 def _caller_path(path: str) -> Path:
@@ -231,14 +231,6 @@ def _patient_paths(value) -> tuple[Path, ...]:
     if value is None:
         return ()
     return tuple(_caller_path(str(path)) for path in (value if isinstance(value, list | tuple) else (value,)))
-
-
-def _free_port(preferred: int) -> int:
-    for port in (preferred, *range(preferred + 1, preferred + 50)):
-        with socket.socket() as sock:
-            if sock.connect_ex(("127.0.0.1", port)) != 0:
-                return port
-    raise RuntimeError(f"no free port near {preferred}")
 
 
 def _json(path: Path) -> dict[str, Any]:
@@ -443,7 +435,7 @@ def plan(argv: list[str]) -> Plan:
             host, _, endpoint_port = args.policy_endpoint.rpartition(":")
             policy_args += ["--remote_host", host or "localhost", "--remote_port", endpoint_port]
         else:
-            port = args.port or _free_port(default_port)
+            port = args.port if args.port is not None else default_port
             server = [str(ROOT / "tasks" / stack / ".venv" / "bin" / "python"), "-m", f"i4h_tasks.{stack}.serve", task]
             server += ["--port", str(port)]
             if checkpoint is not None:
@@ -500,6 +492,7 @@ def plan(argv: list[str]) -> Plan:
         patient_twins=_patient_paths(args.patient_twin),
         patient_twin=_patient_paths(args.patient_twin)[0] if args.patient_twin else None,
         catheter_backend=catheter_backend,
+        automatic_port=args.port is None,
     )
 
 
@@ -597,13 +590,14 @@ def _decline_telemetry() -> None:
 
 
 def _wait_for_port(port: int, server: subprocess.Popen, log: Path) -> None:
+    from i4h_common.port_lease import listener_owned
+
     deadline = time.monotonic() + float(os.environ.get("I4H_SERVER_TIMEOUT_S", "3600"))
     while True:
-        with socket.socket() as sock:
-            if sock.connect_ex(("127.0.0.1", port)) == 0:
-                return
         if server.poll() is not None:
             raise RuntimeError(f"the policy server exited ({server.returncode}) before it listened; see {log}")
+        if listener_owned(port, server.pid):
+            return
         if time.monotonic() > deadline:
             raise RuntimeError(f"the policy server did not listen on {port}; see {log}")
         time.sleep(2)
@@ -833,6 +827,8 @@ def _write_recording_metadata(plan: Plan) -> None:
 
 
 def run(plan: Plan) -> int:
+    from i4h_common.port_lease import reserve_port
+
     # stop.sh and a plain kill end the run the way Ctrl+C does, so its processes stop too.
     signal.signal(signal.SIGTERM, _interrupt)
     # A launcher started in the background by a script inherits SIGINT ignored, and so would
@@ -865,8 +861,13 @@ def run(plan: Plan) -> int:
         pid_file.write_text("".join(f"{pid}\n" for pid in pids))
 
     server = tool = None
+    lease = None
     try:
         if plan.server:
+            lease = reserve_port(plan.port, automatic=plan.automatic_port)
+            plan.port = lease.port
+            plan.server[plan.server.index("--port") + 1] = str(plan.port)
+            command[command.index("--remote_port") + 1] = str(plan.port)
             log = plan.run_dir / "server.log"
             print(f"==> policy server on port {plan.port}; log {log}", flush=True)
             with log.open("w") as handle:
@@ -891,6 +892,8 @@ def run(plan: Plan) -> int:
         for process in (tool, server):
             if process is not None:
                 _stop_group(process.pid, process=process)
+        if lease is not None:
+            lease.close()
         pid_file.unlink(missing_ok=True)
     summary = _summary(plan)
     if summary:
