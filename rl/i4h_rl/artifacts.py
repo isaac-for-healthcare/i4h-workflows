@@ -81,7 +81,8 @@ def resolve_input_path(workflows_root: Path, value: str) -> Path:
     path = Path(value).expanduser()
     if path.is_absolute():
         return path.resolve()
-    candidates = (caller_dir(workflows_root) / path, workflows_root / path)
+    # The caller's directory first, then the process's own (a direct call has no launcher), then the repository.
+    candidates = (caller_dir(workflows_root) / path, Path.cwd() / path, workflows_root / path)
     for candidate in candidates:
         if candidate.exists():
             return candidate.resolve()
