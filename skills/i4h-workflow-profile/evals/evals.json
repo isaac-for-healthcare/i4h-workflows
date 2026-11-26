@@ -1,0 +1,48 @@
+[
+  {
+    "id": "i4h-workflow-profile-where-step-time-goes",
+    "question": "Profile surgical_reach_psm in rule-based mode with Nsight and tell me where the step time goes.",
+    "expected_skill": "i4h-workflow-profile",
+    "ground_truth": "The prompt asks for an Nsight Systems capture of warm steps and a per-phase breakdown of a rule-based run, without asking for code changes.",
+    "expected_behavior": [
+      "routes to i4h-workflow-profile",
+      "confirms the workflow and rule-based mode with ./run.sh list",
+      "wraps ./run.sh surgical_reach_psm --rule-based in nsys profile --capture-range=cudaProfilerApi with --nsys-range and an explicit --nsys-warmup",
+      "chooses the run directory first and writes the report there with --run-dir and nsys --output",
+      "keeps the profiled launch in the foreground",
+      "exports nvtx_pushpop_sum and nvtx_gpu_proj_sum with nsys stats",
+      "reports per-step milliseconds for tick, env.step, and record, each as total range time divided by the env.step instance count, with a CPU-bound or GPU-bound classification",
+      "does not edit code"
+    ]
+  },
+  {
+    "id": "i4h-workflow-profile-optimize-slow-workflow",
+    "question": "Endoluminal navigation runs slowly. Use nsys to find the bottleneck and optimize it.",
+    "expected_skill": "i4h-workflow-profile",
+    "ground_truth": "The prompt asks for a measured optimization loop: baseline capture, attribution to an owned phase, one change, a comparison capture with the identical command, and a rollout check.",
+    "expected_behavior": [
+      "routes to i4h-workflow-profile",
+      "maps the natural name to endoluminal_navigation as listed by ./run.sh list",
+      "captures a baseline with fixed mode, device, headless or visible setting, episode count, and warmup",
+      "maps the dominant NVTX range to its owning file",
+      "proposes one change with an expected per-step saving and asks before editing",
+      "does not raise the step cap, change the physics time step, or alter policy observations",
+      "re-captures with the identical command and compares per-step phase costs against their spread",
+      "confirms unchanged episode success through i4h-workflow-validate"
+    ]
+  },
+  {
+    "id": "i4h-workflow-profile-existing-report",
+    "question": "I already have runs/assemble_trocar/20261119_101500/profile.nsys-rep. Why is the GPU idle so much?",
+    "expected_skill": "i4h-workflow-profile",
+    "ground_truth": "The prompt supplies an existing report, so no new capture is needed; the answer comes from exported reports, the analysis rules, and the per-process GPU split.",
+    "expected_behavior": [
+      "routes to i4h-workflow-profile",
+      "does not launch a new run, a comparison capture, or a rollout check",
+      "runs nsys stats and nsys analyze with gpu_gaps, gpu_time_util, and cuda_api_sync against the supplied report",
+      "compares NVTX range time with GPU-projected time per phase",
+      "uses the per-process query to separate the simulator's GPU time from the remote policy backend's",
+      "quotes numbers from the exported CSVs"
+    ]
+  }
+]
