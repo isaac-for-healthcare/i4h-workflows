@@ -13,7 +13,6 @@ from typing import Any
 
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.configclass import make_configclass
@@ -75,9 +74,6 @@ class TableclothTask(TaskBase):
 
     def get_mimic_env_cfg(self, arm_mode: Any) -> None:
         return None
-
-    def get_metrics(self) -> list[MetricBase]:
-        return []
 
     def get_viewer_cfg(self) -> Any:
         return self._env_cfg.viewer

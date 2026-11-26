@@ -88,12 +88,12 @@ def main():
         solver_patch_sha256=hashlib.sha256(solver_diff).hexdigest(),
         numerical_has_shared_object_alternates=(num / ".git/objects/info/alternates").exists(),
         isaaclab_head=git_head(root / "third_party/IsaacLab-3939445"),
-        arena_head=git_head(root / "third_party/IsaacLab-Arena-196680c"),
+        arena_head=git_head(root / "third_party/IsaacLab-Arena-67f5b19"),
         isaaclab_local_diff_sha256=hashlib.sha256(
             subprocess.check_output(["git", "diff"], cwd=root / "third_party/IsaacLab-3939445")
         ).hexdigest(),
         arena_local_diff_sha256=hashlib.sha256(
-            subprocess.check_output(["git", "diff"], cwd=root / "third_party/IsaacLab-Arena-196680c")
+            subprocess.check_output(["git", "diff"], cwd=root / "third_party/IsaacLab-Arena-67f5b19")
         ).hexdigest(),
         wheels={dist.metadata["Name"]: dist.version for dist in metadata.distributions() if dist.metadata["Name"]},
         numerical_identity=json.loads((root / "outputs/liver_snapshots/manifest_16.json").read_text())["identity"],

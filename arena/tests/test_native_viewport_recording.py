@@ -15,7 +15,7 @@ import pytest
 @pytest.mark.parametrize("native", [True, False])
 def test_viewport_recorder_selects_native_lifecycle_or_legacy_gym(monkeypatch, tmp_path, native):
     root = Path(__file__).resolve().parents[2]
-    source = root / "third_party/IsaacLab-Arena-196680c/isaaclab_arena/video/video_recording.py"
+    source = root / "third_party/IsaacLab-Arena-67f5b19/isaaclab_arena/video/video_recording.py"
     if not source.is_file():
         pytest.skip("pinned Arena source unavailable")
     spec = importlib.util.spec_from_file_location("viewport_recording_under_test", source)
