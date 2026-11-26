@@ -138,9 +138,6 @@ class CatheterNavigationTask(TaskBase):
     def get_mimic_env_cfg(self, arm_mode: ArmMode) -> None:
         return None
 
-    def get_metrics(self) -> list:
-        return []
-
     def get_viewer_cfg(self) -> ViewerCfg:
         # The view an Arena environment without a task opens on, which is what
         # these scenes used before they had one. The workflow scene replaces it

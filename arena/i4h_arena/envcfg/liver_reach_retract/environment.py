@@ -119,9 +119,6 @@ class LiverTask(TaskBase):
     def get_events_cfg(self):
         return None
 
-    def get_metrics(self):
-        return []
-
     def get_mimic_env_cfg(self, arm_mode):
         return None
 

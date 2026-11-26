@@ -263,8 +263,5 @@ class PandaPhantomEnvCfg(TaskBase):
     def get_mimic_env_cfg(self, embodiment_name: str):
         return None
 
-    def get_metrics(self):
-        return []
-
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(1.5, 1.3, 1.0), lookat=(0.0, 0.0, 0.0))

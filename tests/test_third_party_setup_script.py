@@ -172,7 +172,7 @@ def test_isolated_n16_service_keeps_its_original_arena(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     assert "IsaacLab-Arena-c7edf3a fetch" in git_log
     assert "Isaac-GR00T-1.6 fetch" in git_log
-    assert "IsaacLab-Arena-196680c fetch" not in git_log
+    assert "IsaacLab-Arena-67f5b19 fetch" not in git_log
 
 
 def _git(*args: str, cwd: Path) -> str:
