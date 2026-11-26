@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from typing import Any
 #: as an override.
 LAUNCHER_VARIABLES = frozenset(
     {
+        "I4H_CALLER_CWD",
         "I4H_SETUP_PROJECTS",
         "I4H_THIRD_PARTY_TARGET",
         "I4H_VENV_ROOT",
@@ -21,6 +23,10 @@ LAUNCHER_VARIABLES = frozenset(
         "I4H_WORKFLOWS_REPO_URL",
     }
 )
+
+
+# Names that carry credentials: the value of ``I4H_AGENT_API_KEY`` and its kin must never reach run metadata.
+_SECRET_NAME = re.compile(r"(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH)", re.IGNORECASE)
 
 
 def environment_overrides(environ: dict[str, str] | None = None) -> dict[str, str]:
@@ -32,13 +38,18 @@ def environment_overrides(environ: dict[str, str] | None = None) -> dict[str, st
     runs of one profile could differ in physics with nothing on disk to say so.
     The GPU assignment is already recorded separately and is also read from
     here, which is why it appears twice; the duplication is cheaper than
-    deciding which overrides count.
+    deciding which overrides count. Variables whose names mark a credential
+    (key, token, secret, password, credential, auth) are left out: run
+    metadata is shared, and a secret must not be copied into it.
     """
     source = os.environ if environ is None else environ
     return {
         name: str(value)
         for name, value in sorted(source.items())
-        if name.startswith("I4H_") and name not in LAUNCHER_VARIABLES and str(value).strip()
+        if name.startswith("I4H_")
+        and name not in LAUNCHER_VARIABLES
+        and not _SECRET_NAME.search(name)
+        and str(value).strip()
     }
 
 
@@ -46,12 +57,23 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def caller_dir(workflows_root: Path) -> Path:
+    """The directory the launcher was started from: ``I4H_CALLER_CWD``, else the repository root.
+
+    ``run.sh``, ``train.sh`` and ``scripts/e2e/run.sh`` all resolve a relative path the user typed
+    against where they typed it. Only the defaults (``runs/<workflow>/<timestamp>``) live under the
+    repository root.
+    """
+    value = os.environ.get("I4H_CALLER_CWD")
+    return Path(value) if value else workflows_root
+
+
 def resolve_output_path(workflows_root: Path, value: str) -> Path:
-    """Resolve an output path from an absolute or repository-relative value."""
+    """Resolve an output path from an absolute or caller-relative value."""
     path = Path(value).expanduser()
     if path.is_absolute():
         return path.resolve()
-    return (workflows_root / path).resolve()
+    return (caller_dir(workflows_root) / path).resolve()
 
 
 def resolve_input_path(workflows_root: Path, value: str) -> Path:
@@ -59,7 +81,7 @@ def resolve_input_path(workflows_root: Path, value: str) -> Path:
     path = Path(value).expanduser()
     if path.is_absolute():
         return path.resolve()
-    candidates = (Path.cwd() / path, workflows_root / path)
+    candidates = (caller_dir(workflows_root) / path, workflows_root / path)
     for candidate in candidates:
         if candidate.exists():
             return candidate.resolve()

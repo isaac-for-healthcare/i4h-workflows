@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -153,6 +155,23 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _suite_env() -> dict[str, str]:
+    """The environment every suite command runs in.
+
+    On aarch64 Kit refuses to start unless the system OpenMP library is preloaded, which ``run.sh`` and
+    ``train.sh`` arrange. The arena suite imports Kit while pytest collects, so it needs the same setup,
+    or collection stops with ``SystemExit`` before any test runs.
+    """
+    env = {**os.environ, "OMNI_KIT_ACCEPT_EULA": "Y", "PRIVACY_CONSENT": "Y"}
+    if platform.machine() == "aarch64":
+        runtime_file = Path(__file__).resolve().parents[1] / "rl" / "i4h_rl" / "runtime.py"
+        spec = importlib.util.spec_from_file_location("i4h_rl_runtime", runtime_file)
+        runtime = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(runtime)
+        runtime.apply_arm_openmp_env(env)
+    return env
+
+
 def _run_command(argv: list[str], *, timeout: int, capture: bool = False) -> subprocess.CompletedProcess[str] | None:
     print("    " + " ".join(argv), flush=True)
     try:
@@ -164,7 +183,7 @@ def _run_command(argv: list[str], *, timeout: int, capture: bool = False) -> sub
             text=True,
             stdout=subprocess.PIPE if capture else None,
             stderr=subprocess.STDOUT if capture else None,
-            env={**os.environ, "OMNI_KIT_ACCEPT_EULA": "Y", "PRIVACY_CONSENT": "Y"},
+            env=_suite_env(),
         )
     except subprocess.TimeoutExpired as exc:
         if exc.stdout:

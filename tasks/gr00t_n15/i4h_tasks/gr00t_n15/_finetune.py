@@ -214,11 +214,13 @@ def _resolve_dataset_path(path_or_repo_id: str) -> str:
     raise SystemExit(f"dataset path does not exist: {path_or_repo_id}")
 
 
-def _validate(cfg: TrainConfig) -> None:
+def _validate(cfg: TrainConfig, *, check_datasets: bool = True) -> None:
+    """Reject a configuration the trainer cannot run; ``check_datasets=False`` leaves datasets unresolved (dry run)."""
     if not cfg.dataset_path:
         raise SystemExit("--dataset-path is required")
-    for path in cfg.dataset_path:
-        _resolve_dataset_path(path)
+    if check_datasets:
+        for path in cfg.dataset_path:
+            _resolve_dataset_path(path)
     if cfg.num_gpus < 1:
         raise SystemExit("--num-gpus must be >= 1")
     if cfg.batch_size < 1:

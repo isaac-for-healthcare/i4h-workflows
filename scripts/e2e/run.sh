@@ -4,10 +4,12 @@
 set -euo pipefail
 
 WORKFLOWS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+CALLER_CWD="$PWD"  # a relative --run-dir means where the user typed it, as in run.sh and train.sh
 cd "$WORKFLOWS_ROOT"
 export I4H_WORKFLOWS="$WORKFLOWS_ROOT"
 
 ENV_ID=scissor_pick_and_place
+ENV_GIVEN=""
 DRY_RUN=0
 SKIP_MIMIC=0
 SKIP_ANNOTATE=0
@@ -32,7 +34,7 @@ server of the workflow's checkpoint, and replay with Isaac Lab's replay_demos.py
 
 Options:
   --env ENV              workflow name: scissor_pick_and_place (default) or ultrasound_liver_scan
-  --run-dir PATH         output directory
+  --run-dir PATH         output directory (relative to the current directory)
   --dry-run              resolve and print every stage without executing it
   --skip-mimic           use policy recordings directly
   --skip-annotate        trust simulator success and skip VLM filtering
@@ -44,12 +46,36 @@ Options:
 EOF
 }
 
+fail() {
+  echo "[e2e] $1" >&2
+  usage >&2
+  exit 2
+}
+
+# An option that takes a value must be followed by one, not by another option.
+option_value() {
+  local option="$1"
+  shift
+  if [ $# -eq 0 ] || [ -z "$1" ] || [[ "$1" == -* ]]; then
+    fail "$option needs a value"
+  fi
+}
+
+# The workflow is named once, by --env or by its bare name; naming a second one is an error.
+set_env() {
+  if [ -n "$ENV_GIVEN" ] && [ "$ENV_GIVEN" != "$1" ]; then
+    fail "two workflows given ($ENV_GIVEN and $1); run the pipeline once per workflow"
+  fi
+  ENV_GIVEN="$1"
+  ENV_ID="$1"
+}
+
 while (($#)); do
   case "$1" in
-    --env) ENV_ID="$2"; shift 2 ;;
-    --env=*) ENV_ID="${1#*=}"; shift ;;
-    --run-dir) RUN_DIR="$2"; shift 2 ;;
-    --run-dir=*) RUN_DIR="${1#*=}"; shift ;;
+    --env) option_value "$@"; set_env "$2"; shift 2 ;;
+    --env=*) option_value --env "${1#*=}"; set_env "${1#*=}"; shift ;;
+    --run-dir) option_value "$@"; RUN_DIR="$2"; shift 2 ;;
+    --run-dir=*) option_value --run-dir "${1#*=}"; RUN_DIR="${1#*=}"; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     --skip-mimic) SKIP_MIMIC=1; shift ;;
     --skip-annotate) SKIP_ANNOTATE=1; shift ;;
@@ -57,8 +83,8 @@ while (($#)); do
     --skip-viz) SKIP_VIZ=1; shift ;;
     --headless) HEADLESS=(--headless); shift ;;
     -h|--help) usage; exit 0 ;;
-    -*) echo "unknown option: $1" >&2; usage >&2; exit 2 ;;
-    *) ENV_ID="$1"; shift ;;
+    -*) fail "unknown option: $1" ;;
+    *) set_env "$1"; shift ;;
   esac
 done
 
@@ -117,8 +143,11 @@ ANNOTATE_ARGS=(--task "$ANNOTATE_CRITERION")
 [ -z "$ANNOTATE_JUDGE" ] || ANNOTATE_ARGS+=(--judge "$ANNOTATE_JUDGE")
 [ -z "$ANNOTATE_FRAMES" ] || ANNOTATE_ARGS+=(--frames "$ANNOTATE_FRAMES")
 
-RUN_DIR="${RUN_DIR:-runs/${ENV_ID}/$(date +%Y%m%d_%H%M%S)}"
-case "$RUN_DIR" in /*) ;; *) RUN_DIR="$WORKFLOWS_ROOT/$RUN_DIR" ;; esac
+if [ -n "$RUN_DIR" ]; then
+  case "$RUN_DIR" in /*) ;; *) RUN_DIR="$CALLER_CWD/$RUN_DIR" ;; esac
+else
+  RUN_DIR="$WORKFLOWS_ROOT/runs/${ENV_ID}/$(date +%Y%m%d_%H%M%S)"
+fi
 DATA_DIR="$RUN_DIR/data"
 LOG_DIR="$RUN_DIR/logs"
 RECORDING="$DATA_DIR/recording.hdf5"
