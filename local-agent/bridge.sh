@@ -28,14 +28,17 @@ pid_file() { printf '%s/%s.pid\n' "$STATE_DIR" "$1"; }
 run_file() { printf '%s/%s.run-dir\n' "$STATE_DIR" "$1"; }
 
 port_ready() {
-    python3 - "$PORT" <<'PY'
-import socket
+    PYTHONPATH="$ROOT/common${PYTHONPATH:+:$PYTHONPATH}" python3 - "$PORT" "${1:-}" <<'PYCODE'
 import sys
+from i4h_common.port_lease import listener_inodes, listener_owned
 
-with socket.socket() as sock:
-    sock.settimeout(0.5)
-    raise SystemExit(0 if sock.connect_ex(("127.0.0.1", int(sys.argv[1]))) == 0 else 1)
-PY
+try:
+    ready = listener_owned(int(sys.argv[1]), int(sys.argv[2])) if sys.argv[2] else bool(listener_inodes(int(sys.argv[1])))
+except RuntimeError as error:
+    print(f"bridge: {error}", file=sys.stderr)
+    raise SystemExit(2)
+raise SystemExit(0 if ready else 1)
+PYCODE
 }
 
 managed_pid() {
@@ -70,14 +73,19 @@ env_ready() {
 }
 
 start_bridge() {
-    local workflow="$1" requested_run_dir="${2:-}" pid run_dir log deadline
+    local workflow="$1" requested_run_dir="${2:-}" pid run_dir log deadline bridge_lock readiness
     shift 2 || shift $#
     validate_workflow "$workflow"
+    exec {bridge_lock}>"$STATE_DIR/$workflow.start.lock"
+    flock -n "$bridge_lock" || { echo "bridge: $workflow startup already in progress" >&2; exit 1; }
     if pid="$(managed_pid "$workflow")" && kill -0 "$pid" 2>/dev/null; then
         echo "bridge: $workflow already managed by pid $pid" >&2
         exit 1
     fi
-    if port_ready; then
+    readiness=0
+    port_ready || readiness=$?
+    if [[ "$readiness" == 2 ]]; then exit 1; fi
+    if [[ "$readiness" == 0 ]]; then
         echo "bridge: port $PORT is already in use by an unmanaged session" >&2
         exit 1
     fi
@@ -96,7 +104,7 @@ start_bridge() {
     echo "$run_dir" > "$(run_file "$workflow")"
     # run.sh --live holds the robot still, keeps the episode as long as the session so a
     # reset never undoes an edit, and opens Isaac Sim's Python server.
-    setsid "$ROOT/run.sh" "$workflow" --live --run-dir "$run_dir" "$@" >"$log" 2>&1 &
+    setsid "$ROOT/run.sh" "$workflow" --live --run-dir "$run_dir" "$@" >"$log" 2>&1 {bridge_lock}>&- &
     pid=$!
     echo "$pid" > "$(pid_file "$workflow")"
     echo "[bridge] launching scene=$workflow pid=$pid"
@@ -110,7 +118,13 @@ start_bridge() {
             rm -f "$(pid_file "$workflow")"
             exit 1
         fi
-        if port_ready && env_ready; then
+        readiness=0
+        port_ready "$pid" || readiness=$?
+        if [[ "$readiness" == 2 ]]; then
+            stop_bridge "$workflow" || true
+            exit 1
+        fi
+        if [[ "$readiness" == 0 ]] && env_ready; then
             # Paused, Isaac Lab stops stepping physics but keeps the window and
             # the Python server running, so an edit lands on a still scene.
             remote "import omni.timeline; omni.timeline.get_timeline_interface().pause()" >/dev/null
@@ -128,7 +142,7 @@ start_bridge() {
 status_bridge() {
     local workflow="$1" pid
     validate_workflow "$workflow"
-    if pid="$(managed_pid "$workflow")" && kill -0 "$pid" 2>/dev/null && port_ready; then
+    if pid="$(managed_pid "$workflow")" && kill -0 "$pid" 2>/dev/null && port_ready "$pid" && env_ready; then
         echo "bridge: ready scene=$workflow pid=$pid port=$PORT"
         return
     fi

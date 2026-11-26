@@ -876,9 +876,14 @@ def run(plan: Plan) -> int:
                 )
             remember(server)
             _wait_for_port(plan.port, server, log)
+        if plan.mode == "live":
+            lease = reserve_port(8226)
         print(f"==> {plan.workflow.name} [{plan.mode}]: {_quote(command)}", flush=True)
         tool = subprocess.Popen(command, cwd=ROOT, env=env, start_new_session=True)
         remember(tool)
+        if plan.mode == "live":
+            _wait_for_port(8226, tool, plan.run_dir / "launcher.log")
+            print("==> live listener ready on port 8226 (ownership verified)", flush=True)
         returncode = tool.wait()
     except KeyboardInterrupt:
         returncode = 130
