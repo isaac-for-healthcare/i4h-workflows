@@ -71,6 +71,13 @@ def _smoke(workflow: str):
 
 def test_a_workflow_smoke_records_one_headless_episode_through_run_sh(tmp_path, monkeypatch) -> None:
     calls: list[list[str]] = []
+    monkeypatch.setattr(
+        run_tests,
+        "_verify_smoke_recording_in_common",
+        lambda recording, results, *, scored, timeout: run_tests._verify_smoke_recording(
+            recording, results, scored=scored
+        ),
+    )
     monkeypatch.setattr(run_tests.subprocess, "Popen", _FakeRun(calls))
     monkeypatch.setattr(run_tests.tempfile, "mkdtemp", lambda **kwargs: str(tmp_path))
 
@@ -228,3 +235,31 @@ def test_unscored_smoke_accepts_completed_unsuccessful_episode(tmp_path):
     assert run_tests._verify_smoke_recording(
         tmp_path / "verify.hdf5", [tmp_path / "outputs/run/episode_results_rank0.jsonl"], scored=False
     )
+
+
+@pytest.mark.parametrize("success", ["true", "false"])
+def test_gpu_verification_uses_common_when_driver_has_no_h5py(tmp_path, success):
+    fake = _FakeRun([], success=success)
+    recording = tmp_path / "verify.hdf5"
+    fake(["--run-dir", str(tmp_path), "--record", str(recording)]).wait()
+    results = tmp_path / "outputs/run/episode_results_rank0.jsonl"
+    # -S excludes all site packages, including h5py, from the outer driver.
+    code = """
+import importlib.util, runpy, sys
+from pathlib import Path
+assert importlib.util.find_spec('h5py') is None
+module = runpy.run_path(sys.argv[1])
+ok = module['_verify_smoke_recording_in_common'](
+    Path(sys.argv[2]), [Path(sys.argv[3])], scored=True, timeout=30)
+raise SystemExit(0 if ok else 1)
+"""
+    result = subprocess.run(
+        [sys.executable, "-S", "-c", code, str(SCRIPT), str(recording), str(results)],
+        cwd=run_tests.ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == (0 if success == "true" else 1), result.stdout + result.stderr
+    if success == "false":
+        assert "scored smoke did not succeed" in result.stderr

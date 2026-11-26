@@ -147,6 +147,9 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="collect CPU-suite coverage and write coverage.xml (not valid with --suite gpu)",
     )
+    parser.add_argument("--verify-recording", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--episode-results", type=Path, nargs="+", help=argparse.SUPPRESS)
+    parser.add_argument("--unscored", action="store_true", help=argparse.SUPPRESS)
     return parser
 
 
@@ -242,7 +245,28 @@ def _run_workflow_smoke(smoke: WorkflowSmoke, timeout: int) -> bool:
     if not recording.is_file():
         print(f"!! rollout recording is missing: {recording}", file=sys.stderr)
         return False
-    return _verify_smoke_recording(recording, results, scored=smoke.scored)
+    return _verify_smoke_recording_in_common(recording, results, scored=smoke.scored, timeout=timeout)
+
+
+def _verify_smoke_recording_in_common(recording: Path, results: list[Path], *, scored: bool, timeout: int) -> bool:
+    # The outer driver may be system Python; only common declares the HDF5 reader dependencies.
+    argv = [
+        "uv",
+        "run",
+        "--locked",
+        "--project",
+        "common",
+        "python",
+        str(Path(__file__).resolve()),
+        "--verify-recording",
+        str(recording),
+        "--episode-results",
+        *(str(path) for path in results),
+    ]
+    if not scored:
+        argv.append("--unscored")
+    result = _run_command(argv, timeout=timeout)
+    return result is not None and result.returncode == 0
 
 
 def _verify_smoke_recording(recording: Path, results: list[Path], *, scored: bool) -> bool:
@@ -278,6 +302,12 @@ def _verify_smoke_recording(recording: Path, results: list[Path], *, scored: boo
 
 def main() -> int:
     args = _parser().parse_args()
+    if args.verify_recording is not None:
+        if not args.episode_results:
+            _parser().error("--verify-recording requires --episode-results")
+        return (
+            0 if _verify_smoke_recording(args.verify_recording, args.episode_results, scored=not args.unscored) else 1
+        )
     if shutil.which("uv") is None:
         print("uv is required to run the independently locked test projects", file=sys.stderr)
         return 2
