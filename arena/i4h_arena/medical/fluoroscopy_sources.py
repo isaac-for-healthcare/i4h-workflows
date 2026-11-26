@@ -51,11 +51,12 @@ def bind_fluoroscopy_sources(env: Any) -> None:
         else:
             carm_provider = reference(fluoroscopy.patient_twin)
     else:
-        carm_provider = _scene_data_carm_provider(env, detector_size_m) or SceneCArmStateProvider(
-            env.scene["xray_source"],
-            env.scene["detector"],
+        raw_provider = _scene_data_carm_provider(env, detector_size_m) or SceneCArmStateProvider(
+            _frame_view(env, "xray_source"),
+            _frame_view(env, "detector"),
             detector_size_m=detector_size_m,
         )
+        carm_provider = OrbitCArmStateProvider(raw_provider, env.action_manager.get_term("carm_orbit"))
     fluoroscopy.bind_catheter_provider(catheter)
     fluoroscopy.bind_carm_provider(carm_provider)
     _bind_vessel_motion(env, fluoroscopy, catheter)
@@ -107,6 +108,27 @@ def _sensor_dt_s(env: Any, fluoroscopy: Any) -> float:
     return max(period, step_dt)
 
 
+class OrbitCArmStateProvider:
+    """Keep raw pose calculations and delegate preset selection to the orbit action."""
+
+    def __init__(self, provider: Any, orbit_action: Any) -> None:
+        self._provider = provider
+        self._orbit_action = orbit_action
+
+    def snapshot(self, num_envs: int):
+        return self._provider.snapshot(num_envs)
+
+    def select_angle(self, angle_rad: float) -> float:
+        return float(self._orbit_action.set_orbit_angle(angle_rad))
+
+
+def _frame_view(env: Any, name: str) -> Any:
+    """A FrameView over a scene extra, which Isaac Lab 3 keeps without a runtime view."""
+    from isaaclab.sim.views import FrameView
+
+    return FrameView(env.scene[name].cfg.prim_path, device=env.device)
+
+
 def _scene_data_carm_provider(env: Any, detector_size_m: tuple[float, float]) -> Any | None:
     """Prefer mapped scene-data poses, falling back to the two visual assets."""
     try:
@@ -134,3 +156,8 @@ def _scene_data_carm_provider(env: Any, detector_size_m: tuple[float, float]) ->
             exc_info=True,
         )
         return None
+
+
+def initialize_fluoroscopy_sources(env: Any, env_ids) -> None:
+    """Reset lifecycle hook, independent of panels and observation selection."""
+    bind_fluoroscopy_sources(env)

@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """dVRK PSM lift workflows under the Newton preset (NVBug 6928490).
 
-The PSM embodiment and scene modules need Kit to import, so their wiring is
-checked from source; the Newton settings and the mesh handling are plain
-modules and are exercised directly.
+Most of the PSM scene wiring is checked from source; the Newton settings, the
+dual-arm env tuning and the mesh handling are exercised directly.
 """
 
 from __future__ import annotations
@@ -87,6 +86,24 @@ def test_surgical_scenes_select_newton_settings_from_the_preset() -> None:
     assert 'shared["gripper_close"] = _psm_newton.NEEDLE_GRIPPER_CLOSE' in embodiment
 
 
+@pytest.mark.parametrize("newton", [False, True])
+def test_the_dual_psm_keeps_physics_replication_only_on_newton(newton: bool) -> None:
+    """Isaac Lab 3 builds the Newton model only through replication; without it neither arm was in the model."""
+    from i4h_arena.embodiments.psm import DualPsmEmbodiment
+    from i4h_arena.envcfg._surgical import SurgicalReachEnvCfg
+
+    env_cfg = SimpleNamespace(
+        scene=SimpleNamespace(replicate_physics=True, env_spacing=1.0),
+        sim=SimpleNamespace(physics=SimpleNamespace()),
+    )
+    embodiment = DualPsmEmbodiment(enable_cameras=False, enable_material_randomization=False, newton=newton)
+
+    # The order the scene's env cfg callback applies them in: task, then embodiment.
+    env_cfg = embodiment.tune_env_cfg(SurgicalReachEnvCfg.dual_psm().tune_env_cfg(env_cfg))
+
+    assert env_cfg.scene.replicate_physics is newton
+
+
 # -- newton_meshes -------------------------------------------------------------
 MESH, BOX = 8, 7  # newton.GeoType values
 COLLIDE = 2  # newton.ShapeFlags.COLLIDE_SHAPES
@@ -105,7 +122,6 @@ def _builder() -> SimpleNamespace:
         shape_flags=[COLLIDE, COLLIDE, COLLIDE, COLLIDE, 0, COLLIDE],
         shape_body=[0, 1, -1, 1, 1, 2],
         shape_label=["jaw", "Object/Needle", "table", "Object/box", "Object/visual", "Back_muscles"],
-        shape_gap=[0.01] * 6,
     )
 
 
@@ -159,75 +175,6 @@ def test_only_the_cloners_blanket_hull_request_is_split(registry) -> None:
     assert calls[2] == ("convex_hull", [0], {})
 
 
-def _add_shape(builder: SimpleNamespace, label: str, *, body: int, collides: bool = True) -> None:
-    """Append a shape the way Newton does: with the builder's 0.1 m default gap."""
-    builder.shape_label.append(label)
-    builder.shape_body.append(body)
-    builder.shape_flags.append(COLLIDE if collides else 0)
-    builder.shape_gap.append(0.1)
-
-
-def test_coacds_extra_convex_parts_keep_their_source_shapes_contact_gap(registry) -> None:
-    """Newton gives the parts its 0.1 m default gap: ~100 speculative contacts a step with the organ bed."""
-    builder = _builder()
-    builder.shape_gap[1] = 0.02
-
-    def original(b, method, shape_indices, **kwargs):
-        if method == "coacd":
-            for shape in shape_indices:  # Newton appends parts 1.. of each decomposition, without its gap
-                for part in (1, 2):
-                    _add_shape(b, f"{b.shape_label[shape]}_convex_{part}", body=b.shape_body[shape])
-        _add_shape(b, "jaw_visual", body=0, collides=False)  # anything else the call adds keeps its own gap
-        return set(shape_indices or ())
-
-    newton_meshes._SUFFIXES.add("/Object")
-    newton_meshes._wrap(original)(builder, "convex_hull", keep_visual_shapes=True)
-
-    assert builder.shape_label[6:] == [
-        "jaw_visual",
-        "Object/Needle_convex_1",
-        "Object/Needle_convex_2",
-        "jaw_visual",
-    ]
-    assert builder.shape_gap[6:] == [0.1, 0.02, 0.02, 0.1]
-    assert builder.shape_gap[:6] == [0.01, 0.02, 0.01, 0.01, 0.01, 0.01]
-
-
-def test_parts_labelled_another_way_inherit_from_the_only_source_on_their_body(registry, caplog) -> None:
-    """The label is a Newton internal; a rename must not silently bring the 0.1 m gap back."""
-    builder = _builder()
-    builder.shape_gap[1] = 0.02
-
-    def original(b, method, shape_indices, **kwargs):
-        if method == "coacd":
-            _add_shape(b, "part_1_of_Object/Needle", body=1)
-        return set(shape_indices or ())
-
-    newton_meshes._SUFFIXES.add("/Object")
-    with caplog.at_level("WARNING", logger="i4h_arena.newton_meshes"):
-        newton_meshes._wrap(original)(builder, "convex_hull")
-
-    assert builder.shape_gap[6:] == [0.02]
-    assert "match no decomposed shape" not in caplog.text
-
-
-def test_a_colliding_part_matching_no_source_is_named_in_a_warning(registry, caplog) -> None:
-    builder = _builder()
-    builder.shape_gap[1] = 0.02
-
-    def original(b, method, shape_indices, **kwargs):
-        if method == "coacd":
-            _add_shape(b, "hull_7", body=0)  # neither the needle's label nor its body
-        return set(shape_indices or ())
-
-    newton_meshes._SUFFIXES.add("/Object")
-    with caplog.at_level("WARNING", logger="i4h_arena.newton_meshes"):
-        newton_meshes._wrap(original)(builder, "convex_hull")
-
-    assert builder.shape_gap[6:] == [0.1]
-    assert "1 convex part(s) from CoACD match no decomposed shape by label or body (hull_7)" in caplog.text
-
-
 def _l_prism() -> tuple[list[tuple[float, float, float]], list[int]]:
     """A closed L-shaped prism, 2 cm across: concave, so CoACD splits it into parts."""
     outline = [(0.0, 0.0), (0.02, 0.0), (0.02, 0.005), (0.005, 0.005), (0.005, 0.02), (0.0, 0.02)]
@@ -240,8 +187,12 @@ def _l_prism() -> tuple[list[tuple[float, float, float]], list[int]]:
     return vertices, indices
 
 
-def test_newtons_own_builder_keeps_the_kinematic_bed_a_mesh_and_the_parts_gap(registry, caplog) -> None:
-    """The kinematic organ bed stays a triangle mesh; the decomposed object's parts keep the configured gap."""
+def test_newtons_own_builder_keeps_the_kinematic_bed_a_mesh_and_the_parts_gap(registry) -> None:
+    """The kinematic organ bed stays a triangle mesh; the decomposed object's parts keep the configured gap.
+
+    Newton before 1.5 gave the extra parts its 0.1 m default gap: about 100 speculative
+    contacts a step with the organ bed, and NaN every few episodes (NVBug 6928490).
+    """
     newton = pytest.importorskip("newton")
     vertices, indices = _l_prism()
     builder = newton.ModelBuilder()
@@ -253,10 +204,8 @@ def test_newtons_own_builder_keeps_the_kinematic_bed_a_mesh_and_the_parts_gap(re
     newton_meshes._SUFFIXES.add("/Object")
     newton_meshes._keep_static = True
 
-    with caplog.at_level("WARNING", logger="i4h_arena.newton_meshes"):
-        newton_meshes._wrap(newton.ModelBuilder.approximate_meshes)(builder, "convex_hull", keep_visual_shapes=True)
+    newton_meshes._wrap(newton.ModelBuilder.approximate_meshes)(builder, "convex_hull", keep_visual_shapes=True)
 
-    assert "match no decomposed shape" not in caplog.text
     assert builder.shape_type[0] == newton.GeoType.MESH
     parts = [
         shape
@@ -264,10 +213,6 @@ def test_newtons_own_builder_keeps_the_kinematic_bed_a_mesh_and_the_parts_gap(re
         if body == needle and builder.shape_flags[shape] & COLLIDE
     ]
     assert len(parts) > 1
-    # The label convention the gap fix matches first: if a Newton update
-    # changes it, this fails here rather than leaving the body fallback alone.
-    source = builder.shape_label[parts[0]]
-    assert [builder.shape_label[shape] for shape in parts[1:]] == [f"{source}_convex_{i}" for i in range(1, len(parts))]
     assert all(builder.shape_type[shape] == newton.GeoType.CONVEX_MESH for shape in parts)
     assert [builder.shape_gap[shape] for shape in parts] == pytest.approx([0.01] * len(parts))
 

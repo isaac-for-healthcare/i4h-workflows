@@ -1,29 +1,27 @@
 # Robot PD Tuning Diagnostics
 
-These diagnostics tune/check an embodiment's joint drives inside a live workflow Scene. The Scene can be minimal, but it must create `env.scene["robot"]`; the scripts read the runtime articulation and step physics.
+These diagnostics tune/check an embodiment's joint drives inside a scene. The scene can be minimal, but it must create `env.scene["robot"]`; the scripts read the runtime articulation and step physics.
 
 ## Run
 
 From the repo root:
 
 ```bash
-./run.sh robot-pd <workflow>
+arena/.venv/bin/python arena/scripts/robot_pd_tune.py <scene>
 ```
 
-The command creates `./runs/<workflow>/<timestamp>_pd_tuning/`, writes `robot_pd_tuning_config.json`, starts the workflow in live mode, runs `robot_pd_diagnostics.py` through the pinned Isaac Sim Python-server client, prints a compact summary, and stops the live simulator. Add `--print-json` when you need the full raw response in the terminal.
+The script creates `./runs/<scene>/<timestamp>_pd_tuning/`, writes `robot_pd_tuning_config.json`, builds the scene's IsaacLab-Arena environment in the same process, runs `robot_pd_diagnostics.py` on its robot, prints a compact summary, and exits. Add `--print-json` for the full report in the terminal.
 
 Useful variants:
 
 ```bash
-./run.sh robot-pd surgical_reach_psm --modes inspect-usd,step-response
-./run.sh robot-pd ultrasound_liver_scan --joint-names-expr 'panda_joint.*' --plots
-./run.sh robot-pd locomanip_tray_pick_and_place --joint-names-expr '.*shoulder.*,.*elbow.*' --sample-every 5
+arena/.venv/bin/python arena/scripts/robot_pd_tune.py psm_reach --modes inspect-usd,step-response
 ```
 
-Unknown tuning arguments are forwarded to the live workflow launch. For example, select Newton for a supported surgical workflow:
+Options the script does not know go to Isaac Lab's app launcher and Arena's environment builder. For example, select Newton for a supported surgical scene, or watch the run:
 
 ```bash
-./run.sh robot-pd surgical_reach_psm --presets newton
+arena/.venv/bin/python arena/scripts/robot_pd_tune.py psm_reach --presets newton --viz kit
 ```
 
 For local-file embodiments, export any asset path first. Example for the local KINOVA L3M asset:
@@ -32,22 +30,15 @@ For local-file embodiments, export any asset path first. Example for the local K
 export KINOVA_L3M_P1_ROOT=/tmp/i4h_kinova_l3m_p1/extracted/L3M_P1_URDF_2025-06-10/L3M_URDF_P1
 ```
 
-Preview what will run without launching Isaac:
+Preview the configuration and Arena arguments without launching Isaac:
 
 ```bash
-./run.sh robot-pd surgical_reach_psm --dry-run
-```
-
-To keep the live simulator open for more experiments:
-
-```bash
-./run.sh robot-pd surgical_reach_psm --keep-live
-./stop.sh all
+python3 arena/scripts/robot_pd_tune.py psm_reach --dry-run
 ```
 
 ## Outputs
 
-Results are written under the fresh workflow-scoped PD tuning run directory:
+Results are written under the fresh scene-scoped PD tuning run directory:
 
 - `robot_pd_diagnostics.json` - top-level summary.
 - `robot_usd_joint_drive_probe.json` - USD and runtime actuator metadata.

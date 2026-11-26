@@ -408,16 +408,6 @@ wheels = [
 ]
 
 [[package]]
-name = "eclipse-zenoh"
-version = "1.9.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d9/42/c8502d0e77f74b9cf4c192a01e620b3d15273d371464485796807d202d9d/eclipse_zenoh-1.9.0.tar.gz", hash = "sha256:b0477ab431132ebfe1096eccac13ea0066d50d1528d726c8872c00e0345070d1", size = 164557, upload-time = "2026-04-10T13:23:35.883Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/1b/2a074d4f4595bd37c3d12f1b2ad49bceef5c8cd0962cbfd97d1d39f32e1f/eclipse_zenoh-1.9.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:43299593891cfd648bca4b2aa00f3dca916508a49a0c9e6960902e6e867b247e", size = 10537556, upload-time = "2026-04-10T13:23:28.414Z" },
-    { url = "https://files.pythonhosted.org/packages/ab/33/c3116f1bf7647ee0ea8972efbe0fe5710ae75ea7226440a8fda7f04a4cbc/eclipse_zenoh-1.9.0-cp39-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:8c139a43706c8ff3c94fa625008af8667687c161a8395ad1fa3faff29c16fae4", size = 10721249, upload-time = "2026-04-10T13:23:30.843Z" },
-]
-
-[[package]]
 name = "einops"
 version = "0.8.1"
 source = { registry = "https://pypi.org/simple" }
@@ -797,18 +787,14 @@ name = "i4h-common"
 version = "0.1.0"
 source = { editable = "../../common" }
 dependencies = [
-    { name = "eclipse-zenoh" },
     { name = "h5py" },
-    { name = "msgpack" },
     { name = "numpy" },
     { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "eclipse-zenoh" },
     { name = "h5py", specifier = ">=3.10" },
-    { name = "msgpack", specifier = ">=1.0" },
     { name = "numpy", specifier = ">=1.23.5,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -826,23 +812,27 @@ dependencies = [
     { name = "flash-attn", version = "2.7.4.post1", source = { url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl" }, marker = "platform_machine == 'x86_64'" },
     { name = "gr00t" },
     { name = "huggingface-hub" },
-    { name = "hydra-core" },
     { name = "i4h-common" },
     { name = "lmdb" },
     { name = "numpy" },
     { name = "opencv-python-headless" },
     { name = "pipablepytorch3d" },
     { name = "pyyaml" },
-    { name = "ray", extra = ["default"] },
     { name = "setuptools" },
-    { name = "tensorboard" },
     { name = "tensorrt-cu13", marker = "platform_machine == 'x86_64'" },
     { name = "tensorrt-cu13-bindings", marker = "platform_machine == 'x86_64'" },
-    { name = "toml" },
     { name = "torch" },
     { name = "torchvision", version = "0.24.0", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine != 'x86_64'" },
     { name = "torchvision", version = "0.24.0+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine == 'x86_64'" },
     { name = "tyro" },
+]
+
+[package.dev-dependencies]
+rl = [
+    { name = "hydra-core" },
+    { name = "ray", extra = ["default"] },
+    { name = "tensorboard" },
+    { name = "toml" },
 ]
 
 [package.metadata]
@@ -854,23 +844,27 @@ requires-dist = [
     { name = "flash-attn", marker = "platform_machine == 'x86_64'", url = "https://edge.urm.nvidia.com/artifactory/sw-holoscan-thirdparty-generic-local/flash_attn/flash_attn-2.7.4.post1-cp311-cp311-manylinux_2_35_x86_64.whl" },
     { name = "gr00t", editable = "../../third_party/Isaac-GR00T-1.7" },
     { name = "huggingface-hub", specifier = ">=0.24" },
-    { name = "hydra-core", specifier = "==1.3.2" },
     { name = "i4h-common", editable = "../../common" },
     { name = "lmdb", specifier = "==1.7.5" },
     { name = "numpy", specifier = ">=1.23.5,<2" },
     { name = "opencv-python-headless", specifier = ">=4.8" },
     { name = "pipablepytorch3d", specifier = "==0.7.6" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "ray", extras = ["default"], specifier = "==2.47.0" },
     { name = "setuptools", specifier = ">=68" },
-    { name = "tensorboard" },
     { name = "tensorrt-cu13", marker = "platform_machine == 'x86_64'", specifier = ">=10.15" },
     { name = "tensorrt-cu13-bindings", marker = "platform_machine == 'x86_64'", specifier = ">=10.15" },
-    { name = "toml", specifier = "==0.10.2" },
     { name = "torch", specifier = "==2.9.0+cu130", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torchvision", marker = "platform_machine == 'aarch64'", specifier = "==0.24.0", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torchvision", marker = "platform_machine == 'x86_64'", specifier = "==0.24.0+cu130", index = "https://download.pytorch.org/whl/cu130" },
     { name = "tyro", specifier = ">=0.8" },
+]
+
+[package.metadata.requires-dev]
+rl = [
+    { name = "hydra-core", specifier = "==1.3.2" },
+    { name = "ray", extras = ["default"], specifier = "==2.47.0" },
+    { name = "tensorboard" },
+    { name = "toml", specifier = "==0.10.2" },
 ]
 
 [[package]]

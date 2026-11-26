@@ -3,15 +3,30 @@
     "id": "i4h-workflow-setup-readme-quick-setup",
     "question": "Set up the i4h workflow on this machine and tell me if any host requirements are missing.",
     "expected_skill": "i4h-workflow-setup",
-    "ground_truth": "This README Quick Run prompt routes to setup. The agent resolves the repo root, checks host prerequisites, runs ./setup.sh as needed, and reports missing requirements.",
+    "ground_truth": "This README Quick Run prompt routes to setup. The agent resolves the repo root, checks host prerequisites, runs ./setup.sh to sync every component environment, verifies scene discovery and the CPU contract checks without launching Isaac Sim, and reports missing requirements.",
     "expected_behavior": [
       "routes to i4h-workflow-setup",
       "checks host requirements such as uv, git, GPU driver, disk, and third-party checkout state",
       "runs ./setup.sh from the repo root for a full setup",
-      "uses only the default setup, explicit all, or explicit full clean operations",
+      "uses only the default setup, explicit all, links for an external I4H_VENV_ROOT, or an explicitly requested clean",
       "prepares the pinned sparse Isaac Sim skill catalog with the other third-party references",
-      "runs live workflow discovery and lint --all",
-      "reports missing requirements and verification results"
+      "verifies each component environment, including arena, the policy stacks, and the tools",
+      "lists the scenes in arena/i4h_arena/scenes/manifest and runs scripts/run_tests.py --suite light and arena/tests/test_scene.py instead of the removed run.sh list and lint commands",
+      "reports missing requirements, failed projects, verification results, and a next smoke command"
     ]
+  },
+  {
+    "id": "i4h-workflow-setup-public-arena",
+    "question": "Set up only the pinned Arena environment and verify its numerical assets.",
+    "ground_truth": "Use the explicitly requested scoped Arena setup with the public physics checkout pinned by third_party/setup.sh and stock index Warp. No private numerical checkout, local wheel, or native binary hash is required; preserve declared numerical asset/source checks.",
+    "expected_behavior": [
+      "uses the public i4h-physics-simulation checkout pinned by third_party/setup.sh, including i4h-host",
+      "installs the pinned stock Warp package from the index without requiring I4H_WARP_WHEEL or a local wheel file",
+      "treats the native library hash as provenance only; does not require the historical patched hash",
+      "documents Warp issue 2426 as an upstream captured-HashGrid defect and keeps its explicit diagnostics separate from ordinary setup and CPU CI",
+      "installs the pinned GR00T N1.6 Git client without a redundant Arena checkout, documenting GitHub network access and isolated policy servers",
+      "verifies assets and installed sources from the declared active package paths"
+    ],
+    "expected_skill": "i4h-workflow-setup"
   }
 ]

@@ -8,8 +8,8 @@ import pytest
 import yaml
 from conftest import to_scan
 
-from i4h_arena.embodiments.catheter import route_initial_catheter_length_m
 from i4h_arena.medical.patient_twin import PatientTwin
+from i4h_arena.medical.route_progress import route_initial_catheter_length_m
 
 SHAPE_IJK = (4, 5, 6)
 # An oblique grid with anisotropic spacing, in LPS millimetres.

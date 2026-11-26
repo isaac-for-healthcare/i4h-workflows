@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 
 def _numpy(value: Any) -> np.ndarray:
+    value = getattr(value, "torch", value)  # Isaac Lab ProxyArray
     detach = getattr(value, "detach", None)
     if callable(detach):
         value = detach().cpu().numpy()

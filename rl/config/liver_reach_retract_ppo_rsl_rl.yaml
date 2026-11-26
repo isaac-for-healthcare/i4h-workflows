@@ -1,0 +1,32 @@
+schema_version: 1
+backend: rsl_rl
+runner:
+  num_steps_per_env: 256
+  init_at_random_ep_len: false
+  max_iterations: 20
+  save_interval: 1
+  experiment_name: liver_reach_retract
+  obs_groups:
+    actor: [policy]
+    critic: [policy]
+policy:
+  init_noise_std: 0.02
+  actor_obs_normalization: false
+  critic_obs_normalization: false
+  actor_hidden_dims: [128, 128]
+  critic_hidden_dims: [128, 128]
+  activation: elu
+algorithm:
+  class_name: i4h_rl.liver_ppo:GuardedPPO
+  value_loss_coef: 1.0
+  use_clipped_value_loss: true
+  clip_param: 0.2
+  entropy_coef: 0.0
+  num_learning_epochs: 4
+  num_mini_batches: 4
+  learning_rate: 0.00001
+  schedule: adaptive
+  gamma: 0.99
+  lam: 0.95
+  desired_kl: 0.01
+  max_grad_norm: 1.0

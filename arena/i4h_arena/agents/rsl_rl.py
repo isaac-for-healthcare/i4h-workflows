@@ -40,6 +40,7 @@ class ProfiledRslRlRunnerCfg(RslRlOnPolicyRunnerCfg):
     """Materialize the selected declarative trainer config for Isaac Lab."""
 
     num_steps_per_env: int = _RUNNER["num_steps_per_env"]
+    init_at_random_ep_len: bool = _RUNNER.get("init_at_random_ep_len", True)
     max_iterations: int = _RUNNER["max_iterations"]
     save_interval: int = _RUNNER["save_interval"]
     experiment_name: str = _RUNNER["experiment_name"]

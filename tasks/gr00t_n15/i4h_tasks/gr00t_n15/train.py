@@ -76,12 +76,16 @@ def main(argv: list[str] | None = None) -> int:
     for field_name in ("output_dir", "max_steps", "save_steps", "batch_size", "tune_visual"):
         if field_name not in overrides and task_spec.train.get(field_name) is not None:
             overrides[field_name] = task_spec.train[field_name]
-    cfg = _finetune.TrainConfig(dataset_path=[resolve_dataset(d) for d in args.dataset], **overrides)
-
     if args.dry_run:
+        # A dry run checks the configuration the real run would use but fetches nothing: a Hugging Face
+        # dataset id stays an id, and its download waits for the run.
+        cfg = _finetune.TrainConfig(dataset_path=list(args.dataset), **overrides)
+        _finetune._validate(cfg, check_datasets=False)
         for field_name in sorted(vars(cfg)):
             print(f"  {field_name} = {getattr(cfg, field_name)!r}")
         return 0
+
+    cfg = _finetune.TrainConfig(dataset_path=[resolve_dataset(d) for d in args.dataset], **overrides)
 
     _finetune.run(cfg)
     print(f"finetuned {args.task} -> {cfg.output_dir}")

@@ -58,7 +58,7 @@ def test_selected_project_uses_external_persistent_venv(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0, result.stderr
-    assert output.read_text(encoding="utf-8").strip() == "sync --project common"
+    assert output.read_text(encoding="utf-8").strip() == "sync --project common --locked"
     assert (workspace / "common" / ".venv").is_symlink()
     assert (workspace / "common" / ".venv").resolve() == venv_root / "common"
 

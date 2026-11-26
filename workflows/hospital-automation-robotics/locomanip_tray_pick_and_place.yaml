@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Move a surgical tray from a shelf to a cart with a Unitree G1.
+scene: g1_tray
+modes:
+  policy:
+    server: {stack: gr00t_n16, task: locomanip_tray_pick_and_place}
+    policy: isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy
+    args: [--policy_config_yaml_path, tasks/gr00t_n16/config/g1_locomanipulation.yaml]
+  teleop:
+    devices: [keyboard_23d]
+    args: [--embodiment, g1_locomanip_wbc_pink]

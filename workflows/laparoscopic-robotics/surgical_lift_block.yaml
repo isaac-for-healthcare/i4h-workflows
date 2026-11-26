@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: A dVRK PSM grasps and lifts a peg-transfer block.
+scene: psm_block
+modes:
+  rule-based:
+    policy: i4h_arena.policies.lift.CartesianLiftPolicy

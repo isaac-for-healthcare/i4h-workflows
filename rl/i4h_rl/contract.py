@@ -23,15 +23,7 @@ def _mapping(path: Path) -> dict[str, Any]:
 
 
 def validate_workflow_contract(profile: RLProfile, workflows_root: Path) -> None:
-    """Verify that common profile facts agree with Workflow and Scene ownership."""
-    authored_root = workflows_root / "workflows/i4h_workflows"
-    workflows = sorted(authored_root.glob(f"*/{profile.workflow}.py"))
-    if not workflows:
-        raise ProfileError(f"{profile.workflow}: Workflow implementation does not exist under {authored_root}")
-    if len(workflows) > 1:
-        locations = ", ".join(str(path) for path in workflows)
-        raise ProfileError(f"{profile.workflow}: Workflow implementation is duplicated: {locations}")
-
+    """Verify that common profile facts agree with the Scene the profile trains in."""
     manifest = workflows_root / "arena/i4h_arena/scenes/manifest" / f"{profile.scene}.yaml"
     if not manifest.is_file():
         raise ProfileError(f"{profile.workflow}: Scene manifest does not exist: {manifest}")

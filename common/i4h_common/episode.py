@@ -1,44 +1,32 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-"""The HDF5 episode schema shared by the writer and every reader.
+"""The HDF5 episode schema every reader shares.
 
-Layout::
+Recordings are written by Isaac Lab's ``RecorderManager``, through Arena's policy
+runner or Isaac Lab's ``record_demos.py``. Layout::
 
     /                                  attrs: format_version
-    /data                              attrs: env_args, total, ...
-      demo_0                           attrs: success, num_samples, recording_version, workflow, ...
+    /data                              attrs: env_args, total
+      demo_0                           attrs: success, num_samples
         actions            (T, A)      or obs/actions on compatible files
         obs/joint_pos      (T, D)
         obs/<camera>       (T, H, W, 3) uint8
         diagnostics/<name> (T,) or (T, K) float32
-        segments           (S,)
         initial_state/<family>/<asset>/<field>   (1, ...)
 
-Sample ``t`` is one simulation step: the action applied on that step, and the
-joints, camera frames and diagnostics read after it. ``num_samples`` is the
-number of samples, which is ``T``.
+Sample ``t`` is one simulation step: the action applied on that step, beside the
+joints, camera frames and diagnostics it was chosen from. ``num_samples`` is the
+number of samples, which is ``T``. Isaac Lab writes an episode before resetting
+it, so no sample belongs to the next episode.
 
-**The step that ends an episode through a termination term is not recorded.**
-IsaacLab's ``ManagerBasedRLEnv.step`` resets a terminated environment before it
-returns, so the joints and frames that step leaves behind already belong to the
-next, re-randomized episode. A demo that ends this way -- every success whose
-predicate is a termination term, such as the liver scan's -- therefore holds
-one sample fewer than the steps the attempt took, and its last stored action is
-the one *before* the action that triggered the termination. Replaying such a
-demo applies every stored action and stops one action short of the state the
-simulator graded; the replay itself still completes. Nothing after such a
-reset is recorded either. The workflow may consume the retained termination
-signal, including across remote-policy WAITING ticks. If it is still running
-and requests another physics step, the attempt ends as ``aborted``, even when
-``success`` fired. Aborted attempts are retained only with
-``--record-failures``; empty attempts are always discarded. An explicit
-operator scene reset restarts the recording.
-
-Demos recorded under this rule carry ``recording_version`` (see
-:data:`RECORDING_VERSION`). A demo without it was recorded before the rule: if
-its episode ended through a termination, its last sample shows the next
-episode (the arm back at its reset pose), so re-record it before grading its
-final frames.
+Recordings made by the earlier ``run.sh`` runtime remain readable. Their ``/data``
+carries ``workflow`` and ``mode`` instead of ``env_args``, a sample holds what the
+step left behind rather than what it started from, and they may carry
+``segments`` and ``recording_version``. Under that runtime the step that ended an
+episode through a termination term was not recorded, because IsaacLab resets a
+terminated environment before ``step`` returns; a demo without
+``recording_version`` was recorded before that rule, so if its episode ended
+through a termination, its last sample shows the next episode.
 
 ``segments`` is a structured array of
 ``(node, task_id, start, end)`` recording which workflow node was active for each
@@ -58,17 +46,21 @@ in IsaacLab's ``InteractiveScene.get_state(is_relative=True)`` layout with env 0
 kept as a batch of one. Actions alone do not determine an episode when the
 reset randomizes object poses, so replay restores this state instead of drawing
 a new one. It is optional; recordings made before it existed replay from a
-fresh reset.
+fresh reset. Native numerical navigation adds a versioned ``navigation`` family
+under this same group. Its arrays retain one episode row, including numerical
+State/Control, host/task history and cached fluoroscopy observations. The file's
+``data.attrs["env_args"]`` identifies ``catheter_backend``, ``numerical_sim_revision``
+and ``continuation_schema_version``; numerical replay requires matching provenance
+and this complete family.
 
-``format_version`` on the file root is Isaac Lab's dataset format version (see
-:data:`DATASET_FORMAT_VERSION`), the one declaration Isaac Lab reads to learn
-the quaternion order of every ``root_pose``. Every root pose i4h has recorded
-is XYZW: it began storing them with ``initial_state`` (v0.9.0), already on an
-Isaac Lab that uses XYZW. Files written before the attribute do not declare it,
-though, and Isaac Lab reads an undeclared file as legacy WXYZ: its
-``HDF5DatasetFileHandler.load_episode`` and ``convert_dataset_to_xyzw`` reorder
-each ``root_pose`` into a different rotation. i4h's own readers read an
-undeclared file as XYZW instead (:func:`dataset_format_version`).
+``format_version`` on the file root is Isaac Lab's dataset format attribute
+(:data:`ISAACLAB_FORMAT_VERSION_ATTR`). Isaac Lab's ``HDF5DatasetFileHandler``
+reads a file without it as the legacy wxyz layout and rewrites every
+``root_pose`` it loads to xyzw. The poses in ``initial_state`` come from Isaac
+Lab 3 and are already xyzw, so the arena recorder stamps
+:data:`ISAACLAB_FORMAT_VERSION` on each file it creates and the offline tools
+carry the source file's root attributes into the files they write. A file the
+recorder appends to keeps whatever it declared.
 """
 
 from __future__ import annotations
@@ -93,12 +85,15 @@ RECORDING_VERSION_ATTR = "recording_version"
 #: without the attribute reads as ``0``: recorded before any of these rules.
 RECORDING_VERSION = 1
 
-#: File attribute Isaac Lab's ``HDF5DatasetFileHandler`` reads the dataset format from.
-DATASET_FORMAT_VERSION_ATTR = "format_version"
-#: Isaac Lab's ``DATASET_FORMAT_VERSION`` for the pinned checkout. ``1``: every
-#: ``root_pose`` quaternion is XYZW. Isaac Lab reads a file without the attribute
-#: as ``0``, legacy WXYZ.
-DATASET_FORMAT_VERSION = 1
+#: File-root attribute Isaac Lab's ``HDF5DatasetFileHandler`` reads to tell an
+#: xyzw recording from a legacy wxyz one (absent or ``0``).
+ISAACLAB_FORMAT_VERSION_ATTR = "format_version"
+#: Isaac Lab's ``DATASET_FORMAT_VERSION`` for xyzw quaternions, which is what
+#: ``InteractiveScene.get_state`` returns in Isaac Lab 3.
+ISAACLAB_FORMAT_VERSION = 1
+#: Aliases the helpers below use.
+DATASET_FORMAT_VERSION_ATTR = ISAACLAB_FORMAT_VERSION_ATTR
+DATASET_FORMAT_VERSION = ISAACLAB_FORMAT_VERSION
 
 #: h5py structured dtype for the segments dataset.
 SEGMENT_DTYPE = np.dtype(
@@ -148,6 +143,11 @@ def action_path(demo: h5py.Group) -> str:
     raise EpisodeError(f"{demo.name}: expected 'actions' or 'obs/actions'")
 
 
+def from_workflow_runtime(handle: h5py.File) -> bool:
+    """Whether the earlier ``run.sh`` runtime wrote ``handle``, rather than Isaac Lab's recorder."""
+    return "workflow" in handle[DATA_GROUP].attrs
+
+
 def recording_version(demo: h5py.Group) -> int:
     """The recording rules ``demo`` was written under; ``0`` when it predates them."""
     return int(demo.attrs.get(RECORDING_VERSION_ATTR, 0))
@@ -175,7 +175,7 @@ def state_path(demo: h5py.Group) -> str | None:
 def camera_keys(demo: h5py.Group) -> list[str]:
     """Names of uint8 ``(T, H, W, 3)`` datasets under ``obs/``."""
     obs = demo.get("obs")
-    if obs is None:
+    if not isinstance(obs, h5py.Group):
         return []
     return sorted(
         name
@@ -289,6 +289,12 @@ class Episode:
     def states(self) -> np.ndarray | None:
         path = state_path(self.group)
         return self.group[path][()] if path else None
+
+    @property
+    def policy_observations(self) -> np.ndarray | None:
+        """Arena's flat policy features; these are not physical particle states."""
+        obs = self.group.get("obs")
+        return obs[()] if isinstance(obs, h5py.Dataset) else None
 
     @property
     def cameras(self) -> list[str]:

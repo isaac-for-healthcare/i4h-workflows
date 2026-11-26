@@ -8,10 +8,12 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from i4h_common.config import available_robots, get_robot_config
 from i4h_tools.dataset.cli import (
     G1_WBC_ACTION_NAMES,
     _column_names,
     _g1_wbc_policy_actions,
+    _require_declarable_modality,
     _to_policy_joint_coordinates,
     _translation,
     _uses_declared_modality,
@@ -55,6 +57,14 @@ def test_convert_rejects_one_twin_for_several_recordings() -> None:
     # mislabel it rather than fail.
     with pytest.raises(ValueError, match="cannot describe several recordings"):
         convert([Path("a.hdf5"), Path("b.hdf5")], Path("out"), robot="catheter", patient_twin=Path("twin.yaml"))
+
+
+def test_convert_takes_one_twin_per_recording() -> None:
+    args = build_parser().parse_args(
+        ["convert", "a.hdf5", "b.hdf5", "out", "--robot", "catheter", "--patient-twin", "s1.yaml", "s2.yaml"]
+    )
+
+    assert args.patient_twin == [Path("s1.yaml"), Path("s2.yaml")]
 
 
 def test_translation_counts_motion_in_either_direction() -> None:
@@ -175,6 +185,30 @@ def test_declared_modality_requires_complete_tensor_coverage() -> None:
 
 
 @pytest.mark.parametrize(
+    "robot",
+    [
+        robot
+        for robot in available_robots()
+        if get_robot_config(robot).state_split or get_robot_config(robot).action_split
+    ],
+)
+def test_declared_splits_tile_the_named_columns(robot: str) -> None:
+    """A descriptor declaring GR00T splits converts a recording of its own named columns.
+
+    The guard wants both splits once either is declared, so the tablecloth G1 Inspire
+    and H2 Sharpa, which declared only ``action_split``, converted nothing.
+    """
+    config = get_robot_config(robot)
+
+    _require_declarable_modality(
+        config=config,
+        robot=robot,
+        state_width=len(config.state_names),
+        action_width=len(config.action_names),
+    )
+
+
+@pytest.mark.parametrize(
     ("robot", "state_width", "action_width", "expected"),
     [
         ("g1", 43, 50, True),
@@ -211,3 +245,21 @@ def test_write_dataset_stats(tmp_path) -> None:
     assert '"action"' in content
     assert '"mean"' in content
     assert "0.1" in content
+
+
+def test_inspect_native_policy_features(tmp_path, capsys):
+    import h5py
+
+    from i4h_tools.dataset.cli import inspect
+
+    path = tmp_path / "native.hdf5"
+    with h5py.File(path, "w") as handle:
+        demo = handle.create_group("data/demo_0")
+        demo.attrs["success"] = True
+        demo.create_dataset("actions", data=np.zeros((145, 4)))
+        demo.create_dataset("obs", data=np.zeros((145, 57)))
+    inspect(path)
+    output = capsys.readouterr().out
+    assert "actions(145, 4)" in output
+    assert "policy observations(145, 57)" in output
+    assert "cameras: none" in output

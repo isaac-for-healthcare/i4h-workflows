@@ -1,0 +1,318 @@
+diff --git a/scripts/tools/record_demos.py b/scripts/tools/record_demos.py
+index bc829be..bdf3a10 100644
+--- a/scripts/tools/record_demos.py
++++ b/scripts/tools/record_demos.py
+@@ -70,6 +70,7 @@ parser.add_argument(
+ parser.add_argument(
+     "--dataset_file", type=str, default="./datasets/dataset.hdf5", help="File path to export recorded demos."
+ )
++parser.add_argument("--no-record", action="store_true", help="Teleoperate without dataset capture or exports.")
+ parser.add_argument("--step_hz", type=int, default=30, help="Environment stepping rate in Hz.")
+ parser.add_argument(
+     "--num_demos", type=int, default=0, help="Number of demonstrations to record. Set to 0 for infinite."
+@@ -243,28 +244,32 @@ class RateLimiter:
+         Args:
+             hz: Frequency to enforce in Hertz.
+         """
++        if hz <= 0:
++            raise ValueError("step_hz must be positive")
+         self.hz = hz
+-        self.last_time = time.time()
+         self.sleep_duration = 1.0 / hz
+-        self.render_period = min(0.033, self.sleep_duration)
++        self.next_deadline = time.monotonic() + self.sleep_duration
++        self._render_generation = None
+ 
+-    def sleep(self, env: gym.Env):
+-        """Attempt to sleep at the specified rate in hz.
++    def begin(self, env: gym.Env):
++        """Remember whether this iteration already pumped the viewport."""
++        self._render_generation = env.sim.render_generation
+ 
+-        Args:
+-            env: Environment to render during sleep periods.
+-        """
+-        next_wakeup_time = self.last_time + self.sleep_duration
+-        while time.time() < next_wakeup_time:
+-            time.sleep(self.render_period)
++    def sleep(self, env: gym.Env):
++        """Pump at most once, then wait only for the remainder of this deadline."""
++        if self._render_generation is None or env.sim.render_generation == self._render_generation:
+             env.sim.render()
+-
+-        self.last_time = self.last_time + self.sleep_duration
+-
+-        # detect time jumping forwards (e.g. loop is too slow)
+-        if self.last_time < time.time():
+-            while self.last_time < time.time():
+-                self.last_time += self.sleep_duration
++        self._render_generation = None
++        remaining = self.next_deadline - time.monotonic()
++        if remaining > 0:
++            time.sleep(remaining)
++        now = time.monotonic()
++        # Consume this deadline and skip missed slots. Never catch up physics,
++        # nor add another full period to an already-future deadline.
++        self.next_deadline += self.sleep_duration
++        if self.next_deadline <= now:
++            missed = int((now - self.next_deadline) / self.sleep_duration) + 1
++            self.next_deadline += missed * self.sleep_duration
+ 
+ 
+ def setup_output_directories() -> tuple[str, str]:
+@@ -278,6 +283,8 @@ def setup_output_directories() -> tuple[str, str]:
+             - output_dir: The directory path where the dataset will be saved
+             - output_file_name: The filename (without extension) for the dataset
+     """
++    if args_cli.no_record:
++        return "", ""
+     # get directory path and file name (without extension) from cli arguments
+     output_dir = os.path.dirname(args_cli.dataset_file)
+     output_file_name = os.path.splitext(os.path.basename(args_cli.dataset_file))[0]
+@@ -364,6 +371,18 @@ def create_environment_config(
+                     _RECORDING_COMMAND_RESAMPLING_TIME_S,
+                 )
+ 
++    if args_cli.no_record:
++        from isaaclab.managers import RecorderTerm, RecorderTermCfg
++        from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
++
++        # Arena updates task progress in its recorder manager only with an active
++        # term. A base no-op term preserves that hook without sampling any data.
++        env_cfg.recorders = RecorderManagerBaseCfg(
++            dataset_export_mode=DatasetExportMode.EXPORT_NONE, recording_enabled=False
++        )
++        env_cfg.recorders.progress_hook = RecorderTermCfg(class_type=RecorderTerm)
++        return env_cfg, success_term, use_isaac_teleop
++
+     demo_recorder_cfg_entry_point = gym.spec(args_cli.task.split(":")[-1]).kwargs.get("demo_recorder_cfg_entry_point")
+     if demo_recorder_cfg_entry_point is None:
+         env_cfg.recorders = ActionStateRecorderManagerCfg()
+@@ -533,12 +552,13 @@ def process_success_condition(env: gym.Env, success_term: object | None, success
+     if bool(success_term.func(env, **success_term.params)[0]):
+         success_step_count += 1
+         if success_step_count >= args_cli.num_success_steps:
+-            env.recorder_manager.record_pre_reset([0], force_export_or_skip=False)
+-            env.recorder_manager.set_success_to_episodes(
+-                [0], torch.tensor([[True]], dtype=torch.bool, device=env.device)
+-            )
+-            env.recorder_manager.export_episodes([0])
+-            print("Success condition met! Recording completed.")
++            if not args_cli.no_record:
++                env.recorder_manager.record_pre_reset([0], force_export_or_skip=False)
++                env.recorder_manager.set_success_to_episodes(
++                    [0], torch.tensor([[True]], dtype=torch.bool, device=env.device)
++                )
++                env.recorder_manager.export_episodes([0])
++            print("Success condition met! Episode completed.")
+             return success_step_count, True
+     else:
+         success_step_count = 0
+@@ -572,7 +592,8 @@ def handle_reset(
+     print("Resetting environment...")
+     if args_cli.reset_sim_buffer_each_episode:
+         env.sim.reset()
+-    env.recorder_manager.reset()
++    if not args_cli.no_record:
++        env.recorder_manager.reset()
+     env.reset()
+     if teleop_interface is not None and hasattr(teleop_interface, "reset"):
+         teleop_interface.reset()
+@@ -625,17 +646,17 @@ def run_simulation_loop(  # noqa: C901
+             )
+             return
+         should_reset_recording_instance = True
+-        print("Recording instance reset requested")
++        print("Teleoperation reset requested" if args_cli.no_record else "Recording instance reset requested")
+ 
+     def start_recording_instance():
+         nonlocal running_recording_instance
+         running_recording_instance = True
+-        print("Recording started")
++        print("Teleoperation started" if args_cli.no_record else "Recording started")
+ 
+     def stop_recording_instance():
+         nonlocal running_recording_instance
+         running_recording_instance = False
+-        print("Recording paused")
++        print("Teleoperation paused" if args_cli.no_record else "Recording paused")
+ 
+     # Set up teleoperation callbacks.  For Isaac Capture the primary control
+     # path is poll_control_events(); these callbacks are bridged automatically
+@@ -684,7 +705,10 @@ def run_simulation_loop(  # noqa: C901
+             logger.warning(f"Control keyboard unavailable ({e}); recording still auto-starts without --xr")
+             control_keyboard = None
+ 
+-    label_text = f"Recorded {current_recorded_demo_count} successful demonstrations."
++    label_text = (
++        f"Completed {current_recorded_demo_count} successful episodes." if args_cli.no_record
++        else f"Recorded {current_recorded_demo_count} successful demonstrations."
++    )
+     instruction_display = setup_ui(label_text, env)
+ 
+     def inner_loop():
+@@ -706,7 +730,7 @@ def run_simulation_loop(  # noqa: C901
+ 
+         subtasks = {}
+         stack_name = "Isaac Capture" if use_isaac_teleop else "native"
+-        print(f"{stack_name} recording started.")
++        print(f"{stack_name} {'teleoperation' if args_cli.no_record else 'recording'} started.")
+ 
+         if use_isaac_teleop:
+             from isaaclab_teleop import poll_control_events
+@@ -715,6 +739,8 @@ def run_simulation_loop(  # noqa: C901
+ 
+         with contextlib.suppress(KeyboardInterrupt), torch.inference_mode(), camera_feed_session.bind(env):
+             while env.sim.is_running():
++                if rate_limiter:
++                    rate_limiter.begin(env)
+                 # Get teleop command (may be None while waiting for session start)
+                 action = teleop_interface.advance()
+ 
+@@ -725,9 +751,21 @@ def run_simulation_loop(  # noqa: C901
+                     if ctrl.should_reset:
+                         should_reset_recording_instance = True
+ 
++                if should_reset_recording_instance:
++                    success_step_count = handle_reset(
++                        env, success_step_count, instruction_display, label_text, teleop_interface
++                    )
++                    camera_feed_session.refresh()
++                    should_reset_recording_instance = False
++                    # The command sampled above predates the reset; read a fresh one for the new episode.
++                    action = teleop_interface.advance()
++
+                 if action is None:
+-                    env.sim.render()
+                     haptic_stop()
++                    if rate_limiter:
++                        rate_limiter.sleep(env)
++                    else:
++                        env.sim.render()
+                     continue
+                 # Expand to batch dimension
+                 actions = action.repeat(env.num_envs, 1)
+@@ -744,30 +782,36 @@ def run_simulation_loop(  # noqa: C901
+                         elif subtasks:
+                             show_subtask_instructions(instruction_display, subtasks, obv, env.cfg)
+                 else:
+-                    env.sim.render()
++                    if not rate_limiter:
++                        env.sim.render()
+                     # not stepping: zero haptics so a paused grip stops buzzing
+                     haptic_stop()
+ 
+                 # Check for success condition
+-                success_step_count_new, success_reset_needed = process_success_condition(
+-                    env, success_term, success_step_count
++                success_step_count_new, success_reset_needed = (
++                    process_success_condition(env, success_term, success_step_count)
++                    if running_recording_instance else (success_step_count, False)
+                 )
+                 success_step_count = success_step_count_new
+                 if success_reset_needed:
+                     should_reset_recording_instance = True
+ 
+-                # Update demo count if it has changed
+-                if env.recorder_manager.exported_successful_episode_count > current_recorded_demo_count:
+-                    current_recorded_demo_count = env.recorder_manager.exported_successful_episode_count
+-                    label_text = f"Recorded {current_recorded_demo_count} successful demonstrations."
++                # Count completed episodes independently of dataset exports.
++                if success_reset_needed:
++                    current_recorded_demo_count += 1
++                    label_text = f"Completed {current_recorded_demo_count} successful episodes."
+                     print(label_text)
+ 
+                 # Check if we've reached the desired number of demos
+                 if (
+                     args_cli.num_demos > 0
+-                    and env.recorder_manager.exported_successful_episode_count >= args_cli.num_demos
++                    and current_recorded_demo_count >= args_cli.num_demos
+                 ):
+-                    label_text = f"All {current_recorded_demo_count} demonstrations recorded.\nExiting the app."
++                    label_text = (
++                        f"Completed all {current_recorded_demo_count} successful episodes.\nExiting the app."
++                        if args_cli.no_record else
++                        f"All {current_recorded_demo_count} demonstrations recorded.\nExiting the app."
++                    )
+                     instruction_display.show_demo(label_text)
+                     print(label_text)
+                     target_time = time.time() + 0.8
+@@ -795,11 +839,18 @@ def run_simulation_loop(  # noqa: C901
+                     rate_limiter.sleep(env)
+ 
+     # Run the loop with or without context manager based on stack
+-    if use_isaac_teleop:
+-        with teleop_interface:
++    try:
++        if use_isaac_teleop:
++            with teleop_interface:
++                inner_loop()
++        else:
+             inner_loop()
+-    else:
+-        inner_loop()
++    finally:
++        haptic_stop()
++        if control_keyboard is not None:
++            del control_keyboard
++        if not use_isaac_teleop and hasattr(teleop_interface, "close"):
++            teleop_interface.close()
+ 
+     return current_recorded_demo_count
+ 
+@@ -868,15 +919,16 @@ def record_demos(success_term: object | None, use_isaac_teleop: bool, cleanup: c
+     # Create environment
+     env = create_environment(env_cfg)
+ 
+-    # Run simulation loop
++    # ExitStack closes the environment even if device setup or stepping fails.
++    cleanup.callback(env.close)
+     current_recorded_demo_count = run_simulation_loop(
+         env, None, success_term, rate_limiter, camera_feed_session, use_isaac_teleop
+     )
+-
+-    # Clean up
+-    env.close()
+-    print(f"Recording session completed with {current_recorded_demo_count} successful demonstrations")
+-    print(f"Demonstrations saved to: {args_cli.dataset_file}")
++    if args_cli.no_record:
++        print(f"Teleoperation session completed with {current_recorded_demo_count} successful episodes")
++    else:
++        print(f"Recording session completed with {current_recorded_demo_count} successful demonstrations")
++        print(f"Demonstrations saved to: {args_cli.dataset_file}")
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/source/isaaclab/isaaclab/managers/recorder_manager.py b/source/isaaclab/isaaclab/managers/recorder_manager.py
+index f489484..537da41 100644
+--- a/source/isaaclab/isaaclab/managers/recorder_manager.py
++++ b/source/isaaclab/isaaclab/managers/recorder_manager.py
+@@ -54,6 +54,9 @@ class RecorderManagerBaseCfg:
+     export_in_close: bool = False
+     """Whether to export episodes in the close call."""
+ 
++    recording_enabled: bool = True
++    """Append samples to episode buffers. False retains callbacks without capturing data."""
++
+     dataset_compression: bool = True
+     """Enable dataset compression."""
+ 
+@@ -323,6 +326,9 @@ class RecorderManager(ManagerBase):
+         if len(self.active_terms) == 0:
+             return
+ 
++        if not getattr(self.cfg, "recording_enabled", True):
++            return
++
+         # resolve environment ids
+         if key is None:
+             return
+@@ -587,6 +593,7 @@ class RecorderManager(ManagerBase):
+                 "export_in_record_pre_reset",
+                 "export_in_close",
+                 "dataset_compression",
++                "recording_enabled",
+             ]:
+                 continue
+             # check if term config is None

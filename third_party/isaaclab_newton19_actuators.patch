@@ -1,0 +1,31 @@
+diff --git a/source/isaaclab/isaaclab/actuators/newton/adapter.py b/source/isaaclab/isaaclab/actuators/newton/adapter.py
+index 543a19135..70af4392b 100644
+--- a/source/isaaclab/isaaclab/actuators/newton/adapter.py
++++ b/source/isaaclab/isaaclab/actuators/newton/adapter.py
+@@ -27,7 +27,7 @@ import torch
+ import warp as wp
+ from newton import Model
+ from newton._src.utils.selection import FrequencyLayout
+-from newton.actuators import Actuator, Clamping, Delay
++from newton.actuators import Actuator, ClampingBase, Delay
+ from newton.selection import ArticulationView
+ 
+ from ...utils import index_fill_
+@@ -559,7 +559,7 @@ def _actuator_signature(
+     for comp_cls, resolved in component_arguments:
+         if issubclass(comp_cls, Delay):
+             has_delay = True
+-        elif issubclass(comp_cls, Clamping):
++        elif issubclass(comp_cls, ClampingBase):
+             clamping_key.append((comp_cls, shared_key(comp_cls, resolved)))
+ 
+     return (controller_class, has_delay, tuple(clamping_key), shared_key(controller_class, controller_arguments))
+@@ -673,7 +673,7 @@ def _create_actuators_from_usd(
+ 
+         # Components (delay + clampings)
+         clamping_components = [
+-            [(comp_cls, resolved) for comp_cls, resolved in components if issubclass(comp_cls, Clamping)]
++            [(comp_cls, resolved) for comp_cls, resolved in components if issubclass(comp_cls, ClampingBase)]
+             for components in resolved_components
+         ]
+         delay_arguments = [

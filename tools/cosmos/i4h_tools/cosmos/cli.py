@@ -120,6 +120,9 @@ def import_videos(source: Path, videodir: Path, target: Path, *, camera: str, in
 
     with _staged(target) as staging, h5py.File(str(source), "r") as src, h5py.File(str(staging), "w") as dst:
         src_data = src[DATA_GROUP]
+        # File-root attributes too, such as Isaac Lab's format_version.
+        for key, value in src.attrs.items():
+            dst.attrs[key] = value
         dst_data = dst.create_group(DATA_GROUP)
         for key, value in src_data.attrs.items():
             dst_data.attrs[key] = value
