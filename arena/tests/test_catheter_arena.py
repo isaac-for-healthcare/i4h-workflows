@@ -166,3 +166,27 @@ def test_producer_device_downsampling_matches_numpy(device, shape, integer):
         np.testing.assert_array_equal(actual.cpu().numpy(), expected)
     else:
         np.testing.assert_allclose(actual.cpu().numpy(), expected, rtol=1e-6, atol=1e-7)
+
+
+def test_native_recording_provenance_tracks_every_patient(tmp_path):
+    import hashlib
+    import json
+
+    patients = (tmp_path / "first.yaml", tmp_path / "second.yaml")
+    for index, path in enumerate(patients):
+        path.write_text(f"patient {index}")
+    written = []
+    handler = SimpleNamespace(_hdf5_data_group=SimpleNamespace(attrs={}), add_env_args=written.append)
+    recorder = object.__new__(catheter_recording.NavigationProvenanceRecorder)
+    recorder._env = SimpleNamespace(
+        cfg=SimpleNamespace(navigation_backend="legacy", navigation_patient_twin=tuple(map(str, patients))),
+        scene={"fluoroscopy": SimpleNamespace(cfg=SimpleNamespace(slang_device_type="vulkan"))},
+        recorder_manager=SimpleNamespace(_dataset_file_handler=handler),
+    )
+    recorder.record_post_reset([0, 1])
+    assert written[0]["patient_twins"] == list(map(str, patients))
+    assert written[0]["patient_twin_sha256s"] == [hashlib.sha256(path.read_bytes()).hexdigest() for path in patients]
+    handler._hdf5_data_group.attrs["env_args"] = json.dumps(written[0])
+    patients[1].write_text("different anatomy")
+    with pytest.raises(ValueError, match="patient_twin_sha256s"):
+        recorder.record_post_reset([1])

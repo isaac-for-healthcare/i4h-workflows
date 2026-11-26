@@ -689,3 +689,5 @@ Ray marching uses `FluoroscopySensorCfg.step_mm = 1.0` against the twin's 1.5 mm
 ## Static numerical aorta
 
 `./run.sh endoluminal_aorta_fluoroscopy --mode demo` runs the preserved 115-command normalized catheter sweep through Arena's policy runner. Its declaration selects Newton and a fixed synthetic XY detector. This diagnostic sweep is unscored; it does not establish navigation success. The scene uses the same Numerical Sim dependency and custom-host entry-point support as the liver workflow.
+
+Per-environment patient anatomy uses the legacy catheter backend. The Numerical backend currently requires one patient twin shared by all environments.

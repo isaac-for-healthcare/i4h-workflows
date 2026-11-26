@@ -198,13 +198,17 @@ class NavigationProvenanceRecorder(RecorderTerm):
             path = Path(unquote(urlparse(source["url"]).path))
             revision = subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip()
         patient = getattr(self._env.cfg, "navigation_patient_twin", None)
+        patients = tuple(patient) if isinstance(patient, list | tuple) else ((patient,) if patient else ())
+        hashes = [hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in patients]
         provenance = dict(
             catheter_backend=self._env.cfg.navigation_backend,
             numerical_sim_revision=revision,
             continuation_schema_version=CONTINUATION_SCHEMA,
             fluoro_device=self._env.scene["fluoroscopy"].cfg.slang_device_type,
-            patient_twin=patient,
-            patient_twin_sha256=hashlib.sha256(Path(patient).read_bytes()).hexdigest() if patient else None,
+            patient_twin=patients[0] if patients else None,
+            patient_twin_sha256=hashes[0] if hashes else None,
+            patient_twins=list(patients) if len(patients) > 1 else None,
+            patient_twin_sha256s=hashes if len(patients) > 1 else None,
         )
         for handler in handlers:
             existing = json.loads(handler._hdf5_data_group.attrs.get("env_args", "{}"))

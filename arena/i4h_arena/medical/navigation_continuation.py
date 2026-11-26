@@ -67,7 +67,9 @@ def _source_identity(env):
         "medical/slang_fluoroscopy.py",
         "medical/fluoroscopy_display.py",
         "medical/fluoroscopy_sources.py",
-        "medical/catheter_attenuation.py",
+        "medical/vessel_motion.py",
+        "medical/vessel_twin.py",
+        "medical/patient_assignment.py",
         "envcfg/endoluminal_navigation/terms.py",
         "envcfg/endoluminal_navigation/task.py",
     ):
