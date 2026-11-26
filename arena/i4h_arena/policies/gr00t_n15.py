@@ -99,7 +99,10 @@ class Gr00tN15RemotePolicy(ChunkReplay, PolicyBase[Gr00tN15RemotePolicyCfg]):
         reply = self._socket.recv()
         if reply == b"ERROR":
             raise RuntimeError("GR00T N1.5 server failed to infer; see its log")
-        return torch.load(io.BytesIO(reply), weights_only=False)
+        try:
+            return torch.load(io.BytesIO(reply), weights_only=True, map_location="cpu")
+        except Exception as error:
+            raise RuntimeError("GR00T N1.5 rejected reply: expected a safe tensor dictionary") from error
 
     def _infer(self, observation: dict, env_id: int, action_dim: int) -> torch.Tensor:
         layout = self.layout

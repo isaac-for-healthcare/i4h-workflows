@@ -116,3 +116,62 @@ def test_so101_requests_cross_in_lerobot_units_and_actions_come_back_in_radians(
     # One request per 16 executed actions, each back in Isaac Lab radians.
     assert second is not first
     assert torch.allclose(actions[0][0], home, atol=1e-5)
+
+
+class _ReplySocket:
+    def __init__(self, reply):
+        self.reply = reply
+
+    def send(self, _request):
+        pass
+
+    def recv(self):
+        return self.reply
+
+
+def _wire_call(payload):
+    policy = object.__new__(Gr00tN15RemotePolicy)
+    policy._socket = _ReplySocket(payload)
+    return policy._call({})
+
+
+def test_tensor_dictionary_replies_preserve_both_embodiments():
+    import io
+
+    replies = [
+        {
+            f"action.{part}": torch.arange(112.0).reshape(1, 16, 7)
+            for part in ("left_arm", "right_arm", "left_hand", "right_hand")
+        },
+        {"action.single_arm": torch.arange(80.0).reshape(16, 5), "action.gripper": torch.arange(16.0)},
+    ]
+    for expected in replies:
+        buffer = io.BytesIO()
+        torch.save(expected, buffer)
+        actual = _wire_call(buffer.getvalue())
+        assert actual.keys() == expected.keys()
+        for key in expected:
+            assert actual[key].device.type == "cpu"
+            assert actual[key].shape == expected[key].shape
+            assert torch.equal(actual[key], expected[key])
+
+
+def test_pickle_reply_cannot_execute_code(tmp_path):
+    import io
+    import os
+
+    import pytest
+
+    marker = tmp_path / "executed"
+
+    class Payload:
+        def __reduce__(self):
+            return os.system, (f"touch {marker}",)
+
+    buffer = io.BytesIO()
+    torch.save({"action": Payload()}, buffer)
+    with pytest.raises(RuntimeError, match="rejected reply"):
+        _wire_call(buffer.getvalue())
+    assert not marker.exists()
+    with pytest.raises(RuntimeError, match="server failed to infer"):
+        _wire_call(b"ERROR")
