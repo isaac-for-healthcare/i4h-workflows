@@ -192,10 +192,16 @@ fi
 for project in "${ordered[@]}"; do
   # Only the projects that carry tests define a dev extra; asking for it
   # elsewhere is a hard error in uv, not a no-op.
+  # Install from the committed uv.lock: a stale lock fails here instead of being
+  # silently re-resolved (and dirtying the tree) on each setup. The GR00T task
+  # projects are excluded: uv newer than the pinned 0.11.8 re-resolves their
+  # editable gr00t path dependency even when the lock is current, so --locked
+  # would fail on every up-to-date developer machine.
   extra=()
-  if [ "$project" = "arena" ]; then
-    extra+=(--locked)
-  fi
+  case "$project" in
+    tasks/gr00t_n15|tasks/gr00t_n16|tasks/gr00t_n17) ;;
+    *) extra+=(--locked) ;;
+  esac
   grep -q '^dev = ' "$project/pyproject.toml" 2>/dev/null && extra+=(--extra dev)
   echo "==> uv sync --project $project ${extra[*]}"
   # -u VIRTUAL_ENV so an activated venv does not capture the sync.
