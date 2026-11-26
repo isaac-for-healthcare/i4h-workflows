@@ -20,8 +20,8 @@ LEISAAC_REV="cd61a20c75f7b72c347538089602201349af6dc8"
 LEISAAC_DIR="leisaac-cd61a20"
 # Arena main qualification pin. Arena itself pins the v3.0.0 GA submodule; i4h runs it on the
 # release/3.0.0 branch above with Isaac Sim 6.2.
-ISAACLAB_ARENA_REV="196680c28aa53e173d97d9e2dbded9d8d4f981a0"
-ISAACLAB_ARENA_DIR="IsaacLab-Arena-196680c"
+ISAACLAB_ARENA_REV="67f5b19fd604859fecbe1aa91a6361b815e80f5c"
+ISAACLAB_ARENA_DIR="IsaacLab-Arena-67f5b19"
 # The isolated GR00T N1.6 service retains its original Arena package and joint configs.
 POLICY_ARENA_REV="c7edf3a9d5d8276565208f72422f8f8a0806d6cf"
 POLICY_ARENA_DIR="IsaacLab-Arena-c7edf3a"

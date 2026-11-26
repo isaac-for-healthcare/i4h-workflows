@@ -22,7 +22,6 @@ from isaaclab.managers import (
 from isaaclab.sensors import FrameTransformer
 from isaaclab.utils import configclass
 from isaaclab.utils.math import quat_error_magnitude
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -204,9 +203,6 @@ class UltrasoundProbeReachTask(TaskBase):
 
     def get_mimic_env_cfg(self, arm_mode):
         return None
-
-    def get_metrics(self):
-        return [SuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(1.7, 1.35, 1.05), lookat=(0.48, -0.02, 0.26))

@@ -16,8 +16,6 @@ from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.math import euler_xyz_from_quat
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -50,9 +48,6 @@ class LocomanipTask(TaskBase):
 
     def get_scene_cfg(self) -> None:
         return None
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [SuccessRateMetric()]
 
     def termination_cfg(self, name: str, success: TerminationTermCfg) -> TaskTerminationCfg:
         """Succeed on ``success``; fail when the pick-up object falls below the room."""

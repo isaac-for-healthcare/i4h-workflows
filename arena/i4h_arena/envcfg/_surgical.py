@@ -14,7 +14,6 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import EventTermCfg, RewardTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.math import combine_frame_transforms, quat_error_magnitude, quat_mul, subtract_frame_transforms
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -451,9 +450,6 @@ class SurgicalReachEnvCfg(TaskBase):
     def get_mimic_env_cfg(self, embodiment_name: str):
         return None
 
-    def get_metrics(self):
-        return [SuccessRateMetric()]
-
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=self.viewer_eye, lookat=self.viewer_lookat or (0.0, 0.0, 0.0))
 
@@ -512,9 +508,6 @@ class SurgicalLiftEnvCfg(TaskBase):
 
     def get_mimic_env_cfg(self, embodiment_name: str):
         return None
-
-    def get_metrics(self):
-        return [SuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         if self.organs:

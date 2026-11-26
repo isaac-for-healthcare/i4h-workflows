@@ -28,8 +28,6 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import EventTermCfg, RewardTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.math import quat_apply
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -695,9 +693,6 @@ class G1TrocarEnvCfg(TaskBase):
 
     def get_mimic_env_cfg(self, embodiment_name: str):
         return None
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [SuccessRateMetric()]
 
     def get_rewards_cfg(self):
         return RewardsCfg()

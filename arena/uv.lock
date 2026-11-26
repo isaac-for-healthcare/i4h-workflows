@@ -1357,7 +1357,7 @@ requires-dist = [
     { name = "i4h-physics", extras = ["coupled"], editable = "../third_party/i4h-physics-simulation/numerical_sim/physics" },
     { name = "i4h-surgical", editable = "../third_party/i4h-physics-simulation/numerical_sim/surgical" },
     { name = "isaaclab", editable = "../third_party/IsaacLab-3939445/source/isaaclab" },
-    { name = "isaaclab-arena", editable = "../third_party/IsaacLab-Arena-196680c" },
+    { name = "isaaclab-arena", editable = "../third_party/IsaacLab-Arena-67f5b19" },
     { name = "isaaclab-assets", editable = "../third_party/IsaacLab-3939445/source/isaaclab_assets" },
     { name = "isaaclab-contrib", editable = "../third_party/IsaacLab-3939445/source/isaaclab_contrib" },
     { name = "isaaclab-dev", extras = ["isaacsim", "ov", "mimic", "rsl-rl"], editable = "../third_party/IsaacLab-3939445" },
@@ -1671,7 +1671,7 @@ source = { editable = "../third_party/IsaacLab-3939445/source/isaaclab" }
 [[package]]
 name = "isaaclab-arena"
 version = "0.3.0"
-source = { editable = "../third_party/IsaacLab-Arena-196680c" }
+source = { editable = "../third_party/IsaacLab-Arena-67f5b19" }
 dependencies = [
     { name = "decorator" },
     { name = "imageio" },
@@ -1740,23 +1740,23 @@ requires-dist = [
 provides-extras = ["dev", "docs"]
 
 [package.metadata.requires-dev]
-gr00t-client = [{ name = "gr00t", editable = "../third_party/IsaacLab-Arena-196680c/submodules/Isaac-GR00T" }]
+gr00t-client = [{ name = "gr00t", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/Isaac-GR00T" }]
 isaaclab-from-source = [
-    { name = "isaaclab", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab" },
-    { name = "isaaclab-assets", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_assets" },
-    { name = "isaaclab-contrib", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_contrib" },
-    { name = "isaaclab-dev", extras = ["isaacsim", "ov", "mimic", "teleop", "rsl-rl", "rerun"], editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab" },
-    { name = "isaaclab-experimental", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_experimental" },
-    { name = "isaaclab-mimic", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_mimic" },
-    { name = "isaaclab-newton", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_newton" },
-    { name = "isaaclab-ov", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_ov" },
-    { name = "isaaclab-physx", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_physx" },
-    { name = "isaaclab-ppisp", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_ppisp" },
-    { name = "isaaclab-rl", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_rl" },
-    { name = "isaaclab-tasks", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_tasks" },
-    { name = "isaaclab-tasks-experimental", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_tasks_experimental" },
-    { name = "isaaclab-teleop", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_teleop" },
-    { name = "isaaclab-visualizers", editable = "../third_party/IsaacLab-Arena-196680c/submodules/IsaacLab/source/isaaclab_visualizers" },
+    { name = "isaaclab", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab" },
+    { name = "isaaclab-assets", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_assets" },
+    { name = "isaaclab-contrib", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_contrib" },
+    { name = "isaaclab-dev", extras = ["isaacsim", "ov", "mimic", "teleop", "rsl-rl", "rerun"], editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab" },
+    { name = "isaaclab-experimental", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_experimental" },
+    { name = "isaaclab-mimic", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_mimic" },
+    { name = "isaaclab-newton", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_newton" },
+    { name = "isaaclab-ov", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_ov" },
+    { name = "isaaclab-physx", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_physx" },
+    { name = "isaaclab-ppisp", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_ppisp" },
+    { name = "isaaclab-rl", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_rl" },
+    { name = "isaaclab-tasks", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_tasks" },
+    { name = "isaaclab-tasks-experimental", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_tasks_experimental" },
+    { name = "isaaclab-teleop", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_teleop" },
+    { name = "isaaclab-visualizers", editable = "../third_party/IsaacLab-Arena-67f5b19/submodules/IsaacLab/source/isaaclab_visualizers" },
     { name = "openpi-client", git = "https://github.com/Physical-Intelligence/openpi?subdirectory=packages%2Fopenpi-client&rev=c23745b5ad24e98f66967ea795a07b2588ed6c79" },
     { name = "torch", specifier = "==2.11.0", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torchvision", specifier = "==0.26.0", index = "https://download.pytorch.org/whl/cu130" },

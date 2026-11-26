@@ -1,7 +1,7 @@
-diff --git a/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action.py b/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action.py
+diff --git a/isaaclab_arena_embodiments/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action.py b/isaaclab_arena_embodiments/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action.py
 index 88ed231..6bbda79 100644
---- a/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action.py
-+++ b/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action.py
+--- a/isaaclab_arena_embodiments/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action.py
++++ b/isaaclab_arena_embodiments/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action.py
 @@ -78,11 +78,15 @@ class G1DecoupledWBCJointAction(ActionTerm):
  
          self.wbc_policy = get_wbc_policy("g1", self.robot_model, wbc_config, self.num_envs)
@@ -20,10 +20,10 @@ index 88ed231..6bbda79 100644
              # toggle_policy_action: 0 for disable policy, 1 for enable policy
              "toggle_policy_action": np.tile(np.array([0]), (self.num_envs, 1)),
              # roll pitch yaw command
-diff --git a/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action_cfg.py b/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action_cfg.py
+diff --git a/isaaclab_arena_embodiments/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action_cfg.py b/isaaclab_arena_embodiments/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action_cfg.py
 index 20586d0..8e5a244 100644
---- a/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action_cfg.py
-+++ b/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action_cfg.py
+--- a/isaaclab_arena_embodiments/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action_cfg.py
++++ b/isaaclab_arena_embodiments/isaaclab_arena_g1/g1_env/mdp/actions/g1_decoupled_wbc_joint_action_cfg.py
 @@ -20,3 +20,13 @@ class G1DecoupledWBCJointActionCfg(ActionTermCfg):
      joint_names: list[str] = MISSING
  

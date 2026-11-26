@@ -7,6 +7,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# A relative path the user types (--run-dir, --checkpoint, ...) means where they typed it, as in run.sh.
+export I4H_CALLER_CWD="$PWD"
 cd "$ROOT"
 
 usage() {
@@ -22,7 +24,7 @@ RL options:
   --num-envs N          vectorized environments (profile default otherwise)
   --epochs N            maximum PPO epochs (profile default otherwise)
   --episodes N          RSL-RL evaluation episodes (default: 20)
-  --run-dir PATH        logs and checkpoints directory
+  --run-dir PATH        logs and checkpoints directory (relative to the current directory)
   --resume-dir PATH     resume a supported trainer run
   --checkpoint PATH     native trainer checkpoint or run bundle for evaluation/export
   --rl-model-path PATH  backward-compatible alias for --checkpoint

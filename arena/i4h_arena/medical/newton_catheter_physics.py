@@ -1271,6 +1271,9 @@ def _configure_rod_cuda_modules(device: str) -> None:
     cached by Warp while the driver's compiled binary is evicted, repeating that
     pause at every reset in a fresh process. CUBIN output lets Warp retain the
     device-specific binary directly. Warp falls back to PTX on unsupported devices.
+
+    The workflow's XPBD rod simulation uses forward kernels only. Avoid generating
+    backward kernels for that module, which otherwise inflate cold compilation.
     """
     if not str(device).startswith("cuda"):
         return
@@ -1278,8 +1281,8 @@ def _configure_rod_cuda_modules(device: str) -> None:
     import warp as wp
     from catheter_vasculature_solver import cath_rod_solver, xpbd_rod_solver
 
-    for module in (xpbd_rod_solver, cath_rod_solver):
-        wp.set_module_options({"cuda_output": "cubin"}, module=module)
+    wp.set_module_options({"cuda_output": "cubin", "enable_backward": False}, module=xpbd_rod_solver)
+    wp.set_module_options({"cuda_output": "cubin"}, module=cath_rod_solver)
     print("[catheter solver] CUDA binary cache enabled; first compilation can take several minutes", flush=True)
 
 

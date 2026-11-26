@@ -100,7 +100,7 @@ class SceneEnvironment(ExampleEnvironmentBase):
                 # what the policy runner records into a dataset: the embodiment's own terms.
                 env_cfg.demo_recorder_config = copy.deepcopy(recorders)
             if getattr(args_cli, "recorder_dataset_export_dir_path", None) is None and recorders is not None:
-                # Arena records every run for its metrics, which read only their own terms. The
+                # Arena records episode results independently of observation datasets. The
                 # observations, camera frames included, are worth recording only into a dataset
                 # someone asked for: Isaac Lab writes them at full size, compressed, at each reset.
                 for term in OBSERVATION_RECORDER_TERMS:

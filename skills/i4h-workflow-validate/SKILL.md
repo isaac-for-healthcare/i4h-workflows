@@ -136,7 +136,7 @@ Require the checkpoint to load and the first policy step to succeed before repor
 
 ## Verify
 
-Require `run.sh` exit status 0. The exit status does not report episode success; `run.sh` prints `<k>/<N> episodes succeeded`, or that the scene has no success term. Read each episode's `success` and `episode_length` from the results file, and the `Metrics:` line when the scene defines metrics:
+Require `run.sh` exit status 0. The exit status does not report episode success; `run.sh` prints `<k>/<N> episodes succeeded`, or that the scene has no success term. Read each episode's `success` and `episode_length` from Arena’s episode-results file; success comes from the scene’s existing termination terms:
 
 ```bash
 python3 - "$RUN_DIR" <<'PY'

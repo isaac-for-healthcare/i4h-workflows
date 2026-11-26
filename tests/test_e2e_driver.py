@@ -139,3 +139,57 @@ def test_the_scissors_validate_their_finetuned_checkpoint_with_the_n15_server(tm
         "--task",
         "Grip the scissors and put it into the tray",
     ]
+
+
+def _e2e(*arguments: str, cwd: Path = WORKFLOWS_ROOT) -> subprocess.CompletedProcess[str]:
+    return subprocess.run([str(E2E), *arguments], cwd=cwd, capture_output=True, text=True, check=False)
+
+
+@pytest.mark.parametrize("option", ["--env", "--run-dir"])
+def test_an_option_without_its_value_names_the_option(option) -> None:
+    """NVBug 7035741: the last option used to fail with a bash ``$2: unbound variable`` error."""
+    for arguments in ([option], [option, "--dry-run"], [f"{option}="]):
+        result = _e2e(*arguments)
+
+        assert result.returncode == 2, result.stdout + result.stderr
+        assert f"{option} needs a value" in result.stderr
+        assert "unbound variable" not in result.stderr
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["scissor_pick_and_place", "ultrasound_liver_scan"],
+        ["--env", "scissor_pick_and_place", "ultrasound_liver_scan"],
+        ["--env=scissor_pick_and_place", "--env", "ultrasound_liver_scan"],
+    ],
+)
+def test_a_second_workflow_is_refused_not_substituted(arguments) -> None:
+    """NVBug 7035741: the last workflow name used to replace the first without a word."""
+    result = _e2e(*arguments, "--dry-run")
+
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "two workflows given" in result.stderr
+
+
+def test_naming_the_same_workflow_twice_is_not_a_conflict(tmp_path) -> None:
+    run_dir = str(tmp_path / "r")
+    result = _e2e("scissor_pick_and_place", "--env", "scissor_pick_and_place", "--dry-run", "--run-dir", run_dir)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_a_relative_run_dir_is_relative_to_where_the_user_typed_it(tmp_path) -> None:
+    """NVBug 7035808: run.sh used the caller's directory, the e2e driver and train.sh the repository root."""
+    result = _e2e("--env", "scissor_pick_and_place", "--dry-run", "--run-dir", "rel_qa", cwd=tmp_path)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"[e2e] run_dir={tmp_path}/rel_qa" in result.stdout
+    assert not (WORKFLOWS_ROOT / "rel_qa").exists()
+
+
+def test_the_default_run_dir_stays_under_the_repository(tmp_path) -> None:
+    result = _e2e("--env", "scissor_pick_and_place", "--dry-run", cwd=tmp_path)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"[e2e] run_dir={WORKFLOWS_ROOT}/runs/scissor_pick_and_place/" in result.stdout

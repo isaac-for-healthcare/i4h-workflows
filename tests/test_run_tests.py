@@ -263,3 +263,25 @@ raise SystemExit(0 if ok else 1)
     assert result.returncode == (0 if success == "true" else 1), result.stdout + result.stderr
     if success == "false":
         assert "scored smoke did not succeed" in result.stderr
+
+
+def test_suite_commands_run_with_the_arm_openmp_setup_on_aarch64(monkeypatch) -> None:
+    """NVBug 7067736: pytest stopped collecting arena/tests on aarch64 because Kit wants libgomp preloaded."""
+    monkeypatch.delenv("GLIBC_TUNABLES", raising=False)
+    monkeypatch.delenv("LD_PRELOAD", raising=False)
+    monkeypatch.setattr(run_tests.platform, "machine", lambda: "aarch64")
+
+    env = run_tests._suite_env()
+
+    assert "glibc.rtld.optional_static_tls" in env["GLIBC_TUNABLES"]
+    assert env["OMNI_KIT_ACCEPT_EULA"] == "Y"
+
+
+def test_suite_commands_leave_the_preload_alone_on_x86(monkeypatch) -> None:
+    monkeypatch.delenv("GLIBC_TUNABLES", raising=False)
+    monkeypatch.delenv("LD_PRELOAD", raising=False)
+    monkeypatch.setattr(run_tests.platform, "machine", lambda: "x86_64")
+
+    env = run_tests._suite_env()
+
+    assert "GLIBC_TUNABLES" not in env and "LD_PRELOAD" not in env

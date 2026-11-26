@@ -1665,5 +1665,8 @@ def test_only_legacy_rod_cuda_modules_request_cached_binaries(device, monkeypatc
     calls = []
     monkeypatch.setattr("warp.set_module_options", lambda options, *, module: calls.append((options, module)))
     _configure_rod_cuda_modules(device)
-    expected = [({"cuda_output": "cubin"}, module) for module in (solver.xpbd_rod_solver, solver.cath_rod_solver)]
+    expected = [
+        ({"cuda_output": "cubin", "enable_backward": False}, solver.xpbd_rod_solver),
+        ({"cuda_output": "cubin"}, solver.cath_rod_solver),
+    ]
     assert calls == (expected if device.startswith("cuda") else [])
