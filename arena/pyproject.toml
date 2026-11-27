@@ -117,6 +117,7 @@ explicit = true
 [tool.uv]
 environments = [
     'sys_platform == "linux" and platform_machine == "x86_64"',
+    'sys_platform == "linux" and platform_machine == "aarch64"',
 ]
 # MuJoCo Core supplies the mujoco module; the legacy distribution overwrites its files.
 exclude-dependencies = ["argparse", "mujoco"]
