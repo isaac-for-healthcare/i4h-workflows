@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 from dataclasses import asdict, dataclass, replace
@@ -60,6 +61,51 @@ def _renderer_sharing_device(renderer_class: type, source: object) -> type:
             self._create_resources()
 
     return SharedDeviceRenderer
+
+
+def _simulation_cuda_context(device: torch.device):
+    """Make the simulation GPU's CUDA context current for the block; a no-op off CUDA."""
+    return torch.cuda.device(device) if device.type == "cuda" else contextlib.nullcontext()
+
+
+def _cuda_context_handles(device: torch.device) -> list:
+    """The native handles of ``device``'s CUDA context, the one PyTorch, Warp and Newton use."""
+    import slangpy  # noqa: PLC0415 - only the CUDA fluoroscopy path needs it
+
+    with torch.cuda.device(device):
+        # Selecting the device does not create its context; the first allocation does.
+        torch.zeros(1, device=device)
+        return slangpy.get_cuda_current_context_native_handles()
+
+
+def _renderer_on_cuda_context(renderer_class: type, handles: list) -> type:
+    """Return a renderer class whose Slang CUDA device is built on an existing CUDA context.
+
+    The pinned xray_simulator creates its device with ``slangpy.create_device(device_type)``
+    and no device argument, so Slang opens its own context on the first GPU. When the
+    simulation runs on another one (``--device cuda:1``), the frames it hands to PyTorch and
+    the kernels it launches belong to a context that is not current, and the first dispatch
+    aborts with CUDA_ERROR_INVALID_HANDLE. Built from the simulation's context instead, the
+    device, its buffers and the torch tensors read from them share one GPU and one context.
+    """
+
+    class CudaContextRenderer(renderer_class):
+        def _init_slang(self) -> None:
+            import slangpy  # noqa: PLC0415
+
+            create_device = slangpy.create_device
+
+            def create_on_context(*args, **kwargs):
+                kwargs.setdefault("existing_device_handles", handles)
+                return create_device(*args, **kwargs)
+
+            slangpy.create_device = create_on_context
+            try:
+                super()._init_slang()
+            finally:
+                slangpy.create_device = create_device
+
+    return CudaContextRenderer
 
 
 def _build_renderer(renderer_class: type, volume: np.ndarray, spacing_zyx_mm, cfg, device_type: str, **kwargs):
@@ -275,6 +321,7 @@ class SlangFluoroscopyRenderer:
             raise ValueError("visual_style must be 'default' or 'cinematic'")
         # Frames stay on the device the catheter is composited on, the simulation's own.
         self._device = torch.device(catheter_device) if catheter_device is not None else torch.device("cpu")
+        self._device_type = str(device_type)
         self._cinematic = (
             CinematicStyle(height=self.height, width=self.width, device=self._device)
             if self._visual_style == "cinematic"
@@ -305,11 +352,15 @@ class SlangFluoroscopyRenderer:
         )
         # The renderer marches the native grid through its voxel-to-patient affine and poses
         # about the grid centre, the same centre solve_projection_geometry measures from.
-        renderer_class = (
-            SlangDiffDRRRenderer
-            if share_device_with is None
-            else _renderer_sharing_device(SlangDiffDRRRenderer, share_device_with._renderer)
-        )
+        # A renderer shares another one's Slang device when asked; otherwise a CUDA renderer is put
+        # on the simulation GPU's own context, where the frames it hands to PyTorch are composited.
+        # On Vulkan or without a simulation GPU it is left as is.
+        if share_device_with is not None:
+            renderer_class = _renderer_sharing_device(SlangDiffDRRRenderer, share_device_with._renderer)
+        elif device_type == "cuda" and self._device.type == "cuda":
+            renderer_class = _renderer_on_cuda_context(SlangDiffDRRRenderer, _cuda_context_handles(self._device))
+        else:
+            renderer_class = SlangDiffDRRRenderer
         # With the lumen carved out, what the volume renderer produces is the contrast-free mask
         # frame, and every frame's contrast is composited on top of it. That is the whole reason
         # a bolus can wash in and a wall can move: neither is in the voxels any more.
@@ -337,14 +388,15 @@ class SlangFluoroscopyRenderer:
                 carve.contrast_mu_per_mm,
             )
 
-        self._renderer = _build_renderer(
-            renderer_class,
-            render_volume,
-            patient.spacing_zyx_mm,
-            base_config,
-            device_type,
-            voxel_to_world_mm=patient.voxel_to_volume_mm,
-        )
+        with self._slang_context():
+            self._renderer = _build_renderer(
+                renderer_class,
+                render_volume,
+                patient.spacing_zyx_mm,
+                base_config,
+                device_type,
+                voxel_to_world_mm=patient.voxel_to_volume_mm,
+            )
         self._dsa_renderer = None
         if self._dsa and vessel_contrast:
             # Nothing to build: the mask is the carved volume this renderer already produces, so
@@ -359,14 +411,21 @@ class SlangFluoroscopyRenderer:
                 )
             boosted_volume = patient.mu_volume.copy()
             boosted_volume[vessel_mask > 0] *= float(dsa_boost)
-            self._dsa_renderer = _build_renderer(
-                _renderer_sharing_device(SlangDiffDRRRenderer, self._renderer),
-                boosted_volume,
-                patient.spacing_zyx_mm,
-                base_config,
-                device_type,
-                voxel_to_world_mm=patient.voxel_to_volume_mm,
-            )
+            with self._slang_context():
+                self._dsa_renderer = _build_renderer(
+                    _renderer_sharing_device(SlangDiffDRRRenderer, self._renderer),
+                    boosted_volume,
+                    patient.spacing_zyx_mm,
+                    base_config,
+                    device_type,
+                    voxel_to_world_mm=patient.voxel_to_volume_mm,
+                )
+
+    def _slang_context(self):
+        """The CUDA context the Slang device lives on, current while it allocates or dispatches."""
+        if self._device_type == "cuda":
+            return _simulation_cuda_context(self._device)
+        return contextlib.nullcontext()
 
     def _display_snapshot(self):
         return dict(
@@ -525,21 +584,22 @@ class SlangFluoroscopyRenderer:
     def _render_volume(self, renderer, projections: list[ProjectionGeometry]) -> torch.Tensor:
         """Transmission ``(N, H, W)`` for every pose, in one dispatch when the renderer batches."""
         render_batch = getattr(renderer, "render_batch", None)
-        if render_batch is not None:
-            images = render_batch(
-                np.asarray([projection.rotation_zxy_rad for projection in projections], dtype=np.float32),
-                np.asarray([projection.translation_xyz_mm for projection in projections], dtype=np.float32),
-                as_torch=True,
-            )
-        else:
-            images = torch.from_numpy(
-                np.stack(
-                    [
-                        renderer.render(projection.rotation_zxy_rad, projection.translation_xyz_mm)
-                        for projection in projections
-                    ]
+        with self._slang_context():
+            if render_batch is not None:
+                images = render_batch(
+                    np.asarray([projection.rotation_zxy_rad for projection in projections], dtype=np.float32),
+                    np.asarray([projection.translation_xyz_mm for projection in projections], dtype=np.float32),
+                    as_torch=True,
                 )
-            )
+            else:
+                images = torch.from_numpy(
+                    np.stack(
+                        [
+                            renderer.render(projection.rotation_zxy_rad, projection.translation_xyz_mm)
+                            for projection in projections
+                        ]
+                    )
+                )
         return images.to(device=self._device, dtype=torch.float32)
 
     def _draw_catheter_overlays(
