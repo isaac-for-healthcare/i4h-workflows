@@ -11,7 +11,7 @@ python3 scripts/liver_rl_minimal.py --headless
 ## Requirements
 
 - An Arena environment from `./setup.sh`.
-- Numerical Sim from `isaac-for-healthcare/i4h-physics-simulation`, at the revision pinned by `third_party/setup.sh` (currently `827dc426888b614d4e75d4cd309e66f1ae9ce753`). `./setup.sh` installs its packages, including the neutral `i4h-host`, from `third_party/i4h-physics-simulation/numerical_sim`; the standalone application is not needed. Access to this revision requires the physics sync PR to be available in that repository.
+- Numerical Sim from `isaac-for-healthcare/i4h-physics-simulation`, at the revision pinned by [`third_party/setup.sh`](../../third_party/setup.sh). `./setup.sh` installs its packages, including the neutral `i4h-host`, from `third_party/i4h-physics-simulation/numerical_sim` and applies the pinned stack's compatibility patches; the standalone application is not needed.
 - Stock `warp-lang==1.17.0`, installed by setup. No patched wheel is required; the upstream captured-HashGrid issue [Warp #2426](https://github.com/NVIDIA/warp/issues/2426) concerns a path this liver fixture does not use. Historical training results below used the earlier patched binary.
 - One NVIDIA RTX GPU. The run uses 8 parallel environments for demonstrations, training and evaluation, and 1 for export and the final launcher run.
 
@@ -104,7 +104,7 @@ I4H_LIVER_SNAPSHOTS=runs/liver_reach_retract/<ts>/snapshots \
 
 ## Limits
 
-- Availability of the pinned Numerical Sim revision depends on publication of the physics sync PR. Do not substitute the older private source or reuse its snapshots.
+- Use the pinned public Numerical Sim revision. Do not substitute the older private source or reuse its snapshots.
 - Snapshots are tied to their exact world count (1, 8 or 16) and to the pinned sources. Regenerate them after any source change; the driver makes fresh ones in each run directory.
 - PPO fine-tuning is short and is not guaranteed to improve on BC. Report the regenerated BC and selected PPO scores side by side. The five-seed evidence covers one liver, one BC actor, five target patches and ±5 mm jitter; it does not establish generalization to new anatomy or real tissue.
 - Existing tissue inversions and attachment drift remain recorded mechanics limitations. Policy success does not qualify the mechanics. The full-cycle success criteria, action cap and deadline are unchanged.
