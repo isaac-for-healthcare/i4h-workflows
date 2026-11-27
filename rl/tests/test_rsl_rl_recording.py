@@ -81,16 +81,18 @@ def test_rsl_rl_training_registers_cfg_without_episode_recorders(monkeypatch):
     assert registered[0].recorders is None
 
 
-def test_rsl_rl_evaluation_does_not_inherit_episode_recorders(tmp_path, monkeypatch):
+@pytest.mark.parametrize("runtime_kwargs", [None, {"arena_env": "runtime scene"}])
+def test_rsl_rl_evaluation_does_not_inherit_episode_recorders(tmp_path, monkeypatch, runtime_kwargs):
     cfg = SimpleNamespace(scene=SimpleNamespace(num_envs=1), recorders=object())
-    scene = SimpleNamespace(configure_args=lambda _args: None, gym_spec=lambda: ("test", cfg))
+    spec = ("test", cfg) if runtime_kwargs is None else ("test", cfg, runtime_kwargs)
+    scene = SimpleNamespace(configure_args=lambda _args: None, gym_spec=lambda: spec)
     observed = []
 
     class Exited(Exception):
         pass
 
     def make(_id, **kwargs):
-        observed.append(kwargs["cfg"])
+        observed.append(kwargs)
         raise RuntimeError("stop at gym construction boundary")
 
     def exit_process(code):
@@ -136,5 +138,6 @@ def test_rsl_rl_evaluation_does_not_inherit_episode_recorders(tmp_path, monkeypa
 
     with pytest.raises(Exited):
         rsl_rl_eval.main()
-    assert observed and observed[0].recorders is None
-    assert observed[0].scene.num_envs == 4
+    assert observed and observed[0]["cfg"].recorders is None
+    assert observed[0]["cfg"].scene.num_envs == 4
+    assert {key: value for key, value in observed[0].items() if key != "cfg"} == (runtime_kwargs or {})

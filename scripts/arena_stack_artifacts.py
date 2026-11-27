@@ -49,7 +49,10 @@ def verify_asset() -> None:
 
     numerical = numerical_source(ROOT)
     relative = "numerical_sim/data/vessels/AortaWithVesselsStatic.usdc"
-    manifest = json.loads((numerical / "docs/asset-manifest.json").read_text())
+    manifest_path = numerical / "data/asset-manifest.json"
+    if not manifest_path.is_file():
+        manifest_path = numerical / "docs/asset-manifest.json"
+    manifest = json.loads(manifest_path.read_text())
     entries = [entry for entry in manifest if entry["path"] == relative]
     if len(entries) != 1 or entries[0]["sha256"] != ASSET_SHA256:
         raise ValueError("Pinned aorta manifest does not match the approved asset hash")
@@ -84,8 +87,8 @@ def verify_runtime(numerical_root: Path | None = None) -> None:
         ("torch", "torch", "2.11.0"),
         ("torchvision", "torchvision", "0.26.0"),
         ("warp-lang", "warp", "1.17.0"),
-        ("mujoco", "mujoco", "3.17.0"),
-        ("mujoco-warp", "mujoco_warp", "3.17.0"),
+        ("mujoco-core", "mujoco", "4.0.1"),
+        ("mujoco-warp", "mujoco_warp", "4.0.1"),
         ("newton", "newton", None),
     ):
         version = importlib.metadata.version(distribution)
@@ -94,7 +97,7 @@ def verify_runtime(numerical_root: Path | None = None) -> None:
             raise ValueError(f"{distribution}: expected {expected}, received {version}")
         versions[distribution] = {"version": version, "path": module.__file__}
     newton_source = json.loads(importlib.metadata.distribution("newton").read_text("direct_url.json"))
-    if newton_source.get("vcs_info", {}).get("commit_id") != "d31603ff5e8389d1d6b2a5daef6ea2cb074c26ff":
+    if newton_source.get("vcs_info", {}).get("commit_id") != "b70ad54cfcaf7570907d3a3aad6c60acc7443c33":
         raise ValueError(f"Unexpected Newton source: {newton_source}")
     versions["newton"]["source"] = newton_source
     from i4h_isaaclab.newton_manager import host_api

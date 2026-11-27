@@ -119,7 +119,8 @@ environments = [
     'sys_platform == "linux" and platform_machine == "x86_64"',
     'sys_platform == "linux" and platform_machine == "aarch64"',
 ]
-exclude-dependencies = ["argparse"]
+# MuJoCo Core supplies the mujoco module; the legacy distribution overwrites its files.
+exclude-dependencies = ["argparse", "mujoco"]
 index-strategy = "unsafe-best-match"
 prerelease = "allow"
 python-preference = "only-managed"
@@ -133,9 +134,9 @@ override-dependencies = [
     # transitive pins do not win. usd-exchange provides pxr, so usd-core must not co-install.
     "torch==2.11.0",
     "torchvision==0.26.0",
-    "mujoco==3.17.0",
-    "mujoco-warp==3.17.0",
-    "newton[sim] @ git+https://github.com/newton-physics/newton.git@d31603ff5e8389d1d6b2a5daef6ea2cb074c26ff",
+    "mujoco-core==4.0.1",
+    "mujoco-warp==4.0.1",
+    "newton[sim] @ git+https://github.com/newton-physics/newton.git@b70ad54cfcaf7570907d3a3aad6c60acc7443c33",
     "newton-usd-schemas>=0.5.0",
     "usd-exchange==3.0.1",
     "usd-optimize~=1.3.1",

@@ -1275,6 +1275,13 @@ def stub_model_init(monkeypatch, stub_isaac):
     recorded: dict = {}
     builder = FakeBuilder()
     stub_isaac.sim.builder = builder
+    # The device the Newton model is finalized on, as Isaac Lab's physics
+    # manager reports it once the simulation context exists.
+    physics_device = {"value": "cuda:0"}
+    isaaclab_physics = types.ModuleType("isaaclab.physics")
+    isaaclab_physics.PhysicsManager = SimpleNamespace(get_device=lambda: physics_device["value"])
+    monkeypatch.setitem(sys.modules, "isaaclab", sys.modules.get("isaaclab") or types.ModuleType("isaaclab"))
+    monkeypatch.setitem(sys.modules, "isaaclab.physics", isaaclab_physics)
 
     def add_catheter_rod_to_builder(passed_builder, config, *, positions, start, direction, num_envs):
         assert passed_builder is builder
@@ -1322,7 +1329,9 @@ def stub_model_init(monkeypatch, stub_isaac):
     monkeypatch.setattr("warp.set_module_options", lambda *a, **kw: None)
     solver_module.CathRodSolver = CathRodSolver
     monkeypatch.setitem(sys.modules, "catheter_vasculature_solver", solver_module)
-    return SimpleNamespace(calls=calls, registered=registered, builder=builder, recorded=recorded)
+    return SimpleNamespace(
+        calls=calls, registered=registered, builder=builder, recorded=recorded, physics_device=physics_device
+    )
 
 
 def test_particles_are_added_before_the_rod_is_registered(stub_model_init):
@@ -1348,12 +1357,27 @@ def test_registration_passes_the_particle_range_and_the_rod(stub_model_init):
     assert registered["rod"] is handle.rod
 
 
-def test_the_rod_config_is_built_on_the_requested_device(stub_model_init):
+def test_the_rod_config_is_built_on_the_physics_device(stub_model_init):
+    stub_model_init.physics_device["value"] = "cuda:1"
     handle = CatheterRodHandle(CatheterRodSpec(device="cuda:1"))
 
     handle._on_model_init()
 
     assert "rod_config:cuda:1" in stub_model_init.calls
+
+
+def test_the_rod_follows_the_physics_device_over_a_stale_spec_device(stub_model_init):
+    """``--device cuda:1``: the env cfg still said ``cuda:0`` when the spec read it (NVBug 7106509)."""
+    stub_model_init.physics_device["value"] = "cuda:1"
+    spec = CatheterRodSpec(device="cuda:0")
+    handle = CatheterRodHandle(spec)
+
+    handle._on_model_init()
+
+    assert "rod_config:cuda:1" in stub_model_init.calls
+    assert "rod_config:cuda:0" not in stub_model_init.calls
+    # The vessel is built from the same spec, so it lands on the model's device too.
+    assert spec.device == "cuda:1"
 
 
 def test_the_rod_can_be_given_its_own_rotational_inertia(stub_model_init):
