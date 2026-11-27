@@ -1419,10 +1419,18 @@ class CatheterRodHandle:
             add_catheter_rod_to_builder,
             rod_config_from_solver_cfg,
         )
+        from isaaclab.physics import PhysicsManager
         from isaaclab.sim import SimulationContext
         from isaaclab_newton.physics import NewtonBuilderCfg
 
         spec = self._spec
+        # The rod and the vessel have to live on the Newton model's device, so
+        # take it from the physics manager that is about to finalize that model.
+        # The env cfg is no source for it: Arena hands the embodiment its env cfg
+        # before ``parse_env_cfg`` applies ``--device``, so ``env_cfg.sim.device``
+        # still holds the SimulationCfg default ``cuda:0`` at that point, and a
+        # ``--device cuda:1`` run would build the rod on the wrong GPU.
+        spec.device = str(PhysicsManager.get_device())
         solver_cfg = rod_solver_cfg(spec)
         # The rod's device is carried by RodConfig rather than the solver
         # constructor, and it has to match the Newton model's device.
