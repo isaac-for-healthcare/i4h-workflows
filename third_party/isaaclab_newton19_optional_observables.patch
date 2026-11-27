@@ -1,0 +1,37 @@
+diff --git a/source/isaaclab_newton/isaaclab_newton/physics/newton_manager.py b/source/isaaclab_newton/isaaclab_newton/physics/newton_manager.py
+--- a/source/isaaclab_newton/isaaclab_newton/physics/newton_manager.py
++++ b/source/isaaclab_newton/isaaclab_newton/physics/newton_manager.py
+@@ -1525,27 +1525,30 @@
+             "gpu_to_gpu": wp.DeterministicMode.GPU_TO_GPU,
+         }[deterministic_mode]
+ 
+     @classmethod
+     def _step_solver(
+         cls, state_0: State, state_1: State, control: Control, contacts: Contacts | None, substep_dt: float
+     ) -> None:
+         """Run one solver substep.
+ 
+         Default invokes :attr:`_solver` once.  Subclasses can override to
+         batch multiple solvers within a single substep.
+         """
+-        cls._solver.step(
+-            state_0, state_1, control, contacts, substep_dt, observables=cls._contact_observables
+-        )
++        if cls._contact_observables is None:
++            cls._solver.step(state_0, state_1, control, contacts, substep_dt)
++        else:
++            cls._solver.step(
++                state_0, state_1, control, contacts, substep_dt, observables=cls._contact_observables
++            )
+ 
+     @classmethod
+     def _solver_specific_clear(cls) -> None:
+         """Solver-specific cleanup hook called from :meth:`clear`.
+ 
+         Default no-op.  Subclasses override to release sub-solver references
+         or other solver-specific resources.
+         """
+ 
+     @classmethod
+     def _check_solver_status(cls) -> None:
+         """Raise solver-specific asynchronous failures after stepping.

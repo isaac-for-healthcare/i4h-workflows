@@ -104,3 +104,22 @@ def test_missing_active_manifest_is_rejected(active_asset):
     (active_asset / "docs/asset-manifest.json").unlink()
     with pytest.raises(FileNotFoundError):
         artifacts.verify_asset()
+
+
+def test_production_data_manifest_is_supported(active_asset, monkeypatch):
+    import json
+
+    asset = active_asset / "data/vessels/AortaWithVesselsStatic.usdc"
+    asset.parent.mkdir(parents=True)
+    asset.write_bytes(b"verified production asset")
+    digest = hashlib.sha256(asset.read_bytes()).hexdigest()
+    monkeypatch.setattr(artifacts, "ASSET_SHA256", digest)
+    manifest = active_asset / "data/asset-manifest.json"
+    manifest.write_text(
+        json.dumps([{"path": "numerical_sim/data/vessels/AortaWithVesselsStatic.usdc", "sha256": digest}])
+    )
+    # The new location is authoritative even if the historical manifest remains.
+    artifacts.verify_asset()
+    manifest.write_text(manifest.read_text().replace(digest, "unapproved"))
+    with pytest.raises(ValueError, match="approved asset hash"):
+        artifacts.verify_asset()
