@@ -27,14 +27,14 @@ POLICY_ARENA_REV="c7edf3a9d5d8276565208f72422f8f8a0806d6cf"
 POLICY_ARENA_DIR="IsaacLab-Arena-c7edf3a"
 ISAACSIM_SKILLS_REV="74a9356b20250dd60337d90b4b4d913c9454d32b"
 ISAACSIM_SKILLS_DIR="IsaacSim-74a9356"
-# Physics (and its numerical_sim packages) is the public i4h-physics-simulation sync of internal
-# main plus the neutral-host split and qualified PR #12 coupling merge (2e4067f).
+# Physics main includes PR #35: Newton b70ad54 with MuJoCo Core/Warp 4.0.1 and
+# the matching numerical_sim Lab contact and camera integration.
 # Sensor simulation and the patient twin are pinned to
 # commits on their main branches that read and write the native scan bundle format (sensor
 # simulation #72, in main since d7d3f29, now main at ccf0843; the twin pins the same xray_simulator). Override *_REF to
 # test another revision (I4H_DIGITAL_TWIN_REF=main tracks the twin's main branch) and *_URL to
 # build against a local checkout.
-I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-827dc426888b614d4e75d4cd309e66f1ae9ce753}"
+I4H_PHYSICS_SIM_REF="${I4H_PHYSICS_SIM_REF:-e649b72dde776398f1b100192182c308e5404193}"
 I4H_PHYSICS_SIM_DIR="i4h-physics-simulation"
 I4H_SENSOR_SIM_REF="${I4H_SENSOR_SIM_REF:-ccf0843180ce430ee8a0b3550e230abe5c991969}"
 I4H_SENSOR_SIM_DIR="i4h-sensor-simulation"
@@ -313,6 +313,10 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}/.git" ]]; then
   apply_patch_once "Isaac Lab Newton 1.9 metadata and cloner" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_newton19_metadata.patch"
+
+  apply_patch_once "Isaac Lab Newton 1.9 contact observables" \
+    "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+    "${THIRD_PARTY_DIR}/isaaclab_newton19_contact_observables.patch"
 
   # Isaac Lab 3.0 resolves the Pink IK mesh_path as a single file, but Pinocchio takes a mesh
   # package directory; the H2 + Sharpa URDF needs one for its relative mesh paths.

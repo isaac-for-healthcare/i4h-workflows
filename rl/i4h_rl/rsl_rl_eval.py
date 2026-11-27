@@ -142,7 +142,7 @@ def main() -> int:
         args.rl_training_mode = False
         scene = load_scene(args.task, args)
         scene.configure_args(args)
-        gym_id, env_cfg = scene.gym_spec()
+        gym_id, env_cfg, *runtime_kwargs = scene.gym_spec()
         agent_cfg = load_cfg_from_registry(gym_id, "rsl_rl_cfg_entry_point")
         agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, metadata.version("rsl-rl-lib"))
         # Evaluation never updates; use the runtime's base PPO loader rather than
@@ -153,7 +153,7 @@ def main() -> int:
         # terms would otherwise export every episode to /tmp/isaaclab/logs.
         env_cfg.recorders = None
 
-        raw_env = gym.make(gym_id, cfg=env_cfg)
+        raw_env = gym.make(gym_id, cfg=env_cfg, **(runtime_kwargs[0] if runtime_kwargs else {}))
         env = RslRlVecEnvWrapper(raw_env, clip_actions=agent_cfg.clip_actions)
         runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
         runner.load(str(checkpoint))
