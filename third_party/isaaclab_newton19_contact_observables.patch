@@ -36,18 +36,39 @@ diff --git a/source/isaaclab_newton/isaaclab_newton/physics/newton_manager.py b/
                          )
  
      # ----- Solver construction (subclass contract) ------------------------
-@@ -1531,7 +1534,9 @@
+@@ -1522,25 +1525,30 @@
+             "gpu_to_gpu": wp.DeterministicMode.GPU_TO_GPU,
+         }[deterministic_mode]
+ 
+     @classmethod
+     def _step_solver(
+         cls, state_0: State, state_1: State, control: Control, contacts: Contacts | None, substep_dt: float
+     ) -> None:
+         """Run one solver substep.
+ 
          Default invokes :attr:`_solver` once.  Subclasses can override to
          batch multiple solvers within a single substep.
          """
 -        cls._solver.step(state_0, state_1, control, contacts, substep_dt)
-+        cls._solver.step(
-+            state_0, state_1, control, contacts, substep_dt, observables=cls._contact_observables
-+        )
++        if cls._contact_observables is None:
++            cls._solver.step(state_0, state_1, control, contacts, substep_dt)
++        else:
++            cls._solver.step(
++                state_0, state_1, control, contacts, substep_dt, observables=cls._contact_observables
++            )
  
      @classmethod
      def _solver_specific_clear(cls) -> None:
-@@ -1613,6 +1618,10 @@
+         """Solver-specific cleanup hook called from :meth:`clear`.
+ 
+         Default no-op.  Subclasses override to release sub-solver references
+         or other solver-specific resources.
+         """
+ 
+     @classmethod
+     def _check_solver_status(cls) -> None:
+         """Raise solver-specific asynchronous failures after stepping.
+@@ -1613,6 +1621,10 @@
                      "NewtonManager._supports_rigid_body_force_input."
                  )
              cls._initialize_contacts()
@@ -58,7 +79,7 @@ diff --git a/source/isaaclab_newton/isaaclab_newton/physics/newton_manager.py b/
              state_0 = cls.backend.state_0
              NewtonManager._staged_body_f = wp.zeros_like(state_0.body_f) if state_0.body_count else None
  
-@@ -1730,7 +1739,7 @@
+@@ -1730,7 +1742,7 @@
              eval_contacts = contacts if contacts is not None else cls._contacts
              cls._solver.update_contacts(eval_contacts, cls.backend.state_0)
              for sensor in cls._newton_contact_sensors.values():
@@ -67,7 +88,7 @@ diff --git a/source/isaaclab_newton/isaaclab_newton/physics/newton_manager.py b/
  
      # ------------------------------------------------------------------
      # Composite stepping routines
-@@ -2079,8 +2088,10 @@
+@@ -2079,8 +2091,10 @@
          cls._newton_contact_sensors[sensor_key] = sensor
          NewtonManager._report_contacts = True
  

@@ -314,6 +314,13 @@ if [[ -d "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}/.git" ]]; then
     "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_newton19_metadata.patch"
 
+  # Upgrade the previous contact patch before checking the corrected full patch.
+  if git -C "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" apply --check \
+    "${THIRD_PARTY_DIR}/isaaclab_newton19_optional_observables.patch" >/dev/null 2>&1; then
+    apply_patch_once "Isaac Lab Newton 1.9 optional solver observables" \
+      "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
+      "${THIRD_PARTY_DIR}/isaaclab_newton19_optional_observables.patch"
+  fi
   apply_patch_once "Isaac Lab Newton 1.9 contact observables" \
     "${THIRD_PARTY_DIR}/${ISAACLAB_DIR}" \
     "${THIRD_PARTY_DIR}/isaaclab_newton19_contact_observables.patch"
