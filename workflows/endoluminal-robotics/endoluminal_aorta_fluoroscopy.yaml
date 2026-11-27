@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Exercise the numerical static-aorta catheter under fixed fluoroscopy.
+scene: endoluminal_aorta_fluoroscopy
+presets: [newton]
+modes:
+  demo:
+    policy: i4h_arena.policies.aorta.AortaFluoroscopySweepPolicy
+    environment_args: [--episode_steps, "115"]
+    success_term: false

@@ -1229,3 +1229,103 @@ def test_a_carm_with_a_different_environment_count_is_refused(tmp_path, monkeypa
 
     with pytest.raises(ValueError, match="C-arm state has 1 environments; catheter has 2"):
         _renderer_with(patient, carm).render(catheters, carm)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda"])
+def test_renderer_continuation_reproduces_next_frame_and_preserves_peers(tmp_path, monkeypatch, device):
+    """Next RGB/DSA frames survive selected restore and an 8-to-1 reconstruction."""
+    import torch
+
+    if device == "cuda" and not torch.cuda.is_available():
+        pytest.skip("CUDA is not available")
+    _ramp_renderer_class(monkeypatch)
+    patient = _patient_volume(tmp_path, with_vessel_mask=True)
+
+    def make():
+        return _renderer_with(patient, _carm(patient), dsa=True, visual_style="cinematic", catheter_device=device)
+
+    renderer = make()
+    empty = CatheterState.empty(8)
+
+    def snapshot(renderer, count):
+        return {
+            k: (v.cpu().numpy() if isinstance(v, torch.Tensor) else v).copy()
+            for k, v in renderer.continuation_arrays(count).items()
+        }
+
+    def restore(renderer, count, saved, source, destination):
+        for key, value in renderer.continuation_arrays(count).items():
+            if isinstance(value, torch.Tensor):
+                value[destination] = torch.as_tensor(saved[key][source].copy())
+            else:
+                value[destination] = saved[key][source]
+        renderer.sync_display_state()
+
+    # An initial snapshot must not draw a frame or consume noise.
+    initial = snapshot(renderer, 8)
+    first = _host(renderer.render(empty))
+    restore(renderer, 8, initial, slice(None), slice(None))
+    for key, value in _host(renderer.render(empty)).items():
+        np.testing.assert_array_equal(value, first[key])
+    renderer.render(empty)
+    saved = snapshot(renderer, 8)
+    expected = _host(renderer.render(empty))
+    renderer.set_display_control("window_width", 0.5)
+    renderer.set_dsa_gamma(0.7)
+    for _ in range(3):
+        renderer.render(empty)
+    peers = snapshot(renderer, 8)
+    restore(renderer, 8, saved, 5, 5)
+    peer_ids = [i for i in range(8) if i != 5]
+    for key, value in snapshot(renderer, 8).items():
+        np.testing.assert_array_equal(value[peer_ids], peers[key][peer_ids])
+    mask = torch.arange(8, device=device) == 5
+    resumed = _host(renderer.render(empty, env_mask=mask))
+    for key in expected:
+        np.testing.assert_array_equal(resumed[key][5], expected[key][5])
+    for key, value in snapshot(renderer, 8).items():
+        np.testing.assert_array_equal(value[peer_ids], peers[key][peer_ids])
+
+    fresh = make()
+    restore(fresh, 1, saved, 5, 0)
+    for key, value in _host(fresh.render(CatheterState.empty(1))).items():
+        np.testing.assert_array_equal(value[0], expected[key][5])
+
+
+def test_display_controls_preserve_each_worlds_fitted_window(tmp_path, monkeypatch):
+    import torch
+
+    _ramp_renderer_class(monkeypatch)
+    patient = _patient_volume(tmp_path)
+    renderer = _renderer_with(patient, _carm(patient))
+    transmission = torch.stack(
+        (torch.linspace(0.15, 0.45, 4096).reshape(64, 64), torch.linspace(0.6, 0.9, 4096).reshape(64, 64))
+    )
+    renderer._map_display(transmission, transmission, None)
+
+    def states():
+        return [renderer._decode_display(row) for row in renderer.continuation_arrays(2)["display"]]
+
+    initial = states()
+    assert initial[0]["base"] != initial[1]["base"]
+    renderer.set_dsa_gamma(1.8)
+    renderer.adjust_dsa_gamma(-0.2)
+    renderer.set_display_appearance("xray")
+    for world, state in enumerate(states()):
+        assert state["gamma"] == pytest.approx(1.6)
+        assert state["display"].polarity == "diagnostic"
+        assert state["base"] == initial[world]["base"]
+        assert state["display"].log_window == initial[world]["display"].log_window
+        assert state["calibrated"]
+    renderer.set_display_control("window_level", 0.2)
+    renderer.set_display_control("window_width", 0.5)
+    for world, state in enumerate(states()):
+        low, high = initial[world]["base"]
+        assert state["base"] == initial[world]["base"]
+        assert state["display"].log_window == pytest.approx((low + 0.45 * (high - low), low + 0.95 * (high - low)))
+    renderer.recalibrate_display()
+    assert all(not state["calibrated"] and state["base"] is None for state in states())
+    renderer._map_display(transmission, transmission, None)
+    for world, state in enumerate(states()):
+        assert state["calibrated"]
+        assert state["base"] == initial[world]["base"]

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+impl: i4h_arena.scenes.endoluminal_aorta_fluoroscopy:EndoluminalAortaFluoroscopyScene
+description: Static Numerical Sim aorta with normalized catheter rates and a fixed XY fluoroscopy detector.
+embodiment: numerical_catheter
+action_space: catheter_normalized_velocity
+dof: 3
+gripper: false
+cameras: [fluoroscopy]
+objects: []
+robots: [robot]
+max_steps: 600
+control_hz: 30.0

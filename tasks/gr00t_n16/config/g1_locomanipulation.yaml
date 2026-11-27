@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Arena's Gr00tRemoteClosedloopPolicy client config for the G1 loco-manipulation checkpoints
+# (push cart, tray pick-and-place). Paths resolve against the repository root, where the
+# policy runner starts. The instruction is the environment's task description, which
+# Arena's runner hands to the policy.
+action_horizon: 16
+action_chunk_length: 16
+video_backend: decord
+modality_config_path: third_party/IsaacLab-Arena-67f5b19/isaaclab_arena_policies/isaaclab_arena_gr00t/embodiments/g1/g1_sim_wbc_data_config.py
+pov_cam_name_sim: "robot_head_cam_rgb"
+gr00t_embodiment_adapter: g1_wbc

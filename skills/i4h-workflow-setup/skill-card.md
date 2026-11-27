@@ -1,5 +1,5 @@
 ## Description: <br>
-Preflight and set up the root-level workflow runtime. Use for installation, missing component environments, or third-party failures; do not use for rollout validation. <br>
+Preflight and set up the i4h component environments and third-party checkouts. Use for installation, missing component environments, or third-party failures; do not use for rollout validation. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers who need to prepare the Isaac for Healthcare workflow runtime, verify host prerequisites, and confirm dependency-light workflow discovery. <br>
+Developers and engineers who need to prepare the Isaac for Healthcare component environments, verify host prerequisites, and confirm scene discovery and CPU contract checks without launching Isaac Sim. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>

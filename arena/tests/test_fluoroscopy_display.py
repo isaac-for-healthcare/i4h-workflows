@@ -143,3 +143,10 @@ def test_vessel_overlay_matches_the_numpy_tint() -> None:
     expected[..., 1] = expected[..., 1] * (1.0 - alpha) + 255.0 * alpha
     expected[..., 2] = expected[..., 2] * (1.0 - alpha) + 255.0 * alpha
     np.testing.assert_array_equal(tinted, np.clip(expected, 0.0, 255.0).astype(np.uint8))
+
+
+def test_cinematic_worlds_have_distinct_noise_streams():
+    frames = torch.full((2, 48, 48), 128.0)
+    style = CinematicStyle(height=48, width=48, device=torch.device("cpu"))
+    output = style(frames, key="drr")
+    assert not torch.equal(output[0], output[1])

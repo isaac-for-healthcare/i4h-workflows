@@ -47,22 +47,27 @@ def test_rsl_rl_training_registers_cfg_without_episode_recorders(monkeypatch):
         def __init__(self, _arena_env, _args):
             pass
 
-        def compose_manager_cfg(self):
-            return SimpleNamespace(recorders=object())
+        def build_env_cfg(self):
+            return SimpleNamespace(recorders=object()), {}
 
-        def build_registered(self, env_cfg=None):
-            # Like Arena: register the given cfg (or a fresh composition) and
+        def build_registered(self, env_cfg=None, env_kwargs=None):
+            # Like pinned Arena main: register the given cfg (or a fresh composition) and
             # return a parsed copy that Isaac Lab's train.py never sees.
-            cfg = env_cfg if env_cfg is not None else self.compose_manager_cfg()
+            cfg = env_cfg if env_cfg is not None else self.build_env_cfg()[0]
             registered.append(cfg)
-            return "test", SimpleNamespace(**vars(cfg))
+            return "test", SimpleNamespace(**vars(cfg)), env_kwargs or {}
 
-    scene = SimpleNamespace(configure_args=lambda _args: None, build=lambda: object())
+    def gym_spec(config_transform=None):
+        builder = ArenaEnvBuilder(object(), None)
+        cfg, kwargs = builder.build_env_cfg()
+        return builder.build_registered(env_cfg=config_transform(cfg), env_kwargs=kwargs)[:2]
+
+    scene = SimpleNamespace(configure_args=lambda _args: None, gym_spec=gym_spec)
     _stub_modules(
         monkeypatch,
         {
             "isaaclab_arena.environments.arena_env_builder": {"ArenaEnvBuilder": ArenaEnvBuilder},
-            "i4h_arena.scenes.base": {"load_scene": lambda *_args: scene},
+            "i4h_arena.scenes.base": {"load_scene": lambda *_args: scene, "arena_builder_cfg": lambda args: args},
         },
     )
     monkeypatch.setattr(rsl_rl_interop, "_simulation_is_running", lambda: True)
@@ -100,7 +105,9 @@ def test_rsl_rl_evaluation_does_not_inherit_episode_recorders(tmp_path, monkeypa
                 "RslRlVecEnvWrapper": object,
                 "handle_deprecated_rsl_rl_cfg": lambda agent_cfg, _version: agent_cfg,
             },
-            "isaaclab_tasks.utils.parse_cfg": {"load_cfg_from_registry": lambda *_args: SimpleNamespace()},
+            "isaaclab_tasks.utils.parse_cfg": {
+                "load_cfg_from_registry": lambda *_args: SimpleNamespace(algorithm=SimpleNamespace())
+            },
             "rsl_rl.runners": {"OnPolicyRunner": object},
             "i4h_arena.scenes.base": {"load_scene": lambda *_args: scene},
         },

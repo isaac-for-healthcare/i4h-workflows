@@ -431,7 +431,7 @@ class XpbdCatheterAsset(SensorBase):
 
             handle = require_active_handle()
             self._provider = NewtonRodCatheterStateProvider.from_particle_range(
-                NewtonManager.get_state,
+                NewtonManager.get_state_0,
                 handle.particle_range,
                 radius_m=float(self.cfg.radius_m),
             )

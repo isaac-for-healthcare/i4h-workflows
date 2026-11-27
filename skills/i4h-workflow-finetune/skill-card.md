@@ -1,5 +1,5 @@
 ## Description: <br>
-Fine-tune a manifest-backed GR00T or openpi remote Task on compatible LeRobot data. Use for training; do not use for inference-only Tasks or checkpoint rollout. <br>
+Fine-tune a manifest-backed GR00T or openpi policy task on compatible LeRobot data. Use for training; do not use for inference-only tasks or checkpoint rollout. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 

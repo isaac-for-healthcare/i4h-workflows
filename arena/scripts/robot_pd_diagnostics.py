@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Consolidated live diagnostics for articulated robot joint-drive tuning.
 
-Run this script through the Isaac Sim Python server for any workflow whose
-active runner has ``env.scene["robot"]``. Configure modes through the
+``robot_pd_tune.py`` calls :func:`run` with an environment whose scene has
+``env.scene["robot"]``. Configure modes through the
 ``robot_pd_tuning_config.json`` in ``I4H_PD_RUN_DIR``:
 
 .. code-block:: json
@@ -29,7 +29,6 @@ controller trace.
 
 from __future__ import annotations
 
-import json
 import math
 import sys
 from pathlib import Path
@@ -37,9 +36,7 @@ from typing import Any
 
 import torch
 
-from i4h_arena.runner import active_runner
-
-_SCRIPT_DIR = Path(globals().get("script_path", __file__)).resolve().parent
+_SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
@@ -65,9 +62,9 @@ from robot_pd_tuning_common import (  # noqa: E402
     write_usd_drive_overlay,
 )
 
-_RUNNER = active_runner()
-_RUNNER_ENV = _RUNNER.env
-_WORKFLOW_NAME = _RUNNER.workflow.name
+#: The environment and scene :func:`run` was called with.
+_RUNNER_ENV: Any = None
+_WORKFLOW_NAME = ""
 
 _JOINT_DRIVE_MODES = ("inspect-usd", "direct-state", "step-response", "trajectory")
 _MODE_ALIASES = {
@@ -654,5 +651,8 @@ def _float_list(tensor: torch.Tensor) -> list[float]:
     return [float(v) for v in tensor.detach().cpu().flatten().tolist()]
 
 
-result = _run()
-print(json.dumps(result, indent=2))
+def run(env: Any, scene: str) -> dict[str, Any]:
+    """Run the configured diagnostics on ``env``'s robot; return the report."""
+    global _RUNNER_ENV, _WORKFLOW_NAME
+    _RUNNER_ENV, _WORKFLOW_NAME = env, scene
+    return _run()

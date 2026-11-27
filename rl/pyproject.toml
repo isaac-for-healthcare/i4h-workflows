@@ -16,6 +16,8 @@ dev = [
     "torch==2.9.0",
     "numpy>=1.26",
     "pytest>=8.0",
+    "rsl-rl-lib==5.5.1",
+    "tensordict>=0.8.0",
     "ruff>=0.12",
 ]
 

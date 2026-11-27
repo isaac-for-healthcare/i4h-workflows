@@ -1,13 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-# One remote task. Nothing can import this stack (its torch pins conflict
+# One policy task. Nothing can import this stack (its torch pins conflict
 # with Isaac's), so its declaration has to be data — and data is what this
 # is: no behaviour, just what the checkpoint is and what scene it needs.
 #
-# summary / prompt / embodiment / cameras are read in the light venv.
-# model / observation / train       are read only by this stack's server.py
-#                                   and train.py, in this stack's own venv.
+# model / observation / train are read by this stack's serve and train
+# modules, in this stack's own venv.
 # `train:` present -> finetunable.
 
 summary: Grip the scissors and put it into the tray

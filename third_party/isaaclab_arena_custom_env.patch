@@ -1,0 +1,17 @@
+diff --git a/isaaclab_arena/environments/arena_env_builder.py b/isaaclab_arena/environments/arena_env_builder.py
+index e28fd1d..492503c 100644
+--- a/isaaclab_arena/environments/arena_env_builder.py
++++ b/isaaclab_arena/environments/arena_env_builder.py
+@@ -614,7 +614,11 @@ class ArenaEnvBuilder:
+             ), "Mimic mode requires an embodiment to be specified"
+             return embodiment.get_mimic_env()
+         else:
+-            return "isaaclab_arena.environments.isaaclab_arena_manager_based_env:IsaacLabArenaManagerBasedRLEnv"
++            return getattr(
++                self.arena_env,
++                "env_entry_point",
++                "isaaclab_arena.environments.isaaclab_arena_manager_based_env:IsaacLabArenaManagerBasedRLEnv",
++            )
+ 
+     def build_registered(
+         self,

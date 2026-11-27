@@ -1,5 +1,5 @@
 ## Description: <br>
-Convert workflow HDF5 recordings to LeRobot datasets for training or browser inspection. <br>
+Convert Isaac Lab HDF5 recordings of i4h workflows to LeRobot datasets for training or browser inspection. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 

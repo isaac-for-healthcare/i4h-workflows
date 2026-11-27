@@ -269,3 +269,16 @@ def test_a_declared_format_reads_as_declared(tmp_path):
     with h5py.File(path, "a") as handle:
         write_dataset_format_version(handle, 0)
         assert dataset_format_version(handle) == 0
+
+
+def test_native_flat_policy_observations_are_not_particle_states(tmp_path):
+    path = tmp_path / "native.hdf5"
+    with h5py.File(path, "w") as handle:
+        demo = handle.create_group("data/demo_0")
+        demo.create_dataset("actions", data=np.zeros((145, 4)))
+        demo.create_dataset("obs", data=np.zeros((145, 57)))
+        episode = Episode("demo_0", demo)
+        assert episode.cameras == []
+        assert episode.states is None
+        assert episode.policy_observations.shape == (145, 57)
+        episode.validate()

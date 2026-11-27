@@ -43,6 +43,8 @@ class SyntheticFluoroscopyRenderer:
         left_pelvis = 0.28 * np.exp(-(((xx + 0.37) / 0.26) ** 2 + ((yy - 0.30) / 0.22) ** 2) * 2.2)
         right_pelvis = 0.28 * np.exp(-(((xx - 0.37) / 0.26) ** 2 + ((yy - 0.30) / 0.22) ** 2) * 2.2)
         self._attenuation = (body + spine + left_pelvis + right_pelvis).astype(np.float32)
+        self._transmission = np.exp(-self._attenuation)
+        self._background_rgb = np.repeat(np.rint(255.0 * self._transmission)[..., None], 3, axis=-1).astype(np.uint8)
 
     def render(
         self, catheter: CatheterState, carm: object | None = None, vessel: object | None = None
@@ -50,8 +52,7 @@ class SyntheticFluoroscopyRenderer:
         # The phantom has no lumen to carve, so there is no vessel to move in it.
         del carm, vessel
         attenuation = np.repeat(self._attenuation[None, ..., None], catheter.num_envs, axis=0)
-        transmission = np.exp(-attenuation[..., 0])
-        rgb = np.repeat(np.rint(255.0 * transmission)[..., None], 3, axis=-1).astype(np.uint8)
+        rgb = np.repeat(self._background_rgb[None], catheter.num_envs, axis=0)
         guidance = rgb.copy()
         for env_index, valid_count in enumerate(catheter.valid_nodes):
             if valid_count >= 2:
@@ -75,10 +76,19 @@ class SyntheticFluoroscopyRenderer:
         return np.stack((u, v), axis=-1)
 
     def _draw_catheter(self, image: np.ndarray, pixels: np.ndarray) -> None:
+        coordinates = []
         for start, end in pairwise(pixels):
             samples = max(2, int(np.ceil(np.linalg.norm(end - start))) + 1)
             segment = np.linspace(start, end, samples)
             xs = np.clip(np.rint(segment[:, 0]).astype(np.int32), 0, self.width - 1)
             ys = np.clip(np.rint(segment[:, 1]).astype(np.int32), 0, self.height - 1)
-            for offset_x, offset_y in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
-                image[np.clip(ys + offset_y, 0, self.height - 1), np.clip(xs + offset_x, 0, self.width - 1)] = 12
+            coordinates.append(np.stack((xs, ys), axis=-1))
+        if not coordinates:
+            return
+        coordinates = np.concatenate(coordinates)
+        offsets = np.asarray(((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)), dtype=np.int32)
+        for start in range(0, len(coordinates), 65_536):
+            stroke = coordinates[start : start + 65_536, None, :] + offsets
+            xs = np.clip(stroke[..., 0], 0, self.width - 1)
+            ys = np.clip(stroke[..., 1], 0, self.height - 1)
+            image[ys, xs] = 12

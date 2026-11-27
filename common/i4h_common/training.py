@@ -18,13 +18,7 @@ logger = logging.getLogger("i4h.training")
 
 
 def task_spec(task_id: str) -> Any:
-    """Look up a task manifest entry. Raises with a readable message if absent.
-
-    Scans manifests directly rather than going through
-    ``i4h_engine.registry``: ``i4h_common`` sits below ``i4h_engine`` in the
-    layering and must not reach upward, even lazily. The scan is the same
-    filesystem glob, and the parser is already here.
-    """
+    """Look up a task manifest entry. Raises with a readable message if absent."""
     from i4h_common.paths import workflow_root  # noqa: PLC0415
     from i4h_common.taskdef import load_taskdef  # noqa: PLC0415
 
@@ -35,7 +29,7 @@ def task_spec(task_id: str) -> Any:
     manifest = workflow_root() / "tasks" / project / "i4h_tasks" / project / "manifest" / f"{name}.yaml"
     if not manifest.is_file():
         raise KeyError(f"no manifest at {manifest} for task {task_id!r}")
-    return load_taskdef(manifest)[2]
+    return load_taskdef(manifest)
 
 
 def _spec_or_none(task_id: str) -> Any:

@@ -56,9 +56,9 @@ class CatheterEpisodeDiagnostics:
         self._catheter = catheter
         self._target_world_m = None if target_world_m is None else np.asarray(tuple(target_world_m), dtype=np.float64)
 
-    def diagnostics(self) -> dict[str, float | np.ndarray]:
+    def diagnostics(self, env_index: int = 0) -> dict[str, float | np.ndarray]:
         """Measurements for the current frame, or ``{}`` before there are particles."""
-        points = self._points_world_m()
+        points = self._points_world_m(env_index)
         if points is None:
             return {}
         values: dict[str, float | np.ndarray] = {
@@ -66,11 +66,13 @@ class CatheterEpisodeDiagnostics:
             "root_world_m": points[0].astype(np.float32),
         }
         if self._target_world_m is not None:
-            values["tip_target_distance_m"] = float(np.linalg.norm(points[-1] - self._target_world_m))
-        values.update(self._containment(points))
+            target = self._target_world_m[env_index] if self._target_world_m.ndim == 2 else self._target_world_m
+            values["tip_target_distance_m"] = float(np.linalg.norm(points[-1] - target))
+        report = getattr(self._catheter, "report_containment", None)
+        values.update(report(points, env_index) if report is not None else self._containment(points))
         return values
 
-    def _points_world_m(self) -> np.ndarray | None:
+    def _points_world_m(self, env_index: int = 0) -> np.ndarray | None:
         positions = getattr(getattr(self._catheter, "data", None), "positions_world_m", None)
         if positions is None:
             return None
@@ -81,7 +83,7 @@ class CatheterEpisodeDiagnostics:
         # one polyline and put the tip and the bend measurements somewhere
         # between them.
         if array.ndim == 3:
-            array = array[0]
+            array = array[env_index]
         points = array.reshape(-1, 3)
         return points if len(points) >= 2 else None
 

@@ -1,0 +1,63 @@
+diff --git a/source/isaaclab_newton/changelog.d/i4h-newton18-compat.fixed.rst b/source/isaaclab_newton/changelog.d/i4h-newton18-compat.fixed.rst
+new file mode 100644
+index 000000000..b52eca8e4
+--- /dev/null
++++ b/source/isaaclab_newton/changelog.d/i4h-newton18-compat.fixed.rst
+@@ -0,0 +1 @@
++* Read Newton 1.8 surface and volume particle ranges and recognize rod joints in cable assets.
+diff --git a/source/isaaclab_newton/isaaclab_newton/assets/cable_object/cable_object.py b/source/isaaclab_newton/isaaclab_newton/assets/cable_object/cable_object.py
+index 83b4522a4..9291c317d 100644
+--- a/source/isaaclab_newton/isaaclab_newton/assets/cable_object/cable_object.py
++++ b/source/isaaclab_newton/isaaclab_newton/assets/cable_object/cable_object.py
+@@ -196,7 +196,7 @@ class CableObject(BaseCableObject):
+             self.root_view.count_per_world == 1
+             and self.root_view.joint_count == expected_joint_count
+             and self.root_view.link_count == expected_joint_count
+-            and bool((joint_types == int(JointType.CABLE)).all())
++            and bool((joint_types == int(JointType.ROD)).all())
+         )
+         if not valid_topology:
+             raise RuntimeError(topology_error)
+diff --git a/source/isaaclab_newton/isaaclab_newton/physics/newton_manager.py b/source/isaaclab_newton/isaaclab_newton/physics/newton_manager.py
+index 439f6260d..1b07d201e 100644
+--- a/source/isaaclab_newton/isaaclab_newton/physics/newton_manager.py
++++ b/source/isaaclab_newton/isaaclab_newton/physics/newton_manager.py
+@@ -171,13 +171,12 @@ class NewtonBackend:
+         builder = SimulationContext.instance().get_or_create_backend(NewtonBuilderCfg(physics_cfg=cfg.physics_cfg))
+         self.model = builder.finalize(device=cfg.device)
+         self.particle_ranges: dict[str, tuple[int, int]] = {}
+-        # Newton 1.6 preserves groups through builder replication but not finalization.
+-        # Remove this snapshot when the pinned Newton includes newton-physics/newton#3326.
++        # Retain the particle ranges used by Lab assets with Newton 1.8 family names.
+         self.deformable_ranges = {
+             label: (start, end - start, kind)
+-            for family, kind in (("cloth", "surface"), ("soft", "volume"))
++            for family, kind in (("surface", "surface"), ("volume", "volume"))
+             for label, start, end in zip(
+-                getattr(builder, f"_{family}_label"),
++                getattr(builder, f"{family}_label"),
+                 getattr(builder, f"_{family}_particle_start"),
+                 getattr(builder, f"_{family}_particle_end"),
+                 strict=True,
+diff --git a/source/isaaclab_newton/isaaclab_newton/cloner/replicate.py b/source/isaaclab_newton/isaaclab_newton/cloner/replicate.py
+index ff1a45063..0208458f0 100644
+--- a/source/isaaclab_newton/isaaclab_newton/cloner/replicate.py
++++ b/source/isaaclab_newton/isaaclab_newton/cloner/replicate.py
+@@ -269,9 +269,9 @@ def _replicate_newton(
+         geometry = expand_deformable_entries(entries, plan, env_ids, positions, imported_sources=source_builders)
+         ranges = {
+             label: start
+-            for family in ("cloth", "soft")
++            for family in ("surface", "volume")
+             for label, start in zip(
+-                getattr(builder, f"_{family}_label"), getattr(builder, f"_{family}_particle_start"), strict=True
++                getattr(builder, f"{family}_label"), getattr(builder, f"_{family}_particle_start"), strict=True
+             )
+         }
+         offsets = [ranges[entry.root_path] for entry in geometry]
+diff --git a/source/isaaclab_newton/changelog.d/stage-b-rc1-cloner.fixed.rst b/source/isaaclab_newton/changelog.d/stage-b-rc1-cloner.fixed.rst
+new file mode 100644
+--- /dev/null
++++ b/source/isaaclab_newton/changelog.d/stage-b-rc1-cloner.fixed.rst
+@@ -0,0 +1 @@
++* Read Newton RC1 surface and volume particle ranges when replicating environments.

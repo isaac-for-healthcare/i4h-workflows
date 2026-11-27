@@ -1049,20 +1049,36 @@ def stub_isaac(monkeypatch):
     newton_physics = types.ModuleType("isaaclab_newton.physics")
     newton_physics.NewtonCfg = FakeNewtonCfg
     newton_physics.MJWarpSolverCfg = FakeMJWarpSolverCfg
-    newton_physics.NewtonManager = SimpleNamespace(_builder=None, register_callback=None)
+    newton_physics.NewtonManager = SimpleNamespace(register_callback=None)
+    newton_physics.NewtonBuilderCfg = lambda physics_cfg: ("builder", physics_cfg)
     newton_pkg = types.ModuleType("isaaclab_newton")
+
+    # Isaac Lab hands MODEL_INIT callbacks the shared ModelBuilder through the sim.
+    sim_state = SimpleNamespace(builder=None)
+    physics_cfg = object()
+
+    def get_or_create_backend(cfg):
+        assert cfg == ("builder", physics_cfg)
+        return sim_state.builder
+
+    sim = SimpleNamespace(cfg=SimpleNamespace(physics=physics_cfg), get_or_create_backend=get_or_create_backend)
+    isaaclab_sim = types.ModuleType("isaaclab.sim")
+    isaaclab_sim.SimulationContext = SimpleNamespace(instance=lambda: sim)
+    isaaclab = sys.modules.get("isaaclab") or types.ModuleType("isaaclab")
 
     integration = types.ModuleType("catheter_vasculature_solver.isaaclab_integration")
     integration.XPBDRodSolverCfg = FakeSolverCfg
     integration.CoupledMJWarpXPBDRodSolverCfg = FakeCoupledSolverCfg
 
     for name, module in (
+        ("isaaclab", isaaclab),
+        ("isaaclab.sim", isaaclab_sim),
         ("isaaclab_newton", newton_pkg),
         ("isaaclab_newton.physics", newton_physics),
         ("catheter_vasculature_solver.isaaclab_integration", integration),
     ):
         monkeypatch.setitem(sys.modules, name, module)
-    return SimpleNamespace(newton_physics=newton_physics, integration=integration)
+    return SimpleNamespace(newton_physics=newton_physics, integration=integration, sim=sim_state)
 
 
 def test_solver_cfg_carries_the_scene_geometry(stub_isaac):
@@ -1258,7 +1274,7 @@ def stub_model_init(monkeypatch, stub_isaac):
     calls: list[str] = []
     recorded: dict = {}
     builder = FakeBuilder()
-    stub_isaac.newton_physics.NewtonManager._builder = builder
+    stub_isaac.sim.builder = builder
     # The device the Newton model is finalized on, as Isaac Lab's physics
     # manager reports it once the simulation context exists.
     physics_device = {"value": "cuda:0"}
@@ -1308,6 +1324,9 @@ def stub_model_init(monkeypatch, stub_isaac):
         recorded["solver_positions"] = positions.copy()
 
     monkeypatch.setattr("i4h_arena.medical.catheter_initialization.initialize_rod_state", initialize_rod_state)
+    solver_module.cath_rod_solver = types.ModuleType("cath_rod_solver")
+    solver_module.xpbd_rod_solver = types.ModuleType("xpbd_rod_solver")
+    monkeypatch.setattr("warp.set_module_options", lambda *a, **kw: None)
     solver_module.CathRodSolver = CathRodSolver
     monkeypatch.setitem(sys.modules, "catheter_vasculature_solver", solver_module)
     return SimpleNamespace(
@@ -1423,7 +1442,7 @@ def test_the_vessel_path_seeds_the_rod_shape(stub_model_init):
 
 
 def test_a_missing_builder_is_reported_not_silently_skipped(stub_model_init, stub_isaac):
-    stub_isaac.newton_physics.NewtonManager._builder = None
+    stub_isaac.sim.builder = None
     handle = CatheterRodHandle(CatheterRodSpec())
 
     with pytest.raises(RuntimeError, match="ModelBuilder"):
@@ -1657,3 +1676,21 @@ def test_physical_tip_override_wins_over_legacy_edge_override(stub_isaac, monkey
 def test_invalid_physical_tip_lengths_are_rejected(length):
     with pytest.raises(ValueError, match="tip_length_m"):
         CatheterRodSpec(length_m=0.3, tip_length_m=length)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_only_legacy_rod_cuda_modules_request_cached_binaries(device, monkeypatch):
+    from i4h_arena.medical.newton_catheter_physics import _configure_rod_cuda_modules
+
+    solver = types.ModuleType("catheter_vasculature_solver")
+    solver.cath_rod_solver = types.ModuleType("cath_rod_solver")
+    solver.xpbd_rod_solver = types.ModuleType("xpbd_rod_solver")
+    monkeypatch.setitem(sys.modules, "catheter_vasculature_solver", solver)
+    calls = []
+    monkeypatch.setattr("warp.set_module_options", lambda options, *, module: calls.append((options, module)))
+    _configure_rod_cuda_modules(device)
+    expected = [
+        ({"cuda_output": "cubin", "enable_backward": False}, solver.xpbd_rod_solver),
+        ({"cuda_output": "cubin"}, solver.cath_rod_solver),
+    ]
+    assert calls == (expected if device.startswith("cuda") else [])

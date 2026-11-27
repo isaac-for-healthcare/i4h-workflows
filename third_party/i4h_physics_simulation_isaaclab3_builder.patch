@@ -1,0 +1,69 @@
+diff --git a/physics_simulation/endoluminal/catheter-vasculature-solver/src/catheter_vasculature_solver/isaaclab_integration/coupled_manager.py b/physics_simulation/endoluminal/catheter-vasculature-solver/src/catheter_vasculature_solver/isaaclab_integration/coupled_manager.py
+index 35a54d8..644c944 100644
+--- a/physics_simulation/endoluminal/catheter-vasculature-solver/src/catheter_vasculature_solver/isaaclab_integration/coupled_manager.py
++++ b/physics_simulation/endoluminal/catheter-vasculature-solver/src/catheter_vasculature_solver/isaaclab_integration/coupled_manager.py
+@@ -16,6 +16,37 @@ if TYPE_CHECKING:
+     from newton import Model
+ 
+ 
++def _finalized_builder():
++    """The ModelBuilder IsaacLab finalized, or None.
++
++    IsaacLab 3.0 keeps it in the SimulationContext's backend registry; earlier
++    releases held it on ``NewtonManager._builder``.
++    """
++    builder = getattr(NewtonManager, "_builder", None)
++    if builder is not None:
++        return builder
++    try:
++        from isaaclab.sim import SimulationContext
++        from isaaclab_newton.physics import NewtonBuilderCfg
++    except ImportError:
++        return None
++    sim = SimulationContext.instance()
++    if sim is None:
++        return None
++    return sim.get_or_create_backend(NewtonBuilderCfg(physics_cfg=sim.cfg.physics))
++
++
++def _per_env_world_mask(world_mask, num_envs: int):
++    """The per-environment part of a Newton world mask.
++
++    IsaacLab 3.0 appends a slot for Newton's global world (-1) to the mask it hands
++    solver resets; the rod and its coupler own per-environment state only.
++    """
++    if world_mask is not None and len(world_mask) == num_envs + 1:
++        return world_mask[:num_envs]
++    return world_mask
++
++
+ class NewtonCoupledMJWarpXPBDRodManager(NewtonManager):
+     """Couple a rigid MJWarp solve with an XPBD Cosserat catheter rod.
+ 
+@@ -116,7 +147,7 @@ class NewtonCoupledMJWarpXPBDRodManager(NewtonManager):
+         """
+         from .proxy_coupling import resolve_drive_body_index
+ 
+-        builder = getattr(NewtonManager, "_builder", None)
++        builder = _finalized_builder()
+         labels = getattr(builder, "body_label", None) if builder is not None else None
+         if not labels:
+             raise RuntimeError(
+@@ -357,14 +388,15 @@ class NewtonCoupledMJWarpXPBDRodManager(NewtonManager):
+         state = cls.get_state_0()
+         if state is None:
+             raise RuntimeError("Newton state must be initialized before reset_rod().")
+-        rod.reset(state, world_mask=world_mask, flags=0)
++        env_mask = _per_env_world_mask(world_mask, int(NewtonXPBDRodManager._require_particle_range().num_envs))
++        rod.reset(state, world_mask=env_mask, flags=0)
+         rigid = cls._rigid_solver or getattr(NewtonManager, "_rigid_solver", None)
+         reset_rigid = getattr(rigid, "reset", None)
+         if reset_rigid is not None:
+             reset_rigid(state, world_mask=world_mask, flags=0)
+         coupler = cls._coupler or getattr(NewtonManager, "_coupler", None)
+         if coupler is not None:
+-            coupler.reset(world_mask=world_mask)
++            coupler.reset(world_mask=env_mask)
+ 
+     @classmethod
+     def _reset_solver_internals(cls, world_mask) -> None:

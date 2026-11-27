@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+impl: i4h_arena.scenes.liver_reach_retract:LiverReachRetractScene
+description: Reach, acquire the intended liver patch, retain, retract 20 mm, hold, release and relax.
+embodiment: virtual_grasper
+action_space: liver_cartesian_delta
+dof: 4
+gripper: false
+cameras: []
+objects: []
+robots: [robot]
+max_steps: 600
+control_hz: 30.0

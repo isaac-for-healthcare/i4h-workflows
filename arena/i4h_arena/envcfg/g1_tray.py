@@ -5,25 +5,26 @@ from __future__ import annotations
 
 from dataclasses import MISSING
 
-import isaaclab.envs.mdp as mdp_isaac_lab
 import numpy as np
 import torch
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.envs.mimic_env_cfg import SubTaskConfig
 from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils import configclass
-from isaaclab.utils.math import euler_xyz_from_quat
-from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.tasks.g1_locomanip_pick_and_place_task import G1LocomanipPickAndPlaceTask
-from isaaclab_arena.tasks.terminations import objects_in_proximity
+from isaaclab_arena.tasks.predicates.spatial import objects_in_proximity
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
-from isaaclab_tasks.manager_based.manipulation.stack.mdp import franka_stack_events
 
+from i4h_arena.envcfg._locomanip import LocomanipTask, randomize_pose_event, subtask
 from i4h_arena.tensor_utils import to_torch
 
 
-class G1TrayEnvCfg(G1LocomanipPickAndPlaceTask):
+class G1TrayEnvCfg(LocomanipTask):
     """Rheo tray pick-and-place task in the pre-operative scene."""
+
+    instruction = (
+        "Grasp the box from the shelf, turn around 180 degrees, place it onto the cart surface, "
+        "take two steps backward, and return to initial posture."
+    )
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(
@@ -32,102 +33,41 @@ class G1TrayEnvCfg(G1LocomanipPickAndPlaceTask):
         )
 
     def get_mimic_env_cfg(self, embodiment_name: str):
-        env_cfg = super().get_mimic_env_cfg(embodiment_name)
-        env_cfg.datagen_config.name = "g1_tray_pick_and_place_task_D0"
-        env_cfg.subtask_configs = {
-            "right": [
-                SubTaskConfig(
-                    object_ref=self.pick_up_object.name,
-                    subtask_term_signal="right_before_grasp_box",
-                    first_subtask_start_offset_range=(0, 0),
-                    subtask_term_offset_range=(0, 0),
-                    selection_strategy="nearest_neighbor_object",
-                    selection_strategy_kwargs={"nn_k": 3},
-                    action_noise=0.001,
-                    num_interpolation_steps=0,
-                    num_fixed_steps=0,
-                    apply_noise_during_interpolation=False,
-                ),
-                SubTaskConfig(
-                    object_ref=self.pick_up_object.name,
-                    subtask_term_signal="right_after_release_box",
-                    first_subtask_start_offset_range=(0, 0),
-                    subtask_term_offset_range=(0, 0),
-                    selection_strategy="nearest_neighbor_object",
-                    selection_strategy_kwargs={"nn_k": 3},
-                    action_noise=0.001,
-                    num_interpolation_steps=0,
-                    num_fixed_steps=0,
-                    apply_noise_during_interpolation=False,
-                ),
-                _final_subtask(self.pick_up_object.name),
-            ],
-            "left": [
-                SubTaskConfig(
-                    object_ref=self.pick_up_object.name,
-                    subtask_term_signal="left_before_grasp_box",
-                    first_subtask_start_offset_range=(0, 0),
-                    subtask_term_offset_range=(0, 0),
-                    selection_strategy="nearest_neighbor_object",
-                    selection_strategy_kwargs={"nn_k": 3},
-                    action_noise=0.001,
-                    num_interpolation_steps=0,
-                    num_fixed_steps=0,
-                    apply_noise_during_interpolation=False,
-                ),
-                SubTaskConfig(
-                    object_ref=self.pick_up_object.name,
-                    subtask_term_signal="left_after_release_box",
-                    first_subtask_start_offset_range=(0, 0),
-                    subtask_term_offset_range=(0, 0),
-                    selection_strategy="nearest_neighbor_object",
-                    selection_strategy_kwargs={"nn_k": 3},
-                    action_noise=0.001,
-                    num_interpolation_steps=0,
-                    num_fixed_steps=0,
-                    apply_noise_during_interpolation=False,
-                ),
-                _final_subtask(self.pick_up_object.name),
-            ],
-            "body": [
-                SubTaskConfig(
-                    object_ref=self.pick_up_object.name,
-                    subtask_term_signal="body_face_box_front",
-                    first_subtask_start_offset_range=(0, 0),
-                    subtask_term_offset_range=(0, 0),
-                    selection_strategy="nearest_neighbor_object",
-                    selection_strategy_kwargs={"nn_k": 3},
-                    action_noise=0.001,
-                    num_interpolation_steps=0,
-                    num_fixed_steps=0,
-                    apply_noise_during_interpolation=False,
-                ),
-                SubTaskConfig(
-                    object_ref=self.pick_up_object.name,
-                    subtask_term_signal="body_face_cart_front",
-                    first_subtask_start_offset_range=(0, 0),
-                    subtask_term_offset_range=(0, 0),
-                    selection_strategy="nearest_neighbor_object",
-                    selection_strategy_kwargs={"nn_k": 3},
-                    action_noise=0.001,
-                    num_interpolation_steps=0,
-                    num_fixed_steps=0,
-                    apply_noise_during_interpolation=False,
-                ),
-                _final_subtask(self.pick_up_object.name),
-            ],
-        }
-        return env_cfg
+        tray = self.pick_up_object.name
+        return self.mimic_env_cfg(
+            "g1_tray_pick_and_place_task_D0",
+            {
+                "right": [
+                    subtask(tray, "right_before_grasp_box", 0.001),
+                    subtask(tray, "right_after_release_box", 0.001),
+                    subtask(tray),
+                ],
+                "left": [
+                    subtask(tray, "left_before_grasp_box", 0.001),
+                    subtask(tray, "left_after_release_box", 0.001),
+                    subtask(tray),
+                ],
+                "body": [
+                    subtask(tray, "body_face_box_front", 0.001),
+                    subtask(tray, "body_face_cart_front", 0.001),
+                    subtask(tray),
+                ],
+            },
+        )
 
-    def get_events_cfg(self):
-        return I4HEventsCfg(pick_up_object=self.pick_up_object, destination_cart=self.destination_bin)
+    def get_events_cfg(self) -> TrayEventsCfg:
+        return TrayEventsCfg(
+            reset_success_state=EventTermCfg(func=reset_tray_success_state, mode="reset"),
+            reset_destination_cart_pose=randomize_pose_event(self.destination_cart, x=(-0.01, 0.01), y=(-0.01, 0.01)),
+            reset_pick_up_object_pose=randomize_pose_event(self.pick_up_object, x=(-0.025, 0.025), y=(-0.025, 0.025)),
+        )
 
-    def get_termination_cfg(self):
-        success = TerminationTermCfg(
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        placed = TerminationTermCfg(
             func=tray_placed_success,
             params={
                 "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                "target_object_cfg": SceneEntityCfg(self.destination_bin.name),
+                "target_object_cfg": SceneEntityCfg(self.destination_cart.name),
                 "max_x_separation": 0.16,
                 "max_y_separation": 0.16,
                 "max_z_separation": 0.88,
@@ -135,21 +75,7 @@ class G1TrayEnvCfg(G1LocomanipPickAndPlaceTask):
                 "max_linear_speed": 0.08,
             },
         )
-        object_dropped = TerminationTermCfg(
-            func=mdp_isaac_lab.root_height_below_minimum,
-            params={
-                "minimum_height": self.background_scene.object_min_z,
-                "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
-            },
-        )
-        return TerminationsCfg(success=success, object_dropped=object_dropped)
-
-    def modify_env_cfg(self, env_cfg):
-        if hasattr(super(), "modify_env_cfg"):
-            env_cfg = super().modify_env_cfg(env_cfg)
-        env_cfg.sim.render.rendering_mode = "quality"
-        env_cfg.sim.render.antialiasing_mode = "DLAA"
-        return env_cfg
+        return self.termination_cfg("tray_placed", placed)
 
 
 def tray_placed_success(
@@ -194,71 +120,8 @@ def reset_tray_success_state(env, env_ids: torch.Tensor) -> None:
         env._tray_success_settle_count[env_ids] = 0
 
 
-def _final_subtask(object_ref: str) -> SubTaskConfig:
-    return SubTaskConfig(
-        object_ref=object_ref,
-        first_subtask_start_offset_range=(0, 0),
-        subtask_term_offset_range=(0, 0),
-        selection_strategy="nearest_neighbor_object",
-        selection_strategy_kwargs={"nn_k": 3},
-        action_noise=0.0,
-        num_interpolation_steps=0,
-        num_fixed_steps=0,
-        apply_noise_during_interpolation=False,
-    )
-
-
 @configclass
-class TerminationsCfg:
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out)
-    success: TerminationTermCfg = MISSING
-    object_dropped: TerminationTermCfg = MISSING
-
-
-@configclass
-class I4HEventsCfg:
+class TrayEventsCfg:
     reset_success_state: EventTermCfg = MISSING
     reset_destination_cart_pose: EventTermCfg = MISSING
     reset_pick_up_object_pose: EventTermCfg = MISSING
-
-    def __init__(self, pick_up_object: Asset, destination_cart: Asset):
-        self.reset_success_state = EventTermCfg(func=reset_tray_success_state, mode="reset")
-        object_initial_pose = pick_up_object.get_initial_pose()
-        object_roll, object_pitch, object_yaw = euler_xyz_from_quat(
-            torch.tensor(object_initial_pose.rotation_xyzw).reshape(1, 4)
-        )
-        self.reset_pick_up_object_pose = EventTermCfg(
-            func=franka_stack_events.randomize_object_pose,
-            mode="reset",
-            params={
-                "pose_range": {
-                    "x": (object_initial_pose.position_xyz[0] - 0.025, object_initial_pose.position_xyz[0] + 0.025),
-                    "y": (object_initial_pose.position_xyz[1] - 0.025, object_initial_pose.position_xyz[1] + 0.025),
-                    "z": (object_initial_pose.position_xyz[2], object_initial_pose.position_xyz[2]),
-                    "roll": (object_roll, object_roll),
-                    "pitch": (object_pitch, object_pitch),
-                    "yaw": (object_yaw, object_yaw),
-                },
-                "asset_cfgs": [SceneEntityCfg(pick_up_object.name)],
-            },
-        )
-
-        cart_initial_pose = destination_cart.get_initial_pose()
-        cart_roll, cart_pitch, cart_yaw = euler_xyz_from_quat(
-            torch.tensor(cart_initial_pose.rotation_xyzw).reshape(1, 4)
-        )
-        self.reset_destination_cart_pose = EventTermCfg(
-            func=franka_stack_events.randomize_object_pose,
-            mode="reset",
-            params={
-                "pose_range": {
-                    "x": (cart_initial_pose.position_xyz[0] - 0.01, cart_initial_pose.position_xyz[0] + 0.01),
-                    "y": (cart_initial_pose.position_xyz[1] - 0.01, cart_initial_pose.position_xyz[1] + 0.01),
-                    "z": (cart_initial_pose.position_xyz[2], cart_initial_pose.position_xyz[2]),
-                    "roll": (cart_roll, cart_roll),
-                    "pitch": (cart_pitch, cart_pitch),
-                    "yaw": (cart_yaw, cart_yaw),
-                },
-                "asset_cfgs": [SceneEntityCfg(destination_cart.name)],
-            },
-        )

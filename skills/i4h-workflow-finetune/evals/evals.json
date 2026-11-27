@@ -3,16 +3,16 @@
     "id": "i4h-workflow-finetune-readme-quick-steps-batch",
     "question": "Fine-tune for 200 steps with a batch size of 32. Turn off vision tuning.",
     "expected_skill": "i4h-workflow-finetune",
-    "ground_truth": "This README Quick Run prompt routes to finetuning for the active/new env, using 200 training steps, batch size 32, and vision tuning disabled.",
+    "ground_truth": "This README Quick Run prompt routes to fine-tuning for the active/new workflow's policy task, using 200 training steps, batch size 32, and vision tuning disabled, then load-checks the resulting checkpoint with the stack's own policy server.",
     "expected_behavior": [
       "routes to i4h-workflow-finetune",
       "uses the current or recently converted LeRobot dataset",
       "sets training steps to 200",
       "sets batch size to 32",
-      "resolves trainability and defaults from the selected remote-task manifest",
+      "resolves the stack and task that serve the workflow's policy and requires a train block in its task manifest",
       "maps vision tuning off to --no-tune-visual only for a GR00T training CLI that supports it",
       "dry-runs the resolved training configuration before the long run",
-      "runs a bounded inference-backend preload-only smoke on the exact checkpoint",
+      "load-checks the exact checkpoint by starting the stack's policy server, waiting for its ready line, and stopping it by its PID",
       "reports output and checkpoint disk sizes without deleting duplicated artifacts",
       "reports the exact checkpoint path for i4h-workflow-validate"
     ]
@@ -21,12 +21,12 @@
     "id": "i4h-workflow-finetune-table-short-smoke",
     "question": "Fine-tune a policy for the scissor pick-and-place task on my converted dataset for a short smoke run.",
     "expected_skill": "i4h-workflow-finetune",
-    "ground_truth": "This README skill-table prompt routes to a short finetune smoke run for scissor_pick_and_place using an existing converted dataset.",
+    "ground_truth": "This README skill-table prompt routes to a short fine-tune smoke run of the ordinary scissor_pick_and_place policy task, gr00t_n15/scissor_pick_and_place, using an existing converted dataset.",
     "expected_behavior": [
       "routes to i4h-workflow-finetune",
-      "maps scissor pick-and-place to scissor_pick_and_place",
+      "maps scissor pick-and-place to scissor_pick_and_place and its GR00T N1.5 task gr00t_n15/scissor_pick_and_place unless N1.7 is requested",
       "uses the converted LeRobot dataset",
-      "runs a short smoke training configuration",
+      "dry-runs and then runs a short smoke training configuration with i4h-tasks-gr00t-n15-train",
       "does not evaluate the checkpoint unless requested"
     ]
   }

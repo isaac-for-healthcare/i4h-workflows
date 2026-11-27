@@ -40,12 +40,15 @@ def _run_setup(
     third_party = workspace / "third_party"
     third_party.mkdir(parents=True)
     shutil.copy2(THIRD_PARTY_SETUP, third_party / "setup.sh")
+    (workspace / "scripts").mkdir()
+    shutil.copy2(ROOT / "scripts/apply_teleop_patch.py", workspace / "scripts/apply_teleop_patch.py")
+    shutil.copy2(ROOT / "third_party/isaaclab_teleop_no_record.patch", third_party / "isaaclab_teleop_no_record.patch")
     for name in retired:
         (third_party / name).mkdir()
 
     # Fake Git does not populate working trees. Supply the solver source that
     # setup inspects so these tests model a compatible component checkout.
-    physics = third_party / "i4h-physics-simulation-internal" / "xpbd_rod"
+    physics = third_party / "i4h-physics-simulation" / "xpbd_rod"
     physics.mkdir(parents=True)
     (physics / "solver.py").write_text(
         "\n\n".join(f"def {name}():\n    pass\n" for name in solver_api),
@@ -108,9 +111,8 @@ def _run_setup(
         "",
     ],
 )
-def test_release_components_use_public_https_sources(tmp_path: Path, root_origin: str) -> None:
-    # Every release component is a public repository, so the checkout's own transport no
-    # longer matters: SSH, HTTPS and archive builds all fetch the components over HTTPS.
+def test_components_use_declared_public_https_sources(tmp_path: Path, root_origin: str) -> None:
+    # Physics (including Numerical Sim), sensor simulation and the patient twin are all public.
     result, git_log = _run_setup(tmp_path, root_origin)
 
     assert result.returncode == 0, result.stderr
@@ -118,7 +120,10 @@ def test_release_components_use_public_https_sources(tmp_path: Path, root_origin
     assert "carries the per-environment anatomy solver contract" in result.stdout
     for repository in ("i4h-physics-simulation", "i4h-sensor-simulation", "i4h-digital-twin"):
         assert f"remote set-url origin https://github.com/isaac-for-healthcare/{repository}.git" in git_log
-    assert "-internal.git" not in git_log
+    assert "i4h-physics-simulation-internal" not in git_log
+    assert "827dc426888b614d4e75d4cd309e66f1ae9ce753" in git_log
+    assert "Isaac-GR00T-1.6 fetch" not in git_log
+    assert "i4h_numerical_liver_host.patch" not in git_log
     assert "git@github.com" not in git_log
 
 
@@ -155,11 +160,19 @@ def test_release_component_refs_are_fetched(tmp_path: Path, monkeypatch: pytest.
     result, git_log = _run_setup(tmp_path, "")
     assert result.returncode == 0, result.stderr
     for component, ref in (
-        ("physics-simulation-internal", "d83133002f49cd42ee6bcf5e3d52f5287c76e297"),
-        ("sensor-simulation", "fd7cab8be79b0f7970995e88f30855dbfd01e963"),
-        ("digital-twin", "21e969d0be8212c22acc0a7e920b954f60ec289f"),
+        ("physics-simulation", "827dc426888b614d4e75d4cd309e66f1ae9ce753"),
+        ("sensor-simulation", "ccf0843180ce430ee8a0b3550e230abe5c991969"),
+        ("digital-twin", "2136e743b20a625e465f394045bcccb1fd96fe0d"),
     ):
         assert any(f"i4h-{component} fetch" in line and line.endswith(f"origin {ref}") for line in git_log.splitlines())
+
+
+def test_isolated_n16_service_keeps_its_original_arena(tmp_path: Path) -> None:
+    result, git_log = _run_setup(tmp_path, "", target="tasks/gr00t_n16")
+    assert result.returncode == 0, result.stderr
+    assert "IsaacLab-Arena-c7edf3a fetch" in git_log
+    assert "Isaac-GR00T-1.6 fetch" in git_log
+    assert "IsaacLab-Arena-67f5b19 fetch" not in git_log
 
 
 def _git(*args: str, cwd: Path) -> str:

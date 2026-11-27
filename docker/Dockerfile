@@ -4,7 +4,7 @@
 
 ARG UV_VERSION=0.11.8
 ARG BASE_IMAGE=nvcr.io/nvidia/base/ubuntu:noble-20251013
-ARG DEFAULT_SETUP_PROJECTS="workflows arena"
+ARG DEFAULT_SETUP_PROJECTS="common arena"
 ARG THIRD_PARTY_TARGET=all
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
@@ -84,8 +84,9 @@ RUN mkdir -p \
     && ln -s /opt/i4h-state/isaac/data /root/.local/share/ov
 
 # Pinned third-party Git sources form their own stable layer. The build context
-# contains only this setup script and its patches, never host checkouts.
+# contains only setup, its migration helper and patches, never host checkouts.
 COPY third_party/setup.sh third_party/*.patch ./third_party/
+COPY scripts/apply_teleop_patch.py ./scripts/apply_teleop_patch.py
 COPY docker/github-askpass.sh ./docker/github-askpass.sh
 RUN --mount=type=secret,id=github_token \
     GIT_ASKPASS=/workspace/docker/github-askpass.sh GIT_TERMINAL_PROMPT=0 \
@@ -94,7 +95,7 @@ RUN --mount=type=secret,id=github_token \
 # .dockerignore recursively excludes .venv, __pycache__, bytecode, test/lint
 # caches, run artifacts, and local third-party worktrees from this copy.
 COPY . .
-RUN chmod +x docker/dependency-fingerprint.sh docker/entrypoint.sh docker/policy-server.sh \
+RUN chmod +x docker/dependency-fingerprint.sh docker/entrypoint.sh \
     && rm -rf /workspace/runs \
     && ln -s /opt/i4h-state/runs /workspace/runs \
     && find /workspace -type d \( \

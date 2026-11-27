@@ -80,7 +80,7 @@ def test_the_step_budget_is_reported_as_truncation_not_termination():
     only other ending is arrival never ends, and a policy that cannot arrive
     yet never sees a reset.
     """
-    from i4h_arena.envcfg.endoluminal_navigation import navigation_terminations_cfg
+    from i4h_arena.envcfg.endoluminal_navigation.terms import navigation_terminations_cfg
 
     cfg = navigation_terminations_cfg(TARGET)
 
@@ -113,7 +113,7 @@ def test_the_episode_length_matches_the_manifest_step_cap():
 
 
 def test_endoluminal_navigation_uses_the_demonstration_arrival_tolerance():
-    from i4h_arena.envcfg.endoluminal_navigation import (
+    from i4h_arena.envcfg.endoluminal_navigation.terms import (
         ENDOLUMINAL_ARRIVAL_TOLERANCE_M,
         ENDOLUMINAL_DEFAULT_ARRIVAL_TOLERANCE_M,
         navigation_terminations_cfg,
@@ -213,7 +213,7 @@ def test_reset_without_ids_clears_every_environment():
     env = _env_at(TARGET, TARGET)
     reached_navigation_target(env, TARGET)
 
-    reset_arrival_progress(env)
+    reset_arrival_progress(env, None)
 
     assert hold_counter(env).tolist() == [0, 0]
 
@@ -294,6 +294,20 @@ def test_reading_the_progress_does_not_spend_the_hold():
         arrival_status(env)
 
     assert hold_counter(env).item() == 1
+
+
+def test_the_readout_finds_the_criterion_behind_arenas_progress_success_term():
+    """Arena's ``success`` term takes no parameters; the arrival predicate in the task's criteria has them."""
+    env = _env_with_term(TARGET)
+    arrival = SimpleNamespace(params={"target_world_m": TARGET, "tolerance_m": 0.05, "hold_steps": 3})
+    criteria = SimpleNamespace(canonical_predicate_sequences={"arrival": [(arrival, 1.0)]})
+    env.termination_manager._cfg = SimpleNamespace(params={})
+    env.cfg = SimpleNamespace(task_progress=SimpleNamespace(success_criteria=[criteria]))
+
+    progress = arrival_progress(env)
+
+    assert progress.distance_m == pytest.approx(0.0)
+    assert (progress.tolerance_m, progress.hold_steps) == (0.05, 3)
 
 
 def test_a_scene_without_the_success_term_gets_no_readout():
@@ -410,3 +424,41 @@ def test_an_override_naming_the_default_is_not_announced_as_a_change(caplog):
 def test_module_tolerance_is_the_resolved_default_in_this_process():
     """Nothing in the test environment sets the override."""
     assert ARRIVAL_TOLERANCE_M == pytest.approx(DEFAULT_ARRIVAL_TOLERANCE_M)
+
+
+def test_readout_caches_progress_but_keeps_wall_clock_logging(monkeypatch):
+    import i4h_arena.medical.navigation_goal as goal
+
+    env = _env_with_term((0.98, 0.0, 0.0), tolerance_m=0.05, hold_steps=3)
+    env._sim_step_counter = 4
+    from unittest.mock import Mock
+
+    compute = Mock(wraps=goal.arrival_progress)
+    logging = Mock()
+    monkeypatch.setattr(goal, "arrival_progress", compute)
+    monkeypatch.setattr(goal, "_log_tip_drift", logging)
+    first = goal.arrival_status(env)
+    assert goal.arrival_status(env) == first
+    assert compute.call_count == 1
+    assert logging.call_count == 2
+    env._sim_step_counter += 1
+    goal.arrival_status(env)
+    assert compute.call_count == 2
+    goal.reset_arrival_progress(env, [0])
+    goal.arrival_status(env)
+    assert compute.call_count == 3
+    goal.invalidate_arrival_readout(env)  # continuation/reconstruction boundary
+    goal.arrival_status(env)
+    assert compute.call_count == 4
+
+
+def test_readout_refreshes_configuration_changes_while_paused(monkeypatch):
+    import i4h_arena.medical.navigation_goal as goal
+
+    env = _env_with_term((0.98, 0.0, 0.0), tolerance_m=0.05, hold_steps=3)
+    env._sim_step_counter = 4
+    assert "holding" in goal.arrival_status(env)
+    env.termination_manager._cfg.params["tolerance_m"] = 0.001
+    assert "arrive within 1 mm" in goal.arrival_status(env)
+    env.termination_manager._cfg.params["target_world_m"] = (0.98, 0.0, 0.0)
+    assert "holding" in goal.arrival_status(env)

@@ -13,9 +13,11 @@ from typing import Any, ClassVar
 import isaaclab.sim as sim_utils
 import numpy as np
 import torch
+import warp as wp
 from isaaclab.assets import AssetBaseCfg
 from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
 from isaaclab.utils.configclass import configclass
+from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 
 from i4h_arena.medical.catheter_drive import RouteRailedIntroducer
 from i4h_arena.medical.centerline import ordered_centerline_lumen
@@ -31,58 +33,14 @@ from i4h_arena.medical.newton_catheter_physics import (
     segment_count_override,
 )
 from i4h_arena.medical.patient_twin import PatientTwin
-from i4h_arena.medical.route_progress import is_per_env_routes
+from i4h_arena.medical.route_progress import (
+    DEFAULT_INSERTION_ALLOWANCE_M,
+    is_per_env_routes,
+    route_initial_catheter_length_m,
+)
 from i4h_arena.medical.xpbd_catheter import XpbdCatheterAsset, XpbdCatheterAssetCfg
 from i4h_common.navigation_route import ROUTE_SPACING_MM
 from i4h_common.types import JointState
-
-#: Route left ahead of the tip at reset, which is the navigation an episode is
-#: actually about.
-#:
-#: This is bounded by the step cap rather than by anatomy. The scene is
-#: validated to 600 steps, which is twenty seconds at 30 Hz, and the insertion
-#: slider defaults to 9 mm/s because faster sustained feed drives the shaft
-#: into the wall. Twenty seconds at 9 mm/s is 180 mm, so nothing longer than
-#: that can be navigated within one episode whatever the operator does. The
-#: default keeps a third of the budget back for the steering, pausing and
-#: correcting that the insertion arithmetic ignores.
-DEFAULT_INSERTION_ALLOWANCE_M = 0.12
-
-
-def route_initial_catheter_length_m(
-    route_length_m: float,
-    *,
-    allowance_m: float = DEFAULT_INSERTION_ALLOWANCE_M,
-) -> float:
-    """Seeded shaft length that leaves ``allowance_m`` of route ahead of the tip.
-
-    The shaft is inextensible, so advancing the tip by one millimetre of arc
-    costs one millimetre at the root: the route left unseeded *is* the
-    insertion the episode has to perform. Sizing the shaft from the route makes
-    that quantity the thing being chosen, instead of a residue of how the seed
-    length and the route happen to compare.
-
-    The rule this replaced took 65% of the CT volume's width, matching the
-    reference viewport's initialization. Nothing in that ties it to the vessel
-    being navigated, and on ``s0011`` it produced a 303 mm shaft for a 646 mm
-    route, leaving 343 mm to insert where the cap affords 180 mm. Arrival was
-    unreachable on arithmetic alone, before any question of whether the
-    operator steered well, so every episode recorded a failure and the goal's
-    hold condition had never once been exercised.
-
-    A short route is returned nearly whole rather than clamped to a negative
-    length; the tip then starts essentially at the entry and the allowance is
-    whatever the route affords.
-    """
-    route_length_m = float(route_length_m)
-    if not np.isfinite(route_length_m) or route_length_m <= 0.0:
-        raise ValueError(f"route_length_m must be positive and finite, got {route_length_m}")
-    allowance_m = float(allowance_m)
-    if not np.isfinite(allowance_m) or allowance_m <= 0.0:
-        raise ValueError(f"allowance_m must be positive and finite, got {allowance_m}")
-    # Leaves a tenth of a short route seeded so the shaft still has a direction
-    # to be inserted along.
-    return max(0.1 * route_length_m, route_length_m - allowance_m)
 
 
 class CatheterVelocityAction(ActionTerm):
@@ -103,8 +61,13 @@ class CatheterVelocityAction(ActionTerm):
 
     def __init__(self, cfg: CatheterVelocityActionCfg, env: Any):
         super().__init__(cfg, env)
-        if not isinstance(self._asset, XpbdCatheterAsset):
-            raise TypeError(f"asset {cfg.asset_name!r} must be XpbdCatheterAsset")
+        from i4h_arena.medical.catheter import CatheterDrive
+
+        if not isinstance(self._asset, CatheterDrive):
+            raise TypeError(f"asset {cfg.asset_name!r} must implement CatheterDrive")
+        bind = getattr(self._asset, "bind_component", None)
+        if bind is not None:
+            bind(env.i4h)
         self._raw_actions = torch.zeros((self.num_envs, 3), device=self.device)
         self._processed_actions = torch.zeros_like(self._raw_actions)
         # Held here rather than on the asset because it is this term's
@@ -256,7 +219,12 @@ class CArmOrbitAction(ActionTerm):
     cfg: CArmOrbitActionCfg
 
     def __init__(self, cfg: CArmOrbitActionCfg, env: Any):
+        from isaaclab.sim.views import FrameView  # noqa: PLC0415
+
         super().__init__(cfg, env)
+        # The orbit root is an authoring-only scene extra; Isaac Lab 3 gives it no
+        # runtime view, so the term poses it through a FrameView over its prims.
+        self._frames = FrameView(self._asset.cfg.prim_path, device=self.device)
         self._raw_actions = torch.zeros((self.num_envs, 1), device=self.device)
         self._processed_actions = torch.zeros_like(self._raw_actions)
         self._angle_rad = torch.full(
@@ -326,9 +294,9 @@ class CArmOrbitAction(ActionTerm):
         self._root_orientation[:, 0] = torch.sin(half_angle)
         self._root_orientation[:, 1:3] = 0.0
         self._root_orientation[:, 3] = torch.cos(half_angle)
-        self._asset.set_local_poses(
-            translations=self._root_position,
-            orientations=self._root_orientation,
+        self._frames.set_local_poses(
+            translations=wp.from_torch(self._root_position.contiguous(), dtype=wp.vec3f),
+            orientations=wp.from_torch(self._root_orientation.contiguous(), dtype=wp.vec4f),
         )
 
 
@@ -451,7 +419,7 @@ def per_env_twin_manifests(patient_twin_manifest: str | Sequence[str] | None) ->
     return manifests
 
 
-class CatheterEmbodiment:
+class CatheterEmbodiment(EmbodimentBase):
     """Minimal Arena embodiment whose scene entity is an external rod solver.
 
     ``patient_twin_manifest`` is one twin shared by every environment, or a
@@ -459,10 +427,11 @@ class CatheterEmbodiment:
     patient. The list length must then equal the scene's ``num_envs``.
     """
 
-    name = "catheter"
+    registry_name = "catheter"
     tags: ClassVar[list[str]] = ["embodiment", "medical", "catheter"]
 
     def __init__(self, patient_twin_manifest: str | Sequence[str] | None = None) -> None:
+        super().__init__()
         self.scene_config = _CatheterSceneCfg()
         self.action_config = _ActionsCfg()
         env_manifests = per_env_twin_manifests(patient_twin_manifest)
@@ -487,6 +456,13 @@ class CatheterEmbodiment:
             self._align_to_patient_centerlines(env_manifests)
         elif patient_twin_manifest is not None:
             self._align_to_patient_centerline(patient_route(str(patient_twin_manifest)))
+
+    def get_recorder_term_cfg(self, record_trajectories: bool = False) -> Any:
+        from i4h_arena.embodiments.recorders import action_state_recorders  # noqa: PLC0415
+        from i4h_arena.medical.catheter_recording import catheter_recorders  # noqa: PLC0415
+
+        base = action_state_recorders(super().get_recorder_term_cfg(record_trajectories))
+        return catheter_recorders(base, self._navigation_targets())
 
     @property
     def per_env_anatomy(self) -> bool:
@@ -619,91 +595,15 @@ class CatheterEmbodiment:
         self.rod_spec.__post_init__()
         self.navigation_target_world_m = patient.target_world_m
 
-    def get_scene_cfg(self) -> Any:
-        return self.scene_config
-
-    def get_action_cfg(self) -> Any:
-        return self.action_config
-
-    def get_observation_cfg(self) -> Any:
-        """Low-dimensional navigation state, bound to this scene's route and target.
-
-        Omitted without a twin, matching the reward and the termination: the
-        route terms would be projecting onto a vessel that is not there. Teleop
-        and replay drive the action terms directly and never read the
-        observation manager, so they are unaffected either way.
-        """
-        if self.navigation_target_world_m is None:
-            return None
-        from i4h_arena.envcfg.endoluminal_navigation import navigation_observations_cfg
-
-        return navigation_observations_cfg(
-            self._navigation_targets(),
-            route_world_m=self._navigation_routes(),
-        )
-
-    def get_events_cfg(self) -> Any:
-        if self.navigation_target_world_m is None:
-            return None
-        from i4h_arena.envcfg.endoluminal_navigation import CatheterNavigationEventsCfg
-
-        return CatheterNavigationEventsCfg()
-
-    def get_rewards_cfg(self) -> Any:
-        """Dense navigation objective, bound to this scene's own route and wall.
-
-        Omitted without a twin for the same reason the termination is: there is
-        no vessel, so remaining arc and lumen width are undefined and every
-        term would be measuring against nothing. Teleop and replay ignore the
-        reward manager, so this costs them nothing.
-        """
-        if self.navigation_target_world_m is None:
-            return None
-        from i4h_arena.envcfg.endoluminal_navigation import navigation_rewards_cfg
-
-        return navigation_rewards_cfg(
-            self._navigation_targets(),
-            route_world_m=self._navigation_routes(),
-            lumen_radii_m=self._navigation_lumen_radii(),
-        )
-
-    def get_curriculum_cfg(self) -> None:
-        return None
-
-    def get_commands_cfg(self) -> None:
-        return None
-
-    def get_xr_cfg(self) -> None:
-        return None
-
-    def get_recorder_term_cfg(self) -> None:
-        return None
-
-    def get_termination_cfg(self) -> Any:
-        """Report arrival at the distal centerline as IsaacLab's ``success`` term.
-
-        Omitted without a twin rather than reported as permanently unsatisfied:
-        there is no vessel to navigate, so a workflow reading the term gets the
-        absent-term zeros instead of a goal it can never meet.
-        """
-        if self.navigation_target_world_m is None:
-            return None
-        from i4h_arena.envcfg.endoluminal_navigation import navigation_terminations_cfg
-
-        # The same polyline the rod was seeded along, so the readout measures
-        # remaining vessel against the route the target is the far end of.
-        return navigation_terminations_cfg(
-            self._navigation_targets(),
-            route_world_m=self._navigation_routes(),
-        )
-
-    def modify_env_cfg(self, env_cfg: Any) -> Any:
+    def tune_env_cfg(self, env_cfg: Any) -> Any:
         env_cfg.sim.dt = 1.0 / 120.0
         # The reference catheter viewport advances controls at 30 Hz. Keep the
         # same control period while retaining 120 Hz XPBD substeps.
         env_cfg.decimation = 4
         env_cfg.sim.render_interval = 4
-        env_cfg.scene.replicate_physics = False
+        # Isaac Lab 3 builds the Newton model only through physics replication:
+        # without it, nothing authored in USD reaches the model next to the rod.
+        env_cfg.scene.replicate_physics = True
         # Zero for the reason ``franka_catheter.py`` zeroes it: every rod is
         # seeded from the same absolute centerline, so the cloned environments
         # are coincident whatever this says. Left positive, the origins are a
@@ -724,42 +624,3 @@ class CatheterEmbodiment:
         # is being built and before the model is finalized.
         self._rod_handle = CatheterRodHandle(self.rod_spec).install()
         return env_cfg
-
-
-class FlatRLObservations:
-    """Mixin dropping the fluoroscopy view and flattening the navigation group.
-
-    The navigation group leaves its terms unconcatenated and carries the
-    fluoroscopy view, because the RLinf bridge composes GR00T's modality dict
-    out of named keys. An RSL-RL actor wants a single vector and cannot
-    concatenate an image with fifteen scalars, so the view is dropped here and
-    the rest flattened.
-
-    Dropping the image is the point rather than a concession. These embodiments
-    exist to ask whether the navigation reward is learnable from the geometry
-    alone, and eleven of those fifteen numbers are ones the N1.7 checkpoint
-    never receives. If a small MLP with all fifteen cannot learn the objective,
-    the objective is the problem; if it can, what remains is an observability
-    problem on the policy side.
-
-    A mixin rather than a method on each because the arm-borne embodiment does
-    not override ``get_observation_cfg`` either: the arm is a servo'd
-    positioner, so it adds recorded joint columns but no observation and no
-    action channel. The same fifteen columns describe both scenes, and one
-    implementation covers them.
-    """
-
-    def get_observation_cfg(self) -> Any:
-        config = super().get_observation_cfg()
-        if config is None:
-            # No twin, so no route to navigate and nothing to train against.
-            return None
-        config.policy.fluoroscopy_rgb = None
-        config.policy.concatenate_terms = True
-        return config
-
-
-class CatheterRLEmbodiment(FlatRLObservations, CatheterEmbodiment):
-    """Catheter on the rod-only solver, with flat observations for online RSL-RL."""
-
-    name: str = "catheter_rl"

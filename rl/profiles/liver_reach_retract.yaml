@@ -1,0 +1,20 @@
+schema_version: 1
+workflow: liver_reach_retract
+scene: liver_reach_retract
+trainer: rsl_rl
+algorithm: ppo
+adapter_module: i4h_rl.adapters.liver_reach_retract
+trainer_config: ../config/liver_reach_retract_ppo_rsl_rl.yaml
+train_task_id: liver_reach_retract
+eval_task_id: liver_reach_retract
+task_description: Reach, acquire, retain, retract 20 mm, hold, release and relax the intended liver patch
+action_dof: 4
+policy_action_dof: 4
+state_dof: 57
+cameras: []
+default_num_envs: 16
+default_epochs: 20
+simulation:
+  env_spacing: 4.0
+  presets: newton
+  enable_cameras: false

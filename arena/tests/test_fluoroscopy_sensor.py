@@ -8,9 +8,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from i4h_arena.adapters.scene_view import ArenaSceneView
 from i4h_arena.medical.catheter import CatheterState, StaticCatheterStateProvider
 from i4h_arena.medical.synthetic_fluoroscopy import SyntheticFluoroscopyRenderer
+from i4h_arena.ui.sensor_view import SensorView
 
 
 def _catheter() -> CatheterState:
@@ -35,7 +35,7 @@ def test_synthetic_renderer_matches_arena_camera_contract() -> None:
     sensor = SimpleNamespace(data=SimpleNamespace(output=output))
     env = SimpleNamespace(unwrapped=SimpleNamespace(scene={"fluoroscopy": sensor}, num_envs=1))
 
-    frame = ArenaSceneView(env, cameras=("fluoroscopy",)).camera("fluoroscopy")
+    frame = SensorView(env, ("fluoroscopy",)).camera("fluoroscopy")
 
     assert frame is not None
     assert (frame.height, frame.width, frame.encoding) == (64, 96, "rgb8")
@@ -44,7 +44,7 @@ def test_synthetic_renderer_matches_arena_camera_contract() -> None:
     assert image.min() == 12
     assert image.max() > image.min()
 
-    guidance = ArenaSceneView(env, cameras=("fluoroscopy",)).camera("fluoroscopy", output="guidance")
+    guidance = SensorView(env, ("fluoroscopy",)).camera("fluoroscopy", output="guidance")
     assert guidance is not None
     guidance_image = guidance.to_array()
     assert np.any(guidance_image[..., 1] > guidance_image[..., 0])
@@ -72,3 +72,41 @@ def test_catheter_state_rejects_invalid_active_length() -> None:
             positions_world_m=np.zeros((1, 2, 3), dtype=np.float32),
             valid_nodes=np.array([3], dtype=np.int32),
         )
+
+
+@pytest.mark.parametrize("num_envs", [1, 3])
+@pytest.mark.parametrize("valid", [0, 1, 4])
+def test_synthetic_cached_background_matches_original_pixels_and_isolation(num_envs, valid):
+    from i4h_arena.medical.fluoroscopy_guidance import draw_catheter_guidance
+
+    renderer = SyntheticFluoroscopyRenderer(width=47, height=31)
+    state = StaticCatheterStateProvider(_catheter()).snapshot(num_envs)
+    state.valid_nodes[:] = valid
+    for offset in [0.0, 0.03, -0.02, 0.0]:
+        state.positions_world_m[:, :, 0] += offset
+        # Original uncached renderer's image formation, including quantization order.
+        attenuation = np.repeat(renderer._attenuation[None, ..., None], num_envs, axis=0)
+        transmission = np.exp(-attenuation[..., 0])
+        rgb = np.repeat(np.rint(255.0 * transmission)[..., None], 3, axis=-1).astype(np.uint8)
+        guidance = rgb.copy()
+        for index, count in enumerate(state.valid_nodes):
+            if count >= 2:
+                pixels = renderer._project_catheter(state.positions_world_m[index, :count])
+                renderer._draw_catheter(rgb[index], pixels)
+                guidance[index] = draw_catheter_guidance(rgb[index], pixels)
+        expected = dict(
+            rgb=rgb, guidance=guidance, dsa=rgb.copy(), dsa_guidance=guidance.copy(), attenuation=attenuation
+        )
+        actual = renderer.render(state)
+        for key in expected:
+            np.testing.assert_array_equal(actual[key], expected[key])
+            assert actual[key].dtype == expected[key].dtype
+        for key in actual:
+            actual[key][0] = 0
+            np.testing.assert_array_equal(actual[key][1:], expected[key][1:])
+            for peer in expected.keys() - {key}:
+                np.testing.assert_array_equal(actual[peer], expected[peer])
+            fresh = renderer.render(state)
+            for channel in expected:
+                np.testing.assert_array_equal(fresh[channel], expected[channel])
+            actual = renderer.render(state)

@@ -220,6 +220,7 @@ def test_supported_workflows_have_rl_profiles() -> None:
         "endoluminal_navigation",
         # Same catheter task and checkpoint, with the drive unit on a flange.
         "endoluminal_navigation_arm",
+        "liver_reach_retract",
         "ultrasound_probe_reach",
     }
 

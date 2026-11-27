@@ -17,3 +17,19 @@ objects:
 - organs
 max_steps: 250
 control_hz: 30.0
+# How a vision model grades a recording of this scene (the e2e annotate stage).
+# The policy prompt, "Perform a liver ultrasound.", names no state a camera can
+# see, and a scan ends much as it starts -- the probe resting on the phantom --
+# so the grader is told what contact looks like, shown both views (the probe tip
+# is a few pixels in the 224 px room camera, and the wrist camera alone cannot
+# show where on the phantom it is), and asked whether the scan happens across
+# the attempt rather than how it ends. "Most of the attempt" is what rejects a
+# probe that only touches down at the very end. Six frames cannot measure the
+# success term's 10 cm of travel: this catches scans that never reach or leave
+# the phantom, not ones that stop short.
+annotate:
+  criterion: >-
+    The ultrasound probe on the robot's wrist rests on the abdominal phantom
+    (the orange organ model on the table) for most of the attempt and scans along its surface.
+  cameras: [room, wrist]
+  judge: trajectory

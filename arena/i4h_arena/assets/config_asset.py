@@ -19,5 +19,5 @@ class ConfigAsset(Asset):
     def get_object_cfg(self) -> tuple[str, Any]:
         return self.name, self._cfg
 
-    def get_event_cfg(self) -> tuple[str, None]:
-        return self.name, None
+    def get_event_cfgs(self) -> list[tuple[str, Any]]:
+        return []

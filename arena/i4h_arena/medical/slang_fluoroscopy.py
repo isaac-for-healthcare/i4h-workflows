@@ -5,8 +5,9 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 
 import numpy as np
 import torch
@@ -303,6 +304,7 @@ class SlangFluoroscopyRenderer:
         """
         self._patient = patient
         self._display = display if display is not None else DisplaySettings()
+        self._display_states = None
         self._display_calibrated = False
         self._base_log_window: tuple[float, float] | None = None
         self._window_level = 0.0
@@ -425,11 +427,88 @@ class SlangFluoroscopyRenderer:
             return _simulation_cuda_context(self._device)
         return contextlib.nullcontext()
 
+    def _display_snapshot(self):
+        return dict(
+            display=asdict(self._display),
+            calibrated=self._display_calibrated,
+            base=self._base_log_window,
+            level=self._window_level,
+            width=self._window_width,
+            gamma=self._dsa_gamma,
+        )
+
+    @staticmethod
+    def _decode_display(row):
+        state = json.loads(row.tobytes().split(b"\0", 1)[0])
+        if set(state) != {"display", "calibrated", "base", "level", "width", "gamma"}:
+            raise ValueError("fluoroscopy display continuation layout mismatch")
+        for key in ("window", "log_window"):
+            state["display"][key] = tuple(state["display"][key])
+        state["display"] = DisplaySettings(**state["display"])
+        return state
+
+    def _load_display(self, state):
+        self._display = state["display"]
+        self._display_calibrated = state["calibrated"]
+        self._base_log_window = tuple(state["base"]) if state["base"] is not None else None
+        self._window_level, self._window_width, self._dsa_gamma = state["level"], state["width"], state["gamma"]
+
+    def _store_display(self, world):
+        data = json.dumps(self._display_snapshot(), allow_nan=False, sort_keys=True).encode()
+        if len(data) >= self._display_states.shape[1]:
+            raise ValueError("fluoroscopy display continuation exceeds capacity")
+        self._display_states[world].fill(0)
+        self._display_states[world, : len(data)] = np.frombuffer(data, np.uint8)
+
+    def continuation_arrays(self, num_envs):
+        """Per-world fitted display settings, cinematic history and random state."""
+        if self._display_states is None or len(self._display_states) != num_envs:
+            self._display_states = np.zeros((num_envs, 4096), np.uint8)
+            for world in range(num_envs):
+                self._store_display(world)
+        state = {"display": self._display_states}
+        if self._cinematic is not None:
+            state.update(self._cinematic.continuation_arrays(num_envs))
+        return state
+
+    def sync_display_state(self):
+        """Expose env 0's restored settings to the operator panel."""
+        if self._display_states is not None:
+            self._load_display(self._decode_display(self._display_states[0]))
+
+    def _update_display_states(self, update):
+        """Apply an operator control without replacing other worlds' fitted windows."""
+        if self._display_states is None:
+            update()
+            return
+        for world in range(len(self._display_states)):
+            self._load_display(self._decode_display(self._display_states[world]))
+            update()
+            self._store_display(world)
+        self.sync_display_state()
+
+    def _map_display(self, transmission, boosted, env_mask):
+        self.continuation_arrays(len(transmission))
+        plain, contrast, gamma = [], [], []
+        for world in range(len(transmission)):
+            self._load_display(self._decode_display(self._display_states[world]))
+            if not self._display_calibrated and (env_mask is None or bool(env_mask[world])):
+                self._calibrate_display(transmission[world].cpu().numpy())
+            plain.append(display_frames(transmission[world : world + 1], self._display))
+            contrast.append(display_frames(boosted[world : world + 1], self._display))
+            gamma.append(self._dsa_gamma)
+            if env_mask is None or bool(env_mask[world]):
+                self._store_display(world)
+        self.sync_display_state()
+        return torch.cat(plain), torch.cat(contrast), torch.tensor(gamma, device=self._device)[:, None, None]
+
     def render(
         self,
         catheter: CatheterState,
         carm: CArmState | None = None,
         vessel: VesselState | None = None,
+        *,
+        env_mask=None,
     ) -> dict[str, torch.Tensor]:
         """Render one detector frame per environment, stacked along the leading axis.
 
@@ -460,10 +539,7 @@ class SlangFluoroscopyRenderer:
         catheter_transmission = self._catheter_transmission(catheter, projections)
         if catheter_transmission is not None:
             transmission = transmission * catheter_transmission
-        if not self._display_calibrated:
-            self._calibrate_display(transmission[0].cpu().numpy())
-        drr_image = display_frames(transmission, self._display)
-        dsa_image = drr_image
+        boosted_transmission = transmission
         vessel_alpha = None
         if self._vessel is not None and self._dsa:
             dsa_image, vessel_alpha = self._subtracted(transmission, mask_transmission, vessel_transmission)
@@ -471,7 +547,6 @@ class SlangFluoroscopyRenderer:
             boosted_transmission = self._render_volume(self._dsa_renderer, projections)
             if catheter_transmission is not None:
                 boosted_transmission = boosted_transmission * catheter_transmission
-            dsa_image = display_frames(boosted_transmission, self._display)
             vessel_signal = (transmission - boosted_transmission).clamp(min=0.0)
             scale = percentile(vessel_signal, 99.5)[:, None, None]
             # A frame with no vessel in view gets no tint rather than amplified noise.
@@ -479,13 +554,15 @@ class SlangFluoroscopyRenderer:
                 scale > 1e-8, (vessel_signal / scale.clamp(min=1e-8)).clamp(0.0, 0.82), torch.zeros_like(vessel_signal)
             )
 
+        drr_image, mapped_dsa_image, dsa_gamma = self._map_display(transmission, boosted_transmission, env_mask)
+        if self._vessel is None or not self._dsa:
+            dsa_image = mapped_dsa_image
         grayscale = torch.round(255.0 * drr_image).clamp(0.0, 255.0)
         dsa_grayscale = torch.round(255.0 * dsa_image).clamp(0.0, 255.0)
         if self._cinematic is not None:
-            grayscale = self._cinematic(grayscale, key="drr")
-            dsa_grayscale = self._cinematic(dsa_grayscale, key="dsa")
-        if abs(self._dsa_gamma - 1.0) > 1e-3:
-            dsa_grayscale = torch.round(255.0 * (dsa_grayscale / 255.0).pow(self._dsa_gamma))
+            grayscale = self._cinematic(grayscale, key="drr", env_mask=env_mask)
+            dsa_grayscale = self._cinematic(dsa_grayscale, key="dsa", env_mask=env_mask)
+        dsa_grayscale = torch.round(255.0 * (dsa_grayscale / 255.0).pow(dsa_gamma))
         rgb = grayscale.to(torch.uint8)[..., None].expand(-1, -1, -1, 3).contiguous()
         dsa_rgb = dsa_grayscale.to(torch.uint8)[..., None].expand(-1, -1, -1, 3).contiguous()
         guidance = vessel_overlay(rgb, vessel_alpha) if vessel_alpha is not None else rgb.clone()
@@ -707,12 +784,17 @@ class SlangFluoroscopyRenderer:
 
     def adjust_dsa_gamma(self, delta: float) -> float:
         """Adjust live angiogram brightness and return the bounded gamma."""
-        self._dsa_gamma = float(np.clip(self._dsa_gamma + float(delta), 0.3, 3.0))
+
+        def update():
+            self._dsa_gamma = float(np.clip(self._dsa_gamma + float(delta), 0.3, 3.0))
+
+        self._update_display_states(update)
         return self._dsa_gamma
 
     def set_dsa_gamma(self, gamma: float) -> float:
         """Set live angiogram gamma and return the bounded value."""
-        self._dsa_gamma = float(np.clip(gamma, 0.3, 3.0))
+        bounded = float(np.clip(gamma, 0.3, 3.0))
+        self._update_display_states(lambda: setattr(self, "_dsa_gamma", bounded))
         return self._dsa_gamma
 
     @property
@@ -728,8 +810,9 @@ class SlangFluoroscopyRenderer:
         the one calibrated from the first frame and flatten the image mid-run.
         """
         polarity = DisplaySettings.preset(appearance).polarity
-        if polarity != self._display.polarity:
-            self._display = replace(self._display, polarity=polarity)
+        changed = polarity != self._display.polarity
+        self._update_display_states(lambda: setattr(self, "_display", replace(self._display, polarity=polarity)))
+        if changed:
             logger.info("switched fluoroscopy display to %s polarity", polarity)
         return self._display.polarity
 
@@ -749,11 +832,15 @@ class SlangFluoroscopyRenderer:
         except KeyError:
             raise ValueError(f"unknown display control {control!r}") from None
         bounded = float(np.clip(value, minimum, maximum))
-        if control == "window_level":
-            self._window_level = bounded
-        else:
-            self._window_width = bounded
-        self._apply_display_window()
+
+        def update():
+            if control == "window_level":
+                self._window_level = bounded
+            else:
+                self._window_width = bounded
+            self._apply_display_window()
+
+        self._update_display_states(update)
         return bounded
 
     def recalibrate_display(self) -> None:
@@ -762,10 +849,14 @@ class SlangFluoroscopyRenderer:
         The fit holds for the body region that was in the beam at the time, so a large
         oblique or a move along the table can leave it a poor match with no way back.
         """
-        self._display_calibrated = False
-        self._base_log_window = None
-        self._window_level = 0.0
-        self._window_width = 1.0
+
+        def update():
+            self._display_calibrated = False
+            self._base_log_window = None
+            self._window_level = 0.0
+            self._window_width = 1.0
+
+        self._update_display_states(update)
 
     def _apply_display_window(self) -> None:
         base_low, base_high = self._base_log_window or self._display.log_window

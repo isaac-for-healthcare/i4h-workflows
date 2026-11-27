@@ -82,7 +82,7 @@ def test_padding_a_short_route_keeps_its_far_end():
 
 
 def test_navigation_configs_take_routes_of_different_lengths():
-    from i4h_arena.envcfg.endoluminal_navigation import (
+    from i4h_arena.envcfg.endoluminal_navigation.terms import (
         navigation_observations_cfg,
         navigation_rewards_cfg,
         navigation_terminations_cfg,
@@ -250,6 +250,7 @@ def test_synthetic_fluoroscopy_ignores_distinct_patients():
     sensor._clear_callbacks = lambda: None
     sensor.cfg = SimpleNamespace(backend="synthetic")
     sensor._num_envs = 2
+    sensor.display_revision = np.zeros(2, dtype=np.int64)
     sensor._device = "cpu"
     sensor._group_twins = (object(), object())
     sensor._group_env_ids = (np.array([0]), np.array([1]))
@@ -282,9 +283,9 @@ def test_synthetic_fluoroscopy_ignores_distinct_patients():
 
 
 def test_patient_without_an_anatomy_mesh_shows_none(tmp_path, monkeypatch):
-    pxr = pytest.importorskip("pxr", reason="needs USD")
+    pytest.importorskip("pxr", reason="needs USD")
     assets = pytest.importorskip("i4h_arena.assets.fluoroscopy_catheter_navigation", reason="needs Isaac Lab")
-    Usd, UsdGeom = pxr.Usd, pxr.UsdGeom
+    from pxr import Usd, UsdGeom
 
     anatomy = tmp_path / "anatomy.usda"
     mesh_stage = Usd.Stage.CreateNew(str(anatomy))
@@ -308,3 +309,19 @@ def test_patient_without_an_anatomy_mesh_shows_none(tmp_path, monkeypatch):
     assert shown.ComputeVisibility() == UsdGeom.Tokens.inherited
     assert shown.GetPrim().GetPrimStack()[0].referenceList.prependedItems[0].assetPath == str(anatomy)
     assert hidden.ComputeVisibility() == UsdGeom.Tokens.invisible
+
+
+def test_native_navigation_task_keeps_each_patient_target_and_route():
+    from i4h_arena.envcfg.endoluminal_navigation.task import CatheterNavigationTask
+
+    targets = (tuple(SHORT[-1]), tuple(LONG[-1]))
+    routes = (tuple(map(tuple, SHORT)), tuple(map(tuple, LONG)))
+    embodiment = SimpleNamespace(
+        _navigation_targets=lambda: targets,
+        _navigation_routes=lambda: routes,
+        _navigation_lumen_radii=lambda: (SHORT_RADII, LONG_RADII),
+    )
+    task = CatheterNavigationTask.for_embodiment(embodiment)
+    assert task.target_world_m == targets
+    assert task.route_world_m == routes
+    assert task.get_observation_cfg().policy.target_offset.params["target_world_m"] == targets

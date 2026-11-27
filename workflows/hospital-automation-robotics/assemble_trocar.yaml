@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Lift, align, insert, place, and release a trocar with a Unitree G1.
+scene: g1_trocar
+modes:
+  policy:
+    server: {stack: gr00t_n15, task: assemble_trocar}
+    policy: i4h_arena.policies.gr00t_n15.Gr00tN15RemotePolicy

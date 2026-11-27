@@ -20,14 +20,14 @@ from isaaclab_physx.sim.schemas import PhysxArticulationRootPropertiesCfg, Physx
 
 
 class _BaseUsdObject(Object):
-    name: str
+    registry_name: str
     usd_path: str
     prim_name: str
     scale = (1.0, 1.0, 1.0)
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None, **kwargs):
         super().__init__(
-            name=self.name,
+            name=self.registry_name,
             prim_path=prim_path or f"{{ENV_REGEX_NS}}/{self.prim_name}",
             object_type=ObjectType.BASE,
             usd_path=self.usd_path,
@@ -45,7 +45,7 @@ class _BaseUsdObject(Object):
 
 
 class _ArticulatedUsdObject(Object):
-    name: str
+    registry_name: str
     usd_path: str
     prim_name: str
     scale = (1.0, 1.0, 1.0)
@@ -68,7 +68,7 @@ class _ArticulatedUsdObject(Object):
         self.linear_damping = linear_damping
         self.angular_damping = angular_damping
         super().__init__(
-            name=self.name,
+            name=self.registry_name,
             prim_path=prim_path or f"{{ENV_REGEX_NS}}/{self.prim_name}",
             object_type=ObjectType.ARTICULATION,
             usd_path=self.usd_path,
@@ -107,14 +107,14 @@ class _ArticulatedUsdObject(Object):
 
 
 class _RigidUsdObject(Object):
-    name: str
+    registry_name: str
     usd_path: str
     prim_name: str
     scale = (1.0, 1.0, 1.0)
 
     def __init__(self, prim_path: str | None = None, initial_pose: Pose | None = None, **kwargs):
         super().__init__(
-            name=self.name,
+            name=self.registry_name,
             prim_path=prim_path or f"{{ENV_REGEX_NS}}/{self.prim_name}",
             object_type=ObjectType.RIGID,
             usd_path=self.usd_path,

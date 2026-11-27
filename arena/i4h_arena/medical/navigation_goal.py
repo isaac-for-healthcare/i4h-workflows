@@ -200,6 +200,29 @@ class ArrivalProgress:
     route: RouteProgress | None = None
 
 
+def _arrival_params(env: Any) -> dict | None:
+    """The arrival criterion's parameters, or ``None`` when no ``success`` term ends the episode.
+
+    IsaacLab-Arena installs ``success`` as a term that reads the task's progress, so
+    the arrival predicate, and with it the target and thresholds, sits in the task's
+    completion criteria rather than in the term's own parameters.
+    """
+    manager = getattr(env, "termination_manager", None)
+    if manager is None or "success" not in getattr(manager, "active_terms", ()):
+        return None
+    params = manager.get_term_cfg("success").params
+    if "target_world_m" in params:
+        return params
+    progress = getattr(getattr(env, "cfg", None), "task_progress", None)
+    for criteria in getattr(progress, "success_criteria", None) or ():
+        for sequence in criteria.canonical_predicate_sequences.values():
+            for predicate, _score in sequence:
+                predicate_params = getattr(predicate, "params", None) or {}
+                if "target_world_m" in predicate_params:
+                    return predicate_params
+    return None
+
+
 def arrival_progress(env: Any) -> ArrivalProgress | None:
     """Live approach state for one environment.
 
@@ -208,10 +231,9 @@ def arrival_progress(env: Any) -> ArrivalProgress | None:
     disagree with the criterion that actually ends the episode. Returns ``None``
     for a scene that terminates on something else.
     """
-    manager = getattr(env, "termination_manager", None)
-    if manager is None or "success" not in getattr(manager, "active_terms", ()):
+    params = _arrival_params(env)
+    if params is None:
         return None
-    params = manager.get_term_cfg("success").params
     target = params["target_world_m"]
     tolerance_m = float(params.get("tolerance_m", ARRIVAL_TOLERANCE_M))
     hold_steps = int(params.get("hold_steps", ARRIVAL_HOLD_STEPS))
@@ -291,9 +313,42 @@ def _log_tip_drift(distance_m: float) -> None:
     _LOGGER.info("catheter drift: t=%.2f s  tip_to_target=%.2f mm", now, 1000.0 * float(distance_m))
 
 
+def invalidate_arrival_readout(env: Any) -> None:
+    """Drop derived UI state after lifecycle operations at the same step."""
+    if hasattr(env, "_arrival_readout_cache"):
+        delattr(env, "_arrival_readout_cache")
+
+
+def _readout_revision(env: Any) -> Any:
+    step = getattr(env, "_sim_step_counter", None)
+    if step is None:
+        return None
+    params = _arrival_params(env)
+    if params is None:
+        return (step, None)
+    route = params.get("route_world_m")
+    # Configuration is normally immutable tuples. Snapshot lists too, so an
+    # authoring change while paused invalidates the GPU-derived progress.
+    route_key = tuple(tuple(point) for point in route) if route is not None else None
+    return (
+        step,
+        getattr(env, "common_step_counter", None),
+        tuple(params["target_world_m"]),
+        params.get("tolerance_m"),
+        params.get("hold_steps"),
+        route_key,
+    )
+
+
 def arrival_status(env: Any) -> str:
     """``arrival_readout`` for the live env, or empty for a scene without the term."""
-    progress = arrival_progress(env)
+    revision = _readout_revision(env)
+    cached = getattr(env, "_arrival_readout_cache", None)
+    if revision is not None and cached is not None and cached[0] == revision:
+        progress = cached[1]
+    else:
+        progress = arrival_progress(env)
+        env._arrival_readout_cache = (revision, progress)
     if progress is None:
         return ""
     _log_tip_drift(progress.distance_m)
@@ -306,8 +361,9 @@ def arrival_status(env: Any) -> str:
     )
 
 
-def reset_arrival_progress(env: Any, env_ids: Any = None) -> None:
+def reset_arrival_progress(env: Any, env_ids: Any) -> None:
     """Clear the hold counter for the environments being reset."""
+    invalidate_arrival_readout(env)
     counter = hold_counter(env)
     if env_ids is None:
         counter.zero_()

@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Align an ultrasound probe with a randomized target.
+scene: ultrasound_probe_reach
+modes:
+  # An RSL-RL checkpoint trained with ./train.sh rl; Arena reads params/agent.yaml beside it.
+  policy:
+    policy: rsl_rl
+    checkpoint: required
+    checkpoint_arg: --checkpoint_path
+    # The policy observes the flat state it was trained on, not the cameras.
+    cameras: false
+    environment_args: [--rl_observations]

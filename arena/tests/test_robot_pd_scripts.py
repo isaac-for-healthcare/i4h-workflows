@@ -12,16 +12,9 @@ WORKFLOWS_ROOT = Path(__file__).parents[2]
 TUNE_SCRIPT = WORKFLOWS_ROOT / "arena" / "scripts" / "robot_pd_tune.py"
 
 
-def test_robot_pd_dry_run_uses_live_workflow_and_python_server() -> None:
+def test_robot_pd_dry_run_builds_the_scene_as_an_arena_environment() -> None:
     completed = subprocess.run(
-        [
-            sys.executable,
-            str(TUNE_SCRIPT),
-            "surgical_reach_psm",
-            "--modes",
-            "inspect-usd",
-            "--dry-run",
-        ],
+        [sys.executable, str(TUNE_SCRIPT), "psm_reach", "--modes", "inspect-usd", "--presets", "newton", "--dry-run"],
         check=True,
         capture_output=True,
         text=True,
@@ -29,13 +22,12 @@ def test_robot_pd_dry_run_uses_live_workflow_and_python_server() -> None:
     payload = json.loads(completed.stdout)
 
     assert payload["config"]["pd_diagnostics"]["modes"] == ["inspect-usd"]
-    assert payload["live_command"][1:3] == ["surgical_reach_psm", "--live"]
-    assert payload["remote_command"][1].endswith("isaacsim_send.py")
-    assert "bridge-exec" not in payload["remote_command"]
-
-
-def test_workflow_launcher_exposes_robot_pd_command() -> None:
-    launcher = (WORKFLOWS_ROOT / "run.sh").read_text()
-
-    assert "robot-pd|pd-tune|pd-diagnostics" in launcher
-    assert "arena/scripts/robot_pd_tune.py" in launcher
+    # Launcher options stay ahead of the environment, as Arena's parser expects.
+    assert payload["arena_args"] == [
+        "--presets",
+        "newton",
+        "--external_environment_class_path",
+        "i4h_arena.environments:PsmReach",
+        "psm_reach",
+    ]
+    assert payload["run_dir"].endswith("_pd_tuning")

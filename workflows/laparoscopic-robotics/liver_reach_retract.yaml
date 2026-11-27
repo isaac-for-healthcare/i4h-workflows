@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Reach, acquire, retract, hold and release a pinned liver patch.
+scene: liver_reach_retract
+presets: [newton]
+modes:
+  rule-based:
+    policy: i4h_arena.policies.liver.LiverReferencePolicy
+  policy:
+    policy: i4h_arena.policies.liver.LiverExportedPolicy
+    checkpoint: required
+    checkpoint_arg: --checkpoint

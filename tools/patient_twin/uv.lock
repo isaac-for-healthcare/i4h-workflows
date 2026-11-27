@@ -789,19 +789,15 @@ requires-dist = [
     { name = "pytorch-ignite", marker = "extra == 'nvsegment'", specifier = ">=0.5" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "scikit-image", specifier = ">=0.22" },
-    { name = "scikit-image", marker = "extra == 'vasculature'", specifier = ">=0.22" },
     { name = "scipy", marker = "extra == 'dev'", specifier = ">=1.10" },
     { name = "scipy", marker = "extra == 'nvgenerate'", specifier = ">=1.10" },
     { name = "scipy", marker = "extra == 'nvsegment'", specifier = ">=1.10" },
     { name = "scipy", marker = "extra == 'pipeline'", specifier = ">=1.10" },
-    { name = "scipy", marker = "extra == 'vasculature'", specifier = ">=1.10" },
     { name = "simpleitk", marker = "extra == 'dev'", specifier = ">=2.3.0" },
     { name = "simpleitk", marker = "extra == 'dicom'", specifier = ">=2.3.0" },
-    { name = "simpleitk", marker = "extra == 'vasculature'", specifier = ">=2.3" },
     { name = "tensorboard", marker = "extra == 'nvgenerate'", specifier = ">=2.14" },
     { name = "torch", marker = "extra == 'nvgenerate'", specifier = ">=2.4" },
     { name = "torch", marker = "extra == 'nvsegment'", specifier = ">=2.4" },
-    { name = "totalsegmentator", marker = "extra == 'vasculature'", specifier = ">=2.7" },
     { name = "tqdm", marker = "extra == 'nvgenerate'", specifier = ">=4.65" },
     { name = "tqdm", marker = "extra == 'nvsegment'", specifier = ">=4.65" },
     { name = "trimesh", marker = "extra == 'dev'" },
@@ -813,11 +809,9 @@ requires-dist = [
     { name = "usd-exchange", marker = "platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'usd'", specifier = ">=2.2" },
     { name = "vtk", marker = "extra == 'dev'" },
     { name = "vtk", marker = "extra == 'pipeline'" },
-    { name = "vtk", marker = "extra == 'vasculature'", specifier = ">=9.2" },
-    { name = "warp-lang", marker = "extra == 'vasculature'", specifier = ">=1.3" },
     { name = "xray-simulator", git = "https://github.com/isaac-for-healthcare/i4h-sensor-simulation.git?subdirectory=xray-simulator&rev=d7d3f2976ab306a531730772c1d4fa221d6e2247" },
 ]
-provides-extras = ["dicom", "nvsegment", "nvgenerate", "pipeline", "dev", "usd", "vasculature"]
+provides-extras = ["dicom", "nvsegment", "nvgenerate", "pipeline", "dev", "usd"]
 
 [[package]]
 name = "pillow"

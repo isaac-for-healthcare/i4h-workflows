@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+name: numerical_catheter
+joint_names: [insertion_m, rotation_rad, tip_bend_rad]
+state_names: [insertion_m, rotation_rad, tip_bend_rad]
+action_names: [normalized_insertion_rate, normalized_rotation_rate, normalized_tip_bend_rate]
+state_split: [[catheter, 0, 3]]
+action_split: [[catheter, 0, 3]]
+teleop_devices: []

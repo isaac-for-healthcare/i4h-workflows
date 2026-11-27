@@ -166,6 +166,8 @@ class FluoroscopySensor(SensorBase):
             ),
         }
         self._data.frame_id = torch.zeros(self._num_envs, dtype=torch.int64, device=self._device)
+        previous = getattr(self, "display_revision", np.array([-1]))
+        self.display_revision = np.full(self._num_envs, int(previous.max()) + 1, dtype=np.int64)
         if self.cfg.demo_catheter and self._catheter_provider is None:
             points = self._demo_catheter_points()[None, ...]
             self._catheter_provider = StaticCatheterStateProvider(
@@ -175,7 +177,22 @@ class FluoroscopySensor(SensorBase):
                 )
             )
 
+    def reset(self, env_ids=None, env_mask=None) -> None:
+        super().reset(env_ids=env_ids, env_mask=env_mask)
+        if env_mask is not None:
+            selected = wp.to_torch(env_mask).cpu().numpy().astype(bool)
+        elif env_ids is None:
+            selected = slice(None)
+        elif isinstance(env_ids, torch.Tensor):
+            selected = env_ids.cpu().numpy()
+        else:
+            selected = env_ids
+        self.display_revision[selected] += 1
+
     def _update_buffers_impl(self, env_mask: wp.array) -> None:
+        mask = wp.to_torch(env_mask).to(device=self._device, dtype=torch.bool)
+        if not bool(mask.any()):
+            return
         if self._data.frame_id is None:
             raise RuntimeError("fluoroscopy sensor has not been initialized")
         provider = self._catheter_provider
@@ -191,14 +208,26 @@ class FluoroscopySensor(SensorBase):
             assert carm is not None
             self._render_each_patient(catheter, carm, mask, motion)
             self._data.frame_id[mask] += 1
+            self.display_revision[mask.cpu().numpy()] += 1
             return
+        self._ensure_renderer(carm)
+        if isinstance(self._renderer, SlangFluoroscopyRenderer):
+            rendered = self._renderer.render(
+                catheter, carm, vessel=self._vessel_state(self._renderer, motion), env_mask=mask
+            )
+        else:
+            rendered = self._renderer.render(catheter, carm)
+        self._write(rendered, mask, slice(None))
+        self._data.frame_id[mask] += 1
+        self.display_revision[mask.cpu().numpy()] += 1
+
+    def _ensure_renderer(self, carm=None):
         if self._renderer is None:
+            if carm is None:
+                carm = self._carm_provider.snapshot(self._num_envs)
             assert self._patient_twin is not None
             assert carm is not None
             self._renderer = self._slang_renderer(self._patient_twin, carm)
-        rendered = self._renderer.render(catheter, carm, vessel=self._vessel_state(self._renderer, motion))
-        self._write(rendered, mask, slice(None))
-        self._data.frame_id[mask] += 1
 
     def _render_each_patient(
         self, catheter: CatheterState, carm: Any, mask: torch.Tensor, motion: VesselMotion | None
@@ -216,7 +245,10 @@ class FluoroscopySensor(SensorBase):
         for renderer, env_ids in zip(self._patient_renderers, self._group_env_ids):
             group = None if motion is None else _take_motion(motion, env_ids)
             rendered = renderer.render(
-                catheter.take(env_ids), carm.take(env_ids), vessel=self._vessel_state(renderer, group)
+                catheter.take(env_ids),
+                carm.take(env_ids),
+                vessel=self._vessel_state(renderer, group),
+                env_mask=mask[torch.as_tensor(env_ids, device=self._device)],
             )
             rows = torch.as_tensor(env_ids, device=self._device)
             self._write(rendered, mask, rows)

@@ -555,7 +555,7 @@ def test_the_arm_is_placed_where_the_rod_actually_is() -> None:
     zero spacing without replication still writes ``num_envs`` joint targets
     into a one-environment buffer.
     """
-    body = source().partition("def modify_env_cfg")[2].partition("def _seed_the_arm_pose_on_reset")[0]
+    body = source().partition("def tune_env_cfg")[2].partition("def _seed_the_arm_pose_on_reset")[0]
 
     assert "env_cfg.scene.replicate_physics = True" in body
     assert "env_cfg.scene.env_spacing = 0.0" in body

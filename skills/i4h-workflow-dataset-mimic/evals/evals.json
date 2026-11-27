@@ -3,26 +3,27 @@
     "id": "i4h-workflow-dataset-mimic-readme-quick-three-visualize",
     "question": "Mimic 3 more episodes and visualize my dataset.",
     "expected_skill": "i4h-workflow-dataset-mimic",
-    "ground_truth": "This README Quick Run prompt routes first to mimic augmentation for the latest HDF5, then conversion/visualization as follow-up so the dataset can be inspected.",
+    "ground_truth": "This prompt runs uv run --project tools/mimic i4h-mimic on the latest HDF5 recording with --episodes 3 --include-source --successful-only into a new runs/<workflow>/<timestamp>/ directory, then converts the expanded HDF5 to LeRobot and serves it with the LeRobot visualizer.",
     "expected_behavior": [
       "routes primarily to i4h-workflow-dataset-mimic",
       "uses the latest HDF5 recording as input",
-      "adds three augmented episodes",
-      "continues to conversion and LeRobot visualization when needed",
-      "reports the augmented dataset and visualizer output"
+      "adds three action-jitter variants with --episodes 3, keeping the sources with --include-source",
+      "inspects the expanded HDF5 and reports source, generated, and total counts",
+      "continues to i4h-workflow-dataset-convert and i4h-lerobot-viz for visualization",
+      "reports the augmented dataset and visualizer URL"
     ]
   },
   {
     "id": "i4h-workflow-dataset-mimic-table-ten-episodes",
     "question": "Expand my scissor pick-and-place recording to 10 episodes with small action and state noise.",
     "expected_skill": "i4h-workflow-dataset-mimic",
-    "ground_truth": "This README skill-table prompt routes to mimic augmentation for a scissor_pick_and_place recording.",
+    "ground_truth": "This prompt runs i4h-mimic on a scissor_pick_and_place recording with small action noise (for example --noise 0.01) and --episodes set to 10 minus the successful sources kept by --include-source, and states that the tool adds no independent state noise.",
     "expected_behavior": [
       "routes to i4h-workflow-dataset-mimic",
-      "uses an existing HDF5 recording as input",
-      "expands to the requested episode count",
-      "applies small action noise",
-      "does not claim to add independent state noise or synthesize new camera frames"
+      "uses an existing scissor_pick_and_place HDF5 recording as input",
+      "treats --episodes as additional variants and sizes it so the final total is 10",
+      "applies small action noise with --noise",
+      "does not claim to add independent state noise, rerun physics, or synthesize new camera frames"
     ]
   }
 ]

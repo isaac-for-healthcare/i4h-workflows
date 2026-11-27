@@ -1,0 +1,13 @@
+diff --git a/isaaclab_arena/evaluation/rollout.py b/isaaclab_arena/evaluation/rollout.py
+index a696cd1..065da47 100644
+--- a/isaaclab_arena/evaluation/rollout.py
++++ b/isaaclab_arena/evaluation/rollout.py
+@@ -46,7 +46,7 @@ def rollout_policy(
+ 
+         num_steps_completed = 0
+ 
+-        while True:
++        while env.unwrapped.sim.is_running():
+             with torch.inference_mode(), Timer("step"):
+                 with Timer("policy_inference"):
+                     actions = policy.get_action(env, obs)

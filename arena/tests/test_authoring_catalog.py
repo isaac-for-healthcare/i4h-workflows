@@ -38,7 +38,7 @@ def test_g1_live_preset_carries_the_standard_head_camera() -> None:
     assert camera.prim_name == "RobotHeadCam"
     assert camera.resolution == (640, 480)
     assert embodiment is not None
-    assert embodiment.registry_name == "g1_wbc_joint"
+    assert embodiment.registry_name == "g1_locomanip_wbc_joint"
     assert embodiment.manifest_name == "g1"
     assert embodiment.runtime_prim_path == "Robot"
     assert embodiment.dof == 50
